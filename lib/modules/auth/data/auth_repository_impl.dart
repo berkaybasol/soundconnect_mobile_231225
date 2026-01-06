@@ -50,6 +50,12 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
     required String rePassword,
     required String role,
+    String? venueName,
+    String? venueAddress,
+    String? phone,
+    String? cityId,
+    String? districtId,
+    String? neighborhoodId,
   }) async {
     try {
       final response = await _apiClient.post<RegisterResult>(
@@ -60,6 +66,12 @@ class AuthRepositoryImpl implements AuthRepository {
           password: password,
           rePassword: rePassword,
           role: role,
+          venueName: venueName,
+          venueAddress: venueAddress,
+          phone: phone,
+          cityId: cityId,
+          districtId: districtId,
+          neighborhoodId: neighborhoodId,
         ).toJson(),
         decoder: (json) =>
             RegisterResponse.fromJson(json as Map<String, dynamic>).toEntity(),

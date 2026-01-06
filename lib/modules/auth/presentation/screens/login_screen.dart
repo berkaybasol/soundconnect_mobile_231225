@@ -17,6 +17,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isPasswordObscured = true;
 
   @override
   void dispose() {
@@ -66,8 +67,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _passwordController,
                 label: 'Sifre',
                 prefixIcon: Icons.lock_outline,
-                obscureText: true,
-                suffixIcon: const Icon(Icons.visibility_off_outlined),
+                obscureText: _isPasswordObscured,
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordObscured = !_isPasswordObscured;
+                    });
+                  },
+                  icon: Icon(
+                    _isPasswordObscured
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
               Row(
@@ -102,10 +114,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     : () {
                         final username = _usernameController.text.trim();
                         final password = _passwordController.text.trim();
-                        if (username.isEmpty || password.isEmpty) {
+                        if (username.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Kullanici adi ve sifre gerekli.'),
+                              content: Text('kullanıcı adı boş olamaz'),
+                            ),
+                          );
+                          return;
+                        }
+                        if (password.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('şifre boş olamaz'),
+                            ),
+                          );
+                          return;
+                        }
+                        if (password.length < 3 || password.length > 30) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('kullanıcı adı 3-30 karakter olmalı'),
                             ),
                           );
                           return;

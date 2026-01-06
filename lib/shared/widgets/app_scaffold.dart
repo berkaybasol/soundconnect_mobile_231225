@@ -5,6 +5,7 @@ class AppScaffold extends StatelessWidget {
   final Widget child;
   final bool centerContent;
   final AlignmentGeometry centerAlignment;
+  final bool scrollable;
 
   const AppScaffold({
     super.key,
@@ -12,6 +13,7 @@ class AppScaffold extends StatelessWidget {
     required this.child,
     this.centerContent = false,
     this.centerAlignment = Alignment.center,
+    this.scrollable = true,
   });
 
   @override
@@ -21,15 +23,24 @@ class AppScaffold extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final content = ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: centerContent
+                  ? Align(alignment: centerAlignment, child: child)
+                  : child,
+            );
+
+            if (!scrollable) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: content,
+              );
+            }
+
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: centerContent
-                    ? Align(alignment: centerAlignment, child: child)
-                    : child,
-              ),
+              child: content,
             );
           },
         ),

@@ -15,6 +15,12 @@ abstract class AuthRepository {
     required String password,
     required String rePassword,
     required String role,
+    String? venueName,
+    String? venueAddress,
+    String? phone,
+    String? cityId,
+    String? districtId,
+    String? neighborhoodId,
   });
 
   Future<Result<void>> verifyCode({

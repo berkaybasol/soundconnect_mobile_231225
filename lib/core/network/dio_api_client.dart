@@ -28,14 +28,23 @@ class DioApiClient implements ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final token = await _tokenStore.readToken();
-          if (token != null && token.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $token';
+          if (!_isPublicPath(options.path)) {
+            final token = await _tokenStore.readToken();
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
           }
           handler.next(options);
         },
       ),
     );
+  }
+
+  bool _isPublicPath(String path) {
+    return path.startsWith('/api/v1/auth') ||
+        path.startsWith('/api/v1/cities') ||
+        path.startsWith('/api/v1/districts') ||
+        path.startsWith('/api/v1/neighborhoods');
   }
 
   @override

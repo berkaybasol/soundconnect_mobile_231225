@@ -13,6 +13,12 @@ class RegisterUseCase {
     required String password,
     required String rePassword,
     required String role,
+    String? venueName,
+    String? venueAddress,
+    String? phone,
+    String? cityId,
+    String? districtId,
+    String? neighborhoodId,
   }) {
     return _repository.register(
       username: username,
@@ -20,6 +26,12 @@ class RegisterUseCase {
       password: password,
       rePassword: rePassword,
       role: role,
+      venueName: venueName,
+      venueAddress: venueAddress,
+      phone: phone,
+      cityId: cityId,
+      districtId: districtId,
+      neighborhoodId: neighborhoodId,
     );
   }
 }

@@ -2,6 +2,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/di/service_locator.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
+import '../modules/location/presentation/cubit/location_cubit.dart';
 import '../shared/theme/app_theme.dart';
 import 'app_shell.dart';
 import 'router/app_router.dart';
@@ -16,6 +17,9 @@ class SoundConnectApp extends StatelessWidget {
       providers: [
         BlocProvider<AuthCubit>(
           create: (_) => serviceLocator<AuthCubit>(),
+        ),
+        BlocProvider<LocationCubit>(
+          create: (_) => serviceLocator<LocationCubit>(),
         ),
       ],
       child: MaterialApp(

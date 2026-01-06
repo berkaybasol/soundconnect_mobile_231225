@@ -7,6 +7,9 @@ import '../../modules/auth/domain/usecases/register_usecase.dart';
 import '../../modules/auth/domain/usecases/resend_code_usecase.dart';
 import '../../modules/auth/domain/usecases/verify_code_usecase.dart';
 import '../../modules/auth/presentation/cubit/auth_cubit.dart';
+import '../../modules/location/data/location_repository_impl.dart';
+import '../../modules/location/domain/location_repository.dart';
+import '../../modules/location/presentation/cubit/location_cubit.dart';
 import '../auth/token_store.dart';
 import '../network/api_client.dart';
 import '../network/dio_api_client.dart';
@@ -18,6 +21,12 @@ void setupDependencies() {
     ..registerLazySingleton<TokenStore>(() => const SecureTokenStore())
     ..registerLazySingleton<ApiClient>(
       () => DioApiClient(tokenStore: serviceLocator<TokenStore>()),
+    )
+    ..registerLazySingleton<LocationRepository>(
+      () => LocationRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<LocationCubit>(
+      () => LocationCubit(serviceLocator<LocationRepository>()),
     )
     ..registerLazySingleton<AuthRepository>(
       () => AuthRepositoryImpl(serviceLocator<ApiClient>()),

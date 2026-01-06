@@ -59,6 +59,12 @@ class AuthCubit extends Cubit<AuthState> {
     required String password,
     required String rePassword,
     required String role,
+    String? venueName,
+    String? venueAddress,
+    String? phone,
+    String? cityId,
+    String? districtId,
+    String? neighborhoodId,
   }) async {
     emit(state.copyWith(status: AuthStatus.loading, action: AuthAction.register));
     final result = await _registerUseCase(
@@ -67,6 +73,12 @@ class AuthCubit extends Cubit<AuthState> {
       password: password,
       rePassword: rePassword,
       role: role,
+      venueName: venueName,
+      venueAddress: venueAddress,
+      phone: phone,
+      cityId: cityId,
+      districtId: districtId,
+      neighborhoodId: neighborhoodId,
     );
     if (result.isSuccess && result.data != null) {
       emit(

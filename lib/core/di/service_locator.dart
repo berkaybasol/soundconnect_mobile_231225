@@ -10,6 +10,15 @@ import '../../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../../modules/location/data/location_repository_impl.dart';
 import '../../modules/location/domain/location_repository.dart';
 import '../../modules/location/presentation/cubit/location_cubit.dart';
+import '../../modules/instrument/data/instrument_repository_impl.dart';
+import '../../modules/instrument/domain/instrument_repository.dart';
+import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
+import '../../modules/profile/data/musician_profile_repository_impl.dart';
+import '../../modules/profile/data/profile_media_repository_impl.dart';
+import '../../modules/profile/domain/musician_profile_repository.dart';
+import '../../modules/profile/domain/profile_media_repository.dart';
+import '../../modules/profile/presentation/cubit/musician_profile_cubit.dart';
+import '../../modules/profile/presentation/cubit/profile_media_cubit.dart';
 import '../auth/token_store.dart';
 import '../network/api_client.dart';
 import '../network/dio_api_client.dart';
@@ -27,6 +36,24 @@ void setupDependencies() {
     )
     ..registerFactory<LocationCubit>(
       () => LocationCubit(serviceLocator<LocationRepository>()),
+    )
+    ..registerLazySingleton<InstrumentRepository>(
+      () => InstrumentRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<InstrumentCubit>(
+      () => InstrumentCubit(serviceLocator<InstrumentRepository>()),
+    )
+    ..registerLazySingleton<MusicianProfileRepository>(
+      () => MusicianProfileRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<MusicianProfileCubit>(
+      () => MusicianProfileCubit(serviceLocator<MusicianProfileRepository>()),
+    )
+    ..registerLazySingleton<ProfileMediaRepository>(
+      () => ProfileMediaRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<ProfileMediaCubit>(
+      () => ProfileMediaCubit(serviceLocator<ProfileMediaRepository>()),
     )
     ..registerLazySingleton<AuthRepository>(
       () => AuthRepositoryImpl(serviceLocator<ApiClient>()),

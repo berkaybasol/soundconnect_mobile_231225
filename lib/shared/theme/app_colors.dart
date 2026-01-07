@@ -15,6 +15,15 @@ class AppColors {
   static const gradientA = Color(0xFFFF6B6B);
   static const gradientB = Color(0xFFFFC371);
   static const gradientC = Color(0xFFFF8FAB);
+  static const List<Color> brandGradient = [
+    Color(0xFFF07A5E),
+    Color(0xFFF06C86),
+    Color(0xFFE062A9),
+    Color(0xFFC15CE0),
+    Color(0xFF9A58F4),
+  ];
+
+  static const musicianBlue = Color(0xFF1E5BD7);
 
   static const textPrimary = Color(0xFFEFF2F8);
   static const textMuted = Color(0xFFB7C0D0);

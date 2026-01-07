@@ -39,12 +39,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
     'ROLE_ORGANIZER',
   ];
   final List<_RoleOption> _roleOptions = const [
-    _RoleOption(id: 'ROLE_LISTENER', title: 'Sosyal Deneyim'),
-    _RoleOption(id: 'ROLE_MUSICIAN', title: 'Muzisyenim'),
-    _RoleOption(id: 'ROLE_VENUE', title: 'Bir mekani temsil ediyorum'),
-    _RoleOption(id: 'ROLE_STUDIO', title: 'Bir studyoyu temsil ediyorum'),
-    _RoleOption(id: 'ROLE_PRODUCER', title: 'Produktor'),
-    _RoleOption(id: 'ROLE_ORGANIZER', title: 'Organizatorum'),
+    _RoleOption(
+      id: 'ROLE_LISTENER',
+      title: 'Sosyal Deneyim',
+      icon: Icons.headphones,
+    ),
+    _RoleOption(
+      id: 'ROLE_MUSICIAN',
+      title: 'Muzisyenim',
+      icon: Icons.music_note,
+    ),
+    _RoleOption(
+      id: 'ROLE_VENUE',
+      title: 'Mekan Temsilcisiyim',
+      icon: Icons.storefront_outlined,
+      badge: 'Basvuru',
+    ),
+    _RoleOption(
+      id: 'ROLE_STUDIO',
+      title: 'Studyo Temsilcisiyim',
+      icon: Icons.mic_none,
+    ),
+    _RoleOption(
+      id: 'ROLE_PRODUCER',
+      title: 'Produktor',
+      icon: Icons.graphic_eq,
+    ),
+    _RoleOption(
+      id: 'ROLE_ORGANIZER',
+      title: 'Organizatorum',
+      icon: Icons.event,
+    ),
   ];
 
   String? _selectedRole;
@@ -436,23 +461,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final itemWidth = (constraints.maxWidth - 12) / 2;
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: otherOptions
-                          .map(
-                            (option) => SizedBox(
-                              width: itemWidth,
-                              child: _buildRoleOption(option),
-                            ),
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
+                ...otherOptions.map(_buildRoleOption),
                 const SizedBox(height: 16),
                 const Divider(color: AppColors.border),
                 const SizedBox(height: 16),
@@ -683,8 +692,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           scrollable: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final pageHeight = constraints.maxHeight * 0.52;
-
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -696,43 +703,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  ClipRect(
-                    child: SizedBox(
-                      height: pageHeight,
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: pages.length,
-                        onPageChanged: (index) {
-                          setState(() {
-                            _stepIndex = index;
-                          });
-                        },
-                        itemBuilder: (context, index) {
-                          return AnimatedBuilder(
-                            animation: _pageController,
-                            builder: (context, child) {
-                              final page = _pageController.position.haveDimensions
-                                  ? (_pageController.page ??
-                                      _stepIndex.toDouble())
-                                  : _stepIndex.toDouble();
-                              final distance = (page - index).abs();
-                              final opacity =
-                                  (1 - (distance * 0.35)).clamp(0.0, 1.0);
-                              final scale =
-                                  (1 - (distance * 0.06)).clamp(0.94, 1.0);
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: pages.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _stepIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        return AnimatedBuilder(
+                          animation: _pageController,
+                          builder: (context, child) {
+                            final page = _pageController.position.haveDimensions
+                                ? (_pageController.page ??
+                                    _stepIndex.toDouble())
+                                : _stepIndex.toDouble();
+                            final distance = (page - index).abs();
+                            final opacity =
+                                (1 - (distance * 0.35)).clamp(0.0, 1.0);
+                            final scale =
+                                (1 - (distance * 0.06)).clamp(0.94, 1.0);
 
-                              return Opacity(
-                                opacity: opacity,
-                                child: Transform.scale(
-                                  scale: scale,
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: pages[index],
-                          );
-                        },
-                      ),
+                            return Opacity(
+                              opacity: opacity,
+                              child: Transform.scale(
+                                scale: scale,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: pages[index],
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -772,9 +776,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _handleRoleSelect(option.id);
         },
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: isSelected
+                ? AppColors.inputFill.withOpacity(0.98)
+                : AppColors.inputFill,
             borderRadius: borderRadius,
             border: Border.all(
               color: isSelected ? AppColors.coralAlt : AppColors.border,
@@ -783,20 +789,76 @@ class _RegisterScreenState extends State<RegisterScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppColors.coralAlt.withOpacity(0.18),
-                      blurRadius: 10,
+                      color: AppColors.coralAlt.withOpacity(0.22),
+                      blurRadius: 16,
                       spreadRadius: 1,
                     ),
                   ]
                 : null,
           ),
-          child: Text(
-            option.title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.navBlueSoft,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.coralAlt.withOpacity(0.25),
+                            blurRadius: 14,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  option.icon,
+                  color: isSelected
+                      ? AppColors.coralAlt
+                      : AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  option.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              if (option.badge != null) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.navBlueSoft,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Text(
+                    option.badge!,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Icon(
+                Icons.chevron_right,
+                color: isSelected
+                    ? AppColors.coralAlt
+                    : AppColors.textMuted.withOpacity(0.7),
+              ),
+            ],
           ),
         ),
       ),
@@ -807,9 +869,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 class _RoleOption {
   final String id;
   final String title;
+  final IconData icon;
+  final String? badge;
 
   const _RoleOption({
     required this.id,
     required this.title,
+    required this.icon,
+    this.badge,
   });
 }

@@ -4,6 +4,8 @@ import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
 import '../../modules/auth/presentation/screens/venue_application_screen.dart';
 import '../../modules/auth/presentation/screens/venue_pending_screen.dart';
+import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
+import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
 import '../app_shell.dart';
 import 'app_routes.dart';
 
@@ -23,6 +25,12 @@ class AppRouter {
         );
       case AppRoutes.venuePending:
         return MaterialPageRoute(builder: (_) => const VenuePendingScreen());
+      case AppRoutes.musicianProfile:
+        return MaterialPageRoute(builder: (_) => const MusicianProfileScreen());
+      case AppRoutes.musicianPublicProfile:
+        return MaterialPageRoute(
+          builder: (_) => const MusicianPublicProfileScreen(),
+        );
       case AppRoutes.home:
         return MaterialPageRoute(builder: (_) => const AppShell());
       default:

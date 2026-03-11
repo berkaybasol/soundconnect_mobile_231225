@@ -1,8 +1,10 @@
 import '../../domain/entities/musician_profile.dart';
+import '../../../spotify/data/models/spotify_track_preview_model.dart';
 
 class MusicianProfileModel extends MusicianProfile {
   const MusicianProfileModel({
     required super.id,
+    required super.userId,
     required super.stageName,
     required super.bio,
     required super.profilePicture,
@@ -11,6 +13,8 @@ class MusicianProfileModel extends MusicianProfile {
     required super.soundcloudUrl,
     required super.spotifyEmbedUrl,
     required super.spotifyArtistId,
+    required super.spotifyTrackIds,
+    required super.spotifyTracks,
     required super.instruments,
     required super.activeVenues,
     required super.bands,
@@ -23,14 +27,18 @@ class MusicianProfileModel extends MusicianProfile {
 
     return MusicianProfileModel(
       id: json['id']?.toString() ?? '',
+      userId: json['userId']?.toString() ?? '',
       stageName: json['stageName'] as String?,
       bio: json['bio'] as String?,
-      profilePicture: json['profilePicture'] as String?,
+      profilePicture:
+          json['profilePictureUrl'] as String? ?? json['profilePicture'] as String?,
       instagramUrl: json['instagramUrl'] as String?,
       youtubeUrl: json['youtubeUrl'] as String?,
       soundcloudUrl: json['soundcloudUrl'] as String?,
       spotifyEmbedUrl: json['spotifyEmbedUrl'] as String?,
       spotifyArtistId: json['spotifyArtistId'] as String?,
+      spotifyTrackIds: _stringList(json['spotifyTrackIds']),
+      spotifyTracks: _spotifyTracks(json['spotifyTracks']),
       instruments: instruments,
       activeVenues: activeVenues,
       bands: bands,
@@ -58,5 +66,13 @@ class MusicianProfileModel extends MusicianProfile {
       }
     }
     return names;
+  }
+
+  static List<SpotifyTrackPreviewModel> _spotifyTracks(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map<String, dynamic>>()
+        .map(SpotifyTrackPreviewModel.fromJson)
+        .toList();
   }
 }

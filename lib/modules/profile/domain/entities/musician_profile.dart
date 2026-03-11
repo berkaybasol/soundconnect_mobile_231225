@@ -1,5 +1,8 @@
+import '../../../spotify/domain/entities/spotify_track_preview.dart';
+
 class MusicianProfile {
   final String id;
+  final String userId;
   final String? stageName;
   final String? bio;
   final String? profilePicture;
@@ -8,12 +11,15 @@ class MusicianProfile {
   final String? soundcloudUrl;
   final String? spotifyEmbedUrl;
   final String? spotifyArtistId;
+  final List<String> spotifyTrackIds;
+  final List<SpotifyTrackPreview> spotifyTracks;
   final List<String> instruments;
   final List<String> activeVenues;
   final List<String> bands;
 
   const MusicianProfile({
     required this.id,
+    required this.userId,
     required this.stageName,
     required this.bio,
     required this.profilePicture,
@@ -22,6 +28,8 @@ class MusicianProfile {
     required this.soundcloudUrl,
     required this.spotifyEmbedUrl,
     required this.spotifyArtistId,
+    required this.spotifyTrackIds,
+    required this.spotifyTracks,
     required this.instruments,
     required this.activeVenues,
     required this.bands,

@@ -3,9 +3,9 @@ package com.berkayb.soundconnect.soundconnect_23_12_25codx
 import android.os.Bundle
 import android.content.pm.ApplicationInfo
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     val isDebuggable =
       (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0

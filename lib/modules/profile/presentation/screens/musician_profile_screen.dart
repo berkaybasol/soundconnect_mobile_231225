@@ -6,6 +6,10 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../instrument/domain/entities/instrument.dart';
 import '../../../instrument/presentation/cubit/instrument_cubit.dart';
 import '../../../instrument/presentation/cubit/instrument_state.dart';
+import '../../../spotify/domain/entities/spotify_track_preview.dart';
+import '../../../spotify/data/models/spotify_track_preview_model.dart';
+import '../../../spotify/presentation/cubit/spotify_preview_cubit.dart';
+import '../../../spotify/presentation/cubit/spotify_preview_state.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
@@ -31,6 +35,9 @@ class MusicianProfileScreen extends StatelessWidget {
         ),
         BlocProvider(
           create: (_) => serviceLocator<ProfileMediaCubit>(),
+        ),
+        BlocProvider(
+          create: (_) => serviceLocator<SpotifyPreviewCubit>(),
         ),
       ],
       child: const _MusicianProfileView(),
@@ -58,9 +65,11 @@ class _MusicianProfileViewState extends State<_MusicianProfileView> {
   final _soundcloudController = TextEditingController();
   final _spotifyEmbedController = TextEditingController();
   final _spotifyArtistController = TextEditingController();
+  final _spotifySearchController = TextEditingController();
 
   List<Instrument> _allInstruments = const [];
   Set<String> _selectedInstrumentIds = <String>{};
+  List<SpotifyTrackPreview> _selectedSpotifyTracks = [];
 
   @override
   void dispose() {
@@ -71,6 +80,7 @@ class _MusicianProfileViewState extends State<_MusicianProfileView> {
     _soundcloudController.dispose();
     _spotifyEmbedController.dispose();
     _spotifyArtistController.dispose();
+    _spotifySearchController.dispose();
     super.dispose();
   }
 
@@ -83,6 +93,9 @@ class _MusicianProfileViewState extends State<_MusicianProfileView> {
     _soundcloudController.text = profile.soundcloudUrl ?? '';
     _spotifyEmbedController.text = profile.spotifyEmbedUrl ?? '';
     _spotifyArtistController.text = profile.spotifyArtistId ?? '';
+    _selectedSpotifyTracks = List<SpotifyTrackPreview>.from(
+      profile.spotifyTracks,
+    );
   }
 
   void _syncInstrumentSelection(MusicianProfile profile) {
@@ -128,6 +141,10 @@ class _MusicianProfileViewState extends State<_MusicianProfileView> {
   }
 
   void _saveProfile(BuildContext context) {
+    final rawArtist = _spotifyArtistController.text.trim();
+    final parsedArtist = _extractSpotifyArtistId(rawArtist);
+    final normalizedArtist =
+        parsedArtist != null && parsedArtist.isNotEmpty ? parsedArtist : rawArtist;
     final request = MusicianProfileSaveRequest(
       stageName: _stageNameController.text,
       description: _bioController.text,
@@ -135,7 +152,21 @@ class _MusicianProfileViewState extends State<_MusicianProfileView> {
       youtubeUrl: _youtubeController.text,
       soundcloudUrl: _soundcloudController.text,
       spotifyEmbedUrl: _spotifyEmbedController.text,
-      spotifyArtistId: _spotifyArtistController.text,
+      spotifyArtistId: normalizedArtist,
+      spotifyTracks: _selectedSpotifyTracks
+          .map((track) => track is SpotifyTrackPreviewModel
+              ? track.toJson()
+              : SpotifyTrackPreviewModel(
+                      id: track.id,
+                      name: track.name,
+                      previewUrl: track.previewUrl,
+                      durationSeconds: track.durationSeconds,
+                      spotifyUrl: track.spotifyUrl,
+                      albumImageUrl: track.albumImageUrl,
+                      artistNames: track.artistNames,
+                    )
+                  .toJson())
+          .toList(),
       instrumentIds: _selectedInstrumentIds.toList(),
     );
 
@@ -242,6 +273,26 @@ class _MusicianProfileViewState extends State<_MusicianProfileView> {
       }
     }
     return names;
+  }
+
+  String? _extractSpotifyArtistId(String? input) {
+    final value = input?.trim();
+    if (value == null || value.isEmpty) return null;
+
+    final uri = Uri.tryParse(value);
+    if (uri != null && uri.host.contains('spotify.com')) {
+      final segments = uri.pathSegments;
+      final artistIndex = segments.indexOf('artist');
+      if (artistIndex != -1 && artistIndex + 1 < segments.length) {
+        return segments[artistIndex + 1];
+      }
+    }
+
+    if (value.startsWith('spotify:artist:')) {
+      return value.replaceFirst('spotify:artist:', '').trim();
+    }
+
+    return value;
   }
 
   @override
@@ -445,9 +496,130 @@ class _MusicianProfileViewState extends State<_MusicianProfileView> {
                               TextField(
                                 controller: _spotifyArtistController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Spotify artist ID',
+                                  labelText: 'Spotify artist URL veya ID',
                                 ),
                               ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: _spotifySearchController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Spotify parça ara',
+                                ),
+                                onSubmitted: (value) {
+                                  final query = value.trim();
+                                  if (query.isEmpty) return;
+                                  context
+                                      .read<SpotifyPreviewCubit>()
+                                      .search(query, limit: 6);
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              BlocBuilder<SpotifyPreviewCubit,
+                                  SpotifyPreviewState>(
+                                builder: (context, state) {
+                                  if (state.status ==
+                                      SpotifyPreviewStatus.loading) {
+                                    return const LinearProgressIndicator();
+                                  }
+                                  if (state.tracks.isEmpty) {
+                                    return const Text(
+                                      'Arama sonucu yok.',
+                                      style:
+                                          TextStyle(color: AppColors.textMuted),
+                                    );
+                                  }
+                                  return Column(
+                                    children: state.tracks.map((track) {
+                                      final isSelected = _selectedSpotifyTracks
+                                          .any((t) => t.id == track.id);
+                                      return ListTile(
+                                        dense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        title: Text(
+                                          track.name,
+                                          style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        subtitle: Text(
+                                          track.artistNames.join(', '),
+                                          style: const TextStyle(
+                                            color: AppColors.textMuted,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        trailing: IconButton(
+                                          icon: Icon(
+                                            isSelected
+                                                ? Icons.check_circle
+                                                : Icons.add_circle_outline,
+                                            color: isSelected
+                                                ? AppColors.coralAlt
+                                                : AppColors.textMuted,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              if (isSelected) {
+                                                _selectedSpotifyTracks.removeWhere(
+                                                    (t) => t.id == track.id);
+                                              } else {
+                                                _selectedSpotifyTracks.add(track);
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      );
+                                    }).toList(),
+                                  );
+                                },
+                              ),
+                              if (_selectedSpotifyTracks.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: _selectedSpotifyTracks.map((track) {
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 6),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.navBlueSoft,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: AppColors.border),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              track.name,
+                                              style: const TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontSize: 12,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            onPressed: () {
+                                              setState(() {
+                                                _selectedSpotifyTracks.removeWhere(
+                                                    (t) => t.id == track.id);
+                                              });
+                                            },
+                                            icon: const Icon(
+                                              Icons.close,
+                                              size: 16,
+                                              color: AppColors.textMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ),

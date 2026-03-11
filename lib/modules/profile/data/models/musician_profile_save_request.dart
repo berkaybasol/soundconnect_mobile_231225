@@ -6,6 +6,8 @@ class MusicianProfileSaveRequest {
   final String? soundcloudUrl;
   final String? spotifyEmbedUrl;
   final String? spotifyArtistId;
+  final List<String>? spotifyTrackIds;
+  final List<Map<String, dynamic>>? spotifyTracks;
   final List<String>? instrumentIds;
   final String? profilePicture;
 
@@ -17,6 +19,8 @@ class MusicianProfileSaveRequest {
     this.soundcloudUrl,
     this.spotifyEmbedUrl,
     this.spotifyArtistId,
+    this.spotifyTrackIds,
+    this.spotifyTracks,
     this.instrumentIds,
     this.profilePicture,
   });
@@ -39,6 +43,13 @@ class MusicianProfileSaveRequest {
     addIfNotEmpty('spotifyEmbedUrl', spotifyEmbedUrl);
     addIfNotEmpty('spotifyArtistId', spotifyArtistId);
     addIfNotEmpty('profilePicture', profilePicture);
+
+    if (spotifyTrackIds != null) {
+      payload['spotifyTrackIds'] = spotifyTrackIds;
+    }
+    if (spotifyTracks != null) {
+      payload['spotifyTracks'] = spotifyTracks;
+    }
 
     if (instrumentIds != null) {
       payload['instrumentIds'] = instrumentIds;

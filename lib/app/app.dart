@@ -23,7 +23,7 @@ class SoundConnectApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'SoundConnect',
+        title: 'SoundConnect', 
         theme: AppTheme.light,
         darkTheme: AppTheme.navy,
         themeMode: ThemeMode.dark,

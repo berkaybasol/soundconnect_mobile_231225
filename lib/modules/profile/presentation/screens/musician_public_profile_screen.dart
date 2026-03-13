@@ -7,6 +7,8 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_state.dart';
+import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
+import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_state.dart';
 import '../../../follow/presentation/cubit/follow_count_cubit.dart';
@@ -60,6 +62,7 @@ class MusicianPublicProfileScreen extends StatelessWidget {
       );
       final mockMedia = ProfileMedia(
         featuredVideo: const MediaAsset(
+          id: 'mock-featured-video',
           sourceUrl: null,
           playbackUrl: null,
           thumbnailUrl: null,
@@ -69,6 +72,7 @@ class MusicianPublicProfileScreen extends StatelessWidget {
         videos: List.generate(
           6,
           (index) => const MediaAsset(
+            id: 'mock-video',
             sourceUrl: null,
             playbackUrl: null,
             thumbnailUrl: null,
@@ -80,6 +84,7 @@ class MusicianPublicProfileScreen extends StatelessWidget {
           5,
           (index) => Track(
             id: 'track-$index',
+            mediaAssetId: 'audio-media-$index',
             title: 'Ses Dosyasi ${index + 1}',
             playbackUrl: null,
             durationSeconds: 120,
@@ -118,6 +123,9 @@ class MusicianPublicProfileScreen extends StatelessWidget {
         ),
         BlocProvider(
           create: (_) => serviceLocator<ArtistVenueConnectionsCubit>(),
+        ),
+        BlocProvider(
+          create: (_) => serviceLocator<InteractionStatsCubit>(),
         ),
       ],
       child: const _MusicianPublicProfileView(),
@@ -313,6 +321,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     }
     return ProfileMedia(
       featuredVideo: const MediaAsset(
+        id: 'fallback-featured-video',
         sourceUrl: null,
         playbackUrl: null,
         thumbnailUrl: null,
@@ -322,6 +331,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       videos: List.generate(
         6,
         (index) => const MediaAsset(
+          id: 'fallback-video',
           sourceUrl: null,
           playbackUrl: null,
           thumbnailUrl: null,
@@ -333,6 +343,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
         5,
         (index) => Track(
           id: 'track-$index',
+          mediaAssetId: 'fallback-audio-media-$index',
           title: 'Ses Dosyasi ${index + 1}',
           playbackUrl: null,
           durationSeconds: 120,
@@ -1239,6 +1250,7 @@ class _AudioTab extends StatelessWidget {
         final position = snapshot.data ?? Duration.zero;
         final currentId = audioHandler.mediaItem.value?.id;
         final isPlaying = audioHandler.playbackState.value.playing;
+        final statsState = context.watch<InteractionStatsCubit>().state;
 
         return Padding(
           padding: const EdgeInsets.all(20),
@@ -1271,8 +1283,21 @@ class _AudioTab extends StatelessWidget {
               ],
               ...List.generate(items.length, (index) {
                 final track = items[index];
-                final likeCount = 128 + (index * 7);
-                final commentCount = 32 + (index * 3);
+                final fallbackLikeCount = 128 + (index * 7);
+                final fallbackCommentCount = 32 + (index * 3);
+                final targetType = 'MEDIA';
+                final targetId = track.mediaAssetId;
+                final statsKey = '$targetType:$targetId';
+                if (targetId.isNotEmpty &&
+                    !statsState.items.containsKey(statsKey)) {
+                  context.read<InteractionStatsCubit>().load(
+                        targetType: targetType,
+                        targetId: targetId,
+                      );
+                }
+                final stats = statsState.items[statsKey];
+                final likeCount = stats?.likeCount ?? fallbackLikeCount;
+                final commentCount = stats?.commentCount ?? fallbackCommentCount;
                 final playback = track.playbackUrl ?? '';
                 final isSpotify = playback.contains('spotify') ||
                     playback.contains('open.spotify') ||
@@ -1298,15 +1323,27 @@ class _AudioTab extends StatelessWidget {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => MediaDetailScreen(
-                                title: track.title,
-                                isVideo: false,
-                                playbackUrl: track.playbackUrl,
-                                thumbnailUrl: null,
-                                durationSeconds: track.durationSeconds,
-                                likeCount: likeCount,
-                                commentCount: commentCount,
-                                isSpotify: isSpotify,
+                              builder: (_) => MultiBlocProvider(
+                                providers: [
+                                  BlocProvider.value(
+                                    value: context.read<InteractionStatsCubit>(),
+                                  ),
+                                  BlocProvider(
+                                    create: (_) => serviceLocator<CommentThreadCubit>(),
+                                  ),
+                                ],
+                                child: MediaDetailScreen(
+                                  title: track.title,
+                                  isVideo: false,
+                                  playbackUrl: track.playbackUrl,
+                                  thumbnailUrl: null,
+                                  durationSeconds: track.durationSeconds,
+                                  targetType: targetType,
+                                  targetId: targetId,
+                                  likeCount: likeCount,
+                                  commentCount: commentCount,
+                                  isSpotify: isSpotify,
+                                ),
                               ),
                             ),
                           );
@@ -1505,8 +1542,22 @@ class _VideoTab extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         final thumbnail = item.thumbnailUrl ?? item.playbackUrl;
-        final likeCount = 210 + (index * 9);
-        final commentCount = 44 + (index * 4);
+        final fallbackLikeCount = 210 + (index * 9);
+        final fallbackCommentCount = 44 + (index * 4);
+        final targetType = 'MEDIA';
+        final targetId = item.id;
+        final statsState = context.watch<InteractionStatsCubit>().state;
+        final statsKey = '$targetType:$targetId';
+        if (targetId.isNotEmpty &&
+            !statsState.items.containsKey(statsKey)) {
+          context.read<InteractionStatsCubit>().load(
+                targetType: targetType,
+                targetId: targetId,
+              );
+        }
+        final stats = statsState.items[statsKey];
+        final likeCount = stats?.likeCount ?? fallbackLikeCount;
+        final commentCount = stats?.commentCount ?? fallbackCommentCount;
         return Container(
           decoration: BoxDecoration(
             color: AppColors.inputFill,
@@ -1524,13 +1575,25 @@ class _VideoTab extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => MediaDetailScreen(
-                    title: item.title ?? 'Video',
-                    isVideo: true,
-                    playbackUrl: item.playbackUrl,
-                    thumbnailUrl: thumbnail,
-                    likeCount: likeCount,
-                    commentCount: commentCount,
+                  builder: (_) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider.value(
+                        value: context.read<InteractionStatsCubit>(),
+                      ),
+                      BlocProvider(
+                        create: (_) => serviceLocator<CommentThreadCubit>(),
+                      ),
+                    ],
+                    child: MediaDetailScreen(
+                      title: item.title ?? 'Video',
+                      isVideo: true,
+                      playbackUrl: item.playbackUrl,
+                      thumbnailUrl: thumbnail,
+                      targetType: targetType,
+                      targetId: item.id.isEmpty ? null : item.id,
+                      likeCount: likeCount,
+                      commentCount: commentCount,
+                    ),
                   ),
                 ),
               );
@@ -1626,9 +1689,4 @@ class _BottomBar extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
 

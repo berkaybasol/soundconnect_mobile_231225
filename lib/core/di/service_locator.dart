@@ -7,6 +7,10 @@ import '../../modules/auth/domain/usecases/register_usecase.dart';
 import '../../modules/auth/domain/usecases/resend_code_usecase.dart';
 import '../../modules/auth/domain/usecases/verify_code_usecase.dart';
 import '../../modules/auth/presentation/cubit/auth_cubit.dart';
+import '../../modules/engagement/data/engagement_repository_impl.dart';
+import '../../modules/engagement/domain/engagement_repository.dart';
+import '../../modules/engagement/presentation/cubit/comment_thread_cubit.dart';
+import '../../modules/engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../modules/artist_venue/data/artist_venue_connection_repository_impl.dart';
 import '../../modules/artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../modules/artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
@@ -85,8 +89,17 @@ void setupDependencies() {
     ..registerLazySingleton<SpotifyRepository>(
       () => SpotifyRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<EngagementRepository>(
+      () => EngagementRepositoryImpl(serviceLocator<ApiClient>()),
+    )
     ..registerFactory<SpotifyPreviewCubit>(
       () => SpotifyPreviewCubit(serviceLocator<SpotifyRepository>()),
+    )
+    ..registerFactory<InteractionStatsCubit>(
+      () => InteractionStatsCubit(serviceLocator<EngagementRepository>()),
+    )
+    ..registerFactory<CommentThreadCubit>(
+      () => CommentThreadCubit(serviceLocator<EngagementRepository>()),
     )
     ..registerLazySingleton<AuthRepository>(
       () => AuthRepositoryImpl(serviceLocator<ApiClient>()),

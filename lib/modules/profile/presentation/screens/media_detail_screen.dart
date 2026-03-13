@@ -1,11 +1,16 @@
-import 'dart:ui';
-import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
+import '../../../engagement/domain/entities/comment_item.dart';
+import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
+import '../../../engagement/presentation/cubit/comment_thread_state.dart';
+import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 
 class MediaDetailScreen extends StatefulWidget {
   final String title;
@@ -13,6 +18,8 @@ class MediaDetailScreen extends StatefulWidget {
   final String? playbackUrl;
   final String? thumbnailUrl;
   final int? durationSeconds;
+  final String? targetType;
+  final String? targetId;
   final int likeCount;
   final int commentCount;
   final bool isSpotify;
@@ -24,6 +31,8 @@ class MediaDetailScreen extends StatefulWidget {
     this.playbackUrl,
     this.thumbnailUrl,
     this.durationSeconds,
+    this.targetType,
+    this.targetId,
     required this.likeCount,
     required this.commentCount,
     this.isSpotify = false,
@@ -35,19 +44,24 @@ class MediaDetailScreen extends StatefulWidget {
 
 class _MediaDetailScreenState extends State<MediaDetailScreen> {
   final FocusNode _commentFocusNode = FocusNode();
-  String? _replyTo;
-  String? _replyMessage;
+  final TextEditingController _commentController = TextEditingController();
   Stream<Duration>? _positionStream;
+
+  String? _replyTo;
+  String? _replyToCommentId;
+  bool _initializedLoads = false;
 
   @override
   void dispose() {
     _commentFocusNode.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
   Future<void> _togglePlayback() async {
     final url = widget.playbackUrl;
     if (url == null || url.isEmpty) return;
+
     final handler = serviceLocator<AudioHandler>();
     final currentId = handler.mediaItem.value?.id;
     final currentUrl = handler.mediaItem.value?.extras?['url']?.toString();
@@ -74,6 +88,49 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
     await serviceLocator<AudioHandler>().seek(Duration(seconds: seconds));
   }
 
+  Future<void> _sendComment() async {
+    final targetType = widget.targetType;
+    final targetId = widget.targetId;
+    final text = _commentController.text.trim();
+    if (targetType == null ||
+        targetType.isEmpty ||
+        targetId == null ||
+        targetId.isEmpty ||
+        text.isEmpty) {
+      return;
+    }
+
+    await context.read<CommentThreadCubit>().create(
+          targetType: targetType,
+          targetId: targetId,
+          text: text,
+          parentCommentId: _replyToCommentId,
+        );
+
+    _commentController.clear();
+    if (!mounted) return;
+    setState(() {
+      _replyTo = null;
+      _replyToCommentId = null;
+    });
+
+    await context.read<InteractionStatsCubit>().load(
+          targetType: targetType,
+          targetId: targetId,
+          force: true,
+        );
+  }
+
+  String _timeLabel(DateTime? createdAt) {
+    if (createdAt == null) return '-';
+    final now = DateTime.now();
+    final diff = now.difference(createdAt);
+    if (diff.inMinutes < 1) return 'simdi';
+    if (diff.inHours < 1) return '${diff.inMinutes}dk';
+    if (diff.inDays < 1) return '${diff.inHours}s';
+    return '${diff.inDays}g';
+  }
+
   @override
   Widget build(BuildContext context) {
     _positionStream ??= serviceLocator<AudioHandler>() is AudioPlayerHandler
@@ -85,209 +142,153 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
         title: Text(widget.title),
         centerTitle: true,
       ),
-      body: Stack(
-        children: [
-          StreamBuilder<Duration>(
-            stream: _positionStream,
-            builder: (context, snapshot) {
-              final position = snapshot.data ?? Duration.zero;
-              final handler = serviceLocator<AudioHandler>();
-              final currentId = handler.mediaItem.value?.id;
-              final currentUrl =
-                  handler.mediaItem.value?.extras?['url']?.toString();
-              final isPlaying = handler.playbackState.value.playing;
-              final isCurrent = widget.playbackUrl != null &&
-                  (widget.playbackUrl == currentId ||
-                      widget.playbackUrl == currentUrl);
-              final totalSeconds = widget.isVideo || !isCurrent
-                  ? 0
-                  : (widget.durationSeconds ??
-                      handler.mediaItem.value?.duration?.inSeconds ??
-                      0);
-              final progress = totalSeconds > 0
-                  ? (position.inSeconds / totalSeconds).clamp(0.0, 1.0)
-                  : 0.0;
+      body: StreamBuilder<Duration>(
+        stream: _positionStream,
+        builder: (context, snapshot) {
+          final position = snapshot.data ?? Duration.zero;
+          final handler = serviceLocator<AudioHandler>();
+          final currentId = handler.mediaItem.value?.id;
+          final currentUrl = handler.mediaItem.value?.extras?['url']?.toString();
+          final isPlaying = handler.playbackState.value.playing;
+          final isCurrent = widget.playbackUrl != null &&
+              (widget.playbackUrl == currentId || widget.playbackUrl == currentUrl);
 
-              return ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                children: [
-                  if (widget.isVideo)
-                    _VideoHero(
-                      thumbnailUrl: widget.thumbnailUrl,
-                    )
-                  else
-                    _AudioHero(
-                      title: widget.title,
-                      isSpotify: widget.isSpotify,
-                      playbackUrl: widget.playbackUrl,
-                      onPlay: _togglePlayback,
-                      isPlaying: isCurrent && isPlaying,
-                      progress: progress,
-                      onSeek: _seekToRatio,
-                    ),
-                  const SizedBox(height: 16),
-                  _CountRow(
-                    likeCount: widget.likeCount,
-                    commentCount: widget.commentCount,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Yorumlar',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _CommentBubble(
-                    username: '@selin',
-                    message: 'Harika enerji! Devam et.',
-                    time: '2s',
-                    likeCount: 12,
-                    onReply: (message) {
-                      setState(() {
-                        _replyTo = '@selin';
-                        _replyMessage = message;
-                      });
-                    },
-                  ),
-                  const Divider(color: AppColors.border, height: 16),
-                  _CommentBubble(
-                    username: '@emre',
-                    message: 'Dalga formu cok iyi duruyor.',
-                    time: '6s',
-                    likeCount: 5,
-                    onReply: (message) {
-                      setState(() {
-                        _replyTo = '@emre';
-                        _replyMessage = message;
-                      });
-                    },
-                  ),
-                  const Divider(color: AppColors.border, height: 16),
-                  _CommentBubble(
-                    username: '@zeynep',
-                    message: 'Bu parcanin devamini bekliyorum.',
-                    time: '15s',
-                    likeCount: 8,
-                    onReply: (message) {
-                      setState(() {
-                        _replyTo = '@zeynep';
-                        _replyMessage = message;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  _CommentInput(
-                    focusNode: _commentFocusNode,
-                    replyTo: _replyTo,
-                    replyMessage: _replyMessage,
-                    onClearReply: () => setState(() {
-                      _replyTo = null;
-                      _replyMessage = null;
-                    }),
-                  ),
-                ],
-              );
-            },
-          ),
-          if (_replyTo != null && _replyMessage != null)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  _replyTo = null;
-                  _replyMessage = null;
-                }),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                  child: Container(
-                    color: Colors.black.withOpacity(0.35),
-                    alignment: Alignment.center,
-                    child: GestureDetector(
-                      onTap: () {},
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 24),
-                        padding: const EdgeInsets.all(16),
-                        constraints: const BoxConstraints(maxHeight: 420),
-                        decoration: BoxDecoration(
-                          color: AppColors.inputFill,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border),
+          final totalSeconds = widget.isVideo || !isCurrent
+              ? 0
+              : (widget.durationSeconds ??
+                  handler.mediaItem.value?.duration?.inSeconds ??
+                  0);
+          final progress = totalSeconds > 0
+              ? (position.inSeconds / totalSeconds).clamp(0.0, 1.0)
+              : 0.0;
+
+          final targetType = widget.targetType;
+          final targetId = widget.targetId;
+          final hasTarget = targetType != null &&
+              targetType.isNotEmpty &&
+              targetId != null &&
+              targetId.isNotEmpty;
+
+              if (hasTarget && !_initializedLoads) {
+                _initializedLoads = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  context.read<InteractionStatsCubit>().load(
+                    targetType: targetType!,
+                    targetId: targetId!,
+                  );
+                  context.read<CommentThreadCubit>().load(
+                    targetType: targetType!,
+                    targetId: targetId!,
+                  );
+                });
+              }
+
+          final stats = hasTarget
+              ? context.watch<InteractionStatsCubit>().state.items[
+                  '$targetType:$targetId']
+              : null;
+          final resolvedLikeCount = stats?.likeCount ?? widget.likeCount;
+          final resolvedCommentCount = stats?.commentCount ?? widget.commentCount;
+          final resolvedIsLiked = stats?.isLiked ?? false;
+          final likeLoading = stats?.loading ?? false;
+
+          return ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            children: [
+              if (widget.isVideo)
+                _VideoHero(thumbnailUrl: widget.thumbnailUrl)
+              else
+                _AudioHero(
+                  title: widget.title,
+                  isSpotify: widget.isSpotify,
+                  playbackUrl: widget.playbackUrl,
+                  onPlay: _togglePlayback,
+                  isPlaying: isCurrent && isPlaying,
+                  progress: progress,
+                  onSeek: _seekToRatio,
+                ),
+              const SizedBox(height: 16),
+              _CountRow(
+                likeCount: resolvedLikeCount,
+                commentCount: resolvedCommentCount,
+                liked: resolvedIsLiked,
+                likeLoading: likeLoading,
+                onLikeTap: !hasTarget
+                    ? null
+                    : () => context.read<InteractionStatsCubit>().toggleLike(
+                          targetType: targetType!,
+                          targetId: targetId!,
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Yanıtla $_replyTo',
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _replyMessage!,
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 14,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            const Divider(color: AppColors.border),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: ListView(
-                                children: const [
-                                  _ReplyRow(username: '@melis', message: 'Efsane!'),
-                                  _ReplyRow(username: '@tuna', message: 'Bunu sahnede dinlemek isterim.'),
-                                  _ReplyRow(username: '@deniz', message: 'Tam playlistlik parca.'),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppColors.navBlueSoft,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.sentiment_satisfied_alt,
-                                      size: 18, color: AppColors.textMuted),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: TextField(
-                                      focusNode: _commentFocusNode,
-                                      decoration: InputDecoration(
-                                        hintText: 'Yanıtla $_replyTo',
-                                        hintStyle: const TextStyle(color: AppColors.textMuted),
-                                        border: InputBorder.none,
-                                        isDense: true,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () {},
-                                    icon: const Icon(Icons.send, color: AppColors.coralAlt),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Yorumlar',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-        ],
+              const SizedBox(height: 12),
+              BlocBuilder<CommentThreadCubit, CommentThreadState>(
+                builder: (context, commentState) {
+                  if (!hasTarget) {
+                    return const Text(
+                      'Yorum hedefi bulunamadi.',
+                      style: TextStyle(color: AppColors.textMuted),
+                    );
+                  }
+                  if (commentState.loading && commentState.comments.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: LinearProgressIndicator(),
+                    );
+                  }
+                  if (commentState.comments.isEmpty) {
+                    return const Text(
+                      'Henuz yorum yok.',
+                      style: TextStyle(color: AppColors.textMuted),
+                    );
+                  }
+                  return Column(
+                    children: List.generate(commentState.comments.length, (index) {
+                      final item = commentState.comments[index];
+                      return Column(
+                        children: [
+                          _CommentBubble(
+                            comment: item,
+                            timeLabel: _timeLabel(item.createdAt),
+                            onReply: () {
+                              setState(() {
+                                _replyTo = '@${item.user.username}';
+                                _replyToCommentId = item.id;
+                              });
+                            },
+                          ),
+                          if (index < commentState.comments.length - 1)
+                            const Divider(color: AppColors.border, height: 16),
+                        ],
+                      );
+                    }),
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+              _CommentInput(
+                controller: _commentController,
+                focusNode: _commentFocusNode,
+                replyTo: _replyTo,
+                submitting: context.watch<CommentThreadCubit>().state.submitting,
+                onSend: _sendComment,
+                onClearReply: () => setState(() {
+                  _replyTo = null;
+                  _replyToCommentId = null;
+                }),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -365,8 +366,7 @@ class _AudioHero extends StatelessWidget {
                   Color(0xFF18A34A),
                 ]
               : AppColors.brandGradient,
-          iconColor:
-              isSpotify ? const Color(0xFF1DB954) : AppColors.coralAlt,
+          iconColor: isSpotify ? const Color(0xFF1DB954) : AppColors.coralAlt,
           playIconColor:
               isSpotify ? const Color(0xFF1DB954) : AppColors.textMuted,
           leading: isSpotify
@@ -396,21 +396,39 @@ class _AudioHero extends StatelessWidget {
 class _CountRow extends StatelessWidget {
   final int likeCount;
   final int commentCount;
+  final bool liked;
+  final bool likeLoading;
+  final VoidCallback? onLikeTap;
 
   const _CountRow({
     required this.likeCount,
     required this.commentCount,
+    required this.liked,
+    required this.likeLoading,
+    required this.onLikeTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(Icons.favorite_border, size: 18, color: AppColors.textMuted),
-        const SizedBox(width: 6),
-        Text(
-          likeCount.toString(),
-          style: const TextStyle(color: AppColors.textMuted),
+        InkWell(
+          onTap: likeLoading ? null : onLikeTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Row(
+            children: [
+              Icon(
+                liked ? Icons.favorite : Icons.favorite_border,
+                size: 18,
+                color: liked ? AppColors.coralAlt : AppColors.textMuted,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                likeCount.toString(),
+                style: const TextStyle(color: AppColors.textMuted),
+              ),
+            ],
+          ),
         ),
         const SizedBox(width: 16),
         const Icon(Icons.chat_bubble_outline,
@@ -425,36 +443,16 @@ class _CountRow extends StatelessWidget {
   }
 }
 
-class _CommentBubble extends StatefulWidget {
-  final String username;
-  final String message;
-  final String time;
-  final String? avatarUrl;
-  final int likeCount;
-  final ValueChanged<String>? onReply;
+class _CommentBubble extends StatelessWidget {
+  final CommentItem comment;
+  final String timeLabel;
+  final VoidCallback onReply;
 
   const _CommentBubble({
-    required this.username,
-    required this.message,
-    required this.time,
-    this.avatarUrl,
-    required this.likeCount,
-    this.onReply,
+    required this.comment,
+    required this.timeLabel,
+    required this.onReply,
   });
-
-  @override
-  State<_CommentBubble> createState() => _CommentBubbleState();
-}
-
-class _CommentBubbleState extends State<_CommentBubble> {
-  bool _liked = false;
-  late int _count;
-
-  @override
-  void initState() {
-    super.initState();
-    _count = widget.likeCount;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -466,9 +464,10 @@ class _CommentBubbleState extends State<_CommentBubble> {
           CircleAvatar(
             radius: 18,
             backgroundColor: AppColors.navBlueSoft,
-            backgroundImage:
-                widget.avatarUrl != null ? NetworkImage(widget.avatarUrl!) : null,
-            child: widget.avatarUrl == null
+            backgroundImage: comment.user.avatarUrl != null
+                ? NetworkImage(comment.user.avatarUrl!)
+                : null,
+            child: comment.user.avatarUrl == null
                 ? const Icon(Icons.person, size: 18, color: AppColors.textMuted)
                 : null,
           ),
@@ -478,7 +477,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.username,
+                  '@${comment.user.username}',
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -486,14 +485,14 @@ class _CommentBubbleState extends State<_CommentBubble> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.message,
+                  comment.text,
                   style: const TextStyle(color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
                     Text(
-                      widget.time,
+                      timeLabel,
                       style: const TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 11,
@@ -501,7 +500,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                     ),
                     const SizedBox(width: 12),
                     InkWell(
-                      onTap: () => widget.onReply?.call(widget.message),
+                      onTap: onReply,
                       borderRadius: BorderRadius.circular(8),
                       child: const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -512,50 +511,6 @@ class _CommentBubbleState extends State<_CommentBubble> {
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          _liked = !_liked;
-                          _count += _liked ? 1 : -1;
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        child: Row(
-                          children: [
-                            _liked
-                                ? ShaderMask(
-                                    shaderCallback: (bounds) =>
-                                        const LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: AppColors.brandGradient,
-                                        ).createShader(bounds),
-                                    child: const Icon(
-                                      Icons.favorite,
-                                      size: 14,
-                                      color: AppColors.white,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.favorite_border,
-                                    size: 14,
-                                    color: AppColors.textMuted,
-                                  ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _count.toString(),
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ),
@@ -571,88 +526,75 @@ class _CommentBubbleState extends State<_CommentBubble> {
 }
 
 class _CommentInput extends StatelessWidget {
+  final TextEditingController controller;
   final FocusNode focusNode;
   final String? replyTo;
-  final String? replyMessage;
+  final bool submitting;
+  final VoidCallback onSend;
   final VoidCallback onClearReply;
 
   const _CommentInput({
+    required this.controller,
     required this.focusNode,
     required this.replyTo,
-    required this.replyMessage,
+    required this.submitting,
+    required this.onSend,
     required this.onClearReply,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.inputFill,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (replyTo != null && replyMessage != null)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.navBlueSoft,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Yanıtlanıyor $replyTo',
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          replyMessage!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: onClearReply,
-                    icon: const Icon(
-                      Icons.close,
-                      color: AppColors.textMuted,
-                      size: 18,
-                    ),
-                  ),
-                ],
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (replyTo != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.navBlueSoft,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
             ),
-          Row(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Yanitlaniyor $replyTo',
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: onClearReply,
+                  icon: const Icon(Icons.close, size: 16),
+                ),
+              ],
+            ),
+          ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.navBlueSoft,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
             children: [
               const Icon(Icons.sentiment_satisfied_alt,
                   size: 18, color: AppColors.textMuted),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: TextField(
+                  controller: controller,
                   focusNode: focusNode,
+                  minLines: 1,
+                  maxLines: 3,
                   decoration: InputDecoration(
-                    hintText:
-                        replyTo == null ? 'Yorum yaz...' : 'Yanıtla $replyTo',
+                    hintText: replyTo == null ? 'Yorum yaz...' : 'Yanitla $replyTo',
                     hintStyle: const TextStyle(color: AppColors.textMuted),
                     border: InputBorder.none,
                     isDense: true,
@@ -660,59 +602,16 @@ class _CommentInput extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.send, color: AppColors.coralAlt),
+                onPressed: submitting ? null : onSend,
+                icon: Icon(
+                  Icons.send,
+                  color: submitting ? AppColors.textMuted : AppColors.coralAlt,
+                ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReplyRow extends StatelessWidget {
-  final String username;
-  final String message;
-
-  const _ReplyRow({
-    required this.username,
-    required this.message,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const CircleAvatar(
-            radius: 12,
-            backgroundColor: AppColors.navBlueSoft,
-            child: Icon(Icons.person, size: 12, color: AppColors.textMuted),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                children: [
-                  TextSpan(
-                    text: username,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const TextSpan(text: '  '),
-                  TextSpan(text: message),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -58,12 +58,12 @@ class _GradientTextFieldState extends State<GradientTextField> {
         boxShadow: _isFocused
             ? [
                 BoxShadow(
-                  color: const Color(0xFF9B5DE5).withOpacity(0.22),
+                  color: const Color(0xFF9B5DE5).withValues(alpha: 0.22),
                   blurRadius: 8,
                   spreadRadius: 0,
                 ),
                 BoxShadow(
-                  color: const Color(0xFFF47C7C).withOpacity(0.12),
+                  color: const Color(0xFFF47C7C).withValues(alpha: 0.12),
                   blurRadius: 12,
                   spreadRadius: 0,
                 ),
@@ -96,7 +96,10 @@ class _GradientTextFieldState extends State<GradientTextField> {
             filled: true,
             fillColor: AppColors.inputFill,
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 18,
+            ),
             hintStyle: const TextStyle(color: AppColors.textMuted),
           ),
         ),

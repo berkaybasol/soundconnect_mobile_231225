@@ -59,13 +59,13 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 28),
               GradientTextField(
                 controller: _usernameController,
-                label: 'Kullanici adi',
+                label: 'Kullanıcı adı',
                 prefixIcon: Icons.person_outline,
               ),
               const SizedBox(height: 16),
               GradientTextField(
                 controller: _passwordController,
-                label: 'Sifre',
+                label: 'Şifre',
                 prefixIcon: Icons.lock_outline,
                 obscureText: _isPasswordObscured,
                 suffixIcon: IconButton(
@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: const Text(
-                      'Sifreni mi unuttun?',
+                      'Şifreni mi unuttun?',
                       style: TextStyle(color: AppColors.textMuted),
                     ),
                   ),
@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (password.length < 3 || password.length > 30) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('kullanıcı adı 3-30 karakter olmalı'),
+                              content: Text('Şifre 3-30 karakter olmalı'),
                             ),
                           );
                           return;
@@ -143,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               password: password,
                             );
                       },
-                child: Text(isLoading ? 'Giris yapiliyor...' : 'Giris yap'),
+                child: Text(isLoading ? 'Giriş yapılıyor...' : 'Giriş yap'),
               ),
               const SizedBox(height: 18),
               Row(
@@ -183,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   TextButton(
                     onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
-                    child: const Text('Uye ol'),
+                    child: const Text('Üye ol'),
                   ),
                 ],
               ),

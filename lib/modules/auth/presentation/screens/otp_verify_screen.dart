@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -97,39 +97,47 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
       listener: (context, state) {
         if (state.action == AuthAction.verify &&
             state.status == AuthStatus.success) {
-          final isVenuePending = _role == 'ROLE_VENUE' ||
-              state.registerResult?.status == UserStatus.pendingVenueRequest;
-          if (isVenuePending) {
-            Navigator.pushReplacementNamed(context, AppRoutes.venuePending);
-            return;
-          }
-          Navigator.pushNamed(context, AppRoutes.login);
-        } else if (state.status == AuthStatus.failure &&
-            (state.action == AuthAction.verify || state.action == AuthAction.resend)) {
-          final message = state.error?.message ?? 'Verification failed';
+          final navigator = Navigator.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
+            const SnackBar(content: Text("SoundConnect'e hoş geldin!")),
           );
+          final isVenuePending =
+              _role == 'ROLE_VENUE' ||
+              state.registerResult?.status == UserStatus.pendingVenueRequest;
+          Future<void>.delayed(const Duration(milliseconds: 450), () {
+            if (!mounted) return;
+            if (isVenuePending) {
+              navigator.pushReplacementNamed(AppRoutes.venuePending);
+              return;
+            }
+            navigator.pushNamed(AppRoutes.login);
+          });
+        } else if (state.action == AuthAction.resend &&
+            state.status == AuthStatus.success &&
+            state.resendResult != null) {
+          _startCountdown(state.resendResult!.otpTtlSeconds.toInt());
+        } else if (state.status == AuthStatus.failure &&
+            (state.action == AuthAction.verify ||
+                state.action == AuthAction.resend)) {
+          final message = state.error?.message ?? 'Verification failed';
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
       },
       builder: (context, state) {
         final isVerifying =
-            state.status == AuthStatus.loading && state.action == AuthAction.verify;
+            state.status == AuthStatus.loading &&
+            state.action == AuthAction.verify;
         final isResending =
-            state.status == AuthStatus.loading && state.action == AuthAction.resend;
+            state.status == AuthStatus.loading &&
+            state.action == AuthAction.resend;
         final resendInfo = state.resendResult;
         final effectiveEmail = _email ?? state.registerResult?.email;
-        final canSubmit =
-            effectiveEmail != null && effectiveEmail.isNotEmpty;
-
-        if (state.action == AuthAction.resend &&
-            state.status == AuthStatus.success &&
-            resendInfo != null) {
-          _startCountdown(resendInfo.otpTtlSeconds.toInt());
-        }
+        final canSubmit = effectiveEmail != null && effectiveEmail.isNotEmpty;
 
         return AppScaffold(
-          title: 'E-postayi dogrula',
+          title: 'E-postayı doğrula',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -160,7 +168,10 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                     ],
                     decoration: InputDecoration(
                       labelText: 'Kod',
-                      prefixIcon: Icon(Icons.verified_outlined, color: iconColor),
+                      prefixIcon: Icon(
+                        Icons.verified_outlined,
+                        color: iconColor,
+                      ),
                     ),
                   );
                 },
@@ -170,19 +181,16 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                 onPressed: isVerifying || !canSubmit
                     ? null
                     : () {
-                        if (effectiveEmail == null ||
-                            effectiveEmail.isEmpty) {
+                        if (effectiveEmail.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('email boş olamaz'),
-                            ),
+                            const SnackBar(content: Text('E-posta boş olamaz')),
                           );
                           return;
                         }
                         if (!_isValidEmail(effectiveEmail)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('geçerli bir email giriniz'),
+                              content: Text('Geçerli bir e-posta giriniz'),
                             ),
                           );
                           return;
@@ -190,16 +198,16 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                         final code = _codeController.text.trim();
                         if (code.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('kod boş olamaz'),
-                            ),
+                            const SnackBar(content: Text('Kod boş olamaz')),
                           );
                           return;
                         }
                         if (_remainingSeconds <= 0) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Kodun suresi doldu. Tekrar gonder.'),
+                              content: Text(
+                                'Kodun süresi doldu. Tekrar gönder.',
+                              ),
                             ),
                           );
                           return;
@@ -213,42 +221,39 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                           return;
                         }
                         context.read<AuthCubit>().verifyCode(
-                              email: effectiveEmail,
-                              code: code,
-                            );
+                          email: effectiveEmail,
+                          code: code,
+                        );
                       },
-                child: Text(isVerifying ? 'Dogrulaniyor...' : 'Dogrula'),
+                child: Text(isVerifying ? 'Doğrulanıyor...' : 'Doğrula'),
               ),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: isResending || !canSubmit
                     ? null
                     : () {
-                        if (effectiveEmail == null ||
-                            effectiveEmail.isEmpty) {
+                        if (effectiveEmail.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('email boş olamaz'),
-                            ),
+                            const SnackBar(content: Text('E-posta boş olamaz')),
                           );
                           return;
                         }
                         if (!_isValidEmail(effectiveEmail)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('geçerli bir email giriniz'),
+                              content: Text('Geçerli bir e-posta giriniz'),
                             ),
                           );
                           return;
                         }
-                        context
-                            .read<AuthCubit>()
-                            .resendCode(email: effectiveEmail);
+                        context.read<AuthCubit>().resendCode(
+                          email: effectiveEmail,
+                        );
                       },
                 child: Text(
                   isResending
-                      ? 'Tekrar gonderiliyor...'
-                      : 'Tekrar gonder (${resendInfo?.cooldownSeconds ?? 30}s)',
+                      ? 'Tekrar gönderiliyor...'
+                      : 'Tekrar gönder (${resendInfo?.cooldownSeconds ?? 30}s)',
                 ),
               ),
             ],

@@ -116,7 +116,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Mekan bilgilerini paylas',
+                'Mekan bilgilerini paylaş',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
@@ -127,7 +127,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
               const SizedBox(height: 16),
               GradientTextField(
                 controller: _venueNameController,
-                label: 'Mekan adi',
+                label: 'Mekan adı',
                 prefixIcon: Icons.storefront_outlined,
               ),
               const SizedBox(height: 12),
@@ -167,7 +167,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                             borderSide: const BorderSide(color: AppColors.border),
                           ),
                           prefixIcon: const Icon(Icons.location_city_outlined),
-                          hintText: 'Sehir sec',
+                          hintText: 'Şehir seç',
                         ),
                         dropdownColor: AppColors.navBlueSoft,
                         items: locationState.cities
@@ -206,7 +206,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                             borderSide: const BorderSide(color: AppColors.border),
                           ),
                           prefixIcon: const Icon(Icons.map_outlined),
-                          hintText: 'Ilce sec',
+                          hintText: 'İlçe seç',
                         ),
                         dropdownColor: AppColors.navBlueSoft,
                         items: locationState.districts
@@ -244,7 +244,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                             borderSide: const BorderSide(color: AppColors.border),
                           ),
                           prefixIcon: const Icon(Icons.place_outlined),
-                          hintText: 'Mahalle sec (opsiyonel)',
+                          hintText: 'Mahalle seç (opsiyonel)',
                         ),
                         dropdownColor: AppColors.navBlueSoft,
                         items: locationState.neighborhoods

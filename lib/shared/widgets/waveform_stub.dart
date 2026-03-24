@@ -9,11 +9,14 @@ class WaveformStub extends StatelessWidget {
   final Widget? leading;
   final Widget? footer;
   final VoidCallback? onPlay;
+  final VoidCallback? onBack10;
+  final VoidCallback? onForward10;
   final bool isPlaying;
   final double progress;
   final ValueChanged<double>? onSeek;
   final double height;
   final double waveformHeight;
+  final List<double>? samples;
 
   const WaveformStub({
     super.key,
@@ -24,24 +27,109 @@ class WaveformStub extends StatelessWidget {
     this.leading,
     this.footer,
     this.onPlay,
+    this.onBack10,
+    this.onForward10,
     this.isPlaying = false,
     this.progress = 0,
     this.onSeek,
     this.height = 68,
     this.waveformHeight = 44,
+    this.samples,
   });
 
   static const _samples = [
-    0.18, 0.32, 0.24, 0.58, 0.4, 0.7, 0.28, 0.82, 0.36,
-    0.6, 0.22, 0.76, 0.44, 0.88, 0.3, 0.64, 0.2, 0.72,
-    0.52, 0.34, 0.84, 0.26, 0.62, 0.4, 0.78, 0.24, 0.56,
-    0.38, 0.86, 0.32, 0.68, 0.22, 0.74, 0.48, 0.9, 0.28,
-    0.6, 0.3, 0.8, 0.42, 0.66, 0.2, 0.76, 0.36, 0.58,
-    0.26, 0.88, 0.4, 0.7, 0.22, 0.64, 0.34, 0.82, 0.3,
-    0.72, 0.24, 0.6, 0.46, 0.78, 0.28, 0.68, 0.38, 0.84,
-    0.0, 0.0, 0.0, 0.2, 0.62, 0.32, 0.74, 0.26, 0.56,
-    0.4, 0.8, 0.3,
+    0.18,
+    0.32,
+    0.24,
+    0.58,
+    0.4,
+    0.7,
+    0.28,
+    0.82,
+    0.36,
+    0.6,
+    0.22,
+    0.76,
+    0.44,
+    0.88,
+    0.3,
+    0.64,
+    0.2,
+    0.72,
+    0.52,
+    0.34,
+    0.84,
+    0.26,
+    0.62,
+    0.4,
+    0.78,
+    0.24,
+    0.56,
+    0.38,
+    0.86,
+    0.32,
+    0.68,
+    0.22,
+    0.74,
+    0.48,
+    0.9,
+    0.28,
+    0.6,
+    0.3,
+    0.8,
+    0.42,
+    0.66,
+    0.2,
+    0.76,
+    0.36,
+    0.58,
+    0.26,
+    0.88,
+    0.4,
+    0.7,
+    0.22,
+    0.64,
+    0.34,
+    0.82,
+    0.3,
+    0.72,
+    0.24,
+    0.6,
+    0.46,
+    0.78,
+    0.28,
+    0.68,
+    0.38,
+    0.84,
+    0.0,
+    0.0,
+    0.0,
+    0.2,
+    0.62,
+    0.32,
+    0.74,
+    0.26,
+    0.56,
+    0.4,
+    0.8,
+    0.3,
   ];
+
+  static List<double> samplesFromSeed(String seed, {int length = 76}) {
+    var hash = 17;
+    for (final unit in seed.codeUnits) {
+      hash = 31 * hash + unit;
+      hash &= 0x7fffffff;
+    }
+    var state = hash == 0 ? 1 : hash;
+    final out = <double>[];
+    for (var i = 0; i < length; i++) {
+      state = (1103515245 * state + 12345) & 0x7fffffff;
+      final v = ((state % 82) + 12) / 100.0; // 0.12 - 0.94
+      out.add(v.clamp(0.08, 0.96));
+    }
+    return out;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,12 +155,9 @@ class WaveformStub extends StatelessWidget {
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Center(
-                  child: leading ??
-                      Icon(
-                        Icons.music_note,
-                        size: 16,
-                        color: iconColor,
-                      ),
+                  child:
+                      leading ??
+                      Icon(Icons.music_note, size: 16, color: iconColor),
                 ),
               ),
               const SizedBox(width: 6),
@@ -83,79 +168,69 @@ class WaveformStub extends StatelessWidget {
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
                       final clampedProgress = progress.clamp(0.0, 1.0);
-                      final lineLeft = width * clampedProgress;
+                      final waveformSamples =
+                          (samples != null && samples!.isNotEmpty)
+                          ? samples!
+                          : _samples;
 
                       return GestureDetector(
                         behavior: HitTestBehavior.translucent,
                         onTapDown: onSeek == null
                             ? null
                             : (details) {
-                                final ratio =
-                                    details.localPosition.dx / width;
+                                final ratio = details.localPosition.dx / width;
                                 onSeek?.call(ratio.clamp(0.0, 1.0));
                               },
                         onHorizontalDragUpdate: onSeek == null
                             ? null
                             : (details) {
-                                final ratio =
-                                    details.localPosition.dx / width;
+                                final ratio = details.localPosition.dx / width;
                                 onSeek?.call(ratio.clamp(0.0, 1.0));
                               },
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            CustomPaint(
-                              painter: _WaveformPainter(
-                                samples: _samples,
-                                gradientColors: gradientColors,
-                                baseOpacity: 0.35,
-                                progress: clampedProgress,
-                              ),
-                            ),
-                            if (progress > 0)
-                              Positioned(
-                                left: lineLeft.clamp(0.0, width - 1),
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 2,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.7),
-                                    borderRadius: BorderRadius.circular(2),
+                        child: TweenAnimationBuilder<double>(
+                          duration: const Duration(milliseconds: 56),
+                          curve: Curves.linear,
+                          tween: Tween<double>(end: clampedProgress),
+                          builder: (context, animatedProgress, _) {
+                            final lineLeft = width * animatedProgress;
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                CustomPaint(
+                                  painter: _WaveformPainter(
+                                    samples: waveformSamples,
+                                    gradientColors: gradientColors,
+                                    baseOpacity: 0.35,
+                                    progress: animatedProgress,
                                   ),
                                 ),
-                              ),
-                          ],
+                                if (animatedProgress > 0)
+                                  Positioned(
+                                    left: lineLeft.clamp(0.0, width - 1),
+                                    top: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      width: 2,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                       );
                     },
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: onPlay,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppColors.navBlueSoft,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  size: 16,
-                  color: playIconColor,
-                ),
-              ),
-              ),
             ],
           ),
-          if (footer != null) ...[
-            const SizedBox(height: 6),
-            footer!,
-          ],
+          if (footer != null) ...[const SizedBox(height: 6), footer!],
         ],
       ),
     );
@@ -183,15 +258,17 @@ class _WaveformPainter extends CustomPainter {
     final maxAmp = rect.height / 2;
     final barCount = samples.length;
     final gap = 1.5;
-    final barWidth =
-        ((rect.width - (gap * (barCount - 1))) / barCount).clamp(1.2, 3.0);
+    final barWidth = ((rect.width - (gap * (barCount - 1))) / barCount).clamp(
+      1.2,
+      3.0,
+    );
     final basePaint = Paint()
       ..isAntiAlias = true
       ..shader = LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: gradientColors
-            .map((color) => color.withOpacity(baseOpacity))
+            .map((color) => color.withValues(alpha: baseOpacity))
             .toList(),
       ).createShader(rect)
       ..style = PaintingStyle.fill;

@@ -2,6 +2,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
@@ -46,13 +47,52 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
   final FocusNode _commentFocusNode = FocusNode();
   final TextEditingController _commentController = TextEditingController();
   Stream<Duration>? _positionStream;
+  VideoPlayerController? _videoController;
+  bool _videoReady = false;
+  String? _videoError;
 
   String? _replyTo;
   String? _replyToCommentId;
   bool _initializedLoads = false;
 
   @override
+  void initState() {
+    super.initState();
+    _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    if (!widget.isVideo) return;
+    final url = (widget.playbackUrl ?? '').trim();
+    if (url.isEmpty) {
+      setState(() => _videoError = 'Video oynatma bağlantısı bulunamadı.');
+      return;
+    }
+    try {
+      final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      await controller.initialize();
+      controller.setLooping(true);
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() {
+        _videoController = controller;
+        _videoReady = true;
+        _videoError = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _videoReady = false;
+        _videoError = 'Video açılamadı. Lütfen tekrar dene.';
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    _videoController?.dispose();
     _commentFocusNode.dispose();
     _commentController.dispose();
     super.dispose();
@@ -71,6 +111,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
       final isCurrent = currentId == url || currentUrl == url;
       if (isCurrent && isPlaying) {
         await handler.pause();
+      } else if (isCurrent && !isPlaying) {
+        await handler.play();
       } else {
         final duration = widget.durationSeconds != null
             ? Duration(seconds: widget.durationSeconds!)
@@ -83,9 +125,24 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
   Future<void> _seekToRatio(double ratio) async {
     final duration = serviceLocator<AudioHandler>().mediaItem.value?.duration;
     if (duration == null) return;
-    final seconds =
-        (duration.inSeconds * ratio).round().clamp(0, duration.inSeconds);
-    await serviceLocator<AudioHandler>().seek(Duration(seconds: seconds));
+    final milliseconds = (duration.inMilliseconds * ratio)
+        .round()
+        .clamp(0, duration.inMilliseconds)
+        .toInt();
+    await serviceLocator<AudioHandler>().seek(
+      Duration(milliseconds: milliseconds),
+    );
+  }
+
+  Future<void> _seekRelativeSeconds(int deltaSeconds) async {
+    final handler = serviceLocator<AudioHandler>();
+    final duration = handler.mediaItem.value?.duration;
+    final current = handler.playbackState.value.updatePosition;
+    final maxMs = duration?.inMilliseconds ?? 0;
+    final target = (current.inMilliseconds + (deltaSeconds * 1000))
+        .clamp(0, maxMs > 0 ? maxMs : 1 << 30)
+        .toInt();
+    await handler.seek(Duration(milliseconds: target));
   }
 
   Future<void> _sendComment() async {
@@ -101,11 +158,11 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
     }
 
     await context.read<CommentThreadCubit>().create(
-          targetType: targetType,
-          targetId: targetId,
-          text: text,
-          parentCommentId: _replyToCommentId,
-        );
+      targetType: targetType,
+      targetId: targetId,
+      text: text,
+      parentCommentId: _replyToCommentId,
+    );
 
     _commentController.clear();
     if (!mounted) return;
@@ -115,10 +172,10 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
     });
 
     await context.read<InteractionStatsCubit>().load(
-          targetType: targetType,
-          targetId: targetId,
-          force: true,
-        );
+      targetType: targetType,
+      targetId: targetId,
+      force: true,
+    );
   }
 
   String _timeLabel(DateTime? createdAt) {
@@ -138,58 +195,62 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
         : const Stream<Duration>.empty();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(widget.title), centerTitle: true),
       body: StreamBuilder<Duration>(
         stream: _positionStream,
         builder: (context, snapshot) {
           final position = snapshot.data ?? Duration.zero;
           final handler = serviceLocator<AudioHandler>();
           final currentId = handler.mediaItem.value?.id;
-          final currentUrl = handler.mediaItem.value?.extras?['url']?.toString();
+          final currentUrl = handler.mediaItem.value?.extras?['url']
+              ?.toString();
           final isPlaying = handler.playbackState.value.playing;
-          final isCurrent = widget.playbackUrl != null &&
-              (widget.playbackUrl == currentId || widget.playbackUrl == currentUrl);
+          final isCurrent =
+              widget.playbackUrl != null &&
+              (widget.playbackUrl == currentId ||
+                  widget.playbackUrl == currentUrl);
 
-          final totalSeconds = widget.isVideo || !isCurrent
+          final totalMs = widget.isVideo || !isCurrent
               ? 0
-              : (widget.durationSeconds ??
-                  handler.mediaItem.value?.duration?.inSeconds ??
-                  0);
-          final progress = totalSeconds > 0
-              ? (position.inSeconds / totalSeconds).clamp(0.0, 1.0)
+              : ((widget.durationSeconds ?? 0) > 0
+                    ? (widget.durationSeconds! * 1000)
+                    : (handler.mediaItem.value?.duration?.inMilliseconds ?? 0));
+          final progress = totalMs > 0
+              ? (position.inMilliseconds / totalMs).clamp(0.0, 1.0)
               : 0.0;
 
           final targetType = widget.targetType;
           final targetId = widget.targetId;
-          final hasTarget = targetType != null &&
+          final hasTarget =
+              targetType != null &&
               targetType.isNotEmpty &&
               targetId != null &&
               targetId.isNotEmpty;
 
-              if (hasTarget && !_initializedLoads) {
-                _initializedLoads = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  context.read<InteractionStatsCubit>().load(
-                    targetType: targetType!,
-                    targetId: targetId!,
-                  );
-                  context.read<CommentThreadCubit>().load(
-                    targetType: targetType!,
-                    targetId: targetId!,
-                  );
-                });
-              }
+          if (hasTarget && !_initializedLoads) {
+            _initializedLoads = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              context.read<InteractionStatsCubit>().load(
+                targetType: targetType,
+                targetId: targetId,
+              );
+              context.read<CommentThreadCubit>().load(
+                targetType: targetType,
+                targetId: targetId,
+              );
+            });
+          }
 
           final stats = hasTarget
-              ? context.watch<InteractionStatsCubit>().state.items[
-                  '$targetType:$targetId']
+              ? context
+                    .watch<InteractionStatsCubit>()
+                    .state
+                    .items['$targetType:$targetId']
               : null;
           final resolvedLikeCount = stats?.likeCount ?? widget.likeCount;
-          final resolvedCommentCount = stats?.commentCount ?? widget.commentCount;
+          final resolvedCommentCount =
+              stats?.commentCount ?? widget.commentCount;
           final resolvedIsLiked = stats?.isLiked ?? false;
           final likeLoading = stats?.loading ?? false;
 
@@ -197,13 +258,20 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             children: [
               if (widget.isVideo)
-                _VideoHero(thumbnailUrl: widget.thumbnailUrl)
+                _VideoHero(
+                  controller: _videoController,
+                  thumbnailUrl: widget.thumbnailUrl,
+                  ready: _videoReady,
+                  errorText: _videoError,
+                )
               else
                 _AudioHero(
                   title: widget.title,
                   isSpotify: widget.isSpotify,
                   playbackUrl: widget.playbackUrl,
                   onPlay: _togglePlayback,
+                  onBack10: () => _seekRelativeSeconds(-10),
+                  onForward10: () => _seekRelativeSeconds(10),
                   isPlaying: isCurrent && isPlaying,
                   progress: progress,
                   onSeek: _seekToRatio,
@@ -217,9 +285,9 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                 onLikeTap: !hasTarget
                     ? null
                     : () => context.read<InteractionStatsCubit>().toggleLike(
-                          targetType: targetType!,
-                          targetId: targetId!,
-                        ),
+                        targetType: targetType,
+                        targetId: targetId,
+                      ),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -247,12 +315,14 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                   }
                   if (commentState.comments.isEmpty) {
                     return const Text(
-                      'Henuz yorum yok.',
+                      'Henüz yorum yok.',
                       style: TextStyle(color: AppColors.textMuted),
                     );
                   }
                   return Column(
-                    children: List.generate(commentState.comments.length, (index) {
+                    children: List.generate(commentState.comments.length, (
+                      index,
+                    ) {
                       final item = commentState.comments[index];
                       return Column(
                         children: [
@@ -279,7 +349,10 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                 controller: _commentController,
                 focusNode: _commentFocusNode,
                 replyTo: _replyTo,
-                submitting: context.watch<CommentThreadCubit>().state.submitting,
+                submitting: context
+                    .watch<CommentThreadCubit>()
+                    .state
+                    .submitting,
                 onSend: _sendComment,
                 onClearReply: () => setState(() {
                   _replyTo = null;
@@ -295,12 +368,24 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
 }
 
 class _VideoHero extends StatelessWidget {
+  final VideoPlayerController? controller;
   final String? thumbnailUrl;
+  final bool ready;
+  final String? errorText;
 
-  const _VideoHero({this.thumbnailUrl});
+  const _VideoHero({
+    required this.controller,
+    required this.thumbnailUrl,
+    required this.ready,
+    required this.errorText,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final c = controller;
+    final showVideo = ready && c != null && c.value.isInitialized;
+    final isPlaying = showVideo && c.value.isPlaying;
+
     return Container(
       height: 240,
       decoration: BoxDecoration(
@@ -314,12 +399,64 @@ class _VideoHero extends StatelessWidget {
               )
             : null,
       ),
-      child: const Center(
-        child: Icon(
-          Icons.play_circle_fill,
-          size: 64,
-          color: AppColors.white,
-        ),
+      child: Stack(
+        children: [
+          if (showVideo)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: c.value.size.width,
+                    height: c.value.size.height,
+                    child: VideoPlayer(c),
+                  ),
+                ),
+              ),
+            ),
+          Positioned.fill(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: showVideo
+                    ? () {
+                        if (c.value.isPlaying) {
+                          c.pause();
+                        } else {
+                          c.play();
+                        }
+                      }
+                    : null,
+                child: Center(
+                  child: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_fill,
+                    size: 64,
+                    color: AppColors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (!showVideo)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Text(
+                errorText ?? 'Video yükleniyor...',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -330,6 +467,8 @@ class _AudioHero extends StatelessWidget {
   final bool isSpotify;
   final String? playbackUrl;
   final VoidCallback onPlay;
+  final VoidCallback onBack10;
+  final VoidCallback onForward10;
   final bool isPlaying;
   final double progress;
   final ValueChanged<double> onSeek;
@@ -339,6 +478,8 @@ class _AudioHero extends StatelessWidget {
     required this.isSpotify,
     required this.playbackUrl,
     required this.onPlay,
+    required this.onBack10,
+    required this.onForward10,
     required this.isPlaying,
     required this.progress,
     required this.onSeek,
@@ -346,49 +487,136 @@ class _AudioHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.inputFill,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          WaveformStub(
+            gradientColors: isSpotify
+                ? const [
+                    Color(0xFF1ED760),
+                    Color(0xFF1DB954),
+                    Color(0xFF18A34A),
+                  ]
+                : AppColors.brandGradient,
+            iconColor: isSpotify ? const Color(0xFF1DB954) : AppColors.coralAlt,
+            playIconColor: isSpotify
+                ? const Color(0xFF1DB954)
+                : AppColors.textMuted,
+            leading: isSpotify
+                ? const Icon(
+                    FontAwesomeIcons.spotify,
+                    size: 16,
+                    color: Color(0xFF1DB954),
+                  )
+                : Image.asset(
+                    'assets/logo.png',
+                    width: 26,
+                    height: 26,
+                    fit: BoxFit.contain,
+                  ),
+            height: 92,
+            waveformHeight: 44,
+            isPlaying: isPlaying,
+            progress: progress,
+            onSeek: onSeek,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _TransportButton(
+                icon: Icons.replay_10_rounded,
+                onTap: playbackUrl == null || playbackUrl!.isEmpty
+                    ? null
+                    : onBack10,
+                color: isSpotify
+                    ? const Color(0xFF1DB954)
+                    : AppColors.textMuted,
+              ),
+              const SizedBox(width: 10),
+              _TransportButton(
+                icon: isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                onTap: playbackUrl == null || playbackUrl!.isEmpty
+                    ? null
+                    : onPlay,
+                color: isSpotify
+                    ? const Color(0xFF1DB954)
+                    : AppColors.textMuted,
+                big: true,
+              ),
+              const SizedBox(width: 10),
+              _TransportButton(
+                icon: Icons.forward_10_rounded,
+                onTap: playbackUrl == null || playbackUrl!.isEmpty
+                    ? null
+                    : onForward10,
+                color: isSpotify
+                    ? const Color(0xFF1DB954)
+                    : AppColors.textMuted,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransportButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  final Color color;
+  final bool big;
+
+  const _TransportButton({
+    required this.icon,
+    required this.onTap,
+    required this.color,
+    this.big = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: Container(
+            width: big ? 36 : 32,
+            height: big ? 36 : 32,
+            decoration: BoxDecoration(
+              color: AppColors.navBlueSoft,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Icon(icon, size: big ? 20 : 16, color: color),
           ),
         ),
-        const SizedBox(height: 10),
-        WaveformStub(
-          gradientColors: isSpotify
-              ? const [
-                  Color(0xFF1ED760),
-                  Color(0xFF1DB954),
-                  Color(0xFF18A34A),
-                ]
-              : AppColors.brandGradient,
-          iconColor: isSpotify ? const Color(0xFF1DB954) : AppColors.coralAlt,
-          playIconColor:
-              isSpotify ? const Color(0xFF1DB954) : AppColors.textMuted,
-          leading: isSpotify
-              ? const Icon(
-                  FontAwesomeIcons.spotify,
-                  size: 16,
-                  color: Color(0xFF1DB954),
-                )
-              : Image.asset(
-                  'assets/logo.png',
-                  width: 26,
-                  height: 26,
-                  fit: BoxFit.contain,
-                ),
-          height: 92,
-          waveformHeight: 44,
-          onPlay: playbackUrl == null || playbackUrl!.isEmpty ? null : onPlay,
-          isPlaying: isPlaying,
-          progress: progress,
-          onSeek: onSeek,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -431,8 +659,11 @@ class _CountRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 16),
-        const Icon(Icons.chat_bubble_outline,
-            size: 18, color: AppColors.textMuted),
+        const Icon(
+          Icons.chat_bubble_outline,
+          size: 18,
+          color: AppColors.textMuted,
+        ),
         const SizedBox(width: 6),
         Text(
           commentCount.toString(),
@@ -503,9 +734,12 @@ class _CommentBubble extends StatelessWidget {
                       onTap: onReply,
                       borderRadius: BorderRadius.circular(8),
                       child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
                         child: Text(
-                          'Yanitla',
+                          'Yanıtla',
                           style: TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 11,
@@ -560,7 +794,7 @@ class _CommentInput extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Yanitlaniyor $replyTo',
+                    'Yanıtlanıyor $replyTo',
                     style: const TextStyle(
                       color: AppColors.textMuted,
                       fontSize: 12,
@@ -584,8 +818,11 @@ class _CommentInput extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.sentiment_satisfied_alt,
-                  size: 18, color: AppColors.textMuted),
+              const Icon(
+                Icons.sentiment_satisfied_alt,
+                size: 18,
+                color: AppColors.textMuted,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: TextField(
@@ -594,7 +831,9 @@ class _CommentInput extends StatelessWidget {
                   minLines: 1,
                   maxLines: 3,
                   decoration: InputDecoration(
-                    hintText: replyTo == null ? 'Yorum yaz...' : 'Yanitla $replyTo',
+                    hintText: replyTo == null
+                        ? 'Yorum yaz...'
+                        : 'Yanıtla $replyTo',
                     hintStyle: const TextStyle(color: AppColors.textMuted),
                     border: InputBorder.none,
                     isDense: true,

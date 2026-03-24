@@ -3,6 +3,7 @@ import '../../../spotify/domain/entities/spotify_track_preview.dart';
 class MusicianProfile {
   final String id;
   final String userId;
+  final String? username;
   final String? stageName;
   final String? bio;
   final String? profilePicture;
@@ -20,6 +21,7 @@ class MusicianProfile {
   const MusicianProfile({
     required this.id,
     required this.userId,
+    required this.username,
     required this.stageName,
     required this.bio,
     required this.profilePicture,

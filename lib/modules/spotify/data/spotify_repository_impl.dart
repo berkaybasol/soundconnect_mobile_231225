@@ -20,15 +20,33 @@ class SpotifyRepositoryImpl implements SpotifyRepository {
     try {
       final response = await _apiClient.get<List<SpotifyTrackPreview>>(
         SpotifyEndpoints.searchTracks,
-        query: {
-          'q': query,
-          'limit': limit,
-        },
+        query: {'q': query, 'limit': limit},
         decoder: (json) {
-          final data = json as Map<String, dynamic>? ?? {};
-          final list = data['tracks'] as List<dynamic>? ?? [];
+          List<dynamic> extractTrackList(Object? node) {
+            if (node is List<dynamic>) return node;
+            if (node is! Map<String, dynamic>) return const [];
+
+            final tracks = node['tracks'];
+            if (tracks is List<dynamic>) return tracks;
+
+            if (tracks is Map<String, dynamic>) {
+              final nestedTracks = tracks['tracks'];
+              if (nestedTracks is List<dynamic>) return nestedTracks;
+              final items = tracks['items'];
+              if (items is List<dynamic>) return items;
+            }
+
+            final items = node['items'];
+            if (items is List<dynamic>) return items;
+
+            return const [];
+          }
+
+          // ApiClient already unwraps BaseResponse.data and passes only raw data.
+          final list = extractTrackList(json);
           return list
-              .whereType<Map<String, dynamic>>()
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
               .map(SpotifyTrackPreviewModel.fromJson)
               .toList();
         },
@@ -37,10 +55,12 @@ class SpotifyRepositoryImpl implements SpotifyRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'spotify_search_unknown',
-        message: 'Spotify arama sonucu alinmadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'spotify_search_unknown',
+          message: 'Spotify arama sonucu alinmadi',
+        ),
+      );
     }
   }
 
@@ -53,9 +73,11 @@ class SpotifyRepositoryImpl implements SpotifyRepository {
         SpotifyEndpoints.tracksByIds,
         body: {'ids': ids},
         decoder: (json) {
-          final list = json as List<dynamic>? ?? [];
+          // ApiClient already unwraps BaseResponse.data and passes only raw data.
+          final list = json is List<dynamic> ? json : const <dynamic>[];
           return list
-              .whereType<Map<String, dynamic>>()
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
               .map(SpotifyTrackPreviewModel.fromJson)
               .toList();
         },
@@ -64,10 +86,12 @@ class SpotifyRepositoryImpl implements SpotifyRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'spotify_tracks_by_ids_unknown',
-        message: 'Spotify track listesi alinmadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'spotify_tracks_by_ids_unknown',
+          message: 'Spotify track listesi alinmadi',
+        ),
+      );
     }
   }
 }

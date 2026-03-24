@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -53,21 +53,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       id: 'ROLE_VENUE',
       title: 'Mekan Temsilcisiyim',
       icon: Icons.storefront_outlined,
-      badge: 'Basvuru',
+      badge: 'Başvuru',
     ),
     _RoleOption(
       id: 'ROLE_STUDIO',
-      title: 'Studyo Temsilcisiyim',
+      title: 'Stüdyo Temsilcisiyim',
       icon: Icons.mic_none,
     ),
     _RoleOption(
       id: 'ROLE_PRODUCER',
-      title: 'Produktor',
+      title: 'Prodüktörüm',
       icon: Icons.graphic_eq,
     ),
     _RoleOption(
       id: 'ROLE_ORGANIZER',
-      title: 'Organizatorum',
+      title: 'Organizatörüm',
       icon: Icons.event,
     ),
   ];
@@ -109,9 +109,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool _isValidEmail(String value) {
@@ -123,7 +123,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     switch (index) {
       case 0:
         final username = _usernameController.text.trim();
-        return username.isNotEmpty && username.length >= 3 && username.length <= 30;
+        return username.isNotEmpty &&
+            username.length >= 3 &&
+            username.length <= 30;
       case 1:
         final email = _emailController.text.trim();
         return email.isNotEmpty && _isValidEmail(email);
@@ -194,28 +196,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (_selectedRole == 'ROLE_VENUE') {
       context.read<AuthCubit>().register(
-            username: _usernameController.text.trim(),
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim(),
-            rePassword: _rePasswordController.text.trim(),
-            role: _selectedRole ?? '',
-            venueName: _venueNameController.text.trim(),
-            venueAddress: _venueAddressController.text.trim(),
-            phone: _venuePhoneController.text.trim(),
-            cityId: _selectedCityId,
-            districtId: _selectedDistrictId,
-            neighborhoodId: _selectedNeighborhoodId,
-          );
+        username: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        rePassword: _rePasswordController.text.trim(),
+        role: _selectedRole ?? '',
+        venueName: _venueNameController.text.trim(),
+        venueAddress: _venueAddressController.text.trim(),
+        phone: _venuePhoneController.text.trim(),
+        cityId: _selectedCityId,
+        districtId: _selectedDistrictId,
+        neighborhoodId: _selectedNeighborhoodId,
+      );
       return;
     }
 
     context.read<AuthCubit>().register(
-          username: _usernameController.text.trim(),
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-          rePassword: _rePasswordController.text.trim(),
-          role: _selectedRole ?? '',
-        );
+      username: _usernameController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+      rePassword: _rePasswordController.text.trim(),
+      role: _selectedRole ?? '',
+    );
   }
 
   void _back() {
@@ -268,10 +270,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: children,
-    );
+    return Row(mainAxisAlignment: MainAxisAlignment.center, children: children);
   }
 
   Widget _buildStepConnector(int index, double progressValue) {
@@ -280,9 +279,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       width: 22,
       height: 2,
       margin: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        color: Color.lerp(AppColors.border, AppColors.coralAlt, fill),
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(99),
+        child: Stack(
+          children: [
+            Container(color: AppColors.border),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: fill,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(colors: AppColors.brandGradient),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -310,7 +324,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         boxShadow: isActive || isComplete
             ? [
                 BoxShadow(
-                  color: const Color(0xFF9B5DE5).withOpacity(0.16),
+                  color: const Color(0xFF9B5DE5).withValues(alpha: 0.16),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),
@@ -341,18 +355,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Kullanici adi olustur',
+          'Kullanıcı adı oluştur',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         const Text(
-          'Hesap olusturmak icin bir kullanici adi ekle.',
+          'Hesap oluşturmak için bir kullanıcı adı ekle.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 12),
         GradientTextField(
           controller: _usernameController,
-          label: 'Kullanici adi',
+          label: 'Kullanıcı adı',
           prefixIcon: Icons.person_outline,
         ),
       ],
@@ -364,18 +378,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Email adresini ekle',
+          'E-posta adresini ekle',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         const Text(
-          'Dogrulama kodunu bu adrese gonderecegiz.',
+          'Doğrulama kodunu bu adrese göndereceğiz.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 12),
         GradientTextField(
           controller: _emailController,
-          label: 'Email',
+          label: 'E-posta',
           prefixIcon: Icons.email_outlined,
         ),
       ],
@@ -387,18 +401,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Sifre belirle',
+          'Şifre belirle',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         const Text(
-          'Sifren en az 8, en fazla 20 karakter olmali.',
+          'Şifren en az 8, en fazla 20 karakter olmalı.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 12),
         GradientTextField(
           controller: _passwordController,
-          label: 'Sifre',
+          label: 'Şifre',
           prefixIcon: Icons.lock_outline,
           obscureText: _isPasswordObscured,
           suffixIcon: IconButton(
@@ -417,7 +431,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SizedBox(height: 16),
         GradientTextField(
           controller: _rePasswordController,
-          label: 'Sifre tekrar',
+          label: 'Şifre tekrar',
           prefixIcon: Icons.lock_outline,
           obscureText: _isRePasswordObscured,
           suffixIcon: IconButton(
@@ -438,10 +452,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildRoleStep() {
-    final venueOption =
-        _roleOptions.firstWhere((option) => option.id == 'ROLE_VENUE');
-    final otherOptions =
-        _roleOptions.where((option) => option.id != 'ROLE_VENUE').toList();
+    final venueOption = _roleOptions.firstWhere(
+      (option) => option.id == 'ROLE_VENUE',
+    );
+    final otherOptions = _roleOptions
+        .where((option) => option.id != 'ROLE_VENUE')
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -452,7 +468,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Muzigi nasil yasayacagini sec. SoundConnect\'i sana gore sekillendirelim.',
+          'Müziği nasıl yaşayacağını seç. SoundConnect\'i sana göre şekillendirelim.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 16),
@@ -479,12 +495,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Mekan bilgilerini paylas',
+          'Mekan bilgilerini paylaş',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         const Text(
-          'Bilgileri doldurduktan sonra kisa surede sizinle iletisime gececegiz.',
+          'Bilgileri doldurduktan sonra kısa sürede sizinle iletişime geçeceğiz.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 16),
@@ -495,7 +511,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 GradientTextField(
                   controller: _venueNameController,
-                  label: 'Mekan adi',
+                  label: 'Mekan adı',
                   prefixIcon: Icons.storefront_outlined,
                 ),
                 const SizedBox(height: 12),
@@ -538,9 +554,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: AppColors.border,
                               ),
                             ),
-                            prefixIcon:
-                                const Icon(Icons.location_city_outlined),
-                            hintText: 'Sehir sec',
+                            prefixIcon: const Icon(
+                              Icons.location_city_outlined,
+                            ),
+                            hintText: 'Şehir seç',
                           ),
                           dropdownColor: AppColors.navBlueSoft,
                           items: locationState.cities
@@ -558,9 +575,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _selectedNeighborhoodId = null;
                             });
                             if (value != null) {
-                              context
-                                  .read<LocationCubit>()
-                                  .loadDistricts(value);
+                              context.read<LocationCubit>().loadDistricts(
+                                value,
+                              );
                             } else {
                               context.read<LocationCubit>().resetDistricts();
                             }
@@ -585,7 +602,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             prefixIcon: const Icon(Icons.map_outlined),
-                            hintText: 'Ilce sec',
+                            hintText: 'İlçe seç',
                           ),
                           dropdownColor: AppColors.navBlueSoft,
                           items: locationState.districts
@@ -602,9 +619,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _selectedNeighborhoodId = null;
                             });
                             if (value != null) {
-                              context
-                                  .read<LocationCubit>()
-                                  .loadNeighborhoods(value);
+                              context.read<LocationCubit>().loadNeighborhoods(
+                                value,
+                              );
                             }
                           },
                         ),
@@ -675,7 +692,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       },
       builder: (context, state) {
         final isLoading =
-            state.status == AuthStatus.loading && state.action == AuthAction.register;
+            state.status == AuthStatus.loading &&
+            state.action == AuthAction.register;
 
         final pages = <Widget>[
           _buildUsernameStep(),
@@ -718,13 +736,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           builder: (context, child) {
                             final page = _pageController.position.haveDimensions
                                 ? (_pageController.page ??
-                                    _stepIndex.toDouble())
+                                      _stepIndex.toDouble())
                                 : _stepIndex.toDouble();
                             final distance = (page - index).abs();
-                            final opacity =
-                                (1 - (distance * 0.35)).clamp(0.0, 1.0);
-                            final scale =
-                                (1 - (distance * 0.06)).clamp(0.94, 1.0);
+                            final opacity = (1 - (distance * 0.35)).clamp(
+                              0.0,
+                              1.0,
+                            );
+                            final scale = (1 - (distance * 0.06)).clamp(
+                              0.94,
+                              1.0,
+                            );
 
                             return Opacity(
                               opacity: opacity,
@@ -776,89 +798,121 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _handleRoleSelect(option.id);
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.inputFill.withOpacity(0.98)
-                : AppColors.inputFill,
+            gradient: isSelected
+                ? const LinearGradient(colors: AppColors.brandGradient)
+                : null,
+            color: isSelected ? null : AppColors.inputFill,
             borderRadius: borderRadius,
             border: Border.all(
-              color: isSelected ? AppColors.coralAlt : AppColors.border,
-              width: isSelected ? 1.4 : 1.0,
+              color: isSelected ? Colors.transparent : AppColors.border,
+              width: 1.0,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppColors.coralAlt.withOpacity(0.22),
+                      color: AppColors.brandGradient[2].withValues(alpha: 0.25),
                       blurRadius: 16,
                       spreadRadius: 1,
                     ),
                   ]
                 : null,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.navBlueSoft,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppColors.coralAlt.withOpacity(0.25),
-                            blurRadius: 14,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
+          child: Padding(
+            padding: EdgeInsets.all(isSelected ? 1.0 : 0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+              decoration: BoxDecoration(
+                color: AppColors.inputFill.withValues(
+                  alpha: isSelected ? 0.98 : 1,
                 ),
-                child: Icon(
-                  option.icon,
-                  color: isSelected
-                      ? AppColors.coralAlt
-                      : AppColors.textMuted,
-                ),
+                borderRadius: borderRadius,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  option.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.navBlueSoft,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: AppColors.brandGradient[2].withValues(
+                                  alpha: 0.25,
+                                ),
+                                blurRadius: 14,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: isSelected
+                        ? ShaderMask(
+                            blendMode: BlendMode.srcIn,
+                            shaderCallback: (Rect bounds) {
+                              return const LinearGradient(
+                                colors: AppColors.brandGradient,
+                              ).createShader(bounds);
+                            },
+                            child: Icon(option.icon, color: Colors.white),
+                          )
+                        : Icon(option.icon, color: AppColors.textMuted),
                   ),
-                ),
-              ),
-              if (option.badge != null) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.navBlueSoft,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    option.badge!,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      option.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Icon(
-                Icons.chevron_right,
-                color: isSelected
-                    ? AppColors.coralAlt
-                    : AppColors.textMuted.withOpacity(0.7),
+                  if (option.badge != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.navBlueSoft,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(
+                        option.badge!,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  isSelected
+                      ? ShaderMask(
+                          blendMode: BlendMode.srcIn,
+                          shaderCallback: (Rect bounds) {
+                            return const LinearGradient(
+                              colors: AppColors.brandGradient,
+                            ).createShader(bounds);
+                          },
+                          child: const Icon(
+                            Icons.chevron_right,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textMuted.withValues(alpha: 0.7),
+                        ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

@@ -12,7 +12,7 @@ class MediaAssetModel extends MediaAsset {
 
   factory MediaAssetModel.fromJson(Map<String, dynamic> json) {
     return MediaAssetModel(
-      id: json['id']?.toString() ?? '',
+      id: json['id']?.toString() ?? json['uuid']?.toString() ?? '',
       sourceUrl: json['sourceUrl']?.toString(),
       playbackUrl: json['playbackUrl']?.toString(),
       thumbnailUrl: json['thumbnailUrl']?.toString(),

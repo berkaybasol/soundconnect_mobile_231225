@@ -2,6 +2,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven(url = "https://raw.githubusercontent.com/arthenica/ffmpeg-kit/main/android/maven")
+        maven(url = "https://raw.githubusercontent.com/arthenica/ffmpeg-kit/master/android/maven")
     }
 }
 

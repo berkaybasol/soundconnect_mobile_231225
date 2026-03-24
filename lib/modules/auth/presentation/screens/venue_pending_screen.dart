@@ -13,10 +13,7 @@ class VenuePendingScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              AppColors.navBlueDeep,
-              AppColors.navBlueSoft,
-            ],
+            colors: [AppColors.navBlueDeep, AppColors.navBlueSoft],
           ),
         ),
         child: SafeArea(
@@ -32,7 +29,7 @@ class VenuePendingScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.coralAlt.withOpacity(0.35),
+                        color: AppColors.coralAlt.withValues(alpha: 0.35),
                         blurRadius: 24,
                         spreadRadius: 2,
                       ),
@@ -46,7 +43,7 @@ class VenuePendingScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  'Basvurun alindi',
+                  'Başvurun alındı',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -56,9 +53,9 @@ class VenuePendingScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Mekan uyeligini incelemeye aldik. '
-                  'Gun icinde ekibimiz sana ulasacak. '
-                  'Bu surecte hesabın beklemede.',
+                  'Mekan üyeliğini incelemeye aldık. '
+                  'Gün içinde ekibimiz sana ulaşacak. '
+                  'Bu süreçte hesabın beklemede.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textMuted,
@@ -68,12 +65,9 @@ class VenuePendingScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Anlayisin icin tesekkurler.',
+                  'Anlayışın için teşekkürler.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 14),
                 ),
                 const SizedBox(height: 28),
                 SizedBox(
@@ -86,7 +80,7 @@ class VenuePendingScreen extends StatelessWidget {
                         (route) => false,
                       );
                     },
-                    child: const Text('Giris ekranina don'),
+                    child: const Text('Giriş ekranına dön'),
                   ),
                 ),
               ],

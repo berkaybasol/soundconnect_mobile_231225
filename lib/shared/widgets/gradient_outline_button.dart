@@ -22,7 +22,7 @@ class GradientOutlineButton extends StatelessWidget {
         boxShadow: isEnabled
             ? [
                 BoxShadow(
-                  color: const Color(0xFF9B5DE5).withOpacity(0.16),
+                  color: const Color(0xFF9B5DE5).withValues(alpha: 0.16),
                   blurRadius: 12,
                   spreadRadius: 1,
                 ),
@@ -49,9 +49,13 @@ class GradientOutlineButton extends StatelessWidget {
             child: TextButton(
               onPressed: onPressed,
               style: TextButton.styleFrom(
-                foregroundColor:
-                    isEnabled ? AppColors.textPrimary : AppColors.textMuted,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                foregroundColor: isEnabled
+                    ? AppColors.textPrimary
+                    : AppColors.textMuted,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 14,
+                ),
                 shape: RoundedRectangleBorder(borderRadius: borderRadius),
                 backgroundColor: Colors.transparent,
               ),

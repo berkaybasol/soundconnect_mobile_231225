@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 class AppTheme {
@@ -16,13 +16,17 @@ class AppTheme {
         fillColor: AppColors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.border.withOpacity(0.25)),
+          borderSide: BorderSide(
+            color: AppColors.border.withValues(alpha: 0.25),
+          ),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           backgroundColor: AppColors.coral,
           foregroundColor: AppColors.white,
         ),
@@ -56,9 +60,7 @@ class AppTheme {
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w700,
         ),
-        bodyMedium: const TextStyle(
-          color: AppColors.textMuted,
-        ),
+        bodyMedium: const TextStyle(color: AppColors.textMuted),
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -87,7 +89,9 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
           backgroundColor: AppColors.coralAlt,
           foregroundColor: AppColors.white,
         ),

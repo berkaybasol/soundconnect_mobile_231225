@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:audio_service/audio_service.dart';
@@ -24,8 +24,8 @@ import '../../domain/entities/track.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
-import '../cubit/profile_media_state.dart';
 import 'media_detail_screen.dart';
+import 'video_reel_screen.dart';
 
 class PublicProfileArgs {
   final String? viewerUserId;
@@ -38,95 +38,19 @@ class MusicianPublicProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const useMockData = false;
-    if (useMockData) {
-      final mockProfile = MusicianProfile(
-        id: 'mock-profile',
-        userId: 'mock-user',
-        stageName: 'Joe Doe',
-        bio:
-            'One Republic grubunda batarist. Egstas sapien etiam viverra amet '
-            'enim risus dui. Purus phasellus nulla luctus proin interdum '
-            'consequat id. Integer vitae dignissim et.',
-        profilePicture: null,
-        instagramUrl: 'https://instagram.com',
-        youtubeUrl: 'https://youtube.com',
-        soundcloudUrl: 'https://soundcloud.com',
-        spotifyEmbedUrl: 'https://open.spotify.com',
-        spotifyArtistId: null,
-        spotifyTrackIds: const [],
-        spotifyTracks: const [],
-        instruments: const ['Bateri', 'Davul'],
-        activeVenues: const ['Blue Jeans', 'Klein', 'Peyote'],
-        bands: const ['One Republic'],
-      );
-      final mockMedia = ProfileMedia(
-        featuredVideo: const MediaAsset(
-          id: 'mock-featured-video',
-          sourceUrl: null,
-          playbackUrl: null,
-          thumbnailUrl: null,
-          title: 'Featured',
-          durationSeconds: 120,
-        ),
-        videos: List.generate(
-          6,
-          (index) => const MediaAsset(
-            id: 'mock-video',
-            sourceUrl: null,
-            playbackUrl: null,
-            thumbnailUrl: null,
-            title: null,
-            durationSeconds: 90,
-          ),
-        ),
-        audios: List.generate(
-          5,
-          (index) => Track(
-            id: 'track-$index',
-            mediaAssetId: 'audio-media-$index',
-            title: 'Ses Dosyasi ${index + 1}',
-            playbackUrl: null,
-            durationSeconds: 120,
-            bpm: null,
-          ),
-        ),
-      );
-
-      return _MusicianPublicProfileContent(
-        profile: mockProfile,
-        media: mockMedia,
-        followersCount: 10000,
-        followingCount: 356,
-        activeVenues: const ['Blue Jeans', 'Klein', 'Peyote'],
-        viewerUserId: 'viewer-user',
-        isFollowing: false,
-        followLoading: false,
-        spotifyTracks: const [],
-        spotifyLoading: false,
-      );
-    }
-
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => serviceLocator<MusicianProfileCubit>()..loadMyProfile(),
+          create: (_) =>
+              serviceLocator<MusicianProfileCubit>()..loadMyProfile(),
         ),
-        BlocProvider(
-          create: (_) => serviceLocator<ProfileMediaCubit>(),
-        ),
-        BlocProvider(
-          create: (_) => serviceLocator<FollowCountCubit>(),
-        ),
-        BlocProvider(
-          create: (_) => serviceLocator<FollowActionCubit>(),
-        ),
+        BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
+        BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
+        BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),
         BlocProvider(
           create: (_) => serviceLocator<ArtistVenueConnectionsCubit>(),
         ),
-        BlocProvider(
-          create: (_) => serviceLocator<InteractionStatsCubit>(),
-        ),
+        BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
       ],
       child: const _MusicianPublicProfileView(),
     );
@@ -155,9 +79,9 @@ class _MusicianPublicProfileViewState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<ProfileMediaCubit>().loadMedia(
-            profileType: 'MUSICIAN',
-            profileId: profileId,
-          );
+        profileType: 'MUSICIAN',
+        profileId: profileId,
+      );
     });
   }
 
@@ -187,12 +111,11 @@ class _MusicianPublicProfileViewState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<FollowActionCubit>().loadStatus(
-            followerId: followerId,
-            followingId: followingId,
-          );
+        followerId: followerId,
+        followingId: followingId,
+      );
     });
   }
-
 
   @override
   void didChangeDependencies() {
@@ -217,8 +140,8 @@ class _MusicianPublicProfileViewState
             if (state.status == FollowActionStatus.success &&
                 _currentProfileUserId != null) {
               context.read<FollowCountCubit>().loadCounts(
-                    _currentProfileUserId!,
-                  );
+                _currentProfileUserId!,
+              );
             }
           },
         ),
@@ -251,8 +174,8 @@ class _MusicianPublicProfileViewState
           final venueState = context.watch<ArtistVenueConnectionsCubit>().state;
           final venueItems =
               venueState.status == ArtistVenueConnectionsStatus.loading
-                  ? null
-                  : venueState.venues;
+              ? null
+              : venueState.venues;
           final followState = context.watch<FollowCountCubit>().state;
           final followersCount = followState.status == FollowCountStatus.loading
               ? null
@@ -309,7 +232,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       return activeVenues!;
     }
     if (profile.activeVenues.isNotEmpty) return profile.activeVenues;
-    return const ['Blue Jeans', 'Klein', 'Peyote'];
+    return const [];
   }
 
   ProfileMedia _resolveMedia(ProfileMedia? media) {
@@ -319,44 +242,14 @@ class _MusicianPublicProfileContent extends StatelessWidget {
             media.audios.isNotEmpty)) {
       return media;
     }
-    return ProfileMedia(
-      featuredVideo: const MediaAsset(
-        id: 'fallback-featured-video',
-        sourceUrl: null,
-        playbackUrl: null,
-        thumbnailUrl: null,
-        title: 'Featured',
-        durationSeconds: 120,
-      ),
-      videos: List.generate(
-        6,
-        (index) => const MediaAsset(
-          id: 'fallback-video',
-          sourceUrl: null,
-          playbackUrl: null,
-          thumbnailUrl: null,
-          title: null,
-          durationSeconds: 90,
-        ),
-      ),
-      audios: List.generate(
-        5,
-        (index) => Track(
-          id: 'track-$index',
-          mediaAssetId: 'fallback-audio-media-$index',
-          title: 'Ses Dosyasi ${index + 1}',
-          playbackUrl: null,
-          durationSeconds: 120,
-          bpm: null,
-        ),
-      ),
-    );
+    return const ProfileMedia(featuredVideo: null, videos: [], audios: []);
   }
 
   @override
   Widget build(BuildContext context) {
     final resolvedMedia = _resolveMedia(media);
-    final canFollow = viewerUserId.isNotEmpty &&
+    final canFollow =
+        viewerUserId.isNotEmpty &&
         profile.userId.isNotEmpty &&
         viewerUserId != profile.userId;
 
@@ -384,8 +277,6 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 followersCount: followersCount,
                 followingCount: followingCount,
               ),
-              const SizedBox(height: 14),
-              _SocialButtonRow(profile: profile),
               const SizedBox(height: 12),
               _ActionButtons(
                 isFollowing: isFollowing,
@@ -394,9 +285,9 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 onFollowToggle: () {
                   if (!canFollow) return;
                   context.read<FollowActionCubit>().toggleFollow(
-                        followerId: viewerUserId,
-                        followingId: profile.userId,
-                      );
+                    followerId: viewerUserId,
+                    followingId: profile.userId,
+                  );
                 },
               ),
               const SizedBox(height: 16),
@@ -405,7 +296,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 child: Text(
                   profile.bio?.trim().isNotEmpty == true
                       ? profile.bio!
-                      : 'Henuz bir aciklama eklenmedi.',
+                      : 'Henüz bir açıklama eklenmedi.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.textMuted,
@@ -415,7 +306,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               const _SectionHeader(
-                title: 'Caldigi Mekanlar',
+                title: 'Çaldığı Mekanlar',
                 actionLabel: 'Tumu',
               ),
               _VenueCarousel(items: _resolveVenues()),
@@ -426,6 +317,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 spotifyTracks: spotifyTracks,
                 spotifyLoading: spotifyLoading,
               ),
+              const SizedBox(height: 18),
+              _SocialButtonRow(profile: profile),
               const SizedBox(height: 24),
             ],
           ),
@@ -461,7 +354,7 @@ class _ProfileHeader extends StatelessWidget {
                 border: Border.all(color: AppColors.border),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.brandGradient[2].withOpacity(0.35),
+                    color: AppColors.brandGradient[2].withValues(alpha: 0.35),
                     blurRadius: 18,
                     spreadRadius: 1,
                   ),
@@ -513,9 +406,9 @@ class _ProfileIdentity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = profile.stageName?.trim().isNotEmpty == true
-        ? profile.stageName!
-        : 'Sahne adi';
+    final name = profile.username?.trim().isNotEmpty == true
+        ? profile.username!
+        : 'Kullanıcı';
     final bandName = profile.bands.isNotEmpty ? profile.bands.first : null;
 
     return Column(
@@ -527,19 +420,13 @@ class _ProfileIdentity extends StatelessWidget {
             end: Alignment.centerRight,
             colors: AppColors.brandGradient,
           ),
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
         if (bandName != null) ...[
           const SizedBox(height: 6),
           Text(
             bandName,
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
           ),
         ],
       ],
@@ -609,55 +496,82 @@ class _SocialButtonRow extends StatelessWidget {
     final trimmed = url?.trim();
     if (trimmed == null || trimmed.isEmpty) return;
 
-    final String normalized =
-        trimmed.contains('://') ? trimmed : 'https://$trimmed';
+    final String normalized = trimmed.contains('://')
+        ? trimmed
+        : 'https://$trimmed';
     final uri = Uri.tryParse(normalized);
     if (uri == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gecersiz link')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Geçersiz link')));
       return;
     }
 
-    final success = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Link acilamadi')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Link açılamadı')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
+    final socialButtons = <Widget>[];
+    if (_isSocialUrlUsable(profile.soundcloudUrl)) {
+      socialButtons.add(
         _SocialPill(
           icon: FontAwesomeIcons.soundcloud,
-          active: profile.soundcloudUrl?.isNotEmpty == true,
+          active: true,
           onTap: () => _launchExternalUrl(context, profile.soundcloudUrl),
         ),
+      );
+    }
+    if (_isSocialUrlUsable(profile.instagramUrl)) {
+      socialButtons.add(
         _SocialPill(
           icon: FontAwesomeIcons.instagram,
-          active: profile.instagramUrl?.isNotEmpty == true,
+          active: true,
           onTap: () => _launchExternalUrl(context, profile.instagramUrl),
         ),
+      );
+    }
+    if (_isSocialUrlUsable(profile.youtubeUrl)) {
+      socialButtons.add(
         _SocialPill(
           icon: FontAwesomeIcons.youtube,
-          active: profile.youtubeUrl?.isNotEmpty == true,
+          active: true,
           onTap: () => _launchExternalUrl(context, profile.youtubeUrl),
         ),
+      );
+    }
+    if (_isSocialUrlUsable(profile.spotifyEmbedUrl)) {
+      socialButtons.add(
         _SocialPill(
           icon: FontAwesomeIcons.spotify,
-          active: profile.spotifyEmbedUrl?.isNotEmpty == true,
+          active: true,
           onTap: () => _launchExternalUrl(context, profile.spotifyEmbedUrl),
         ),
-      ],
+      );
+    }
+
+    if (socialButtons.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: socialButtons,
     );
   }
+}
+
+bool _isSocialUrlUsable(String? raw) {
+  final value = raw?.trim().toLowerCase();
+  if (value == null || value.isEmpty) return false;
+  return value.startsWith('http://') ||
+      value.startsWith('https://') ||
+      value.startsWith('www.');
 }
 
 class _SocialPill extends StatefulWidget {
@@ -665,11 +579,7 @@ class _SocialPill extends StatefulWidget {
   final bool active;
   final VoidCallback? onTap;
 
-  const _SocialPill({
-    required this.icon,
-    required this.active,
-    this.onTap,
-  });
+  const _SocialPill({required this.icon, required this.active, this.onTap});
 
   @override
   State<_SocialPill> createState() => _SocialPillState();
@@ -683,20 +593,17 @@ class _SocialPillState extends State<_SocialPill> {
     const iconGradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [
-        Color(0xFFFF7A3D),
-        Color(0xFFEF5F86),
-        Color(0xFFB85CFF),
-      ],
+      colors: [Color(0xFFFF7A3D), Color(0xFFEF5F86), Color(0xFFB85CFF)],
     );
 
-    final borderColor =
-        _pressed ? AppColors.textMuted : AppColors.border;
+    final borderColor = _pressed ? AppColors.textMuted : AppColors.border;
     final shadowOpacity = _pressed ? 0.12 : 0.05;
 
     return GestureDetector(
       onTapDown: widget.active ? (_) => setState(() => _pressed = true) : null,
-      onTapCancel: widget.active ? () => setState(() => _pressed = false) : null,
+      onTapCancel: widget.active
+          ? () => setState(() => _pressed = false)
+          : null,
       onTapUp: widget.active ? (_) => setState(() => _pressed = false) : null,
       onTap: widget.active ? widget.onTap : null,
       child: AnimatedScale(
@@ -706,16 +613,15 @@ class _SocialPillState extends State<_SocialPill> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           curve: Curves.easeOut,
-          width: 78,
+          width: 64,
           height: 42,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: AppColors.inputFill,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: borderColor),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(shadowOpacity),
+                color: Colors.black.withValues(alpha: shadowOpacity),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -724,11 +630,7 @@ class _SocialPillState extends State<_SocialPill> {
           child: Center(
             child: ShaderMask(
               shaderCallback: (bounds) => iconGradient.createShader(bounds),
-              child: FaIcon(
-                widget.icon,
-                size: 20,
-                color: AppColors.white,
-              ),
+              child: FaIcon(widget.icon, size: 20, color: AppColors.white),
             ),
           ),
         ),
@@ -820,10 +722,7 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final String? actionLabel;
 
-  const _SectionHeader({
-    required this.title,
-    this.actionLabel,
-  });
+  const _SectionHeader({required this.title, this.actionLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -886,10 +785,7 @@ class _VenueCarousel extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  AppColors.inputFill,
-                  AppColors.navBlueSoft,
-                ],
+                colors: [AppColors.inputFill, AppColors.navBlueSoft],
               ),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: AppColors.border),
@@ -904,7 +800,7 @@ class _VenueCarousel extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.white.withOpacity(0.08),
+                        color: AppColors.white.withValues(alpha: 0.08),
                         blurRadius: 6,
                         spreadRadius: 0.5,
                       ),
@@ -961,10 +857,17 @@ class _MediaTabs extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: TabBar(
-        indicatorColor: AppColors.coralAlt,
         labelColor: AppColors.textPrimary,
         unselectedLabelColor: AppColors.textMuted,
-        indicatorWeight: 3,
+        indicator: const _GradientTabIndicator(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: AppColors.brandGradient,
+          ),
+          thickness: 2,
+          horizontalInset: 0,
+        ),
         labelPadding: const EdgeInsets.symmetric(horizontal: 6),
         tabs: const [
           Tab(
@@ -993,6 +896,55 @@ class _MediaTabs extends StatelessWidget {
   }
 }
 
+class _GradientTabIndicator extends Decoration {
+  final LinearGradient gradient;
+  final double thickness;
+  final double horizontalInset;
+
+  const _GradientTabIndicator({
+    required this.gradient,
+    this.thickness = 2,
+    this.horizontalInset = 0,
+  });
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) {
+    return _GradientTabIndicatorPainter(
+      gradient: gradient,
+      thickness: thickness,
+      horizontalInset: horizontalInset,
+    );
+  }
+}
+
+class _GradientTabIndicatorPainter extends BoxPainter {
+  final LinearGradient gradient;
+  final double thickness;
+  final double horizontalInset;
+
+  _GradientTabIndicatorPainter({
+    required this.gradient,
+    required this.thickness,
+    required this.horizontalInset,
+  });
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final size = configuration.size;
+    if (size == null) return;
+
+    final left = offset.dx + horizontalInset;
+    final right = offset.dx + size.width - horizontalInset;
+    final top = offset.dy + size.height - thickness;
+    final rect = Rect.fromLTRB(left, top, right, top + thickness);
+    final paint = Paint()..shader = gradient.createShader(rect);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(thickness)),
+      paint,
+    );
+  }
+}
+
 class _MediaContent extends StatelessWidget {
   final ProfileMedia media;
   final List<SpotifyTrackPreview> spotifyTracks;
@@ -1010,14 +962,6 @@ class _MediaContent extends StatelessWidget {
     final videoItems = media.videos;
     final controller = DefaultTabController.of(context);
     final audioHandler = serviceLocator<AudioHandler>();
-    if (controller == null) {
-      return _AudioTab(
-        items: audioItems,
-        spotifyTracks: spotifyTracks,
-        spotifyLoading: spotifyLoading,
-        audioHandler: audioHandler,
-      );
-    }
 
     return AnimatedBuilder(
       animation: controller,
@@ -1054,10 +998,13 @@ class _AudioTab extends StatelessWidget {
     if (url == null || url.isEmpty) return;
     final currentId = audioHandler.mediaItem.value?.id;
     final isPlaying = audioHandler.playbackState.value.playing;
+    final isCurrent = currentId == track.id;
 
     if (audioHandler is AudioPlayerHandler) {
-      if (currentId == track.id && isPlaying) {
+      if (isCurrent && isPlaying) {
         await audioHandler.pause();
+      } else if (isCurrent && !isPlaying) {
+        await audioHandler.play();
       } else {
         await (audioHandler as AudioPlayerHandler).playUrl(
           url,
@@ -1077,10 +1024,13 @@ class _AudioTab extends StatelessWidget {
     final currentId = audioHandler.mediaItem.value?.id;
     final isPlaying = audioHandler.playbackState.value.playing;
     final mediaId = 'spotify:${track.id}';
+    final isCurrent = currentId == mediaId;
 
     if (audioHandler is AudioPlayerHandler) {
-      if (currentId == mediaId && isPlaying) {
+      if (isCurrent && isPlaying) {
         await audioHandler.pause();
+      } else if (isCurrent && !isPlaying) {
+        await audioHandler.play();
       } else {
         await (audioHandler as AudioPlayerHandler).playUrl(
           url,
@@ -1133,7 +1083,7 @@ class _AudioTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Sanatçının Spotify Kataloğu ',
+                  'Sanat?inin Spotify Katalogu ',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -1165,7 +1115,9 @@ class _AudioTab extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 image: track.albumImageUrl != null
                                     ? DecorationImage(
-                                        image: NetworkImage(track.albumImageUrl!),
+                                        image: NetworkImage(
+                                          track.albumImageUrl!,
+                                        ),
                                         fit: BoxFit.cover,
                                       )
                                     : null,
@@ -1238,7 +1190,7 @@ class _AudioTab extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Ses eklenmedi.',
+          'Kullanıcı henüz ses eklemedi.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );
@@ -1291,109 +1243,170 @@ class _AudioTab extends StatelessWidget {
                 if (targetId.isNotEmpty &&
                     !statsState.items.containsKey(statsKey)) {
                   context.read<InteractionStatsCubit>().load(
-                        targetType: targetType,
-                        targetId: targetId,
-                      );
+                    targetType: targetType,
+                    targetId: targetId,
+                  );
                 }
                 final stats = statsState.items[statsKey];
                 final likeCount = stats?.likeCount ?? fallbackLikeCount;
-                final commentCount = stats?.commentCount ?? fallbackCommentCount;
+                final commentCount =
+                    stats?.commentCount ?? fallbackCommentCount;
                 final playback = track.playbackUrl ?? '';
-                final isSpotify = playback.contains('spotify') ||
+                final isSpotify =
+                    playback.contains('spotify') ||
                     playback.contains('open.spotify') ||
                     playback.contains('spotify.com');
                 final isCurrent = currentId == track.id;
-                final totalFromTrack = track.durationSeconds ?? 0;
-                final totalFromHandler =
-                    audioHandler.mediaItem.value?.duration?.inSeconds ?? 0;
-                final totalSeconds = (totalFromTrack > 0
-                        ? totalFromTrack
-                        : totalFromHandler)
-                    .toDouble();
-                final progress = totalSeconds > 0
-                    ? (position.inSeconds / totalSeconds).clamp(0.0, 1.0)
+                final totalFromTrackMs = (track.durationSeconds ?? 0) * 1000;
+                final totalFromHandlerMs =
+                    audioHandler.mediaItem.value?.duration?.inMilliseconds ?? 0;
+                final totalMs =
+                    (totalFromTrackMs > 0
+                            ? totalFromTrackMs
+                            : totalFromHandlerMs)
+                        .toDouble();
+                final progress = totalMs > 0
+                    ? (position.inMilliseconds / totalMs).clamp(0.0, 1.0)
                     : 0.0;
+                final isLiked = stats?.isLiked ?? false;
+                void toggleLike() {
+                  if (targetId.isEmpty) return;
+                  context.read<InteractionStatsCubit>().toggleLike(
+                    targetType: targetType,
+                    targetId: targetId,
+                  );
+                }
+
+                void openDetails() {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MultiBlocProvider(
+                        providers: [
+                          BlocProvider.value(
+                            value: context.read<InteractionStatsCubit>(),
+                          ),
+                          BlocProvider(
+                            create: (_) => serviceLocator<CommentThreadCubit>(),
+                          ),
+                        ],
+                        child: MediaDetailScreen(
+                          title: track.title,
+                          isVideo: false,
+                          playbackUrl: track.playbackUrl,
+                          thumbnailUrl: null,
+                          durationSeconds: track.durationSeconds,
+                          targetType: targetType,
+                          targetId: targetId,
+                          likeCount: likeCount,
+                          commentCount: commentCount,
+                          isSpotify: isSpotify,
+                        ),
+                      ),
+                    ),
+                  );
+                }
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => MultiBlocProvider(
-                                providers: [
-                                  BlocProvider.value(
-                                    value: context.read<InteractionStatsCubit>(),
-                                  ),
-                                  BlocProvider(
-                                    create: (_) => serviceLocator<CommentThreadCubit>(),
-                                  ),
-                                ],
-                                child: MediaDetailScreen(
-                                  title: track.title,
-                                  isVideo: false,
-                                  playbackUrl: track.playbackUrl,
-                                  thumbnailUrl: null,
-                                  durationSeconds: track.durationSeconds,
-                                  targetType: targetType,
-                                  targetId: targetId,
-                                  likeCount: likeCount,
-                                  commentCount: commentCount,
-                                  isSpotify: isSpotify,
-                                ),
-                              ),
-                            ),
-                          );
+                      _AudioPreviewCard(
+                        onTap: openDetails,
+                        onDoubleTap: () {
+                          if (!isLiked) {
+                            toggleLike();
+                          }
                         },
-                        child: _AudioPreviewCard(
-                          title: track.title,
-                          actionLabel:
-                              isSpotify ? "Tamamını Spotify'da Dinle" : null,
-                          actionColor:
-                              isSpotify ? const Color(0xFF1DB954) : null,
-                          likeCount: likeCount,
-                          commentCount: commentCount,
-                          waveform: WaveformStub(
-                            gradientColors: isSpotify
-                                ? const [
-                                    Color(0xFF1ED760),
-                                    Color(0xFF1DB954),
-                                    Color(0xFF18A34A),
-                                  ]
-                                : AppColors.brandGradient,
-                            iconColor: isSpotify
-                                ? const Color(0xFF1DB954)
-                                : AppColors.coralAlt,
-                            playIconColor: isSpotify
-                                ? const Color(0xFF1DB954)
-                                : AppColors.textMuted,
-                            leading: isSpotify
-                                ? const Icon(
-                                    FontAwesomeIcons.spotify,
-                                    size: 16,
-                                    color: Color(0xFF1DB954),
-                                  )
-                                : Image.asset(
-                                    'assets/logo.png',
-                                    width: 26,
-                                    height: 26,
-                                    fit: BoxFit.contain,
-                                  ),
-                            height: 92,
-                            waveformHeight: 44,
-                            onPlay: () => _toggleTrack(track),
-                            isPlaying: isCurrent && isPlaying,
-                            progress: isCurrent ? progress : 0,
-                            onSeek: (ratio) {
-                              final seconds =
-                                  (totalSeconds * ratio).round().clamp(0, 1000000);
-                              audioHandler.seek(Duration(seconds: seconds));
-                            },
-                          ),
+                        title: track.title,
+                        actionLabel: isSpotify
+                            ? "Tamamini Spotify'da Dinle"
+                            : null,
+                        actionColor: isSpotify ? const Color(0xFF1DB954) : null,
+                        bottomControls: _AudioTransportRow(
+                          isPlaying: isCurrent && isPlaying,
+                          iconColor: isSpotify
+                              ? const Color(0xFF1DB954)
+                              : AppColors.textMuted,
+                          onPlayPause: () => _toggleTrack(track),
+                          onBack10: isCurrent
+                              ? () {
+                                  final totalInt = totalMs.round();
+                                  final currentMs = position.inMilliseconds;
+                                  final targetMs = (currentMs - 10000)
+                                      .clamp(0, totalInt)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: targetMs),
+                                  );
+                                }
+                              : null,
+                          onForward10: isCurrent
+                              ? () {
+                                  final totalInt = totalMs.round();
+                                  final currentMs = position.inMilliseconds;
+                                  final targetMs = (currentMs + 10000)
+                                      .clamp(0, totalInt)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: targetMs),
+                                  );
+                                }
+                              : null,
                         ),
+                        waveform: WaveformStub(
+                          samples: WaveformStub.samplesFromSeed(
+                            '${track.id}:${track.title}:${track.mediaAssetId}',
+                          ),
+                          gradientColors: isSpotify
+                              ? const [
+                                  Color(0xFF1ED760),
+                                  Color(0xFF1DB954),
+                                  Color(0xFF18A34A),
+                                ]
+                              : AppColors.brandGradient,
+                          iconColor: isSpotify
+                              ? const Color(0xFF1DB954)
+                              : AppColors.coralAlt,
+                          playIconColor: isSpotify
+                              ? const Color(0xFF1DB954)
+                              : AppColors.textMuted,
+                          leading: isSpotify
+                              ? const Icon(
+                                  FontAwesomeIcons.spotify,
+                                  size: 16,
+                                  color: Color(0xFF1DB954),
+                                )
+                              : Image.asset(
+                                  'assets/logo.png',
+                                  width: 26,
+                                  height: 26,
+                                  fit: BoxFit.contain,
+                                ),
+                          height: 92,
+                          waveformHeight: 44,
+                          isPlaying: isCurrent && isPlaying,
+                          progress: isCurrent ? progress : 0,
+                          onSeek: isCurrent
+                              ? (ratio) {
+                                  final milliseconds = (totalMs * ratio)
+                                      .round()
+                                      .clamp(0, 1000000)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: milliseconds),
+                                  );
+                                }
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _CountRow(
+                        likeCount: likeCount,
+                        commentCount: commentCount,
+                        isLiked: isLiked,
+                        onLikeTap: toggleLike,
+                        onCommentTap: openDetails,
                       ),
                     ],
                   ),
@@ -1403,6 +1416,87 @@ class _AudioTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _AudioTransportRow extends StatelessWidget {
+  final bool isPlaying;
+  final Color iconColor;
+  final VoidCallback? onPlayPause;
+  final VoidCallback? onBack10;
+  final VoidCallback? onForward10;
+
+  const _AudioTransportRow({
+    required this.isPlaying,
+    required this.iconColor,
+    this.onPlayPause,
+    this.onBack10,
+    this.onForward10,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _TransportButton(
+          icon: Icons.replay_10_rounded,
+          onTap: onBack10,
+          color: iconColor,
+        ),
+        const SizedBox(width: 10),
+        _TransportButton(
+          icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          onTap: onPlayPause,
+          color: iconColor,
+          big: true,
+        ),
+        const SizedBox(width: 10),
+        _TransportButton(
+          icon: Icons.forward_10_rounded,
+          onTap: onForward10,
+          color: iconColor,
+        ),
+      ],
+    );
+  }
+}
+
+class _TransportButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  final Color color;
+  final bool big;
+
+  const _TransportButton({
+    required this.icon,
+    required this.onTap,
+    required this.color,
+    this.big = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: Container(
+            width: big ? 36 : 32,
+            height: big ? 36 : 32,
+            decoration: BoxDecoration(
+              color: AppColors.navBlueSoft,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Icon(icon, size: big ? 20 : 16, color: color),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1419,10 +1513,8 @@ class _SpotifyPreviewCard extends StatelessWidget {
     ];
     return _AudioPreviewCard(
       title: 'Spotify Preview',
-      actionLabel: "Tamamını Spotify'da Dinle",
+      actionLabel: "Tamamini Spotify'da Dinle",
       actionColor: const Color(0xFF1DB954),
-      likeCount: 210,
-      commentCount: 44,
       waveform: const WaveformStub(
         gradientColors: spotifyGradient,
         iconColor: Color(0xFF1ED760),
@@ -1439,77 +1531,208 @@ class _SpotifyPreviewCard extends StatelessWidget {
   }
 }
 
-class _AudioPreviewCard extends StatelessWidget {
+class _AudioPreviewCard extends StatefulWidget {
   final String title;
   final String? actionLabel;
   final Color? actionColor;
+  final VoidCallback? onTap;
   final VoidCallback? onActionTap;
+  final VoidCallback? onDoubleTap;
   final Widget waveform;
-  final int? likeCount;
-  final int? commentCount;
+  final Widget? bottomControls;
 
   const _AudioPreviewCard({
     required this.title,
     required this.waveform,
     this.actionLabel,
     this.actionColor,
+    this.onTap,
     this.onActionTap,
-    this.likeCount,
-    this.commentCount,
+    this.onDoubleTap,
+    this.bottomControls,
   });
 
   @override
+  State<_AudioPreviewCard> createState() => _AudioPreviewCardState();
+}
+
+class _AudioPreviewCardState extends State<_AudioPreviewCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _heartController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 760),
+  );
+  late final Animation<double> _heartScale = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween<double>(
+        begin: 1.6,
+        end: 1.08,
+      ).chain(CurveTween(curve: Curves.easeOutCubic)),
+      weight: 60,
+    ),
+    TweenSequenceItem(
+      tween: Tween<double>(
+        begin: 1.08,
+        end: 0.84,
+      ).chain(CurveTween(curve: Curves.easeInCubic)),
+      weight: 20,
+    ),
+    TweenSequenceItem(
+      tween: Tween<double>(
+        begin: 0.84,
+        end: 0.52,
+      ).chain(CurveTween(curve: Curves.easeInQuart)),
+      weight: 20,
+    ),
+  ]).animate(_heartController);
+  late final Animation<double> _heartOpacity = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1), weight: 30),
+    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 35),
+    TweenSequenceItem(tween: Tween<double>(begin: 1, end: 0), weight: 35),
+  ]).animate(_heartController);
+  late final Animation<double> _ringScale = Tween<double>(begin: 0.7, end: 1.9)
+      .animate(
+        CurvedAnimation(
+          parent: _heartController,
+          curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
+        ),
+      );
+  late final Animation<double> _ringOpacity = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween<double>(begin: 0, end: 0.5), weight: 22),
+    TweenSequenceItem(tween: Tween<double>(begin: 0.5, end: 0), weight: 78),
+  ]).animate(_heartController);
+
+  @override
+  void dispose() {
+    _heartController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap() {
+    if (widget.onDoubleTap == null) return;
+    widget.onDoubleTap?.call();
+    _heartController.forward(from: 0);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.inputFill,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onDoubleTap: _handleDoubleTap,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.inputFill,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  widget.title,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (widget.actionLabel != null) ...[
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: widget.onActionTap,
+                    child: Text(
+                      widget.actionLabel!,
+                      style: TextStyle(
+                        color: widget.actionColor ?? AppColors.textMuted,
+                        fontSize: 12,
+                        decoration: widget.onActionTap != null
+                            ? TextDecoration.underline
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                widget.waveform,
+                if (widget.bottomControls != null) ...[
+                  const SizedBox(height: 8),
+                  widget.bottomControls!,
+                ],
+              ],
             ),
           ),
-          if (actionLabel != null) ...[
-            const SizedBox(height: 4),
-            GestureDetector(
-              onTap: onActionTap,
-              child: Text(
-                actionLabel!,
-                style: TextStyle(
-                  color: actionColor ?? AppColors.textMuted,
-                  fontSize: 12,
-                  decoration:
-                      onActionTap != null ? TextDecoration.underline : null,
-                ),
-              ),
+          IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _heartController,
+              builder: (context, _) {
+                if (_heartController.value == 0) {
+                  return const SizedBox.shrink();
+                }
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Opacity(
+                      opacity: _ringOpacity.value,
+                      child: Transform.scale(
+                        scale: _ringScale.value,
+                        child: Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.coralAlt.withValues(alpha: 0.9),
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Opacity(
+                      opacity: _heartOpacity.value,
+                      child: Transform.scale(
+                        scale: _heartScale.value,
+                        child: ShaderMask(
+                          blendMode: BlendMode.srcIn,
+                          shaderCallback: (Rect bounds) {
+                            return const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: AppColors.brandGradient,
+                            ).createShader(bounds);
+                          },
+                          child: const Icon(Icons.favorite, size: 76),
+                        ),
+                      ),
+                    ),
+                    Opacity(
+                      opacity: _heartOpacity.value * 0.45,
+                      child: Transform.scale(
+                        scale: _heartScale.value * 1.05,
+                        child: const Icon(
+                          Icons.favorite,
+                          size: 82,
+                          color: Color(0x66FF5F8F),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-          ],
-          const SizedBox(height: 10),
-          waveform,
-          if (likeCount != null && commentCount != null) ...[
-            const SizedBox(height: 8),
-            _CountRow(
-              likeCount: likeCount!,
-              commentCount: commentCount!,
-            ),
-          ],
+          ),
         ],
       ),
     );
   }
 }
-
 
 class _VideoTab extends StatelessWidget {
   final List<MediaAsset> items;
@@ -1522,7 +1745,7 @@ class _VideoTab extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Video eklenmedi.',
+          'Kullanıcı henüz video eklemedi.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );
@@ -1548,12 +1771,11 @@ class _VideoTab extends StatelessWidget {
         final targetId = item.id;
         final statsState = context.watch<InteractionStatsCubit>().state;
         final statsKey = '$targetType:$targetId';
-        if (targetId.isNotEmpty &&
-            !statsState.items.containsKey(statsKey)) {
+        if (targetId.isNotEmpty && !statsState.items.containsKey(statsKey)) {
           context.read<InteractionStatsCubit>().load(
-                targetType: targetType,
-                targetId: targetId,
-              );
+            targetType: targetType,
+            targetId: targetId,
+          );
         }
         final stats = statsState.items[statsKey];
         final likeCount = stats?.likeCount ?? fallbackLikeCount;
@@ -1584,15 +1806,17 @@ class _VideoTab extends StatelessWidget {
                         create: (_) => serviceLocator<CommentThreadCubit>(),
                       ),
                     ],
-                    child: MediaDetailScreen(
+                    child: VideoReelScreen(
                       title: item.title ?? 'Video',
-                      isVideo: true,
-                      playbackUrl: item.playbackUrl,
+                      playbackUrl: (item.playbackUrl ?? item.sourceUrl ?? '')
+                          .trim(),
+                      sourceUrl: item.sourceUrl,
                       thumbnailUrl: thumbnail,
+                      framePreset: null,
                       targetType: targetType,
-                      targetId: item.id.isEmpty ? null : item.id,
-                      likeCount: likeCount,
-                      commentCount: commentCount,
+                      targetId: item.id,
+                      initialLikeCount: likeCount,
+                      initialCommentCount: commentCount,
                     ),
                   ),
                 ),
@@ -1629,30 +1853,59 @@ class _CountRow extends StatelessWidget {
   final int likeCount;
   final int commentCount;
   final bool light;
+  final bool isLiked;
+  final VoidCallback? onLikeTap;
+  final VoidCallback? onCommentTap;
 
   const _CountRow({
     required this.likeCount,
     required this.commentCount,
     this.light = false,
+    this.isLiked = false,
+    this.onLikeTap,
+    this.onCommentTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = light ? AppColors.white : AppColors.textMuted;
+    final likeColor = light
+        ? AppColors.white
+        : (isLiked ? AppColors.coralAlt : AppColors.textMuted);
     return Row(
       children: [
-        Icon(Icons.favorite_border, size: 16, color: color),
-        const SizedBox(width: 6),
-        Text(
-          likeCount.toString(),
-          style: TextStyle(color: color, fontSize: 12),
+        InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onLikeTap,
+          child: Row(
+            children: [
+              Icon(
+                isLiked ? Icons.favorite : Icons.favorite_border,
+                size: 16,
+                color: likeColor,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                likeCount.toString(),
+                style: TextStyle(color: likeColor, fontSize: 12),
+              ),
+            ],
+          ),
         ),
         const SizedBox(width: 12),
-        Icon(Icons.chat_bubble_outline, size: 16, color: color),
-        const SizedBox(width: 6),
-        Text(
-          commentCount.toString(),
-          style: TextStyle(color: color, fontSize: 12),
+        InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onCommentTap,
+          child: Row(
+            children: [
+              Icon(Icons.chat_bubble_outline, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                commentCount.toString(),
+                style: TextStyle(color: color, fontSize: 12),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1666,27 +1919,26 @@ class _BottomBar extends StatelessWidget {
       currentIndex: 0,
       type: BottomNavigationBarType.fixed,
       backgroundColor: AppColors.navBlueDeep,
-      selectedItemColor: AppColors.coralAlt,
+      selectedItemColor: AppColors.textMuted,
       unselectedItemColor: AppColors.textMuted,
       items: const [
         BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          label: '',
+          icon: Icon(Icons.campaign_outlined),
+          label: '\u0130lan',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.show_chart_outlined),
-          label: '',
+          icon: Icon(Icons.rocket_launch_outlined),
+          label: 'Git',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.mail_outline),
-          label: '',
+          icon: Icon(Icons.forum_outlined),
+          label: 'Mesajlar',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
-          label: '',
+          label: 'Profil',
         ),
       ],
     );
   }
 }
-

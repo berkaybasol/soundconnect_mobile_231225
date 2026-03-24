@@ -5,12 +5,17 @@ import 'package:just_audio/just_audio.dart';
 class AudioPlayerHandler extends BaseAudioHandler
     with QueueHandler, SeekHandler {
   final AudioPlayer _player = AudioPlayer();
+  late final Stream<Duration> _positionStream = _player.createPositionStream(
+    steps: 800,
+    minPeriod: const Duration(milliseconds: 16),
+    maxPeriod: const Duration(milliseconds: 50),
+  );
 
   AudioPlayerHandler() {
     _init();
   }
 
-  Stream<Duration> get positionStream => _player.positionStream;
+  Stream<Duration> get positionStream => _positionStream;
 
   Future<void> _init() async {
     final session = await AudioSession.instance;
@@ -71,14 +76,18 @@ class AudioPlayerHandler extends BaseAudioHandler
     String? mediaId,
   }) async {
     if (url.isEmpty) return;
-    final item = MediaItem(
+    final baseItem = MediaItem(
       id: mediaId ?? url,
       title: title ?? 'Audio',
       duration: duration,
       extras: {'url': url},
     );
-    mediaItem.add(item);
+    mediaItem.add(baseItem);
     await _player.setUrl(url);
+    final resolvedDuration = _player.duration ?? duration;
+    mediaItem.add(
+      baseItem.copyWith(duration: resolvedDuration),
+    );
     await _player.play();
   }
 

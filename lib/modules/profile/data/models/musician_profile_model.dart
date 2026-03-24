@@ -5,6 +5,7 @@ class MusicianProfileModel extends MusicianProfile {
   const MusicianProfileModel({
     required super.id,
     required super.userId,
+    required super.username,
     required super.stageName,
     required super.bio,
     required super.profilePicture,
@@ -28,6 +29,7 @@ class MusicianProfileModel extends MusicianProfile {
     return MusicianProfileModel(
       id: json['id']?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
+      username: json['username']?.toString(),
       stageName: json['stageName'] as String?,
       bio: json['bio'] as String?,
       profilePicture:

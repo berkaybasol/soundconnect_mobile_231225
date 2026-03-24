@@ -43,6 +43,13 @@ dependencies:
   just_audio: ^0.9.38
   audio_service: ^0.18.13
   audio_session: ^0.1.19
+  video_player: ^2.9.2
+  better_player_plus: ^1.0.8
+  image_picker: ^1.1.2
+  image_cropper: ^8.1.0
+  file_picker: ^8.1.2
+  path_provider: ^2.1.5
+  ffmpeg_kit_flutter_new_min_gpl: ^2.1.1
 
 dev_dependencies:
   flutter_test:

@@ -42,6 +42,7 @@ import '../cubit/venue_profile_state.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
 import 'profile_screen_support.dart';
+import 'profile_social_support.dart';
 import 'venue_event_management_widgets.dart';
 import 'venue_event_support.dart';
 import 'video_reel_screen.dart';
@@ -131,73 +132,26 @@ class _MusicianPublicProfileViewState
     }
   }
 
-  String? _socialUrlFor(MusicianProfile profile, _SocialPlatform platform) {
-    switch (platform) {
-      case _SocialPlatform.soundcloud:
-        return profile.soundcloudUrl;
-      case _SocialPlatform.instagram:
-        return profile.instagramUrl;
-      case _SocialPlatform.youtube:
-        return profile.youtubeUrl;
-      case _SocialPlatform.spotify:
-        return profile.spotifyEmbedUrl;
-    }
-  }
+  String? _socialUrlFor(
+    MusicianProfile profile,
+    ProfileSocialPlatform platform,
+  ) => socialUrlForMusicianProfile(profile, platform);
 
   Future<void> _addSocialLink(
     MusicianProfile profile,
-    _SocialPlatform platform,
+    ProfileSocialPlatform platform,
   ) async {
-    var draftValue = _socialUrlFor(profile, platform)?.trim() ?? '';
-    final isEditing = draftValue.isNotEmpty;
-
-    final submitted = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text('${platform.label} ${isEditing ? 'dÃ¼zenle' : 'ekle'}'),
-          content: TextFormField(
-            initialValue: draftValue,
-            autofocus: true,
-            keyboardType: TextInputType.url,
-            decoration: InputDecoration(hintText: platform.placeholder),
-            onChanged: (value) => draftValue = value,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('VazgeÃ§'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(draftValue),
-              child: const Text('Kaydet'),
-            ),
-          ],
-        );
-      },
+    final normalized = await promptForSocialLink(
+      context,
+      platform: platform,
+      initialValue: _socialUrlFor(profile, platform)?.trim() ?? '',
     );
-    if (submitted == null) return;
-    final trimmed = submitted.trim();
-    if (trimmed.isEmpty) return;
-    final normalized = trimmed.contains('://') ? trimmed : 'https://$trimmed';
-
-    final payload = switch (platform) {
-      _SocialPlatform.soundcloud => MusicianProfileSaveRequest(
-        soundcloudUrl: normalized,
-      ),
-      _SocialPlatform.instagram => MusicianProfileSaveRequest(
-        instagramUrl: normalized,
-      ),
-      _SocialPlatform.youtube => MusicianProfileSaveRequest(
-        youtubeUrl: normalized,
-      ),
-      _SocialPlatform.spotify => MusicianProfileSaveRequest(
-        spotifyEmbedUrl: normalized,
-      ),
-    };
+    if (normalized == null) return;
 
     try {
-      await context.read<MusicianProfileCubit>().updateProfile(payload);
+      await context.read<MusicianProfileCubit>().updateProfile(
+        buildMusicianSocialLinkRequest(platform, normalized),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -1366,7 +1320,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final bool photoUploading;
   final String? uploadedProfilePhotoUrl;
   final bool socialEditable;
-  final ValueChanged<_SocialPlatform>? onAddSocialLink;
+  final ValueChanged<ProfileSocialPlatform>? onAddSocialLink;
   final bool descriptionEditable;
   final Future<void> Function(String)? onSaveDescription;
   final bool ownerMode;
@@ -1667,7 +1621,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 ownerMode: ownerMode,
               ),
               const SizedBox(height: 18),
-              _SocialButtonRow(
+              ProfileSocialButtonRow(
+                pillWidth: 74,
                 profile: profile,
                 editable: socialEditable,
                 onAddLink: onAddSocialLink,
@@ -2017,245 +1972,6 @@ class _PillBadge extends StatelessWidget {
           color: AppColors.textPrimary,
           fontSize: 12,
           fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _SocialButtonRow extends StatelessWidget {
-  final MusicianProfile profile;
-  final bool editable;
-  final ValueChanged<_SocialPlatform>? onAddLink;
-
-  const _SocialButtonRow({
-    required this.profile,
-    this.editable = false,
-    this.onAddLink,
-  });
-
-  Future<void> _launchExternalUrl(BuildContext context, String? url) async {
-    final trimmed = url?.trim();
-    if (trimmed == null || trimmed.isEmpty) return;
-
-    final String normalized = trimmed.contains('://')
-        ? trimmed
-        : 'https://$trimmed';
-    final uri = Uri.tryParse(normalized);
-    if (uri == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('GeÃ§ersiz link')));
-      return;
-    }
-
-    final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!success && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Link aÃ§Ä±lamadÄ±')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final allItems = [
-      _SocialItem(
-        platform: _SocialPlatform.soundcloud,
-        icon: FontAwesomeIcons.soundcloud,
-        url: profile.soundcloudUrl,
-      ),
-      _SocialItem(
-        platform: _SocialPlatform.instagram,
-        icon: FontAwesomeIcons.instagram,
-        url: profile.instagramUrl,
-      ),
-      _SocialItem(
-        platform: _SocialPlatform.youtube,
-        icon: FontAwesomeIcons.youtube,
-        url: profile.youtubeUrl,
-      ),
-      _SocialItem(
-        platform: _SocialPlatform.spotify,
-        icon: FontAwesomeIcons.spotify,
-        url: profile.spotifyEmbedUrl,
-      ),
-    ];
-
-    final visibleItems = editable
-        ? allItems
-        : allItems.where((item) => item.active).toList();
-
-    if (visibleItems.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: visibleItems.map((item) {
-        return _SocialPill(
-          icon: item.icon,
-          active: item.active,
-          showAddBadge: editable && !item.active,
-          onTap: editable
-              ? () => onAddLink?.call(item.platform)
-              : (item.active
-                    ? () => _launchExternalUrl(context, item.url)
-                    : null),
-        );
-      }).toList(),
-    );
-  }
-}
-
-enum _SocialPlatform { soundcloud, instagram, youtube, spotify }
-
-extension _SocialPlatformUi on _SocialPlatform {
-  String get label {
-    switch (this) {
-      case _SocialPlatform.soundcloud:
-        return 'SoundCloud';
-      case _SocialPlatform.instagram:
-        return 'Instagram';
-      case _SocialPlatform.youtube:
-        return 'YouTube';
-      case _SocialPlatform.spotify:
-        return 'Spotify';
-    }
-  }
-
-  String get placeholder {
-    switch (this) {
-      case _SocialPlatform.soundcloud:
-        return 'https://soundcloud.com/kullanici';
-      case _SocialPlatform.instagram:
-        return 'https://instagram.com/kullanici';
-      case _SocialPlatform.youtube:
-        return 'https://youtube.com/@kanal';
-      case _SocialPlatform.spotify:
-        return 'https://open.spotify.com/artist/...';
-    }
-  }
-}
-
-class _SocialItem {
-  final _SocialPlatform platform;
-  final IconData icon;
-  final String? url;
-
-  const _SocialItem({
-    required this.platform,
-    required this.icon,
-    required this.url,
-  });
-
-  bool get active => _isSocialUrlUsable(url);
-}
-
-bool _isSocialUrlUsable(String? raw) {
-  final value = raw?.trim().toLowerCase();
-  if (value == null || value.isEmpty) return false;
-  return value.startsWith('http://') ||
-      value.startsWith('https://') ||
-      value.startsWith('www.');
-}
-
-class _SocialPill extends StatefulWidget {
-  final IconData icon;
-  final bool active;
-  final bool showAddBadge;
-  final VoidCallback? onTap;
-
-  const _SocialPill({
-    required this.icon,
-    required this.active,
-    this.showAddBadge = false,
-    this.onTap,
-  });
-
-  @override
-  State<_SocialPill> createState() => _SocialPillState();
-}
-
-class _SocialPillState extends State<_SocialPill> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    const iconGradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFFFF7A3D), Color(0xFFEF5F86), Color(0xFFB85CFF)],
-    );
-
-    final isInteractive = widget.onTap != null;
-    final borderColor = _pressed ? AppColors.textMuted : AppColors.border;
-    final shadowOpacity = _pressed ? 0.12 : 0.05;
-
-    return GestureDetector(
-      onTapDown: isInteractive ? (_) => setState(() => _pressed = true) : null,
-      onTapCancel: isInteractive
-          ? () => setState(() => _pressed = false)
-          : null,
-      onTapUp: isInteractive ? (_) => setState(() => _pressed = false) : null,
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 140),
-              curve: Curves.easeOut,
-              width: 74,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppColors.inputFill,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: shadowOpacity),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: widget.active
-                    ? ShaderMask(
-                        shaderCallback: (bounds) =>
-                            iconGradient.createShader(bounds),
-                        child: FaIcon(
-                          widget.icon,
-                          size: 20,
-                          color: AppColors.white,
-                        ),
-                      )
-                    : FaIcon(
-                        widget.icon,
-                        size: 20,
-                        color: AppColors.textMuted.withValues(alpha: 0.65),
-                      ),
-              ),
-            ),
-            if (widget.showAddBadge)
-              Positioned(
-                right: -4,
-                top: -4,
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF47C7C),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.add, size: 12, color: Colors.white),
-                ),
-              ),
-          ],
         ),
       ),
     );

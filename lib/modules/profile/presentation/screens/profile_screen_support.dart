@@ -1,6 +1,14 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/di/service_locator.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
 import '../../../follow/presentation/cubit/follow_count_cubit.dart';
@@ -37,6 +45,157 @@ String fileNameFromPath(String path, {required String fallback}) {
   final parts = normalized.split('/');
   final name = parts.isNotEmpty ? parts.last.trim() : '';
   return name.isEmpty ? fallback : name;
+}
+
+class ProfilePhotoUploadResult {
+  final String assetId;
+  final String? sourceUrl;
+  final String? playbackUrl;
+
+  const ProfilePhotoUploadResult({
+    required this.assetId,
+    required this.sourceUrl,
+    required this.playbackUrl,
+  });
+
+  String? get preferredUrl {
+    final source = sourceUrl?.trim();
+    if (source != null && source.isNotEmpty) return source;
+    final playback = playbackUrl?.trim();
+    if (playback != null && playback.isNotEmpty) return playback;
+    return null;
+  }
+}
+
+class ProfileUploadInitResult {
+  final String assetId;
+  final String uploadUrl;
+
+  const ProfileUploadInitResult({
+    required this.assetId,
+    required this.uploadUrl,
+  });
+
+  factory ProfileUploadInitResult.fromJson(Map<String, dynamic> json) {
+    return ProfileUploadInitResult(
+      assetId: json['assetId']?.toString() ?? '',
+      uploadUrl: json['uploadUrl']?.toString() ?? '',
+    );
+  }
+}
+
+class ProfileUploadedMedia {
+  final String uuid;
+  final String? sourceUrl;
+  final String? playbackUrl;
+
+  const ProfileUploadedMedia({
+    required this.uuid,
+    required this.sourceUrl,
+    required this.playbackUrl,
+  });
+
+  factory ProfileUploadedMedia.fromJson(Map<String, dynamic> json) {
+    return ProfileUploadedMedia(
+      uuid: json['uuid']?.toString() ?? '',
+      sourceUrl: json['sourceUrl']?.toString(),
+      playbackUrl: json['playbackUrl']?.toString(),
+    );
+  }
+}
+
+Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
+  required BuildContext context,
+  required ImagePicker imagePicker,
+  required String ownerType,
+  required String ownerId,
+  String cropTitle = 'Profil fotografini kirp',
+  Color cropToolbarColor = const Color(0xFF0B1321),
+  Color cropAccentColor = const Color(0xFFF47C7C),
+}) async {
+  final picked = await imagePicker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 92,
+    maxWidth: 2048,
+  );
+  if (picked == null) return null;
+
+  CroppedFile? cropped;
+  try {
+    cropped = await ImageCropper().cropImage(
+      sourcePath: picked.path,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 92,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: cropTitle,
+          toolbarColor: cropToolbarColor,
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: cropAccentColor,
+          lockAspectRatio: true,
+          hideBottomControls: false,
+        ),
+        IOSUiSettings(
+          title: cropTitle,
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
+  } on PlatformException catch (error) {
+    throw Exception('Kirpma acilamadi: ${error.message ?? error.code}');
+  }
+  if (cropped == null) return null;
+
+  final bytes = await File(cropped.path).readAsBytes();
+  if (bytes.isEmpty) return null;
+
+  final apiClient = serviceLocator<ApiClient>();
+  final fileName = fileNameFromPath(cropped.path, fallback: picked.name);
+  final mimeType = inferImageMimeType(fileName);
+
+  final initResult = await apiClient.post<ProfileUploadInitResult>(
+    '/api/v1/user/media/init-upload',
+    body: {
+      'ownerType': ownerType,
+      'ownerId': ownerId,
+      'kind': 'IMAGE',
+      'visibility': 'PUBLIC',
+      'mimeType': mimeType,
+      'sizeBytes': bytes.length,
+      'originalFileName': fileName,
+    },
+    decoder: (json) =>
+        ProfileUploadInitResult.fromJson(json as Map<String, dynamic>),
+  );
+
+  await Dio().put(
+    initResult.uploadUrl,
+    data: bytes,
+    options: Options(
+      headers: {'Content-Type': mimeType},
+      contentType: mimeType,
+    ),
+  );
+
+  final completed = await apiClient.post<ProfileUploadedMedia>(
+    '/api/v1/user/media/complete-upload',
+    body: {'assetId': initResult.assetId},
+    decoder: (json) =>
+        ProfileUploadedMedia.fromJson(json as Map<String, dynamic>),
+  );
+
+  final assetId = completed.uuid.trim();
+  if (assetId.isEmpty) {
+    throw Exception('Yukleme sonrasi assetId alinmadi');
+  }
+
+  return ProfilePhotoUploadResult(
+    assetId: assetId,
+    sourceUrl: completed.sourceUrl,
+    playbackUrl: completed.playbackUrl,
+  );
 }
 
 class ProfileScreenLoadCoordinator {

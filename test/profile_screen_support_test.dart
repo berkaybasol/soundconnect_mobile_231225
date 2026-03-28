@@ -25,5 +25,30 @@ void main() {
       );
       expect(fileNameFromPath('', fallback: 'fallback.png'), 'fallback.png');
     });
+
+    test('prefers source url before playback url', () {
+      const withSource = ProfilePhotoUploadResult(
+        assetId: 'asset-1',
+        sourceUrl: ' https://cdn.example.com/source.jpg ',
+        playbackUrl: 'https://cdn.example.com/playback.jpg',
+      );
+      const withPlaybackOnly = ProfilePhotoUploadResult(
+        assetId: 'asset-2',
+        sourceUrl: ' ',
+        playbackUrl: 'https://cdn.example.com/playback.jpg',
+      );
+      const withoutUrls = ProfilePhotoUploadResult(
+        assetId: 'asset-3',
+        sourceUrl: null,
+        playbackUrl: ' ',
+      );
+
+      expect(withSource.preferredUrl, 'https://cdn.example.com/source.jpg');
+      expect(
+        withPlaybackOnly.preferredUrl,
+        'https://cdn.example.com/playback.jpg',
+      );
+      expect(withoutUrls.preferredUrl, isNull);
+    });
   });
 }

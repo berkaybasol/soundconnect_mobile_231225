@@ -1,18 +1,17 @@
 // ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/audio/audio_player_handler.dart';
@@ -90,106 +89,30 @@ class _MusicianPublicProfileViewState
   final ImagePicker _imagePicker = ImagePicker();
 
   Future<void> _editProfilePhoto(MusicianProfile profile) async {
-    final picked = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 92,
-      maxWidth: 2048,
-    );
-    if (picked == null) return;
-
-    CroppedFile? cropped;
-    try {
-      cropped = await ImageCropper().cropImage(
-        sourcePath: picked.path,
-        compressFormat: ImageCompressFormat.jpg,
-        compressQuality: 92,
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Profil fotoğrafını kırp',
-            toolbarColor: const Color(0xFF0B1321),
-            toolbarWidgetColor: Colors.white,
-            activeControlsWidgetColor: const Color(0xFFF47C7C),
-            lockAspectRatio: true,
-            hideBottomControls: false,
-          ),
-          IOSUiSettings(
-            title: 'Profil fotoğrafını kırp',
-            aspectRatioLockEnabled: true,
-            resetAspectRatioEnabled: false,
-          ),
-        ],
-      );
-    } on PlatformException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kırpma açılamadı: ${e.message ?? e.code}')),
-      );
-      return;
-    }
-    if (cropped == null) return;
-
-    final bytes = await File(cropped.path).readAsBytes();
-    if (bytes.isEmpty) return;
-
     setState(() => _photoUploading = true);
     try {
-      final apiClient = serviceLocator<ApiClient>();
-      final fileName = fileNameFromPath(cropped.path, fallback: picked.name);
-      final mimeType = inferImageMimeType(fileName);
-
-      final initResult = await apiClient.post<_UploadInitResult>(
-        '/api/v1/user/media/init-upload',
-        body: {
-          'ownerType': 'MUSICIAN_PROFILE',
-          'ownerId': profile.id,
-          'kind': 'IMAGE',
-          'visibility': 'PUBLIC',
-          'mimeType': mimeType,
-          'sizeBytes': bytes.length,
-          'originalFileName': fileName,
-        },
-        decoder: (json) =>
-            _UploadInitResult.fromJson(json as Map<String, dynamic>),
+      final uploaded = await pickCropAndUploadProfilePhoto(
+        context: context,
+        imagePicker: _imagePicker,
+        ownerType: 'MUSICIAN_PROFILE',
+        ownerId: profile.id,
       );
-
-      await Dio().put(
-        initResult.uploadUrl,
-        data: bytes,
-        options: Options(
-          headers: {'Content-Type': mimeType},
-          contentType: mimeType,
-        ),
-      );
-
-      final completed = await apiClient.post<_UploadedMedia>(
-        '/api/v1/user/media/complete-upload',
-        body: {'assetId': initResult.assetId},
-        decoder: (json) =>
-            _UploadedMedia.fromJson(json as Map<String, dynamic>),
-      );
-
-      final profilePictureAssetId = completed.uuid.trim();
-      if (profilePictureAssetId.isEmpty) {
-        throw Exception('Yukleme sonrasi assetId alinmadi');
-      }
-
+      if (uploaded == null) return;
       await context.read<MusicianProfileCubit>().updateProfile(
-        MusicianProfileSaveRequest(profilePicture: profilePictureAssetId),
+        MusicianProfileSaveRequest(profilePicture: uploaded.assetId),
       );
       setState(() {
-        _uploadedProfilePhotoUrl =
-            (completed.sourceUrl ?? completed.playbackUrl)?.trim();
+        _uploadedProfilePhotoUrl = uploaded.preferredUrl;
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotoğrafı güncellendi')),
+        const SnackBar(content: Text('Profil fotografi guncellendi')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Fotoğraf yüklenemedi: $e')));
+      ).showSnackBar(SnackBar(content: Text('Fotograf yuklenemedi: $e')));
     } finally {
       if (mounted) {
         setState(() => _photoUploading = false);
@@ -3043,20 +2966,22 @@ class _AudioTab extends StatelessWidget {
                 final mimeType = _mimeFromAudioFileName(name);
 
                 step = 'init-upload';
-                final initResult = await apiClient.post<_UploadInitResult>(
-                  '/api/v1/user/media/init-upload',
-                  body: {
-                    'ownerType': 'MUSICIAN_PROFILE',
-                    'ownerId': profileId,
-                    'kind': 'AUDIO',
-                    'visibility': 'PUBLIC',
-                    'mimeType': mimeType,
-                    'sizeBytes': bytes.length,
-                    'originalFileName': name,
-                  },
-                  decoder: (json) =>
-                      _UploadInitResult.fromJson(json as Map<String, dynamic>),
-                );
+                final initResult = await apiClient
+                    .post<ProfileUploadInitResult>(
+                      '/api/v1/user/media/init-upload',
+                      body: {
+                        'ownerType': 'MUSICIAN_PROFILE',
+                        'ownerId': profileId,
+                        'kind': 'AUDIO',
+                        'visibility': 'PUBLIC',
+                        'mimeType': mimeType,
+                        'sizeBytes': bytes.length,
+                        'originalFileName': name,
+                      },
+                      decoder: (json) => ProfileUploadInitResult.fromJson(
+                        json as Map<String, dynamic>,
+                      ),
+                    );
 
                 step = 'dosya yükleme';
                 await Dio().put(
@@ -3069,11 +2994,12 @@ class _AudioTab extends StatelessWidget {
                 );
 
                 step = 'complete-upload';
-                final completed = await apiClient.post<_UploadedMedia>(
+                final completed = await apiClient.post<ProfileUploadedMedia>(
                   '/api/v1/user/media/complete-upload',
                   body: {'assetId': initResult.assetId},
-                  decoder: (json) =>
-                      _UploadedMedia.fromJson(json as Map<String, dynamic>),
+                  decoder: (json) => ProfileUploadedMedia.fromJson(
+                    json as Map<String, dynamic>,
+                  ),
                 );
 
                 final mediaAssetId = completed.uuid.trim();
@@ -4427,7 +4353,7 @@ class _VideoTabState extends State<_VideoTab> {
       final mimeType = _mimeFromVideoFileName(pickedName);
 
       step = 'init-upload';
-      final initResult = await apiClient.post<_UploadInitResult>(
+      final initResult = await apiClient.post<ProfileUploadInitResult>(
         '/api/v1/user/media/init-upload',
         body: {
           'ownerType': 'MUSICIAN_PROFILE',
@@ -4439,7 +4365,7 @@ class _VideoTabState extends State<_VideoTab> {
           'originalFileName': pickedName,
         },
         decoder: (json) =>
-            _UploadInitResult.fromJson(json as Map<String, dynamic>),
+            ProfileUploadInitResult.fromJson(json as Map<String, dynamic>),
       );
 
       step = 'dosya yükleme';
@@ -4453,11 +4379,11 @@ class _VideoTabState extends State<_VideoTab> {
       );
 
       step = 'complete-upload';
-      final completed = await apiClient.post<_UploadedMedia>(
+      final completed = await apiClient.post<ProfileUploadedMedia>(
         '/api/v1/user/media/complete-upload',
         body: {'assetId': initResult.assetId},
         decoder: (json) =>
-            _UploadedMedia.fromJson(json as Map<String, dynamic>),
+            ProfileUploadedMedia.fromJson(json as Map<String, dynamic>),
       );
 
       final assetId = completed.uuid.trim();
@@ -4799,40 +4725,6 @@ class _CountRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _UploadInitResult {
-  final String assetId;
-  final String uploadUrl;
-
-  const _UploadInitResult({required this.assetId, required this.uploadUrl});
-
-  factory _UploadInitResult.fromJson(Map<String, dynamic> json) {
-    return _UploadInitResult(
-      assetId: json['assetId']?.toString() ?? '',
-      uploadUrl: json['uploadUrl']?.toString() ?? '',
-    );
-  }
-}
-
-class _UploadedMedia {
-  final String uuid;
-  final String? sourceUrl;
-  final String? playbackUrl;
-
-  const _UploadedMedia({
-    required this.uuid,
-    required this.sourceUrl,
-    required this.playbackUrl,
-  });
-
-  factory _UploadedMedia.fromJson(Map<String, dynamic> json) {
-    return _UploadedMedia(
-      uuid: json['uuid']?.toString() ?? '',
-      sourceUrl: json['sourceUrl']?.toString(),
-      playbackUrl: json['playbackUrl']?.toString(),
     );
   }
 }

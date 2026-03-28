@@ -34,6 +34,28 @@ class MusicianProfileRepositoryImpl implements MusicianProfileRepository {
   }
 
   @override
+  Future<Result<MusicianProfile>> getPublicProfileByProfileId(
+    String profileId,
+  ) async {
+    try {
+      final response = await _apiClient.get<MusicianProfile>(
+        MusicianProfileEndpoints.publicByProfileId(profileId),
+        decoder: (json) => MusicianProfileModel.fromJson(
+          json as Map<String, dynamic>,
+        ),
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(const AppError(
+        code: 'musician_public_profile_unknown',
+        message: 'Public profil getirilemedi',
+      ));
+    }
+  }
+
+  @override
   Future<Result<MusicianProfile>> updateMyProfile(
     MusicianProfileSaveRequest request,
   ) async {

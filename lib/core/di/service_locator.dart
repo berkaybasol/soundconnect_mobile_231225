@@ -26,10 +26,13 @@ import '../../modules/instrument/domain/instrument_repository.dart';
 import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
 import '../../modules/profile/data/musician_profile_repository_impl.dart';
 import '../../modules/profile/data/profile_media_repository_impl.dart';
+import '../../modules/profile/data/venue_profile_repository_impl.dart';
 import '../../modules/profile/domain/musician_profile_repository.dart';
 import '../../modules/profile/domain/profile_media_repository.dart';
+import '../../modules/profile/domain/venue_profile_repository.dart';
 import '../../modules/profile/presentation/cubit/musician_profile_cubit.dart';
 import '../../modules/profile/presentation/cubit/profile_media_cubit.dart';
+import '../../modules/profile/presentation/cubit/venue_profile_cubit.dart';
 import '../../modules/spotify/data/spotify_repository_impl.dart';
 import '../../modules/spotify/domain/spotify_repository.dart';
 import '../../modules/spotify/presentation/cubit/spotify_preview_cubit.dart';
@@ -76,6 +79,12 @@ void setupDependencies() {
     )
     ..registerFactory<ProfileMediaCubit>(
       () => ProfileMediaCubit(serviceLocator<ProfileMediaRepository>()),
+    )
+    ..registerLazySingleton<VenueProfileRepository>(
+      () => VenueProfileRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<VenueProfileCubit>(
+      () => VenueProfileCubit(serviceLocator<VenueProfileRepository>()),
     )
     ..registerLazySingleton<FollowRepository>(
       () => FollowRepositoryImpl(serviceLocator<ApiClient>()),

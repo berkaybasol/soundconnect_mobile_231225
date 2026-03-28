@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/network/api_client.dart';
@@ -33,18 +34,32 @@ import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/entities/venue_event_summary.dart';
+import '../../domain/entities/venue_owner_profile.dart';
 import '../../data/models/musician_profile_save_request.dart';
+import '../../data/models/venue_profile_save_request.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
+import '../cubit/venue_profile_cubit.dart';
+import '../cubit/venue_profile_state.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
 import 'video_reel_screen.dart';
+import 'weekly_event_detail_screen.dart';
 
 class PublicProfileArgs {
+  final String? profileId;
   final String? viewerUserId;
 
-  const PublicProfileArgs({this.viewerUserId});
+  const PublicProfileArgs({this.profileId, this.viewerUserId});
+}
+
+class VenueProfileArgs {
+  final String? venueId;
+  final String? viewerUserId;
+
+  const VenueProfileArgs({this.venueId, this.viewerUserId});
 }
 
 bool _isValidNetworkImageUrl(String? value) {
@@ -57,17 +72,15 @@ bool _isValidNetworkImageUrl(String? value) {
       (uri.host.isNotEmpty);
 }
 
-class MusicianProfileScreen extends StatelessWidget {
-  const MusicianProfileScreen({super.key});
+class VenueProfileScreen extends StatelessWidget {
+  const VenueProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) =>
-              serviceLocator<MusicianProfileCubit>()..loadMyProfile(),
-        ),
+        BlocProvider(create: (_) => serviceLocator<VenueProfileCubit>()),
+        BlocProvider(create: (_) => serviceLocator<MusicianProfileCubit>()),
         BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),
@@ -91,6 +104,7 @@ class _MusicianPublicProfileView extends StatefulWidget {
 
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
+  String? _ownerVenueId;
   String? _mediaProfileId;
   String? _followUserId;
   String? _followStatusKey;
@@ -118,7 +132,7 @@ class _MusicianPublicProfileViewState
     return name.isEmpty ? fallback : name;
   }
 
-  Future<void> _editProfilePhoto(MusicianProfile profile) async {
+  Future<void> _editProfilePhoto(VenueOwnerProfile profile) async {
     final picked = await _imagePicker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 92,
@@ -135,7 +149,7 @@ class _MusicianPublicProfileViewState
         aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: 'Profil fotoğrafını kırp',
+            toolbarTitle: 'Profil fotoÄŸrafÄ±nÄ± kÄ±rp',
             toolbarColor: const Color(0xFF0B1321),
             toolbarWidgetColor: Colors.white,
             activeControlsWidgetColor: const Color(0xFFF47C7C),
@@ -143,7 +157,7 @@ class _MusicianPublicProfileViewState
             hideBottomControls: false,
           ),
           IOSUiSettings(
-            title: 'Profil fotoğrafını kırp',
+            title: 'Profil fotoÄŸrafÄ±nÄ± kÄ±rp',
             aspectRatioLockEnabled: true,
             resetAspectRatioEnabled: false,
           ),
@@ -152,7 +166,7 @@ class _MusicianPublicProfileViewState
     } on PlatformException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kırpma açılamadı: ${e.message ?? e.code}')),
+        SnackBar(content: Text('KÄ±rpma aÃ§Ä±lamadÄ±: ${e.message ?? e.code}')),
       );
       return;
     }
@@ -170,8 +184,8 @@ class _MusicianPublicProfileViewState
       final initResult = await apiClient.post<_UploadInitResult>(
         '/api/v1/user/media/init-upload',
         body: {
-          'ownerType': 'MUSICIAN_PROFILE',
-          'ownerId': profile.id,
+          'ownerType': 'VENUE_PROFILE',
+          'ownerId': profile.venueProfileId,
           'kind': 'IMAGE',
           'visibility': 'PUBLIC',
           'mimeType': mimeType,
@@ -203,8 +217,9 @@ class _MusicianPublicProfileViewState
         throw Exception('Yukleme sonrasi assetId alinmadi');
       }
 
-      await context.read<MusicianProfileCubit>().updateProfile(
-        MusicianProfileSaveRequest(profilePicture: profilePictureAssetId),
+      await context.read<VenueProfileCubit>().updateOwnerProfile(
+        VenueProfileSaveRequest(profilePicture: profilePictureAssetId),
+        venueId: profile.venueId,
       );
       setState(() {
         _uploadedProfilePhotoUrl =
@@ -212,13 +227,13 @@ class _MusicianPublicProfileViewState
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotoğrafı güncellendi')),
+        const SnackBar(content: Text('Profil fotoÄŸrafÄ± gÃ¼ncellendi')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Fotoğraf yüklenemedi: $e')));
+      ).showSnackBar(SnackBar(content: Text('FotoÄŸraf yÃ¼klenemedi: $e')));
     } finally {
       if (mounted) {
         setState(() => _photoUploading = false);
@@ -240,9 +255,9 @@ class _MusicianPublicProfileViewState
   }
 
   Future<void> _addSocialLink(
-    MusicianProfile profile,
-    _SocialPlatform platform,
-  ) async {
+      MusicianProfile profile,
+      _SocialPlatform platform,
+      ) async {
     var draftValue = _socialUrlFor(profile, platform)?.trim() ?? '';
     final isEditing = draftValue.isNotEmpty;
 
@@ -250,7 +265,7 @@ class _MusicianPublicProfileViewState
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('${platform.label} ${isEditing ? 'düzenle' : 'ekle'}'),
+          title: Text('${platform.label} ${isEditing ? 'dÃ¼zenle' : 'ekle'}'),
           content: TextFormField(
             initialValue: draftValue,
             autofocus: true,
@@ -261,7 +276,7 @@ class _MusicianPublicProfileViewState
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Vazgeç'),
+              child: const Text('VazgeÃ§'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(draftValue),
@@ -314,19 +329,19 @@ class _MusicianPublicProfileViewState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Açıklama güncellendi')));
+      ).showSnackBar(const SnackBar(content: Text('AÃ§Ä±klama gÃ¼ncellendi')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Açıklama kaydedilemedi')));
+      ).showSnackBar(const SnackBar(content: Text('AÃ§Ä±klama kaydedilemedi')));
     }
   }
 
   void _onEditProfilePressed() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Asagidaki alanlardan profilini düzenleyebilirsin.'),
+        content: Text('Asagidaki alanlardan profilini dÃ¼zenleyebilirsin.'),
       ),
     );
   }
@@ -379,16 +394,16 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _VenueOption(
-                id: item['id']?.toString() ?? '',
-                name: item['name']?.toString() ?? '',
-                cityId: _extractId(item, 'cityId'),
-                districtId: _extractId(item, 'districtId'),
-                neighborhoodId: _extractId(item, 'neighborhoodId'),
-                cityName: _extractName(item, 'cityName'),
-                districtName: _extractName(item, 'districtName'),
-                neighborhoodName: _extractName(item, 'neighborhoodName'),
-              ),
-            )
+            id: item['id']?.toString() ?? '',
+            name: item['name']?.toString() ?? '',
+            cityId: _extractId(item, 'cityId'),
+            districtId: _extractId(item, 'districtId'),
+            neighborhoodId: _extractId(item, 'neighborhoodId'),
+            cityName: _extractName(item, 'cityName'),
+            districtName: _extractName(item, 'districtName'),
+            neighborhoodName: _extractName(item, 'neighborhoodName'),
+          ),
+        )
             .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
             .toList();
       },
@@ -405,10 +420,10 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _LookupOption(
-                id: item['id']?.toString() ?? '',
-                name: item['name']?.toString() ?? '',
-              ),
-            )
+            id: item['id']?.toString() ?? '',
+            name: item['name']?.toString() ?? '',
+          ),
+        )
             .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
             .toList();
       },
@@ -425,10 +440,10 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _LookupOption(
-                id: item['id']?.toString() ?? '',
-                name: item['name']?.toString() ?? '',
-              ),
-            )
+            id: item['id']?.toString() ?? '',
+            name: item['name']?.toString() ?? '',
+          ),
+        )
             .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
             .toList();
       },
@@ -445,10 +460,10 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _LookupOption(
-                id: item['id']?.toString() ?? '',
-                name: item['name']?.toString() ?? '',
-              ),
-            )
+            id: item['id']?.toString() ?? '',
+            name: item['name']?.toString() ?? '',
+          ),
+        )
             .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
             .toList();
       },
@@ -456,9 +471,9 @@ class _MusicianPublicProfileViewState
   }
 
   Future<List<_VenueConnection>> _fetchVenueConnectionsByStatus(
-    String profileId, {
-    required String status,
-  }) async {
+      String profileId, {
+        required String status,
+      }) async {
     final apiClient = serviceLocator<ApiClient>();
     return apiClient.get<List<_VenueConnection>>(
       '/api/v1/artist-venue-connections/musician/$profileId?status=$status',
@@ -468,28 +483,28 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _VenueConnection(
-                requestId: item['id']?.toString() ?? '',
-                venueId: item['venueId']?.toString() ?? '',
-                venueName: item['venueName']?.toString() ?? '',
-              ),
-            )
+            requestId: item['id']?.toString() ?? '',
+            venueId: item['venueId']?.toString() ?? '',
+            venueName: item['venueName']?.toString() ?? '',
+          ),
+        )
             .where(
               (item) => item.requestId.isNotEmpty && item.venueId.isNotEmpty,
-            )
+        )
             .toList();
       },
     );
   }
 
   Future<List<_VenueConnection>> _fetchAcceptedVenueConnections(
-    String profileId,
-  ) {
+      String profileId,
+      ) {
     return _fetchVenueConnectionsByStatus(profileId, status: 'ACCEPTED');
   }
 
   Future<List<_VenueConnection>> _fetchPendingVenueConnections(
-    String profileId,
-  ) {
+      String profileId,
+      ) {
     return _fetchVenueConnectionsByStatus(profileId, status: 'PENDING');
   }
 
@@ -502,7 +517,7 @@ class _MusicianPublicProfileViewState
               builder: (_) => const _VenueIntroScreen(),
             ),
           ) ??
-          false;
+              false;
       if (!acceptedIntro || !mounted) return;
 
       final allVenues = await _fetchAllVenues();
@@ -598,26 +613,26 @@ class _MusicianPublicProfileViewState
                 );
                 final matchesSearch =
                     searchQuery.isEmpty ||
-                    venue.name.toLowerCase().contains(
-                      searchQuery.toLowerCase(),
-                    );
+                        venue.name.toLowerCase().contains(
+                          searchQuery.toLowerCase(),
+                        );
                 final matchesCity =
                     selectedCityId == null ||
-                    venue.cityId == selectedCityId ||
-                    (selectedCityName != null &&
-                        venue.cityName?.toLowerCase() == selectedCityName);
+                        venue.cityId == selectedCityId ||
+                        (selectedCityName != null &&
+                            venue.cityName?.toLowerCase() == selectedCityName);
                 final matchesDistrict =
                     selectedDistrictId == null ||
-                    venue.districtId == selectedDistrictId ||
-                    (selectedDistrictName != null &&
-                        venue.districtName?.toLowerCase() ==
-                            selectedDistrictName);
+                        venue.districtId == selectedDistrictId ||
+                        (selectedDistrictName != null &&
+                            venue.districtName?.toLowerCase() ==
+                                selectedDistrictName);
                 final matchesNeighborhood =
                     selectedNeighborhoodId == null ||
-                    venue.neighborhoodId == selectedNeighborhoodId ||
-                    (selectedNeighborhoodName != null &&
-                        venue.neighborhoodName?.toLowerCase() ==
-                            selectedNeighborhoodName);
+                        venue.neighborhoodId == selectedNeighborhoodId ||
+                        (selectedNeighborhoodName != null &&
+                            venue.neighborhoodName?.toLowerCase() ==
+                                selectedNeighborhoodName);
                 return matchesSearch &&
                     matchesCity &&
                     matchesDistrict &&
@@ -633,7 +648,7 @@ class _MusicianPublicProfileViewState
                   top: false,
                   child: SizedBox(
                     height:
-                        MediaQuery.of(context).size.height *
+                    MediaQuery.of(context).size.height *
                         (filtersExpanded ? 0.93 : 0.84),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -775,7 +790,7 @@ class _MusicianPublicProfileViewState
                                         child: Text('T\u00FCm \u0130ller'),
                                       ),
                                       ...cities.map(
-                                        (city) => DropdownMenuItem<String>(
+                                            (city) => DropdownMenuItem<String>(
                                           value: city.id,
                                           child: Text(city.name),
                                         ),
@@ -798,22 +813,22 @@ class _MusicianPublicProfileViewState
                                     decoration: InputDecoration(
                                       labelText: '\u0130l\u00E7e',
                                       contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 14,
-                                          ),
+                                      const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 14,
+                                      ),
                                       suffixIcon: loadingDistricts
                                           ? const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: Padding(
-                                                padding: EdgeInsets.all(12),
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              ),
-                                            )
+                                        width: 16,
+                                        height: 16,
+                                        child: Padding(
+                                          padding: EdgeInsets.all(12),
+                                          child:
+                                          CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      )
                                           : null,
                                     ),
                                     items: [
@@ -824,7 +839,7 @@ class _MusicianPublicProfileViewState
                                         ),
                                       ),
                                       ...districtOptions.map(
-                                        (district) => DropdownMenuItem<String>(
+                                            (district) => DropdownMenuItem<String>(
                                           value: district.id,
                                           child: Text(district.name),
                                         ),
@@ -849,22 +864,22 @@ class _MusicianPublicProfileViewState
                                     decoration: InputDecoration(
                                       labelText: 'Mahalle',
                                       contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 14,
-                                          ),
+                                      const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 14,
+                                      ),
                                       suffixIcon: loadingNeighborhoods
                                           ? const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: Padding(
-                                                padding: EdgeInsets.all(12),
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                              ),
-                                            )
+                                        width: 16,
+                                        height: 16,
+                                        child: Padding(
+                                          padding: EdgeInsets.all(12),
+                                          child:
+                                          CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      )
                                           : null,
                                     ),
                                     items: [
@@ -873,7 +888,7 @@ class _MusicianPublicProfileViewState
                                         child: Text('T\u00FCm Mahalleler'),
                                       ),
                                       ...neighborhoodOptions.map(
-                                        (neighborhood) =>
+                                            (neighborhood) =>
                                             DropdownMenuItem<String>(
                                               value: neighborhood.id,
                                               child: Text(neighborhood.name),
@@ -883,9 +898,9 @@ class _MusicianPublicProfileViewState
                                     onChanged: selectedDistrictId == null
                                         ? null
                                         : (value) => setSheetState(
-                                            () =>
-                                                selectedNeighborhoodId = value,
-                                          ),
+                                          () =>
+                                      selectedNeighborhoodId = value,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -895,189 +910,189 @@ class _MusicianPublicProfileViewState
                           Expanded(
                             child: filteredVenues.isEmpty
                                 ? const Center(
-                                    child: Text(
-                                      'Filtreye uygun mekan yok.',
-                                      style: TextStyle(
-                                        color: AppColors.textMuted,
-                                      ),
-                                    ),
-                                  )
+                              child: Text(
+                                'Filtreye uygun mekan yok.',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            )
                                 : ListView.builder(
-                                    itemCount: filteredVenues.length,
-                                    itemBuilder: (context, index) {
-                                      final venue = filteredVenues[index];
-                                      final checked =
-                                          selectedVenueId == venue.id;
-                                      final isAccepted = acceptedIds.contains(
-                                        venue.id,
-                                      );
-                                      final isPending = pendingIds.contains(
-                                        venue.id,
-                                      );
-                                      final isLocked = isAccepted || isPending;
-                                      return InkWell(
-                                        borderRadius: BorderRadius.circular(12),
-                                        onTap: () {
-                                          if (isAccepted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Bu mek\u00E2n zaten profilinde ba\u011Fl\u0131.',
-                                                ),
-                                              ),
-                                            );
-                                            return;
-                                          }
-                                          if (isPending) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Bu mek\u00E2na zaten ba\u015Fvurdun (beklemede).',
-                                                ),
-                                              ),
-                                            );
-                                            return;
-                                          }
-                                          setSheetState(() {
-                                            if (checked) {
-                                              selectedVenueId = null;
-                                            } else {
-                                              selectedVenueId = venue.id;
-                                            }
-                                          });
-                                        },
-                                        child: Container(
-                                          margin: const EdgeInsets.only(
-                                            bottom: 8,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 10,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            border: Border.all(
-                                              color: checked
-                                                  ? Colors.transparent
-                                                  : AppColors.border.withValues(
-                                                      alpha: 0.45,
-                                                    ),
-                                            ),
-                                            gradient: checked
-                                                ? const LinearGradient(
-                                                    colors: [
-                                                      Color(0x22FF7A3D),
-                                                      Color(0x22EF5F86),
-                                                      Color(0x22B85CFF),
-                                                    ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                  )
-                                                : null,
-                                            color: checked
-                                                ? null
-                                                : AppColors.inputFill,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 22,
-                                                height: 22,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                  border: Border.all(
-                                                    color: checked
-                                                        ? Colors.transparent
-                                                        : AppColors.textMuted
-                                                              .withValues(
-                                                                alpha: 0.55,
-                                                              ),
-                                                  ),
-                                                  gradient: checked
-                                                      ? const LinearGradient(
-                                                          colors: [
-                                                            Color(0xFFFF7A3D),
-                                                            Color(0xFFEF5F86),
-                                                            Color(0xFFB85CFF),
-                                                          ],
-                                                          begin:
-                                                              Alignment.topLeft,
-                                                          end: Alignment
-                                                              .bottomRight,
-                                                        )
-                                                      : null,
-                                                ),
-                                                child: checked
-                                                    ? const Icon(
-                                                        Icons.check,
-                                                        size: 15,
-                                                        color: Colors.white,
-                                                      )
-                                                    : null,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  venue.name,
-                                                  style: TextStyle(
-                                                    color: AppColors.textPrimary
-                                                        .withValues(
-                                                          alpha: isLocked
-                                                              ? 0.55
-                                                              : 1,
-                                                        ),
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (isLocked) ...[
-                                                const SizedBox(width: 8),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: AppColors.inputFill,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: AppColors.border
-                                                          .withValues(
-                                                            alpha: 0.5,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    isPending
-                                                        ? '\u{1F7E1} Beklemede'
-                                                        : 'Ba\u011Fl\u0131',
-                                                    style: const TextStyle(
-                                                      color:
-                                                          AppColors.textMuted,
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
+                              itemCount: filteredVenues.length,
+                              itemBuilder: (context, index) {
+                                final venue = filteredVenues[index];
+                                final checked =
+                                    selectedVenueId == venue.id;
+                                final isAccepted = acceptedIds.contains(
+                                  venue.id,
+                                );
+                                final isPending = pendingIds.contains(
+                                  venue.id,
+                                );
+                                final isLocked = isAccepted || isPending;
+                                return InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () {
+                                    if (isAccepted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Bu mek\u00E2n zaten profilinde ba\u011Fl\u0131.',
                                           ),
                                         ),
                                       );
-                                    },
+                                      return;
+                                    }
+                                    if (isPending) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Bu mek\u00E2na zaten ba\u015Fvurdun (beklemede).',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    setSheetState(() {
+                                      if (checked) {
+                                        selectedVenueId = null;
+                                      } else {
+                                        selectedVenueId = venue.id;
+                                      }
+                                    });
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.only(
+                                      bottom: 8,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(
+                                        12,
+                                      ),
+                                      border: Border.all(
+                                        color: checked
+                                            ? Colors.transparent
+                                            : AppColors.border.withValues(
+                                          alpha: 0.45,
+                                        ),
+                                      ),
+                                      gradient: checked
+                                          ? const LinearGradient(
+                                        colors: [
+                                          Color(0x22FF7A3D),
+                                          Color(0x22EF5F86),
+                                          Color(0x22B85CFF),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      )
+                                          : null,
+                                      color: checked
+                                          ? null
+                                          : AppColors.inputFill,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 22,
+                                          height: 22,
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                            BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: checked
+                                                  ? Colors.transparent
+                                                  : AppColors.textMuted
+                                                  .withValues(
+                                                alpha: 0.55,
+                                              ),
+                                            ),
+                                            gradient: checked
+                                                ? const LinearGradient(
+                                              colors: [
+                                                Color(0xFFFF7A3D),
+                                                Color(0xFFEF5F86),
+                                                Color(0xFFB85CFF),
+                                              ],
+                                              begin:
+                                              Alignment.topLeft,
+                                              end: Alignment
+                                                  .bottomRight,
+                                            )
+                                                : null,
+                                          ),
+                                          child: checked
+                                              ? const Icon(
+                                            Icons.check,
+                                            size: 15,
+                                            color: Colors.white,
+                                          )
+                                              : null,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            venue.name,
+                                            style: TextStyle(
+                                              color: AppColors.textPrimary
+                                                  .withValues(
+                                                alpha: isLocked
+                                                    ? 0.55
+                                                    : 1,
+                                              ),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isLocked) ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.inputFill,
+                                              borderRadius:
+                                              BorderRadius.circular(
+                                                8,
+                                              ),
+                                              border: Border.all(
+                                                color: AppColors.border
+                                                    .withValues(
+                                                  alpha: 0.5,
+                                                ),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              isPending
+                                                  ? '\u{1F7E1} Beklemede'
+                                                  : 'Ba\u011Fl\u0131',
+                                              style: const TextStyle(
+                                                color:
+                                                AppColors.textMuted,
+                                                fontSize: 11,
+                                                fontWeight:
+                                                FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   ),
+                                );
+                              },
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -1086,7 +1101,7 @@ class _MusicianPublicProfileViewState
                                 child: OutlinedButton(
                                   onPressed: () =>
                                       Navigator.of(sheetContext).pop(),
-                                  child: const Text('İptal'),
+                                  child: const Text('Ä°ptal'),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -1121,25 +1136,25 @@ class _MusicianPublicProfileViewState
                                           ),
                                           child: Dialog(
                                             backgroundColor:
-                                                AppColors.navBlueDeep,
+                                            AppColors.navBlueDeep,
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
-                                                  BorderRadius.circular(16),
+                                              BorderRadius.circular(16),
                                             ),
                                             child: Padding(
                                               padding:
-                                                  const EdgeInsets.fromLTRB(
-                                                    16,
-                                                    16,
-                                                    16,
-                                                    14,
-                                                  ),
+                                              const EdgeInsets.fromLTRB(
+                                                16,
+                                                16,
+                                                16,
+                                                14,
+                                              ),
                                               child: SingleChildScrollView(
                                                 child: Column(
                                                   mainAxisSize:
-                                                      MainAxisSize.min,
+                                                  MainAxisSize.min,
                                                   crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
+                                                  CrossAxisAlignment.start,
                                                   children: [
                                                     const Text(
                                                       'Ba\u015fvuru Notu (Opsiyonel)',
@@ -1147,7 +1162,7 @@ class _MusicianPublicProfileViewState
                                                         color: AppColors
                                                             .textPrimary,
                                                         fontWeight:
-                                                            FontWeight.w700,
+                                                        FontWeight.w700,
                                                       ),
                                                     ),
                                                     const SizedBox(height: 10),
@@ -1158,10 +1173,10 @@ class _MusicianPublicProfileViewState
                                                         noteDraft = value;
                                                       },
                                                       decoration:
-                                                          const InputDecoration(
-                                                            hintText:
-                                                                'İstersen kısa bir not ekleyebilirsin (zorunlu değil).',
-                                                          ),
+                                                      const InputDecoration(
+                                                        hintText:
+                                                        'Ä°stersen kÄ±sa bir not ekleyebilirsin (zorunlu deÄŸil).',
+                                                      ),
                                                     ),
                                                     const SizedBox(height: 12),
                                                     Row(
@@ -1173,7 +1188,7 @@ class _MusicianPublicProfileViewState
                                                                   dialogContext,
                                                                 ).pop(),
                                                             child: const Text(
-                                                              'Vazgeç',
+                                                              'VazgeÃ§',
                                                             ),
                                                           ),
                                                         ),
@@ -1190,7 +1205,7 @@ class _MusicianPublicProfileViewState
                                                                       .trim(),
                                                                 ),
                                                             child: const Text(
-                                                              'Gönder',
+                                                              'GÃ¶nder',
                                                             ),
                                                           ),
                                                         ),
@@ -1261,7 +1276,7 @@ class _MusicianPublicProfileViewState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Mekanlar güncellenemedi: $e')));
+      ).showSnackBar(SnackBar(content: Text('Mekanlar gÃ¼ncellenemedi: $e')));
     }
   }
 
@@ -1315,6 +1330,15 @@ class _MusicianPublicProfileViewState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_ownerVenueId == null) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is VenueProfileArgs) {
+        _ownerVenueId = args.venueId;
+      } else if (args is String) {
+        _ownerVenueId = args;
+      }
+      context.read<VenueProfileCubit>().loadOwner(venueId: _ownerVenueId);
+    }
     if (_viewerUserId != null) return;
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is PublicProfileArgs) {
@@ -1328,7 +1352,29 @@ class _MusicianPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocListener(
+    return BlocBuilder<VenueProfileCubit, VenueProfileState>(
+      builder: (context, venueState) {
+        final ownerProfile = venueState.ownerProfile;
+        if (venueState.status == VenueProfileStatus.loading &&
+            ownerProfile == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (ownerProfile == null) {
+          return Scaffold(
+            body: Center(
+              child: Text(
+                venueState.error?.message ?? 'Venue profili getirilemedi',
+              ),
+            ),
+          );
+        }
+        final profile = _toDisplayProfile(ownerProfile);
+        final weeklyEvents = _toWeeklyCalendarEvents(ownerProfile);
+        _currentProfileUserId = ownerProfile.ownerUserId;
+        _loadFollowCounts(ownerProfile.ownerUserId);
+        return MultiBlocListener(
       listeners: [
         BlocListener<FollowActionCubit, FollowActionState>(
           listener: (context, state) {
@@ -1341,38 +1387,9 @@ class _MusicianPublicProfileViewState
           },
         ),
       ],
-      child: BlocBuilder<MusicianProfileCubit, MusicianProfileState>(
-        builder: (context, state) {
-          final isInitialLoading =
-              state.status == MusicianProfileStatus.loading &&
-              state.profile == null;
-          if (isInitialLoading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          if (state.profile == null) {
-            return Scaffold(
-              body: Center(
-                child: Text(state.error?.message ?? 'Profil getirilemedi'),
-              ),
-            );
-          }
-
-          final profile = state.profile!;
-          _currentProfileUserId = profile.userId;
-          _loadMediaForProfile(profile.id);
-          _loadFollowCounts(profile.userId);
-          _loadAcceptedVenues(profile.id);
-          final viewerUserId = _viewerUserId ?? '';
-          _loadFollowStatus(viewerUserId, profile.userId);
+      child: Builder(
+        builder: (context) {
           final media = context.watch<ProfileMediaCubit>().state.media;
-          final venueState = context.watch<ArtistVenueConnectionsCubit>().state;
-          final venueItems =
-              venueState.status == ArtistVenueConnectionsStatus.loading
-              ? null
-              : venueState.venues;
           final followState = context.watch<FollowCountCubit>().state;
           final followersCount = followState.status == FollowCountStatus.loading
               ? null
@@ -1386,27 +1403,89 @@ class _MusicianPublicProfileViewState
             media: media,
             followersCount: followersCount,
             followingCount: followingCount,
-            activeVenues: venueItems,
-            viewerUserId: viewerUserId,
+            activeVenues: ownerProfile.activeMusicians
+                .map((item) => item.displayName)
+                .toList(),
+            viewerUserId: '',
             isFollowing: actionState.isFollowing,
             followLoading: actionState.status == FollowActionStatus.loading,
-            spotifyTracks: profile.spotifyTracks,
+            spotifyTracks: const [],
             spotifyLoading: false,
-            onEditPhoto: () => _editProfilePhoto(profile),
+            onEditPhoto: () => _editProfilePhoto(ownerProfile),
             photoUploading: _photoUploading,
-            uploadedProfilePhotoUrl: _uploadedProfilePhotoUrl,
-            socialEditable: true,
-            onAddSocialLink: (platform) => _addSocialLink(profile, platform),
-            descriptionEditable: true,
-            onSaveDescription: _saveDescription,
+            uploadedProfilePhotoUrl: ownerProfile.profilePictureUrl,
+            socialEditable: false,
+            onAddSocialLink: null,
+            descriptionEditable: false,
+            onSaveDescription: null,
             ownerMode: true,
             onEditProfilePressed: _onEditProfilePressed,
-            venueEditable: true,
-            onEditVenues: () => _editVenues(profile.id),
+            venueEditable: false,
+            onEditVenues: null,
+            onEditEvents: null,
+            weeklyEvents: weeklyEvents,
           );
         },
       ),
     );
+      },
+    );
+  }
+
+  MusicianProfile _toDisplayProfile(VenueOwnerProfile profile) {
+    final location = [
+      profile.neighborhoodName,
+      profile.districtName,
+      profile.cityName,
+    ].where((item) => item != null && item.trim().isNotEmpty).join(' / ');
+
+    return MusicianProfile(
+      id: profile.venueId,
+      userId: profile.ownerUserId,
+      username: profile.venueName,
+      stageName: profile.venueName,
+      bio: profile.bio ?? profile.description,
+      profilePicture: profile.profilePictureUrl,
+      instagramUrl: profile.instagramUrl,
+      youtubeUrl: profile.youtubeUrl,
+      soundcloudUrl: profile.website,
+      spotifyEmbedUrl: profile.websiteUrl,
+      spotifyArtistId: null,
+      spotifyTrackIds: const [],
+      spotifyTracks: const [],
+      instruments: const [],
+      activeVenues: profile.activeMusicians
+          .map((item) => item.displayName)
+          .toList(),
+      bands: location.isEmpty ? const [] : [location],
+    );
+  }
+
+  List<WeeklyCalendarEvent> _toWeeklyCalendarEvents(VenueOwnerProfile profile) {
+    return profile.weeklyEvents
+        .map(
+          (item) => WeeklyCalendarEvent(
+            id: item.eventId,
+            title: item.title,
+            artistName: item.performerName,
+            venueName: profile.venueName,
+            city: profile.cityName ?? '',
+            district: profile.districtName ?? '',
+            neighborhood: profile.neighborhoodName ?? '',
+            eventDate: _formatDate(item.eventDate),
+            startTime: item.startTime ?? '-',
+            endTime: item.endTime ?? '-',
+            imageAssetPath: null,
+            description:
+                profile.description ?? '${item.performerType} performansi',
+          ),
+        )
+        .toList();
+  }
+
+  String _formatDate(DateTime? value) {
+    if (value == null) return '-';
+    return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
   }
 }
 
@@ -1432,6 +1511,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final VoidCallback? onEditProfilePressed;
   final bool venueEditable;
   final VoidCallback? onEditVenues;
+  final VoidCallback? onEditEvents;
+  final List<WeeklyCalendarEvent> weeklyEvents;
 
   const _MusicianPublicProfileContent({
     required this.profile,
@@ -1455,6 +1536,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.onEditProfilePressed,
     required this.venueEditable,
     required this.onEditVenues,
+    required this.onEditEvents,
+    required this.weeklyEvents,
   });
 
   List<String> _resolveVenues() {
@@ -1526,7 +1609,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                           child: ListTile(
                             enabled: false,
                             leading: Icon(Icons.groups_outlined),
-                            title: Text('Bandlerim'),
+                            title: Text('Gruplarım'),
                           ),
                         ),
                         Spacer(),
@@ -1559,13 +1642,28 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     );
   }
 
+  Future<void> _openVenueManagementPanel(BuildContext context) async {
+    final ownerProfile = context.read<VenueProfileCubit>().state.ownerProfile;
+    if (ownerProfile == null) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _VenueManagementPanelScreen(ownerProfile: ownerProfile),
+      ),
+    );
+    if (changed == true && context.mounted) {
+      await context.read<VenueProfileCubit>().loadOwner(
+        venueId: ownerProfile.venueId,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final resolvedMedia = _resolveMedia(media);
     final canFollow =
         viewerUserId.isNotEmpty &&
-        profile.userId.isNotEmpty &&
-        viewerUserId != profile.userId;
+            profile.userId.isNotEmpty &&
+            viewerUserId != profile.userId;
 
     return DefaultTabController(
       length: 2,
@@ -1576,20 +1674,20 @@ class _MusicianPublicProfileContent extends StatelessWidget {
           centerTitle: true,
           actions: ownerMode
               ? [
-                  IconButton(
-                    tooltip: 'Menü',
-                    onPressed: () => _showOwnerQuickMenu(context),
-                    icon: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        'assets/logo.png',
-                        width: 34,
-                        height: 34,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                ]
+            IconButton(
+              tooltip: 'MenÃ¼',
+              onPressed: () => _showOwnerQuickMenu(context),
+              icon: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/logo.png',
+                  width: 34,
+                  height: 34,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ]
               : null,
         ),
         body: SingleChildScrollView(
@@ -1637,9 +1735,54 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   onSave: onSaveDescription,
                 ),
               ),
+              if (ownerMode) ...[
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      gradient: const LinearGradient(
+                        colors: AppColors.brandGradient,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(0.7),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          color: AppColors.inputFill,
+                          child: TextButton.icon(
+                            onPressed: () => _openVenueManagementPanel(context),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.white,
+                              backgroundColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.dashboard_customize_outlined,
+                              color: AppColors.white,
+                            ),
+                            label: const Text(
+                              'Yönetim Paneli',
+                              style: TextStyle(color: AppColors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 18),
+              const _SectionHeader(title: 'Haftalık Takvim'),
+              _EventCalendarMock(items: weeklyEvents),
+              const SizedBox(height: 12),
               _SectionHeader(
-                title: 'Çaldığı Mekanlar',
+                title: 'Aktif Sanatçılar',
                 actionLabel: venueEditable ? 'Düzenle' : 'Tümü',
                 actionOnTap: venueEditable ? onEditVenues : null,
               ),
@@ -1653,7 +1796,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
               _MediaContent(
                 media: resolvedMedia,
                 profileId: profile.id,
-                spotifyTracks: spotifyTracks,
+                spotifyTracks: const [],
                 spotifyLoading: spotifyLoading,
                 ownerMode: ownerMode,
               ),
@@ -1725,10 +1868,10 @@ class _ProfileHeader extends StatelessWidget {
                 child: hasRemotePhoto
                     ? Image.network(candidate, fit: BoxFit.cover)
                     : const Icon(
-                        Icons.person_outline,
-                        color: AppColors.textMuted,
-                        size: 40,
-                      ),
+                  Icons.person_outline,
+                  color: AppColors.textMuted,
+                  size: 40,
+                ),
               ),
             ),
             Positioned(
@@ -1750,17 +1893,17 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   child: uploading
                       ? const Padding(
-                          padding: EdgeInsets.all(6),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.white,
-                          ),
-                        )
+                    padding: EdgeInsets.all(6),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.white,
+                    ),
+                  )
                       : const Icon(
-                          Icons.edit,
-                          size: 14,
-                          color: AppColors.white,
-                        ),
+                    Icons.edit,
+                    size: 14,
+                    color: AppColors.white,
+                  ),
                 ),
               ),
             ),
@@ -1780,7 +1923,7 @@ class _ProfileIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = profile.username?.trim().isNotEmpty == true
         ? profile.username!
-        : 'Kullanıcı';
+        : 'KullanÄ±cÄ±';
     final bandName = profile.bands.isNotEmpty ? profile.bands.first : null;
 
     return Column(
@@ -1853,7 +1996,7 @@ class _BioSectionState extends State<_BioSection> {
 
     if (!widget.editable) {
       return Text(
-        hasBio ? resolvedBio : 'Henüz bir açıklama eklenmedi.',
+        hasBio ? resolvedBio : 'HenÃ¼z bir aÃ§Ä±klama eklenmedi.',
         textAlign: TextAlign.center,
         style: const TextStyle(color: AppColors.textMuted, height: 1.6),
       );
@@ -1868,7 +2011,7 @@ class _BioSectionState extends State<_BioSection> {
               _isEditing = true;
             });
           },
-          child: const Text('Açıklama ekle'),
+          child: const Text('AÃ§Ä±klama ekle'),
         );
       }
 
@@ -1948,10 +2091,10 @@ class _BioSectionState extends State<_BioSection> {
               onPressed: _saving ? null : _handleSave,
               child: _saving
                   ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
                   : const Text('Kaydet'),
             ),
           ],
@@ -2036,7 +2179,7 @@ class _SocialButtonRow extends StatelessWidget {
     if (uri == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Geçersiz link')));
+      ).showSnackBar(const SnackBar(content: Text('GeÃ§ersiz link')));
       return;
     }
 
@@ -2044,7 +2187,7 @@ class _SocialButtonRow extends StatelessWidget {
     if (!success && context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Link açılamadı')));
+      ).showSnackBar(const SnackBar(content: Text('Link aÃ§Ä±lamadÄ±')));
     }
   }
 
@@ -2091,8 +2234,8 @@ class _SocialButtonRow extends StatelessWidget {
           onTap: editable
               ? () => onAddLink?.call(item.platform)
               : (item.active
-                    ? () => _launchExternalUrl(context, item.url)
-                    : null),
+              ? () => _launchExternalUrl(context, item.url)
+              : null),
         );
       }).toList(),
     );
@@ -2200,7 +2343,7 @@ class _SocialPillState extends State<_SocialPill> {
             AnimatedContainer(
               duration: const Duration(milliseconds: 140),
               curve: Curves.easeOut,
-              width: 64,
+              width: 74,
               height: 42,
               decoration: BoxDecoration(
                 color: AppColors.inputFill,
@@ -2217,19 +2360,19 @@ class _SocialPillState extends State<_SocialPill> {
               child: Center(
                 child: widget.active
                     ? ShaderMask(
-                        shaderCallback: (bounds) =>
-                            iconGradient.createShader(bounds),
-                        child: FaIcon(
-                          widget.icon,
-                          size: 20,
-                          color: AppColors.white,
-                        ),
-                      )
+                  shaderCallback: (bounds) =>
+                      iconGradient.createShader(bounds),
+                  child: FaIcon(
+                    widget.icon,
+                    size: 20,
+                    color: AppColors.white,
+                  ),
+                )
                     : FaIcon(
-                        widget.icon,
-                        size: 20,
-                        color: AppColors.textMuted.withValues(alpha: 0.65),
-                      ),
+                  widget.icon,
+                  size: 20,
+                  color: AppColors.textMuted.withValues(alpha: 0.65),
+                ),
               ),
             ),
             if (widget.showAddBadge)
@@ -2506,6 +2649,211 @@ class _VenueCarousel extends StatelessWidget {
   }
 }
 
+class _EventCalendarMock extends StatelessWidget {
+  final List<WeeklyCalendarEvent> items;
+
+  const _EventCalendarMock({required this.items});
+
+  static const List<WeeklyCalendarEvent> _items = [
+    WeeklyCalendarEvent(
+      id: 'venue-event-1',
+      title: 'Acoustic Night',
+      artistName: 'Luna Echo',
+      venueName: 'Sahne A',
+      city: 'Istanbul',
+      district: 'Besiktas',
+      neighborhood: 'Sinanpasa',
+      eventDate: '28.03.2026',
+      startTime: '20:30',
+      endTime: '22:00',
+      imageAssetPath: 'assets/logo.png',
+      description: 'Haftalık akustik repertuvar gecesi.',
+    ),
+    WeeklyCalendarEvent(
+      id: 'venue-event-2',
+      title: 'DJ Session',
+      artistName: 'Neon Tide',
+      venueName: 'Teras',
+      city: 'Istanbul',
+      district: 'Kadikoy',
+      neighborhood: 'Moda',
+      eventDate: '29.03.2026',
+      startTime: '22:00',
+      endTime: '23:45',
+      imageAssetPath: 'assets/logo.png',
+      description: 'Elektronik set ve sahne gecisleri.',
+    ),
+    WeeklyCalendarEvent(
+      id: 'venue-event-3',
+      title: 'Open Mic',
+      artistName: 'Aegean Collective',
+      venueName: 'Lounge',
+      city: 'Istanbul',
+      district: 'Sisli',
+      neighborhood: 'Nisantasi',
+      eventDate: '30.03.2026',
+      startTime: '19:00',
+      endTime: '21:00',
+      imageAssetPath: 'assets/logo.png',
+      description: 'Acik mikrofon performans bulusmasi.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: SizedBox(
+          height: 88,
+          child: Center(
+            child: Text(
+              'Bu hafta icin etkinlik bulunamadi.',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 88,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final event = items[index];
+          return InkWell(
+            borderRadius: BorderRadius.circular(16),
+            splashColor: AppColors.coral.withValues(alpha: 0.22),
+            highlightColor: Colors.white.withValues(alpha: 0.05),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => WeeklyEventDetailScreen(event: event),
+                ),
+              );
+            },
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: Ink(
+                width: 170,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 50,
+                        child: event.imageAssetPath != null
+                            ? Image.asset(
+                          event.imageAssetPath!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.navBlueSoft,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.image_outlined,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        )
+                            : Container(
+                          color: AppColors.navBlueSoft,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.image_outlined,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            event.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              height: 1.15,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 13,
+                                color: AppColors.coralAlt,
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  '${event.eventDate} - ${event.startTime}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.music_note_outlined,
+                                size: 13,
+                                color: AppColors.coralAlt,
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  event.artistName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _MediaTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -2529,9 +2877,9 @@ class _MediaTabs extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.graphic_eq, size: 18),
+                Icon(Icons.photo_library_outlined, size: 18),
                 SizedBox(width: 6),
-                Text('Sesler'),
+                Text('Fotograflar'),
               ],
             ),
           ),
@@ -2622,7 +2970,7 @@ class _MediaContent extends StatelessWidget {
     final videoItems = <MediaAsset>[
       if (featuredVideo != null) featuredVideo,
       ...media.videos.where(
-        (item) => featuredVideo == null || item.id != featuredVideo.id,
+            (item) => featuredVideo == null || item.id != featuredVideo.id,
       ),
     ];
     final controller = DefaultTabController.of(context);
@@ -2637,7 +2985,7 @@ class _MediaContent extends StatelessWidget {
             _AudioTab(
               items: audioItems,
               profileId: profileId,
-              spotifyTracks: spotifyTracks,
+              spotifyTracks: const [],
               spotifyLoading: spotifyLoading,
               ownerMode: ownerMode,
               audioHandler: audioHandler,
@@ -2689,9 +3037,9 @@ class _AudioTab extends StatelessWidget {
   }
 
   Future<SpotifyTrackPreview?> _showSpotifyTrackPicker(
-    BuildContext context,
-    List<SpotifyTrackPreview> currentTracks,
-  ) async {
+      BuildContext context,
+      List<SpotifyTrackPreview> currentTracks,
+      ) async {
     final queryController = TextEditingController();
     final repository = serviceLocator<SpotifyRepository>();
     Timer? searchDebounce;
@@ -2735,10 +3083,10 @@ class _AudioTab extends StatelessWidget {
                 if (result.isSuccess && result.data != null) {
                   results = result.data!;
                   if (results.isEmpty) {
-                    errorText = 'Sonuç bulunamadı.';
+                    errorText = 'SonuÃ§ bulunamadÄ±.';
                   }
                 } else {
-                  errorText = result.error?.message ?? 'Arama başarısız.';
+                  errorText = result.error?.message ?? 'Arama baÅŸarÄ±sÄ±z.';
                 }
               });
             }
@@ -2778,7 +3126,7 @@ class _AudioTab extends StatelessWidget {
                             }
                           },
                           decoration: InputDecoration(
-                            hintText: 'Spotify parça ara...',
+                            hintText: 'Spotify parÃ§a ara...',
                             prefixIcon: const Icon(Icons.search),
                             suffixIcon: IconButton(
                               onPressed: runSearch,
@@ -2805,7 +3153,7 @@ class _AudioTab extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Text(
-                              '${results.length} sonuç',
+                              '${results.length} sonuÃ§',
                               style: const TextStyle(
                                 color: AppColors.textMuted,
                                 fontSize: 12,
@@ -2816,7 +3164,7 @@ class _AudioTab extends StatelessWidget {
                           child: ListView.separated(
                             itemCount: results.length,
                             separatorBuilder: (_, __) =>
-                                const SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final track = results[index];
                               final alreadyAdded = existingIds.contains(
@@ -2834,7 +3182,7 @@ class _AudioTab extends StatelessWidget {
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             track.name,
@@ -2908,7 +3256,7 @@ class _AudioTab extends StatelessWidget {
     if (existingIds.contains(selected.id)) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Bu parça zaten ekli.')));
+      ).showSnackBar(const SnackBar(content: Text('Bu parÃ§a zaten ekli.')));
       return;
     }
     final nextTracks = [...spotifyTracks, selected];
@@ -2927,7 +3275,7 @@ class _AudioTab extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            cubit.state.error?.message ?? 'Spotify parçası eklenemedi.',
+            cubit.state.error?.message ?? 'Spotify parÃ§asÄ± eklenemedi.',
           ),
         ),
       );
@@ -2936,15 +3284,15 @@ class _AudioTab extends StatelessWidget {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Şarkı başarıyla eklendi.')));
+    ).showSnackBar(const SnackBar(content: Text('ÅarkÄ± baÅŸarÄ±yla eklendi.')));
   }
 
   Future<bool> _removeSpotifyTrackFromCatalog(
-    BuildContext context,
-    String trackId, {
-    List<SpotifyTrackPreview>? sourceTracks,
-    bool showSnackbar = true,
-  }) async {
+      BuildContext context,
+      String trackId, {
+        List<SpotifyTrackPreview>? sourceTracks,
+        bool showSnackbar = true,
+      }) async {
     final baseTracks = sourceTracks ?? spotifyTracks;
     final nextTracks = baseTracks.where((e) => e.id != trackId).toList();
     if (nextTracks.length == baseTracks.length) return false;
@@ -2965,7 +3313,7 @@ class _AudioTab extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              cubit.state.error?.message ?? 'Spotify parçası silinemedi.',
+              cubit.state.error?.message ?? 'Spotify parÃ§asÄ± silinemedi.',
             ),
           ),
         );
@@ -2974,7 +3322,7 @@ class _AudioTab extends StatelessWidget {
     }
     if (showSnackbar) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Spotify parçası kaldırıldı.')),
+        const SnackBar(content: Text('Spotify parÃ§asÄ± kaldÄ±rÄ±ldÄ±.')),
       );
     }
     return true;
@@ -3006,8 +3354,8 @@ class _AudioTab extends StatelessWidget {
   }
 
   Future<void> _showSoundConnectTrackUploadSheet(
-    BuildContext hostContext,
-  ) async {
+      BuildContext hostContext,
+      ) async {
     String? pickedPath;
     Uint8List? pickedBytes;
     String? pickedName;
@@ -3048,8 +3396,8 @@ class _AudioTab extends StatelessWidget {
               final name = file.name.trim().isNotEmpty
                   ? file.name.trim()
                   : (file.path != null
-                        ? _fileNameFromPath(file.path!)
-                        : 'audio.mp3');
+                  ? _fileNameFromPath(file.path!)
+                  : 'audio.mp3');
               setSheetState(() {
                 pickedPath = file.path;
                 pickedBytes = file.bytes;
@@ -3068,7 +3416,7 @@ class _AudioTab extends StatelessWidget {
               final title = titleController.text.trim();
               if ((path == null && bytesFromPicker == null) || name == null) {
                 setSheetState(() {
-                  infoText = 'Önce bir ses dosyası seç.';
+                  infoText = 'Ã–nce bir ses dosyasÄ± seÃ§.';
                   infoError = true;
                 });
                 return;
@@ -3091,7 +3439,7 @@ class _AudioTab extends StatelessWidget {
                 final bytes =
                     bytesFromPicker ?? await File(path!).readAsBytes();
                 if (bytes.isEmpty) {
-                  throw Exception('Dosya okunamadı');
+                  throw Exception('Dosya okunamadÄ±');
                 }
                 final apiClient = serviceLocator<ApiClient>();
                 final mimeType = _mimeFromAudioFileName(name);
@@ -3112,7 +3460,7 @@ class _AudioTab extends StatelessWidget {
                       _UploadInitResult.fromJson(json as Map<String, dynamic>),
                 );
 
-                step = 'dosya yükleme';
+                step = 'dosya yÃ¼kleme';
                 await Dio().put(
                   initResult.uploadUrl,
                   data: bytes,
@@ -3132,10 +3480,10 @@ class _AudioTab extends StatelessWidget {
 
                 final mediaAssetId = completed.uuid.trim();
                 if (mediaAssetId.isEmpty) {
-                  throw Exception('Media asset id alınamadı');
+                  throw Exception('Media asset id alÄ±namadÄ±');
                 }
 
-                step = 'track oluşturma';
+                step = 'track oluÅŸturma';
                 await apiClient.post<Object>(
                   '/api/v1/musician-profiles/$profileId/tracks',
                   body: {
@@ -3152,7 +3500,7 @@ class _AudioTab extends StatelessWidget {
                     profileId: profileId,
                   );
                 } catch (_) {
-                  // Track başarıyla oluştuysa liste yenileme hatası non-fatal.
+                  // Track baÅŸarÄ±yla oluÅŸtuysa liste yenileme hatasÄ± non-fatal.
                 }
                 if (!sheetContext.mounted) return;
                 Navigator.of(sheetContext).pop();
@@ -3166,7 +3514,7 @@ class _AudioTab extends StatelessWidget {
               } catch (e) {
                 if (!sheetContext.mounted) return;
                 setSheetState(() {
-                  infoText = 'Yükleme başarısız ($step): $e';
+                  infoText = 'YÃ¼kleme baÅŸarÄ±sÄ±z ($step): $e';
                   infoError = true;
                 });
               } finally {
@@ -3207,7 +3555,7 @@ class _AudioTab extends StatelessWidget {
                         ),
                         icon: const Icon(Icons.library_music_outlined),
                         label: Text(
-                          pickedName == null ? 'Ses Dosyası Seç' : pickedName!,
+                          pickedName == null ? 'Ses DosyasÄ± SeÃ§' : pickedName!,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -3282,13 +3630,13 @@ class _AudioTab extends StatelessWidget {
                               ),
                               child: uploading
                                   ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text('Yükle'),
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                                  : const Text('YÃ¼kle'),
                             ),
                           ),
                         ],
@@ -3365,9 +3713,9 @@ class _AudioTab extends StatelessWidget {
   }
 
   Future<void> _showSpotifyCatalog(
-    BuildContext hostContext,
-    List<SpotifyTrackPreview> tracks,
-  ) async {
+      BuildContext hostContext,
+      List<SpotifyTrackPreview> tracks,
+      ) async {
     if (tracks.isEmpty && !ownerMode) return;
     final visibleTracks = List<SpotifyTrackPreview>.from(tracks);
     await showModalBottomSheet<void>(
@@ -3383,9 +3731,9 @@ class _AudioTab extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             Future<bool> saveTracks(
-              List<SpotifyTrackPreview> nextTracks, {
-              required String failureMessage,
-            }) async {
+                List<SpotifyTrackPreview> nextTracks, {
+                  required String failureMessage,
+                }) async {
               final nextTrackIds = nextTracks.map((e) => e.id).toList();
               final nextTrackMaps = nextTracks.map(_trackToSaveJson).toList();
               final cubit = hostContext.read<MusicianProfileCubit>();
@@ -3416,7 +3764,7 @@ class _AudioTab extends StatelessWidget {
               if (!success || !sheetContext.mounted) return;
               setSheetState(() {
                 visibleTracks.removeWhere((e) => e.id == track.id);
-                feedbackText = 'Spotify parçası kaldırıldı.';
+                feedbackText = 'Spotify parÃ§asÄ± kaldÄ±rÄ±ldÄ±.';
                 feedbackIsError = false;
               });
             }
@@ -3444,7 +3792,7 @@ class _AudioTab extends StatelessWidget {
                         children: [
                           const Expanded(
                             child: Text(
-                              'Sanatçının Spotify Kataloğu',
+                              'SanatÃ§Ä±nÄ±n Spotify KataloÄŸu',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: AppColors.textPrimary,
@@ -3455,7 +3803,7 @@ class _AudioTab extends StatelessWidget {
                           ),
                           if (ownerMode)
                             IconButton(
-                              tooltip: 'Spotify parçası ekle',
+                              tooltip: 'Spotify parÃ§asÄ± ekle',
                               onPressed: () async {
                                 final selected = await _showSpotifyTrackPicker(
                                   hostContext,
@@ -3465,10 +3813,10 @@ class _AudioTab extends StatelessWidget {
                                   return;
                                 }
                                 if (visibleTracks.any(
-                                  (element) => element.id == selected.id,
+                                      (element) => element.id == selected.id,
                                 )) {
                                   setSheetState(() {
-                                    feedbackText = 'Bu parça zaten ekli.';
+                                    feedbackText = 'Bu parÃ§a zaten ekli.';
                                     feedbackIsError = true;
                                   });
                                   return;
@@ -3476,12 +3824,12 @@ class _AudioTab extends StatelessWidget {
                                 final nextTracks = [...visibleTracks, selected];
                                 final ok = await saveTracks(
                                   nextTracks,
-                                  failureMessage: 'Spotify parçası eklenemedi.',
+                                  failureMessage: 'Spotify parÃ§asÄ± eklenemedi.',
                                 );
                                 if (!ok || !sheetContext.mounted) return;
                                 setSheetState(() {
                                   visibleTracks.add(selected);
-                                  feedbackText = 'Spotify parçası eklendi.';
+                                  feedbackText = 'Spotify parÃ§asÄ± eklendi.';
                                   feedbackIsError = false;
                                 });
                               },
@@ -3527,160 +3875,160 @@ class _AudioTab extends StatelessWidget {
                       Flexible(
                         child: visibleTracks.isEmpty
                             ? const Center(
-                                child: Text(
-                                  'Henüz Spotify parçası eklemediniz.',
-                                  style: TextStyle(color: AppColors.textMuted),
-                                ),
-                              )
+                          child: Text(
+                            'HenÃ¼z Spotify parÃ§asÄ± eklemediniz.',
+                            style: TextStyle(color: AppColors.textMuted),
+                          ),
+                        )
                             : ListView.separated(
-                                itemCount: visibleTracks.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 10),
-                                itemBuilder: (context, index) {
-                                  final track = visibleTracks[index];
-                                  final albumArtUrl =
-                                      _isValidNetworkImageUrl(
-                                        track.albumImageUrl,
+                          itemCount: visibleTracks.length,
+                          separatorBuilder: (_, __) =>
+                          const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final track = visibleTracks[index];
+                            final albumArtUrl =
+                            _isValidNetworkImageUrl(
+                              track.albumImageUrl,
+                            )
+                                ? track.albumImageUrl!.trim()
+                                : null;
+                            return Dismissible(
+                              key: ValueKey('spotify-track-${track.id}'),
+                              direction: ownerMode
+                                  ? DismissDirection.endToStart
+                                  : DismissDirection.none,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFB3261E),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              confirmDismiss: ownerMode
+                                  ? (_) async {
+                                final success =
+                                await _removeSpotifyTrackFromCatalog(
+                                  hostContext,
+                                  track.id,
+                                  sourceTracks: visibleTracks,
+                                  showSnackbar: false,
+                                );
+                                if (!success ||
+                                    !sheetContext.mounted) {
+                                  return false;
+                                }
+                                setSheetState(() {
+                                  visibleTracks.removeWhere(
+                                        (e) => e.id == track.id,
+                                  );
+                                  feedbackText =
+                                  'Spotify parÃ§asÄ± kaldÄ±rÄ±ldÄ±.';
+                                  feedbackIsError = false;
+                                });
+                                return true;
+                              }
+                                  : null,
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.inputFill,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: AppColors.border,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.navBlueSoft,
+                                        borderRadius:
+                                        BorderRadius.circular(12),
+                                        image: albumArtUrl != null
+                                            ? DecorationImage(
+                                          image: NetworkImage(
+                                            albumArtUrl,
+                                          ),
+                                          fit: BoxFit.cover,
+                                        )
+                                            : null,
+                                      ),
+                                      child: albumArtUrl == null
+                                          ? const Icon(
+                                        Icons.music_note,
+                                        color: AppColors.textMuted,
                                       )
-                                      ? track.albumImageUrl!.trim()
-                                      : null;
-                                  return Dismissible(
-                                    key: ValueKey('spotify-track-${track.id}'),
-                                    direction: ownerMode
-                                        ? DismissDirection.endToStart
-                                        : DismissDirection.none,
-                                    background: Container(
-                                      alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFB3261E),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: const Icon(
-                                        Icons.delete_outline,
-                                        color: Colors.white,
-                                      ),
+                                          : null,
                                     ),
-                                    confirmDismiss: ownerMode
-                                        ? (_) async {
-                                            final success =
-                                                await _removeSpotifyTrackFromCatalog(
-                                                  hostContext,
-                                                  track.id,
-                                                  sourceTracks: visibleTracks,
-                                                  showSnackbar: false,
-                                                );
-                                            if (!success ||
-                                                !sheetContext.mounted) {
-                                              return false;
-                                            }
-                                            setSheetState(() {
-                                              visibleTracks.removeWhere(
-                                                (e) => e.id == track.id,
-                                              );
-                                              feedbackText =
-                                                  'Spotify parçası kaldırıldı.';
-                                              feedbackIsError = false;
-                                            });
-                                            return true;
-                                          }
-                                        : null,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.inputFill,
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color: AppColors.border,
-                                        ),
-                                      ),
-                                      child: Row(
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                         children: [
-                                          Container(
-                                            width: 48,
-                                            height: 48,
-                                            decoration: BoxDecoration(
-                                              color: AppColors.navBlueSoft,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              image: albumArtUrl != null
-                                                  ? DecorationImage(
-                                                      image: NetworkImage(
-                                                        albumArtUrl,
-                                                      ),
-                                                      fit: BoxFit.cover,
-                                                    )
-                                                  : null,
-                                            ),
-                                            child: albumArtUrl == null
-                                                ? const Icon(
-                                                    Icons.music_note,
-                                                    color: AppColors.textMuted,
-                                                  )
-                                                : null,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  track.name,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    color:
-                                                        AppColors.textPrimary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  track.artistNames.join(', '),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    color: AppColors.textMuted,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
+                                          Text(
+                                            track.name,
+                                            maxLines: 1,
+                                            overflow:
+                                            TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color:
+                                              AppColors.textPrimary,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          TextButton(
-                                            onPressed: () => _openExternalUrl(
-                                              hostContext,
-                                              track.spotifyUrl,
-                                            ),
-                                            child: const Text(
-                                              "Spotify'da Dinle",
-                                              style: TextStyle(
-                                                color: Color(0xFF1DB954),
-                                              ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            track.artistNames.join(', '),
+                                            maxLines: 1,
+                                            overflow:
+                                            TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: AppColors.textMuted,
+                                              fontSize: 12,
                                             ),
                                           ),
-                                          if (ownerMode)
-                                            IconButton(
-                                              tooltip: 'Katalogdan kaldır',
-                                              onPressed: () =>
-                                                  removeTrack(track),
-                                              icon: const Icon(
-                                                Icons.delete_outline,
-                                                color: AppColors.textMuted,
-                                              ),
-                                            ),
                                         ],
                                       ),
                                     ),
-                                  );
-                                },
+                                    const SizedBox(width: 8),
+                                    TextButton(
+                                      onPressed: () => _openExternalUrl(
+                                        hostContext,
+                                        track.spotifyUrl,
+                                      ),
+                                      child: const Text(
+                                        "Spotify'da Dinle",
+                                        style: TextStyle(
+                                          color: Color(0xFF1DB954),
+                                        ),
+                                      ),
+                                    ),
+                                    if (ownerMode)
+                                      IconButton(
+                                        tooltip: 'Katalogdan kaldÄ±r',
+                                        onPressed: () =>
+                                            removeTrack(track),
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -3704,7 +4052,7 @@ class _AudioTab extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Kullanıcı henüz ses eklemedi.',
+          'KullanÄ±cÄ± henÃ¼z ses eklemedi.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );
@@ -3727,7 +4075,7 @@ class _AudioTab extends StatelessWidget {
                   padding: EdgeInsets.only(bottom: 12),
                   child: LinearProgressIndicator(),
                 ),
-              if (ownerMode || spotifyPreviewItems.isNotEmpty) ...[
+              if (spotifyPreviewItems.isNotEmpty) ...[
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -3743,7 +4091,7 @@ class _AudioTab extends StatelessWidget {
                       backgroundColor: const Color(0xFF1DB954),
                       foregroundColor: Colors.white,
                     ),
-                    label: const Text('Spotify Kataloğu'),
+                    label: const Text('Spotify KataloÄŸu'),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -3789,7 +4137,9 @@ class _AudioTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          items.isEmpty ? 'Henüz ses eklemediniz' : 'Ses ekle',
+                          items.isEmpty
+                              ? 'Henuz fotograf eklemediniz'
+                              : 'Fotograf ekle',
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w700,
@@ -3812,7 +4162,7 @@ class _AudioTab extends StatelessWidget {
               ],
               if (!ownerMode && items.isEmpty)
                 const Text(
-                  'Kullanıcı henüz ses eklemedi.',
+                  'KullanÄ±cÄ± henÃ¼z ses eklemedi.',
                   style: TextStyle(color: AppColors.textMuted),
                 ),
               ...List.generate(items.length, (index) {
@@ -3836,17 +4186,17 @@ class _AudioTab extends StatelessWidget {
                 final playback = track.playbackUrl ?? '';
                 final isSpotify =
                     playback.contains('spotify') ||
-                    playback.contains('open.spotify') ||
-                    playback.contains('spotify.com');
+                        playback.contains('open.spotify') ||
+                        playback.contains('spotify.com');
                 final isCurrent = currentId == track.id;
                 final totalFromTrackMs = (track.durationSeconds ?? 0) * 1000;
                 final totalFromHandlerMs =
                     audioHandler.mediaItem.value?.duration?.inMilliseconds ?? 0;
                 final totalMs =
-                    (totalFromTrackMs > 0
-                            ? totalFromTrackMs
-                            : totalFromHandlerMs)
-                        .toDouble();
+                (totalFromTrackMs > 0
+                    ? totalFromTrackMs
+                    : totalFromHandlerMs)
+                    .toDouble();
                 final progress = totalMs > 0
                     ? (position.inMilliseconds / totalMs).clamp(0.0, 1.0)
                     : 0.0;
@@ -3913,27 +4263,27 @@ class _AudioTab extends StatelessWidget {
                           onPlayPause: () => _toggleTrack(track),
                           onBack10: isCurrent
                               ? () {
-                                  final totalInt = totalMs.round();
-                                  final currentMs = position.inMilliseconds;
-                                  final targetMs = (currentMs - 10000)
-                                      .clamp(0, totalInt)
-                                      .toInt();
-                                  audioHandler.seek(
-                                    Duration(milliseconds: targetMs),
-                                  );
-                                }
+                            final totalInt = totalMs.round();
+                            final currentMs = position.inMilliseconds;
+                            final targetMs = (currentMs - 10000)
+                                .clamp(0, totalInt)
+                                .toInt();
+                            audioHandler.seek(
+                              Duration(milliseconds: targetMs),
+                            );
+                          }
                               : null,
                           onForward10: isCurrent
                               ? () {
-                                  final totalInt = totalMs.round();
-                                  final currentMs = position.inMilliseconds;
-                                  final targetMs = (currentMs + 10000)
-                                      .clamp(0, totalInt)
-                                      .toInt();
-                                  audioHandler.seek(
-                                    Duration(milliseconds: targetMs),
-                                  );
-                                }
+                            final totalInt = totalMs.round();
+                            final currentMs = position.inMilliseconds;
+                            final targetMs = (currentMs + 10000)
+                                .clamp(0, totalInt)
+                                .toInt();
+                            audioHandler.seek(
+                              Duration(milliseconds: targetMs),
+                            );
+                          }
                               : null,
                         ),
                         waveform: WaveformStub(
@@ -3942,10 +4292,10 @@ class _AudioTab extends StatelessWidget {
                           ),
                           gradientColors: isSpotify
                               ? const [
-                                  Color(0xFF1ED760),
-                                  Color(0xFF1DB954),
-                                  Color(0xFF18A34A),
-                                ]
+                            Color(0xFF1ED760),
+                            Color(0xFF1DB954),
+                            Color(0xFF18A34A),
+                          ]
                               : AppColors.brandGradient,
                           iconColor: isSpotify
                               ? const Color(0xFF1DB954)
@@ -3955,30 +4305,30 @@ class _AudioTab extends StatelessWidget {
                               : AppColors.textMuted,
                           leading: isSpotify
                               ? const Icon(
-                                  FontAwesomeIcons.spotify,
-                                  size: 16,
-                                  color: Color(0xFF1DB954),
-                                )
+                            FontAwesomeIcons.spotify,
+                            size: 16,
+                            color: Color(0xFF1DB954),
+                          )
                               : Image.asset(
-                                  'assets/logo.png',
-                                  width: 26,
-                                  height: 26,
-                                  fit: BoxFit.contain,
-                                ),
+                            'assets/logo.png',
+                            width: 26,
+                            height: 26,
+                            fit: BoxFit.contain,
+                          ),
                           height: 92,
                           waveformHeight: 44,
                           isPlaying: isCurrent && isPlaying,
                           progress: isCurrent ? progress : 0,
                           onSeek: isCurrent
                               ? (ratio) {
-                                  final milliseconds = (totalMs * ratio)
-                                      .round()
-                                      .clamp(0, 1000000)
-                                      .toInt();
-                                  audioHandler.seek(
-                                    Duration(milliseconds: milliseconds),
-                                  );
-                                }
+                            final milliseconds = (totalMs * ratio)
+                                .round()
+                                .clamp(0, 1000000)
+                                .toInt();
+                            audioHandler.seek(
+                              Duration(milliseconds: milliseconds),
+                            );
+                          }
                               : null,
                         ),
                       ),
@@ -4174,11 +4524,11 @@ class _AudioPreviewCardState extends State<_AudioPreviewCard>
   ]).animate(_heartController);
   late final Animation<double> _ringScale = Tween<double>(begin: 0.7, end: 1.9)
       .animate(
-        CurvedAnimation(
-          parent: _heartController,
-          curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
-        ),
-      );
+    CurvedAnimation(
+      parent: _heartController,
+      curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
+    ),
+  );
   late final Animation<double> _ringOpacity = TweenSequence<double>([
     TweenSequenceItem(tween: Tween<double>(begin: 0, end: 0.5), weight: 22),
     TweenSequenceItem(tween: Tween<double>(begin: 0.5, end: 0), weight: 78),
@@ -4265,8 +4615,8 @@ class _AudioPreviewCardState extends State<_AudioPreviewCard>
                       child: Transform.scale(
                         scale: _ringScale.value,
                         child: Container(
-                          width: 64,
-                          height: 64,
+                          width: 74,
+                          height: 74,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
@@ -4361,11 +4711,11 @@ class _VideoTabState extends State<_VideoTab> {
     if (_processingVideoIds.isEmpty) return;
     final readyIds = widget.items
         .where((item) {
-          final hasPlayable =
-              (item.playbackUrl?.trim().isNotEmpty ?? false) ||
+      final hasPlayable =
+          (item.playbackUrl?.trim().isNotEmpty ?? false) ||
               (item.sourceUrl?.trim().isNotEmpty ?? false);
-          return item.id.isNotEmpty && hasPlayable;
-        })
+      return item.id.isNotEmpty && hasPlayable;
+    })
         .map((item) => item.id)
         .toSet();
     _processingVideoIds.removeWhere(readyIds.contains);
@@ -4389,8 +4739,8 @@ class _VideoTabState extends State<_VideoTab> {
   void _startPolling() {
     if (_processingPollTimer != null) return;
     _processingPollTimer = Timer.periodic(const Duration(seconds: 8), (
-      _,
-    ) async {
+        _,
+        ) async {
       if (!mounted) return;
       if (_processingVideoIds.isEmpty) {
         _processingPollTimer?.cancel();
@@ -4405,7 +4755,7 @@ class _VideoTabState extends State<_VideoTab> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Video işleme beklenenden uzun sürdü. Biraz sonra tekrar kontrol et.',
+                'Video iÅŸleme beklenenden uzun sÃ¼rdÃ¼. Biraz sonra tekrar kontrol et.',
               ),
             ),
           );
@@ -4461,7 +4811,7 @@ class _VideoTabState extends State<_VideoTab> {
     if ((pickedPath == null && pickedBytes == null) || pickedName.isEmpty) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Önce bir video dosyası seç.')),
+        const SnackBar(content: Text('Ã–nce bir video dosyasÄ± seÃ§.')),
       );
       return;
     }
@@ -4475,7 +4825,7 @@ class _VideoTabState extends State<_VideoTab> {
     try {
       final bytes = pickedBytes ?? await File(pickedPath!).readAsBytes();
       if (bytes.isEmpty) {
-        throw Exception('Dosya okunamadı');
+        throw Exception('Dosya okunamadÄ±');
       }
       final apiClient = serviceLocator<ApiClient>();
       final mimeType = _mimeFromVideoFileName(pickedName);
@@ -4496,7 +4846,7 @@ class _VideoTabState extends State<_VideoTab> {
             _UploadInitResult.fromJson(json as Map<String, dynamic>),
       );
 
-      step = 'dosya yükleme';
+      step = 'dosya yÃ¼kleme';
       await Dio().put(
         initResult.uploadUrl,
         data: bytes,
@@ -4528,14 +4878,14 @@ class _VideoTabState extends State<_VideoTab> {
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
-            'Video yüklendi, işleniyor. Kısa süre sonra görünecek.',
+            'Video yÃ¼klendi, iÅŸleniyor. KÄ±sa sÃ¼re sonra gÃ¶rÃ¼necek.',
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Yükleme başarısız ($step): $e')),
+        SnackBar(content: Text('YÃ¼kleme baÅŸarÄ±sÄ±z ($step): $e')),
       );
     } finally {
       if (mounted) {
@@ -4628,7 +4978,7 @@ class _VideoTabState extends State<_VideoTab> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      hasAny ? 'Video ekle' : 'Henüz video eklemediniz',
+                      hasAny ? 'Video ekle' : 'HenÃ¼z video eklemediniz',
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w700,
@@ -4636,7 +4986,7 @@ class _VideoTabState extends State<_VideoTab> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'SoundConnect üzerinden video yüklemek için dokun.',
+                      'SoundConnect Ã¼zerinden video yÃ¼klemek iÃ§in dokun.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColors.textMuted,
@@ -4661,7 +5011,7 @@ class _VideoTabState extends State<_VideoTab> {
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'Henüz video eklemediniz.',
+                'HenÃ¼z video eklemediniz.',
                 style: TextStyle(color: AppColors.textMuted),
               ),
             )
@@ -4688,7 +5038,7 @@ class _VideoTabState extends State<_VideoTab> {
       return const Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Kullanıcı henüz video eklemedi.',
+          'KullanÄ±cÄ± henÃ¼z video eklemedi.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );
@@ -4979,21 +5329,21 @@ class _VenueIntroScreen extends StatelessWidget {
                         icon: Icons.send_outlined,
                         title: '\u0130stek G\u00F6nder',
                         text:
-                            'Aktif olarak sahne ald\u0131\u011F\u0131n mekanlara buradan ba\u011Flant\u0131 iste\u011Fi g\u00F6nderebilirsin. \u0130stek g\u00F6nderdi\u011Finde ilgili mekana bir bildirim iletilir.',
+                        'Aktif olarak sahne ald\u0131\u011F\u0131n mekanlara buradan ba\u011Flant\u0131 iste\u011Fi g\u00F6nderebilirsin. \u0130stek g\u00F6nderdi\u011Finde ilgili mekana bir bildirim iletilir.',
                       ),
                       SizedBox(height: 22),
                       _IntroStep(
                         icon: Icons.hourglass_top_rounded,
                         title: 'Onay Bekle',
                         text:
-                            'Mekan ba\u011Flant\u0131 iste\u011Fini onaylayabilir veya reddedebilir. Onayland\u0131\u011F\u0131nda ba\u011Flant\u0131n\u0131z kurulacak ve hem senin profilinde hem de mekan\u0131n profilinde g\u00F6r\u00FCn\u00FCr hale gelecektir.',
+                        'Mekan ba\u011Flant\u0131 iste\u011Fini onaylayabilir veya reddedebilir. Onayland\u0131\u011F\u0131nda ba\u011Flant\u0131n\u0131z kurulacak ve hem senin profilinde hem de mekan\u0131n profilinde g\u00F6r\u00FCn\u00FCr hale gelecektir.',
                       ),
                       SizedBox(height: 22),
                       _IntroStep(
                         icon: Icons.settings_outlined,
                         title: 'Durumu Takip Et',
                         text:
-                            'G\u00F6nderdi\u011Fin ba\u011Flant\u0131 isteklerinin durumunu istedi\u011Fin zaman Ayarlar \u2192 Ba\u015Fvurular\u0131m b\u00F6l\u00FCm\u00FCnden g\u00F6r\u00FCnt\u00FCleyebilir ve s\u00FCrecin hangi a\u015Famada oldu\u011Funu takip edebilirsin.',
+                        'G\u00F6nderdi\u011Fin ba\u011Flant\u0131 isteklerinin durumunu istedi\u011Fin zaman Ayarlar \u2192 Ba\u015Fvurular\u0131m b\u00F6l\u00FCm\u00FCnden g\u00F6r\u00FCnt\u00FCleyebilir ve s\u00FCrecin hangi a\u015Famada oldu\u011Funu takip edebilirsin.',
                         showInlineSettingsIcon: true,
                       ),
                     ],
@@ -5139,6 +5489,285 @@ class _IntroStep extends StatelessWidget {
   }
 }
 
+class _VenueManagementPanelScreen extends StatelessWidget {
+  final VenueOwnerProfile ownerProfile;
+
+  const _VenueManagementPanelScreen({required this.ownerProfile});
+
+  Widget _actionCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String message,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap ??
+          () async {
+            if (icon == Icons.calendar_month_outlined) {
+              final changed = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) => _VenueWeeklyCalendarEditorScreen(
+                    ownerProfile: ownerProfile,
+                  ),
+                ),
+              );
+              if (changed == true && context.mounted) {
+                Navigator.of(context).pop(true);
+              }
+              return;
+            }
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(message)));
+          },
+      borderRadius: BorderRadius.circular(18),
+      child: _GradientOutline(
+        radius: 18,
+        strokeWidth: 1,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.inputFill, AppColors.navBlueSoft],
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.white, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: AppColors.textMuted,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Yönetim Paneli'),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(top: 1),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        color: AppColors.textMuted,
+                        size: 18,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'İşletmenin ihtiyaç duyduğu bütün gereksinimleri bu panelden gerçekleştirebilirsin.',
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _actionCard(
+                  context: context,
+                  icon: Icons.calendar_month_outlined,
+                  title: 'Haftalık Takvimi Güncelle',
+                  message:
+                  'Takvim güncelleme akışının backend bağlantısı yakında eklenecek.',
+                ),
+                const SizedBox(height: 12),
+                _actionCard(
+                  context: context,
+                  icon: Icons.assignment_ind_outlined,
+                  title: 'Sanatçı Bağlantı İsteklerini Görüntüle',
+                  message:
+                  'Sanatçı bağlantı istekleri ekranının backend bağlantısı yakında eklenecek.',
+                ),
+                const SizedBox(height: 12),
+                _actionCard(
+                  context: context,
+                  icon: Icons.groups_2_outlined,
+                  title: 'Aktif Sanatçıları Düzenle',
+                  message:
+                  'Aktif sanatçı düzenleme akışının backend bağlantısı yakında eklenecek.',
+                ),
+                const SizedBox(height: 12),
+                _actionCard(
+                  context: context,
+                  icon: Icons.campaign_outlined,
+                  title: 'Müzisyen/Grup İlanlarını Görüntüle',
+                  message:
+                  'Müzisyen/grup ilanları ekranının backend bağlantısı yakında eklenecek.',
+                ),
+                const SizedBox(height: 12),
+                _actionCard(
+                  context: context,
+                  icon: Icons.post_add_outlined,
+                  title: 'Sahnen İçin Müzisyen/Grup İlanı Oluştur',
+                  message:
+                  'Sahnen için ilan oluşturma ekranının backend bağlantısı yakında eklenecek.',
+                ),
+                const SizedBox(height: 12),
+                _actionCard(
+                  context: context,
+                  icon: Icons.reviews_outlined,
+                  title: 'İşletmene Gelen Bütün Yorumları Gör',
+                  message:
+                  'İşletme yorumları ekranının backend bağlantısı yakında eklenecek.',
+                ),
+                const SizedBox(height: 14),
+                Opacity(
+                  opacity: 0.62,
+                  child: Stack(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                          ),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Text(
+                          'Hızlı İstatistikler',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.navBlueDeep.withValues(alpha: 0.78),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: const Text(
+                            'Yakında',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GradientOutline extends StatelessWidget {
+  final double radius;
+  final double strokeWidth;
+  final Widget child;
+
+  const _GradientOutline({
+    required this.radius,
+    required this.strokeWidth,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _GradientOutlinePainter(
+        radius: radius,
+        strokeWidth: strokeWidth,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _GradientOutlinePainter extends CustomPainter {
+  final double radius;
+  final double strokeWidth;
+
+  const _GradientOutlinePainter({
+    required this.radius,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(
+      rect.deflate(strokeWidth / 2),
+      Radius.circular(radius),
+    );
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: AppColors.brandGradient,
+      ).createShader(rect);
+    canvas.drawRRect(rrect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GradientOutlinePainter oldDelegate) {
+    return oldDelegate.radius != radius ||
+        oldDelegate.strokeWidth != strokeWidth;
+  }
+}
+
 class _BottomBar extends StatelessWidget {
   final String? profileImageUrl;
 
@@ -5149,15 +5778,15 @@ class _BottomBar extends StatelessWidget {
     final imageUrl = profileImageUrl?.trim() ?? '';
     final child = hasImage
         ? ClipOval(
-            child: Image.network(
-              imageUrl,
-              width: 18,
-              height: 18,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.person_outline, size: 18),
-            ),
-          )
+      child: Image.network(
+        imageUrl,
+        width: 18,
+        height: 18,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+        const Icon(Icons.person_outline, size: 18),
+      ),
+    )
         : const Icon(Icons.person_outline, size: 18);
 
     if (!active) {
@@ -5220,4 +5849,1015 @@ class _BottomBar extends StatelessWidget {
       ],
     );
   }
+}
+
+class _VenueWeeklyCalendarEditorScreen extends StatefulWidget {
+  final VenueOwnerProfile ownerProfile;
+
+  const _VenueWeeklyCalendarEditorScreen({required this.ownerProfile});
+
+  @override
+  State<_VenueWeeklyCalendarEditorScreen> createState() =>
+      _VenueWeeklyCalendarEditorScreenState();
+}
+
+class _VenueWeeklyCalendarEditorScreenState
+    extends State<_VenueWeeklyCalendarEditorScreen> {
+  bool _loading = true;
+  bool _saving = false;
+  bool _changed = false;
+  String? _error;
+  List<_VenueOwnerEventItem> _events = const [];
+
+  ApiClient get _apiClient => serviceLocator<ApiClient>();
+
+  List<_VenueOwnerEventItem> get _sortedEvents {
+    final items = [..._events];
+    items.sort((a, b) {
+      final dateCompare = a.eventDate.compareTo(b.eventDate);
+      if (dateCompare != 0) return dateCompare;
+      return a.startTime.compareTo(b.startTime);
+    });
+    return items;
+  }
+
+  Map<String, List<_VenueOwnerEventItem>> get _groupedEvents {
+    final map = <String, List<_VenueOwnerEventItem>>{};
+    for (final item in _sortedEvents) {
+      final key = _formatDateOnly(item.eventDate);
+      map.putIfAbsent(key, () => <_VenueOwnerEventItem>[]).add(item);
+    }
+    return map;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final items = await _apiClient.get<List<_VenueOwnerEventItem>>(
+        '/api/v1/venue-owner/events/venue/${widget.ownerProfile.venueId}',
+        decoder: (json) {
+          final list = json is List ? json : const [];
+          return list
+              .whereType<Map<String, dynamic>>()
+              .map(_VenueOwnerEventItem.fromJson)
+              .toList();
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _events = items;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Etkinlikler alinamadi: $e';
+      });
+    }
+  }
+
+  Future<void> _createEvent() async {
+    final draft = await showModalBottomSheet<_VenueEventDraft>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.navBlueDeep,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final titleController = TextEditingController();
+        final descriptionController = TextEditingController();
+        final performerController = TextEditingController();
+        DateTime? selectedDate = DateTime.now();
+        TimeOfDay? startTime = const TimeOfDay(hour: 20, minute: 0);
+        TimeOfDay? endTime = const TimeOfDay(hour: 22, minute: 0);
+        String? selectedMusicianId;
+        String? selectedMusicianLabel;
+        String? selectedMusicianSecondaryLabel;
+        String? selectedMusicianImageUrl;
+        var searchLoading = false;
+        String? searchError;
+        var searchResults = <_MusicianSearchOption>[];
+        Timer? searchDebounce;
+        int searchToken = 0;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> runSearch(String raw) async {
+              final query = raw.trim();
+              final token = ++searchToken;
+              if (query.length < 2) {
+                setSheetState(() {
+                  searchLoading = false;
+                  searchError = null;
+                  searchResults = const [];
+                });
+                return;
+              }
+              setSheetState(() {
+                searchLoading = true;
+                searchError = null;
+              });
+              try {
+                final results = await _apiClient.get<List<_MusicianSearchOption>>(
+                  '/api/v1/public/musician-profiles/search',
+                  query: {'q': query},
+                  decoder: (json) {
+                    final list = json is List ? json : const [];
+                    return list
+                        .whereType<Map<String, dynamic>>()
+                        .map(_MusicianSearchOption.fromJson)
+                        .toList();
+                  },
+                );
+                if (!context.mounted || token != searchToken) return;
+                setSheetState(() {
+                  searchLoading = false;
+                  searchResults = results;
+                  searchError = results.isEmpty ? 'Sonuc bulunamadi.' : null;
+                });
+              } catch (e) {
+                if (!context.mounted || token != searchToken) return;
+                setSheetState(() {
+                  searchLoading = false;
+                  searchResults = const [];
+                  searchError = 'Arama su anda yapilamiyor.';
+                });
+              }
+            }
+
+            Future<void> pickDate() async {
+              final now = DateTime.now();
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: selectedDate ?? now,
+                firstDate: DateTime(now.year - 1),
+                lastDate: DateTime(now.year + 3),
+              );
+              if (picked == null) return;
+              setSheetState(() => selectedDate = picked);
+            }
+
+            Future<void> pickTime({
+              required bool isStart,
+            }) async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: isStart
+                    ? (startTime ?? const TimeOfDay(hour: 20, minute: 0))
+                    : (endTime ?? const TimeOfDay(hour: 22, minute: 0)),
+              );
+              if (picked == null) return;
+              setSheetState(() {
+                if (isStart) {
+                  startTime = picked;
+                } else {
+                  endTime = picked;
+                }
+              });
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Etkinlik Ekle',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Baslik',
+                        hintText: 'Etkinlik basligi',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: performerController,
+                      onChanged: (value) {
+                        final trimmed = value.trim();
+                        if (selectedMusicianId != null &&
+                            trimmed != (selectedMusicianLabel ?? '').trim()) {
+                          selectedMusicianId = null;
+                          selectedMusicianLabel = null;
+                        }
+                        searchDebounce?.cancel();
+                        searchDebounce = Timer(
+                          const Duration(milliseconds: 320),
+                          () => runSearch(trimmed),
+                        );
+                        setSheetState(() {});
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Calacak sanatci / grup',
+                        hintText: 'Isim yaz, eslesirse profile baglanir',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: selectedMusicianId != null
+                            ? const Icon(
+                                Icons.verified_rounded,
+                                color: AppColors.coralAlt,
+                              )
+                            : null,
+                      ),
+                    ),
+                    if (selectedMusicianId != null) ...[
+                      const SizedBox(height: 8),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          if (selectedMusicianId == null ||
+                              selectedMusicianId!.isEmpty) {
+                            return;
+                          }
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.musicianPublicProfile,
+                            arguments: {
+                              'profileId': selectedMusicianId,
+                              'viewerUserId': widget.ownerProfile.ownerUserId,
+                            },
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.navBlueDeep.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: AppColors.navBlueSoft,
+                                backgroundImage: selectedMusicianImageUrl !=
+                                            null &&
+                                        selectedMusicianImageUrl!.startsWith(
+                                          'http',
+                                        )
+                                    ? NetworkImage(selectedMusicianImageUrl!)
+                                    : null,
+                                child: selectedMusicianImageUrl == null ||
+                                        !selectedMusicianImageUrl!.startsWith(
+                                          'http',
+                                        )
+                                    ? const Icon(
+                                        Icons.person_outline,
+                                        size: 16,
+                                        color: AppColors.textMuted,
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      selectedMusicianLabel ??
+                                          'SoundConnect Profili',
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    if (selectedMusicianSecondaryLabel !=
+                                        null)
+                                      Text(
+                                        selectedMusicianSecondaryLabel!,
+                                        style: const TextStyle(
+                                          color: AppColors.textMuted,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.open_in_new_rounded,
+                                color: AppColors.coralAlt,
+                                size: 18,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (searchLoading) ...[
+                      const SizedBox(height: 10),
+                      const LinearProgressIndicator(minHeight: 2),
+                    ] else if (searchResults.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 190),
+                        decoration: BoxDecoration(
+                          color: AppColors.inputFill,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: searchResults.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1, color: AppColors.border),
+                          itemBuilder: (context, index) {
+                            final item = searchResults[index];
+                            return ListTile(
+                              onTap: () {
+                                performerController.text = item.displayName;
+                                performerController.selection =
+                                    TextSelection.collapsed(
+                                  offset: performerController.text.length,
+                                );
+                                setSheetState(() {
+                                  selectedMusicianId = item.profileId;
+                                  selectedMusicianLabel = item.displayName;
+                                  selectedMusicianSecondaryLabel =
+                                      item.secondaryLabel;
+                                  selectedMusicianImageUrl =
+                                      item.profilePictureUrl;
+                                  searchResults = const [];
+                                  searchError = null;
+                                });
+                              },
+                              leading: CircleAvatar(
+                                radius: 18,
+                                backgroundColor: AppColors.navBlueSoft,
+                                backgroundImage: item.profilePictureUrl != null &&
+                                        item.profilePictureUrl!.startsWith(
+                                          'http',
+                                        )
+                                    ? NetworkImage(item.profilePictureUrl!)
+                                    : null,
+                                child: item.profilePictureUrl == null ||
+                                        !item.profilePictureUrl!.startsWith(
+                                          'http',
+                                        )
+                                    ? const Icon(
+                                        Icons.person_outline,
+                                        color: AppColors.textMuted,
+                                      )
+                                    : null,
+                              ),
+                              title: Text(
+                                item.displayName,
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              subtitle: item.secondaryLabel == null
+                                  ? null
+                                  : Text(
+                                      item.secondaryLabel!,
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                            );
+                          },
+                        ),
+                      ),
+                    ] else if (searchError != null &&
+                        performerController.text.trim().length >= 2) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        searchError!,
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: pickDate,
+                            icon: const Icon(Icons.event_outlined),
+                            label: Text(
+                              selectedDate == null
+                                  ? 'Tarih sec'
+                                  : _formatDateOnly(selectedDate!),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => pickTime(isStart: true),
+                            icon: const Icon(Icons.schedule_outlined),
+                            label: Text(
+                              startTime == null
+                                  ? 'Baslangic'
+                                  : startTime!.format(context),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => pickTime(isStart: false),
+                            icon: const Icon(Icons.schedule),
+                            label: Text(
+                              endTime == null
+                                  ? 'Bitis'
+                                  : endTime!.format(context),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: descriptionController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Aciklama',
+                        hintText: 'Etkinlik aciklamasi',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () {
+                        final title = titleController.text.trim();
+                        final performerText = performerController.text.trim();
+                        if (title.isEmpty ||
+                            selectedDate == null ||
+                            startTime == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Baslik, tarih ve baslangic saati zorunlu.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.of(sheetContext).pop(
+                          _VenueEventDraft(
+                            title: title,
+                            description: descriptionController.text.trim(),
+                            eventDate: selectedDate!,
+                            startTime: startTime!,
+                            endTime: endTime,
+                            musicianProfileId: selectedMusicianId,
+                            manualPerformerName:
+                                selectedMusicianId == null &&
+                                        performerText.isNotEmpty
+                                    ? performerText
+                                    : null,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text('Etkinligi Kaydet'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (draft == null) return;
+
+    setState(() => _saving = true);
+    try {
+      await _apiClient.post<Object?>(
+        '/api/v1/venue-owner/events',
+        body: {
+          'title': draft.title,
+          'description': draft.description.isEmpty ? null : draft.description,
+          'eventDate': _formatApiDate(draft.eventDate),
+          'startTime': _formatApiTime(draft.startTime),
+          'endTime':
+              draft.endTime == null ? null : _formatApiTime(draft.endTime!),
+          'posterImage': null,
+          'venueId': widget.ownerProfile.venueId,
+          'musicianProfileId': draft.musicianProfileId,
+          'bandId': null,
+          'manualPerformerName': draft.manualPerformerName,
+        },
+      );
+      _changed = true;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Etkinlik eklendi.')),
+      );
+      await _loadEvents();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Etkinlik eklenemedi: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _deleteEvent(_VenueOwnerEventItem item) async {
+    setState(() => _saving = true);
+    try {
+      await _apiClient.delete<Object?>(
+        '/api/v1/venue-owner/events/${item.id}',
+      );
+      _changed = true;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Etkinlik silindi.')),
+      );
+      await _loadEvents();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Etkinlik silinemedi: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Haftalik Takvim'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _loading || _saving ? null : _loadEvents,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _saving ? null : _createEvent,
+        backgroundColor: AppColors.coralAlt,
+        foregroundColor: AppColors.white,
+        icon: _saving
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.add),
+        label: const Text('Etkinlik Ekle'),
+      ),
+      body: WillPopScope(
+        onWillPop: () async {
+          Navigator.of(context).pop(_changed);
+          return false;
+        },
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                    ),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.ownerProfile.venueName,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Bu ekrandan haftalik takvime yeni etkinlik ekleyebilir ve mevcut etkinlikleri silebilirsin.',
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _CalendarSummaryPill(
+                              label: 'Toplam Etkinlik',
+                              value: '${_events.length}',
+                              icon: Icons.event_note_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _CalendarSummaryPill(
+                              label: 'Aktif Sanatci',
+                              value:
+                                  '${widget.ownerProfile.activeMusicians.length}',
+                              icon: Icons.groups_2_outlined,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (_loading)
+                  const Expanded(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.textMuted),
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 0.68,
+                          ),
+                      itemCount: _sortedEvents.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return _EmptyCalendarEventCard(
+                            onTap: _saving ? null : _createEvent,
+                          );
+                        }
+                        final item = _sortedEvents[index - 1];
+                        return _CalendarEventCard(
+                          item: item,
+                          saving: _saving,
+                          onDelete: () => _deleteEvent(item),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VenueOwnerEventItem {
+  final String id;
+  final String title;
+  final String performerName;
+  final DateTime eventDate;
+  final String startTime;
+  final String? endTime;
+  final String? description;
+
+  const _VenueOwnerEventItem({
+    required this.id,
+    required this.title,
+    required this.performerName,
+    required this.eventDate,
+    required this.startTime,
+    required this.endTime,
+    required this.description,
+  });
+
+  factory _VenueOwnerEventItem.fromJson(Map<String, dynamic> json) {
+    return _VenueOwnerEventItem(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      performerName: json['performerName']?.toString() ?? 'Sanatci',
+      eventDate:
+          DateTime.tryParse(json['eventDate']?.toString() ?? '') ??
+          DateTime.now(),
+      startTime: json['startTime']?.toString() ?? '',
+      endTime: json['endTime']?.toString(),
+      description: json['description']?.toString(),
+    );
+  }
+}
+
+class _EmptyCalendarEventCard extends StatelessWidget {
+  final VoidCallback? onTap;
+
+  const _EmptyCalendarEventCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 176),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.inputFill, AppColors.navBlueSoft],
+            ),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(
+                Icons.add_circle_outline_rounded,
+                color: AppColors.coralAlt,
+                size: 34,
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Etkinlik Ekle',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarEventCard extends StatelessWidget {
+  final _VenueOwnerEventItem item;
+  final bool saving;
+  final VoidCallback onDelete;
+
+  const _CalendarEventCard({
+    required this.item,
+    required this.saving,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final timeLabel =
+        '${_formatDateOnly(item.eventDate)}\n${item.startTime}${item.endTime == null || item.endTime!.isEmpty ? '' : ' - ${item.endTime}'}';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.inputFill, AppColors.navBlueSoft],
+        ),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 34,
+                height: 34,
+                child: IconButton(
+                  tooltip: 'Sil',
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: saving ? null : onDelete,
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.coralAlt,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            timeLabel,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            item.performerName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+          if (item.description != null && item.description!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              item.description!,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                height: 1.4,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MusicianSearchOption {
+  final String profileId;
+  final String displayName;
+  final String? secondaryLabel;
+  final String? profilePictureUrl;
+
+  const _MusicianSearchOption({
+    required this.profileId,
+    required this.displayName,
+    required this.secondaryLabel,
+    required this.profilePictureUrl,
+  });
+
+  factory _MusicianSearchOption.fromJson(Map<String, dynamic> json) {
+    final username = json['username']?.toString().trim();
+    final stageName = json['stageName']?.toString().trim();
+    final displayName = (stageName != null && stageName.isNotEmpty)
+        ? stageName
+        : (username != null && username.isNotEmpty ? username : 'Sanatci');
+    final secondaryLabel = (username != null &&
+            username.isNotEmpty &&
+            username != displayName)
+        ? '@$username'
+        : null;
+
+    return _MusicianSearchOption(
+      profileId: json['profileId']?.toString() ?? '',
+      displayName: displayName,
+      secondaryLabel: secondaryLabel,
+      profilePictureUrl: json['profilePictureUrl']?.toString(),
+    );
+  }
+}
+
+class _CalendarSummaryPill extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _CalendarSummaryPill({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.navBlueDeep.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.coralAlt, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VenueEventDraft {
+  final String title;
+  final String description;
+  final DateTime eventDate;
+  final TimeOfDay startTime;
+  final TimeOfDay? endTime;
+  final String? musicianProfileId;
+  final String? manualPerformerName;
+
+  const _VenueEventDraft({
+    required this.title,
+    required this.description,
+    required this.eventDate,
+    required this.startTime,
+    required this.endTime,
+    required this.musicianProfileId,
+    required this.manualPerformerName,
+  });
+}
+
+String _formatDateOnly(DateTime value) {
+  return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
+}
+
+String _formatApiDate(DateTime value) {
+  return '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+}
+
+String _formatApiTime(TimeOfDay value) {
+  return '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:00';
 }

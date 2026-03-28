@@ -1,4 +1,4 @@
-﻿class AppRoutes {
+class AppRoutes {
   static const login = '/login';
   static const register = '/register';
   static const otpVerify = '/otp-verify';
@@ -6,5 +6,7 @@
   static const venuePending = '/venue-pending';
   static const musicianProfile = '/musician-profile';
   static const musicianPublicProfile = '/musician-public-profile';
+  static const venueProfile = '/venue-profile';
+  static const venuePublicProfile = '/venue-public-profile';
   static const home = '/home';
 }

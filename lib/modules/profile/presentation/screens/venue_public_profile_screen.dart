@@ -23,26 +23,37 @@ import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/entities/venue_public_profile.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
+import '../cubit/venue_profile_cubit.dart';
+import '../cubit/venue_profile_state.dart';
 import 'media_detail_screen.dart';
 import 'video_reel_screen.dart';
+import 'weekly_event_detail_screen.dart';
 
 class PublicProfileArgs {
-  final String? profileId;
   final String? viewerUserId;
 
-  const PublicProfileArgs({this.profileId, this.viewerUserId});
+  const PublicProfileArgs({this.viewerUserId});
 }
 
-class MusicianPublicProfileScreen extends StatelessWidget {
-  const MusicianPublicProfileScreen({super.key});
+class VenuePublicProfileArgs {
+  final String? venueId;
+  final String? viewerUserId;
+
+  const VenuePublicProfileArgs({this.venueId, this.viewerUserId});
+}
+
+class VenuePublicProfileScreen extends StatelessWidget {
+  const VenuePublicProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        BlocProvider(create: (_) => serviceLocator<VenueProfileCubit>()),
         BlocProvider(create: (_) => serviceLocator<MusicianProfileCubit>()),
         BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
@@ -67,10 +78,9 @@ class _MusicianPublicProfileView extends StatefulWidget {
 
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
-  String? _targetProfileId;
+  String? _publicVenueId;
   String? _mediaProfileId;
   String? _followUserId;
-  String? _followStatusKey;
   String? _viewerUserId;
   String? _currentProfileUserId;
   String? _venueProfileId;
@@ -110,9 +120,6 @@ class _MusicianPublicProfileViewState
   void _loadFollowStatus(String followerId, String followingId) {
     if (followerId.isEmpty || followingId.isEmpty) return;
     if (followerId == followingId) return;
-    final nextKey = '$followerId::$followingId';
-    if (_followStatusKey == nextKey) return;
-    _followStatusKey = nextKey;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<FollowActionCubit>().loadStatus(
@@ -126,18 +133,20 @@ class _MusicianPublicProfileViewState
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (_targetProfileId == null) {
-      if (args is PublicProfileArgs) {
-        _targetProfileId = args.profileId;
+    if (_publicVenueId == null) {
+      if (args is VenuePublicProfileArgs) {
+        _publicVenueId = args.venueId;
       } else if (args is Map<String, dynamic>) {
-        _targetProfileId = args['profileId']?.toString();
+        _publicVenueId = args['venueId']?.toString();
+      } else if (args is String) {
+        _publicVenueId = args;
       }
-      if (_targetProfileId != null && _targetProfileId!.isNotEmpty) {
-        context.read<MusicianProfileCubit>().loadPublicProfile(_targetProfileId!);
-      }
+      context.read<VenueProfileCubit>().loadPublic(venueId: _publicVenueId);
     }
     if (_viewerUserId != null) return;
-    if (args is PublicProfileArgs) {
+    if (args is VenuePublicProfileArgs) {
+      _viewerUserId = args.viewerUserId;
+    } else if (args is PublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is Map<String, dynamic>) {
       _viewerUserId = args['viewerUserId']?.toString();
@@ -148,7 +157,31 @@ class _MusicianPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocListener(
+    return BlocBuilder<VenueProfileCubit, VenueProfileState>(
+      builder: (context, venueProfileState) {
+        final publicProfile = venueProfileState.publicProfile;
+        if (venueProfileState.status == VenueProfileStatus.loading &&
+            publicProfile == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (publicProfile == null) {
+          return Scaffold(
+            body: Center(
+              child: Text(
+                venueProfileState.error?.message ?? 'Profil getirilemedi',
+              ),
+            ),
+          );
+        }
+        final profile = _toDisplayProfile(publicProfile);
+        final weeklyEvents = _toWeeklyCalendarEvents(publicProfile);
+        _currentProfileUserId = publicProfile.ownerUserId;
+        _loadFollowCounts(publicProfile.ownerUserId);
+        final viewerUserId = _viewerUserId ?? '';
+        _loadFollowStatus(viewerUserId, publicProfile.ownerUserId);
+        return MultiBlocListener(
       listeners: [
         BlocListener<FollowActionCubit, FollowActionState>(
           listener: (context, state) {
@@ -161,43 +194,9 @@ class _MusicianPublicProfileViewState
           },
         ),
       ],
-      child: BlocBuilder<MusicianProfileCubit, MusicianProfileState>(
-        builder: (context, state) {
-          if (state.status == MusicianProfileStatus.loading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          if (state.status == MusicianProfileStatus.idle &&
-              (_targetProfileId == null || _targetProfileId!.isEmpty)) {
-            return const Scaffold(
-              body: Center(child: Text('Profil hedefi bulunamadi')),
-            );
-          }
-
-          if (state.status == MusicianProfileStatus.failure ||
-              state.profile == null) {
-            return Scaffold(
-              body: Center(
-                child: Text(state.error?.message ?? 'Profil getirilemedi'),
-              ),
-            );
-          }
-
-          final profile = state.profile!;
-          _currentProfileUserId = profile.userId;
-          _loadMediaForProfile(profile.id);
-          _loadFollowCounts(profile.userId);
-          _loadAcceptedVenues(profile.id);
-          final viewerUserId = _viewerUserId ?? '';
-          _loadFollowStatus(viewerUserId, profile.userId);
+      child: Builder(
+        builder: (context) {
           final media = context.watch<ProfileMediaCubit>().state.media;
-          final venueState = context.watch<ArtistVenueConnectionsCubit>().state;
-          final venueItems =
-              venueState.status == ArtistVenueConnectionsStatus.loading
-              ? null
-              : venueState.venues;
           final followState = context.watch<FollowCountCubit>().state;
           final followersCount = followState.status == FollowCountStatus.loading
               ? null
@@ -211,16 +210,77 @@ class _MusicianPublicProfileViewState
             media: media,
             followersCount: followersCount,
             followingCount: followingCount,
-            activeVenues: venueItems,
+            activeVenues: publicProfile.activeMusicians
+                .map((item) => item.displayName)
+                .toList(),
             viewerUserId: viewerUserId,
             isFollowing: actionState.isFollowing,
             followLoading: actionState.status == FollowActionStatus.loading,
-            spotifyTracks: profile.spotifyTracks,
+            spotifyTracks: const [],
             spotifyLoading: false,
+            weeklyEvents: weeklyEvents,
           );
         },
       ),
     );
+      },
+    );
+  }
+
+  MusicianProfile _toDisplayProfile(VenuePublicProfile profile) {
+    final location = [
+      profile.neighborhoodName,
+      profile.districtName,
+      profile.cityName,
+    ].where((item) => item != null && item.trim().isNotEmpty).join(' / ');
+
+    return MusicianProfile(
+      id: profile.venueId,
+      userId: profile.ownerUserId,
+      username: profile.venueName,
+      stageName: profile.venueName,
+      bio: profile.bio ?? profile.description,
+      profilePicture: profile.profilePictureUrl,
+      instagramUrl: profile.instagramUrl,
+      youtubeUrl: profile.youtubeUrl,
+      soundcloudUrl: profile.website,
+      spotifyEmbedUrl: profile.websiteUrl,
+      spotifyArtistId: null,
+      spotifyTrackIds: const [],
+      spotifyTracks: const [],
+      instruments: const [],
+      activeVenues: profile.activeMusicians
+          .map((item) => item.displayName)
+          .toList(),
+      bands: location.isEmpty ? const [] : [location],
+    );
+  }
+
+  List<WeeklyCalendarEvent> _toWeeklyCalendarEvents(VenuePublicProfile profile) {
+    return profile.weeklyEvents
+        .map(
+          (item) => WeeklyCalendarEvent(
+            id: item.eventId,
+            title: item.title,
+            artistName: item.performerName,
+            venueName: profile.venueName,
+            city: profile.cityName ?? '',
+            district: profile.districtName ?? '',
+            neighborhood: profile.neighborhoodName ?? '',
+            eventDate: _formatDate(item.eventDate),
+            startTime: item.startTime ?? '-',
+            endTime: item.endTime ?? '-',
+            imageAssetPath: null,
+            description:
+                profile.description ?? '${item.performerType} performansi',
+          ),
+        )
+        .toList();
+  }
+
+  String _formatDate(DateTime? value) {
+    if (value == null) return '-';
+    return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
   }
 }
 
@@ -235,6 +295,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final bool followLoading;
   final List<SpotifyTrackPreview> spotifyTracks;
   final bool spotifyLoading;
+  final List<WeeklyCalendarEvent> weeklyEvents;
 
   const _MusicianPublicProfileContent({
     required this.profile,
@@ -247,6 +308,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.followLoading,
     required this.spotifyTracks,
     required this.spotifyLoading,
+    required this.weeklyEvents,
   });
 
   List<String> _resolveVenues() {
@@ -272,8 +334,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     final resolvedMedia = _resolveMedia(media);
     final canFollow =
         viewerUserId.isNotEmpty &&
-        profile.userId.isNotEmpty &&
-        viewerUserId != profile.userId;
+            profile.userId.isNotEmpty &&
+            viewerUserId != profile.userId;
 
     return DefaultTabController(
       length: 2,
@@ -327,8 +389,11 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
+              const _SectionHeader(title: 'Haftalik Takvim'),
+              _EventCalendarMock(items: weeklyEvents),
+              const SizedBox(height: 12),
               const _SectionHeader(
-                title: 'Çaldığı Mekanlar',
+                title: 'Aktif Sanatcilar',
                 actionLabel: 'Tumu',
               ),
               _VenueCarousel(items: _resolveVenues()),
@@ -336,7 +401,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
               _MediaTabs(),
               _MediaContent(
                 media: resolvedMedia,
-                spotifyTracks: spotifyTracks,
+                spotifyTracks: const [],
                 spotifyLoading: spotifyLoading,
               ),
               const SizedBox(height: 18),
@@ -386,10 +451,10 @@ class _ProfileHeader extends StatelessWidget {
                 child: profile.profilePicture?.startsWith('http') == true
                     ? Image.network(profile.profilePicture!, fit: BoxFit.cover)
                     : const Icon(
-                        Icons.person_outline,
-                        color: AppColors.textMuted,
-                        size: 40,
-                      ),
+                  Icons.person_outline,
+                  color: AppColors.textMuted,
+                  size: 40,
+                ),
               ),
             ),
             Positioned(
@@ -402,13 +467,17 @@ class _ProfileHeader extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: AppColors.brandGradient,
+                    colors: [
+                      Color(0xFF7C3AED),
+                      Color(0xFFA855F7),
+                      Color(0xFFD946EF),
+                    ],
                   ),
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.navBlueDeep, width: 2),
                 ),
                 child: const Icon(
-                  Icons.music_note,
+                  Icons.storefront_outlined,
                   size: 14,
                   color: AppColors.white,
                 ),
@@ -635,7 +704,7 @@ class _SocialPillState extends State<_SocialPill> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           curve: Curves.easeOut,
-          width: 64,
+          width: 74,
           height: 42,
           decoration: BoxDecoration(
             color: AppColors.inputFill,
@@ -873,6 +942,211 @@ class _VenueCarousel extends StatelessWidget {
   }
 }
 
+class _EventCalendarMock extends StatelessWidget {
+  final List<WeeklyCalendarEvent> items;
+
+  const _EventCalendarMock({required this.items});
+
+  static const List<WeeklyCalendarEvent> _items = [
+    WeeklyCalendarEvent(
+      id: 'venue-event-1',
+      title: 'Acoustic Night',
+      artistName: 'Luna Echo',
+      venueName: 'Sahne A',
+      city: 'Istanbul',
+      district: 'Besiktas',
+      neighborhood: 'Sinanpasa',
+      eventDate: '28.03.2026',
+      startTime: '20:30',
+      endTime: '22:00',
+      imageAssetPath: 'assets/logo.png',
+      description: 'Haftalik akustik repertuvar gecesi.',
+    ),
+    WeeklyCalendarEvent(
+      id: 'venue-event-2',
+      title: 'DJ Session',
+      artistName: 'Neon Tide',
+      venueName: 'Teras',
+      city: 'Istanbul',
+      district: 'Kadikoy',
+      neighborhood: 'Moda',
+      eventDate: '29.03.2026',
+      startTime: '22:00',
+      endTime: '23:45',
+      imageAssetPath: 'assets/logo.png',
+      description: 'Elektronik set ve sahne gecisleri.',
+    ),
+    WeeklyCalendarEvent(
+      id: 'venue-event-3',
+      title: 'Open Mic',
+      artistName: 'Aegean Collective',
+      venueName: 'Lounge',
+      city: 'Istanbul',
+      district: 'Sisli',
+      neighborhood: 'Nisantasi',
+      eventDate: '30.03.2026',
+      startTime: '19:00',
+      endTime: '21:00',
+      imageAssetPath: 'assets/logo.png',
+      description: 'Acik mikrofon performans bulusmasi.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: SizedBox(
+          height: 88,
+          child: Center(
+            child: Text(
+              'Bu hafta icin etkinlik bulunamadi.',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 88,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final event = items[index];
+          return InkWell(
+            borderRadius: BorderRadius.circular(16),
+            splashColor: AppColors.coral.withValues(alpha: 0.22),
+            highlightColor: Colors.white.withValues(alpha: 0.05),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => WeeklyEventDetailScreen(event: event),
+                ),
+              );
+            },
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: Ink(
+                width: 170,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 50,
+                        child: event.imageAssetPath != null
+                            ? Image.asset(
+                          event.imageAssetPath!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.navBlueSoft,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.image_outlined,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        )
+                            : Container(
+                          color: AppColors.navBlueSoft,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.image_outlined,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            event.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              height: 1.15,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 13,
+                                color: AppColors.coralAlt,
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  '${event.eventDate} - ${event.startTime}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.music_note_outlined,
+                                size: 13,
+                                color: AppColors.coralAlt,
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  event.artistName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _MediaTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -896,9 +1170,9 @@ class _MediaTabs extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.graphic_eq, size: 18),
+                Icon(Icons.photo_library_outlined, size: 18),
                 SizedBox(width: 6),
-                Text('Sesler'),
+                Text('Fotograflar'),
               ],
             ),
           ),
@@ -990,11 +1264,11 @@ class _MediaContent extends StatelessWidget {
       builder: (context, _) {
         return controller.index == 0
             ? _AudioTab(
-                items: audioItems,
-                spotifyTracks: spotifyTracks,
-                spotifyLoading: spotifyLoading,
-                audioHandler: audioHandler,
-              )
+          items: audioItems,
+          spotifyTracks: const [],
+          spotifyLoading: spotifyLoading,
+          audioHandler: audioHandler,
+        )
             : _VideoTab(items: videoItems);
       },
     );
@@ -1076,9 +1350,9 @@ class _AudioTab extends StatelessWidget {
   }
 
   Future<void> _showSpotifyCatalog(
-    BuildContext context,
-    List<SpotifyTrackPreview> tracks,
-  ) async {
+      BuildContext context,
+      List<SpotifyTrackPreview> tracks,
+      ) async {
     if (tracks.isEmpty) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -1137,18 +1411,18 @@ class _AudioTab extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 image: track.albumImageUrl != null
                                     ? DecorationImage(
-                                        image: NetworkImage(
-                                          track.albumImageUrl!,
-                                        ),
-                                        fit: BoxFit.cover,
-                                      )
+                                  image: NetworkImage(
+                                    track.albumImageUrl!,
+                                  ),
+                                  fit: BoxFit.cover,
+                                )
                                     : null,
                               ),
                               child: track.albumImageUrl == null
                                   ? const Icon(
-                                      Icons.music_note,
-                                      color: AppColors.textMuted,
-                                    )
+                                Icons.music_note,
+                                color: AppColors.textMuted,
+                              )
                                   : null,
                             ),
                             const SizedBox(width: 12),
@@ -1276,17 +1550,17 @@ class _AudioTab extends StatelessWidget {
                 final playback = track.playbackUrl ?? '';
                 final isSpotify =
                     playback.contains('spotify') ||
-                    playback.contains('open.spotify') ||
-                    playback.contains('spotify.com');
+                        playback.contains('open.spotify') ||
+                        playback.contains('spotify.com');
                 final isCurrent = currentId == track.id;
                 final totalFromTrackMs = (track.durationSeconds ?? 0) * 1000;
                 final totalFromHandlerMs =
                     audioHandler.mediaItem.value?.duration?.inMilliseconds ?? 0;
                 final totalMs =
-                    (totalFromTrackMs > 0
-                            ? totalFromTrackMs
-                            : totalFromHandlerMs)
-                        .toDouble();
+                (totalFromTrackMs > 0
+                    ? totalFromTrackMs
+                    : totalFromHandlerMs)
+                    .toDouble();
                 final progress = totalMs > 0
                     ? (position.inMilliseconds / totalMs).clamp(0.0, 1.0)
                     : 0.0;
@@ -1353,27 +1627,27 @@ class _AudioTab extends StatelessWidget {
                           onPlayPause: () => _toggleTrack(track),
                           onBack10: isCurrent
                               ? () {
-                                  final totalInt = totalMs.round();
-                                  final currentMs = position.inMilliseconds;
-                                  final targetMs = (currentMs - 10000)
-                                      .clamp(0, totalInt)
-                                      .toInt();
-                                  audioHandler.seek(
-                                    Duration(milliseconds: targetMs),
-                                  );
-                                }
+                            final totalInt = totalMs.round();
+                            final currentMs = position.inMilliseconds;
+                            final targetMs = (currentMs - 10000)
+                                .clamp(0, totalInt)
+                                .toInt();
+                            audioHandler.seek(
+                              Duration(milliseconds: targetMs),
+                            );
+                          }
                               : null,
                           onForward10: isCurrent
                               ? () {
-                                  final totalInt = totalMs.round();
-                                  final currentMs = position.inMilliseconds;
-                                  final targetMs = (currentMs + 10000)
-                                      .clamp(0, totalInt)
-                                      .toInt();
-                                  audioHandler.seek(
-                                    Duration(milliseconds: targetMs),
-                                  );
-                                }
+                            final totalInt = totalMs.round();
+                            final currentMs = position.inMilliseconds;
+                            final targetMs = (currentMs + 10000)
+                                .clamp(0, totalInt)
+                                .toInt();
+                            audioHandler.seek(
+                              Duration(milliseconds: targetMs),
+                            );
+                          }
                               : null,
                         ),
                         waveform: WaveformStub(
@@ -1382,10 +1656,10 @@ class _AudioTab extends StatelessWidget {
                           ),
                           gradientColors: isSpotify
                               ? const [
-                                  Color(0xFF1ED760),
-                                  Color(0xFF1DB954),
-                                  Color(0xFF18A34A),
-                                ]
+                            Color(0xFF1ED760),
+                            Color(0xFF1DB954),
+                            Color(0xFF18A34A),
+                          ]
                               : AppColors.brandGradient,
                           iconColor: isSpotify
                               ? const Color(0xFF1DB954)
@@ -1395,30 +1669,30 @@ class _AudioTab extends StatelessWidget {
                               : AppColors.textMuted,
                           leading: isSpotify
                               ? const Icon(
-                                  FontAwesomeIcons.spotify,
-                                  size: 16,
-                                  color: Color(0xFF1DB954),
-                                )
+                            FontAwesomeIcons.spotify,
+                            size: 16,
+                            color: Color(0xFF1DB954),
+                          )
                               : Image.asset(
-                                  'assets/logo.png',
-                                  width: 26,
-                                  height: 26,
-                                  fit: BoxFit.contain,
-                                ),
+                            'assets/logo.png',
+                            width: 26,
+                            height: 26,
+                            fit: BoxFit.contain,
+                          ),
                           height: 92,
                           waveformHeight: 44,
                           isPlaying: isCurrent && isPlaying,
                           progress: isCurrent ? progress : 0,
                           onSeek: isCurrent
                               ? (ratio) {
-                                  final milliseconds = (totalMs * ratio)
-                                      .round()
-                                      .clamp(0, 1000000)
-                                      .toInt();
-                                  audioHandler.seek(
-                                    Duration(milliseconds: milliseconds),
-                                  );
-                                }
+                            final milliseconds = (totalMs * ratio)
+                                .round()
+                                .clamp(0, 1000000)
+                                .toInt();
+                            audioHandler.seek(
+                              Duration(milliseconds: milliseconds),
+                            );
+                          }
                               : null,
                         ),
                       ),
@@ -1614,11 +1888,11 @@ class _AudioPreviewCardState extends State<_AudioPreviewCard>
   ]).animate(_heartController);
   late final Animation<double> _ringScale = Tween<double>(begin: 0.7, end: 1.9)
       .animate(
-        CurvedAnimation(
-          parent: _heartController,
-          curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
-        ),
-      );
+    CurvedAnimation(
+      parent: _heartController,
+      curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
+    ),
+  );
   late final Animation<double> _ringOpacity = TweenSequence<double>([
     TweenSequenceItem(tween: Tween<double>(begin: 0, end: 0.5), weight: 22),
     TweenSequenceItem(tween: Tween<double>(begin: 0.5, end: 0), weight: 78),
@@ -1705,8 +1979,8 @@ class _AudioPreviewCardState extends State<_AudioPreviewCard>
                       child: Transform.scale(
                         scale: _ringScale.value,
                         child: Container(
-                          width: 64,
-                          height: 64,
+                          width: 74,
+                          height: 74,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
@@ -1809,9 +2083,9 @@ class _VideoTab extends StatelessWidget {
             border: Border.all(color: AppColors.border),
             image: thumbnail != null
                 ? DecorationImage(
-                    image: NetworkImage(thumbnail),
-                    fit: BoxFit.cover,
-                  )
+              image: NetworkImage(thumbnail),
+              fit: BoxFit.cover,
+            )
                 : null,
           ),
           child: InkWell(

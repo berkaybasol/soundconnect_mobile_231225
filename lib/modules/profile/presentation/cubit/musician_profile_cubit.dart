@@ -30,6 +30,27 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     ));
   }
 
+  Future<void> loadPublicProfile(String profileId) async {
+    emit(state.copyWith(
+      status: MusicianProfileStatus.loading,
+      action: MusicianProfileAction.load,
+    ));
+    final result = await _repository.getPublicProfileByProfileId(profileId);
+    if (result.isSuccess && result.data != null) {
+      emit(state.copyWith(
+        status: MusicianProfileStatus.success,
+        action: MusicianProfileAction.load,
+        profile: result.data,
+      ));
+      return;
+    }
+    emit(state.copyWith(
+      status: MusicianProfileStatus.failure,
+      action: MusicianProfileAction.load,
+      error: result.error,
+    ));
+  }
+
   Future<void> updateProfile(MusicianProfileSaveRequest request) async {
     emit(state.copyWith(
       status: MusicianProfileStatus.loading,

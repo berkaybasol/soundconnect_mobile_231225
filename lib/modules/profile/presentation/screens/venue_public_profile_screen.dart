@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
-import '../../../artist_venue/presentation/cubit/artist_venue_connections_state.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
@@ -25,11 +24,11 @@ import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/entities/venue_public_profile.dart';
 import '../cubit/musician_profile_cubit.dart';
-import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../cubit/venue_profile_cubit.dart';
 import '../cubit/venue_profile_state.dart';
 import 'media_detail_screen.dart';
+import 'profile_screen_support.dart';
 import 'video_reel_screen.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -79,55 +78,9 @@ class _MusicianPublicProfileView extends StatefulWidget {
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
   String? _publicVenueId;
-  String? _mediaProfileId;
-  String? _followUserId;
+  final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
   String? _currentProfileUserId;
-  String? _venueProfileId;
-
-  void _loadMediaForProfile(String profileId) {
-    if (_mediaProfileId == profileId) return;
-    _mediaProfileId = profileId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<ProfileMediaCubit>().loadMedia(
-        profileType: 'MUSICIAN',
-        profileId: profileId,
-      );
-    });
-  }
-
-  void _loadFollowCounts(String userId) {
-    if (userId.isEmpty) return;
-    if (_followUserId == userId) return;
-    _followUserId = userId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<FollowCountCubit>().loadCounts(userId);
-    });
-  }
-
-  void _loadAcceptedVenues(String profileId) {
-    if (profileId.isEmpty) return;
-    if (_venueProfileId == profileId) return;
-    _venueProfileId = profileId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<ArtistVenueConnectionsCubit>().loadAcceptedVenues(profileId);
-    });
-  }
-
-  void _loadFollowStatus(String followerId, String followingId) {
-    if (followerId.isEmpty || followingId.isEmpty) return;
-    if (followerId == followingId) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<FollowActionCubit>().loadStatus(
-        followerId: followerId,
-        followingId: followingId,
-      );
-    });
-  }
 
   @override
   void didChangeDependencies() {
@@ -178,51 +131,68 @@ class _MusicianPublicProfileViewState
         final profile = _toDisplayProfile(publicProfile);
         final weeklyEvents = _toWeeklyCalendarEvents(publicProfile);
         _currentProfileUserId = publicProfile.ownerUserId;
-        _loadFollowCounts(publicProfile.ownerUserId);
+        _loadCoordinator.scheduleMediaLoad(
+          context,
+          mounted: mounted,
+          profileId: publicProfile.venueProfileId,
+          profileType: ProfileMediaOwnerType.venue,
+        );
+        _loadCoordinator.scheduleFollowCountsLoad(
+          context,
+          mounted: mounted,
+          userId: publicProfile.ownerUserId,
+        );
         final viewerUserId = _viewerUserId ?? '';
-        _loadFollowStatus(viewerUserId, publicProfile.ownerUserId);
+        _loadCoordinator.scheduleFollowStatusLoad(
+          context,
+          mounted: mounted,
+          followerId: viewerUserId,
+          followingId: publicProfile.ownerUserId,
+        );
         return MultiBlocListener(
-      listeners: [
-        BlocListener<FollowActionCubit, FollowActionState>(
-          listener: (context, state) {
-            if (state.status == FollowActionStatus.success &&
-                _currentProfileUserId != null) {
-              context.read<FollowCountCubit>().loadCounts(
-                _currentProfileUserId!,
+          listeners: [
+            BlocListener<FollowActionCubit, FollowActionState>(
+              listener: (context, state) {
+                if (state.status == FollowActionStatus.success &&
+                    _currentProfileUserId != null) {
+                  context.read<FollowCountCubit>().loadCounts(
+                    _currentProfileUserId!,
+                  );
+                }
+              },
+            ),
+          ],
+          child: Builder(
+            builder: (context) {
+              final media = context.watch<ProfileMediaCubit>().state.media;
+              final followState = context.watch<FollowCountCubit>().state;
+              final followersCount =
+                  followState.status == FollowCountStatus.loading
+                  ? null
+                  : followState.followersCount;
+              final followingCount =
+                  followState.status == FollowCountStatus.loading
+                  ? null
+                  : followState.followingCount;
+              final actionState = context.watch<FollowActionCubit>().state;
+              return _MusicianPublicProfileContent(
+                profile: profile,
+                media: media,
+                followersCount: followersCount,
+                followingCount: followingCount,
+                activeVenues: publicProfile.activeMusicians
+                    .map((item) => item.displayName)
+                    .toList(),
+                viewerUserId: viewerUserId,
+                isFollowing: actionState.isFollowing,
+                followLoading: actionState.status == FollowActionStatus.loading,
+                spotifyTracks: const [],
+                spotifyLoading: false,
+                weeklyEvents: weeklyEvents,
               );
-            }
-          },
-        ),
-      ],
-      child: Builder(
-        builder: (context) {
-          final media = context.watch<ProfileMediaCubit>().state.media;
-          final followState = context.watch<FollowCountCubit>().state;
-          final followersCount = followState.status == FollowCountStatus.loading
-              ? null
-              : followState.followersCount;
-          final followingCount = followState.status == FollowCountStatus.loading
-              ? null
-              : followState.followingCount;
-          final actionState = context.watch<FollowActionCubit>().state;
-          return _MusicianPublicProfileContent(
-            profile: profile,
-            media: media,
-            followersCount: followersCount,
-            followingCount: followingCount,
-            activeVenues: publicProfile.activeMusicians
-                .map((item) => item.displayName)
-                .toList(),
-            viewerUserId: viewerUserId,
-            isFollowing: actionState.isFollowing,
-            followLoading: actionState.status == FollowActionStatus.loading,
-            spotifyTracks: const [],
-            spotifyLoading: false,
-            weeklyEvents: weeklyEvents,
-          );
-        },
-      ),
-    );
+            },
+          ),
+        );
       },
     );
   }
@@ -256,7 +226,9 @@ class _MusicianPublicProfileViewState
     );
   }
 
-  List<WeeklyCalendarEvent> _toWeeklyCalendarEvents(VenuePublicProfile profile) {
+  List<WeeklyCalendarEvent> _toWeeklyCalendarEvents(
+    VenuePublicProfile profile,
+  ) {
     return profile.weeklyEvents
         .map(
           (item) => WeeklyCalendarEvent(
@@ -334,14 +306,18 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     final resolvedMedia = _resolveMedia(media);
     final canFollow =
         viewerUserId.isNotEmpty &&
-            profile.userId.isNotEmpty &&
-            viewerUserId != profile.userId;
+        profile.userId.isNotEmpty &&
+        viewerUserId != profile.userId;
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const GradientText(text: 'SoundConnect', gradient: LinearGradient(colors: AppColors.brandGradient), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+          title: const GradientText(
+            text: 'SoundConnect',
+            gradient: LinearGradient(colors: AppColors.brandGradient),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+          ),
           leading: const BackButton(),
           centerTitle: true,
         ),
@@ -451,10 +427,10 @@ class _ProfileHeader extends StatelessWidget {
                 child: profile.profilePicture?.startsWith('http') == true
                     ? Image.network(profile.profilePicture!, fit: BoxFit.cover)
                     : const Icon(
-                  Icons.person_outline,
-                  color: AppColors.textMuted,
-                  size: 40,
-                ),
+                        Icons.person_outline,
+                        color: AppColors.textMuted,
+                        size: 40,
+                      ),
               ),
             ),
             Positioned(
@@ -947,6 +923,7 @@ class _EventCalendarMock extends StatelessWidget {
 
   const _EventCalendarMock({required this.items});
 
+  // ignore: unused_field
   static const List<WeeklyCalendarEvent> _items = [
     WeeklyCalendarEvent(
       id: 'venue-event-1',
@@ -1052,25 +1029,25 @@ class _EventCalendarMock extends StatelessWidget {
                         width: 50,
                         child: event.imageAssetPath != null
                             ? Image.asset(
-                          event.imageAssetPath!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppColors.navBlueSoft,
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.image_outlined,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        )
+                                event.imageAssetPath!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: AppColors.navBlueSoft,
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    Icons.image_outlined,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ),
+                              )
                             : Container(
-                          color: AppColors.navBlueSoft,
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.image_outlined,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
+                                color: AppColors.navBlueSoft,
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.image_outlined,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1264,11 +1241,11 @@ class _MediaContent extends StatelessWidget {
       builder: (context, _) {
         return controller.index == 0
             ? _AudioTab(
-          items: audioItems,
-          spotifyTracks: const [],
-          spotifyLoading: spotifyLoading,
-          audioHandler: audioHandler,
-        )
+                items: audioItems,
+                spotifyTracks: const [],
+                spotifyLoading: spotifyLoading,
+                audioHandler: audioHandler,
+              )
             : _VideoTab(items: videoItems);
       },
     );
@@ -1350,9 +1327,9 @@ class _AudioTab extends StatelessWidget {
   }
 
   Future<void> _showSpotifyCatalog(
-      BuildContext context,
-      List<SpotifyTrackPreview> tracks,
-      ) async {
+    BuildContext context,
+    List<SpotifyTrackPreview> tracks,
+  ) async {
     if (tracks.isEmpty) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -1411,18 +1388,18 @@ class _AudioTab extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 image: track.albumImageUrl != null
                                     ? DecorationImage(
-                                  image: NetworkImage(
-                                    track.albumImageUrl!,
-                                  ),
-                                  fit: BoxFit.cover,
-                                )
+                                        image: NetworkImage(
+                                          track.albumImageUrl!,
+                                        ),
+                                        fit: BoxFit.cover,
+                                      )
                                     : null,
                               ),
                               child: track.albumImageUrl == null
                                   ? const Icon(
-                                Icons.music_note,
-                                color: AppColors.textMuted,
-                              )
+                                      Icons.music_note,
+                                      color: AppColors.textMuted,
+                                    )
                                   : null,
                             ),
                             const SizedBox(width: 12),
@@ -1550,17 +1527,17 @@ class _AudioTab extends StatelessWidget {
                 final playback = track.playbackUrl ?? '';
                 final isSpotify =
                     playback.contains('spotify') ||
-                        playback.contains('open.spotify') ||
-                        playback.contains('spotify.com');
+                    playback.contains('open.spotify') ||
+                    playback.contains('spotify.com');
                 final isCurrent = currentId == track.id;
                 final totalFromTrackMs = (track.durationSeconds ?? 0) * 1000;
                 final totalFromHandlerMs =
                     audioHandler.mediaItem.value?.duration?.inMilliseconds ?? 0;
                 final totalMs =
-                (totalFromTrackMs > 0
-                    ? totalFromTrackMs
-                    : totalFromHandlerMs)
-                    .toDouble();
+                    (totalFromTrackMs > 0
+                            ? totalFromTrackMs
+                            : totalFromHandlerMs)
+                        .toDouble();
                 final progress = totalMs > 0
                     ? (position.inMilliseconds / totalMs).clamp(0.0, 1.0)
                     : 0.0;
@@ -1627,27 +1604,27 @@ class _AudioTab extends StatelessWidget {
                           onPlayPause: () => _toggleTrack(track),
                           onBack10: isCurrent
                               ? () {
-                            final totalInt = totalMs.round();
-                            final currentMs = position.inMilliseconds;
-                            final targetMs = (currentMs - 10000)
-                                .clamp(0, totalInt)
-                                .toInt();
-                            audioHandler.seek(
-                              Duration(milliseconds: targetMs),
-                            );
-                          }
+                                  final totalInt = totalMs.round();
+                                  final currentMs = position.inMilliseconds;
+                                  final targetMs = (currentMs - 10000)
+                                      .clamp(0, totalInt)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: targetMs),
+                                  );
+                                }
                               : null,
                           onForward10: isCurrent
                               ? () {
-                            final totalInt = totalMs.round();
-                            final currentMs = position.inMilliseconds;
-                            final targetMs = (currentMs + 10000)
-                                .clamp(0, totalInt)
-                                .toInt();
-                            audioHandler.seek(
-                              Duration(milliseconds: targetMs),
-                            );
-                          }
+                                  final totalInt = totalMs.round();
+                                  final currentMs = position.inMilliseconds;
+                                  final targetMs = (currentMs + 10000)
+                                      .clamp(0, totalInt)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: targetMs),
+                                  );
+                                }
                               : null,
                         ),
                         waveform: WaveformStub(
@@ -1656,10 +1633,10 @@ class _AudioTab extends StatelessWidget {
                           ),
                           gradientColors: isSpotify
                               ? const [
-                            Color(0xFF1ED760),
-                            Color(0xFF1DB954),
-                            Color(0xFF18A34A),
-                          ]
+                                  Color(0xFF1ED760),
+                                  Color(0xFF1DB954),
+                                  Color(0xFF18A34A),
+                                ]
                               : AppColors.brandGradient,
                           iconColor: isSpotify
                               ? const Color(0xFF1DB954)
@@ -1669,30 +1646,30 @@ class _AudioTab extends StatelessWidget {
                               : AppColors.textMuted,
                           leading: isSpotify
                               ? const Icon(
-                            FontAwesomeIcons.spotify,
-                            size: 16,
-                            color: Color(0xFF1DB954),
-                          )
+                                  FontAwesomeIcons.spotify,
+                                  size: 16,
+                                  color: Color(0xFF1DB954),
+                                )
                               : Image.asset(
-                            'assets/logo.png',
-                            width: 26,
-                            height: 26,
-                            fit: BoxFit.contain,
-                          ),
+                                  'assets/logo.png',
+                                  width: 26,
+                                  height: 26,
+                                  fit: BoxFit.contain,
+                                ),
                           height: 92,
                           waveformHeight: 44,
                           isPlaying: isCurrent && isPlaying,
                           progress: isCurrent ? progress : 0,
                           onSeek: isCurrent
                               ? (ratio) {
-                            final milliseconds = (totalMs * ratio)
-                                .round()
-                                .clamp(0, 1000000)
-                                .toInt();
-                            audioHandler.seek(
-                              Duration(milliseconds: milliseconds),
-                            );
-                          }
+                                  final milliseconds = (totalMs * ratio)
+                                      .round()
+                                      .clamp(0, 1000000)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: milliseconds),
+                                  );
+                                }
                               : null,
                         ),
                       ),
@@ -1888,11 +1865,11 @@ class _AudioPreviewCardState extends State<_AudioPreviewCard>
   ]).animate(_heartController);
   late final Animation<double> _ringScale = Tween<double>(begin: 0.7, end: 1.9)
       .animate(
-    CurvedAnimation(
-      parent: _heartController,
-      curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
-    ),
-  );
+        CurvedAnimation(
+          parent: _heartController,
+          curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
+        ),
+      );
   late final Animation<double> _ringOpacity = TweenSequence<double>([
     TweenSequenceItem(tween: Tween<double>(begin: 0, end: 0.5), weight: 22),
     TweenSequenceItem(tween: Tween<double>(begin: 0.5, end: 0), weight: 78),
@@ -2083,9 +2060,9 @@ class _VideoTab extends StatelessWidget {
             border: Border.all(color: AppColors.border),
             image: thumbnail != null
                 ? DecorationImage(
-              image: NetworkImage(thumbnail),
-              fit: BoxFit.cover,
-            )
+                    image: NetworkImage(thumbnail),
+                    fit: BoxFit.cover,
+                  )
                 : null,
           ),
           child: InkWell(

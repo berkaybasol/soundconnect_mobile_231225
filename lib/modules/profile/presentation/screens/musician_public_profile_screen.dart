@@ -27,6 +27,7 @@ import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'media_detail_screen.dart';
+import 'profile_screen_support.dart';
 import 'video_reel_screen.dart';
 
 class PublicProfileArgs {
@@ -68,59 +69,9 @@ class _MusicianPublicProfileView extends StatefulWidget {
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
   String? _targetProfileId;
-  String? _mediaProfileId;
-  String? _followUserId;
-  String? _followStatusKey;
+  final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
   String? _currentProfileUserId;
-  String? _venueProfileId;
-
-  void _loadMediaForProfile(String profileId) {
-    if (_mediaProfileId == profileId) return;
-    _mediaProfileId = profileId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<ProfileMediaCubit>().loadMedia(
-        profileType: 'MUSICIAN',
-        profileId: profileId,
-      );
-    });
-  }
-
-  void _loadFollowCounts(String userId) {
-    if (userId.isEmpty) return;
-    if (_followUserId == userId) return;
-    _followUserId = userId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<FollowCountCubit>().loadCounts(userId);
-    });
-  }
-
-  void _loadAcceptedVenues(String profileId) {
-    if (profileId.isEmpty) return;
-    if (_venueProfileId == profileId) return;
-    _venueProfileId = profileId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<ArtistVenueConnectionsCubit>().loadAcceptedVenues(profileId);
-    });
-  }
-
-  void _loadFollowStatus(String followerId, String followingId) {
-    if (followerId.isEmpty || followingId.isEmpty) return;
-    if (followerId == followingId) return;
-    final nextKey = '$followerId::$followingId';
-    if (_followStatusKey == nextKey) return;
-    _followStatusKey = nextKey;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<FollowActionCubit>().loadStatus(
-        followerId: followerId,
-        followingId: followingId,
-      );
-    });
-  }
 
   @override
   void didChangeDependencies() {
@@ -133,7 +84,9 @@ class _MusicianPublicProfileViewState
         _targetProfileId = args['profileId']?.toString();
       }
       if (_targetProfileId != null && _targetProfileId!.isNotEmpty) {
-        context.read<MusicianProfileCubit>().loadPublicProfile(_targetProfileId!);
+        context.read<MusicianProfileCubit>().loadPublicProfile(
+          _targetProfileId!,
+        );
       }
     }
     if (_viewerUserId != null) return;
@@ -187,11 +140,30 @@ class _MusicianPublicProfileViewState
 
           final profile = state.profile!;
           _currentProfileUserId = profile.userId;
-          _loadMediaForProfile(profile.id);
-          _loadFollowCounts(profile.userId);
-          _loadAcceptedVenues(profile.id);
+          _loadCoordinator.scheduleMediaLoad(
+            context,
+            mounted: mounted,
+            profileId: profile.id,
+            profileType: ProfileMediaOwnerType.musician,
+          );
+          _loadCoordinator.scheduleFollowCountsLoad(
+            context,
+            mounted: mounted,
+            userId: profile.userId,
+          );
+          _loadCoordinator.scheduleAcceptedVenuesLoad(
+            context,
+            mounted: mounted,
+            profileId: profile.id,
+          );
           final viewerUserId = _viewerUserId ?? '';
-          _loadFollowStatus(viewerUserId, profile.userId);
+          _loadCoordinator.scheduleFollowStatusLoad(
+            context,
+            mounted: mounted,
+            followerId: viewerUserId,
+            followingId: profile.userId,
+            separator: '::',
+          );
           final media = context.watch<ProfileMediaCubit>().state.media;
           final venueState = context.watch<ArtistVenueConnectionsCubit>().state;
           final venueItems =
@@ -279,7 +251,11 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const GradientText(text: 'SoundConnect', gradient: LinearGradient(colors: AppColors.brandGradient), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+          title: const GradientText(
+            text: 'SoundConnect',
+            gradient: LinearGradient(colors: AppColors.brandGradient),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+          ),
           leading: const BackButton(),
           centerTitle: true,
         ),

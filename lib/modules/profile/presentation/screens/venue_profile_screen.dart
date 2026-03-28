@@ -19,7 +19,6 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
-import '../../../artist_venue/presentation/cubit/artist_venue_connections_state.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
@@ -34,7 +33,6 @@ import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
-import '../../domain/entities/venue_event_summary.dart';
 import '../../domain/entities/venue_owner_profile.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../../data/models/venue_profile_save_request.dart';
@@ -45,6 +43,7 @@ import '../cubit/venue_profile_cubit.dart';
 import '../cubit/venue_profile_state.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
+import 'profile_screen_support.dart';
 import 'video_reel_screen.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -60,16 +59,6 @@ class VenueProfileArgs {
   final String? viewerUserId;
 
   const VenueProfileArgs({this.venueId, this.viewerUserId});
-}
-
-bool _isValidNetworkImageUrl(String? value) {
-  final raw = value?.trim();
-  if (raw == null || raw.isEmpty) return false;
-  final uri = Uri.tryParse(raw);
-  if (uri == null) return false;
-  return uri.hasScheme &&
-      (uri.scheme == 'http' || uri.scheme == 'https') &&
-      (uri.host.isNotEmpty);
 }
 
 class VenueProfileScreen extends StatelessWidget {
@@ -105,32 +94,11 @@ class _MusicianPublicProfileView extends StatefulWidget {
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
   String? _ownerVenueId;
-  String? _mediaProfileId;
-  String? _followUserId;
-  String? _followStatusKey;
+  final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
   String? _currentProfileUserId;
-  String? _venueProfileId;
   bool _photoUploading = false;
-  String? _uploadedProfilePhotoUrl;
   final ImagePicker _imagePicker = ImagePicker();
-
-  String _mimeFromFileName(String fileName) {
-    final lower = fileName.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
-      return 'image/jpeg';
-    }
-    return 'image/jpeg';
-  }
-
-  String _fileNameFromPath(String path, {String fallback = 'profile.jpg'}) {
-    final normalized = path.replaceAll('\\', '/');
-    final parts = normalized.split('/');
-    final name = parts.isNotEmpty ? parts.last.trim() : '';
-    return name.isEmpty ? fallback : name;
-  }
 
   Future<void> _editProfilePhoto(VenueOwnerProfile profile) async {
     final picked = await _imagePicker.pickImage(
@@ -178,8 +146,8 @@ class _MusicianPublicProfileViewState
     setState(() => _photoUploading = true);
     try {
       final apiClient = serviceLocator<ApiClient>();
-      final fileName = _fileNameFromPath(cropped.path, fallback: picked.name);
-      final mimeType = _mimeFromFileName(fileName);
+      final fileName = fileNameFromPath(cropped.path, fallback: picked.name);
+      final mimeType = inferImageMimeType(fileName);
 
       final initResult = await apiClient.post<_UploadInitResult>(
         '/api/v1/user/media/init-upload',
@@ -221,10 +189,6 @@ class _MusicianPublicProfileViewState
         VenueProfileSaveRequest(profilePicture: profilePictureAssetId),
         venueId: profile.venueId,
       );
-      setState(() {
-        _uploadedProfilePhotoUrl =
-            (completed.sourceUrl ?? completed.playbackUrl)?.trim();
-      });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profil fotoÄŸrafÄ± gÃ¼ncellendi')),
@@ -255,9 +219,9 @@ class _MusicianPublicProfileViewState
   }
 
   Future<void> _addSocialLink(
-      MusicianProfile profile,
-      _SocialPlatform platform,
-      ) async {
+    MusicianProfile profile,
+    _SocialPlatform platform,
+  ) async {
     var draftValue = _socialUrlFor(profile, platform)?.trim() ?? '';
     final isEditing = draftValue.isNotEmpty;
 
@@ -394,16 +358,16 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _VenueOption(
-            id: item['id']?.toString() ?? '',
-            name: item['name']?.toString() ?? '',
-            cityId: _extractId(item, 'cityId'),
-            districtId: _extractId(item, 'districtId'),
-            neighborhoodId: _extractId(item, 'neighborhoodId'),
-            cityName: _extractName(item, 'cityName'),
-            districtName: _extractName(item, 'districtName'),
-            neighborhoodName: _extractName(item, 'neighborhoodName'),
-          ),
-        )
+                id: item['id']?.toString() ?? '',
+                name: item['name']?.toString() ?? '',
+                cityId: _extractId(item, 'cityId'),
+                districtId: _extractId(item, 'districtId'),
+                neighborhoodId: _extractId(item, 'neighborhoodId'),
+                cityName: _extractName(item, 'cityName'),
+                districtName: _extractName(item, 'districtName'),
+                neighborhoodName: _extractName(item, 'neighborhoodName'),
+              ),
+            )
             .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
             .toList();
       },
@@ -420,10 +384,10 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _LookupOption(
-            id: item['id']?.toString() ?? '',
-            name: item['name']?.toString() ?? '',
-          ),
-        )
+                id: item['id']?.toString() ?? '',
+                name: item['name']?.toString() ?? '',
+              ),
+            )
             .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
             .toList();
       },
@@ -440,10 +404,10 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _LookupOption(
-            id: item['id']?.toString() ?? '',
-            name: item['name']?.toString() ?? '',
-          ),
-        )
+                id: item['id']?.toString() ?? '',
+                name: item['name']?.toString() ?? '',
+              ),
+            )
             .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
             .toList();
       },
@@ -460,10 +424,10 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _LookupOption(
-            id: item['id']?.toString() ?? '',
-            name: item['name']?.toString() ?? '',
-          ),
-        )
+                id: item['id']?.toString() ?? '',
+                name: item['name']?.toString() ?? '',
+              ),
+            )
             .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
             .toList();
       },
@@ -471,9 +435,9 @@ class _MusicianPublicProfileViewState
   }
 
   Future<List<_VenueConnection>> _fetchVenueConnectionsByStatus(
-      String profileId, {
-        required String status,
-      }) async {
+    String profileId, {
+    required String status,
+  }) async {
     final apiClient = serviceLocator<ApiClient>();
     return apiClient.get<List<_VenueConnection>>(
       '/api/v1/artist-venue-connections/musician/$profileId?status=$status',
@@ -483,28 +447,28 @@ class _MusicianPublicProfileViewState
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => _VenueConnection(
-            requestId: item['id']?.toString() ?? '',
-            venueId: item['venueId']?.toString() ?? '',
-            venueName: item['venueName']?.toString() ?? '',
-          ),
-        )
+                requestId: item['id']?.toString() ?? '',
+                venueId: item['venueId']?.toString() ?? '',
+                venueName: item['venueName']?.toString() ?? '',
+              ),
+            )
             .where(
               (item) => item.requestId.isNotEmpty && item.venueId.isNotEmpty,
-        )
+            )
             .toList();
       },
     );
   }
 
   Future<List<_VenueConnection>> _fetchAcceptedVenueConnections(
-      String profileId,
-      ) {
+    String profileId,
+  ) {
     return _fetchVenueConnectionsByStatus(profileId, status: 'ACCEPTED');
   }
 
   Future<List<_VenueConnection>> _fetchPendingVenueConnections(
-      String profileId,
-      ) {
+    String profileId,
+  ) {
     return _fetchVenueConnectionsByStatus(profileId, status: 'PENDING');
   }
 
@@ -517,7 +481,7 @@ class _MusicianPublicProfileViewState
               builder: (_) => const _VenueIntroScreen(),
             ),
           ) ??
-              false;
+          false;
       if (!acceptedIntro || !mounted) return;
 
       final allVenues = await _fetchAllVenues();
@@ -613,26 +577,26 @@ class _MusicianPublicProfileViewState
                 );
                 final matchesSearch =
                     searchQuery.isEmpty ||
-                        venue.name.toLowerCase().contains(
-                          searchQuery.toLowerCase(),
-                        );
+                    venue.name.toLowerCase().contains(
+                      searchQuery.toLowerCase(),
+                    );
                 final matchesCity =
                     selectedCityId == null ||
-                        venue.cityId == selectedCityId ||
-                        (selectedCityName != null &&
-                            venue.cityName?.toLowerCase() == selectedCityName);
+                    venue.cityId == selectedCityId ||
+                    (selectedCityName != null &&
+                        venue.cityName?.toLowerCase() == selectedCityName);
                 final matchesDistrict =
                     selectedDistrictId == null ||
-                        venue.districtId == selectedDistrictId ||
-                        (selectedDistrictName != null &&
-                            venue.districtName?.toLowerCase() ==
-                                selectedDistrictName);
+                    venue.districtId == selectedDistrictId ||
+                    (selectedDistrictName != null &&
+                        venue.districtName?.toLowerCase() ==
+                            selectedDistrictName);
                 final matchesNeighborhood =
                     selectedNeighborhoodId == null ||
-                        venue.neighborhoodId == selectedNeighborhoodId ||
-                        (selectedNeighborhoodName != null &&
-                            venue.neighborhoodName?.toLowerCase() ==
-                                selectedNeighborhoodName);
+                    venue.neighborhoodId == selectedNeighborhoodId ||
+                    (selectedNeighborhoodName != null &&
+                        venue.neighborhoodName?.toLowerCase() ==
+                            selectedNeighborhoodName);
                 return matchesSearch &&
                     matchesCity &&
                     matchesDistrict &&
@@ -648,7 +612,7 @@ class _MusicianPublicProfileViewState
                   top: false,
                   child: SizedBox(
                     height:
-                    MediaQuery.of(context).size.height *
+                        MediaQuery.of(context).size.height *
                         (filtersExpanded ? 0.93 : 0.84),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -790,7 +754,7 @@ class _MusicianPublicProfileViewState
                                         child: Text('T\u00FCm \u0130ller'),
                                       ),
                                       ...cities.map(
-                                            (city) => DropdownMenuItem<String>(
+                                        (city) => DropdownMenuItem<String>(
                                           value: city.id,
                                           child: Text(city.name),
                                         ),
@@ -813,22 +777,22 @@ class _MusicianPublicProfileViewState
                                     decoration: InputDecoration(
                                       labelText: '\u0130l\u00E7e',
                                       contentPadding:
-                                      const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 14,
-                                      ),
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 14,
+                                          ),
                                       suffixIcon: loadingDistricts
                                           ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: Padding(
-                                          padding: EdgeInsets.all(12),
-                                          child:
-                                          CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      )
+                                              width: 16,
+                                              height: 16,
+                                              child: Padding(
+                                                padding: EdgeInsets.all(12),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              ),
+                                            )
                                           : null,
                                     ),
                                     items: [
@@ -839,7 +803,7 @@ class _MusicianPublicProfileViewState
                                         ),
                                       ),
                                       ...districtOptions.map(
-                                            (district) => DropdownMenuItem<String>(
+                                        (district) => DropdownMenuItem<String>(
                                           value: district.id,
                                           child: Text(district.name),
                                         ),
@@ -864,22 +828,22 @@ class _MusicianPublicProfileViewState
                                     decoration: InputDecoration(
                                       labelText: 'Mahalle',
                                       contentPadding:
-                                      const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 14,
-                                      ),
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 14,
+                                          ),
                                       suffixIcon: loadingNeighborhoods
                                           ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: Padding(
-                                          padding: EdgeInsets.all(12),
-                                          child:
-                                          CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      )
+                                              width: 16,
+                                              height: 16,
+                                              child: Padding(
+                                                padding: EdgeInsets.all(12),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              ),
+                                            )
                                           : null,
                                     ),
                                     items: [
@@ -888,7 +852,7 @@ class _MusicianPublicProfileViewState
                                         child: Text('T\u00FCm Mahalleler'),
                                       ),
                                       ...neighborhoodOptions.map(
-                                            (neighborhood) =>
+                                        (neighborhood) =>
                                             DropdownMenuItem<String>(
                                               value: neighborhood.id,
                                               child: Text(neighborhood.name),
@@ -898,9 +862,9 @@ class _MusicianPublicProfileViewState
                                     onChanged: selectedDistrictId == null
                                         ? null
                                         : (value) => setSheetState(
-                                          () =>
-                                      selectedNeighborhoodId = value,
-                                    ),
+                                            () =>
+                                                selectedNeighborhoodId = value,
+                                          ),
                                   ),
                                 ],
                               ),
@@ -910,189 +874,189 @@ class _MusicianPublicProfileViewState
                           Expanded(
                             child: filteredVenues.isEmpty
                                 ? const Center(
-                              child: Text(
-                                'Filtreye uygun mekan yok.',
-                                style: TextStyle(
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                            )
+                                    child: Text(
+                                      'Filtreye uygun mekan yok.',
+                                      style: TextStyle(
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  )
                                 : ListView.builder(
-                              itemCount: filteredVenues.length,
-                              itemBuilder: (context, index) {
-                                final venue = filteredVenues[index];
-                                final checked =
-                                    selectedVenueId == venue.id;
-                                final isAccepted = acceptedIds.contains(
-                                  venue.id,
-                                );
-                                final isPending = pendingIds.contains(
-                                  venue.id,
-                                );
-                                final isLocked = isAccepted || isPending;
-                                return InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () {
-                                    if (isAccepted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Bu mek\u00E2n zaten profilinde ba\u011Fl\u0131.',
-                                          ),
-                                        ),
+                                    itemCount: filteredVenues.length,
+                                    itemBuilder: (context, index) {
+                                      final venue = filteredVenues[index];
+                                      final checked =
+                                          selectedVenueId == venue.id;
+                                      final isAccepted = acceptedIds.contains(
+                                        venue.id,
                                       );
-                                      return;
-                                    }
-                                    if (isPending) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Bu mek\u00E2na zaten ba\u015Fvurdun (beklemede).',
-                                          ),
-                                        ),
+                                      final isPending = pendingIds.contains(
+                                        venue.id,
                                       );
-                                      return;
-                                    }
-                                    setSheetState(() {
-                                      if (checked) {
-                                        selectedVenueId = null;
-                                      } else {
-                                        selectedVenueId = venue.id;
-                                      }
-                                    });
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.only(
-                                      bottom: 8,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(
-                                        12,
-                                      ),
-                                      border: Border.all(
-                                        color: checked
-                                            ? Colors.transparent
-                                            : AppColors.border.withValues(
-                                          alpha: 0.45,
-                                        ),
-                                      ),
-                                      gradient: checked
-                                          ? const LinearGradient(
-                                        colors: [
-                                          Color(0x22FF7A3D),
-                                          Color(0x22EF5F86),
-                                          Color(0x22B85CFF),
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      )
-                                          : null,
-                                      color: checked
-                                          ? null
-                                          : AppColors.inputFill,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 22,
-                                          height: 22,
+                                      final isLocked = isAccepted || isPending;
+                                      return InkWell(
+                                        borderRadius: BorderRadius.circular(12),
+                                        onTap: () {
+                                          if (isAccepted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Bu mek\u00E2n zaten profilinde ba\u011Fl\u0131.',
+                                                ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          if (isPending) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Bu mek\u00E2na zaten ba\u015Fvurdun (beklemede).',
+                                                ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          setSheetState(() {
+                                            if (checked) {
+                                              selectedVenueId = null;
+                                            } else {
+                                              selectedVenueId = venue.id;
+                                            }
+                                          });
+                                        },
+                                        child: Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
                                           decoration: BoxDecoration(
-                                            borderRadius:
-                                            BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             border: Border.all(
                                               color: checked
                                                   ? Colors.transparent
-                                                  : AppColors.textMuted
-                                                  .withValues(
-                                                alpha: 0.55,
-                                              ),
+                                                  : AppColors.border.withValues(
+                                                      alpha: 0.45,
+                                                    ),
                                             ),
                                             gradient: checked
                                                 ? const LinearGradient(
-                                              colors: [
-                                                Color(0xFFFF7A3D),
-                                                Color(0xFFEF5F86),
-                                                Color(0xFFB85CFF),
-                                              ],
-                                              begin:
-                                              Alignment.topLeft,
-                                              end: Alignment
-                                                  .bottomRight,
-                                            )
+                                                    colors: [
+                                                      Color(0x22FF7A3D),
+                                                      Color(0x22EF5F86),
+                                                      Color(0x22B85CFF),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  )
                                                 : null,
+                                            color: checked
+                                                ? null
+                                                : AppColors.inputFill,
                                           ),
-                                          child: checked
-                                              ? const Icon(
-                                            Icons.check,
-                                            size: 15,
-                                            color: Colors.white,
-                                          )
-                                              : null,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            venue.name,
-                                            style: TextStyle(
-                                              color: AppColors.textPrimary
-                                                  .withValues(
-                                                alpha: isLocked
-                                                    ? 0.55
-                                                    : 1,
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 22,
+                                                height: 22,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  border: Border.all(
+                                                    color: checked
+                                                        ? Colors.transparent
+                                                        : AppColors.textMuted
+                                                              .withValues(
+                                                                alpha: 0.55,
+                                                              ),
+                                                  ),
+                                                  gradient: checked
+                                                      ? const LinearGradient(
+                                                          colors: [
+                                                            Color(0xFFFF7A3D),
+                                                            Color(0xFFEF5F86),
+                                                            Color(0xFFB85CFF),
+                                                          ],
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight,
+                                                        )
+                                                      : null,
+                                                ),
+                                                child: checked
+                                                    ? const Icon(
+                                                        Icons.check,
+                                                        size: 15,
+                                                        color: Colors.white,
+                                                      )
+                                                    : null,
                                               ),
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        if (isLocked) ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.inputFill,
-                                              borderRadius:
-                                              BorderRadius.circular(
-                                                8,
-                                              ),
-                                              border: Border.all(
-                                                color: AppColors.border
-                                                    .withValues(
-                                                  alpha: 0.5,
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  venue.name,
+                                                  style: TextStyle(
+                                                    color: AppColors.textPrimary
+                                                        .withValues(
+                                                          alpha: isLocked
+                                                              ? 0.55
+                                                              : 1,
+                                                        ),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            child: Text(
-                                              isPending
-                                                  ? '\u{1F7E1} Beklemede'
-                                                  : 'Ba\u011Fl\u0131',
-                                              style: const TextStyle(
-                                                color:
-                                                AppColors.textMuted,
-                                                fontSize: 11,
-                                                fontWeight:
-                                                FontWeight.w600,
-                                              ),
-                                            ),
+                                              if (isLocked) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.inputFill,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: AppColors.border
+                                                          .withValues(
+                                                            alpha: 0.5,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    isPending
+                                                        ? '\u{1F7E1} Beklemede'
+                                                        : 'Ba\u011Fl\u0131',
+                                                    style: const TextStyle(
+                                                      color:
+                                                          AppColors.textMuted,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
-                                        ],
-                                      ],
-                                    ),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
-                              },
-                            ),
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -1136,25 +1100,25 @@ class _MusicianPublicProfileViewState
                                           ),
                                           child: Dialog(
                                             backgroundColor:
-                                            AppColors.navBlueDeep,
+                                                AppColors.navBlueDeep,
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
-                                              BorderRadius.circular(16),
+                                                  BorderRadius.circular(16),
                                             ),
                                             child: Padding(
                                               padding:
-                                              const EdgeInsets.fromLTRB(
-                                                16,
-                                                16,
-                                                16,
-                                                14,
-                                              ),
+                                                  const EdgeInsets.fromLTRB(
+                                                    16,
+                                                    16,
+                                                    16,
+                                                    14,
+                                                  ),
                                               child: SingleChildScrollView(
                                                 child: Column(
                                                   mainAxisSize:
-                                                  MainAxisSize.min,
+                                                      MainAxisSize.min,
                                                   crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     const Text(
                                                       'Ba\u015fvuru Notu (Opsiyonel)',
@@ -1162,7 +1126,7 @@ class _MusicianPublicProfileViewState
                                                         color: AppColors
                                                             .textPrimary,
                                                         fontWeight:
-                                                        FontWeight.w700,
+                                                            FontWeight.w700,
                                                       ),
                                                     ),
                                                     const SizedBox(height: 10),
@@ -1173,10 +1137,10 @@ class _MusicianPublicProfileViewState
                                                         noteDraft = value;
                                                       },
                                                       decoration:
-                                                      const InputDecoration(
-                                                        hintText:
-                                                        'Ä°stersen kÄ±sa bir not ekleyebilirsin (zorunlu deÄŸil).',
-                                                      ),
+                                                          const InputDecoration(
+                                                            hintText:
+                                                                'Ä°stersen kÄ±sa bir not ekleyebilirsin (zorunlu deÄŸil).',
+                                                          ),
                                                     ),
                                                     const SizedBox(height: 12),
                                                     Row(
@@ -1280,53 +1244,6 @@ class _MusicianPublicProfileViewState
     }
   }
 
-  void _loadMediaForProfile(String profileId) {
-    if (_mediaProfileId == profileId) return;
-    _mediaProfileId = profileId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<ProfileMediaCubit>().loadMedia(
-        profileType: 'MUSICIAN',
-        profileId: profileId,
-      );
-    });
-  }
-
-  void _loadFollowCounts(String userId) {
-    if (userId.isEmpty) return;
-    if (_followUserId == userId) return;
-    _followUserId = userId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<FollowCountCubit>().loadCounts(userId);
-    });
-  }
-
-  void _loadAcceptedVenues(String profileId) {
-    if (profileId.isEmpty) return;
-    if (_venueProfileId == profileId) return;
-    _venueProfileId = profileId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<ArtistVenueConnectionsCubit>().loadAcceptedVenues(profileId);
-    });
-  }
-
-  void _loadFollowStatus(String followerId, String followingId) {
-    if (followerId.isEmpty || followingId.isEmpty) return;
-    if (followerId == followingId) return;
-    final nextKey = '$followerId:$followingId';
-    if (_followStatusKey == nextKey) return;
-    _followStatusKey = nextKey;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<FollowActionCubit>().loadStatus(
-        followerId: followerId,
-        followingId: followingId,
-      );
-    });
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -1373,61 +1290,80 @@ class _MusicianPublicProfileViewState
         final profile = _toDisplayProfile(ownerProfile);
         final weeklyEvents = _toWeeklyCalendarEvents(ownerProfile);
         _currentProfileUserId = ownerProfile.ownerUserId;
-        _loadFollowCounts(ownerProfile.ownerUserId);
+        _loadCoordinator.scheduleMediaLoad(
+          context,
+          mounted: mounted,
+          profileId: ownerProfile.venueProfileId,
+          profileType: ProfileMediaOwnerType.venue,
+        );
+        _loadCoordinator.scheduleFollowCountsLoad(
+          context,
+          mounted: mounted,
+          userId: ownerProfile.ownerUserId,
+        );
+        final viewerUserId = _viewerUserId ?? '';
+        _loadCoordinator.scheduleFollowStatusLoad(
+          context,
+          mounted: mounted,
+          followerId: viewerUserId,
+          followingId: ownerProfile.ownerUserId,
+        );
         return MultiBlocListener(
-      listeners: [
-        BlocListener<FollowActionCubit, FollowActionState>(
-          listener: (context, state) {
-            if (state.status == FollowActionStatus.success &&
-                _currentProfileUserId != null) {
-              context.read<FollowCountCubit>().loadCounts(
-                _currentProfileUserId!,
+          listeners: [
+            BlocListener<FollowActionCubit, FollowActionState>(
+              listener: (context, state) {
+                if (state.status == FollowActionStatus.success &&
+                    _currentProfileUserId != null) {
+                  context.read<FollowCountCubit>().loadCounts(
+                    _currentProfileUserId!,
+                  );
+                }
+              },
+            ),
+          ],
+          child: Builder(
+            builder: (context) {
+              final media = context.watch<ProfileMediaCubit>().state.media;
+              final followState = context.watch<FollowCountCubit>().state;
+              final followersCount =
+                  followState.status == FollowCountStatus.loading
+                  ? null
+                  : followState.followersCount;
+              final followingCount =
+                  followState.status == FollowCountStatus.loading
+                  ? null
+                  : followState.followingCount;
+              final actionState = context.watch<FollowActionCubit>().state;
+              return _MusicianPublicProfileContent(
+                profile: profile,
+                media: media,
+                followersCount: followersCount,
+                followingCount: followingCount,
+                activeVenues: ownerProfile.activeMusicians
+                    .map((item) => item.displayName)
+                    .toList(),
+                viewerUserId: '',
+                isFollowing: actionState.isFollowing,
+                followLoading: actionState.status == FollowActionStatus.loading,
+                spotifyTracks: const [],
+                spotifyLoading: false,
+                onEditPhoto: () => _editProfilePhoto(ownerProfile),
+                photoUploading: _photoUploading,
+                uploadedProfilePhotoUrl: ownerProfile.profilePictureUrl,
+                socialEditable: false,
+                onAddSocialLink: null,
+                descriptionEditable: false,
+                onSaveDescription: null,
+                ownerMode: true,
+                onEditProfilePressed: _onEditProfilePressed,
+                venueEditable: false,
+                onEditVenues: null,
+                onEditEvents: null,
+                weeklyEvents: weeklyEvents,
               );
-            }
-          },
-        ),
-      ],
-      child: Builder(
-        builder: (context) {
-          final media = context.watch<ProfileMediaCubit>().state.media;
-          final followState = context.watch<FollowCountCubit>().state;
-          final followersCount = followState.status == FollowCountStatus.loading
-              ? null
-              : followState.followersCount;
-          final followingCount = followState.status == FollowCountStatus.loading
-              ? null
-              : followState.followingCount;
-          final actionState = context.watch<FollowActionCubit>().state;
-          return _MusicianPublicProfileContent(
-            profile: profile,
-            media: media,
-            followersCount: followersCount,
-            followingCount: followingCount,
-            activeVenues: ownerProfile.activeMusicians
-                .map((item) => item.displayName)
-                .toList(),
-            viewerUserId: '',
-            isFollowing: actionState.isFollowing,
-            followLoading: actionState.status == FollowActionStatus.loading,
-            spotifyTracks: const [],
-            spotifyLoading: false,
-            onEditPhoto: () => _editProfilePhoto(ownerProfile),
-            photoUploading: _photoUploading,
-            uploadedProfilePhotoUrl: ownerProfile.profilePictureUrl,
-            socialEditable: false,
-            onAddSocialLink: null,
-            descriptionEditable: false,
-            onSaveDescription: null,
-            ownerMode: true,
-            onEditProfilePressed: _onEditProfilePressed,
-            venueEditable: false,
-            onEditVenues: null,
-            onEditEvents: null,
-            weeklyEvents: weeklyEvents,
-          );
-        },
-      ),
-    );
+            },
+          ),
+        );
       },
     );
   }
@@ -1662,32 +1598,36 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     final resolvedMedia = _resolveMedia(media);
     final canFollow =
         viewerUserId.isNotEmpty &&
-            profile.userId.isNotEmpty &&
-            viewerUserId != profile.userId;
+        profile.userId.isNotEmpty &&
+        viewerUserId != profile.userId;
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const GradientText(text: 'SoundConnect', gradient: LinearGradient(colors: AppColors.brandGradient), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+          title: const GradientText(
+            text: 'SoundConnect',
+            gradient: LinearGradient(colors: AppColors.brandGradient),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+          ),
           leading: const BackButton(),
           centerTitle: true,
           actions: ownerMode
               ? [
-            IconButton(
-              tooltip: 'MenÃ¼',
-              onPressed: () => _showOwnerQuickMenu(context),
-              icon: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset(
-                  'assets/logo.png',
-                  width: 34,
-                  height: 34,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ]
+                  IconButton(
+                    tooltip: 'MenÃ¼',
+                    onPressed: () => _showOwnerQuickMenu(context),
+                    icon: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 34,
+                        height: 34,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ]
               : null,
         ),
         body: SingleChildScrollView(
@@ -1868,10 +1808,10 @@ class _ProfileHeader extends StatelessWidget {
                 child: hasRemotePhoto
                     ? Image.network(candidate, fit: BoxFit.cover)
                     : const Icon(
-                  Icons.person_outline,
-                  color: AppColors.textMuted,
-                  size: 40,
-                ),
+                        Icons.person_outline,
+                        color: AppColors.textMuted,
+                        size: 40,
+                      ),
               ),
             ),
             Positioned(
@@ -1893,17 +1833,17 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   child: uploading
                       ? const Padding(
-                    padding: EdgeInsets.all(6),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.white,
-                    ),
-                  )
+                          padding: EdgeInsets.all(6),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.white,
+                          ),
+                        )
                       : const Icon(
-                    Icons.edit,
-                    size: 14,
-                    color: AppColors.white,
-                  ),
+                          Icons.edit,
+                          size: 14,
+                          color: AppColors.white,
+                        ),
                 ),
               ),
             ),
@@ -2091,10 +2031,10 @@ class _BioSectionState extends State<_BioSection> {
               onPressed: _saving ? null : _handleSave,
               child: _saving
                   ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Text('Kaydet'),
             ),
           ],
@@ -2234,8 +2174,8 @@ class _SocialButtonRow extends StatelessWidget {
           onTap: editable
               ? () => onAddLink?.call(item.platform)
               : (item.active
-              ? () => _launchExternalUrl(context, item.url)
-              : null),
+                    ? () => _launchExternalUrl(context, item.url)
+                    : null),
         );
       }).toList(),
     );
@@ -2360,19 +2300,19 @@ class _SocialPillState extends State<_SocialPill> {
               child: Center(
                 child: widget.active
                     ? ShaderMask(
-                  shaderCallback: (bounds) =>
-                      iconGradient.createShader(bounds),
-                  child: FaIcon(
-                    widget.icon,
-                    size: 20,
-                    color: AppColors.white,
-                  ),
-                )
+                        shaderCallback: (bounds) =>
+                            iconGradient.createShader(bounds),
+                        child: FaIcon(
+                          widget.icon,
+                          size: 20,
+                          color: AppColors.white,
+                        ),
+                      )
                     : FaIcon(
-                  widget.icon,
-                  size: 20,
-                  color: AppColors.textMuted.withValues(alpha: 0.65),
-                ),
+                        widget.icon,
+                        size: 20,
+                        color: AppColors.textMuted.withValues(alpha: 0.65),
+                      ),
               ),
             ),
             if (widget.showAddBadge)
@@ -2654,6 +2594,7 @@ class _EventCalendarMock extends StatelessWidget {
 
   const _EventCalendarMock({required this.items});
 
+  // ignore: unused_field
   static const List<WeeklyCalendarEvent> _items = [
     WeeklyCalendarEvent(
       id: 'venue-event-1',
@@ -2759,25 +2700,25 @@ class _EventCalendarMock extends StatelessWidget {
                         width: 50,
                         child: event.imageAssetPath != null
                             ? Image.asset(
-                          event.imageAssetPath!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppColors.navBlueSoft,
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.image_outlined,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        )
+                                event.imageAssetPath!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: AppColors.navBlueSoft,
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    Icons.image_outlined,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ),
+                              )
                             : Container(
-                          color: AppColors.navBlueSoft,
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.image_outlined,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
+                                color: AppColors.navBlueSoft,
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.image_outlined,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -2970,7 +2911,7 @@ class _MediaContent extends StatelessWidget {
     final videoItems = <MediaAsset>[
       if (featuredVideo != null) featuredVideo,
       ...media.videos.where(
-            (item) => featuredVideo == null || item.id != featuredVideo.id,
+        (item) => featuredVideo == null || item.id != featuredVideo.id,
       ),
     ];
     final controller = DefaultTabController.of(context);
@@ -3037,9 +2978,9 @@ class _AudioTab extends StatelessWidget {
   }
 
   Future<SpotifyTrackPreview?> _showSpotifyTrackPicker(
-      BuildContext context,
-      List<SpotifyTrackPreview> currentTracks,
-      ) async {
+    BuildContext context,
+    List<SpotifyTrackPreview> currentTracks,
+  ) async {
     final queryController = TextEditingController();
     final repository = serviceLocator<SpotifyRepository>();
     Timer? searchDebounce;
@@ -3164,7 +3105,7 @@ class _AudioTab extends StatelessWidget {
                           child: ListView.separated(
                             itemCount: results.length,
                             separatorBuilder: (_, __) =>
-                            const SizedBox(height: 8),
+                                const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final track = results[index];
                               final alreadyAdded = existingIds.contains(
@@ -3182,7 +3123,7 @@ class _AudioTab extends StatelessWidget {
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             track.name,
@@ -3282,17 +3223,17 @@ class _AudioTab extends StatelessWidget {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('ÅarkÄ± baÅŸarÄ±yla eklendi.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ÅarkÄ± baÅŸarÄ±yla eklendi.')),
+    );
   }
 
   Future<bool> _removeSpotifyTrackFromCatalog(
-      BuildContext context,
-      String trackId, {
-        List<SpotifyTrackPreview>? sourceTracks,
-        bool showSnackbar = true,
-      }) async {
+    BuildContext context,
+    String trackId, {
+    List<SpotifyTrackPreview>? sourceTracks,
+    bool showSnackbar = true,
+  }) async {
     final baseTracks = sourceTracks ?? spotifyTracks;
     final nextTracks = baseTracks.where((e) => e.id != trackId).toList();
     if (nextTracks.length == baseTracks.length) return false;
@@ -3354,8 +3295,8 @@ class _AudioTab extends StatelessWidget {
   }
 
   Future<void> _showSoundConnectTrackUploadSheet(
-      BuildContext hostContext,
-      ) async {
+    BuildContext hostContext,
+  ) async {
     String? pickedPath;
     Uint8List? pickedBytes;
     String? pickedName;
@@ -3396,8 +3337,8 @@ class _AudioTab extends StatelessWidget {
               final name = file.name.trim().isNotEmpty
                   ? file.name.trim()
                   : (file.path != null
-                  ? _fileNameFromPath(file.path!)
-                  : 'audio.mp3');
+                        ? _fileNameFromPath(file.path!)
+                        : 'audio.mp3');
               setSheetState(() {
                 pickedPath = file.path;
                 pickedBytes = file.bytes;
@@ -3496,7 +3437,7 @@ class _AudioTab extends StatelessWidget {
 
                 try {
                   await context.read<ProfileMediaCubit>().loadMedia(
-                    profileType: 'MUSICIAN',
+                    profileType: 'VENUE',
                     profileId: profileId,
                   );
                 } catch (_) {
@@ -3555,7 +3496,9 @@ class _AudioTab extends StatelessWidget {
                         ),
                         icon: const Icon(Icons.library_music_outlined),
                         label: Text(
-                          pickedName == null ? 'Ses DosyasÄ± SeÃ§' : pickedName!,
+                          pickedName == null
+                              ? 'Ses DosyasÄ± SeÃ§'
+                              : pickedName!,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -3630,12 +3573,12 @@ class _AudioTab extends StatelessWidget {
                               ),
                               child: uploading
                                   ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
                                   : const Text('YÃ¼kle'),
                             ),
                           ),
@@ -3713,9 +3656,9 @@ class _AudioTab extends StatelessWidget {
   }
 
   Future<void> _showSpotifyCatalog(
-      BuildContext hostContext,
-      List<SpotifyTrackPreview> tracks,
-      ) async {
+    BuildContext hostContext,
+    List<SpotifyTrackPreview> tracks,
+  ) async {
     if (tracks.isEmpty && !ownerMode) return;
     final visibleTracks = List<SpotifyTrackPreview>.from(tracks);
     await showModalBottomSheet<void>(
@@ -3731,9 +3674,9 @@ class _AudioTab extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             Future<bool> saveTracks(
-                List<SpotifyTrackPreview> nextTracks, {
-                  required String failureMessage,
-                }) async {
+              List<SpotifyTrackPreview> nextTracks, {
+              required String failureMessage,
+            }) async {
               final nextTrackIds = nextTracks.map((e) => e.id).toList();
               final nextTrackMaps = nextTracks.map(_trackToSaveJson).toList();
               final cubit = hostContext.read<MusicianProfileCubit>();
@@ -3813,7 +3756,7 @@ class _AudioTab extends StatelessWidget {
                                   return;
                                 }
                                 if (visibleTracks.any(
-                                      (element) => element.id == selected.id,
+                                  (element) => element.id == selected.id,
                                 )) {
                                   setSheetState(() {
                                     feedbackText = 'Bu parÃ§a zaten ekli.';
@@ -3824,7 +3767,8 @@ class _AudioTab extends StatelessWidget {
                                 final nextTracks = [...visibleTracks, selected];
                                 final ok = await saveTracks(
                                   nextTracks,
-                                  failureMessage: 'Spotify parÃ§asÄ± eklenemedi.',
+                                  failureMessage:
+                                      'Spotify parÃ§asÄ± eklenemedi.',
                                 );
                                 if (!ok || !sheetContext.mounted) return;
                                 setSheetState(() {
@@ -3875,160 +3819,160 @@ class _AudioTab extends StatelessWidget {
                       Flexible(
                         child: visibleTracks.isEmpty
                             ? const Center(
-                          child: Text(
-                            'HenÃ¼z Spotify parÃ§asÄ± eklemediniz.',
-                            style: TextStyle(color: AppColors.textMuted),
-                          ),
-                        )
+                                child: Text(
+                                  'HenÃ¼z Spotify parÃ§asÄ± eklemediniz.',
+                                  style: TextStyle(color: AppColors.textMuted),
+                                ),
+                              )
                             : ListView.separated(
-                          itemCount: visibleTracks.length,
-                          separatorBuilder: (_, __) =>
-                          const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final track = visibleTracks[index];
-                            final albumArtUrl =
-                            _isValidNetworkImageUrl(
-                              track.albumImageUrl,
-                            )
-                                ? track.albumImageUrl!.trim()
-                                : null;
-                            return Dismissible(
-                              key: ValueKey('spotify-track-${track.id}'),
-                              direction: ownerMode
-                                  ? DismissDirection.endToStart
-                                  : DismissDirection.none,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFB3261E),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              confirmDismiss: ownerMode
-                                  ? (_) async {
-                                final success =
-                                await _removeSpotifyTrackFromCatalog(
-                                  hostContext,
-                                  track.id,
-                                  sourceTracks: visibleTracks,
-                                  showSnackbar: false,
-                                );
-                                if (!success ||
-                                    !sheetContext.mounted) {
-                                  return false;
-                                }
-                                setSheetState(() {
-                                  visibleTracks.removeWhere(
-                                        (e) => e.id == track.id,
-                                  );
-                                  feedbackText =
-                                  'Spotify parÃ§asÄ± kaldÄ±rÄ±ldÄ±.';
-                                  feedbackIsError = false;
-                                });
-                                return true;
-                              }
-                                  : null,
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.inputFill,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: AppColors.border,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.navBlueSoft,
-                                        borderRadius:
-                                        BorderRadius.circular(12),
-                                        image: albumArtUrl != null
-                                            ? DecorationImage(
-                                          image: NetworkImage(
-                                            albumArtUrl,
-                                          ),
-                                          fit: BoxFit.cover,
-                                        )
-                                            : null,
-                                      ),
-                                      child: albumArtUrl == null
-                                          ? const Icon(
-                                        Icons.music_note,
-                                        color: AppColors.textMuted,
+                                itemCount: visibleTracks.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  final track = visibleTracks[index];
+                                  final albumArtUrl =
+                                      isValidNetworkImageUrl(
+                                        track.albumImageUrl,
                                       )
-                                          : null,
+                                      ? track.albumImageUrl!.trim()
+                                      : null;
+                                  return Dismissible(
+                                    key: ValueKey('spotify-track-${track.id}'),
+                                    direction: ownerMode
+                                        ? DismissDirection.endToStart
+                                        : DismissDirection.none,
+                                    background: Container(
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFB3261E),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    confirmDismiss: ownerMode
+                                        ? (_) async {
+                                            final success =
+                                                await _removeSpotifyTrackFromCatalog(
+                                                  hostContext,
+                                                  track.id,
+                                                  sourceTracks: visibleTracks,
+                                                  showSnackbar: false,
+                                                );
+                                            if (!success ||
+                                                !sheetContext.mounted) {
+                                              return false;
+                                            }
+                                            setSheetState(() {
+                                              visibleTracks.removeWhere(
+                                                (e) => e.id == track.id,
+                                              );
+                                              feedbackText =
+                                                  'Spotify parÃ§asÄ± kaldÄ±rÄ±ldÄ±.';
+                                              feedbackIsError = false;
+                                            });
+                                            return true;
+                                          }
+                                        : null,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.inputFill,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: AppColors.border,
+                                        ),
+                                      ),
+                                      child: Row(
                                         children: [
-                                          Text(
-                                            track.name,
-                                            maxLines: 1,
-                                            overflow:
-                                            TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color:
-                                              AppColors.textPrimary,
-                                              fontWeight: FontWeight.w600,
+                                          Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: AppColors.navBlueSoft,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              image: albumArtUrl != null
+                                                  ? DecorationImage(
+                                                      image: NetworkImage(
+                                                        albumArtUrl,
+                                                      ),
+                                                      fit: BoxFit.cover,
+                                                    )
+                                                  : null,
+                                            ),
+                                            child: albumArtUrl == null
+                                                ? const Icon(
+                                                    Icons.music_note,
+                                                    color: AppColors.textMuted,
+                                                  )
+                                                : null,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  track.name,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color:
+                                                        AppColors.textPrimary,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  track.artistNames.join(', '),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: AppColors.textMuted,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            track.artistNames.join(', '),
-                                            maxLines: 1,
-                                            overflow:
-                                            TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: AppColors.textMuted,
-                                              fontSize: 12,
+                                          const SizedBox(width: 8),
+                                          TextButton(
+                                            onPressed: () => _openExternalUrl(
+                                              hostContext,
+                                              track.spotifyUrl,
+                                            ),
+                                            child: const Text(
+                                              "Spotify'da Dinle",
+                                              style: TextStyle(
+                                                color: Color(0xFF1DB954),
+                                              ),
                                             ),
                                           ),
+                                          if (ownerMode)
+                                            IconButton(
+                                              tooltip: 'Katalogdan kaldÄ±r',
+                                              onPressed: () =>
+                                                  removeTrack(track),
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                color: AppColors.textMuted,
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    TextButton(
-                                      onPressed: () => _openExternalUrl(
-                                        hostContext,
-                                        track.spotifyUrl,
-                                      ),
-                                      child: const Text(
-                                        "Spotify'da Dinle",
-                                        style: TextStyle(
-                                          color: Color(0xFF1DB954),
-                                        ),
-                                      ),
-                                    ),
-                                    if (ownerMode)
-                                      IconButton(
-                                        tooltip: 'Katalogdan kaldÄ±r',
-                                        onPressed: () =>
-                                            removeTrack(track),
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          color: AppColors.textMuted,
-                                        ),
-                                      ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
                       ),
                     ],
                   ),
@@ -4186,17 +4130,17 @@ class _AudioTab extends StatelessWidget {
                 final playback = track.playbackUrl ?? '';
                 final isSpotify =
                     playback.contains('spotify') ||
-                        playback.contains('open.spotify') ||
-                        playback.contains('spotify.com');
+                    playback.contains('open.spotify') ||
+                    playback.contains('spotify.com');
                 final isCurrent = currentId == track.id;
                 final totalFromTrackMs = (track.durationSeconds ?? 0) * 1000;
                 final totalFromHandlerMs =
                     audioHandler.mediaItem.value?.duration?.inMilliseconds ?? 0;
                 final totalMs =
-                (totalFromTrackMs > 0
-                    ? totalFromTrackMs
-                    : totalFromHandlerMs)
-                    .toDouble();
+                    (totalFromTrackMs > 0
+                            ? totalFromTrackMs
+                            : totalFromHandlerMs)
+                        .toDouble();
                 final progress = totalMs > 0
                     ? (position.inMilliseconds / totalMs).clamp(0.0, 1.0)
                     : 0.0;
@@ -4263,27 +4207,27 @@ class _AudioTab extends StatelessWidget {
                           onPlayPause: () => _toggleTrack(track),
                           onBack10: isCurrent
                               ? () {
-                            final totalInt = totalMs.round();
-                            final currentMs = position.inMilliseconds;
-                            final targetMs = (currentMs - 10000)
-                                .clamp(0, totalInt)
-                                .toInt();
-                            audioHandler.seek(
-                              Duration(milliseconds: targetMs),
-                            );
-                          }
+                                  final totalInt = totalMs.round();
+                                  final currentMs = position.inMilliseconds;
+                                  final targetMs = (currentMs - 10000)
+                                      .clamp(0, totalInt)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: targetMs),
+                                  );
+                                }
                               : null,
                           onForward10: isCurrent
                               ? () {
-                            final totalInt = totalMs.round();
-                            final currentMs = position.inMilliseconds;
-                            final targetMs = (currentMs + 10000)
-                                .clamp(0, totalInt)
-                                .toInt();
-                            audioHandler.seek(
-                              Duration(milliseconds: targetMs),
-                            );
-                          }
+                                  final totalInt = totalMs.round();
+                                  final currentMs = position.inMilliseconds;
+                                  final targetMs = (currentMs + 10000)
+                                      .clamp(0, totalInt)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: targetMs),
+                                  );
+                                }
                               : null,
                         ),
                         waveform: WaveformStub(
@@ -4292,10 +4236,10 @@ class _AudioTab extends StatelessWidget {
                           ),
                           gradientColors: isSpotify
                               ? const [
-                            Color(0xFF1ED760),
-                            Color(0xFF1DB954),
-                            Color(0xFF18A34A),
-                          ]
+                                  Color(0xFF1ED760),
+                                  Color(0xFF1DB954),
+                                  Color(0xFF18A34A),
+                                ]
                               : AppColors.brandGradient,
                           iconColor: isSpotify
                               ? const Color(0xFF1DB954)
@@ -4305,30 +4249,30 @@ class _AudioTab extends StatelessWidget {
                               : AppColors.textMuted,
                           leading: isSpotify
                               ? const Icon(
-                            FontAwesomeIcons.spotify,
-                            size: 16,
-                            color: Color(0xFF1DB954),
-                          )
+                                  FontAwesomeIcons.spotify,
+                                  size: 16,
+                                  color: Color(0xFF1DB954),
+                                )
                               : Image.asset(
-                            'assets/logo.png',
-                            width: 26,
-                            height: 26,
-                            fit: BoxFit.contain,
-                          ),
+                                  'assets/logo.png',
+                                  width: 26,
+                                  height: 26,
+                                  fit: BoxFit.contain,
+                                ),
                           height: 92,
                           waveformHeight: 44,
                           isPlaying: isCurrent && isPlaying,
                           progress: isCurrent ? progress : 0,
                           onSeek: isCurrent
                               ? (ratio) {
-                            final milliseconds = (totalMs * ratio)
-                                .round()
-                                .clamp(0, 1000000)
-                                .toInt();
-                            audioHandler.seek(
-                              Duration(milliseconds: milliseconds),
-                            );
-                          }
+                                  final milliseconds = (totalMs * ratio)
+                                      .round()
+                                      .clamp(0, 1000000)
+                                      .toInt();
+                                  audioHandler.seek(
+                                    Duration(milliseconds: milliseconds),
+                                  );
+                                }
                               : null,
                         ),
                       ),
@@ -4524,11 +4468,11 @@ class _AudioPreviewCardState extends State<_AudioPreviewCard>
   ]).animate(_heartController);
   late final Animation<double> _ringScale = Tween<double>(begin: 0.7, end: 1.9)
       .animate(
-    CurvedAnimation(
-      parent: _heartController,
-      curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
-    ),
-  );
+        CurvedAnimation(
+          parent: _heartController,
+          curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
+        ),
+      );
   late final Animation<double> _ringOpacity = TweenSequence<double>([
     TweenSequenceItem(tween: Tween<double>(begin: 0, end: 0.5), weight: 22),
     TweenSequenceItem(tween: Tween<double>(begin: 0.5, end: 0), weight: 78),
@@ -4711,11 +4655,11 @@ class _VideoTabState extends State<_VideoTab> {
     if (_processingVideoIds.isEmpty) return;
     final readyIds = widget.items
         .where((item) {
-      final hasPlayable =
-          (item.playbackUrl?.trim().isNotEmpty ?? false) ||
+          final hasPlayable =
+              (item.playbackUrl?.trim().isNotEmpty ?? false) ||
               (item.sourceUrl?.trim().isNotEmpty ?? false);
-      return item.id.isNotEmpty && hasPlayable;
-    })
+          return item.id.isNotEmpty && hasPlayable;
+        })
         .map((item) => item.id)
         .toSet();
     _processingVideoIds.removeWhere(readyIds.contains);
@@ -4739,8 +4683,8 @@ class _VideoTabState extends State<_VideoTab> {
   void _startPolling() {
     if (_processingPollTimer != null) return;
     _processingPollTimer = Timer.periodic(const Duration(seconds: 8), (
-        _,
-        ) async {
+      _,
+    ) async {
       if (!mounted) return;
       if (_processingVideoIds.isEmpty) {
         _processingPollTimer?.cancel();
@@ -4766,7 +4710,7 @@ class _VideoTabState extends State<_VideoTab> {
       _pollBusy = true;
       try {
         await context.read<ProfileMediaCubit>().loadMedia(
-          profileType: 'MUSICIAN',
+          profileType: 'VENUE',
           profileId: widget.profileId,
         );
       } catch (_) {
@@ -4870,7 +4814,7 @@ class _VideoTabState extends State<_VideoTab> {
       }
 
       await mediaCubit.loadMedia(
-        profileType: 'MUSICIAN',
+        profileType: 'VENUE',
         profileId: widget.profileId,
       );
 
@@ -5062,7 +5006,7 @@ class _VideoTabState extends State<_VideoTab> {
 
   Widget _buildVideoCard(BuildContext context, MediaAsset item, int index) {
     final thumbnailRaw = item.thumbnailUrl ?? item.playbackUrl;
-    final thumbnail = _isValidNetworkImageUrl(thumbnailRaw)
+    final thumbnail = isValidNetworkImageUrl(thumbnailRaw)
         ? thumbnailRaw!.trim()
         : null;
     final fallbackLikeCount = 210 + (index * 9);
@@ -5329,21 +5273,21 @@ class _VenueIntroScreen extends StatelessWidget {
                         icon: Icons.send_outlined,
                         title: '\u0130stek G\u00F6nder',
                         text:
-                        'Aktif olarak sahne ald\u0131\u011F\u0131n mekanlara buradan ba\u011Flant\u0131 iste\u011Fi g\u00F6nderebilirsin. \u0130stek g\u00F6nderdi\u011Finde ilgili mekana bir bildirim iletilir.',
+                            'Aktif olarak sahne ald\u0131\u011F\u0131n mekanlara buradan ba\u011Flant\u0131 iste\u011Fi g\u00F6nderebilirsin. \u0130stek g\u00F6nderdi\u011Finde ilgili mekana bir bildirim iletilir.',
                       ),
                       SizedBox(height: 22),
                       _IntroStep(
                         icon: Icons.hourglass_top_rounded,
                         title: 'Onay Bekle',
                         text:
-                        'Mekan ba\u011Flant\u0131 iste\u011Fini onaylayabilir veya reddedebilir. Onayland\u0131\u011F\u0131nda ba\u011Flant\u0131n\u0131z kurulacak ve hem senin profilinde hem de mekan\u0131n profilinde g\u00F6r\u00FCn\u00FCr hale gelecektir.',
+                            'Mekan ba\u011Flant\u0131 iste\u011Fini onaylayabilir veya reddedebilir. Onayland\u0131\u011F\u0131nda ba\u011Flant\u0131n\u0131z kurulacak ve hem senin profilinde hem de mekan\u0131n profilinde g\u00F6r\u00FCn\u00FCr hale gelecektir.',
                       ),
                       SizedBox(height: 22),
                       _IntroStep(
                         icon: Icons.settings_outlined,
                         title: 'Durumu Takip Et',
                         text:
-                        'G\u00F6nderdi\u011Fin ba\u011Flant\u0131 isteklerinin durumunu istedi\u011Fin zaman Ayarlar \u2192 Ba\u015Fvurular\u0131m b\u00F6l\u00FCm\u00FCnden g\u00F6r\u00FCnt\u00FCleyebilir ve s\u00FCrecin hangi a\u015Famada oldu\u011Funu takip edebilirsin.',
+                            'G\u00F6nderdi\u011Fin ba\u011Flant\u0131 isteklerinin durumunu istedi\u011Fin zaman Ayarlar \u2192 Ba\u015Fvurular\u0131m b\u00F6l\u00FCm\u00FCnden g\u00F6r\u00FCnt\u00FCleyebilir ve s\u00FCrecin hangi a\u015Famada oldu\u011Funu takip edebilirsin.',
                         showInlineSettingsIcon: true,
                       ),
                     ],
@@ -5502,7 +5446,8 @@ class _VenueManagementPanelScreen extends StatelessWidget {
     VoidCallback? onTap,
   }) {
     return InkWell(
-      onTap: onTap ??
+      onTap:
+          onTap ??
           () async {
             if (icon == Icons.calendar_month_outlined) {
               final changed = await Navigator.of(context).push<bool>(
@@ -5564,10 +5509,7 @@ class _VenueManagementPanelScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Yönetim Paneli'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Yönetim Paneli'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -5606,7 +5548,7 @@ class _VenueManagementPanelScreen extends StatelessWidget {
                   icon: Icons.calendar_month_outlined,
                   title: 'Haftalık Takvimi Güncelle',
                   message:
-                  'Takvim güncelleme akışının backend bağlantısı yakında eklenecek.',
+                      'Takvim güncelleme akışının backend bağlantısı yakında eklenecek.',
                 ),
                 const SizedBox(height: 12),
                 _actionCard(
@@ -5614,7 +5556,7 @@ class _VenueManagementPanelScreen extends StatelessWidget {
                   icon: Icons.assignment_ind_outlined,
                   title: 'Sanatçı Bağlantı İsteklerini Görüntüle',
                   message:
-                  'Sanatçı bağlantı istekleri ekranının backend bağlantısı yakında eklenecek.',
+                      'Sanatçı bağlantı istekleri ekranının backend bağlantısı yakında eklenecek.',
                 ),
                 const SizedBox(height: 12),
                 _actionCard(
@@ -5622,7 +5564,7 @@ class _VenueManagementPanelScreen extends StatelessWidget {
                   icon: Icons.groups_2_outlined,
                   title: 'Aktif Sanatçıları Düzenle',
                   message:
-                  'Aktif sanatçı düzenleme akışının backend bağlantısı yakında eklenecek.',
+                      'Aktif sanatçı düzenleme akışının backend bağlantısı yakında eklenecek.',
                 ),
                 const SizedBox(height: 12),
                 _actionCard(
@@ -5630,7 +5572,7 @@ class _VenueManagementPanelScreen extends StatelessWidget {
                   icon: Icons.campaign_outlined,
                   title: 'Müzisyen/Grup İlanlarını Görüntüle',
                   message:
-                  'Müzisyen/grup ilanları ekranının backend bağlantısı yakında eklenecek.',
+                      'Müzisyen/grup ilanları ekranının backend bağlantısı yakında eklenecek.',
                 ),
                 const SizedBox(height: 12),
                 _actionCard(
@@ -5638,7 +5580,7 @@ class _VenueManagementPanelScreen extends StatelessWidget {
                   icon: Icons.post_add_outlined,
                   title: 'Sahnen İçin Müzisyen/Grup İlanı Oluştur',
                   message:
-                  'Sahnen için ilan oluşturma ekranının backend bağlantısı yakında eklenecek.',
+                      'Sahnen için ilan oluşturma ekranının backend bağlantısı yakında eklenecek.',
                 ),
                 const SizedBox(height: 12),
                 _actionCard(
@@ -5646,7 +5588,7 @@ class _VenueManagementPanelScreen extends StatelessWidget {
                   icon: Icons.reviews_outlined,
                   title: 'İşletmene Gelen Bütün Yorumları Gör',
                   message:
-                  'İşletme yorumları ekranının backend bağlantısı yakında eklenecek.',
+                      'İşletme yorumları ekranının backend bağlantısı yakında eklenecek.',
                 ),
                 const SizedBox(height: 14),
                 Opacity(
@@ -5660,7 +5602,10 @@ class _VenueManagementPanelScreen extends StatelessWidget {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                            colors: [
+                              AppColors.inputFill,
+                              AppColors.navBlueSoft,
+                            ],
                           ),
                           border: Border.all(color: AppColors.border),
                         ),
@@ -5682,7 +5627,9 @@ class _VenueManagementPanelScreen extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.navBlueDeep.withValues(alpha: 0.78),
+                            color: AppColors.navBlueDeep.withValues(
+                              alpha: 0.78,
+                            ),
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(color: AppColors.border),
                           ),
@@ -5778,15 +5725,15 @@ class _BottomBar extends StatelessWidget {
     final imageUrl = profileImageUrl?.trim() ?? '';
     final child = hasImage
         ? ClipOval(
-      child: Image.network(
-        imageUrl,
-        width: 18,
-        height: 18,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) =>
-        const Icon(Icons.person_outline, size: 18),
-      ),
-    )
+            child: Image.network(
+              imageUrl,
+              width: 18,
+              height: 18,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  const Icon(Icons.person_outline, size: 18),
+            ),
+          )
         : const Icon(Icons.person_outline, size: 18);
 
     if (!active) {
@@ -5969,17 +5916,18 @@ class _VenueWeeklyCalendarEditorScreenState
                 searchError = null;
               });
               try {
-                final results = await _apiClient.get<List<_MusicianSearchOption>>(
-                  '/api/v1/public/musician-profiles/search',
-                  query: {'q': query},
-                  decoder: (json) {
-                    final list = json is List ? json : const [];
-                    return list
-                        .whereType<Map<String, dynamic>>()
-                        .map(_MusicianSearchOption.fromJson)
-                        .toList();
-                  },
-                );
+                final results = await _apiClient
+                    .get<List<_MusicianSearchOption>>(
+                      '/api/v1/public/musician-profiles/search',
+                      query: {'q': query},
+                      decoder: (json) {
+                        final list = json is List ? json : const [];
+                        return list
+                            .whereType<Map<String, dynamic>>()
+                            .map(_MusicianSearchOption.fromJson)
+                            .toList();
+                      },
+                    );
                 if (!context.mounted || token != searchToken) return;
                 setSheetState(() {
                   searchLoading = false;
@@ -6008,9 +5956,7 @@ class _VenueWeeklyCalendarEditorScreenState
               setSheetState(() => selectedDate = picked);
             }
 
-            Future<void> pickTime({
-              required bool isStart,
-            }) async {
+            Future<void> pickTime({required bool isStart}) async {
               final picked = await showTimePicker(
                 context: context,
                 initialTime: isStart
@@ -6116,14 +6062,15 @@ class _VenueWeeklyCalendarEditorScreenState
                               CircleAvatar(
                                 radius: 16,
                                 backgroundColor: AppColors.navBlueSoft,
-                                backgroundImage: selectedMusicianImageUrl !=
-                                            null &&
+                                backgroundImage:
+                                    selectedMusicianImageUrl != null &&
                                         selectedMusicianImageUrl!.startsWith(
                                           'http',
                                         )
                                     ? NetworkImage(selectedMusicianImageUrl!)
                                     : null,
-                                child: selectedMusicianImageUrl == null ||
+                                child:
+                                    selectedMusicianImageUrl == null ||
                                         !selectedMusicianImageUrl!.startsWith(
                                           'http',
                                         )
@@ -6148,8 +6095,7 @@ class _VenueWeeklyCalendarEditorScreenState
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                    if (selectedMusicianSecondaryLabel !=
-                                        null)
+                                    if (selectedMusicianSecondaryLabel != null)
                                       Text(
                                         selectedMusicianSecondaryLabel!,
                                         style: const TextStyle(
@@ -6194,8 +6140,8 @@ class _VenueWeeklyCalendarEditorScreenState
                                 performerController.text = item.displayName;
                                 performerController.selection =
                                     TextSelection.collapsed(
-                                  offset: performerController.text.length,
-                                );
+                                      offset: performerController.text.length,
+                                    );
                                 setSheetState(() {
                                   selectedMusicianId = item.profileId;
                                   selectedMusicianLabel = item.displayName;
@@ -6210,13 +6156,15 @@ class _VenueWeeklyCalendarEditorScreenState
                               leading: CircleAvatar(
                                 radius: 18,
                                 backgroundColor: AppColors.navBlueSoft,
-                                backgroundImage: item.profilePictureUrl != null &&
+                                backgroundImage:
+                                    item.profilePictureUrl != null &&
                                         item.profilePictureUrl!.startsWith(
                                           'http',
                                         )
                                     ? NetworkImage(item.profilePictureUrl!)
                                     : null,
-                                child: item.profilePictureUrl == null ||
+                                child:
+                                    item.profilePictureUrl == null ||
                                         !item.profilePictureUrl!.startsWith(
                                           'http',
                                         )
@@ -6336,9 +6284,9 @@ class _VenueWeeklyCalendarEditorScreenState
                             musicianProfileId: selectedMusicianId,
                             manualPerformerName:
                                 selectedMusicianId == null &&
-                                        performerText.isNotEmpty
-                                    ? performerText
-                                    : null,
+                                    performerText.isNotEmpty
+                                ? performerText
+                                : null,
                           ),
                         );
                       },
@@ -6365,8 +6313,9 @@ class _VenueWeeklyCalendarEditorScreenState
           'description': draft.description.isEmpty ? null : draft.description,
           'eventDate': _formatApiDate(draft.eventDate),
           'startTime': _formatApiTime(draft.startTime),
-          'endTime':
-              draft.endTime == null ? null : _formatApiTime(draft.endTime!),
+          'endTime': draft.endTime == null
+              ? null
+              : _formatApiTime(draft.endTime!),
           'posterImage': null,
           'venueId': widget.ownerProfile.venueId,
           'musicianProfileId': draft.musicianProfileId,
@@ -6376,9 +6325,9 @@ class _VenueWeeklyCalendarEditorScreenState
       );
       _changed = true;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Etkinlik eklendi.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Etkinlik eklendi.')));
       await _loadEvents();
     } catch (e) {
       if (!mounted) return;
@@ -6395,14 +6344,12 @@ class _VenueWeeklyCalendarEditorScreenState
   Future<void> _deleteEvent(_VenueOwnerEventItem item) async {
     setState(() => _saving = true);
     try {
-      await _apiClient.delete<Object?>(
-        '/api/v1/venue-owner/events/${item.id}',
-      );
+      await _apiClient.delete<Object?>('/api/v1/venue-owner/events/${item.id}');
       _changed = true;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Etkinlik silindi.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Etkinlik silindi.')));
       await _loadEvents();
     } catch (e) {
       if (!mounted) return;
@@ -6723,7 +6670,8 @@ class _CalendarEventCard extends StatelessWidget {
               fontSize: 14,
             ),
           ),
-          if (item.description != null && item.description!.trim().isNotEmpty) ...[
+          if (item.description != null &&
+              item.description!.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               item.description!,
@@ -6761,9 +6709,8 @@ class _MusicianSearchOption {
     final displayName = (stageName != null && stageName.isNotEmpty)
         ? stageName
         : (username != null && username.isNotEmpty ? username : 'Sanatci');
-    final secondaryLabel = (username != null &&
-            username.isNotEmpty &&
-            username != displayName)
+    final secondaryLabel =
+        (username != null && username.isNotEmpty && username != displayName)
         ? '@$username'
         : null;
 

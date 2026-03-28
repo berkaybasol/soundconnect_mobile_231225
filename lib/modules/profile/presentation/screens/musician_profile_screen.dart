@@ -39,22 +39,13 @@ import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
+import 'profile_screen_support.dart';
 import 'video_reel_screen.dart';
 
 class PublicProfileArgs {
   final String? viewerUserId;
 
   const PublicProfileArgs({this.viewerUserId});
-}
-
-bool _isValidNetworkImageUrl(String? value) {
-  final raw = value?.trim();
-  if (raw == null || raw.isEmpty) return false;
-  final uri = Uri.tryParse(raw);
-  if (uri == null) return false;
-  return uri.hasScheme &&
-      (uri.scheme == 'http' || uri.scheme == 'https') &&
-      (uri.host.isNotEmpty);
 }
 
 class MusicianProfileScreen extends StatelessWidget {
@@ -91,32 +82,12 @@ class _MusicianPublicProfileView extends StatefulWidget {
 
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
-  String? _mediaProfileId;
-  String? _followUserId;
-  String? _followStatusKey;
+  final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
   String? _currentProfileUserId;
-  String? _venueProfileId;
   bool _photoUploading = false;
   String? _uploadedProfilePhotoUrl;
   final ImagePicker _imagePicker = ImagePicker();
-
-  String _mimeFromFileName(String fileName) {
-    final lower = fileName.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
-      return 'image/jpeg';
-    }
-    return 'image/jpeg';
-  }
-
-  String _fileNameFromPath(String path, {String fallback = 'profile.jpg'}) {
-    final normalized = path.replaceAll('\\', '/');
-    final parts = normalized.split('/');
-    final name = parts.isNotEmpty ? parts.last.trim() : '';
-    return name.isEmpty ? fallback : name;
-  }
 
   Future<void> _editProfilePhoto(MusicianProfile profile) async {
     final picked = await _imagePicker.pickImage(
@@ -164,8 +135,8 @@ class _MusicianPublicProfileViewState
     setState(() => _photoUploading = true);
     try {
       final apiClient = serviceLocator<ApiClient>();
-      final fileName = _fileNameFromPath(cropped.path, fallback: picked.name);
-      final mimeType = _mimeFromFileName(fileName);
+      final fileName = fileNameFromPath(cropped.path, fallback: picked.name);
+      final mimeType = inferImageMimeType(fileName);
 
       final initResult = await apiClient.post<_UploadInitResult>(
         '/api/v1/user/media/init-upload',
@@ -1265,53 +1236,6 @@ class _MusicianPublicProfileViewState
     }
   }
 
-  void _loadMediaForProfile(String profileId) {
-    if (_mediaProfileId == profileId) return;
-    _mediaProfileId = profileId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<ProfileMediaCubit>().loadMedia(
-        profileType: 'MUSICIAN',
-        profileId: profileId,
-      );
-    });
-  }
-
-  void _loadFollowCounts(String userId) {
-    if (userId.isEmpty) return;
-    if (_followUserId == userId) return;
-    _followUserId = userId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<FollowCountCubit>().loadCounts(userId);
-    });
-  }
-
-  void _loadAcceptedVenues(String profileId) {
-    if (profileId.isEmpty) return;
-    if (_venueProfileId == profileId) return;
-    _venueProfileId = profileId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<ArtistVenueConnectionsCubit>().loadAcceptedVenues(profileId);
-    });
-  }
-
-  void _loadFollowStatus(String followerId, String followingId) {
-    if (followerId.isEmpty || followingId.isEmpty) return;
-    if (followerId == followingId) return;
-    final nextKey = '$followerId:$followingId';
-    if (_followStatusKey == nextKey) return;
-    _followStatusKey = nextKey;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<FollowActionCubit>().loadStatus(
-        followerId: followerId,
-        followingId: followingId,
-      );
-    });
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -1362,11 +1286,29 @@ class _MusicianPublicProfileViewState
 
           final profile = state.profile!;
           _currentProfileUserId = profile.userId;
-          _loadMediaForProfile(profile.id);
-          _loadFollowCounts(profile.userId);
-          _loadAcceptedVenues(profile.id);
+          _loadCoordinator.scheduleMediaLoad(
+            context,
+            mounted: mounted,
+            profileId: profile.id,
+            profileType: ProfileMediaOwnerType.musician,
+          );
+          _loadCoordinator.scheduleFollowCountsLoad(
+            context,
+            mounted: mounted,
+            userId: profile.userId,
+          );
+          _loadCoordinator.scheduleAcceptedVenuesLoad(
+            context,
+            mounted: mounted,
+            profileId: profile.id,
+          );
           final viewerUserId = _viewerUserId ?? '';
-          _loadFollowStatus(viewerUserId, profile.userId);
+          _loadCoordinator.scheduleFollowStatusLoad(
+            context,
+            mounted: mounted,
+            followerId: viewerUserId,
+            followingId: profile.userId,
+          );
           final media = context.watch<ProfileMediaCubit>().state.media;
           final venueState = context.watch<ArtistVenueConnectionsCubit>().state;
           final venueItems =
@@ -1571,7 +1513,11 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const GradientText(text: 'SoundConnect', gradient: LinearGradient(colors: AppColors.brandGradient), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+          title: const GradientText(
+            text: 'SoundConnect',
+            gradient: LinearGradient(colors: AppColors.brandGradient),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+          ),
           leading: const BackButton(),
           centerTitle: true,
           actions: ownerMode
@@ -3539,7 +3485,7 @@ class _AudioTab extends StatelessWidget {
                                 itemBuilder: (context, index) {
                                   final track = visibleTracks[index];
                                   final albumArtUrl =
-                                      _isValidNetworkImageUrl(
+                                      isValidNetworkImageUrl(
                                         track.albumImageUrl,
                                       )
                                       ? track.albumImageUrl!.trim()
@@ -4712,7 +4658,7 @@ class _VideoTabState extends State<_VideoTab> {
 
   Widget _buildVideoCard(BuildContext context, MediaAsset item, int index) {
     final thumbnailRaw = item.thumbnailUrl ?? item.playbackUrl;
-    final thumbnail = _isValidNetworkImageUrl(thumbnailRaw)
+    final thumbnail = isValidNetworkImageUrl(thumbnailRaw)
         ? thumbnailRaw!.trim()
         : null;
     final fallbackLikeCount = 210 + (index * 9);

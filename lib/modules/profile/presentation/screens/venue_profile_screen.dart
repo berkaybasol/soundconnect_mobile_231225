@@ -45,6 +45,7 @@ import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
 import 'profile_screen_support.dart';
 import 'venue_event_management_widgets.dart';
+import 'venue_event_support.dart';
 import 'video_reel_screen.dart';
 import 'weekly_event_carousel.dart';
 import 'weekly_event_detail_screen.dart';
@@ -5816,11 +5817,11 @@ class _VenueWeeklyCalendarEditorScreenState
   bool _saving = false;
   bool _changed = false;
   String? _error;
-  List<_VenueOwnerEventItem> _events = const [];
+  List<VenueOwnerEventItem> _events = const [];
 
   ApiClient get _apiClient => serviceLocator<ApiClient>();
 
-  List<_VenueOwnerEventItem> get _sortedEvents {
+  List<VenueOwnerEventItem> get _sortedEvents {
     final items = [..._events];
     items.sort((a, b) {
       final dateCompare = a.eventDate.compareTo(b.eventDate);
@@ -5830,11 +5831,11 @@ class _VenueWeeklyCalendarEditorScreenState
     return items;
   }
 
-  Map<String, List<_VenueOwnerEventItem>> get _groupedEvents {
-    final map = <String, List<_VenueOwnerEventItem>>{};
+  Map<String, List<VenueOwnerEventItem>> get _groupedEvents {
+    final map = <String, List<VenueOwnerEventItem>>{};
     for (final item in _sortedEvents) {
-      final key = _formatDateOnly(item.eventDate);
-      map.putIfAbsent(key, () => <_VenueOwnerEventItem>[]).add(item);
+      final key = formatVenueEventDate(item.eventDate);
+      map.putIfAbsent(key, () => <VenueOwnerEventItem>[]).add(item);
     }
     return map;
   }
@@ -5851,13 +5852,13 @@ class _VenueWeeklyCalendarEditorScreenState
       _error = null;
     });
     try {
-      final items = await _apiClient.get<List<_VenueOwnerEventItem>>(
+      final items = await _apiClient.get<List<VenueOwnerEventItem>>(
         '/api/v1/venue-owner/events/venue/${widget.ownerProfile.venueId}',
         decoder: (json) {
           final list = json is List ? json : const [];
           return list
               .whereType<Map<String, dynamic>>()
-              .map(_VenueOwnerEventItem.fromJson)
+              .map(VenueOwnerEventItem.fromJson)
               .toList();
         },
       );
@@ -5876,7 +5877,7 @@ class _VenueWeeklyCalendarEditorScreenState
   }
 
   Future<void> _createEvent() async {
-    final draft = await showModalBottomSheet<_VenueEventDraft>(
+    final draft = await showModalBottomSheet<VenueEventDraft>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.navBlueDeep,
@@ -5896,7 +5897,7 @@ class _VenueWeeklyCalendarEditorScreenState
         String? selectedMusicianImageUrl;
         var searchLoading = false;
         String? searchError;
-        var searchResults = <_MusicianSearchOption>[];
+        var searchResults = <MusicianSearchOption>[];
         Timer? searchDebounce;
         int searchToken = 0;
 
@@ -5919,14 +5920,14 @@ class _VenueWeeklyCalendarEditorScreenState
               });
               try {
                 final results = await _apiClient
-                    .get<List<_MusicianSearchOption>>(
+                    .get<List<MusicianSearchOption>>(
                       '/api/v1/public/musician-profiles/search',
                       query: {'q': query},
                       decoder: (json) {
                         final list = json is List ? json : const [];
                         return list
                             .whereType<Map<String, dynamic>>()
-                            .map(_MusicianSearchOption.fromJson)
+                            .map(MusicianSearchOption.fromJson)
                             .toList();
                       },
                     );
@@ -6216,7 +6217,7 @@ class _VenueWeeklyCalendarEditorScreenState
                             label: Text(
                               selectedDate == null
                                   ? 'Tarih sec'
-                                  : _formatDateOnly(selectedDate!),
+                                  : formatVenueEventDate(selectedDate!),
                             ),
                           ),
                         ),
@@ -6277,7 +6278,7 @@ class _VenueWeeklyCalendarEditorScreenState
                           return;
                         }
                         Navigator.of(sheetContext).pop(
-                          _VenueEventDraft(
+                          VenueEventDraft(
                             title: title,
                             description: descriptionController.text.trim(),
                             eventDate: selectedDate!,
@@ -6313,11 +6314,11 @@ class _VenueWeeklyCalendarEditorScreenState
         body: {
           'title': draft.title,
           'description': draft.description.isEmpty ? null : draft.description,
-          'eventDate': _formatApiDate(draft.eventDate),
-          'startTime': _formatApiTime(draft.startTime),
+          'eventDate': formatVenueApiDate(draft.eventDate),
+          'startTime': formatVenueApiTime(draft.startTime),
           'endTime': draft.endTime == null
               ? null
-              : _formatApiTime(draft.endTime!),
+              : formatVenueApiTime(draft.endTime!),
           'posterImage': null,
           'venueId': widget.ownerProfile.venueId,
           'musicianProfileId': draft.musicianProfileId,
@@ -6343,7 +6344,7 @@ class _VenueWeeklyCalendarEditorScreenState
     }
   }
 
-  Future<void> _deleteEvent(_VenueOwnerEventItem item) async {
+  Future<void> _deleteEvent(VenueOwnerEventItem item) async {
     setState(() => _saving = true);
     try {
       await _apiClient.delete<Object?>('/api/v1/venue-owner/events/${item.id}');
@@ -6494,7 +6495,7 @@ class _VenueWeeklyCalendarEditorScreenState
                           title: item.title,
                           performerName: item.performerName,
                           timeLabel:
-                              '${_formatDateOnly(item.eventDate)}\n${item.startTime}${item.endTime == null || item.endTime!.isEmpty ? '' : ' - ${item.endTime}'}',
+                              '${formatVenueEventDate(item.eventDate)}\n${item.startTime}${item.endTime == null || item.endTime!.isEmpty ? '' : ' - ${item.endTime}'}',
                           description: item.description,
                           saving: _saving,
                           onDelete: () => _deleteEvent(item),
@@ -6509,103 +6510,4 @@ class _VenueWeeklyCalendarEditorScreenState
       ),
     );
   }
-}
-
-class _VenueOwnerEventItem {
-  final String id;
-  final String title;
-  final String performerName;
-  final DateTime eventDate;
-  final String startTime;
-  final String? endTime;
-  final String? description;
-
-  const _VenueOwnerEventItem({
-    required this.id,
-    required this.title,
-    required this.performerName,
-    required this.eventDate,
-    required this.startTime,
-    required this.endTime,
-    required this.description,
-  });
-
-  factory _VenueOwnerEventItem.fromJson(Map<String, dynamic> json) {
-    return _VenueOwnerEventItem(
-      id: json['id']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      performerName: json['performerName']?.toString() ?? 'Sanatci',
-      eventDate:
-          DateTime.tryParse(json['eventDate']?.toString() ?? '') ??
-          DateTime.now(),
-      startTime: json['startTime']?.toString() ?? '',
-      endTime: json['endTime']?.toString(),
-      description: json['description']?.toString(),
-    );
-  }
-}
-
-class _MusicianSearchOption {
-  final String profileId;
-  final String displayName;
-  final String? secondaryLabel;
-  final String? profilePictureUrl;
-
-  const _MusicianSearchOption({
-    required this.profileId,
-    required this.displayName,
-    required this.secondaryLabel,
-    required this.profilePictureUrl,
-  });
-
-  factory _MusicianSearchOption.fromJson(Map<String, dynamic> json) {
-    final username = json['username']?.toString().trim();
-    final stageName = json['stageName']?.toString().trim();
-    final displayName = (stageName != null && stageName.isNotEmpty)
-        ? stageName
-        : (username != null && username.isNotEmpty ? username : 'Sanatci');
-    final secondaryLabel =
-        (username != null && username.isNotEmpty && username != displayName)
-        ? '@$username'
-        : null;
-
-    return _MusicianSearchOption(
-      profileId: json['profileId']?.toString() ?? '',
-      displayName: displayName,
-      secondaryLabel: secondaryLabel,
-      profilePictureUrl: json['profilePictureUrl']?.toString(),
-    );
-  }
-}
-
-class _VenueEventDraft {
-  final String title;
-  final String description;
-  final DateTime eventDate;
-  final TimeOfDay startTime;
-  final TimeOfDay? endTime;
-  final String? musicianProfileId;
-  final String? manualPerformerName;
-
-  const _VenueEventDraft({
-    required this.title,
-    required this.description,
-    required this.eventDate,
-    required this.startTime,
-    required this.endTime,
-    required this.musicianProfileId,
-    required this.manualPerformerName,
-  });
-}
-
-String _formatDateOnly(DateTime value) {
-  return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
-}
-
-String _formatApiDate(DateTime value) {
-  return '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
-}
-
-String _formatApiTime(TimeOfDay value) {
-  return '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:00';
 }

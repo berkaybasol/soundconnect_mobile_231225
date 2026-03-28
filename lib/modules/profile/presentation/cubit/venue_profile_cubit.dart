@@ -24,6 +24,7 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
           status: VenueProfileStatus.success,
           view: VenueProfileView.owner,
           ownerProfile: result.data,
+          error: null,
         ),
       );
       return;
@@ -52,6 +53,7 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
           status: VenueProfileStatus.success,
           view: VenueProfileView.public,
           publicProfile: result.data,
+          error: null,
         ),
       );
       return;
@@ -86,6 +88,7 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
           status: VenueProfileStatus.success,
           view: VenueProfileView.owner,
           ownerProfile: result.data,
+          error: null,
         ),
       );
       return;

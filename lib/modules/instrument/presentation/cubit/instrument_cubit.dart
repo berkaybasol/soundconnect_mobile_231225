@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../domain/instrument_repository.dart';
 import 'instrument_state.dart';
 
@@ -8,18 +9,18 @@ class InstrumentCubit extends Cubit<InstrumentState> {
   InstrumentCubit(this._repository) : super(const InstrumentState.idle());
 
   Future<void> loadAll() async {
-    emit(state.copyWith(status: InstrumentStatus.loading));
+    emit(state.copyWith(status: InstrumentStatus.loading, error: null));
     final result = await _repository.getAll();
     if (result.isSuccess && result.data != null) {
-      emit(state.copyWith(
-        status: InstrumentStatus.success,
-        instruments: result.data!,
-      ));
+      emit(
+        state.copyWith(
+          status: InstrumentStatus.success,
+          instruments: result.data!,
+          error: null,
+        ),
+      );
       return;
     }
-    emit(state.copyWith(
-      status: InstrumentStatus.failure,
-      error: result.error,
-    ));
+    emit(state.copyWith(status: InstrumentStatus.failure, error: result.error));
   }
 }

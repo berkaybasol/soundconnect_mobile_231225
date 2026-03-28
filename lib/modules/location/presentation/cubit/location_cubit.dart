@@ -9,26 +9,38 @@ class LocationCubit extends Cubit<LocationState> {
   LocationCubit(this._repository) : super(const LocationState.idle());
 
   Future<void> loadCities() async {
-    emit(state.copyWith(status: LocationStatus.loading));
+    emit(state.copyWith(status: LocationStatus.loading, error: null));
     final result = await _repository.getCities();
     if (result.isSuccess && result.data != null) {
-      emit(state.copyWith(
-        status: LocationStatus.success,
-        cities: result.data!,
-      ));
+      emit(
+        state.copyWith(
+          status: LocationStatus.success,
+          cities: result.data!,
+          error: null,
+        ),
+      );
       return;
     }
     emit(state.copyWith(status: LocationStatus.failure, error: result.error));
   }
 
   Future<void> loadDistricts(String cityId) async {
-    emit(state.copyWith(status: LocationStatus.loading, districts: const []));
+    emit(
+      state.copyWith(
+        status: LocationStatus.loading,
+        districts: const [],
+        error: null,
+      ),
+    );
     final result = await _repository.getDistricts(cityId);
     if (result.isSuccess && result.data != null) {
-      emit(state.copyWith(
-        status: LocationStatus.success,
-        districts: result.data!,
-      ));
+      emit(
+        state.copyWith(
+          status: LocationStatus.success,
+          districts: result.data!,
+          error: null,
+        ),
+      );
       return;
     }
     emit(state.copyWith(status: LocationStatus.failure, error: result.error));
@@ -36,20 +48,29 @@ class LocationCubit extends Cubit<LocationState> {
 
   Future<void> loadNeighborhoods(String districtId) async {
     emit(
-      state.copyWith(status: LocationStatus.loading, neighborhoods: const []),
+      state.copyWith(
+        status: LocationStatus.loading,
+        neighborhoods: const [],
+        error: null,
+      ),
     );
     final result = await _repository.getNeighborhoods(districtId);
     if (result.isSuccess && result.data != null) {
-      emit(state.copyWith(
-        status: LocationStatus.success,
-        neighborhoods: result.data!,
-      ));
+      emit(
+        state.copyWith(
+          status: LocationStatus.success,
+          neighborhoods: result.data!,
+          error: null,
+        ),
+      );
       return;
     }
     emit(state.copyWith(status: LocationStatus.failure, error: result.error));
   }
 
   void resetDistricts() {
-    emit(state.copyWith(districts: const [], neighborhoods: const []));
+    emit(
+      state.copyWith(districts: const [], neighborhoods: const [], error: null),
+    );
   }
 }

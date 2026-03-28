@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../domain/follow_repository.dart';
 import 'follow_count_state.dart';
 
@@ -8,7 +9,7 @@ class FollowCountCubit extends Cubit<FollowCountState> {
   FollowCountCubit(this._repository) : super(const FollowCountState.idle());
 
   Future<void> loadCounts(String userId) async {
-    emit(state.copyWith(status: FollowCountStatus.loading));
+    emit(state.copyWith(status: FollowCountStatus.loading, error: null));
     final followersResult = await _repository.getFollowersCount(userId);
     final followingResult = await _repository.getFollowingCount(userId);
 
@@ -16,19 +17,24 @@ class FollowCountCubit extends Cubit<FollowCountState> {
     final followingCount = followingResult.data ?? 0;
 
     if (followersResult.isSuccess && followingResult.isSuccess) {
-      emit(state.copyWith(
-        status: FollowCountStatus.success,
-        followersCount: followersCount,
-        followingCount: followingCount,
-      ));
+      emit(
+        state.copyWith(
+          status: FollowCountStatus.success,
+          followersCount: followersCount,
+          followingCount: followingCount,
+          error: null,
+        ),
+      );
       return;
     }
 
-    emit(state.copyWith(
-      status: FollowCountStatus.failure,
-      followersCount: followersCount,
-      followingCount: followingCount,
-      error: followersResult.error ?? followingResult.error,
-    ));
+    emit(
+      state.copyWith(
+        status: FollowCountStatus.failure,
+        followersCount: followersCount,
+        followingCount: followingCount,
+        error: followersResult.error ?? followingResult.error,
+      ),
+    );
   }
 }

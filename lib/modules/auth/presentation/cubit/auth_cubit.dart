@@ -20,18 +20,24 @@ class AuthCubit extends Cubit<AuthState> {
     required VerifyCodeUseCase verifyCodeUseCase,
     required ResendCodeUseCase resendCodeUseCase,
     required TokenStore tokenStore,
-  })  : _loginUseCase = loginUseCase,
-        _registerUseCase = registerUseCase,
-        _verifyCodeUseCase = verifyCodeUseCase,
-        _resendCodeUseCase = resendCodeUseCase,
-        _tokenStore = tokenStore,
-        super(const AuthState.idle());
+  }) : _loginUseCase = loginUseCase,
+       _registerUseCase = registerUseCase,
+       _verifyCodeUseCase = verifyCodeUseCase,
+       _resendCodeUseCase = resendCodeUseCase,
+       _tokenStore = tokenStore,
+       super(const AuthState.idle());
 
   Future<void> login({
     required String username,
     required String password,
   }) async {
-    emit(state.copyWith(status: AuthStatus.loading, action: AuthAction.login));
+    emit(
+      state.copyWith(
+        status: AuthStatus.loading,
+        action: AuthAction.login,
+        error: null,
+      ),
+    );
     final result = await _loginUseCase(username: username, password: password);
     if (result.isSuccess && result.data != null) {
       await _tokenStore.writeToken(result.data!.token);
@@ -39,6 +45,7 @@ class AuthCubit extends Cubit<AuthState> {
         state.copyWith(
           status: AuthStatus.success,
           action: AuthAction.login,
+          error: null,
           loginResult: result.data,
         ),
       );
@@ -66,7 +73,13 @@ class AuthCubit extends Cubit<AuthState> {
     String? districtId,
     String? neighborhoodId,
   }) async {
-    emit(state.copyWith(status: AuthStatus.loading, action: AuthAction.register));
+    emit(
+      state.copyWith(
+        status: AuthStatus.loading,
+        action: AuthAction.register,
+        error: null,
+      ),
+    );
     final result = await _registerUseCase(
       username: username,
       email: email,
@@ -85,6 +98,7 @@ class AuthCubit extends Cubit<AuthState> {
         state.copyWith(
           status: AuthStatus.success,
           action: AuthAction.register,
+          error: null,
           registerResult: result.data,
         ),
       );
@@ -99,17 +113,21 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
-  Future<void> verifyCode({
-    required String email,
-    required String code,
-  }) async {
-    emit(state.copyWith(status: AuthStatus.loading, action: AuthAction.verify));
+  Future<void> verifyCode({required String email, required String code}) async {
+    emit(
+      state.copyWith(
+        status: AuthStatus.loading,
+        action: AuthAction.verify,
+        error: null,
+      ),
+    );
     final result = await _verifyCodeUseCase(email: email, code: code);
     if (result.isSuccess) {
       emit(
         state.copyWith(
           status: AuthStatus.success,
           action: AuthAction.verify,
+          error: null,
         ),
       );
       return;
@@ -124,13 +142,20 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   Future<void> resendCode({required String email}) async {
-    emit(state.copyWith(status: AuthStatus.loading, action: AuthAction.resend));
+    emit(
+      state.copyWith(
+        status: AuthStatus.loading,
+        action: AuthAction.resend,
+        error: null,
+      ),
+    );
     final result = await _resendCodeUseCase(email: email);
     if (result.isSuccess && result.data != null) {
       emit(
         state.copyWith(
           status: AuthStatus.success,
           action: AuthAction.resend,
+          error: null,
           resendResult: result.data,
         ),
       );

@@ -1,4 +1,5 @@
 import '../../../../core/error/app_error.dart';
+import '../../../../core/state/copy_with.dart';
 
 enum FollowCountStatus { idle, loading, success, failure }
 
@@ -16,22 +17,22 @@ class FollowCountState {
   });
 
   const FollowCountState.idle()
-      : status = FollowCountStatus.idle,
-        followersCount = 0,
-        followingCount = 0,
-        error = null;
+    : status = FollowCountStatus.idle,
+      followersCount = 0,
+      followingCount = 0,
+      error = null;
 
   FollowCountState copyWith({
     FollowCountStatus? status,
     int? followersCount,
     int? followingCount,
-    AppError? error,
+    Object? error = copyWithUnset,
   }) {
     return FollowCountState(
       status: status ?? this.status,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
-      error: error ?? this.error,
+      error: identical(error, copyWithUnset) ? this.error : error as AppError?,
     );
   }
 }

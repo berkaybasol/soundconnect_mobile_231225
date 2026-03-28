@@ -1,4 +1,5 @@
 import '../../../../core/error/app_error.dart';
+import '../../../../core/state/copy_with.dart';
 
 enum ArtistVenueConnectionsStatus { idle, loading, success, failure }
 
@@ -14,19 +15,19 @@ class ArtistVenueConnectionsState {
   });
 
   const ArtistVenueConnectionsState.idle()
-      : status = ArtistVenueConnectionsStatus.idle,
-        venues = const [],
-        error = null;
+    : status = ArtistVenueConnectionsStatus.idle,
+      venues = const [],
+      error = null;
 
   ArtistVenueConnectionsState copyWith({
     ArtistVenueConnectionsStatus? status,
     List<String>? venues,
-    AppError? error,
+    Object? error = copyWithUnset,
   }) {
     return ArtistVenueConnectionsState(
       status: status ?? this.status,
       venues: venues ?? this.venues,
-      error: error ?? this.error,
+      error: identical(error, copyWithUnset) ? this.error : error as AppError?,
     );
   }
 }

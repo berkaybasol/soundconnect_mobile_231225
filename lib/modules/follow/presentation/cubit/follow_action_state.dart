@@ -1,4 +1,5 @@
 import '../../../../core/error/app_error.dart';
+import '../../../../core/state/copy_with.dart';
 
 enum FollowActionStatus { idle, loading, success, failure }
 
@@ -14,19 +15,19 @@ class FollowActionState {
   });
 
   const FollowActionState.idle()
-      : status = FollowActionStatus.idle,
-        isFollowing = false,
-        error = null;
+    : status = FollowActionStatus.idle,
+      isFollowing = false,
+      error = null;
 
   FollowActionState copyWith({
     FollowActionStatus? status,
     bool? isFollowing,
-    AppError? error,
+    Object? error = copyWithUnset,
   }) {
     return FollowActionState(
       status: status ?? this.status,
       isFollowing: isFollowing ?? this.isFollowing,
-      error: error ?? this.error,
+      error: identical(error, copyWithUnset) ? this.error : error as AppError?,
     );
   }
 }

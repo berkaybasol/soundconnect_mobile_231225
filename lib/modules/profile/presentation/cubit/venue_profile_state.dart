@@ -1,4 +1,5 @@
 import '../../../../core/error/app_error.dart';
+import '../../../../core/state/copy_with.dart';
 import '../../domain/entities/venue_owner_profile.dart';
 import '../../domain/entities/venue_public_profile.dart';
 
@@ -22,25 +23,29 @@ class VenueProfileState {
   });
 
   const VenueProfileState.idle()
-      : status = VenueProfileStatus.idle,
-        view = VenueProfileView.none,
-        ownerProfile = null,
-        publicProfile = null,
-        error = null;
+    : status = VenueProfileStatus.idle,
+      view = VenueProfileView.none,
+      ownerProfile = null,
+      publicProfile = null,
+      error = null;
 
   VenueProfileState copyWith({
     VenueProfileStatus? status,
     VenueProfileView? view,
-    VenueOwnerProfile? ownerProfile,
-    VenuePublicProfile? publicProfile,
-    AppError? error,
+    Object? ownerProfile = copyWithUnset,
+    Object? publicProfile = copyWithUnset,
+    Object? error = copyWithUnset,
   }) {
     return VenueProfileState(
       status: status ?? this.status,
       view: view ?? this.view,
-      ownerProfile: ownerProfile ?? this.ownerProfile,
-      publicProfile: publicProfile ?? this.publicProfile,
-      error: error ?? this.error,
+      ownerProfile: identical(ownerProfile, copyWithUnset)
+          ? this.ownerProfile
+          : ownerProfile as VenueOwnerProfile?,
+      publicProfile: identical(publicProfile, copyWithUnset)
+          ? this.publicProfile
+          : publicProfile as VenuePublicProfile?,
+      error: identical(error, copyWithUnset) ? this.error : error as AppError?,
     );
   }
 }

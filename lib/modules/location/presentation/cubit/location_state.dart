@@ -1,4 +1,5 @@
 import '../../../../core/error/app_error.dart';
+import '../../../../core/state/copy_with.dart';
 import '../../domain/entities/city.dart';
 import '../../domain/entities/district.dart';
 import '../../domain/entities/neighborhood.dart';
@@ -21,25 +22,25 @@ class LocationState {
   });
 
   const LocationState.idle()
-      : status = LocationStatus.idle,
-        cities = const [],
-        districts = const [],
-        neighborhoods = const [],
-        error = null;
+    : status = LocationStatus.idle,
+      cities = const [],
+      districts = const [],
+      neighborhoods = const [],
+      error = null;
 
   LocationState copyWith({
     LocationStatus? status,
     List<City>? cities,
     List<District>? districts,
     List<Neighborhood>? neighborhoods,
-    AppError? error,
+    Object? error = copyWithUnset,
   }) {
     return LocationState(
       status: status ?? this.status,
       cities: cities ?? this.cities,
       districts: districts ?? this.districts,
       neighborhoods: neighborhoods ?? this.neighborhoods,
-      error: error ?? this.error,
+      error: identical(error, copyWithUnset) ? this.error : error as AppError?,
     );
   }
 }

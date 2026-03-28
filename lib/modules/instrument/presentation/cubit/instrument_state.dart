@@ -1,4 +1,5 @@
 import '../../../../core/error/app_error.dart';
+import '../../../../core/state/copy_with.dart';
 import '../../domain/entities/instrument.dart';
 
 enum InstrumentStatus { idle, loading, success, failure }
@@ -15,19 +16,19 @@ class InstrumentState {
   });
 
   const InstrumentState.idle()
-      : status = InstrumentStatus.idle,
-        instruments = const [],
-        error = null;
+    : status = InstrumentStatus.idle,
+      instruments = const [],
+      error = null;
 
   InstrumentState copyWith({
     InstrumentStatus? status,
     List<Instrument>? instruments,
-    AppError? error,
+    Object? error = copyWithUnset,
   }) {
     return InstrumentState(
       status: status ?? this.status,
       instruments: instruments ?? this.instruments,
-      error: error ?? this.error,
+      error: identical(error, copyWithUnset) ? this.error : error as AppError?,
     );
   }
 }

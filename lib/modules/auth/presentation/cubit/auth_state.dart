@@ -1,4 +1,5 @@
 import '../../../../core/error/app_error.dart';
+import '../../../../core/state/copy_with.dart';
 import '../../domain/entities/login_result.dart';
 import '../../domain/entities/register_result.dart';
 import '../../domain/entities/resend_code_result.dart';
@@ -27,31 +28,39 @@ class AuthState {
   });
 
   const AuthState.idle()
-      : status = AuthStatus.idle,
-        action = AuthAction.none,
-        message = null,
-        error = null,
-        loginResult = null,
-        registerResult = null,
-        resendResult = null;
+    : status = AuthStatus.idle,
+      action = AuthAction.none,
+      message = null,
+      error = null,
+      loginResult = null,
+      registerResult = null,
+      resendResult = null;
 
   AuthState copyWith({
     AuthStatus? status,
     AuthAction? action,
-    String? message,
-    AppError? error,
-    LoginResult? loginResult,
-    RegisterResult? registerResult,
-    ResendCodeResult? resendResult,
+    Object? message = copyWithUnset,
+    Object? error = copyWithUnset,
+    Object? loginResult = copyWithUnset,
+    Object? registerResult = copyWithUnset,
+    Object? resendResult = copyWithUnset,
   }) {
     return AuthState(
       status: status ?? this.status,
       action: action ?? this.action,
-      message: message ?? this.message,
-      error: error ?? this.error,
-      loginResult: loginResult ?? this.loginResult,
-      registerResult: registerResult ?? this.registerResult,
-      resendResult: resendResult ?? this.resendResult,
+      message: identical(message, copyWithUnset)
+          ? this.message
+          : message as String?,
+      error: identical(error, copyWithUnset) ? this.error : error as AppError?,
+      loginResult: identical(loginResult, copyWithUnset)
+          ? this.loginResult
+          : loginResult as LoginResult?,
+      registerResult: identical(registerResult, copyWithUnset)
+          ? this.registerResult
+          : registerResult as RegisterResult?,
+      resendResult: identical(resendResult, copyWithUnset)
+          ? this.resendResult
+          : resendResult as ResendCodeResult?,
     );
   }
 }

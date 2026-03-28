@@ -1,4 +1,5 @@
-﻿import '../../../../core/error/app_error.dart';
+import '../../../../core/error/app_error.dart';
+import '../../../../core/state/copy_with.dart';
 import '../../domain/entities/musician_profile.dart';
 
 enum MusicianProfileStatus { idle, loading, success, failure }
@@ -19,22 +20,24 @@ class MusicianProfileState {
   });
 
   const MusicianProfileState.idle()
-      : status = MusicianProfileStatus.idle,
-        action = MusicianProfileAction.none,
-        profile = null,
-        error = null;
+    : status = MusicianProfileStatus.idle,
+      action = MusicianProfileAction.none,
+      profile = null,
+      error = null;
 
   MusicianProfileState copyWith({
     MusicianProfileStatus? status,
     MusicianProfileAction? action,
-    MusicianProfile? profile,
-    AppError? error,
+    Object? profile = copyWithUnset,
+    Object? error = copyWithUnset,
   }) {
     return MusicianProfileState(
       status: status ?? this.status,
       action: action ?? this.action,
-      profile: profile ?? this.profile,
-      error: error ?? this.error,
+      profile: identical(profile, copyWithUnset)
+          ? this.profile
+          : profile as MusicianProfile?,
+      error: identical(error, copyWithUnset) ? this.error : error as AppError?,
     );
   }
 }

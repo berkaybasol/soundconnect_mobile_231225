@@ -6,13 +6,14 @@ import 'comment_thread_state.dart';
 class CommentThreadCubit extends Cubit<CommentThreadState> {
   final EngagementRepository _repository;
 
-  CommentThreadCubit(this._repository) : super(const CommentThreadState.initial());
+  CommentThreadCubit(this._repository)
+    : super(const CommentThreadState.initial());
 
   Future<void> load({
     required String targetType,
     required String targetId,
   }) async {
-    emit(state.copyWith(loading: true));
+    emit(state.copyWith(loading: true, error: null));
     final result = await _repository.listComments(
       targetType: targetType,
       targetId: targetId,
@@ -20,11 +21,13 @@ class CommentThreadCubit extends Cubit<CommentThreadState> {
       size: 50,
     );
     if (result.isSuccess && result.data != null) {
-      emit(state.copyWith(
-        loading: false,
-        comments: result.data!.items,
-        error: null,
-      ));
+      emit(
+        state.copyWith(
+          loading: false,
+          comments: result.data!.items,
+          error: null,
+        ),
+      );
       return;
     }
     emit(state.copyWith(loading: false, error: result.error));
@@ -36,7 +39,7 @@ class CommentThreadCubit extends Cubit<CommentThreadState> {
     required String text,
     String? parentCommentId,
   }) async {
-    emit(state.copyWith(submitting: true));
+    emit(state.copyWith(submitting: true, error: null));
     final result = await _repository.createComment(
       targetType: targetType,
       targetId: targetId,
@@ -45,7 +48,7 @@ class CommentThreadCubit extends Cubit<CommentThreadState> {
     );
     if (result.isSuccess) {
       await load(targetType: targetType, targetId: targetId);
-      emit(state.copyWith(submitting: false));
+      emit(state.copyWith(submitting: false, error: null));
       return;
     }
     emit(state.copyWith(submitting: false, error: result.error));

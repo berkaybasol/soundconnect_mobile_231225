@@ -174,19 +174,19 @@ class _MusicianPublicProfileViewState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('AÃ§Ä±klama gÃ¼ncellendi')));
+      ).showSnackBar(const SnackBar(content: Text('Aciklama guncellendi')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('AÃ§Ä±klama kaydedilemedi')));
+      ).showSnackBar(const SnackBar(content: Text('Aciklama kaydedilemedi')));
     }
   }
 
   void _onEditProfilePressed() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Asagidaki alanlardan profilini dÃ¼zenleyebilirsin.'),
+        content: Text('Asagidaki alanlardan profilini duzenleyebilirsin.'),
       ),
     );
   }
@@ -946,7 +946,7 @@ class _MusicianPublicProfileViewState
                                 child: OutlinedButton(
                                   onPressed: () =>
                                       Navigator.of(sheetContext).pop(),
-                                  child: const Text('Ä°ptal'),
+                                  child: const Text('Iptal'),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -1020,7 +1020,7 @@ class _MusicianPublicProfileViewState
                                                       decoration:
                                                           const InputDecoration(
                                                             hintText:
-                                                                'Ä°stersen kÄ±sa bir not ekleyebilirsin (zorunlu deÄŸil).',
+                                                                'Istersen kisa bir not ekleyebilirsin (zorunlu degil).',
                                                           ),
                                                     ),
                                                     const SizedBox(height: 12),
@@ -1033,7 +1033,7 @@ class _MusicianPublicProfileViewState
                                                                   dialogContext,
                                                                 ).pop(),
                                                             child: const Text(
-                                                              'VazgeÃ§',
+                                                              'Vazgec',
                                                             ),
                                                           ),
                                                         ),
@@ -1050,7 +1050,7 @@ class _MusicianPublicProfileViewState
                                                                       .trim(),
                                                                 ),
                                                             child: const Text(
-                                                              'GÃ¶nder',
+                                                              'Gonder',
                                                             ),
                                                           ),
                                                         ),
@@ -1496,7 +1496,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
           actions: ownerMode
               ? [
                   IconButton(
-                    tooltip: 'MenÃ¼',
+                    tooltip: 'Menu',
                     onPressed: () => _showOwnerQuickMenu(context),
                     icon: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -1745,7 +1745,7 @@ class _ProfileIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = profile.username?.trim().isNotEmpty == true
         ? profile.username!
-        : 'KullanÄ±cÄ±';
+        : 'Kullanici';
     final bandName = profile.bands.isNotEmpty ? profile.bands.first : null;
 
     return Column(
@@ -1818,7 +1818,7 @@ class _BioSectionState extends State<_BioSection> {
 
     if (!widget.editable) {
       return Text(
-        hasBio ? resolvedBio : 'HenÃ¼z bir aÃ§Ä±klama eklenmedi.',
+        hasBio ? resolvedBio : 'Henuz bir aciklama eklenmedi.',
         textAlign: TextAlign.center,
         style: const TextStyle(color: AppColors.textMuted, height: 1.6),
       );
@@ -1833,7 +1833,7 @@ class _BioSectionState extends State<_BioSection> {
               _isEditing = true;
             });
           },
-          child: const Text('AÃ§Ä±klama ekle'),
+          child: const Text('Aciklama ekle'),
         );
       }
 

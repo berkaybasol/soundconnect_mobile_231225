@@ -29,6 +29,7 @@ import '../cubit/venue_profile_cubit.dart';
 import '../cubit/venue_profile_state.dart';
 import 'media_detail_screen.dart';
 import 'profile_screen_support.dart';
+import 'weekly_event_carousel.dart';
 import 'video_reel_screen.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -366,7 +367,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               const _SectionHeader(title: 'Haftalik Takvim'),
-              _EventCalendarMock(items: weeklyEvents),
+              WeeklyEventCarousel(items: weeklyEvents, compactTitle: true),
               const SizedBox(height: 12),
               const _SectionHeader(
                 title: 'Aktif Sanatcilar',

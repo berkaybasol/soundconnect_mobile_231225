@@ -45,6 +45,7 @@ import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
 import 'profile_screen_support.dart';
 import 'video_reel_screen.dart';
+import 'weekly_event_carousel.dart';
 import 'weekly_event_detail_screen.dart';
 
 class PublicProfileArgs {
@@ -1719,7 +1720,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
               ],
               const SizedBox(height: 18),
               const _SectionHeader(title: 'Haftalık Takvim'),
-              _EventCalendarMock(items: weeklyEvents),
+              WeeklyEventCarousel(items: weeklyEvents),
               const SizedBox(height: 12),
               _SectionHeader(
                 title: 'Aktif Sanatçılar',

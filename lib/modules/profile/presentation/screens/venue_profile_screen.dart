@@ -44,6 +44,7 @@ import '../cubit/venue_profile_state.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
 import 'profile_screen_support.dart';
+import 'venue_event_management_widgets.dart';
 import 'video_reel_screen.dart';
 import 'weekly_event_carousel.dart';
 import 'weekly_event_detail_screen.dart';
@@ -6390,10 +6391,11 @@ class _VenueWeeklyCalendarEditorScreenState
             : const Icon(Icons.add),
         label: const Text('Etkinlik Ekle'),
       ),
-      body: WillPopScope(
-        onWillPop: () async {
+      body: PopScope<void>(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
           Navigator.of(context).pop(_changed);
-          return false;
         },
         child: SafeArea(
           child: Padding(
@@ -6435,7 +6437,7 @@ class _VenueWeeklyCalendarEditorScreenState
                       Row(
                         children: [
                           Expanded(
-                            child: _CalendarSummaryPill(
+                            child: VenueCalendarSummaryPill(
                               label: 'Toplam Etkinlik',
                               value: '${_events.length}',
                               icon: Icons.event_note_outlined,
@@ -6443,7 +6445,7 @@ class _VenueWeeklyCalendarEditorScreenState
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: _CalendarSummaryPill(
+                            child: VenueCalendarSummaryPill(
                               label: 'Aktif Sanatci',
                               value:
                                   '${widget.ownerProfile.activeMusicians.length}',
@@ -6483,13 +6485,17 @@ class _VenueWeeklyCalendarEditorScreenState
                       itemCount: _sortedEvents.length + 1,
                       itemBuilder: (context, index) {
                         if (index == 0) {
-                          return _EmptyCalendarEventCard(
+                          return EmptyCalendarEventCard(
                             onTap: _saving ? null : _createEvent,
                           );
                         }
                         final item = _sortedEvents[index - 1];
-                        return _CalendarEventCard(
-                          item: item,
+                        return VenueCalendarEventCard(
+                          title: item.title,
+                          performerName: item.performerName,
+                          timeLabel:
+                              '${_formatDateOnly(item.eventDate)}\n${item.startTime}${item.endTime == null || item.endTime!.isEmpty ? '' : ' - ${item.endTime}'}',
+                          description: item.description,
                           saving: _saving,
                           onDelete: () => _deleteEvent(item),
                         );
@@ -6539,158 +6545,6 @@ class _VenueOwnerEventItem {
   }
 }
 
-class _EmptyCalendarEventCard extends StatelessWidget {
-  final VoidCallback? onTap;
-
-  const _EmptyCalendarEventCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 176),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.inputFill, AppColors.navBlueSoft],
-            ),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(
-                Icons.add_circle_outline_rounded,
-                color: AppColors.coralAlt,
-                size: 34,
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Etkinlik Ekle',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CalendarEventCard extends StatelessWidget {
-  final _VenueOwnerEventItem item;
-  final bool saving;
-  final VoidCallback onDelete;
-
-  const _CalendarEventCard({
-    required this.item,
-    required this.saving,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final timeLabel =
-        '${_formatDateOnly(item.eventDate)}\n${item.startTime}${item.endTime == null || item.endTime!.isEmpty ? '' : ' - ${item.endTime}'}';
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.inputFill, AppColors.navBlueSoft],
-        ),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  item.title,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 34,
-                height: 34,
-                child: IconButton(
-                  tooltip: 'Sil',
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: saving ? null : onDelete,
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    color: AppColors.coralAlt,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            timeLabel,
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 12,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            item.performerName,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-          if (item.description != null &&
-              item.description!.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              item.description!,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                height: 1.4,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _MusicianSearchOption {
   final String profileId;
   final String displayName;
@@ -6720,60 +6574,6 @@ class _MusicianSearchOption {
       displayName: displayName,
       secondaryLabel: secondaryLabel,
       profilePictureUrl: json['profilePictureUrl']?.toString(),
-    );
-  }
-}
-
-class _CalendarSummaryPill extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _CalendarSummaryPill({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.navBlueDeep.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.coralAlt, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

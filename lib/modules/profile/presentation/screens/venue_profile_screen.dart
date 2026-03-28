@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -3313,42 +3312,16 @@ class _AudioTab extends StatelessWidget {
                 final mimeType = _mimeFromAudioFileName(name);
 
                 step = 'init-upload';
-                final initResult = await apiClient
-                    .post<ProfileUploadInitResult>(
-                      '/api/v1/user/media/init-upload',
-                      body: {
-                        'ownerType': 'MUSICIAN_PROFILE',
-                        'ownerId': profileId,
-                        'kind': 'AUDIO',
-                        'visibility': 'PUBLIC',
-                        'mimeType': mimeType,
-                        'sizeBytes': bytes.length,
-                        'originalFileName': name,
-                      },
-                      decoder: (json) => ProfileUploadInitResult.fromJson(
-                        json as Map<String, dynamic>,
-                      ),
-                    );
-
-                step = 'dosya yÃ¼kleme';
-                await Dio().put(
-                  initResult.uploadUrl,
-                  data: bytes,
-                  options: Options(
-                    headers: {'Content-Type': mimeType},
-                    contentType: mimeType,
-                  ),
+                final completed = await uploadProfileMediaAsset(
+                  bytes: bytes,
+                  ownerType: 'MUSICIAN_PROFILE',
+                  ownerId: profileId,
+                  mediaKind: 'AUDIO',
+                  mimeType: mimeType,
+                  originalFileName: name,
                 );
 
                 step = 'complete-upload';
-                final completed = await apiClient.post<ProfileUploadedMedia>(
-                  '/api/v1/user/media/complete-upload',
-                  body: {'assetId': initResult.assetId},
-                  decoder: (json) => ProfileUploadedMedia.fromJson(
-                    json as Map<String, dynamic>,
-                  ),
-                );
-
                 final mediaAssetId = completed.uuid.trim();
                 if (mediaAssetId.isEmpty) {
                   throw Exception('Media asset id alÄ±namadÄ±');
@@ -4701,43 +4674,19 @@ class _VideoTabState extends State<_VideoTab> {
       if (bytes.isEmpty) {
         throw Exception('Dosya okunamadÄ±');
       }
-      final apiClient = serviceLocator<ApiClient>();
       final mimeType = _mimeFromVideoFileName(pickedName);
 
       step = 'init-upload';
-      final initResult = await apiClient.post<ProfileUploadInitResult>(
-        '/api/v1/user/media/init-upload',
-        body: {
-          'ownerType': 'MUSICIAN_PROFILE',
-          'ownerId': widget.profileId,
-          'kind': 'VIDEO',
-          'visibility': 'PUBLIC',
-          'mimeType': mimeType,
-          'sizeBytes': bytes.length,
-          'originalFileName': pickedName,
-        },
-        decoder: (json) =>
-            ProfileUploadInitResult.fromJson(json as Map<String, dynamic>),
-      );
-
-      step = 'dosya yÃ¼kleme';
-      await Dio().put(
-        initResult.uploadUrl,
-        data: bytes,
-        options: Options(
-          headers: {'Content-Type': mimeType},
-          contentType: mimeType,
-        ),
+      final completed = await uploadProfileMediaAsset(
+        bytes: bytes,
+        ownerType: 'MUSICIAN_PROFILE',
+        ownerId: widget.profileId,
+        mediaKind: 'VIDEO',
+        mimeType: mimeType,
+        originalFileName: pickedName,
       );
 
       step = 'complete-upload';
-      final completed = await apiClient.post<ProfileUploadedMedia>(
-        '/api/v1/user/media/complete-upload',
-        body: {'assetId': initResult.assetId},
-        decoder: (json) =>
-            ProfileUploadedMedia.fromJson(json as Map<String, dynamic>),
-      );
-
       final assetId = completed.uuid.trim();
       if (assetId.isNotEmpty && mounted) {
         _addProcessingVideo(assetId);

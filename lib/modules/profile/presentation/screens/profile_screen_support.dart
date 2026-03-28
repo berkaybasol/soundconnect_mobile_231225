@@ -198,6 +198,51 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   );
 }
 
+Future<ProfileUploadedMedia> uploadProfileMediaAsset({
+  required List<int> bytes,
+  required String ownerType,
+  required String ownerId,
+  required String mediaKind,
+  required String mimeType,
+  required String originalFileName,
+}) async {
+  if (bytes.isEmpty) {
+    throw Exception('Yuklenecek dosya bos olamaz');
+  }
+
+  final apiClient = serviceLocator<ApiClient>();
+  final initResult = await apiClient.post<ProfileUploadInitResult>(
+    '/api/v1/user/media/init-upload',
+    body: {
+      'ownerType': ownerType,
+      'ownerId': ownerId,
+      'kind': mediaKind,
+      'visibility': 'PUBLIC',
+      'mimeType': mimeType,
+      'sizeBytes': bytes.length,
+      'originalFileName': originalFileName,
+    },
+    decoder: (json) =>
+        ProfileUploadInitResult.fromJson(json as Map<String, dynamic>),
+  );
+
+  await Dio().put(
+    initResult.uploadUrl,
+    data: bytes,
+    options: Options(
+      headers: {'Content-Type': mimeType},
+      contentType: mimeType,
+    ),
+  );
+
+  return apiClient.post<ProfileUploadedMedia>(
+    '/api/v1/user/media/complete-upload',
+    body: {'assetId': initResult.assetId},
+    decoder: (json) =>
+        ProfileUploadedMedia.fromJson(json as Map<String, dynamic>),
+  );
+}
+
 class ProfileScreenLoadCoordinator {
   String? _mediaProfileId;
   String? _followUserId;

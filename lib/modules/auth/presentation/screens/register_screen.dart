@@ -53,21 +53,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       id: 'ROLE_VENUE',
       title: 'Mekan Temsilcisiyim',
       icon: Icons.storefront_outlined,
-      badge: 'Başvuru',
+      badge: 'Basvuru',
     ),
     _RoleOption(
       id: 'ROLE_STUDIO',
-      title: 'Stüdyo Temsilcisiyim',
+      title: 'Studyo Temsilcisiyim',
       icon: Icons.mic_none,
     ),
     _RoleOption(
       id: 'ROLE_PRODUCER',
-      title: 'Prodüktörüm',
+      title: 'Produktorum',
       icon: Icons.graphic_eq,
     ),
     _RoleOption(
       id: 'ROLE_ORGANIZER',
-      title: 'Organizatörüm',
+      title: 'Organizatorum',
       icon: Icons.event,
     ),
   ];
@@ -155,28 +155,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (_stepIndex == 0) {
         final username = _usernameController.text.trim();
         if (username.isEmpty) {
-          _showError('kullanıcı adı boş olamaz');
+          _showError('Kullanici adi bos olamaz');
         } else {
-          _showError('Kullanıcı adı 3 ile 30 karakter arasında olmalıdır.');
+          _showError('Kullanici adi 3 ile 30 karakter arasinda olmali.');
         }
       } else if (_stepIndex == 1) {
         final email = _emailController.text.trim();
         if (email.isEmpty) {
           _showError('E-posta boş olamaz.');
         } else {
-          _showError('Geçerli bir e-posta girin.');
+          _showError('Gecerli bir e-posta girin.');
         }
       } else if (_stepIndex == 2) {
         final password = _passwordController.text.trim();
         final rePassword = _rePasswordController.text.trim();
         if (password.isEmpty) {
-          _showError('Şifre boş olamaz.');
+          _showError('Sifre bos olamaz.');
         } else if (password.length < 8 || password.length > 20) {
-          _showError('Şifreniz en az 8, en fazla 20 karakterden oluşmalıdır.');
+          _showError('Sifreniz en az 8, en fazla 20 karakterden olusmalidir.');
         } else if (rePassword.isEmpty) {
-          _showError('Şifre tekrarı boş olamaz.');
+          _showError('Sifre tekrari bos olamaz.');
         } else {
-          _showError('Şifreler eşleşmeli.');
+          _showError('Sifreler eslesmeli.');
         }
       } else if (_stepIndex == 3) {
         _showError('Rol secilmelidir.');

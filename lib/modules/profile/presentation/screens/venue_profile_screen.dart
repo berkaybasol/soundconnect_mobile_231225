@@ -42,6 +42,7 @@ import '../cubit/venue_profile_state.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
 import 'profile_screen_support.dart';
+import 'profile_section_support.dart';
 import 'profile_social_support.dart';
 import 'venue_event_management_widgets.dart';
 import 'venue_event_support.dart';
@@ -1532,7 +1533,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 followingCount: followingCount,
               ),
               const SizedBox(height: 12),
-              _ActionButtons(
+              ProfileActionButtons(
                 isFollowing: isFollowing,
                 isEnabled: canFollow,
                 isLoading: followLoading,
@@ -1598,10 +1599,10 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 18),
-              const _SectionHeader(title: 'Haftalık Takvim'),
+              const ProfileSectionHeader(title: 'Haftalık Takvim'),
               WeeklyEventCarousel(items: weeklyEvents),
               const SizedBox(height: 12),
-              _SectionHeader(
+              ProfileSectionHeader(
                 title: 'Aktif Sanatçılar',
                 actionLabel: venueEditable ? 'Düzenle' : 'Tümü',
                 actionOnTap: venueEditable ? onEditVenues : null,
@@ -1944,173 +1945,10 @@ class _FollowerRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _PillBadge(text: _formatCount(followersCount, 'Takipci')),
+        ProfilePillBadge(text: _formatCount(followersCount, 'Takipci')),
         const SizedBox(width: 12),
-        _PillBadge(text: _formatCount(followingCount, 'Takip')),
+        ProfilePillBadge(text: _formatCount(followingCount, 'Takip')),
       ],
-    );
-  }
-}
-
-class _PillBadge extends StatelessWidget {
-  final String text;
-
-  const _PillBadge({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.inputFill,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButtons extends StatelessWidget {
-  final bool isFollowing;
-  final bool isEnabled;
-  final bool isLoading;
-  final bool ownerMode;
-  final VoidCallback? onEditProfilePressed;
-  final VoidCallback onFollowToggle;
-
-  const _ActionButtons({
-    required this.isFollowing,
-    required this.isEnabled,
-    required this.isLoading,
-    required this.ownerMode,
-    required this.onEditProfilePressed,
-    required this.onFollowToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (ownerMode) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: isEnabled && !isLoading ? onFollowToggle : null,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              child: Text(
-                isLoading
-                    ? 'Bekle...'
-                    : (isFollowing ? 'Takip Ediliyor' : 'Takip Et'),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.coralAlt,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              child: const Text('Mesaj Gonder'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-
-  const _SectionTitle({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String? actionLabel;
-  final VoidCallback? actionOnTap;
-
-  const _SectionHeader({
-    required this.title,
-    this.actionLabel,
-    this.actionOnTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-          if (actionLabel != null)
-            InkWell(
-              onTap: actionOnTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Text(
-                  actionLabel!,
-                  style: TextStyle(
-                    color: actionOnTap != null
-                        ? AppColors.coralAlt
-                        : AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

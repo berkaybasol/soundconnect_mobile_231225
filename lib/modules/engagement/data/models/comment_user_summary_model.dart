@@ -11,7 +11,10 @@ class CommentUserSummaryModel extends CommentUserSummary {
     return CommentUserSummaryModel(
       id: json['id']?.toString() ?? '',
       username: json['username']?.toString() ?? 'unknown',
-      avatarUrl: json['avatarUrl']?.toString(),
+      avatarUrl:
+          json['avatarUrl']?.toString() ??
+          json['profilePictureUrl']?.toString() ??
+          json['profileImageUrl']?.toString(),
     );
   }
 }

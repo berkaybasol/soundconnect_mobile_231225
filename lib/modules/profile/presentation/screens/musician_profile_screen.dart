@@ -37,10 +37,13 @@ import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
+import 'profile_audio_transport.dart';
+import 'profile_count_row.dart';
+import 'profile_owner_video_tab.dart';
 import 'profile_screen_support.dart';
 import 'profile_section_support.dart';
 import 'profile_social_support.dart';
-import 'video_reel_screen.dart';
+import 'profile_venue_support.dart';
 
 class PublicProfileArgs {
   final String? viewerUserId;
@@ -217,16 +220,16 @@ class _MusicianPublicProfileViewState
     return null;
   }
 
-  Future<List<_VenueOption>> _fetchAllVenues() async {
+  Future<List<VenueOption>> _fetchAllVenues() async {
     final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<_VenueOption>>(
+    return apiClient.get<List<VenueOption>>(
       '/api/v1/venues/get-all',
       decoder: (json) {
         final list = (json as List<dynamic>? ?? const []);
         return list
             .whereType<Map<String, dynamic>>()
             .map(
-              (item) => _VenueOption(
+              (item) => VenueOption(
                 id: item['id']?.toString() ?? '',
                 name: item['name']?.toString() ?? '',
                 cityId: _extractId(item, 'cityId'),
@@ -243,16 +246,16 @@ class _MusicianPublicProfileViewState
     );
   }
 
-  Future<List<_LookupOption>> _fetchCities() async {
+  Future<List<VenueLookupOption>> _fetchCities() async {
     final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<_LookupOption>>(
+    return apiClient.get<List<VenueLookupOption>>(
       '/api/v1/cities/get-all-cities',
       decoder: (json) {
         final list = (json as List<dynamic>? ?? const []);
         return list
             .whereType<Map<String, dynamic>>()
             .map(
-              (item) => _LookupOption(
+              (item) => VenueLookupOption(
                 id: item['id']?.toString() ?? '',
                 name: item['name']?.toString() ?? '',
               ),
@@ -263,16 +266,16 @@ class _MusicianPublicProfileViewState
     );
   }
 
-  Future<List<_LookupOption>> _fetchDistricts(String cityId) async {
+  Future<List<VenueLookupOption>> _fetchDistricts(String cityId) async {
     final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<_LookupOption>>(
+    return apiClient.get<List<VenueLookupOption>>(
       '/api/v1/districts/get-by-city/$cityId',
       decoder: (json) {
         final list = (json as List<dynamic>? ?? const []);
         return list
             .whereType<Map<String, dynamic>>()
             .map(
-              (item) => _LookupOption(
+              (item) => VenueLookupOption(
                 id: item['id']?.toString() ?? '',
                 name: item['name']?.toString() ?? '',
               ),
@@ -283,16 +286,16 @@ class _MusicianPublicProfileViewState
     );
   }
 
-  Future<List<_LookupOption>> _fetchNeighborhoods(String districtId) async {
+  Future<List<VenueLookupOption>> _fetchNeighborhoods(String districtId) async {
     final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<_LookupOption>>(
+    return apiClient.get<List<VenueLookupOption>>(
       '/api/v1/neighborhoods/get-by-district/$districtId',
       decoder: (json) {
         final list = (json as List<dynamic>? ?? const []);
         return list
             .whereType<Map<String, dynamic>>()
             .map(
-              (item) => _LookupOption(
+              (item) => VenueLookupOption(
                 id: item['id']?.toString() ?? '',
                 name: item['name']?.toString() ?? '',
               ),
@@ -303,19 +306,19 @@ class _MusicianPublicProfileViewState
     );
   }
 
-  Future<List<_VenueConnection>> _fetchVenueConnectionsByStatus(
+  Future<List<VenueConnection>> _fetchVenueConnectionsByStatus(
     String profileId, {
     required String status,
   }) async {
     final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<_VenueConnection>>(
+    return apiClient.get<List<VenueConnection>>(
       '/api/v1/artist-venue-connections/musician/$profileId?status=$status',
       decoder: (json) {
         final list = (json as List<dynamic>? ?? const []);
         return list
             .whereType<Map<String, dynamic>>()
             .map(
-              (item) => _VenueConnection(
+              (item) => VenueConnection(
                 requestId: item['id']?.toString() ?? '',
                 venueId: item['venueId']?.toString() ?? '',
                 venueName: item['venueName']?.toString() ?? '',
@@ -329,13 +332,13 @@ class _MusicianPublicProfileViewState
     );
   }
 
-  Future<List<_VenueConnection>> _fetchAcceptedVenueConnections(
+  Future<List<VenueConnection>> _fetchAcceptedVenueConnections(
     String profileId,
   ) {
     return _fetchVenueConnectionsByStatus(profileId, status: 'ACCEPTED');
   }
 
-  Future<List<_VenueConnection>> _fetchPendingVenueConnections(
+  Future<List<VenueConnection>> _fetchPendingVenueConnections(
     String profileId,
   ) {
     return _fetchVenueConnectionsByStatus(profileId, status: 'PENDING');
@@ -347,7 +350,7 @@ class _MusicianPublicProfileViewState
           await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               fullscreenDialog: true,
-              builder: (_) => const _VenueIntroScreen(),
+              builder: (_) => const VenueIntroScreen(),
             ),
           ) ??
           false;
@@ -361,7 +364,7 @@ class _MusicianPublicProfileViewState
       final acceptedIds = accepted.map((item) => item.venueId).toSet();
       final pendingIds = pending.map((item) => item.venueId).toSet();
       final searchController = TextEditingController();
-      final selected = await showModalBottomSheet<_VenueRequestPayload>(
+      final selected = await showModalBottomSheet<VenueRequestPayload>(
         context: context,
         isScrollControlled: true,
         backgroundColor: AppColors.navBlueDeep,
@@ -375,8 +378,8 @@ class _MusicianPublicProfileViewState
           String? selectedCityId;
           String? selectedDistrictId;
           String? selectedNeighborhoodId;
-          var districtOptions = <_LookupOption>[];
-          var neighborhoodOptions = <_LookupOption>[];
+          var districtOptions = <VenueLookupOption>[];
+          var neighborhoodOptions = <VenueLookupOption>[];
           var loadingDistricts = false;
           var loadingNeighborhoods = false;
 
@@ -426,7 +429,7 @@ class _MusicianPublicProfileViewState
                 }
               }
 
-              String? nameById(List<_LookupOption> list, String? id) {
+              String? nameById(List<VenueLookupOption> list, String? id) {
                 if (id == null) return null;
                 for (final item in list) {
                   if (item.id == id) return item.name.toLowerCase();
@@ -1058,7 +1061,7 @@ class _MusicianPublicProfileViewState
                                     );
                                     if (!mounted) return;
                                     Navigator.of(sheetContext).pop(
-                                      _VenueRequestPayload(
+                                      VenueRequestPayload(
                                         venueId: selectedVenueId!,
                                         message: message,
                                       ),
@@ -1490,7 +1493,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
             ],
           ),
         ),
-        bottomNavigationBar: _BottomBar(
+        bottomNavigationBar: ProfileBottomBar(
           profileImageUrl: (uploadedProfilePhotoUrl?.trim().isNotEmpty == true)
               ? uploadedProfilePhotoUrl!.trim()
               : profile.profilePicture,
@@ -2063,10 +2066,12 @@ class _MediaContent extends StatelessWidget {
               ownerMode: ownerMode,
               audioHandler: audioHandler,
             ),
-            _VideoTab(
+            ProfileOwnerVideoTab(
               items: videoItems,
               profileId: profileId,
               ownerMode: ownerMode,
+              profileType: 'MUSICIAN',
+              uploadOwnerType: 'MUSICIAN_PROFILE',
             ),
           ],
         );
@@ -3303,7 +3308,7 @@ class _AudioTab extends StatelessWidget {
                             ? "Tamam\u0131n\u0131 Spotify'da Dinle"
                             : null,
                         actionColor: isSpotify ? const Color(0xFF1DB954) : null,
-                        bottomControls: _AudioTransportRow(
+                        bottomControls: ProfileAudioTransportRow(
                           isPlaying: isCurrent && isPlaying,
                           iconColor: isSpotify
                               ? const Color(0xFF1DB954)
@@ -3381,7 +3386,7 @@ class _AudioTab extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      _CountRow(
+                      ProfileCountRow(
                         likeCount: likeCount,
                         commentCount: commentCount,
                         isLiked: isLiked,
@@ -3396,87 +3401,6 @@ class _AudioTab extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _AudioTransportRow extends StatelessWidget {
-  final bool isPlaying;
-  final Color iconColor;
-  final VoidCallback? onPlayPause;
-  final VoidCallback? onBack10;
-  final VoidCallback? onForward10;
-
-  const _AudioTransportRow({
-    required this.isPlaying,
-    required this.iconColor,
-    this.onPlayPause,
-    this.onBack10,
-    this.onForward10,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _TransportButton(
-          icon: Icons.replay_10_rounded,
-          onTap: onBack10,
-          color: iconColor,
-        ),
-        const SizedBox(width: 10),
-        _TransportButton(
-          icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-          onTap: onPlayPause,
-          color: iconColor,
-          big: true,
-        ),
-        const SizedBox(width: 10),
-        _TransportButton(
-          icon: Icons.forward_10_rounded,
-          onTap: onForward10,
-          color: iconColor,
-        ),
-      ],
-    );
-  }
-}
-
-class _TransportButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
-  final Color color;
-  final bool big;
-
-  const _TransportButton({
-    required this.icon,
-    required this.onTap,
-    required this.color,
-    this.big = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: Center(
-          child: Container(
-            width: big ? 36 : 32,
-            height: big ? 36 : 32,
-            decoration: BoxDecoration(
-              color: AppColors.navBlueSoft,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Icon(icon, size: big ? 20 : 16, color: color),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -3714,850 +3638,3 @@ class _AudioPreviewCardState extends State<_AudioPreviewCard>
   }
 }
 
-class _VideoTab extends StatefulWidget {
-  final List<MediaAsset> items;
-  final String profileId;
-  final bool ownerMode;
-
-  const _VideoTab({
-    required this.items,
-    required this.profileId,
-    required this.ownerMode,
-  });
-
-  @override
-  State<_VideoTab> createState() => _VideoTabState();
-}
-
-class _VideoTabState extends State<_VideoTab> {
-  final Set<String> _processingVideoIds = <String>{};
-  Timer? _processingPollTimer;
-  bool _pollBusy = false;
-  int _pollAttempt = 0;
-  static const int _maxPollAttempt = 45; // ~6 dakika
-  bool _videoUploading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncProcessingState();
-  }
-
-  @override
-  void didUpdateWidget(covariant _VideoTab oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _syncProcessingState();
-  }
-
-  @override
-  void dispose() {
-    _processingPollTimer?.cancel();
-    super.dispose();
-  }
-
-  void _syncProcessingState() {
-    if (_processingVideoIds.isEmpty) return;
-    final readyIds = widget.items
-        .where((item) {
-          final hasPlayable =
-              (item.playbackUrl?.trim().isNotEmpty ?? false) ||
-              (item.sourceUrl?.trim().isNotEmpty ?? false);
-          return item.id.isNotEmpty && hasPlayable;
-        })
-        .map((item) => item.id)
-        .toSet();
-    _processingVideoIds.removeWhere(readyIds.contains);
-    if (_processingVideoIds.isEmpty) {
-      _processingPollTimer?.cancel();
-      _processingPollTimer = null;
-    } else {
-      _startPolling();
-    }
-  }
-
-  void _addProcessingVideo(String assetId) {
-    if (assetId.trim().isEmpty) return;
-    setState(() {
-      _processingVideoIds.add(assetId.trim());
-    });
-    _pollAttempt = 0;
-    _startPolling();
-  }
-
-  void _startPolling() {
-    if (_processingPollTimer != null) return;
-    _processingPollTimer = Timer.periodic(const Duration(seconds: 8), (
-      _,
-    ) async {
-      if (!mounted) return;
-      if (_processingVideoIds.isEmpty) {
-        _processingPollTimer?.cancel();
-        _processingPollTimer = null;
-        return;
-      }
-      _pollAttempt++;
-      if (_pollAttempt > _maxPollAttempt) {
-        _processingPollTimer?.cancel();
-        _processingPollTimer = null;
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Video işleme beklenenden uzun sürdü. Biraz sonra tekrar kontrol et.',
-              ),
-            ),
-          );
-        }
-        return;
-      }
-      if (_pollBusy) return;
-      _pollBusy = true;
-      try {
-        await context.read<ProfileMediaCubit>().loadMedia(
-          profileType: 'MUSICIAN',
-          profileId: widget.profileId,
-        );
-      } catch (_) {
-      } finally {
-        _pollBusy = false;
-      }
-    });
-  }
-
-  String _mimeFromVideoFileName(String fileName) {
-    final lower = fileName.toLowerCase();
-    if (lower.endsWith('.mov')) return 'video/quicktime';
-    if (lower.endsWith('.mkv')) return 'video/x-matroska';
-    return 'video/mp4';
-  }
-
-  String _fileNameFromPath(String path, {String fallback = 'video.mp4'}) {
-    final normalized = path.replaceAll('\\', '/');
-    final parts = normalized.split('/');
-    final name = parts.isNotEmpty ? parts.last.trim() : '';
-    return name.isEmpty ? fallback : name;
-  }
-
-  Future<void> _pickAndUploadVideo() async {
-    if (_videoUploading) return;
-    final messenger = ScaffoldMessenger.of(context);
-    final mediaCubit = context.read<ProfileMediaCubit>();
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      withData: false,
-      allowMultiple: false,
-      allowedExtensions: const ['mp4', 'mov', 'mkv'],
-    );
-    final file = result?.files.isNotEmpty == true ? result!.files.first : null;
-    if (file == null) return;
-
-    final pickedPath = file.path;
-    final pickedBytes = file.bytes;
-    final pickedName = file.name.trim().isNotEmpty
-        ? file.name.trim()
-        : (file.path != null ? _fileNameFromPath(file.path!) : 'video.mp4');
-    if ((pickedPath == null && pickedBytes == null) || pickedName.isEmpty) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Önce bir video dosyası seç.')),
-      );
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _videoUploading = true;
-    });
-
-    var step = 'dosya okuma';
-    try {
-      final bytes = pickedBytes ?? await File(pickedPath!).readAsBytes();
-      if (bytes.isEmpty) {
-        throw Exception('Dosya okunamadı');
-      }
-      final mimeType = _mimeFromVideoFileName(pickedName);
-
-      step = 'init-upload';
-      final completed = await uploadProfileMediaAsset(
-        bytes: bytes,
-        ownerType: 'MUSICIAN_PROFILE',
-        ownerId: widget.profileId,
-        mediaKind: 'VIDEO',
-        mimeType: mimeType,
-        originalFileName: pickedName,
-      );
-
-      step = 'complete-upload';
-      final assetId = completed.uuid.trim();
-      if (assetId.isNotEmpty && mounted) {
-        _addProcessingVideo(assetId);
-      }
-
-      await mediaCubit.loadMedia(
-        profileType: 'MUSICIAN',
-        profileId: widget.profileId,
-      );
-
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Video yüklendi, işleniyor. Kısa süre sonra görünecek.',
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Yükleme başarısız ($step): $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _videoUploading = false;
-        });
-      }
-    }
-  }
-
-  Widget _buildProcessingCard() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.inputFill,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _processingVideoIds.length == 1
-                ? 'Video i\u015Fleniyor'
-                : '${_processingVideoIds.length} video i\u015Fleniyor',
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            '\u0130\u015Fleme tamamlan\u0131nca video otomatik olarak g\u00F6r\u00FCnecek.',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          const LinearProgressIndicator(minHeight: 6),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.ownerMode) {
-      final hasAny = widget.items.isNotEmpty;
-      return Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, hasAny ? 8 : 0),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: _videoUploading ? null : _pickAndUploadVideo,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 24,
-                  horizontal: 18,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0x1AFFFFFF),
-                      Color(0x1A8A5CFF),
-                      Color(0x1AFF7A3D),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.inputFill,
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: AppColors.textPrimary,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      hasAny ? 'Video ekle' : 'Henüz video eklemediniz',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'SoundConnect üzerinden video yüklemek için dokun.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                    if (_videoUploading) ...[
-                      const SizedBox(height: 10),
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_processingVideoIds.isNotEmpty) _buildProcessingCard(),
-          if (widget.items.isEmpty && _processingVideoIds.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                'Henüz video eklemediniz.',
-                style: TextStyle(color: AppColors.textMuted),
-              ),
-            )
-          else if (widget.items.isNotEmpty)
-            GridView.builder(
-              padding: const EdgeInsets.all(20),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: widget.items.length,
-              itemBuilder: (context, index) =>
-                  _buildVideoCard(context, widget.items[index], index),
-            ),
-        ],
-      );
-    }
-
-    if (widget.items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Text(
-          'Kullanıcı henüz video eklemedi.',
-          style: TextStyle(color: AppColors.textMuted),
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(20),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: widget.items.length,
-      itemBuilder: (context, index) =>
-          _buildVideoCard(context, widget.items[index], index),
-    );
-  }
-
-  Widget _buildVideoCard(BuildContext context, MediaAsset item, int index) {
-    final thumbnailRaw = item.thumbnailUrl ?? item.playbackUrl;
-    final thumbnail = isValidNetworkImageUrl(thumbnailRaw)
-        ? thumbnailRaw!.trim()
-        : null;
-    final fallbackLikeCount = 210 + (index * 9);
-    final fallbackCommentCount = 44 + (index * 4);
-    final targetType = 'MEDIA';
-    final targetId = item.id;
-    final statsState = context.watch<InteractionStatsCubit>().state;
-    final statsKey = '$targetType:$targetId';
-    if (targetId.isNotEmpty && !statsState.items.containsKey(statsKey)) {
-      context.read<InteractionStatsCubit>().load(
-        targetType: targetType,
-        targetId: targetId,
-      );
-    }
-    final stats = statsState.items[statsKey];
-    final likeCount = stats?.likeCount ?? fallbackLikeCount;
-    final commentCount = stats?.commentCount ?? fallbackCommentCount;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.inputFill,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-        image: thumbnail != null
-            ? DecorationImage(image: NetworkImage(thumbnail), fit: BoxFit.cover)
-            : null,
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => MultiBlocProvider(
-                providers: [
-                  BlocProvider.value(
-                    value: context.read<InteractionStatsCubit>(),
-                  ),
-                  BlocProvider(
-                    create: (_) => serviceLocator<CommentThreadCubit>(),
-                  ),
-                ],
-                child: VideoReelScreen(
-                  title: item.title ?? 'Video',
-                  playbackUrl: (item.playbackUrl ?? item.sourceUrl ?? '')
-                      .trim(),
-                  sourceUrl: item.sourceUrl,
-                  thumbnailUrl: thumbnail,
-                  framePreset: null,
-                  targetType: targetType,
-                  targetId: item.id,
-                  initialLikeCount: likeCount,
-                  initialCommentCount: commentCount,
-                ),
-              ),
-            ),
-          );
-        },
-        child: Stack(
-          children: [
-            Positioned(
-              left: 10,
-              bottom: 10,
-              child: _CountRow(
-                likeCount: likeCount,
-                commentCount: commentCount,
-                light: true,
-              ),
-            ),
-            const Center(
-              child: Icon(
-                Icons.play_circle_outline,
-                color: AppColors.white,
-                size: 36,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CountRow extends StatelessWidget {
-  final int likeCount;
-  final int commentCount;
-  final bool light;
-  final bool isLiked;
-  final VoidCallback? onLikeTap;
-  final VoidCallback? onCommentTap;
-
-  const _CountRow({
-    required this.likeCount,
-    required this.commentCount,
-    this.light = false,
-    this.isLiked = false,
-    this.onLikeTap,
-    this.onCommentTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = light ? AppColors.white : AppColors.textMuted;
-    final likeColor = light
-        ? AppColors.white
-        : (isLiked ? AppColors.coralAlt : AppColors.textMuted);
-    return Row(
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onLikeTap,
-          child: Row(
-            children: [
-              Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border,
-                size: 16,
-                color: likeColor,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                likeCount.toString(),
-                style: TextStyle(color: likeColor, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onCommentTap,
-          child: Row(
-            children: [
-              Icon(Icons.chat_bubble_outline, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(
-                commentCount.toString(),
-                style: TextStyle(color: color, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _VenueOption {
-  final String id;
-  final String name;
-  final String? cityId;
-  final String? districtId;
-  final String? neighborhoodId;
-  final String? cityName;
-  final String? districtName;
-  final String? neighborhoodName;
-
-  const _VenueOption({
-    required this.id,
-    required this.name,
-    this.cityId,
-    this.districtId,
-    this.neighborhoodId,
-    this.cityName,
-    this.districtName,
-    this.neighborhoodName,
-  });
-}
-
-class _LookupOption {
-  final String id;
-  final String name;
-
-  const _LookupOption({required this.id, required this.name});
-}
-
-class _VenueConnection {
-  final String requestId;
-  final String venueId;
-  final String venueName;
-
-  const _VenueConnection({
-    required this.requestId,
-    required this.venueId,
-    required this.venueName,
-  });
-}
-
-class _VenueRequestPayload {
-  final String venueId;
-  final String message;
-
-  const _VenueRequestPayload({required this.venueId, required this.message});
-}
-
-class _VenueIntroScreen extends StatelessWidget {
-  const _VenueIntroScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.navBlueDeep,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Mekan Ba\u011Flant\u0131 S\u00FCreci',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 30,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Devam etmeden \u00F6nce k\u0131sa bilgi',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 28),
-              const Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _IntroStep(
-                        icon: Icons.send_outlined,
-                        title: '\u0130stek G\u00F6nder',
-                        text:
-                            'Aktif olarak sahne ald\u0131\u011F\u0131n mekanlara buradan ba\u011Flant\u0131 iste\u011Fi g\u00F6nderebilirsin. \u0130stek g\u00F6nderdi\u011Finde ilgili mekana bir bildirim iletilir.',
-                      ),
-                      SizedBox(height: 22),
-                      _IntroStep(
-                        icon: Icons.hourglass_top_rounded,
-                        title: 'Onay Bekle',
-                        text:
-                            'Mekan ba\u011Flant\u0131 iste\u011Fini onaylayabilir veya reddedebilir. Onayland\u0131\u011F\u0131nda ba\u011Flant\u0131n\u0131z kurulacak ve hem senin profilinde hem de mekan\u0131n profilinde g\u00F6r\u00FCn\u00FCr hale gelecektir.',
-                      ),
-                      SizedBox(height: 22),
-                      _IntroStep(
-                        icon: Icons.settings_outlined,
-                        title: 'Durumu Takip Et',
-                        text:
-                            'G\u00F6nderdi\u011Fin ba\u011Flant\u0131 isteklerinin durumunu istedi\u011Fin zaman Ayarlar \u2192 Ba\u015Fvurular\u0131m b\u00F6l\u00FCm\u00FCnden g\u00F6r\u00FCnt\u00FCleyebilir ve s\u00FCrecin hangi a\u015Famada oldu\u011Funu takip edebilirsin.',
-                        showInlineSettingsIcon: true,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.coralAlt,
-                    foregroundColor: AppColors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 17),
-                    textStyle: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text('Anlad\u0131m, Devam Et'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _IntroStep extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String text;
-  final bool showInlineSettingsIcon;
-
-  const _IntroStep({
-    required this.icon,
-    required this.title,
-    required this.text,
-    this.showInlineSettingsIcon = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 2, right: 10),
-          child: ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFF7A3D), Color(0xFFEF5F86), Color(0xFFB85CFF)],
-            ).createShader(bounds),
-            child: Icon(icon, size: 20, color: Colors.white),
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 4),
-              if (showInlineSettingsIcon && text.contains('Ayarlar'))
-                Builder(
-                  builder: (_) {
-                    const bodyStyle = TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      height: 1.44,
-                    );
-                    final idx = text.indexOf('Ayarlar');
-                    final left = text.substring(0, idx);
-                    final focus = 'Ayarlar \u2192 Ba\u015Fvurular\u0131m';
-                    final focusStart = text.indexOf(focus, idx);
-                    final hasFocus = focusStart >= 0;
-                    final beforeFocus = hasFocus
-                        ? text.substring(idx, focusStart)
-                        : text.substring(idx);
-                    final focusedText = hasFocus ? focus : '';
-                    final afterFocus = hasFocus
-                        ? text.substring(focusStart + focus.length)
-                        : '';
-                    return RichText(
-                      text: TextSpan(
-                        style: bodyStyle,
-                        children: [
-                          TextSpan(text: left),
-                          const WidgetSpan(
-                            alignment: PlaceholderAlignment.middle,
-                            child: Padding(
-                              padding: EdgeInsets.only(right: 4),
-                              child: Icon(
-                                Icons.settings,
-                                size: 15,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                          ),
-                          TextSpan(text: beforeFocus),
-                          if (focusedText.isNotEmpty)
-                            TextSpan(
-                              text: focusedText,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          TextSpan(text: afterFocus),
-                        ],
-                      ),
-                    );
-                  },
-                )
-              else
-                Text(
-                  text,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    height: 1.44,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BottomBar extends StatelessWidget {
-  final String? profileImageUrl;
-
-  const _BottomBar({this.profileImageUrl});
-
-  Widget _profileAvatar(bool active) {
-    final hasImage = profileImageUrl?.trim().isNotEmpty == true;
-    final imageUrl = profileImageUrl?.trim() ?? '';
-    final child = hasImage
-        ? ClipOval(
-            child: Image.network(
-              imageUrl,
-              width: 18,
-              height: 18,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.person_outline, size: 18),
-            ),
-          )
-        : const Icon(Icons.person_outline, size: 18);
-
-    if (!active) {
-      return Container(
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Center(child: child),
-      );
-    }
-
-    return Container(
-      width: 24,
-      height: 24,
-      padding: const EdgeInsets.all(1.4),
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(colors: AppColors.brandGradient),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.navBlueDeep,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.navBlueDeep, width: 1),
-        ),
-        child: Center(child: child),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: 3,
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: AppColors.navBlueDeep,
-      selectedItemColor: AppColors.coralAlt,
-      unselectedItemColor: AppColors.textMuted,
-      items: [
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.campaign_outlined),
-          label: '\u0130lan',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.rocket_launch_outlined),
-          label: 'Git',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.forum_outlined),
-          label: 'Mesajlar',
-        ),
-        BottomNavigationBarItem(
-          icon: _profileAvatar(false),
-          activeIcon: _profileAvatar(true),
-          label: 'Profil',
-        ),
-      ],
-    );
-  }
-}

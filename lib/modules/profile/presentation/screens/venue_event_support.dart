@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 class VenueOwnerEventItem {
   final String id;
   final String title;
+  final String? posterImage;
   final String performerName;
+  final String? musicianProfileId;
   final DateTime eventDate;
   final String startTime;
   final String? endTime;
@@ -12,7 +14,9 @@ class VenueOwnerEventItem {
   const VenueOwnerEventItem({
     required this.id,
     required this.title,
+    required this.posterImage,
     required this.performerName,
+    required this.musicianProfileId,
     required this.eventDate,
     required this.startTime,
     required this.endTime,
@@ -23,7 +27,9 @@ class VenueOwnerEventItem {
     return VenueOwnerEventItem(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
+      posterImage: json['posterImage']?.toString(),
       performerName: json['performerName']?.toString() ?? 'Sanatci',
+      musicianProfileId: json['musicianProfileId']?.toString(),
       eventDate:
           DateTime.tryParse(json['eventDate']?.toString() ?? '') ??
           DateTime.now(),
@@ -73,6 +79,7 @@ class VenueEventDraft {
   final DateTime eventDate;
   final TimeOfDay startTime;
   final TimeOfDay? endTime;
+  final String? posterImage;
   final String? musicianProfileId;
   final String? manualPerformerName;
 
@@ -82,6 +89,7 @@ class VenueEventDraft {
     required this.eventDate,
     required this.startTime,
     required this.endTime,
+    required this.posterImage,
     required this.musicianProfileId,
     required this.manualPerformerName,
   });
@@ -89,6 +97,18 @@ class VenueEventDraft {
 
 String formatVenueEventDate(DateTime value) {
   return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
+}
+
+String formatVenueDisplayTime(String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty) return '';
+  final parts = normalized.split(':');
+  if (parts.length >= 2) {
+    final hour = parts[0].padLeft(2, '0');
+    final minute = parts[1].padLeft(2, '0');
+    return '$hour:$minute';
+  }
+  return normalized;
 }
 
 String formatVenueApiDate(DateTime value) {

@@ -19,7 +19,6 @@ import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
-import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
@@ -27,8 +26,11 @@ import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'media_detail_screen.dart';
+import 'profile_audio_transport.dart';
+import 'profile_count_row.dart';
+import 'profile_public_bottom_bar.dart';
+import 'profile_public_video_tab.dart';
 import 'profile_screen_support.dart';
-import 'video_reel_screen.dart';
 
 class PublicProfileArgs {
   final String? profileId;
@@ -321,7 +323,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
             ],
           ),
         ),
-        bottomNavigationBar: _BottomBar(),
+        bottomNavigationBar: const ProfilePublicBottomBar(),
       ),
     );
   }
@@ -971,7 +973,7 @@ class _MediaContent extends StatelessWidget {
                 spotifyLoading: spotifyLoading,
                 audioHandler: audioHandler,
               )
-            : _VideoTab(items: videoItems);
+            : ProfilePublicVideoTab(items: videoItems);
       },
     );
   }
@@ -1321,7 +1323,7 @@ class _AudioTab extends StatelessWidget {
                             ? "Tamamini Spotify'da Dinle"
                             : null,
                         actionColor: isSpotify ? const Color(0xFF1DB954) : null,
-                        bottomControls: _AudioTransportRow(
+                        bottomControls: ProfileAudioTransportRow(
                           isPlaying: isCurrent && isPlaying,
                           iconColor: isSpotify
                               ? const Color(0xFF1DB954)
@@ -1399,7 +1401,7 @@ class _AudioTab extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      _CountRow(
+                      ProfileCountRow(
                         likeCount: likeCount,
                         commentCount: commentCount,
                         isLiked: isLiked,
@@ -1414,87 +1416,6 @@ class _AudioTab extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _AudioTransportRow extends StatelessWidget {
-  final bool isPlaying;
-  final Color iconColor;
-  final VoidCallback? onPlayPause;
-  final VoidCallback? onBack10;
-  final VoidCallback? onForward10;
-
-  const _AudioTransportRow({
-    required this.isPlaying,
-    required this.iconColor,
-    this.onPlayPause,
-    this.onBack10,
-    this.onForward10,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _TransportButton(
-          icon: Icons.replay_10_rounded,
-          onTap: onBack10,
-          color: iconColor,
-        ),
-        const SizedBox(width: 10),
-        _TransportButton(
-          icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-          onTap: onPlayPause,
-          color: iconColor,
-          big: true,
-        ),
-        const SizedBox(width: 10),
-        _TransportButton(
-          icon: Icons.forward_10_rounded,
-          onTap: onForward10,
-          color: iconColor,
-        ),
-      ],
-    );
-  }
-}
-
-class _TransportButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
-  final Color color;
-  final bool big;
-
-  const _TransportButton({
-    required this.icon,
-    required this.onTap,
-    required this.color,
-    this.big = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: Center(
-          child: Container(
-            width: big ? 36 : 32,
-            height: big ? 36 : 32,
-            decoration: BoxDecoration(
-              color: AppColors.navBlueSoft,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Icon(icon, size: big ? 20 : 16, color: color),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1732,211 +1653,3 @@ class _AudioPreviewCardState extends State<_AudioPreviewCard>
   }
 }
 
-class _VideoTab extends StatelessWidget {
-  final List<MediaAsset> items;
-
-  const _VideoTab({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Text(
-          'Kullanıcı henüz video eklemedi.',
-          style: TextStyle(color: AppColors.textMuted),
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(20),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.85,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final thumbnail = item.thumbnailUrl ?? item.playbackUrl;
-        final fallbackLikeCount = 210 + (index * 9);
-        final fallbackCommentCount = 44 + (index * 4);
-        final targetType = 'MEDIA';
-        final targetId = item.id;
-        final statsState = context.watch<InteractionStatsCubit>().state;
-        final statsKey = '$targetType:$targetId';
-        if (targetId.isNotEmpty && !statsState.items.containsKey(statsKey)) {
-          context.read<InteractionStatsCubit>().load(
-            targetType: targetType,
-            targetId: targetId,
-          );
-        }
-        final stats = statsState.items[statsKey];
-        final likeCount = stats?.likeCount ?? fallbackLikeCount;
-        final commentCount = stats?.commentCount ?? fallbackCommentCount;
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.inputFill,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-            image: thumbnail != null
-                ? DecorationImage(
-                    image: NetworkImage(thumbnail),
-                    fit: BoxFit.cover,
-                  )
-                : null,
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MultiBlocProvider(
-                    providers: [
-                      BlocProvider.value(
-                        value: context.read<InteractionStatsCubit>(),
-                      ),
-                      BlocProvider(
-                        create: (_) => serviceLocator<CommentThreadCubit>(),
-                      ),
-                    ],
-                    child: VideoReelScreen(
-                      title: item.title ?? 'Video',
-                      playbackUrl: (item.playbackUrl ?? item.sourceUrl ?? '')
-                          .trim(),
-                      sourceUrl: item.sourceUrl,
-                      thumbnailUrl: thumbnail,
-                      framePreset: null,
-                      targetType: targetType,
-                      targetId: item.id,
-                      initialLikeCount: likeCount,
-                      initialCommentCount: commentCount,
-                    ),
-                  ),
-                ),
-              );
-            },
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 10,
-                  bottom: 10,
-                  child: _CountRow(
-                    likeCount: likeCount,
-                    commentCount: commentCount,
-                    light: true,
-                  ),
-                ),
-                const Center(
-                  child: Icon(
-                    Icons.play_circle_outline,
-                    color: AppColors.white,
-                    size: 36,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _CountRow extends StatelessWidget {
-  final int likeCount;
-  final int commentCount;
-  final bool light;
-  final bool isLiked;
-  final VoidCallback? onLikeTap;
-  final VoidCallback? onCommentTap;
-
-  const _CountRow({
-    required this.likeCount,
-    required this.commentCount,
-    this.light = false,
-    this.isLiked = false,
-    this.onLikeTap,
-    this.onCommentTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = light ? AppColors.white : AppColors.textMuted;
-    final likeColor = light
-        ? AppColors.white
-        : (isLiked ? AppColors.coralAlt : AppColors.textMuted);
-    return Row(
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onLikeTap,
-          child: Row(
-            children: [
-              Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border,
-                size: 16,
-                color: likeColor,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                likeCount.toString(),
-                style: TextStyle(color: likeColor, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onCommentTap,
-          child: Row(
-            children: [
-              Icon(Icons.chat_bubble_outline, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(
-                commentCount.toString(),
-                style: TextStyle(color: color, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BottomBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: 0,
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: AppColors.navBlueDeep,
-      selectedItemColor: AppColors.textMuted,
-      unselectedItemColor: AppColors.textMuted,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.campaign_outlined),
-          label: '\u0130lan',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.rocket_launch_outlined),
-          label: 'Git',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.forum_outlined),
-          label: 'Mesajlar',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          label: 'Profil',
-        ),
-      ],
-    );
-  }
-}

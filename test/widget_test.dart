@@ -8,6 +8,6 @@ void main() {
 
   testWidgets('Login screen renders', (WidgetTester tester) async {
     await tester.pumpWidget(const SoundConnectApp());
-    expect(find.text('Giris yap'), findsOneWidget);
+    expect(find.text('Giriş yap'), findsOneWidget);
   });
 }

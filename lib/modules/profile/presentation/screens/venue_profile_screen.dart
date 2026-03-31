@@ -30,7 +30,9 @@ import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/entities/venue_active_musician.dart';
 import '../../domain/entities/venue_owner_profile.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../../data/models/venue_profile_save_request.dart';
 import '../cubit/musician_profile_cubit.dart';
@@ -49,6 +51,7 @@ import 'profile_screen_support.dart';
 import 'profile_section_support.dart';
 import 'profile_social_support.dart';
 import 'venue_weekly_calendar_editor_screen.dart';
+import 'venue_event_support.dart';
 import 'weekly_event_carousel.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -104,6 +107,9 @@ class _MusicianPublicProfileViewState
   String? _currentProfileUserId;
   bool _photoUploading = false;
   final ImagePicker _imagePicker = ImagePicker();
+  List<WeeklyCalendarEvent> _fallbackWeeklyEvents = const [];
+  String? _fallbackWeeklyEventsVenueId;
+  bool _loadingFallbackWeeklyEvents = false;
 
   Future<void> _editProfilePhoto(VenueOwnerProfile profile) async {
     setState(() => _photoUploading = true);
@@ -243,6 +249,10 @@ class _MusicianPublicProfileViewState
               (item) => VenueOption(
                 id: item['id']?.toString() ?? '',
                 name: item['name']?.toString() ?? '',
+                profilePictureUrl:
+                    item['profilePictureUrl']?.toString() ??
+                    item['profilePicture']?.toString() ??
+                    item['imageUrl']?.toString(),
                 cityId: _extractId(item, 'cityId'),
                 districtId: _extractId(item, 'districtId'),
                 neighborhoodId: _extractId(item, 'neighborhoodId'),
@@ -353,6 +363,635 @@ class _MusicianPublicProfileViewState
     String profileId,
   ) {
     return _fetchVenueConnectionsByStatus(profileId, status: 'PENDING');
+  }
+
+  Future<List<MusicianConnection>> _fetchArtistConnectionsByStatus(
+    String venueId, {
+    required String status,
+  }) async {
+    final apiClient = serviceLocator<ApiClient>();
+    return apiClient.get<List<MusicianConnection>>(
+      '/api/v1/artist-venue-connections/venue/$venueId?status=$status',
+      decoder: (json) {
+        final list = (json as List<dynamic>? ?? const []);
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (item) => MusicianConnection(
+                requestId: item['id']?.toString() ?? '',
+                musicianProfileId: item['musicianProfileId']?.toString() ?? '',
+                musicianName:
+                    item['musicianStageName']?.toString() ??
+                    item['musicianName']?.toString() ??
+                    item['performerName']?.toString() ??
+                    'Sanatci',
+              ),
+            )
+            .where(
+              (item) =>
+                  item.requestId.isNotEmpty &&
+                  item.musicianProfileId.isNotEmpty,
+            )
+            .toList();
+      },
+    );
+  }
+
+  Future<void> _editConnectedArtists(String venueId) async {
+    try {
+      final acceptedIntro =
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => const MusicianIntroScreen(),
+            ),
+          ) ??
+          false;
+      if (!acceptedIntro || !mounted) return;
+
+      final accepted = await _fetchArtistConnectionsByStatus(
+        venueId,
+        status: 'ACCEPTED',
+      );
+      final pending = await _fetchArtistConnectionsByStatus(
+        venueId,
+        status: 'PENDING',
+      );
+
+      final acceptedIds = accepted.map((item) => item.musicianProfileId).toSet();
+      final pendingIds = pending.map((item) => item.musicianProfileId).toSet();
+      final searchController = TextEditingController();
+
+      final selected = await showModalBottomSheet<MusicianRequestPayload>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppColors.navBlueDeep,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (sheetContext) {
+          String? selectedMusicianId;
+          Timer? searchDebounce;
+          var searchToken = 0;
+          var loading = false;
+          var searchError = '';
+          var query = '';
+          var results = <MusicianSearchOption>[];
+
+          Future<void> runSearch(StateSetter setSheetState, String raw) async {
+            final trimmed = raw.trim();
+            query = trimmed;
+            final token = ++searchToken;
+            if (trimmed.length < 2) {
+              setSheetState(() {
+                loading = false;
+                searchError = '';
+                results = const [];
+              });
+              return;
+            }
+            setSheetState(() {
+              loading = true;
+              searchError = '';
+            });
+            try {
+              final apiClient = serviceLocator<ApiClient>();
+              final response = await apiClient.get<List<MusicianSearchOption>>(
+                '/api/v1/public/musician-profiles/search',
+                query: {'q': trimmed},
+                decoder: (json) {
+                  final list = json is List ? json : const [];
+                  return list
+                      .whereType<Map<String, dynamic>>()
+                      .map(MusicianSearchOption.fromJson)
+                      .where((item) => item.profileId.isNotEmpty)
+                      .toList();
+                },
+              );
+              if (!sheetContext.mounted || token != searchToken) return;
+              setSheetState(() {
+                loading = false;
+                results = response;
+                if (response.isEmpty) {
+                  searchError = 'Sonuc bulunamadi.';
+                }
+              });
+            } catch (_) {
+              if (!sheetContext.mounted || token != searchToken) return;
+              setSheetState(() {
+                loading = false;
+                results = const [];
+                searchError = 'Sanatci aramasi yapilamadi.';
+              });
+            }
+          }
+
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              return AnimatedPadding(
+                duration: const Duration(milliseconds: 180),
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.84,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Center(
+                            child: Text(
+                              'Baglantili Muzisyenleri Duzenle',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: searchController,
+                            decoration: const InputDecoration(
+                              hintText: 'Muzisyen ara...',
+                              prefixIcon: Icon(Icons.search),
+                            ),
+                            onChanged: (value) {
+                              searchDebounce?.cancel();
+                              searchDebounce = Timer(
+                                const Duration(milliseconds: 280),
+                                () => runSearch(setSheetState, value),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          if (loading) const LinearProgressIndicator(),
+                          Expanded(
+                            child: results.isEmpty
+                                ? Center(
+                                    child: Text(
+                                      query.length < 2
+                                          ? 'Bir muzisyen aramak icin en az 2 karakter yaz.'
+                                          : searchError.isNotEmpty
+                                          ? searchError
+                                          : 'Sonuc bulunamadi.',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    itemCount: results.length,
+                                    itemBuilder: (context, index) {
+                                      final item = results[index];
+                                      final checked =
+                                          selectedMusicianId == item.profileId;
+                                      final isAccepted = acceptedIds.contains(
+                                        item.profileId,
+                                      );
+                                      final isPending = pendingIds.contains(
+                                        item.profileId,
+                                      );
+                                      final disabled = isAccepted || isPending;
+                                      return InkWell(
+                                        borderRadius: BorderRadius.circular(12),
+                                        onTap: () {
+                                          if (isAccepted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Bu muzisyen zaten profilinde bagli.',
+                                                ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          if (isPending) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Bu muzisyene zaten basvurdun (beklemede).',
+                                                ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          setSheetState(() {
+                                            selectedMusicianId = checked
+                                                ? null
+                                                : item.profileId;
+                                          });
+                                        },
+                                        child: Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            border: Border.all(
+                                              color: checked
+                                                  ? Colors.transparent
+                                                  : AppColors.border.withValues(
+                                                      alpha: 0.45,
+                                                    ),
+                                            ),
+                                            gradient: checked
+                                                ? const LinearGradient(
+                                                    colors: [
+                                                      Color(0x22FF7A3D),
+                                                      Color(0x22EF5F86),
+                                                      Color(0x22B85CFF),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  )
+                                                : null,
+                                            color: checked
+                                                ? null
+                                                : AppColors.inputFill,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 22,
+                                                height: 22,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  border: Border.all(
+                                                    color: checked
+                                                        ? Colors.transparent
+                                                        : AppColors.textMuted
+                                                              .withValues(
+                                                                alpha: 0.55,
+                                                              ),
+                                                  ),
+                                                  gradient: checked
+                                                      ? const LinearGradient(
+                                                          colors: [
+                                                            Color(0xFFFF7A3D),
+                                                            Color(0xFFEF5F86),
+                                                            Color(0xFFB85CFF),
+                                                          ],
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight,
+                                                        )
+                                                      : null,
+                                                ),
+                                                child: checked
+                                                    ? const Icon(
+                                                        Icons.check,
+                                                        size: 15,
+                                                        color: Colors.white,
+                                                      )
+                                                    : null,
+                                              ),
+                                              const SizedBox(width: 12),
+                                              CircleAvatar(
+                                                radius: 18,
+                                                backgroundColor:
+                                                    AppColors.navBlueSoft,
+                                                backgroundImage:
+                                                    isValidNetworkImageUrl(
+                                                          item.profilePictureUrl,
+                                                        )
+                                                        ? NetworkImage(
+                                                            item.profilePictureUrl!,
+                                                          )
+                                                        : null,
+                                                child: !isValidNetworkImageUrl(
+                                                      item.profilePictureUrl,
+                                                    )
+                                                    ? const Icon(
+                                                        Icons.person_outline,
+                                                        color: AppColors
+                                                            .textMuted,
+                                                        size: 18,
+                                                      )
+                                                    : null,
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      item.displayName,
+                                                      style: TextStyle(
+                                                        color: AppColors
+                                                            .textPrimary
+                                                            .withValues(
+                                                              alpha: disabled
+                                                                  ? 0.55
+                                                                  : 1,
+                                                            ),
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    if (item.secondaryLabel !=
+                                                        null) ...[
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        item.secondaryLabel!,
+                                                        style: const TextStyle(
+                                                          color: AppColors
+                                                              .textMuted,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                              if (disabled) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.inputFill,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: AppColors.border
+                                                          .withValues(
+                                                            alpha: 0.5,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    isPending
+                                                        ? 'Beklemede'
+                                                        : 'Bagli',
+                                                    style: const TextStyle(
+                                                      color:
+                                                          AppColors.textMuted,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () =>
+                                      Navigator.of(sheetContext).pop(),
+                                  child: const Text('Iptal'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    if (selectedMusicianId == null) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Lutfen bir muzisyen sec.',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    var noteDraft = '';
+                                    final message = await showDialog<String>(
+                                      context: context,
+                                      useRootNavigator: true,
+                                      barrierDismissible: true,
+                                      barrierColor: Colors.black.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      builder: (dialogContext) {
+                                        return BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 8,
+                                            sigmaY: 8,
+                                          ),
+                                          child: Dialog(
+                                            backgroundColor:
+                                                AppColors.navBlueDeep,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                    16,
+                                                    16,
+                                                    16,
+                                                    14,
+                                                  ),
+                                              child: SingleChildScrollView(
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'Basvuru Notu (Opsiyonel)',
+                                                      style: TextStyle(
+                                                        color: AppColors
+                                                            .textPrimary,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    TextField(
+                                                      minLines: 3,
+                                                      maxLines: 5,
+                                                      onChanged: (value) {
+                                                        noteDraft = value;
+                                                      },
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            hintText:
+                                                                'Istersen kisa bir not ekleyebilirsin (zorunlu degil).',
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: OutlinedButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                  dialogContext,
+                                                                ).pop(),
+                                                            child: const Text(
+                                                              'Vazgec',
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 10,
+                                                        ),
+                                                        Expanded(
+                                                          child: ElevatedButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                  dialogContext,
+                                                                ).pop(
+                                                                  noteDraft
+                                                                      .trim(),
+                                                                ),
+                                                            child: const Text(
+                                                              'Gonder',
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                    if (message == null) return;
+                                    await Future<void>.delayed(
+                                      const Duration(milliseconds: 16),
+                                    );
+                                    if (!mounted) return;
+                                    Navigator.of(sheetContext).pop(
+                                      MusicianRequestPayload(
+                                        musicianProfileId: selectedMusicianId!,
+                                        message: message,
+                                      ),
+                                    );
+                                  },
+                                  child: const Text('Devam'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+
+      if (selected == null) return;
+
+      final apiClient = serviceLocator<ApiClient>();
+      await apiClient.post<Object>(
+        '/api/v1/artist-venue-connections/request?requestByType=VENUE',
+        body: {
+          'musicianProfileId': selected.musicianProfileId,
+          'venueId': venueId,
+          'message': selected.message,
+        },
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sanatci baglanti istegi gonderildi.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sanatci baglantisi guncellenemedi: $e')),
+      );
+    }
+  }
+
+  Future<void> _ensureFallbackWeeklyEvents(VenueOwnerProfile profile) async {
+    final venueId = profile.venueId.trim();
+    if (venueId.isEmpty) return;
+    if (profile.weeklyEvents.isNotEmpty) {
+      if (_fallbackWeeklyEvents.isNotEmpty ||
+          _fallbackWeeklyEventsVenueId != null) {
+        setState(() {
+          _fallbackWeeklyEvents = const [];
+          _fallbackWeeklyEventsVenueId = null;
+        });
+      }
+      return;
+    }
+    if (_loadingFallbackWeeklyEvents &&
+        _fallbackWeeklyEventsVenueId == venueId) {
+      return;
+    }
+    if (_fallbackWeeklyEventsVenueId == venueId &&
+        _fallbackWeeklyEvents.isNotEmpty) {
+      return;
+    }
+
+    _loadingFallbackWeeklyEvents = true;
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final items = await apiClient.get<List<VenueOwnerEventItem>>(
+        '/api/v1/venue-owner/events/venue/$venueId',
+        decoder: (json) {
+          final list = json is List ? json : const [];
+          return list
+              .whereType<Map<String, dynamic>>()
+              .map(VenueOwnerEventItem.fromJson)
+              .toList();
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _fallbackWeeklyEvents = items
+            .map((item) => _toWeeklyCalendarEvent(profile, item))
+            .toList();
+        _fallbackWeeklyEventsVenueId = venueId;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _fallbackWeeklyEvents = const [];
+        _fallbackWeeklyEventsVenueId = venueId;
+      });
+    } finally {
+      _loadingFallbackWeeklyEvents = false;
+    }
   }
 
   Future<void> _editVenues(String profileId) async {
@@ -1171,7 +1810,16 @@ class _MusicianPublicProfileViewState
           );
         }
         final profile = _toDisplayProfile(ownerProfile);
-        final weeklyEvents = _toWeeklyCalendarEvents(ownerProfile);
+        final primaryWeeklyEvents = _toWeeklyCalendarEvents(ownerProfile);
+        if (primaryWeeklyEvents.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _ensureFallbackWeeklyEvents(ownerProfile);
+          });
+        }
+        final weeklyEvents = primaryWeeklyEvents.isNotEmpty
+            ? primaryWeeklyEvents
+            : _fallbackWeeklyEvents;
         _currentProfileUserId = ownerProfile.ownerUserId;
         _loadCoordinator.scheduleMediaLoad(
           context,
@@ -1217,14 +1865,12 @@ class _MusicianPublicProfileViewState
                   ? null
                   : followState.followingCount;
               final actionState = context.watch<FollowActionCubit>().state;
-              return _MusicianPublicProfileContent(
-                profile: profile,
-                media: media,
+	              return _MusicianPublicProfileContent(
+	                profile: profile,
+	                media: media,
                 followersCount: followersCount,
                 followingCount: followingCount,
-                activeVenues: ownerProfile.activeMusicians
-                    .map((item) => item.displayName)
-                    .toList(),
+                activeVenues: ownerProfile.activeMusicians,
                 viewerUserId: '',
                 isFollowing: actionState.isFollowing,
                 followLoading: actionState.status == FollowActionStatus.loading,
@@ -1241,7 +1887,7 @@ class _MusicianPublicProfileViewState
                 onEditProfilePressed: _onEditProfilePressed,
                 venueEditable: false,
                 onEditVenues: null,
-                onEditEvents: null,
+                onEditEvents: () => _editConnectedArtists(ownerProfile.venueId),
                 weeklyEvents: weeklyEvents,
               );
             },
@@ -1304,6 +1950,36 @@ class _MusicianPublicProfileViewState
         .toList();
   }
 
+  WeeklyCalendarEvent _toWeeklyCalendarEvent(
+    VenueOwnerProfile profile,
+    VenueOwnerEventItem item,
+  ) {
+    return WeeklyCalendarEvent(
+      id: item.id,
+      title: item.title,
+      artistName: item.performerName.trim().isEmpty
+          ? 'Sanatci'
+          : item.performerName,
+      artistProfileId: item.musicianProfileId,
+      venueName: profile.venueName,
+      venueId: profile.venueId,
+      city: profile.cityName ?? '',
+      district: profile.districtName ?? '',
+      neighborhood: profile.neighborhoodName ?? '',
+      eventDate: _formatDate(item.eventDate),
+      startTime: formatVenueDisplayTime(item.startTime),
+      endTime: item.endTime == null || item.endTime!.trim().isEmpty
+          ? '-'
+          : formatVenueDisplayTime(item.endTime!),
+      imageAssetPath: item.posterImage?.trim().isEmpty == true
+          ? null
+          : item.posterImage?.trim(),
+      description: item.description?.trim().isNotEmpty == true
+          ? item.description!.trim()
+          : '${item.performerName.trim().isEmpty ? 'Sanatci' : item.performerName} performansi',
+    );
+  }
+
   String _formatDate(DateTime? value) {
     if (value == null) return '-';
     return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
@@ -1315,7 +1991,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final ProfileMedia? media;
   final int? followersCount;
   final int? followingCount;
-  final List<String>? activeVenues;
+  final List<VenueActiveMusician>? activeVenues;
   final String viewerUserId;
   final bool isFollowing;
   final bool followLoading;
@@ -1332,7 +2008,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final VoidCallback? onEditProfilePressed;
   final bool venueEditable;
   final VoidCallback? onEditVenues;
-  final VoidCallback? onEditEvents;
+  final Future<void> Function()? onEditEvents;
   final List<WeeklyCalendarEvent> weeklyEvents;
 
   const _MusicianPublicProfileContent({
@@ -1361,11 +2037,21 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.weeklyEvents,
   });
 
-  List<String> _resolveVenues() {
+  List<VenueActiveMusician> _resolveVenues() {
     if (activeVenues != null && activeVenues!.isNotEmpty) {
       return activeVenues!;
     }
-    if (profile.activeVenues.isNotEmpty) return profile.activeVenues;
+    if (profile.activeVenues.isNotEmpty) {
+      return profile.activeVenues
+          .map(
+            (item) => VenueActiveMusician(
+              musicianProfileId: '',
+              displayName: item,
+              profileImageUrl: null,
+            ),
+          )
+          .toList();
+    }
     return const [];
   }
 
@@ -1478,6 +2164,9 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 ),
               ),
             );
+          },
+          openConnectedArtists: (_) async {
+            await onEditEvents?.call();
           },
         ),
       ),
@@ -1622,7 +2311,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 actionLabel: venueEditable ? 'Düzenle' : 'Tümü',
                 actionOnTap: venueEditable ? onEditVenues : null,
               ),
-              _VenueCarousel(
+              _ActiveMusicianCarousel(
                 items: _resolveVenues(),
                 editable: venueEditable,
                 onAddTap: onEditVenues,
@@ -1968,12 +2657,12 @@ class _FollowerRow extends StatelessWidget {
   }
 }
 
-class _VenueCarousel extends StatelessWidget {
-  final List<String> items;
+class _ActiveMusicianCarousel extends StatelessWidget {
+  final List<VenueActiveMusician> items;
   final bool editable;
   final VoidCallback? onAddTap;
 
-  const _VenueCarousel({
+  const _ActiveMusicianCarousel({
     required this.items,
     this.editable = false,
     this.onAddTap,
@@ -2010,70 +2699,89 @@ class _VenueCarousel extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
-          final name = items[index];
-          return Container(
-            width: 160,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.inputFill, AppColors.navBlueSoft],
+          final musician = items[index];
+          final imageUrl = musician.profileImageUrl?.trim();
+          final hasImage =
+              imageUrl != null &&
+              (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'));
+          return InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: musician.musicianProfileId.trim().isEmpty
+                ? null
+                : () {
+                    Navigator.of(context).pushNamed(
+                      AppRoutes.musicianPublicProfile,
+                      arguments: {'profileId': musician.musicianProfileId},
+                    );
+                  },
+            child: Container(
+              width: 170,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppColors.border),
               ),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: AppColors.navBlueSoft,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.white.withValues(alpha: 0.08),
-                        blurRadius: 6,
-                        spreadRadius: 0.5,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.storefront_outlined,
-                    color: AppColors.coralAlt,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GradientText(
-                        text: name,
-                        gradient: const LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: AppColors.brandGradient,
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.navBlueSoft,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.white.withValues(alpha: 0.08),
+                          blurRadius: 6,
+                          spreadRadius: 0.5,
                         ),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: hasImage
+                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          : const Icon(
+                              Icons.person_outline,
+                              color: AppColors.coralAlt,
+                              size: 20,
+                            ),
+                    ),
                   ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textMuted,
-                  size: 18,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GradientText(
+                          text: musician.displayName,
+                          gradient: const LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: AppColors.brandGradient,
+                          ),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textMuted,
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           );
         },

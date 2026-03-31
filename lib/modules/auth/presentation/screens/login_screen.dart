@@ -108,8 +108,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
               const SizedBox(height: 18),
-              ElevatedButton(
-                onPressed: isLoading
+              InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: isLoading
                     ? null
                     : () {
                         final username = _usernameController.text.trim();
@@ -143,7 +144,39 @@ class _LoginScreenState extends State<LoginScreen> {
                               password: password,
                             );
                       },
-                child: Text(isLoading ? 'Giriş yapılıyor...' : 'Giriş yap'),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isLoading
+                          ? [
+                              AppColors.border.withValues(alpha: 0.7),
+                              AppColors.border.withValues(alpha: 0.7),
+                            ]
+                          : AppColors.brandGradient,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.navBlueDeep,
+                        borderRadius: BorderRadius.circular(17),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        isLoading ? 'Giriş yapılıyor...' : 'Giriş yap',
+                        style: TextStyle(
+                          color: isLoading
+                              ? AppColors.textMuted
+                              : AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 18),
               Row(

@@ -232,6 +232,10 @@ class _MusicianPublicProfileViewState
               (item) => VenueOption(
                 id: item['id']?.toString() ?? '',
                 name: item['name']?.toString() ?? '',
+                profilePictureUrl:
+                    item['profilePictureUrl']?.toString() ??
+                    item['profilePicture']?.toString() ??
+                    item['imageUrl']?.toString(),
                 cityId: _extractId(item, 'cityId'),
                 districtId: _extractId(item, 'districtId'),
                 neighborhoodId: _extractId(item, 'neighborhoodId'),
@@ -870,6 +874,32 @@ class _MusicianPublicProfileViewState
                                                         Icons.check,
                                                         size: 15,
                                                         color: Colors.white,
+                                                      )
+                                                    : null,
+                                              ),
+                                              const SizedBox(width: 12),
+                                              CircleAvatar(
+                                                radius: 18,
+                                                backgroundColor:
+                                                    AppColors.navBlueSoft,
+                                                backgroundImage:
+                                                    isValidNetworkImageUrl(
+                                                          venue
+                                                              .profilePictureUrl,
+                                                        )
+                                                        ? NetworkImage(
+                                                            venue
+                                                                .profilePictureUrl!,
+                                                          )
+                                                        : null,
+                                                child: !isValidNetworkImageUrl(
+                                                      venue.profilePictureUrl,
+                                                    )
+                                                    ? const Icon(
+                                                        Icons.storefront_outlined,
+                                                        color: AppColors
+                                                            .textMuted,
+                                                        size: 18,
                                                       )
                                                     : null,
                                               ),

@@ -5,6 +5,7 @@ import '../../../../shared/theme/app_colors.dart';
 class VenueOption {
   final String id;
   final String name;
+  final String? profilePictureUrl;
   final String? cityId;
   final String? districtId;
   final String? neighborhoodId;
@@ -15,6 +16,7 @@ class VenueOption {
   const VenueOption({
     required this.id,
     required this.name,
+    this.profilePictureUrl,
     this.cityId,
     this.districtId,
     this.neighborhoodId,
@@ -48,6 +50,28 @@ class VenueRequestPayload {
   final String message;
 
   const VenueRequestPayload({required this.venueId, required this.message});
+}
+
+class MusicianConnection {
+  final String requestId;
+  final String musicianProfileId;
+  final String musicianName;
+
+  const MusicianConnection({
+    required this.requestId,
+    required this.musicianProfileId,
+    required this.musicianName,
+  });
+}
+
+class MusicianRequestPayload {
+  final String musicianProfileId;
+  final String message;
+
+  const MusicianRequestPayload({
+    required this.musicianProfileId,
+    required this.message,
+  });
 }
 
 class VenueIntroScreen extends StatelessWidget {
@@ -129,6 +153,95 @@ class VenueIntroScreen extends StatelessWidget {
                     ),
                   ),
                   child: const Text('Anladım, Devam Et'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MusicianIntroScreen extends StatelessWidget {
+  const MusicianIntroScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.navBlueDeep,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Muzisyen Baglanti Sureci',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 30,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Devam etmeden once kisa bilgi',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _VenueIntroStep(
+                        icon: Icons.send_outlined,
+                        title: 'Istek Gonder',
+                        text:
+                            'Mekaninda sahne alabilecek muzisyenlere buradan baglanti istegi gonderebilirsin. Istek gonderdiginde ilgili muzisyene bir bildirim iletilir.',
+                      ),
+                      SizedBox(height: 22),
+                      _VenueIntroStep(
+                        icon: Icons.hourglass_top_rounded,
+                        title: 'Onay Bekle',
+                        text:
+                            'Muzisyen baglanti istegini onaylayabilir veya reddedebilir. Onaylandiginda baglantiniz kurulacak ve hem senin profilinde hem de muzisyenin profilinde gorunur hale gelecektir.',
+                      ),
+                      SizedBox(height: 22),
+                      _VenueIntroStep(
+                        icon: Icons.settings_outlined,
+                        title: 'Durumu Takip Et',
+                        text:
+                            'Gonderdigin baglanti isteklerinin durumunu istedigin zaman Ayarlar -> Basvurularim bolumunden goruntuleyebilir ve surecin hangi asamada oldugunu takip edebilirsin.',
+                        showInlineSettingsIcon: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.coralAlt,
+                    foregroundColor: AppColors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 17),
+                    textStyle: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Anladim, Devam Et'),
                 ),
               ),
             ],

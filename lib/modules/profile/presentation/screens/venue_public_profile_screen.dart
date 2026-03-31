@@ -7,6 +7,8 @@ import 'package:audio_service/audio_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/audio/audio_player_handler.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
@@ -21,6 +23,7 @@ import '../../../../shared/widgets/waveform_stub.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/entities/venue_active_musician.dart';
 import '../../domain/entities/venue_public_profile.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/profile_media_cubit.dart';
@@ -32,6 +35,7 @@ import 'profile_count_row.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_public_video_tab.dart';
 import 'profile_screen_support.dart';
+import 'venue_event_support.dart';
 import 'weekly_event_carousel.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -84,6 +88,9 @@ class _MusicianPublicProfileViewState
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
   String? _currentProfileUserId;
+  List<WeeklyCalendarEvent> _fallbackWeeklyEvents = const [];
+  String? _fallbackWeeklyEventsVenueId;
+  bool _loadingFallbackWeeklyEvents = false;
 
   @override
   void didChangeDependencies() {
@@ -111,6 +118,59 @@ class _MusicianPublicProfileViewState
     }
   }
 
+  Future<void> _ensureFallbackWeeklyEvents(VenuePublicProfile profile) async {
+    final venueId = profile.venueId.trim();
+    if (venueId.isEmpty) return;
+    if (profile.weeklyEvents.isNotEmpty) {
+      if (_fallbackWeeklyEvents.isNotEmpty ||
+          _fallbackWeeklyEventsVenueId != null) {
+        setState(() {
+          _fallbackWeeklyEvents = const [];
+          _fallbackWeeklyEventsVenueId = null;
+        });
+      }
+      return;
+    }
+    if (_loadingFallbackWeeklyEvents &&
+        _fallbackWeeklyEventsVenueId == venueId) {
+      return;
+    }
+    if (_fallbackWeeklyEventsVenueId == venueId &&
+        _fallbackWeeklyEvents.isNotEmpty) {
+      return;
+    }
+
+    _loadingFallbackWeeklyEvents = true;
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final items = await apiClient.get<List<VenueOwnerEventItem>>(
+        '/api/v1/venue-owner/events/venue/$venueId',
+        decoder: (json) {
+          final list = json is List ? json : const [];
+          return list
+              .whereType<Map<String, dynamic>>()
+              .map(VenueOwnerEventItem.fromJson)
+              .toList();
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _fallbackWeeklyEvents = items
+            .map((item) => _toWeeklyCalendarEvent(profile, item))
+            .toList();
+        _fallbackWeeklyEventsVenueId = venueId;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _fallbackWeeklyEvents = const [];
+        _fallbackWeeklyEventsVenueId = venueId;
+      });
+    } finally {
+      _loadingFallbackWeeklyEvents = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<VenueProfileCubit, VenueProfileState>(
@@ -132,7 +192,16 @@ class _MusicianPublicProfileViewState
           );
         }
         final profile = _toDisplayProfile(publicProfile);
-        final weeklyEvents = _toWeeklyCalendarEvents(publicProfile);
+        final primaryWeeklyEvents = _toWeeklyCalendarEvents(publicProfile);
+        if (primaryWeeklyEvents.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _ensureFallbackWeeklyEvents(publicProfile);
+          });
+        }
+        final weeklyEvents = primaryWeeklyEvents.isNotEmpty
+            ? primaryWeeklyEvents
+            : _fallbackWeeklyEvents;
         _currentProfileUserId = publicProfile.ownerUserId;
         _loadCoordinator.scheduleMediaLoad(
           context,
@@ -178,14 +247,12 @@ class _MusicianPublicProfileViewState
                   ? null
                   : followState.followingCount;
               final actionState = context.watch<FollowActionCubit>().state;
-              return _MusicianPublicProfileContent(
-                profile: profile,
-                media: media,
+	              return _MusicianPublicProfileContent(
+	                profile: profile,
+	                media: media,
                 followersCount: followersCount,
                 followingCount: followingCount,
-                activeVenues: publicProfile.activeMusicians
-                    .map((item) => item.displayName)
-                    .toList(),
+                activeVenues: publicProfile.activeMusicians,
                 viewerUserId: viewerUserId,
                 isFollowing: actionState.isFollowing,
                 followLoading: actionState.status == FollowActionStatus.loading,
@@ -255,6 +322,36 @@ class _MusicianPublicProfileViewState
         .toList();
   }
 
+  WeeklyCalendarEvent _toWeeklyCalendarEvent(
+    VenuePublicProfile profile,
+    VenueOwnerEventItem item,
+  ) {
+    return WeeklyCalendarEvent(
+      id: item.id,
+      title: item.title,
+      artistName: item.performerName.trim().isEmpty
+          ? 'Sanatci'
+          : item.performerName,
+      artistProfileId: item.musicianProfileId,
+      venueName: profile.venueName,
+      venueId: profile.venueId,
+      city: profile.cityName ?? '',
+      district: profile.districtName ?? '',
+      neighborhood: profile.neighborhoodName ?? '',
+      eventDate: formatVenueEventDate(item.eventDate),
+      startTime: formatVenueDisplayTime(item.startTime),
+      endTime: item.endTime == null || item.endTime!.trim().isEmpty
+          ? '-'
+          : formatVenueDisplayTime(item.endTime!),
+      imageAssetPath: item.posterImage?.trim().isEmpty == true
+          ? null
+          : item.posterImage?.trim(),
+      description: item.description?.trim().isNotEmpty == true
+          ? item.description!.trim()
+          : 'Etkinlik detaylari yakinda eklenecek.',
+    );
+  }
+
   String _formatDate(DateTime? value) {
     if (value == null) return '-';
     return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
@@ -266,7 +363,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final ProfileMedia? media;
   final int? followersCount;
   final int? followingCount;
-  final List<String>? activeVenues;
+  final List<VenueActiveMusician>? activeVenues;
   final String viewerUserId;
   final bool isFollowing;
   final bool followLoading;
@@ -288,11 +385,21 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.weeklyEvents,
   });
 
-  List<String> _resolveVenues() {
+  List<VenueActiveMusician> _resolveVenues() {
     if (activeVenues != null && activeVenues!.isNotEmpty) {
       return activeVenues!;
     }
-    if (profile.activeVenues.isNotEmpty) return profile.activeVenues;
+    if (profile.activeVenues.isNotEmpty) {
+      return profile.activeVenues
+          .map(
+            (item) => VenueActiveMusician(
+              musicianProfileId: '',
+              displayName: item,
+              profileImageUrl: null,
+            ),
+          )
+          .toList();
+    }
     return const [];
   }
 
@@ -377,7 +484,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 title: 'Aktif Sanatcilar',
                 actionLabel: 'Tumu',
               ),
-              _VenueCarousel(items: _resolveVenues()),
+              _ActiveMusicianCarousel(items: _resolveVenues()),
               const SizedBox(height: 12),
               _MediaTabs(),
               _MediaContent(
@@ -826,10 +933,10 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _VenueCarousel extends StatelessWidget {
-  final List<String> items;
+class _ActiveMusicianCarousel extends StatelessWidget {
+  final List<VenueActiveMusician> items;
 
-  const _VenueCarousel({required this.items});
+  const _ActiveMusicianCarousel({required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -849,70 +956,89 @@ class _VenueCarousel extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
-          final name = items[index];
-          return Container(
-            width: 160,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.inputFill, AppColors.navBlueSoft],
+          final musician = items[index];
+          final imageUrl = musician.profileImageUrl?.trim();
+          final hasImage =
+              imageUrl != null &&
+              (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'));
+          return InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: musician.musicianProfileId.trim().isEmpty
+                ? null
+                : () {
+                    Navigator.of(context).pushNamed(
+                      AppRoutes.musicianPublicProfile,
+                      arguments: {'profileId': musician.musicianProfileId},
+                    );
+                  },
+            child: Container(
+              width: 170,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppColors.border),
               ),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: AppColors.navBlueSoft,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.white.withValues(alpha: 0.08),
-                        blurRadius: 6,
-                        spreadRadius: 0.5,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.storefront_outlined,
-                    color: AppColors.coralAlt,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GradientText(
-                        text: name,
-                        gradient: const LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: AppColors.brandGradient,
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.navBlueSoft,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.white.withValues(alpha: 0.08),
+                          blurRadius: 6,
+                          spreadRadius: 0.5,
                         ),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: hasImage
+                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          : const Icon(
+                              Icons.person_outline,
+                              color: AppColors.coralAlt,
+                              size: 20,
+                            ),
+                    ),
                   ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textMuted,
-                  size: 18,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GradientText(
+                          text: musician.displayName,
+                          gradient: const LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: AppColors.brandGradient,
+                          ),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textMuted,
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           );
         },

@@ -453,7 +453,7 @@ class _FollowerRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _PillBadge(text: _formatCount(followersCount, 'Takipci')),
+        _PillBadge(text: _formatCount(followersCount, 'Takipçi')),
         const SizedBox(width: 12),
         _PillBadge(text: _formatCount(followingCount, 'Takip')),
       ],
@@ -1083,7 +1083,7 @@ class _AudioTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Sanat?inin Spotify Katalogu ',
+                  'Sanatçının Spotify Kataloğu ',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -1228,7 +1228,7 @@ class _AudioTab extends StatelessWidget {
                       backgroundColor: const Color(0xFF1DB954),
                       foregroundColor: Colors.white,
                     ),
-                    label: const Text('Spotify Katalogu'),
+                    label: const Text('Spotify Kataloğu'),
                   ),
                 ),
                 const SizedBox(height: 16),

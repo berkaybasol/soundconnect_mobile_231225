@@ -1,5 +1,6 @@
 class MediaAsset {
   final String id;
+  final String? kind;
   final String? sourceUrl;
   final String? playbackUrl;
   final String? thumbnailUrl;
@@ -8,6 +9,7 @@ class MediaAsset {
 
   const MediaAsset({
     required this.id,
+    required this.kind,
     required this.sourceUrl,
     required this.playbackUrl,
     required this.thumbnailUrl,

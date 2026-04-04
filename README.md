@@ -1,16 +1,65 @@
-# soundconnect_23_12_25codx
+# SoundConnect Mobile
 
-A new Flutter project.
+Flutter mobile client for SoundConnect. The current product surface is centered
+on musician and venue profile flows, media publishing, Spotify track linking,
+engagement actions, and auth/onboarding.
 
-## Getting Started
+## Stack
 
-This project is a starting point for a Flutter application.
+- Flutter
+- flutter_bloc
+- get_it
+- dio
+- audio_service + just_audio
+- better_player_plus
 
-A few resources to get you started if this is your first Flutter project:
+## Project Structure
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```text
+lib/
+  app/        App bootstrap, shell, router
+  core/       Network, auth, DI, audio, shared primitives
+  modules/    Feature modules such as auth, profile, follow, engagement
+  shared/     Theme and reusable UI widgets
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Main Feature Areas
+
+- `auth`: login, register, OTP verify, venue application
+- `profile`: musician and venue owner/public profile experiences
+- `artist_venue`: venue-musician connection flows
+- `follow`: follow state and follow/unfollow actions
+- `engagement`: likes and comments
+- `spotify`: track search and preview data
+- `location`, `instrument`: lookup data used by forms and filters
+
+## Run Locally
+
+1. Install Flutter and platform toolchains.
+2. Fetch dependencies:
+
+```bash
+flutter pub get
+```
+
+3. Start the app with an explicit backend URL when needed:
+
+```bash
+flutter run --dart-define=SOUNDCONNECT_BASE_URL=http://localhost:8080
+```
+
+If `SOUNDCONNECT_BASE_URL` is not provided, the app falls back to the local
+development default defined in `lib/core/network/network_config.dart`.
+
+## Quality Checks
+
+```bash
+flutter analyze
+flutter test
+```
+
+## Current Technical Notes
+
+- The largest maintenance surface is `lib/modules/profile/presentation/screens`.
+- Dependency wiring is centralized in `lib/core/di/service_locator.dart`.
+- API access is funneled through `lib/core/network/dio_api_client.dart`.

@@ -77,6 +77,11 @@ flutter:
     - assets/logo.png
     - assets/google.png
     - assets/fish.png
+    - assets/buraya bakarlar.png
+    - assets/buraya bakarlar v3.png
+    - assets/buraya_bakarlar_1240x400.png
+    - assets/buraya_bakarlar_1500x450.png
+    - assets/buraya_bakarlar_1500x450_v2.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -6,6 +6,9 @@ import '../../modules/auth/presentation/screens/venue_application_screen.dart';
 import '../../modules/auth/presentation/screens/venue_pending_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
+import '../../modules/profile/presentation/screens/create_band_screen.dart';
+import '../../modules/profile/presentation/screens/band_profile_screen.dart';
+import '../../modules/profile/presentation/screens/my_bands_screen.dart';
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
 import '../app_shell.dart';
@@ -44,6 +47,21 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const MusicianProfileScreen(),
+        );
+      case AppRoutes.myBands:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const MyBandsScreen(),
+        );
+      case AppRoutes.createBand:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const CreateBandScreen(),
+        );
+      case AppRoutes.bandProfile:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const BandProfileScreen(),
         );
       case AppRoutes.musicianPublicProfile:
         return MaterialPageRoute(

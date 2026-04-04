@@ -215,7 +215,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                         if (!_isValidCode(code)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('kod 6 haneli olmalı'),
+                              content: Text('Kod 6 haneli olmalı'),
                             ),
                           );
                           return;

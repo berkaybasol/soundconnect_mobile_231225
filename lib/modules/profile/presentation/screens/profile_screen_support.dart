@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
@@ -8,10 +7,12 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/network/api_client.dart';
+export '../../domain/entities/profile_upload_result.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
 import '../../../follow/presentation/cubit/follow_count_cubit.dart';
+import '../../domain/entities/profile_upload_result.dart';
+import '../../domain/profile_media_upload_repository.dart';
 import '../cubit/profile_media_cubit.dart';
 
 enum ProfileMediaOwnerType {
@@ -47,69 +48,12 @@ String fileNameFromPath(String path, {required String fallback}) {
   return name.isEmpty ? fallback : name;
 }
 
-class ProfilePhotoUploadResult {
-  final String assetId;
-  final String? sourceUrl;
-  final String? playbackUrl;
-
-  const ProfilePhotoUploadResult({
-    required this.assetId,
-    required this.sourceUrl,
-    required this.playbackUrl,
-  });
-
-  String? get preferredUrl {
-    final source = sourceUrl?.trim();
-    if (source != null && source.isNotEmpty) return source;
-    final playback = playbackUrl?.trim();
-    if (playback != null && playback.isNotEmpty) return playback;
-    return null;
-  }
-}
-
-class ProfileUploadInitResult {
-  final String assetId;
-  final String uploadUrl;
-
-  const ProfileUploadInitResult({
-    required this.assetId,
-    required this.uploadUrl,
-  });
-
-  factory ProfileUploadInitResult.fromJson(Map<String, dynamic> json) {
-    return ProfileUploadInitResult(
-      assetId: json['assetId']?.toString() ?? '',
-      uploadUrl: json['uploadUrl']?.toString() ?? '',
-    );
-  }
-}
-
-class ProfileUploadedMedia {
-  final String uuid;
-  final String? sourceUrl;
-  final String? playbackUrl;
-
-  const ProfileUploadedMedia({
-    required this.uuid,
-    required this.sourceUrl,
-    required this.playbackUrl,
-  });
-
-  factory ProfileUploadedMedia.fromJson(Map<String, dynamic> json) {
-    return ProfileUploadedMedia(
-      uuid: json['uuid']?.toString() ?? '',
-      sourceUrl: json['sourceUrl']?.toString(),
-      playbackUrl: json['playbackUrl']?.toString(),
-    );
-  }
-}
-
 Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   required BuildContext context,
   required ImagePicker imagePicker,
   required String ownerType,
   required String ownerId,
-  String cropTitle = 'Profil fotografini kirp',
+  String cropTitle = 'Profil fotoğrafını kırp',
   Color cropToolbarColor = const Color(0xFF0B1321),
   Color cropAccentColor = const Color(0xFFF47C7C),
 }) async {
@@ -151,40 +95,22 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   final bytes = await File(cropped.path).readAsBytes();
   if (bytes.isEmpty) return null;
 
-  final apiClient = serviceLocator<ApiClient>();
+  final repository = serviceLocator<ProfileMediaUploadRepository>();
   final fileName = fileNameFromPath(cropped.path, fallback: picked.name);
   final mimeType = inferImageMimeType(fileName);
 
-  final initResult = await apiClient.post<ProfileUploadInitResult>(
-    '/api/v1/user/media/init-upload',
-    body: {
-      'ownerType': ownerType,
-      'ownerId': ownerId,
-      'kind': 'IMAGE',
-      'visibility': 'PUBLIC',
-      'mimeType': mimeType,
-      'sizeBytes': bytes.length,
-      'originalFileName': fileName,
-    },
-    decoder: (json) =>
-        ProfileUploadInitResult.fromJson(json as Map<String, dynamic>),
+  final result = await repository.uploadAsset(
+    bytes: bytes,
+    ownerType: ownerType,
+    ownerId: ownerId,
+    mediaKind: 'IMAGE',
+    mimeType: mimeType,
+    originalFileName: fileName,
   );
-
-  await Dio().put(
-    initResult.uploadUrl,
-    data: bytes,
-    options: Options(
-      headers: {'Content-Type': mimeType},
-      contentType: mimeType,
-    ),
-  );
-
-  final completed = await apiClient.post<ProfileUploadedMedia>(
-    '/api/v1/user/media/complete-upload',
-    body: {'assetId': initResult.assetId},
-    decoder: (json) =>
-        ProfileUploadedMedia.fromJson(json as Map<String, dynamic>),
-  );
+  if (!result.isSuccess || result.data == null) {
+    throw Exception(result.error?.message ?? 'Medya yüklenemedi');
+  }
+  final completed = result.data!;
 
   final assetId = completed.uuid.trim();
   if (assetId.isEmpty) {
@@ -210,37 +136,19 @@ Future<ProfileUploadedMedia> uploadProfileMediaAsset({
     throw Exception('Yuklenecek dosya bos olamaz');
   }
 
-  final apiClient = serviceLocator<ApiClient>();
-  final initResult = await apiClient.post<ProfileUploadInitResult>(
-    '/api/v1/user/media/init-upload',
-    body: {
-      'ownerType': ownerType,
-      'ownerId': ownerId,
-      'kind': mediaKind,
-      'visibility': 'PUBLIC',
-      'mimeType': mimeType,
-      'sizeBytes': bytes.length,
-      'originalFileName': originalFileName,
-    },
-    decoder: (json) =>
-        ProfileUploadInitResult.fromJson(json as Map<String, dynamic>),
+  final repository = serviceLocator<ProfileMediaUploadRepository>();
+  final result = await repository.uploadAsset(
+    bytes: bytes,
+    ownerType: ownerType,
+    ownerId: ownerId,
+    mediaKind: mediaKind,
+    mimeType: mimeType,
+    originalFileName: originalFileName,
   );
-
-  await Dio().put(
-    initResult.uploadUrl,
-    data: bytes,
-    options: Options(
-      headers: {'Content-Type': mimeType},
-      contentType: mimeType,
-    ),
-  );
-
-  return apiClient.post<ProfileUploadedMedia>(
-    '/api/v1/user/media/complete-upload',
-    body: {'assetId': initResult.assetId},
-    decoder: (json) =>
-        ProfileUploadedMedia.fromJson(json as Map<String, dynamic>),
-  );
+  if (!result.isSuccess || result.data == null) {
+    throw Exception(result.error?.message ?? 'Medya yüklenemedi');
+  }
+  return result.data!;
 }
 
 class ProfileScreenLoadCoordinator {

@@ -30,6 +30,8 @@ abstract class EngagementRepository {
     int size = 20,
   });
 
+  Future<Result<List<CommentItem>>> listReplies(String commentId);
+
   Future<Result<CommentItem>> createComment({
     required String targetType,
     required String targetId,

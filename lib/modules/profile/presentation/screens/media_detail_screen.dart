@@ -16,7 +16,9 @@ import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 class MediaDetailScreen extends StatefulWidget {
   final String title;
   final bool isVideo;
+  final bool isImage;
   final String? playbackUrl;
+  final String? imageUrl;
   final String? thumbnailUrl;
   final int? durationSeconds;
   final String? targetType;
@@ -29,7 +31,9 @@ class MediaDetailScreen extends StatefulWidget {
     super.key,
     required this.title,
     required this.isVideo,
+    this.isImage = false,
     this.playbackUrl,
+    this.imageUrl,
     this.thumbnailUrl,
     this.durationSeconds,
     this.targetType,
@@ -182,7 +186,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
     if (createdAt == null) return '-';
     final now = DateTime.now();
     final diff = now.difference(createdAt);
-    if (diff.inMinutes < 1) return 'simdi';
+    if (diff.inMinutes < 1) return 'şimdi';
     if (diff.inHours < 1) return '${diff.inMinutes}dk';
     if (diff.inDays < 1) return '${diff.inHours}s';
     return '${diff.inDays}g';
@@ -264,6 +268,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                   ready: _videoReady,
                   errorText: _videoError,
                 )
+              else if (widget.isImage)
+                _ImageHero(imageUrl: widget.imageUrl)
               else
                 _AudioHero(
                   title: widget.title,
@@ -579,6 +585,49 @@ class _AudioHero extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ImageHero extends StatelessWidget {
+  final String? imageUrl;
+
+  const _ImageHero({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl?.trim();
+    return Container(
+      height: 320,
+      decoration: BoxDecoration(
+        color: AppColors.inputFill,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: url == null || url.isEmpty
+          ? const Center(
+              child: Icon(
+                Icons.broken_image_outlined,
+                color: AppColors.textMuted,
+                size: 40,
+              ),
+            )
+          : InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Center(
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: AppColors.textMuted,
+                    size: 40,
+                  ),
+                ),
+              ),
+            ),
     );
   }
 }

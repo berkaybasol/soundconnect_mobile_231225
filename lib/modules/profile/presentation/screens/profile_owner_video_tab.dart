@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/entities/media_asset.dart';
+import '../../domain/profile_media_management_repository.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
@@ -107,7 +108,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Video isleme beklenenden uzun surdu. Biraz sonra tekrar kontrol et.',
+                'Video işleme beklenenden uzun sürdü. Biraz sonra tekrar kontrol et.',
               ),
             ),
           );
@@ -163,7 +164,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
     if ((pickedPath == null && pickedBytes == null) || pickedName.isEmpty) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Once bir video dosyasi sec.')),
+        const SnackBar(content: Text('Önce bir video dosyası seç.')),
       );
       return;
     }
@@ -177,7 +178,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
     try {
       final bytes = pickedBytes ?? await File(pickedPath!).readAsBytes();
       if (bytes.isEmpty) {
-        throw Exception('Dosya okunamadi');
+        throw Exception('Dosya okunamadı');
       }
       final mimeType = _mimeFromVideoFileName(pickedName);
 
@@ -191,8 +192,25 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
         originalFileName: pickedName,
       );
 
-      step = 'complete-upload';
+      step = 'profile-media';
+      final profileMediaRepository =
+          serviceLocator<ProfileMediaManagementRepository>();
       final assetId = completed.uuid.trim();
+      if (assetId.isEmpty) {
+        throw Exception('Yukleme sonrasi assetId alinmadi');
+      }
+      final addResult = await profileMediaRepository.addGalleryMedia(
+        profileType: widget.profileType,
+        profileId: widget.profileId,
+        mediaAssetId: assetId,
+      );
+      if (!addResult.isSuccess) {
+        throw Exception(
+          addResult.error?.message ?? 'Video profile galerisine eklenemedi',
+        );
+      }
+
+      step = 'refresh';
       if (assetId.isNotEmpty && mounted) {
         _addProcessingVideo(assetId);
       }
@@ -205,13 +223,13 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
       if (!mounted) return;
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Video yuklendi, isleniyor. Kisa sure sonra gorunecek.'),
+          content: Text('Video yüklendi, işleniyor. Kısa süre sonra görünecek.'),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Yukleme basarisiz ($step): $e')),
+        SnackBar(content: Text('Yükleme başarısız ($step): $e')),
       );
     } finally {
       if (mounted) {
@@ -237,8 +255,8 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
         children: [
           Text(
             _processingVideoIds.length == 1
-                ? 'Video isleniyor'
-                : '${_processingVideoIds.length} video isleniyor',
+                ? 'Video işleniyor'
+                : '${_processingVideoIds.length} video işleniyor',
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w700,
@@ -246,7 +264,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Isleme tamamlaninca video otomatik olarak gorunecek.',
+            'İşleme tamamlanınca video otomatik olarak görünecek.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 10),
@@ -301,7 +319,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      hasAny ? 'Video ekle' : 'Henuz video eklemediniz',
+                      hasAny ? 'Video ekle' : 'Henüz video eklemediniz',
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w700,
@@ -309,7 +327,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'SoundConnect uzerinden video yuklemek icin dokun.',
+                      'SoundConnect üzerinden video yüklemek için dokun.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColors.textMuted,
@@ -334,7 +352,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'Henuz video eklemediniz.',
+                'Henüz video eklemediniz.',
                 style: TextStyle(color: AppColors.textMuted),
               ),
             )
@@ -361,7 +379,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
       return const Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Kullanici henuz video eklemedi.',
+          'Kullanıcı henüz video eklemedi.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );

@@ -3,15 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_exception.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../engagement/data/models/comment_item_model.dart';
 import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/domain/entities/comment_item.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/comment_thread_state.dart';
 import '../../domain/musician_profile_repository.dart';
+import '../../domain/venue_event_repository.dart';
 import '../../domain/venue_profile_repository.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/venue_public_profile.dart';
@@ -78,6 +76,10 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   final CommentThreadCubit _commentCubit = CommentThreadCubit(
     serviceLocator<EngagementRepository>(),
   );
+  final EngagementRepository _engagementRepository =
+      serviceLocator<EngagementRepository>();
+  final VenueEventRepository _venueEventRepository =
+      serviceLocator<VenueEventRepository>();
   MusicianProfile? _artistProfile;
   VenuePublicProfile? _venueProfile;
   String? _shareUrl;
@@ -119,25 +121,17 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   }
 
   Future<void> _loadShareUrl() async {
-    final apiClient = serviceLocator<ApiClient>();
     try {
-      final payload = await apiClient.get<Map<String, dynamic>>(
-        '/api/v1/events/${widget.event.id}',
-        decoder: (json) =>
-            (json as Map<Object?, Object?>?)?.cast<String, dynamic>() ??
-            <String, dynamic>{},
-      );
+      final result = await _venueEventRepository.getDetail(widget.event.id);
+      final payload = result.data;
       if (!mounted) return;
-      final rawShareUrl = payload['shareUrl'];
-      final shareUrl = rawShareUrl is String ? rawShareUrl.trim() : '';
+      final shareUrl = payload?.shareUrl?.trim() ?? '';
       if (shareUrl.isEmpty) return;
       setState(() {
         _shareUrl = shareUrl;
       });
-    } on ApiException {
-      // Share butonu fallback metinle yine calisabilir.
     } catch (_) {
-      // Share butonu fallback metinle yine calisabilir.
+      // Share butonu fallback metinle yine çalışabilir.
     }
   }
 
@@ -179,12 +173,9 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   }
 
   Future<void> _loadReplies(String commentId) async {
-    final apiClient = serviceLocator<ApiClient>();
     try {
-      final items = await apiClient.get<List<CommentItem>>(
-        '/api/v1/comments/replies/$commentId',
-        decoder: (json) => _decodeCommentItems(json),
-      );
+      final result = await _engagementRepository.listReplies(commentId);
+      final items = result.data ?? const <CommentItem>[];
       if (!mounted) return;
       setState(() {
         _repliesByCommentId[commentId] = items;
@@ -197,32 +188,14 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
     }
   }
 
-  List<CommentItem> _decodeCommentItems(Object? json) {
-    if (json is List) {
-      return json
-          .whereType<Map<String, dynamic>>()
-          .map(CommentItemModel.fromJson)
-          .toList();
-    }
-    final map = json as Map<String, dynamic>? ?? <String, dynamic>{};
-    final content = map['content'];
-    if (content is List) {
-      return content
-          .whereType<Map<String, dynamic>>()
-          .map(CommentItemModel.fromJson)
-          .toList();
-    }
-    return const <CommentItem>[];
-  }
-
   String _timeLabel(DateTime? createdAt) {
     if (createdAt == null) return '-';
     final now = DateTime.now();
     final diff = now.difference(createdAt);
-    if (diff.inMinutes < 1) return 'simdi';
-    if (diff.inHours < 1) return '${diff.inMinutes} dk once';
-    if (diff.inDays < 1) return '${diff.inHours} sa once';
-    return '${diff.inDays} gun once';
+    if (diff.inMinutes < 1) return 'şimdi';
+    if (diff.inHours < 1) return '${diff.inMinutes} dk önce';
+    if (diff.inDays < 1) return '${diff.inHours} sa önce';
+    return '${diff.inDays} gün önce';
   }
 
   Future<void> _addComment() async {
@@ -285,7 +258,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Paylasim acilamadi.'),
+          content: Text('Paylaşım açılamadı.'),
         ),
       );
     } finally {
@@ -327,7 +300,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   onSubmitted: (_) => Navigator.of(sheetContext).pop(),
                   style: const TextStyle(color: AppColors.textPrimary),
                   decoration: InputDecoration(
-                    hintText: 'Yanita yaz...',
+                    hintText: 'Yanıta yaz...',
                     hintStyle: const TextStyle(color: AppColors.textMuted),
                     filled: true,
                     fillColor: AppColors.inputFill,
@@ -479,7 +452,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _ActionButton(
                         icon: Icons.ios_share_outlined,
-                        label: 'Paylas',
+                        label: 'Paylaş',
                         onPressed: _shareEvent,
                         isLoading: _isSharing,
                       ),
@@ -501,7 +474,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 22, 16, 8),
-                      child: _SectionTitle(text: 'Sorular&Yorumlar'),
+                      child: _SectionTitle(text: 'Sorular & Yorumlar'),
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -521,7 +494,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                           return const Padding(
                             padding: EdgeInsets.fromLTRB(16, 12, 16, 18),
                             child: Text(
-                              'Henuz yorum yok. Ilk yorumu sen yaz.',
+                              'Henüz yorum yok. İlk yorumu sen yaz.',
                               style: TextStyle(color: AppColors.textMuted),
                             ),
                           );
@@ -1072,8 +1045,8 @@ class _CommentTile extends StatelessWidget {
                         onTap: onReplyTap,
                         child: Text(
                           comment.replyCount > 0
-                              ? 'Yanitla (${comment.replyCount})'
-                              : 'Yanitla',
+                              ? 'Yanıtla (${comment.replyCount})'
+                              : 'Yanıtla',
                           style: const TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 12,

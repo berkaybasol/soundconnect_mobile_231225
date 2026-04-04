@@ -5,6 +5,9 @@ class AppRoutes {
   static const venueApplication = '/venue-application';
   static const venuePending = '/venue-pending';
   static const musicianProfile = '/musician-profile';
+  static const myBands = '/my-bands';
+  static const createBand = '/create-band';
+  static const bandProfile = '/band-profile';
   static const musicianPublicProfile = '/musician-public-profile';
   static const venueProfile = '/venue-profile';
   static const venuePublicProfile = '/venue-public-profile';

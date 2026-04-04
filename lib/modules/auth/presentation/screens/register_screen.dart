@@ -46,28 +46,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ),
     _RoleOption(
       id: 'ROLE_MUSICIAN',
-      title: 'Muzisyenim',
+      title: 'Müzisyenim',
       icon: Icons.music_note,
     ),
     _RoleOption(
       id: 'ROLE_VENUE',
       title: 'Mekan Temsilcisiyim',
       icon: Icons.storefront_outlined,
-      badge: 'Basvuru',
+      badge: 'Başvuru',
     ),
     _RoleOption(
       id: 'ROLE_STUDIO',
-      title: 'Studyo Temsilcisiyim',
+      title: 'Stüdyo Temsilcisiyim',
       icon: Icons.mic_none,
     ),
     _RoleOption(
       id: 'ROLE_PRODUCER',
-      title: 'Produktorum',
+      title: 'Prodüktörüm',
       icon: Icons.graphic_eq,
     ),
     _RoleOption(
       id: 'ROLE_ORGANIZER',
-      title: 'Organizatorum',
+      title: 'Organizatörüm',
       icon: Icons.event,
     ),
   ];
@@ -155,31 +155,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (_stepIndex == 0) {
         final username = _usernameController.text.trim();
         if (username.isEmpty) {
-          _showError('Kullanici adi bos olamaz');
+          _showError('Kullanıcı adı boş olamaz');
         } else {
-          _showError('Kullanici adi 3 ile 30 karakter arasinda olmali.');
+          _showError('Kullanıcı adı 3 ile 30 karakter arasında olmalı.');
         }
       } else if (_stepIndex == 1) {
         final email = _emailController.text.trim();
         if (email.isEmpty) {
           _showError('E-posta boş olamaz.');
         } else {
-          _showError('Gecerli bir e-posta girin.');
+          _showError('Geçerli bir e-posta girin.');
         }
       } else if (_stepIndex == 2) {
         final password = _passwordController.text.trim();
         final rePassword = _rePasswordController.text.trim();
         if (password.isEmpty) {
-          _showError('Sifre bos olamaz.');
+          _showError('Şifre boş olamaz.');
         } else if (password.length < 8 || password.length > 20) {
-          _showError('Sifreniz en az 8, en fazla 20 karakterden olusmalidir.');
+          _showError('Şifreniz en az 8, en fazla 20 karakterden oluşmalıdır.');
         } else if (rePassword.isEmpty) {
-          _showError('Sifre tekrari bos olamaz.');
+          _showError('Şifre tekrarı boş olamaz.');
         } else {
-          _showError('Sifreler eslesmeli.');
+          _showError('Şifreler eşleşmeli.');
         }
       } else if (_stepIndex == 3) {
-        _showError('Rol secilmelidir.');
+        _showError('Rol seçilmelidir.');
       } else {
         _showError('Mekan bilgilerini eksiksiz doldur.');
       }

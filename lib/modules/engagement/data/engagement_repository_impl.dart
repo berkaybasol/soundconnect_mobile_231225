@@ -92,7 +92,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } catch (_) {
       return Result.failure(const AppError(
         code: 'engagement_unlike_unknown',
-        message: 'Begeni kaldirilamadi',
+        message: 'Beğeni kaldırılamadı',
       ));
     }
   }
@@ -126,6 +126,40 @@ class EngagementRepositoryImpl implements EngagementRepository {
   }
 
   @override
+  Future<Result<List<CommentItem>>> listReplies(String commentId) async {
+    try {
+      final response = await _apiClient.get<List<CommentItem>>(
+        '/api/v1/comments/replies/$commentId',
+        decoder: (json) {
+          if (json is List) {
+            return json
+                .whereType<Map<String, dynamic>>()
+                .map(CommentItemModel.fromJson)
+                .toList();
+          }
+          final map = json as Map<String, dynamic>? ?? <String, dynamic>{};
+          final content = map['content'];
+          if (content is List) {
+            return content
+                .whereType<Map<String, dynamic>>()
+                .map(CommentItemModel.fromJson)
+                .toList();
+          }
+          return const <CommentItem>[];
+        },
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(const AppError(
+        code: 'engagement_comment_replies_unknown',
+        message: 'Yanıtlar getirilemedi',
+      ));
+    }
+  }
+
+  @override
   Future<Result<CommentItem>> createComment({
     required String targetType,
     required String targetId,
@@ -148,7 +182,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } catch (_) {
       return Result.failure(const AppError(
         code: 'engagement_comment_create_unknown',
-        message: 'Yorum gonderilemedi',
+        message: 'Yorum gönderilemedi',
       ));
     }
   }

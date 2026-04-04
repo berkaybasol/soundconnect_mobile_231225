@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/musician_profile_repository.dart';
+import '../../domain/entities/venue_event_detail.dart';
+import '../../domain/venue_event_repository.dart';
 import 'weekly_event_detail_screen.dart';
 
 bool _isNetworkImage(String? value) {
@@ -99,8 +100,8 @@ class _WeeklyEventCard extends StatefulWidget {
 class _WeeklyEventCardState extends State<_WeeklyEventCard> {
   static final Map<String, String?> _resolvedPosterCache = <String, String?>{};
   static final Map<String, String?> _resolvedArtistCache = <String, String?>{};
-  static final Map<String, Map<String, dynamic>> _eventPayloadCache =
-      <String, Map<String, dynamic>>{};
+  static final Map<String, VenueEventDetail> _eventPayloadCache =
+      <String, VenueEventDetail>{};
 
   Future<String?>? _posterFuture;
   Future<String>? _artistFuture;
@@ -124,7 +125,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
 
     try {
       final payload = await _loadEventPayload();
-      final poster = payload['posterImage']?.toString().trim();
+      final poster = payload.posterImage?.trim();
       if (poster == null || poster.isEmpty) return null;
       _resolvedPosterCache[widget.event.id] = poster;
       return poster;
@@ -157,11 +158,11 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
     final fallback = _fallbackArtistName();
     String? profileId = widget.event.artistProfileId?.trim();
 
-    Map<String, dynamic>? payload;
+    VenueEventDetail? payload;
     if (profileId == null || profileId.isEmpty || fallback == 'Sanatci') {
       try {
         payload = await _loadEventPayload();
-        final payloadProfileId = payload['musicianProfileId']?.toString().trim();
+        final payloadProfileId = payload.musicianProfileId?.trim();
         if (payloadProfileId != null && payloadProfileId.isNotEmpty) {
           profileId = payloadProfileId;
         }
@@ -171,7 +172,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
     }
 
     if (profileId == null || profileId.isEmpty) {
-      final payloadPerformer = payload?['performerName']?.toString().trim();
+      final payloadPerformer = payload?.performerName?.trim();
       if (payloadPerformer != null &&
           payloadPerformer.isNotEmpty &&
           payloadPerformer.toLowerCase() != 'performer') {
@@ -198,7 +199,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
       // Fallback mevcut event ismine donecek.
     }
 
-    final payloadPerformer = payload?['performerName']?.toString().trim();
+    final payloadPerformer = payload?.performerName?.trim();
     if (payloadPerformer != null &&
         payloadPerformer.isNotEmpty &&
         payloadPerformer.toLowerCase() != 'performer') {
@@ -208,19 +209,23 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
     return fallback;
   }
 
-  Future<Map<String, dynamic>> _loadEventPayload() async {
+  Future<VenueEventDetail> _loadEventPayload() async {
     final cached = _eventPayloadCache[widget.event.id];
-    if (cached != null && cached.isNotEmpty) {
+    if (cached != null) {
       return cached;
     }
 
-    final apiClient = serviceLocator<ApiClient>();
-    final payload = await apiClient.get<Map<String, dynamic>>(
-      '/api/v1/events/${widget.event.id}',
-      decoder: (json) =>
-          (json as Map<Object?, Object?>?)?.cast<String, dynamic>() ??
-          <String, dynamic>{},
-    );
+    final repository = serviceLocator<VenueEventRepository>();
+    final result = await repository.getDetail(widget.event.id);
+    final payload =
+        result.data ??
+        VenueEventDetail(
+          id: widget.event.id,
+          shareUrl: null,
+          posterImage: null,
+          performerName: null,
+          musicianProfileId: null,
+        );
     _eventPayloadCache[widget.event.id] = payload;
     return payload;
   }

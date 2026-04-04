@@ -195,141 +195,150 @@ class _VideoReelScreenState extends State<VideoReelScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-          ),
-          child: SizedBox(
-            height: MediaQuery.of(sheetContext).size.height * 0.72,
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(12),
+        return BlocProvider.value(
+          value: cubit,
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+            ),
+            child: SizedBox(
+              height: MediaQuery.of(sheetContext).size.height * 0.72,
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Yorumlar',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Yorumlar',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: BlocBuilder<CommentThreadCubit, CommentThreadState>(
-                    builder: (context, state) {
-                      if (state.loading && state.comments.isEmpty) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (state.comments.isEmpty) {
-                        return const Center(
-                          child: Text(
-                            'Hen\u00FCz yorum yok.',
-                            style: TextStyle(color: AppColors.textMuted),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: BlocBuilder<CommentThreadCubit, CommentThreadState>(
+                      builder: (context, state) {
+                        if (state.loading && state.comments.isEmpty) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        if (state.comments.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'Hen\u00FCz yorum yok.',
+                              style: TextStyle(color: AppColors.textMuted),
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
                           ),
+                          itemCount: state.comments.length,
+                          separatorBuilder: (_, __) => const Divider(
+                            color: AppColors.border,
+                            height: 14,
+                          ),
+                          itemBuilder: (context, i) {
+                            final c = state.comments[i];
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: AppColors.navBlueSoft,
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: AppColors.textMuted,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '@${c.user.username}',
+                                        style: const TextStyle(
+                                          color: AppColors.textPrimary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        c.text,
+                                        style: const TextStyle(
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         );
-                      }
-                      return ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        itemCount: state.comments.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(color: AppColors.border, height: 14),
-                        itemBuilder: (context, i) {
-                          final c = state.comments[i];
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: AppColors.navBlueSoft,
-                                child: const Icon(
-                                  Icons.person,
-                                  color: AppColors.textMuted,
-                                  size: 16,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '@${c.user.username}',
-                                      style: const TextStyle(
-                                        color: AppColors.textPrimary,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      c.text,
-                                      style: const TextStyle(
-                                        color: AppColors.textMuted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
+                      },
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: inputController,
-                          decoration: InputDecoration(
-                            hintText: 'Yorum yaz...',
-                            hintStyle: const TextStyle(
-                              color: AppColors.textMuted,
-                            ),
-                            filled: true,
-                            fillColor: AppColors.inputFill,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: inputController,
+                            decoration: InputDecoration(
+                              hintText: 'Yorum yaz...',
+                              hintStyle: const TextStyle(
+                                color: AppColors.textMuted,
+                              ),
+                              filled: true,
+                              fillColor: AppColors.inputFill,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () async {
-                          final text = inputController.text.trim();
-                          if (text.isEmpty) return;
-                          await context.read<CommentThreadCubit>().create(
-                            targetType: widget.targetType,
-                            targetId: widget.targetId,
-                            text: text,
-                          );
-                          await context.read<InteractionStatsCubit>().load(
-                            targetType: widget.targetType,
-                            targetId: widget.targetId,
-                            force: true,
-                          );
-                          inputController.clear();
-                        },
-                        icon: const Icon(Icons.send, color: AppColors.coralAlt),
-                      ),
-                    ],
+                        IconButton(
+                          onPressed: () async {
+                            final text = inputController.text.trim();
+                            if (text.isEmpty) return;
+                            await cubit.create(
+                              targetType: widget.targetType,
+                              targetId: widget.targetId,
+                              text: text,
+                            );
+                            await context.read<InteractionStatsCubit>().load(
+                              targetType: widget.targetType,
+                              targetId: widget.targetId,
+                              force: true,
+                            );
+                            inputController.clear();
+                          },
+                          icon: const Icon(
+                            Icons.send,
+                            color: AppColors.coralAlt,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

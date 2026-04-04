@@ -1,7 +1,5 @@
 // ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
 
-import 'dart:io';
-import 'dart:typed_data';
 import 'dart:async';
 import 'dart:ui';
 
@@ -11,10 +9,9 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/audio/audio_player_handler.dart';
-import '../../../../core/network/api_client.dart';
+import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_state.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
@@ -23,21 +20,30 @@ import '../../../follow/presentation/cubit/follow_action_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_state.dart';
 import '../../../follow/presentation/cubit/follow_count_cubit.dart';
 import '../../../follow/presentation/cubit/follow_count_state.dart';
+import '../../../location/domain/location_repository.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
+import '../../../../app/router/app_routes.dart'; //eklendi
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
+import '../../domain/entities/profile_venue_models.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/venue_directory_repository.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import 'media_detail_screen.dart';
+import 'my_bands_screen.dart'; //eklendi
+import 'profile_track_upload_support.dart';
 import 'profile_audio_transport.dart';
+import 'profile_carousels.dart';
+import 'profile_common_widgets.dart';
+import 'profile_media_tabs.dart';
 import 'profile_count_row.dart';
 import 'profile_owner_video_tab.dart';
 import 'profile_screen_support.dart';
@@ -86,6 +92,10 @@ class _MusicianPublicProfileView extends StatefulWidget {
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
   final _loadCoordinator = ProfileScreenLoadCoordinator();
+  final _artistVenueRepository =
+      serviceLocator<ArtistVenueConnectionRepository>();
+  final _locationRepository = serviceLocator<LocationRepository>();
+  final _venueDirectoryRepository = serviceLocator<VenueDirectoryRepository>();
   String? _viewerUserId;
   String? _currentProfileUserId;
   bool _photoUploading = false;
@@ -110,13 +120,13 @@ class _MusicianPublicProfileViewState
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotografi guncellendi')),
+        const SnackBar(content: Text('Profil fotoğrafı güncellendi')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Fotograf yuklenemedi: $e')));
+      ).showSnackBar(SnackBar(content: Text('Fotoğraf yüklenemedi: $e')));
     } finally {
       if (mounted) {
         setState(() => _photoUploading = false);
@@ -177,163 +187,46 @@ class _MusicianPublicProfileViewState
   void _onEditProfilePressed() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Asagidaki alanlardan profilini düzenleyebilirsin.'),
+        content: Text('Aşağıdaki alanlardan profilini düzenleyebilirsin.'),
       ),
     );
   }
 
-  String? _extractId(Map<String, dynamic> item, String key) {
-    final direct = item[key];
-    if (direct != null && direct.toString().isNotEmpty) {
-      return direct.toString();
-    }
-    final directUuid = item[key.replaceAll('Id', 'Uuid')];
-    if (directUuid != null && directUuid.toString().isNotEmpty) {
-      return directUuid.toString();
-    }
-    final nested = item[key.replaceAll('Id', '')];
-    if (nested is Map<String, dynamic>) {
-      final nestedId = nested['id'];
-      if (nestedId != null && nestedId.toString().isNotEmpty) {
-        return nestedId.toString();
-      }
-      final nestedUuid = nested['uuid'];
-      if (nestedUuid != null && nestedUuid.toString().isNotEmpty) {
-        return nestedUuid.toString();
-      }
-    }
-    return null;
-  }
-
-  String? _extractName(Map<String, dynamic> item, String key) {
-    final direct = item[key];
-    if (direct != null && direct.toString().trim().isNotEmpty) {
-      return direct.toString().trim();
-    }
-    final nested = item[key.replaceAll('Name', '')];
-    if (nested is Map<String, dynamic>) {
-      final nestedName = nested['name'];
-      if (nestedName != null && nestedName.toString().trim().isNotEmpty) {
-        return nestedName.toString().trim();
-      }
-    }
-    return null;
-  }
-
   Future<List<VenueOption>> _fetchAllVenues() async {
-    final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<VenueOption>>(
-      '/api/v1/venues/get-all',
-      decoder: (json) {
-        final list = (json as List<dynamic>? ?? const []);
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map(
-              (item) => VenueOption(
-                id: item['id']?.toString() ?? '',
-                name: item['name']?.toString() ?? '',
-                profilePictureUrl:
-                    item['profilePictureUrl']?.toString() ??
-                    item['profilePicture']?.toString() ??
-                    item['imageUrl']?.toString(),
-                cityId: _extractId(item, 'cityId'),
-                districtId: _extractId(item, 'districtId'),
-                neighborhoodId: _extractId(item, 'neighborhoodId'),
-                cityName: _extractName(item, 'cityName'),
-                districtName: _extractName(item, 'districtName'),
-                neighborhoodName: _extractName(item, 'neighborhoodName'),
-              ),
-            )
-            .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
-            .toList();
-      },
-    );
+    final result = await _venueDirectoryRepository.getAllVenues();
+    return result.data ?? const [];
   }
 
   Future<List<VenueLookupOption>> _fetchCities() async {
-    final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<VenueLookupOption>>(
-      '/api/v1/cities/get-all-cities',
-      decoder: (json) {
-        final list = (json as List<dynamic>? ?? const []);
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map(
-              (item) => VenueLookupOption(
-                id: item['id']?.toString() ?? '',
-                name: item['name']?.toString() ?? '',
-              ),
-            )
-            .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
-            .toList();
-      },
-    );
+    final result = await _locationRepository.getCities();
+    return (result.data ?? const [])
+        .map((item) => VenueLookupOption(id: item.id, name: item.name))
+        .toList();
   }
 
   Future<List<VenueLookupOption>> _fetchDistricts(String cityId) async {
-    final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<VenueLookupOption>>(
-      '/api/v1/districts/get-by-city/$cityId',
-      decoder: (json) {
-        final list = (json as List<dynamic>? ?? const []);
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map(
-              (item) => VenueLookupOption(
-                id: item['id']?.toString() ?? '',
-                name: item['name']?.toString() ?? '',
-              ),
-            )
-            .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
-            .toList();
-      },
-    );
+    final result = await _locationRepository.getDistricts(cityId);
+    return (result.data ?? const [])
+        .map((item) => VenueLookupOption(id: item.id, name: item.name))
+        .toList();
   }
 
   Future<List<VenueLookupOption>> _fetchNeighborhoods(String districtId) async {
-    final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<VenueLookupOption>>(
-      '/api/v1/neighborhoods/get-by-district/$districtId',
-      decoder: (json) {
-        final list = (json as List<dynamic>? ?? const []);
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map(
-              (item) => VenueLookupOption(
-                id: item['id']?.toString() ?? '',
-                name: item['name']?.toString() ?? '',
-              ),
-            )
-            .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
-            .toList();
-      },
-    );
+    final result = await _locationRepository.getNeighborhoods(districtId);
+    return (result.data ?? const [])
+        .map((item) => VenueLookupOption(id: item.id, name: item.name))
+        .toList();
   }
 
   Future<List<VenueConnection>> _fetchVenueConnectionsByStatus(
     String profileId, {
     required String status,
   }) async {
-    final apiClient = serviceLocator<ApiClient>();
-    return apiClient.get<List<VenueConnection>>(
-      '/api/v1/artist-venue-connections/musician/$profileId?status=$status',
-      decoder: (json) {
-        final list = (json as List<dynamic>? ?? const []);
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map(
-              (item) => VenueConnection(
-                requestId: item['id']?.toString() ?? '',
-                venueId: item['venueId']?.toString() ?? '',
-                venueName: item['venueName']?.toString() ?? '',
-              ),
-            )
-            .where(
-              (item) => item.requestId.isNotEmpty && item.venueId.isNotEmpty,
-            )
-            .toList();
-      },
+    final result = await _artistVenueRepository.getVenueConnectionsByStatus(
+      profileId,
+      status: status,
     );
+    return result.data ?? const [];
   }
 
   Future<List<VenueConnection>> _fetchAcceptedVenueConnections(
@@ -967,7 +860,7 @@ class _MusicianPublicProfileViewState
                                 child: OutlinedButton(
                                   onPressed: () =>
                                       Navigator.of(sheetContext).pop(),
-                                  child: const Text('İptal'),
+                                  child: const Text('?ptal'),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -1041,7 +934,7 @@ class _MusicianPublicProfileViewState
                                                       decoration:
                                                           const InputDecoration(
                                                             hintText:
-                                                                'İstersen kısa bir not ekleyebilirsin (zorunlu değil).',
+                                                                '?stersen k?sa bir not ekleyebilirsin (zorunlu de?il).',
                                                           ),
                                                     ),
                                                     const SizedBox(height: 12),
@@ -1054,7 +947,7 @@ class _MusicianPublicProfileViewState
                                                                   dialogContext,
                                                                 ).pop(),
                                                             child: const Text(
-                                                              'Vazgeç',
+                                                              'Vazge?',
                                                             ),
                                                           ),
                                                         ),
@@ -1071,7 +964,7 @@ class _MusicianPublicProfileViewState
                                                                       .trim(),
                                                                 ),
                                                             child: const Text(
-                                                              'Gönder',
+                                                              'G?nder',
                                                             ),
                                                           ),
                                                         ),
@@ -1116,15 +1009,14 @@ class _MusicianPublicProfileViewState
 
       if (selected == null) return;
 
-      final apiClient = serviceLocator<ApiClient>();
-      await apiClient.post<Object>(
-        '/api/v1/artist-venue-connections/request?requestByType=ARTIST',
-        body: {
-          'musicianProfileId': profileId,
-          'venueId': selected.venueId,
-          'message': selected.message,
-        },
+      final requestResult = await _artistVenueRepository.createArtistRequest(
+        musicianProfileId: profileId,
+        venueId: selected.venueId,
+        message: selected.message,
       );
+      if (!requestResult.isSuccess) {
+        throw requestResult.error?.message ?? 'Request failed';
+      }
 
       if (!mounted) return;
       await context.read<ArtistVenueConnectionsCubit>().loadAcceptedVenues(
@@ -1328,6 +1220,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   }
 
   Future<void> _showOwnerQuickMenu(BuildContext context) async {
+    final bands = profile.bands; //eklendi
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -1335,6 +1228,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       barrierColor: Colors.black.withValues(alpha: 0.35),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        var showBandsView = false; //eklendi
         return Align(
           alignment: Alignment.centerRight,
           child: FractionallySizedBox(
@@ -1355,9 +1249,9 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: const [
-                        SizedBox(height: 8),
-                        Opacity(
+                      children: [
+                        const SizedBox(height: 8),
+                        const Opacity(
                           opacity: 0.72,
                           child: ListTile(
                             enabled: false,
@@ -1365,7 +1259,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                             title: Text('Ayarlar'),
                           ),
                         ),
-                        Opacity(
+                        const Opacity(
                           opacity: 0.72,
                           child: ListTile(
                             enabled: false,
@@ -1373,15 +1267,18 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                             title: Text('Başvurularım'),
                           ),
                         ),
-                        Opacity(
-                          opacity: 0.72,
-                          child: ListTile(
-                            enabled: false,
-                            leading: Icon(Icons.groups_outlined),
-                            title: Text('Bandlerim'),
-                          ),
+                        ListTile(
+                          leading: const Icon(Icons.groups_outlined),
+                          title: const Text('Bandlerim'),
+                          onTap: () {
+                            Navigator.of(dialogContext).pop();
+                            Navigator.of(context).pushNamed( //degisti
+                              AppRoutes.myBands, //eklendi
+                              arguments: MyBandsScreenArgs(bands: profile.bands), //eklendi
+                            ); //eklendi
+                          },
                         ),
-                        Spacer(),
+                        const Spacer(),
                       ],
                     ),
                   ),
@@ -1409,6 +1306,147 @@ class _MusicianPublicProfileContent extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _showMyBandsSheet(BuildContext context) async {
+    final bands = profile.bands; //eklendi
+
+    await showGeneralDialog<void>( //degisti
+      context: context, //degisti
+      barrierDismissible: true, //eklendi
+      barrierLabel: 'Kapat', //eklendi
+      barrierColor: Colors.black.withValues(alpha: 0.35), //eklendi
+      transitionDuration: const Duration(milliseconds: 220), //eklendi
+      pageBuilder: (dialogContext, animation, secondaryAnimation) { //degisti
+        return Align( //eklendi
+          alignment: Alignment.centerRight, //eklendi
+          child: FractionallySizedBox( //eklendi
+            widthFactor: 0.58, //eklendi
+            heightFactor: 1, //eklendi
+            child: Material( //eklendi
+              color: Colors.transparent, //eklendi
+              child: Container( //eklendi
+                decoration: const BoxDecoration( //eklendi
+                  color: AppColors.navBlueDeep, //eklendi
+                  borderRadius: BorderRadius.horizontal( //eklendi
+                    left: Radius.circular(20), //eklendi
+                  ), //eklendi
+                ), //eklendi
+                child: SafeArea( //eklendi
+                  left: false, //eklendi
+                  child: Padding( //eklendi
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 16), //eklendi
+                    child: Column( //eklendi
+                      crossAxisAlignment: CrossAxisAlignment.stretch, //eklendi
+                      children: [ //eklendi
+                        ListTile( //eklendi
+                          leading: const Icon(Icons.arrow_back_ios_new_rounded, size: 18), //eklendi
+                          title: const Text('Geri'), //eklendi
+                          onTap: () { //eklendi
+                            Navigator.of(dialogContext).pop(); //eklendi
+                            _showOwnerQuickMenu(context); //eklendi
+                          }, //eklendi
+                        ), //eklendi
+                        const Padding( //eklendi
+                          padding: EdgeInsets.fromLTRB(16, 6, 16, 8), //eklendi
+                          child: Text( //eklendi
+                            'Bandlerim', //eklendi
+                            style: TextStyle( //eklendi
+                              color: AppColors.textPrimary, //eklendi
+                              fontWeight: FontWeight.w700, //eklendi
+                              fontSize: 18, //eklendi
+                            ), //eklendi
+                          ), //eklendi
+                        ), //eklendi
+                        if (bands.isEmpty) ...[ //eklendi
+                          const Padding( //eklendi
+                            padding: EdgeInsets.fromLTRB(16, 8, 16, 0), //eklendi
+                            child: Text( //eklendi
+                              'Henuz bandiniz yok.', //eklendi
+                              style: TextStyle( //eklendi
+                                color: AppColors.textMuted, //eklendi
+                                height: 1.5, //eklendi
+                              ), //eklendi
+                            ), //eklendi
+                          ), //eklendi
+                          const SizedBox(height: 16), //eklendi
+                          Padding( //eklendi
+                            padding: const EdgeInsets.symmetric(horizontal: 16), //eklendi
+                            child: FilledButton.icon( //eklendi
+                              onPressed: () { //eklendi
+                                Navigator.of(dialogContext).pop(); //eklendi
+                                ScaffoldMessenger.of(context).showSnackBar( //eklendi
+                                  const SnackBar( //eklendi
+                                    content: Text('Band olusturma akisi siradaki adimda eklenecek.'), //eklendi
+                                  ), //eklendi
+                                ); //eklendi
+                              }, //eklendi
+                              icon: const Icon(Icons.add), //eklendi
+                              label: const Text('Band olustur'), //eklendi
+                            ), //eklendi
+                          ), //eklendi
+                        ] else ...[ //eklendi
+                          ...bands.map( //eklendi
+                            (bandName) => Container( //eklendi
+                              margin: const EdgeInsets.fromLTRB(12, 0, 12, 10), //eklendi
+                              decoration: BoxDecoration( //eklendi
+                                color: AppColors.inputFill, //eklendi
+                                borderRadius: BorderRadius.circular(14), //eklendi
+                                border: Border.all(color: AppColors.border), //eklendi
+                              ), //eklendi
+                              child: ListTile( //eklendi
+                                leading: const Icon(Icons.groups_outlined), //eklendi
+                                title: Text( //eklendi
+                                  bandName, //eklendi
+                                  style: const TextStyle(color: AppColors.textPrimary), //eklendi
+                                ), //eklendi
+                              ), //eklendi
+                            ), //eklendi
+                          ), //eklendi
+                          Padding( //eklendi
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0), //eklendi
+                            child: OutlinedButton.icon( //eklendi
+                              onPressed: () { //eklendi
+                                Navigator.of(dialogContext).pop(); //eklendi
+                                ScaffoldMessenger.of(context).showSnackBar( //eklendi
+                                  const SnackBar( //eklendi
+                                    content: Text('Yeni band olusturma akisi siradaki adimda eklenecek.'), //eklendi
+                                  ), //eklendi
+                                ); //eklendi
+                              }, //eklendi
+                              icon: const Icon(Icons.add), //eklendi
+                              label: const Text('Yeni band olustur'), //eklendi
+                            ), //eklendi
+                          ), //eklendi
+                        ], //eklendi
+                        const Spacer(), //eklendi
+                      ], //eklendi
+                    ), //eklendi
+                  ), //eklendi
+                ), //eklendi
+              ), //eklendi
+            ), //eklendi
+          ), //eklendi
+        ); //eklendi
+      }, //eklendi
+      transitionBuilder: (context, animation, secondaryAnimation, child) { //eklendi
+        final curved = CurvedAnimation( //eklendi
+          parent: animation, //eklendi
+          curve: Curves.easeOutCubic, //eklendi
+          reverseCurve: Curves.easeInCubic, //eklendi
+        ); //eklendi
+        return FadeTransition( //eklendi
+          opacity: Tween<double>(begin: 0, end: 1).animate(curved), //eklendi
+          child: SlideTransition( //eklendi
+            position: Tween<Offset>( //eklendi
+              begin: const Offset(1.06, 0), //eklendi
+              end: Offset.zero, //eklendi
+            ).animate(curved), //eklendi
+            child: child, //eklendi
+          ), //eklendi
+        ); //eklendi
+      }, //eklendi
+    ); //degisti
   }
 
   @override
@@ -1452,42 +1490,38 @@ class _MusicianPublicProfileContent extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.center,
-                child: _ProfileHeader(
+              ProfileTopSection(
+                header: _ProfileHeader(
                   profile: profile,
                   onEditPhoto: onEditPhoto,
                   uploading: photoUploading,
                   uploadedPhotoUrl: uploadedProfilePhotoUrl,
                 ),
-              ),
-              const SizedBox(height: 16),
-              _ProfileIdentity(profile: profile),
-              const SizedBox(height: 14),
-              _FollowerRow(
-                followersCount: followersCount,
-                followingCount: followingCount,
-              ),
-              const SizedBox(height: 12),
-              ProfileActionButtons(
-                isFollowing: isFollowing,
-                isEnabled: canFollow,
-                isLoading: followLoading,
-                ownerMode: ownerMode,
-                onEditProfilePressed: onEditProfilePressed,
-                onFollowToggle: () {
-                  if (!canFollow) return;
-                  context.read<FollowActionCubit>().toggleFollow(
-                    followerId: viewerUserId,
-                    followingId: profile.userId,
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: _BioSection(
+                identity: ProfileIdentityHeader(
+                  username: profile.username,
+                  secondaryText:
+                      profile.bands.isNotEmpty ? profile.bands.first : null,
+                  fallbackName: 'Kullanıcı',
+                ),
+                followerSummary: ProfileFollowerSummary(
+                  followersCount: followersCount,
+                  followingCount: followingCount,
+                ),
+                actionButtons: ProfileActionButtons(
+                  isFollowing: isFollowing,
+                  isEnabled: canFollow,
+                  isLoading: followLoading,
+                  ownerMode: ownerMode,
+                  onEditProfilePressed: onEditProfilePressed,
+                  onFollowToggle: () {
+                    if (!canFollow) return;
+                    context.read<FollowActionCubit>().toggleFollow(
+                      followerId: viewerUserId,
+                      followingId: profile.userId,
+                    );
+                  },
+                ),
+                bioSection: EditableBioSection(
                   bio: profile.bio,
                   editable: descriptionEditable,
                   onSave: onSaveDescription,
@@ -1499,13 +1533,36 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 actionLabel: venueEditable ? 'Düzenle' : 'Tümü',
                 actionOnTap: venueEditable ? onEditVenues : null,
               ),
-              _VenueCarousel(
+              VenueNameCarousel(
                 items: _resolveVenues(),
                 editable: venueEditable,
                 onAddTap: onEditVenues,
               ),
               const SizedBox(height: 12),
-              _MediaTabs(),
+              const ProfileMediaTabs(
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.graphic_eq, size: 18),
+                        SizedBox(width: 6),
+                        Text('Sesler'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.play_circle_outline, size: 18),
+                        SizedBox(width: 6),
+                        Text('Video'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               _MediaContent(
                 media: resolvedMedia,
                 profileId: profile.id,
@@ -1636,7 +1693,7 @@ class _ProfileIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = profile.username?.trim().isNotEmpty == true
         ? profile.username!
-        : 'Kullanıcı';
+        : 'Kullan?c?';
     final bandName = profile.bands.isNotEmpty ? profile.bands.first : null;
 
     return Column(
@@ -1709,7 +1766,7 @@ class _BioSectionState extends State<_BioSection> {
 
     if (!widget.editable) {
       return Text(
-        hasBio ? resolvedBio : 'Henüz bir açıklama eklenmedi.',
+        hasBio ? resolvedBio : 'Hen?z bir a??klama eklenmedi.',
         textAlign: TextAlign.center,
         style: const TextStyle(color: AppColors.textMuted, height: 1.6),
       );
@@ -1836,7 +1893,7 @@ class _FollowerRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        ProfilePillBadge(text: _formatCount(followersCount, 'Takipci')),
+        ProfilePillBadge(text: _formatCount(followersCount, 'Takipçi')),
         const SizedBox(width: 12),
         ProfilePillBadge(text: _formatCount(followingCount, 'Takip')),
       ],
@@ -2191,10 +2248,10 @@ class _AudioTab extends StatelessWidget {
                 if (result.isSuccess && result.data != null) {
                   results = result.data!;
                   if (results.isEmpty) {
-                    errorText = 'Sonuç bulunamadı.';
+                    errorText = 'Sonu? bulunamad?.';
                   }
                 } else {
-                  errorText = result.error?.message ?? 'Arama başarısız.';
+                  errorText = result.error?.message ?? 'Arama ba?ar?s?z.';
                 }
               });
             }
@@ -2234,7 +2291,7 @@ class _AudioTab extends StatelessWidget {
                             }
                           },
                           decoration: InputDecoration(
-                            hintText: 'Spotify parça ara...',
+                            hintText: 'Spotify par?a ara...',
                             prefixIcon: const Icon(Icons.search),
                             suffixIcon: IconButton(
                               onPressed: runSearch,
@@ -2261,7 +2318,7 @@ class _AudioTab extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Text(
-                              '${results.length} sonuç',
+                              '4{results.length} sonu?',
                               style: const TextStyle(
                                 color: AppColors.textMuted,
                                 fontSize: 12,
@@ -2364,7 +2421,7 @@ class _AudioTab extends StatelessWidget {
     if (existingIds.contains(selected.id)) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Bu parça zaten ekli.')));
+      ).showSnackBar(const SnackBar(content: Text('Bu par?a zaten ekli.')));
       return;
     }
     final nextTracks = [...spotifyTracks, selected];
@@ -2383,7 +2440,7 @@ class _AudioTab extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            cubit.state.error?.message ?? 'Spotify parçası eklenemedi.',
+            cubit.state.error?.message ?? 'Spotify par?as? eklenemedi.',
           ),
         ),
       );
@@ -2392,7 +2449,7 @@ class _AudioTab extends StatelessWidget {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Şarkı başarıyla eklendi.')));
+    ).showSnackBar(const SnackBar(content: Text('?ark? ba?ar?yla eklendi.')));
   }
 
   Future<bool> _removeSpotifyTrackFromCatalog(
@@ -2421,7 +2478,7 @@ class _AudioTab extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              cubit.state.error?.message ?? 'Spotify parçası silinemedi.',
+              cubit.state.error?.message ?? 'Spotify par?as? silinemedi.',
             ),
           ),
         );
@@ -2430,310 +2487,20 @@ class _AudioTab extends StatelessWidget {
     }
     if (showSnackbar) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Spotify parçası kaldırıldı.')),
+        const SnackBar(content: Text('Spotify par?as? kald?r?ld?.')),
       );
     }
     return true;
   }
 
-  String _mimeFromAudioFileName(String fileName) {
-    final lower = fileName.toLowerCase();
-    if (lower.endsWith('.mp3')) return 'audio/mpeg';
-    if (lower.endsWith('.m4a')) return 'audio/mp4';
-    if (lower.endsWith('.aac')) return 'audio/aac';
-    if (lower.endsWith('.wav')) return 'audio/wav';
-    if (lower.endsWith('.waw')) return 'audio/wav';
-    if (lower.endsWith('.ogg')) return 'audio/ogg';
-    if (lower.endsWith('.flac')) return 'audio/flac';
-    return 'audio/mpeg';
-  }
-
-  String _fileNameFromPath(String path, {String fallback = 'audio.mp3'}) {
-    final normalized = path.replaceAll('\\', '/');
-    final parts = normalized.split('/');
-    final name = parts.isNotEmpty ? parts.last.trim() : '';
-    return name.isEmpty ? fallback : name;
-  }
-
-  String _titleFromFileName(String fileName) {
-    final idx = fileName.lastIndexOf('.');
-    if (idx <= 0) return fileName;
-    return fileName.substring(0, idx);
-  }
-
   Future<void> _showSoundConnectTrackUploadSheet(
     BuildContext hostContext,
   ) async {
-    String? pickedPath;
-    Uint8List? pickedBytes;
-    String? pickedName;
-    final titleController = TextEditingController();
-    bool uploading = false;
-    String? infoText;
-    bool infoError = false;
-
-    await showModalBottomSheet<void>(
-      context: hostContext,
-      isScrollControlled: true,
-      backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            Future<void> pickAudio() async {
-              final result = await FilePicker.platform.pickFiles(
-                type: FileType.custom,
-                withData: true,
-                allowMultiple: false,
-                allowedExtensions: const [
-                  'mp3',
-                  'm4a',
-                  'aac',
-                  'wav',
-                  'waw',
-                  'ogg',
-                  'flac',
-                ],
-              );
-              final file = result?.files.isNotEmpty == true
-                  ? result!.files.first
-                  : null;
-              if (file == null) return;
-              final name = file.name.trim().isNotEmpty
-                  ? file.name.trim()
-                  : (file.path != null
-                        ? _fileNameFromPath(file.path!)
-                        : 'audio.mp3');
-              setSheetState(() {
-                pickedPath = file.path;
-                pickedBytes = file.bytes;
-                pickedName = name;
-                if (titleController.text.trim().isEmpty) {
-                  titleController.text = _titleFromFileName(name);
-                }
-              });
-            }
-
-            Future<void> uploadTrack() async {
-              var step = 'dosya okuma';
-              final path = pickedPath;
-              final bytesFromPicker = pickedBytes;
-              final name = pickedName;
-              final title = titleController.text.trim();
-              if ((path == null && bytesFromPicker == null) || name == null) {
-                setSheetState(() {
-                  infoText = 'Önce bir ses dosyası seç.';
-                  infoError = true;
-                });
-                return;
-              }
-              if (title.isEmpty) {
-                setSheetState(() {
-                  infoText = '\u015Eark\u0131 ad\u0131 zorunlu.';
-                  infoError = true;
-                });
-                return;
-              }
-
-              setSheetState(() {
-                uploading = true;
-                infoText = null;
-                infoError = false;
-              });
-
-              try {
-                final bytes =
-                    bytesFromPicker ?? await File(path!).readAsBytes();
-                if (bytes.isEmpty) {
-                  throw Exception('Dosya okunamadı');
-                }
-                final apiClient = serviceLocator<ApiClient>();
-                final mimeType = _mimeFromAudioFileName(name);
-
-                step = 'init-upload';
-                final completed = await uploadProfileMediaAsset(
-                  bytes: bytes,
-                  ownerType: 'MUSICIAN_PROFILE',
-                  ownerId: profileId,
-                  mediaKind: 'AUDIO',
-                  mimeType: mimeType,
-                  originalFileName: name,
-                );
-
-                step = 'complete-upload';
-                final mediaAssetId = completed.uuid.trim();
-                if (mediaAssetId.isEmpty) {
-                  throw Exception('Media asset id alınamadı');
-                }
-
-                step = 'track oluşturma';
-                await apiClient.post<Object>(
-                  '/api/v1/musician-profiles/$profileId/tracks',
-                  body: {
-                    'mediaAssetId': mediaAssetId,
-                    'title': title,
-                    'durationSeconds': null,
-                    'bpm': null,
-                  },
-                );
-
-                try {
-                  await context.read<ProfileMediaCubit>().loadMedia(
-                    profileType: 'MUSICIAN',
-                    profileId: profileId,
-                  );
-                } catch (_) {
-                  // Track başarıyla oluştuysa liste yenileme hatası non-fatal.
-                }
-                if (!sheetContext.mounted) return;
-                Navigator.of(sheetContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      '\u015Eark\u0131 ba\u015Far\u0131yla eklendi.',
-                    ),
-                  ),
-                );
-              } catch (e) {
-                if (!sheetContext.mounted) return;
-                setSheetState(() {
-                  infoText = 'Yükleme başarısız ($step): $e';
-                  infoError = true;
-                });
-              } finally {
-                if (sheetContext.mounted) {
-                  setSheetState(() => uploading = false);
-                }
-              }
-            }
-
-            return AnimatedPadding(
-              duration: const Duration(milliseconds: 180),
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'SoundConnect \u00FCzerinden \u015Fark\u0131 Ekle',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: uploading ? null : pickAudio,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary,
-                          side: const BorderSide(color: AppColors.border),
-                          backgroundColor: AppColors.inputFill,
-                        ),
-                        icon: const Icon(Icons.library_music_outlined),
-                        label: Text(
-                          pickedName == null ? 'Ses Dosyası Seç' : pickedName!,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        enabled: !uploading,
-                        controller: titleController,
-                        cursorColor: AppColors.textPrimary,
-                        decoration: InputDecoration(
-                          hintText: '\u015Eark\u0131 ad\u0131',
-                          filled: true,
-                          fillColor: AppColors.inputFill,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                            ),
-                          ),
-                          disabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (infoText != null) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          infoText!,
-                          style: TextStyle(
-                            color: infoError
-                                ? const Color(0xFFFFB4B4)
-                                : AppColors.textMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: uploading
-                                  ? null
-                                  : () => Navigator.of(sheetContext).pop(),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.textPrimary,
-                                side: const BorderSide(color: AppColors.border),
-                                backgroundColor: AppColors.inputFill,
-                              ),
-                              child: const Text('\u0130ptal'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: uploading ? null : uploadTrack,
-                              style: ElevatedButton.styleFrom(
-                                foregroundColor: AppColors.textPrimary,
-                                backgroundColor: AppColors.navBlueSoft,
-                                disabledForegroundColor: AppColors.textMuted,
-                                disabledBackgroundColor: AppColors.inputFill
-                                    .withValues(alpha: 0.8),
-                              ),
-                              child: uploading
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text('Yükle'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+    await showProfileTrackUploadSheet(
+      hostContext: hostContext,
+      profileId: profileId,
+      ownerType: 'MUSICIAN_PROFILE',
+      profileType: 'MUSICIAN',
     );
   }
 
@@ -2849,7 +2616,7 @@ class _AudioTab extends StatelessWidget {
               if (!success || !sheetContext.mounted) return;
               setSheetState(() {
                 visibleTracks.removeWhere((e) => e.id == track.id);
-                feedbackText = 'Spotify parçası kaldırıldı.';
+                feedbackText = 'Spotify par?as? kald?r?ld?.';
                 feedbackIsError = false;
               });
             }
@@ -2877,7 +2644,7 @@ class _AudioTab extends StatelessWidget {
                         children: [
                           const Expanded(
                             child: Text(
-                              'Sanatçının Spotify Kataloğu',
+                              'Sanat??n?n Spotify Katalo?u',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: AppColors.textPrimary,
@@ -2888,7 +2655,7 @@ class _AudioTab extends StatelessWidget {
                           ),
                           if (ownerMode)
                             IconButton(
-                              tooltip: 'Spotify parçası ekle',
+                              tooltip: 'Spotify par?as? ekle',
                               onPressed: () async {
                                 final selected = await _showSpotifyTrackPicker(
                                   hostContext,
@@ -2901,7 +2668,7 @@ class _AudioTab extends StatelessWidget {
                                   (element) => element.id == selected.id,
                                 )) {
                                   setSheetState(() {
-                                    feedbackText = 'Bu parça zaten ekli.';
+                                    feedbackText = 'Bu par?a zaten ekli.';
                                     feedbackIsError = true;
                                   });
                                   return;
@@ -2909,12 +2676,12 @@ class _AudioTab extends StatelessWidget {
                                 final nextTracks = [...visibleTracks, selected];
                                 final ok = await saveTracks(
                                   nextTracks,
-                                  failureMessage: 'Spotify parçası eklenemedi.',
+                                  failureMessage: 'Spotify par?as? eklenemedi.',
                                 );
                                 if (!ok || !sheetContext.mounted) return;
                                 setSheetState(() {
                                   visibleTracks.add(selected);
-                                  feedbackText = 'Spotify parçası eklendi.';
+                                  feedbackText = 'Spotify par?as? eklendi.';
                                   feedbackIsError = false;
                                 });
                               },
@@ -2961,7 +2728,7 @@ class _AudioTab extends StatelessWidget {
                         child: visibleTracks.isEmpty
                             ? const Center(
                                 child: Text(
-                                  'Henüz Spotify parçası eklemediniz.',
+                                  'Hen?z Spotify par?as? eklemediniz.',
                                   style: TextStyle(color: AppColors.textMuted),
                                 ),
                               )
@@ -3014,7 +2781,7 @@ class _AudioTab extends StatelessWidget {
                                                 (e) => e.id == track.id,
                                               );
                                               feedbackText =
-                                                  'Spotify parçası kaldırıldı.';
+                                                  'Spotify par?as? kald?r?ld?.';
                                               feedbackIsError = false;
                                             });
                                             return true;
@@ -3100,7 +2867,7 @@ class _AudioTab extends StatelessWidget {
                                           ),
                                           if (ownerMode)
                                             IconButton(
-                                              tooltip: 'Katalogdan kaldır',
+                                              tooltip: 'Katalogdan kald?r',
                                               onPressed: () =>
                                                   removeTrack(track),
                                               icon: const Icon(
@@ -3137,7 +2904,7 @@ class _AudioTab extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Kullanıcı henüz ses eklemedi.',
+          'Kullan?c? hen?z ses eklemedi.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );
@@ -3176,7 +2943,7 @@ class _AudioTab extends StatelessWidget {
                       backgroundColor: const Color(0xFF1DB954),
                       foregroundColor: Colors.white,
                     ),
-                    label: const Text('Spotify Kataloğu'),
+                    label: const Text('Spotify Katalo?u'),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -3222,7 +2989,7 @@ class _AudioTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          items.isEmpty ? 'Henüz ses eklemediniz' : 'Ses ekle',
+                          items.isEmpty ? 'Hen?z ses eklemediniz' : 'Ses ekle',
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w700,
@@ -3245,7 +3012,7 @@ class _AudioTab extends StatelessWidget {
               ],
               if (!ownerMode && items.isEmpty)
                 const Text(
-                  'Kullanıcı henüz ses eklemedi.',
+                  'Kullan?c? hen?z ses eklemedi.',
                   style: TextStyle(color: AppColors.textMuted),
                 ),
               ...List.generate(items.length, (index) {
@@ -3326,7 +3093,7 @@ class _AudioTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _AudioPreviewCard(
+                      ProfileAudioPreviewCard(
                         onTap: openDetails,
                         onDoubleTap: () {
                           if (!isLiked) {

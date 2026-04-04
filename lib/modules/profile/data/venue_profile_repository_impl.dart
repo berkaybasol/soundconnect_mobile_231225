@@ -53,7 +53,7 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
         return Result.failure(
           const AppError(
             code: 'venue_profile_missing',
-            message: 'Kullaniciya ait venue bulunamadi',
+            message: 'Kullanıcıya ait venue bulunamadı',
           ),
         );
       }
@@ -86,7 +86,7 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
         return Result.failure(
           const AppError(
             code: 'venue_profile_missing',
-            message: 'Kullaniciya ait venue bulunamadi',
+            message: 'Kullanıcıya ait venue bulunamadı',
           ),
         );
       }

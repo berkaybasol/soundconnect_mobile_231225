@@ -7,9 +7,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../domain/musician_search_repository.dart';
+import '../../domain/venue_event_repository.dart';
 import '../../domain/entities/venue_owner_profile.dart';
 import 'profile_screen_support.dart';
 import 'venue_event_management_widgets.dart';
@@ -31,12 +32,12 @@ class VenueWeeklyCalendarEditorScreen extends StatefulWidget {
 
 class _VenueWeeklyCalendarEditorScreenState
     extends State<VenueWeeklyCalendarEditorScreen> {
+  final _venueEventRepository = serviceLocator<VenueEventRepository>();
   bool _loading = true;
   bool _saving = false;
   bool _changed = false;
   String? _error;
   List<VenueOwnerEventItem> _events = const [];
-  ApiClient get _apiClient => serviceLocator<ApiClient>();
 
   List<VenueOwnerEventItem> get _sortedEvents {
     final items = [..._events];
@@ -60,16 +61,10 @@ class _VenueWeeklyCalendarEditorScreenState
       _error = null;
     });
     try {
-      final items = await _apiClient.get<List<VenueOwnerEventItem>>(
-        '/api/v1/venue-owner/events/venue/${widget.ownerProfile.venueId}',
-        decoder: (json) {
-          final list = json is List ? json : const [];
-          return list
-              .whereType<Map<String, dynamic>>()
-              .map(VenueOwnerEventItem.fromJson)
-              .toList();
-        },
+      final result = await _venueEventRepository.listByVenue(
+        widget.ownerProfile.venueId,
       );
+      final items = result.data ?? const <VenueOwnerEventItem>[];
       if (!mounted) return;
       setState(() {
         _events = items;
@@ -101,23 +96,11 @@ class _VenueWeeklyCalendarEditorScreenState
 
     setState(() => _saving = true);
     try {
-      await _apiClient.post<Object?>(
-        '/api/v1/venue-owner/events',
-        body: {
-          'title': draft.title,
-          'description': draft.description.isEmpty ? null : draft.description,
-          'eventDate': formatVenueApiDate(draft.eventDate),
-          'startTime': formatVenueApiTime(draft.startTime),
-          'endTime': draft.endTime == null
-              ? null
-              : formatVenueApiTime(draft.endTime!),
-          'posterImage': draft.posterImage,
-          'venueId': widget.ownerProfile.venueId,
-          'musicianProfileId': draft.musicianProfileId,
-          'bandId': null,
-          'manualPerformerName': draft.manualPerformerName,
-        },
+      final result = await _venueEventRepository.create(
+        venueId: widget.ownerProfile.venueId,
+        draft: draft,
       );
+      if (!result.isSuccess) throw result.error?.message ?? 'Create failed';
       _changed = true;
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -139,7 +122,8 @@ class _VenueWeeklyCalendarEditorScreenState
   Future<void> _deleteEvent(VenueOwnerEventItem item) async {
     setState(() => _saving = true);
     try {
-      await _apiClient.delete<Object?>('/api/v1/venue-owner/events/${item.id}');
+      final result = await _venueEventRepository.delete(item.id);
+      if (!result.isSuccess) throw result.error?.message ?? 'Delete failed';
       _changed = true;
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -319,6 +303,7 @@ class _VenueEventDraftSheet extends StatefulWidget {
 }
 
 class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
+  final _musicianSearchRepository = serviceLocator<MusicianSearchRepository>();
   static const List<int> _timePickerHours = <int>[
     0,
     1,
@@ -416,8 +401,6 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   final _performerFocusNode = FocusNode();
   final _descriptionFocusNode = FocusNode();
   final ImagePicker _imagePicker = ImagePicker();
-  final ApiClient _apiClient = serviceLocator<ApiClient>();
-
   DateTime? _selectedDate = DateTime.now();
   TimeOfDay? _startTime = const TimeOfDay(hour: 20, minute: 0);
   TimeOfDay? _endTime = const TimeOfDay(hour: 22, minute: 0);
@@ -482,17 +465,8 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
       _searchError = null;
     });
     try {
-      final results = await _apiClient.get<List<MusicianSearchOption>>(
-        '/api/v1/public/musician-profiles/search',
-        query: {'q': query},
-        decoder: (json) {
-          final list = json is List ? json : const [];
-          return list
-              .whereType<Map<String, dynamic>>()
-              .map(MusicianSearchOption.fromJson)
-              .toList();
-        },
-      );
+      final result = await _musicianSearchRepository.search(query);
+      final results = result.data ?? const <MusicianSearchOption>[];
       if (!mounted || token != _searchToken) return;
       setState(() {
         _searchLoading = false;

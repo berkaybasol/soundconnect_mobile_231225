@@ -15,6 +15,8 @@ import '../../modules/artist_venue/data/artist_venue_connection_repository_impl.
 import '../../modules/artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../modules/artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../modules/follow/data/follow_repository_impl.dart';
+import '../../modules/follow/data/band_follow_repository_impl.dart';
+import '../../modules/follow/domain/band_follow_repository.dart';
 import '../../modules/follow/domain/follow_repository.dart';
 import '../../modules/follow/presentation/cubit/follow_action_cubit.dart';
 import '../../modules/follow/presentation/cubit/follow_count_cubit.dart';
@@ -25,14 +27,32 @@ import '../../modules/instrument/data/instrument_repository_impl.dart';
 import '../../modules/instrument/domain/instrument_repository.dart';
 import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
 import '../../modules/profile/data/musician_profile_repository_impl.dart';
+import '../../modules/profile/data/band_repository_impl.dart';
+import '../../modules/profile/data/musician_search_repository_impl.dart';
+import '../../modules/profile/data/media_gallery_repository_impl.dart';
+import '../../modules/profile/data/profile_media_management_repository_impl.dart';
 import '../../modules/profile/data/profile_media_repository_impl.dart';
+import '../../modules/profile/data/profile_media_upload_repository_impl.dart';
+import '../../modules/profile/data/track_management_repository_impl.dart';
+import '../../modules/profile/data/venue_directory_repository_impl.dart';
+import '../../modules/profile/data/venue_event_repository_impl.dart';
 import '../../modules/profile/data/venue_profile_repository_impl.dart';
 import '../../modules/profile/domain/musician_profile_repository.dart';
+import '../../modules/profile/domain/band_repository.dart';
+import '../../modules/profile/domain/musician_search_repository.dart';
+import '../../modules/profile/domain/media_gallery_repository.dart';
+import '../../modules/profile/domain/profile_media_management_repository.dart';
 import '../../modules/profile/domain/profile_media_repository.dart';
+import '../../modules/profile/domain/profile_media_upload_repository.dart';
+import '../../modules/profile/domain/track_management_repository.dart';
+import '../../modules/profile/domain/venue_directory_repository.dart';
+import '../../modules/profile/domain/venue_event_repository.dart';
 import '../../modules/profile/domain/venue_profile_repository.dart';
 import '../../modules/profile/presentation/cubit/musician_profile_cubit.dart';
 import '../../modules/profile/presentation/cubit/profile_media_cubit.dart';
 import '../../modules/profile/presentation/cubit/venue_profile_cubit.dart';
+import '../../modules/promotion/data/promotion_repository_impl.dart';
+import '../../modules/promotion/domain/promotion_repository.dart';
 import '../../modules/spotify/data/spotify_repository_impl.dart';
 import '../../modules/spotify/domain/spotify_repository.dart';
 import '../../modules/spotify/presentation/cubit/spotify_preview_cubit.dart';
@@ -59,8 +79,8 @@ void setupDependencies() {
     )
     ..registerFactory<ArtistVenueConnectionsCubit>(
       () => ArtistVenueConnectionsCubit(
-            serviceLocator<ArtistVenueConnectionRepository>(),
-          ),
+        serviceLocator<ArtistVenueConnectionRepository>(),
+      ),
     )
     ..registerLazySingleton<InstrumentRepository>(
       () => InstrumentRepositoryImpl(serviceLocator<ApiClient>()),
@@ -71,11 +91,35 @@ void setupDependencies() {
     ..registerLazySingleton<MusicianProfileRepository>(
       () => MusicianProfileRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<BandRepository>(
+      () => BandRepositoryImpl(serviceLocator<ApiClient>()),
+    )
     ..registerFactory<MusicianProfileCubit>(
       () => MusicianProfileCubit(serviceLocator<MusicianProfileRepository>()),
     )
     ..registerLazySingleton<ProfileMediaRepository>(
       () => ProfileMediaRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<MediaGalleryRepository>(
+      () => MediaGalleryRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<ProfileMediaManagementRepository>(
+      () => ProfileMediaManagementRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<ProfileMediaUploadRepository>(
+      () => ProfileMediaUploadRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<VenueDirectoryRepository>(
+      () => VenueDirectoryRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<MusicianSearchRepository>(
+      () => MusicianSearchRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<VenueEventRepository>(
+      () => VenueEventRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<TrackManagementRepository>(
+      () => TrackManagementRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerFactory<ProfileMediaCubit>(
       () => ProfileMediaCubit(serviceLocator<ProfileMediaRepository>()),
@@ -83,11 +127,17 @@ void setupDependencies() {
     ..registerLazySingleton<VenueProfileRepository>(
       () => VenueProfileRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<PromotionRepository>(
+      () => PromotionRepositoryImpl(serviceLocator<ApiClient>()),
+    )
     ..registerFactory<VenueProfileCubit>(
       () => VenueProfileCubit(serviceLocator<VenueProfileRepository>()),
     )
     ..registerLazySingleton<FollowRepository>(
       () => FollowRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<BandFollowRepository>(
+      () => BandFollowRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerFactory<FollowActionCubit>(
       () => FollowActionCubit(serviceLocator<FollowRepository>()),

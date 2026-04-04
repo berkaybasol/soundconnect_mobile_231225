@@ -2,66 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 
-class VenueOption {
-  final String id;
-  final String name;
-  final String? profilePictureUrl;
-  final String? cityId;
-  final String? districtId;
-  final String? neighborhoodId;
-  final String? cityName;
-  final String? districtName;
-  final String? neighborhoodName;
-
-  const VenueOption({
-    required this.id,
-    required this.name,
-    this.profilePictureUrl,
-    this.cityId,
-    this.districtId,
-    this.neighborhoodId,
-    this.cityName,
-    this.districtName,
-    this.neighborhoodName,
-  });
-}
-
-class VenueLookupOption {
-  final String id;
-  final String name;
-
-  const VenueLookupOption({required this.id, required this.name});
-}
-
-class VenueConnection {
-  final String requestId;
-  final String venueId;
-  final String venueName;
-
-  const VenueConnection({
-    required this.requestId,
-    required this.venueId,
-    required this.venueName,
-  });
-}
-
 class VenueRequestPayload {
   final String venueId;
   final String message;
 
   const VenueRequestPayload({required this.venueId, required this.message});
-}
-
-class MusicianConnection {
-  final String requestId;
-  final String musicianProfileId;
-  final String musicianName;
-
-  const MusicianConnection({
-    required this.requestId,
-    required this.musicianProfileId,
-    required this.musicianName,
-  });
 }
 
 class MusicianRequestPayload {
@@ -177,7 +122,7 @@ class MusicianIntroScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Muzisyen Baglanti Sureci',
+                'Müzisyen Bağlantı Süreci',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w800,
@@ -203,21 +148,21 @@ class MusicianIntroScreen extends StatelessWidget {
                         icon: Icons.send_outlined,
                         title: 'Istek Gonder',
                         text:
-                            'Mekaninda sahne alabilecek muzisyenlere buradan baglanti istegi gonderebilirsin. Istek gonderdiginde ilgili muzisyene bir bildirim iletilir.',
+                            'Mekanında sahne alabilecek müzisyenlere buradan bağlantı isteği gönderebilirsin. İstek gönderdiğinde ilgili müzisyene bir bildirim iletilir.',
                       ),
                       SizedBox(height: 22),
                       _VenueIntroStep(
                         icon: Icons.hourglass_top_rounded,
                         title: 'Onay Bekle',
                         text:
-                            'Muzisyen baglanti istegini onaylayabilir veya reddedebilir. Onaylandiginda baglantiniz kurulacak ve hem senin profilinde hem de muzisyenin profilinde gorunur hale gelecektir.',
+                            'Müzisyen bağlantı isteğini onaylayabilir veya reddedebilir. Onaylandığında bağlantınız kurulacak ve hem senin profilinde hem de müzisyenin profilinde görünür hale gelecektir.',
                       ),
                       SizedBox(height: 22),
                       _VenueIntroStep(
                         icon: Icons.settings_outlined,
                         title: 'Durumu Takip Et',
                         text:
-                            'Gonderdigin baglanti isteklerinin durumunu istedigin zaman Ayarlar -> Basvurularim bolumunden goruntuleyebilir ve surecin hangi asamada oldugunu takip edebilirsin.',
+                            'Gönderdiğin bağlantı isteklerinin durumunu istediğin zaman Ayarlar -> Başvurularım bölümünden görüntüleyebilir ve sürecin hangi aşamada olduğunu takip edebilirsin.',
                         showInlineSettingsIcon: true,
                       ),
                     ],

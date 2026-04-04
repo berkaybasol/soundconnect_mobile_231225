@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/error/result.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_text.dart';
+import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
+import '../../../promotion/domain/entities/promotion_item.dart';
+import '../../../promotion/domain/promotion_repository.dart';
+import '../../domain/entities/artist_venue_application.dart';
+import '../../domain/musician_profile_repository.dart';
 import '../../domain/entities/venue_owner_profile.dart';
 
 class VenueManagementPanelScreen extends StatelessWidget {
@@ -23,6 +30,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
     required IconData icon,
     required String title,
     required String message,
+    String? trailingLabel,
     VoidCallback? onTap,
   }) {
     return InkWell(
@@ -61,6 +69,30 @@ class VenueManagementPanelScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (trailingLabel != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: 0.16),
+                    ),
+                  ),
+                  child: Text(
+                    trailingLabel,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               const Icon(
                 Icons.arrow_forward_ios_rounded,
                 color: AppColors.textMuted,
@@ -73,7 +105,253 @@ class VenueManagementPanelScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _openApplicationsSheet(BuildContext context) {
+  Future<void> _openPromotionLink(String? rawUrl) async {
+    final url = rawUrl?.trim();
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _shiftedBannerImage(Widget child) {
+    return ClipRect(
+      child: Transform.translate(
+        offset: const Offset(0, 4),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _adPlaceholderCard() {
+    return _GradientOutline(
+      radius: 22,
+      strokeWidth: 1,
+      child: Ink(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.inputFill, AppColors.navBlueSoft],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: AppColors.brandGradient,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.campaign_outlined,
+                    color: AppColors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Reklam Alanı',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            AspectRatio(
+              aspectRatio: 1240 / 400,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.border),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.navBlueDeep,
+                      AppColors.navBlueSoft.withValues(alpha: 0.94),
+                    ],
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: _shiftedBannerImage(
+                    Image.asset(
+                      'assets/buraya bakarlar v3.png',
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _promotionFallback() {
+    return _shiftedBannerImage(
+      Image.asset(
+        'assets/buraya bakarlar v3.png',
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) => DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.navBlueDeep,
+                AppColors.navBlueSoft.withValues(alpha: 0.94),
+              ],
+            ),
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.campaign_outlined,
+              color: AppColors.white,
+              size: 36,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _promotionCard(BuildContext context) {
+    final repository = serviceLocator<PromotionRepository>();
+    return FutureBuilder<Result<List<PromotionItem>>>(
+      future: repository.getDisplayableByPlacement('VENUE_MANAGEMENT_PANEL'),
+      builder: (context, snapshot) {
+        final items = snapshot.data?.data ?? const <PromotionItem>[];
+        final item = items.isNotEmpty ? items.first : null;
+        final imageUrl = item?.mediaUrl?.trim();
+        final hasImage =
+            imageUrl != null &&
+            imageUrl.isNotEmpty &&
+            (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'));
+
+        if (item == null) return _adPlaceholderCard();
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => _openPromotionLink(item.redirectUrl),
+          child: _GradientOutline(
+            radius: 22,
+            strokeWidth: 1,
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1240 / 400,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(22),
+                        ),
+                        color: AppColors.navBlueDeep,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(22),
+                        ),
+                        child: hasImage
+                            ? _shiftedBannerImage(
+                                Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  errorBuilder: (_, __, ___) =>
+                                      _promotionFallback(),
+                                ),
+                              )
+                            : _promotionFallback(),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.navBlueDeep,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: const Text(
+                            'Sponsorlu İçerik',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          item.title,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                        if (item.description?.trim().isNotEmpty ?? false) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            item.description!.trim(),
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openArtistAndApplicationSheet(BuildContext context) {
     return showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.navBlueDeep,
@@ -91,7 +369,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
               children: [
                 const Center(
                   child: Text(
-                    'Basvurular',
+                    'Sanatçı Bağlantılarını Yönet',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
@@ -102,9 +380,20 @@ class VenueManagementPanelScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 _actionCard(
                   context: sheetContext,
+                  icon: Icons.group_outlined,
+                  title: 'Sanatçı Bağlantısı Oluştur',
+                  message: 'Sanatçı bağlantılarını buradan yöneteceğiz.',
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    await openConnectedArtists(context);
+                  },
+                ),
+                const SizedBox(height: 12),
+                _actionCard(
+                  context: sheetContext,
                   icon: Icons.send_outlined,
-                  title: 'Basvurularim',
-                  message: 'Gonderdigin basvurular burada yonetilecek.',
+                  title: 'Bağlantı İsteklerim',
+                  message: 'Gönderdiğin başvurular burada yönetilecek.',
                   onTap: () async {
                     Navigator.of(sheetContext).pop();
                     await showModalBottomSheet<void>(
@@ -127,8 +416,8 @@ class VenueManagementPanelScreen extends StatelessWidget {
                 _actionCard(
                   context: sheetContext,
                   icon: Icons.inbox_outlined,
-                  title: 'Gelen Basvurular',
-                  message: 'Sana gelen basvurular burada yonetilecek.',
+                  title: 'Gelen Bağlantı İstekleri',
+                  message: 'Sana gelen başvurular burada yönetilecek.',
                   onTap: () async {
                     Navigator.of(sheetContext).pop();
                     await showModalBottomSheet<void>(
@@ -182,17 +471,21 @@ class VenueManagementPanelScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      ownerProfile.venueName,
+                    GradientText(
+                      text: ownerProfile.venueName,
+                      gradient: const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: AppColors.brandGradient,
+                      ),
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Buradan mekan profilini destekleyen yonetim araclarina erisebilirsin.',
+                      'Buradan mekan profilini destekleyen yönetim araçlarına erişebilirsin.',
                       style: TextStyle(
                         color: AppColors.textMuted,
                         height: 1.45,
@@ -205,8 +498,8 @@ class VenueManagementPanelScreen extends StatelessWidget {
               _actionCard(
                 context: context,
                 icon: Icons.calendar_month_outlined,
-                title: 'Haftalik Takvim',
-                message: 'Etkinlik takvimini yonet',
+                title: 'Etkinlik Yönetimi',
+                message: 'Etkinlik takvimini yönet',
                 onTap: () async {
                   final changed = await openWeeklyCalendar(context);
                   if (changed == true && context.mounted) {
@@ -217,19 +510,36 @@ class VenueManagementPanelScreen extends StatelessWidget {
               const SizedBox(height: 14),
               _actionCard(
                 context: context,
-                icon: Icons.group_outlined,
-                title: 'Baglantili Sanatcilar',
-                message: 'Sanatci baglantilarini buradan yonetecegiz.',
-                onTap: () => openConnectedArtists(context),
+                icon: Icons.hub_outlined,
+                title: 'Sanatçı Bağlantılarını Yönet',
+                message: 'Bağlantılı sanatçılar ve başvuru akışları burada.',
+                onTap: () => _openArtistAndApplicationSheet(context),
               ),
               const SizedBox(height: 14),
               _actionCard(
                 context: context,
-                icon: Icons.assignment_outlined,
-                title: 'Basvurular',
-                message: 'Basvuru yonetimi',
-                onTap: () => _openApplicationsSheet(context),
+                icon: Icons.mode_comment_outlined,
+                title: 'İşletmene Gelen Yorumları Görüntüle',
+                message: 'İşletmene gelen yorumlar burada listelenecek.',
               ),
+              const SizedBox(height: 14),
+              _actionCard(
+                context: context,
+                icon: Icons.dashboard_customize_outlined,
+                title: 'İstatistikler',
+                message: 'İstatistikler modülü yakında burada açılacak.',
+                trailingLabel: 'Yakında!',
+              ),
+              const SizedBox(height: 14),
+              _actionCard(
+                context: context,
+                icon: Icons.extension_outlined,
+                title: 'Kampanyalar / Tanıtım',
+                message: 'Kampanya ve tanıtım alanı yakında burada açılacak.',
+                trailingLabel: 'Yakında!',
+              ),
+              const SizedBox(height: 18),
+              _promotionCard(context),
             ],
           ),
         ),
@@ -239,44 +549,6 @@ class VenueManagementPanelScreen extends StatelessWidget {
 }
 
 enum _ApplicationListMode { outgoing, incoming }
-
-class _ArtistVenueApplicationItem {
-  final String id;
-  final String musicianProfileId;
-  final String venueId;
-  final String musicianStageName;
-  final String venueName;
-  final String? message;
-  final String status;
-  final String requestByType;
-  final String createdAt;
-
-  const _ArtistVenueApplicationItem({
-    required this.id,
-    required this.musicianProfileId,
-    required this.venueId,
-    required this.musicianStageName,
-    required this.venueName,
-    required this.message,
-    required this.status,
-    required this.requestByType,
-    required this.createdAt,
-  });
-
-  factory _ArtistVenueApplicationItem.fromJson(Map<String, dynamic> json) {
-    return _ArtistVenueApplicationItem(
-      id: json['id']?.toString() ?? '',
-      musicianProfileId: json['musicianProfileId']?.toString() ?? '',
-      venueId: json['venueId']?.toString() ?? '',
-      musicianStageName: json['musicianStageName']?.toString() ?? '',
-      venueName: json['venueName']?.toString() ?? 'Mekan',
-      message: json['message']?.toString(),
-      status: json['status']?.toString() ?? 'PENDING',
-      requestByType: json['requestByType']?.toString() ?? 'ARTIST',
-      createdAt: json['createdAt']?.toString() ?? '',
-    );
-  }
-}
 
 class _MusicianApplicationProfile {
   final String displayName;
@@ -302,11 +574,14 @@ class _VenueApplicationsSheet extends StatefulWidget {
 }
 
 class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
-  final ApiClient _apiClient = serviceLocator<ApiClient>();
+  final _artistVenueRepository =
+      serviceLocator<ArtistVenueConnectionRepository>();
+  final _musicianProfileRepository =
+      serviceLocator<MusicianProfileRepository>();
   bool _loading = true;
   bool _actionLoading = false;
   String? _error;
-  List<_ArtistVenueApplicationItem> _items = const [];
+  List<ArtistVenueApplication> _items = const [];
   Map<String, _MusicianApplicationProfile> _musicianProfiles = const {};
 
   bool get _showOutgoing => widget.mode == _ApplicationListMode.outgoing;
@@ -323,17 +598,10 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
       _error = null;
     });
     try {
-      final response = await _apiClient.get<List<_ArtistVenueApplicationItem>>(
-        '/api/v1/artist-venue-connections/venue/${widget.venueId}',
-        decoder: (json) {
-          final list = json as List<dynamic>? ?? const [];
-          return list
-              .whereType<Map<String, dynamic>>()
-              .map(_ArtistVenueApplicationItem.fromJson)
-              .where((item) => item.id.isNotEmpty)
-              .toList();
-        },
+      final result = await _artistVenueRepository.listVenueApplications(
+        widget.venueId,
       );
+      final response = result.data ?? const <ArtistVenueApplication>[];
       final filtered = response.where((item) {
         if (_showOutgoing) return item.requestByType == 'VENUE';
         return item.requestByType == 'ARTIST';
@@ -359,7 +627,7 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Basvurular getirilemedi: $e';
+        _error = 'Başvurular getirilemedi: $e';
       });
     }
   }
@@ -368,25 +636,21 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
     String profileId,
   ) async {
     try {
-      final response = await _apiClient.get<_MusicianApplicationProfile>(
-        '/api/v1/public/musician-profiles/$profileId',
-        decoder: (json) {
-          final map = json as Map<String, dynamic>? ?? const {};
-          final username = map['username']?.toString().trim();
-          final stageName = map['stageName']?.toString().trim();
-          final displayName =
-              stageName != null && stageName.isNotEmpty
-              ? stageName
-              : username != null && username.isNotEmpty
-              ? username
-              : 'Sanatci';
-          return _MusicianApplicationProfile(
-            displayName: displayName,
-            profilePictureUrl:
-                map['profilePictureUrl']?.toString() ??
-                map['profilePicture']?.toString(),
-          );
-        },
+      final result = await _musicianProfileRepository.getPublicProfileByProfileId(
+        profileId,
+      );
+      final data = result.data;
+      if (data == null) return null;
+      final stageName = data.stageName?.trim() ?? '';
+      final username = data.username?.trim() ?? '';
+      final displayName = stageName.isNotEmpty
+          ? stageName
+          : username.isNotEmpty
+          ? username
+          : 'Sanatci';
+      final response = _MusicianApplicationProfile(
+        displayName: displayName,
+        profilePictureUrl: data.profilePicture,
       );
       return MapEntry(profileId, response);
     } catch (_) {
@@ -401,17 +665,12 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
 
   Future<void> _runAction({
     required String requestId,
-    required String path,
     required String methodLabel,
-    required bool useDelete,
+    required Future<dynamic> Function() action,
   }) async {
     setState(() => _actionLoading = true);
     try {
-      if (useDelete) {
-        await _apiClient.delete<Object>(path);
-      } else {
-        await _apiClient.post<Object>(path);
-      }
+      await action();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(methodLabel)),
@@ -453,7 +712,7 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _showOutgoing ? 'Basvurularim' : 'Gelen Basvurular';
+    final title = _showOutgoing ? 'Başvurular' : 'Gelen Başvurular';
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -672,11 +931,13 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
                                               ? null
                                               : () => _runAction(
                                                   requestId: item.id,
-                                                  path:
-                                                      '/api/v1/artist-venue-connections/${item.id}/accept',
                                                   methodLabel:
-                                                      'Basvuru onaylandi.',
-                                                  useDelete: false,
+                                                      'Başvuru onaylandı.',
+                                                  action: () =>
+                                                      _artistVenueRepository
+                                                          .acceptRequest(
+                                                            item.id,
+                                                          ),
                                                 ),
                                           child: _GradientOutline(
                                             radius: 12,
@@ -730,11 +991,13 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
                                               ? null
                                               : () => _runAction(
                                                   requestId: item.id,
-                                                  path:
-                                                      '/api/v1/artist-venue-connections/${item.id}/reject',
                                                   methodLabel:
-                                                      'Basvuru reddedildi.',
-                                                  useDelete: false,
+                                                      'Başvuru reddedildi.',
+                                                  action: () =>
+                                                      _artistVenueRepository
+                                                          .rejectRequest(
+                                                            item.id,
+                                                          ),
                                                 ),
                                           child: _GradientOutline(
                                             radius: 12,
@@ -785,11 +1048,13 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
                                               ? null
                                               : () => _runAction(
                                                   requestId: item.id,
-                                                  path:
-                                                      '/api/v1/artist-venue-connections/${item.id}/cancel',
                                                   methodLabel:
-                                                      'Basvuru iptal edildi.',
-                                                  useDelete: false,
+                                                      'Başvuru iptal edildi.',
+                                                  action: () =>
+                                                      _artistVenueRepository
+                                                          .cancelRequest(
+                                                            item.id,
+                                                          ),
                                                 ),
                                           child: const Text('Iptal Et'),
                                         ),
@@ -799,11 +1064,11 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
                                               ? null
                                               : () => _runAction(
                                                   requestId: item.id,
-                                                  path:
-                                                      '/api/v1/artist-venue-connections/${item.id}/disconnect',
                                                   methodLabel:
-                                                      'Baglanti kaldirildi.',
-                                                  useDelete: true,
+                                                      'Bağlantı kaldırıldı.',
+                                                  action: () =>
+                                                      _artistVenueRepository
+                                                          .disconnect(item.id),
                                                 ),
                                           child: const Text(
                                             'Baglantiyi Kaldir',
@@ -885,3 +1150,4 @@ class _GradientOutlinePainter extends CustomPainter {
         oldDelegate.strokeWidth != strokeWidth;
   }
 }
+

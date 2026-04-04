@@ -97,7 +97,7 @@ Future<String?> promptForSocialLink(
     context: context,
     builder: (dialogContext) {
       return AlertDialog(
-        title: Text('${platform.label} ${isEditing ? 'duzenle' : 'ekle'}'),
+        title: Text('${platform.label} ${isEditing ? 'düzenle' : 'ekle'}'),
         content: TextFormField(
           initialValue: draftValue,
           autofocus: true,

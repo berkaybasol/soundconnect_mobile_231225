@@ -7,7 +7,6 @@ import 'package:audio_service/audio_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/audio/audio_player_handler.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
@@ -25,6 +24,7 @@ import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/entities/venue_active_musician.dart';
 import '../../domain/entities/venue_public_profile.dart';
+import '../../domain/venue_event_repository.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../cubit/venue_profile_cubit.dart';
@@ -32,6 +32,7 @@ import '../cubit/venue_profile_state.dart';
 import 'media_detail_screen.dart';
 import 'profile_audio_transport.dart';
 import 'profile_count_row.dart';
+import 'profile_photo_gallery_tab.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_public_video_tab.dart';
 import 'profile_screen_support.dart';
@@ -84,6 +85,7 @@ class _MusicianPublicProfileView extends StatefulWidget {
 
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
+  final _venueEventRepository = serviceLocator<VenueEventRepository>();
   String? _publicVenueId;
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
@@ -142,17 +144,8 @@ class _MusicianPublicProfileViewState
 
     _loadingFallbackWeeklyEvents = true;
     try {
-      final apiClient = serviceLocator<ApiClient>();
-      final items = await apiClient.get<List<VenueOwnerEventItem>>(
-        '/api/v1/venue-owner/events/venue/$venueId',
-        decoder: (json) {
-          final list = json is List ? json : const [];
-          return list
-              .whereType<Map<String, dynamic>>()
-              .map(VenueOwnerEventItem.fromJson)
-              .toList();
-        },
-      );
+      final result = await _venueEventRepository.listByVenue(venueId);
+      final items = result.data ?? const <VenueOwnerEventItem>[];
       if (!mounted) return;
       setState(() {
         _fallbackWeeklyEvents = items
@@ -249,6 +242,7 @@ class _MusicianPublicProfileViewState
               final actionState = context.watch<FollowActionCubit>().state;
 	              return _MusicianPublicProfileContent(
 	                profile: profile,
+	                galleryOwnerId: publicProfile.venueProfileId,
 	                media: media,
                 followersCount: followersCount,
                 followingCount: followingCount,
@@ -360,6 +354,7 @@ class _MusicianPublicProfileViewState
 
 class _MusicianPublicProfileContent extends StatelessWidget {
   final MusicianProfile profile;
+  final String galleryOwnerId;
   final ProfileMedia? media;
   final int? followersCount;
   final int? followingCount;
@@ -373,6 +368,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
 
   const _MusicianPublicProfileContent({
     required this.profile,
+    required this.galleryOwnerId,
     required this.media,
     required this.followersCount,
     required this.followingCount,
@@ -489,6 +485,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
               _MediaTabs(),
               _MediaContent(
                 media: resolvedMedia,
+                galleryOwnerId: galleryOwnerId,
                 spotifyTracks: const [],
                 spotifyLoading: spotifyLoading,
               ),
@@ -632,7 +629,7 @@ class _FollowerRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _PillBadge(text: _formatCount(followersCount, 'Takipci')),
+        _PillBadge(text: _formatCount(followersCount, 'Takipçi')),
         const SizedBox(width: 12),
         _PillBadge(text: _formatCount(followingCount, 'Takip')),
       ],
@@ -1357,31 +1354,34 @@ class _GradientTabIndicatorPainter extends BoxPainter {
 
 class _MediaContent extends StatelessWidget {
   final ProfileMedia media;
+  final String galleryOwnerId;
   final List<SpotifyTrackPreview> spotifyTracks;
   final bool spotifyLoading;
 
   const _MediaContent({
     required this.media,
+    required this.galleryOwnerId,
     required this.spotifyTracks,
     required this.spotifyLoading,
   });
 
   @override
   Widget build(BuildContext context) {
-    final audioItems = media.audios;
-    final videoItems = media.videos;
+    final imageItems = media.videos
+        .where((item) => (item.kind ?? '').toUpperCase() == 'IMAGE')
+        .toList(growable: false);
+    final videoItems = media.videos
+        .where((item) => (item.kind ?? '').toUpperCase() == 'VIDEO')
+        .toList(growable: false);
     final controller = DefaultTabController.of(context);
-    final audioHandler = serviceLocator<AudioHandler>();
 
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
         return controller.index == 0
-            ? _AudioTab(
-                items: audioItems,
-                spotifyTracks: const [],
-                spotifyLoading: spotifyLoading,
-                audioHandler: audioHandler,
+            ? ProfilePhotoGalleryTab(
+                items: imageItems,
+                ownerMode: false,
               )
             : ProfilePublicVideoTab(items: videoItems);
       },
@@ -1493,7 +1493,7 @@ class _AudioTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Sanat?inin Spotify Katalogu ',
+                  'Sanatçının Spotify Kataloğu ',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -1638,7 +1638,7 @@ class _AudioTab extends StatelessWidget {
                       backgroundColor: const Color(0xFF1DB954),
                       foregroundColor: Colors.white,
                     ),
-                    label: const Text('Spotify Katalogu'),
+                    label: const Text('Spotify Kataloğu'),
                   ),
                 ),
                 const SizedBox(height: 16),

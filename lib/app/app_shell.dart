@@ -9,7 +9,7 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil Secimi')),
+      appBar: AppBar(title: const Text('Profil Seçimi')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -18,27 +18,27 @@ class AppShell extends StatelessWidget {
             children: [
               const SizedBox(height: 8),
               const Text(
-                'Devam etmek istedigin profil gorunumunu sec.',
+                'Devam etmek istediğin profil görünümünü seç.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 14),
               ),
               const SizedBox(height: 20),
               _RouteButton(
-                title: 'Muzisyen Owner Gorunumu',
+                title: 'Müzisyen Owner Görünümü',
                 route: AppRoutes.musicianProfile,
               ),
               const SizedBox(height: 12),
               _RouteButton(
-                title: 'Muzisyen Public Gorunumu',
+                title: 'Müzisyen Public Görünümü',
                 route: AppRoutes.musicianPublicProfile,
               ),
               const SizedBox(height: 12),
               _RouteButton(
-                title: 'Mekan Owner Gorunumu',
+                title: 'Mekan Owner Görünümü',
                 route: AppRoutes.venueProfile,
               ),
               const SizedBox(height: 12),
               _RouteButton(
-                title: 'Mekan Public Gorunumu',
+                title: 'Mekan Public Görünümü',
                 route: AppRoutes.venuePublicProfile,
               ),
             ],

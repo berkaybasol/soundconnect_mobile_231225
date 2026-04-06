@@ -45,6 +45,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SoundConnect needs photo library access to pick profile and gallery images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SoundConnect needs permission to save edited media to your photo library.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>SoundConnect can use the camera when adding profile media.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

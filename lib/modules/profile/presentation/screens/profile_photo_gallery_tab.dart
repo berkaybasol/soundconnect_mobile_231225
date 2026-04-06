@@ -39,7 +39,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
           child: MediaDetailScreen(
             title: (item.title?.trim().isNotEmpty ?? false)
                 ? item.title!.trim()
-                : 'Fotoğraf',
+                : 'Fotograf',
             isVideo: false,
             isImage: true,
             imageUrl: imageUrl,
@@ -102,7 +102,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                items.isEmpty ? 'Henüz fotoğraf eklemediniz' : 'Fotoğraf ekle',
+                items.isEmpty ? 'Henuz fotograf eklemediniz' : 'Fotograf ekle',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w700,
@@ -110,7 +110,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               const Text(
-                'SoundConnect üzerinden galeri fotoğrafı yüklemek için dokun.',
+                'SoundConnect uzerinden galeri fotografi yuklemek icin dokun.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textMuted,
@@ -138,7 +138,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(20, ownerMode ? 0 : 20, 20, 20),
             child: const Text(
-              'Henüz fotoğraf eklenmedi.',
+              'Henuz fotograf eklenmedi.',
               style: TextStyle(color: AppColors.textMuted),
             ),
           )

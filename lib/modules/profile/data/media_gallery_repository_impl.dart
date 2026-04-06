@@ -44,7 +44,7 @@ class MediaGalleryRepositoryImpl implements MediaGalleryRepository {
       return Result.failure(
         const AppError(
           code: 'media_gallery_unknown',
-          message: 'Fotoğraf galerisi getirilemedi',
+          message: 'Fotograf galerisi getirilemedi',
         ),
       );
     }

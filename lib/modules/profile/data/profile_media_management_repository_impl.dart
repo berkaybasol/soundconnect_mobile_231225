@@ -36,7 +36,7 @@ class ProfileMediaManagementRepositoryImpl
       return Result.failure(
         const AppError(
           code: 'profile_media_add_unknown',
-          message: 'Galeri medyası profile eklenemedi',
+          message: 'Galeri medyasi profile eklenemedi',
         ),
       );
     }

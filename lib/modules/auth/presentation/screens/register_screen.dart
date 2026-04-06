@@ -46,28 +46,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ),
     _RoleOption(
       id: 'ROLE_MUSICIAN',
-      title: 'Müzisyenim',
+      title: 'Muzisyenim',
       icon: Icons.music_note,
     ),
     _RoleOption(
       id: 'ROLE_VENUE',
       title: 'Mekan Temsilcisiyim',
       icon: Icons.storefront_outlined,
-      badge: 'Başvuru',
+      badge: 'Basvuru',
     ),
     _RoleOption(
       id: 'ROLE_STUDIO',
-      title: 'Stüdyo Temsilcisiyim',
+      title: 'Studyo Temsilcisiyim',
       icon: Icons.mic_none,
     ),
     _RoleOption(
       id: 'ROLE_PRODUCER',
-      title: 'Prodüktörüm',
+      title: 'Produktorum',
       icon: Icons.graphic_eq,
     ),
     _RoleOption(
       id: 'ROLE_ORGANIZER',
-      title: 'Organizatörüm',
+      title: 'Organizatorum',
       icon: Icons.event,
     ),
   ];
@@ -155,31 +155,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (_stepIndex == 0) {
         final username = _usernameController.text.trim();
         if (username.isEmpty) {
-          _showError('Kullanıcı adı boş olamaz');
+          _showError('Kullanici adi bos olamaz');
         } else {
-          _showError('Kullanıcı adı 3 ile 30 karakter arasında olmalı.');
+          _showError('Kullanici adi 3 ile 30 karakter arasinda olmali.');
         }
       } else if (_stepIndex == 1) {
         final email = _emailController.text.trim();
         if (email.isEmpty) {
-          _showError('E-posta boş olamaz.');
+          _showError('E-posta bos olamaz.');
         } else {
-          _showError('Geçerli bir e-posta girin.');
+          _showError('Gecerli bir e-posta girin.');
         }
       } else if (_stepIndex == 2) {
         final password = _passwordController.text.trim();
         final rePassword = _rePasswordController.text.trim();
         if (password.isEmpty) {
-          _showError('Şifre boş olamaz.');
+          _showError('Sifre bos olamaz.');
         } else if (password.length < 8 || password.length > 20) {
-          _showError('Şifreniz en az 8, en fazla 20 karakterden oluşmalıdır.');
+          _showError('Sifreniz en az 8, en fazla 20 karakterden olusmalidir.');
         } else if (rePassword.isEmpty) {
-          _showError('Şifre tekrarı boş olamaz.');
+          _showError('Sifre tekrari bos olamaz.');
         } else {
-          _showError('Şifreler eşleşmeli.');
+          _showError('Sifreler eslesmeli.');
         }
       } else if (_stepIndex == 3) {
-        _showError('Rol seçilmelidir.');
+        _showError('Rol secilmelidir.');
       } else {
         _showError('Mekan bilgilerini eksiksiz doldur.');
       }
@@ -355,18 +355,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Kullanıcı adı oluştur',
+          'Kullanici adi olustur',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         const Text(
-          'Hesap oluşturmak için bir kullanıcı adı ekle.',
+          'Hesap olusturmak icin bir kullanici adi ekle.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 12),
         GradientTextField(
           controller: _usernameController,
-          label: 'Kullanıcı adı',
+          label: 'Kullanici adi',
           prefixIcon: Icons.person_outline,
         ),
       ],
@@ -383,7 +383,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Doğrulama kodunu bu adrese göndereceğiz.',
+          'Dogrulama kodunu bu adrese gonderecegiz.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 12),
@@ -401,18 +401,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Şifre belirle',
+          'Sifre belirle',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         const Text(
-          'Şifren en az 8, en fazla 20 karakter olmalı.',
+          'Sifren en az 8, en fazla 20 karakter olmali.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 12),
         GradientTextField(
           controller: _passwordController,
-          label: 'Şifre',
+          label: 'Sifre',
           prefixIcon: Icons.lock_outline,
           obscureText: _isPasswordObscured,
           suffixIcon: IconButton(
@@ -431,7 +431,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SizedBox(height: 16),
         GradientTextField(
           controller: _rePasswordController,
-          label: 'Şifre tekrar',
+          label: 'Sifre tekrar',
           prefixIcon: Icons.lock_outline,
           obscureText: _isRePasswordObscured,
           suffixIcon: IconButton(
@@ -468,7 +468,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Müziği nasıl yaşayacağını seç. SoundConnect\'i sana göre şekillendirelim.',
+          'Muzigi nasil yasayacagini sec. SoundConnect\'i sana gore sekillendirelim.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 16),
@@ -495,12 +495,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Mekan bilgilerini paylaş',
+          'Mekan bilgilerini paylas',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         const Text(
-          'Bilgileri doldurduktan sonra kısa sürede sizinle iletişime geçeceğiz.',
+          'Bilgileri doldurduktan sonra kisa surede sizinle iletisime gececegiz.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         const SizedBox(height: 16),
@@ -511,7 +511,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 GradientTextField(
                   controller: _venueNameController,
-                  label: 'Mekan adı',
+                  label: 'Mekan adi',
                   prefixIcon: Icons.storefront_outlined,
                 ),
                 const SizedBox(height: 12),
@@ -557,7 +557,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             prefixIcon: const Icon(
                               Icons.location_city_outlined,
                             ),
-                            hintText: 'Şehir seç',
+                            hintText: 'Sehir sec',
                           ),
                           dropdownColor: AppColors.navBlueSoft,
                           items: locationState.cities
@@ -602,7 +602,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             prefixIcon: const Icon(Icons.map_outlined),
-                            hintText: 'İlçe seç',
+                            hintText: 'Ilce sec',
                           ),
                           dropdownColor: AppColors.navBlueSoft,
                           items: locationState.districts

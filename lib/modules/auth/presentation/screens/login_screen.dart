@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -32,17 +32,20 @@ class _LoginScreenState extends State<LoginScreen> {
       listener: (context, state) {
         if (state.action != AuthAction.login) return;
         if (state.status == AuthStatus.success) {
-          Navigator.pushNamed(context, AppRoutes.home);
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
         } else if (state.status == AuthStatus.failure) {
           final message = state.error?.message ?? 'Login failed';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
       },
       builder: (context, state) {
         final isLoading =
-            state.status == AuthStatus.loading && state.action == AuthAction.login;
+            state.status == AuthStatus.loading &&
+            state.action == AuthAction.login;
 
         return AppScaffold(
           title: '',
@@ -50,12 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 24),
-              Center(
-                child: Image.asset(
-                  'assets/logo.png',
-                  height: 180,
-                ),
-              ),
+              Center(child: Image.asset('assets/logo.png', height: 180)),
               const SizedBox(height: 28),
               GradientTextField(
                 controller: _usernameController,
@@ -125,9 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                         if (password.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('şifre boş olamaz'),
-                            ),
+                            const SnackBar(content: Text('şifre boş olamaz')),
                           );
                           return;
                         }
@@ -140,9 +136,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           return;
                         }
                         context.read<AuthCubit>().login(
-                              username: username,
-                              password: password,
-                            );
+                          username: username,
+                          password: password,
+                        );
                       },
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -215,7 +211,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   TextButton(
-                    onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.register),
                     child: const Text('Üye ol'),
                   ),
                 ],

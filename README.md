@@ -51,6 +51,20 @@ flutter run --dart-define=SOUNDCONNECT_BASE_URL=http://localhost:8080
 If `SOUNDCONNECT_BASE_URL` is not provided, the app falls back to the local
 development default defined in `lib/core/network/network_config.dart`.
 
+## Android Release Signing
+
+Release signing now auto-loads `android/key.properties` when present. If this
+file is missing, local release builds continue with debug signing.
+
+Example `android/key.properties`:
+
+```properties
+storeFile=../keystore/release.jks
+storePassword=your_store_password
+keyAlias=your_key_alias
+keyPassword=your_key_password
+```
+
 ## Quality Checks
 
 ```bash

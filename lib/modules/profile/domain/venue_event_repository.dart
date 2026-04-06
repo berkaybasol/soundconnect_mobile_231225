@@ -1,6 +1,6 @@
 import '../../../core/error/result.dart';
-import '../presentation/screens/venue_event_support.dart';
 import 'entities/venue_event_detail.dart';
+import 'entities/venue_event_item.dart';
 
 abstract class VenueEventRepository {
   Future<Result<List<VenueOwnerEventItem>>> listByVenue(String venueId);

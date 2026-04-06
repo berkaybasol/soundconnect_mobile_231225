@@ -16,7 +16,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
       items: const [
         BottomNavigationBarItem(
           icon: Icon(Icons.campaign_outlined),
-          label: 'İlan',
+          label: 'Ilan',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.rocket_launch_outlined),

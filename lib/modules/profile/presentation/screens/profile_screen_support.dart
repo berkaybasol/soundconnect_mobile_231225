@@ -53,7 +53,7 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   required ImagePicker imagePicker,
   required String ownerType,
   required String ownerId,
-  String cropTitle = 'Profil fotoğrafını kırp',
+  String cropTitle = 'Profil fotografini kirp',
   Color cropToolbarColor = const Color(0xFF0B1321),
   Color cropAccentColor = const Color(0xFFF47C7C),
 }) async {
@@ -108,7 +108,7 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
     originalFileName: fileName,
   );
   if (!result.isSuccess || result.data == null) {
-    throw Exception(result.error?.message ?? 'Medya yüklenemedi');
+    throw Exception(result.error?.message ?? 'Medya yuklenemedi');
   }
   final completed = result.data!;
 
@@ -146,7 +146,7 @@ Future<ProfileUploadedMedia> uploadProfileMediaAsset({
     originalFileName: originalFileName,
   );
   if (!result.isSuccess || result.data == null) {
-    throw Exception(result.error?.message ?? 'Medya yüklenemedi');
+    throw Exception(result.error?.message ?? 'Medya yuklenemedi');
   }
   return result.data!;
 }

@@ -20,7 +20,7 @@ class ProfilePublicVideoTab extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Kullanıcı henüz video eklemedi.',
+          'Kullanici henuz video eklemedi.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );

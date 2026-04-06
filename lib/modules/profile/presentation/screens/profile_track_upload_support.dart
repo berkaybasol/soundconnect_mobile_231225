@@ -156,7 +156,7 @@ Future<void> showProfileTrackUploadSheet({
             } catch (e) {
               if (!sheetContext.mounted) return;
               setSheetState(() {
-                infoText = 'Yükleme başarısız ($step): $e';
+                infoText = 'Yukleme basarisiz ($step): $e';
                 infoError = true;
               });
               messenger.showSnackBar(

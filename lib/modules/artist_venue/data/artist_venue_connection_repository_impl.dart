@@ -118,7 +118,7 @@ class ArtistVenueConnectionRepositoryImpl
     } catch (_) {
       return Result.failure(const AppError(
         code: 'venue_artist_status_unknown',
-        message: 'Müzisyen bağlantı listesi alınamadı',
+        message: 'Muzisyen baglanti listesi alinamadi',
       ));
     }
   }
@@ -171,7 +171,7 @@ class ArtistVenueConnectionRepositoryImpl
     } catch (_) {
       return Result.failure(const AppError(
         code: 'artist_venue_request_unknown',
-        message: 'Bağlantı isteği gönderilemedi',
+        message: 'Baglanti istegi gonderilemedi',
       ));
     }
   }
@@ -212,7 +212,7 @@ class ArtistVenueConnectionRepositoryImpl
     } catch (_) {
       return Result.failure(const AppError(
         code: 'artist_venue_applications_unknown',
-        message: 'Başvurular getirilemedi',
+        message: 'Basvurular getirilemedi',
       ));
     }
   }
@@ -251,7 +251,7 @@ class ArtistVenueConnectionRepositoryImpl
     } catch (_) {
       return Result.failure(const AppError(
         code: 'artist_venue_disconnect_unknown',
-        message: 'Bağlantı kaldırılamadı',
+        message: 'Baglanti kaldirilamadi',
       ));
     }
   }

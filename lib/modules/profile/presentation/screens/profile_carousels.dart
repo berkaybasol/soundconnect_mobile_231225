@@ -28,7 +28,7 @@ class VenueNameCarousel extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onAddTap,
               icon: const Icon(Icons.add_circle_outline, size: 18),
-              label: const Text('Müzisyen Ekle'),
+              label: const Text('Muzisyen Ekle'),
             ),
           ),
         );

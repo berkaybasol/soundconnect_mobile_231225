@@ -92,7 +92,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } catch (_) {
       return Result.failure(const AppError(
         code: 'engagement_unlike_unknown',
-        message: 'Beğeni kaldırılamadı',
+        message: 'Begeni kaldirilamadi',
       ));
     }
   }
@@ -154,7 +154,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } catch (_) {
       return Result.failure(const AppError(
         code: 'engagement_comment_replies_unknown',
-        message: 'Yanıtlar getirilemedi',
+        message: 'Yanitlar getirilemedi',
       ));
     }
   }
@@ -182,7 +182,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } catch (_) {
       return Result.failure(const AppError(
         code: 'engagement_comment_create_unknown',
-        message: 'Yorum gönderilemedi',
+        message: 'Yorum gonderilemedi',
       ));
     }
   }

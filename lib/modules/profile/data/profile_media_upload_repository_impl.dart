@@ -69,7 +69,7 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
       return Result.failure(
         const AppError(
           code: 'profile_upload_unknown',
-          message: 'Medya yüklenemedi',
+          message: 'Medya yuklenemedi',
         ),
       );
     }

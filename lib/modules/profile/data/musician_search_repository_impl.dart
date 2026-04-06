@@ -31,7 +31,7 @@ class MusicianSearchRepositoryImpl implements MusicianSearchRepository {
     } catch (_) {
       return Result.failure(const AppError(
         code: 'musician_search_unknown',
-        message: 'Müzisyen araması yapılamadı',
+        message: 'Muzisyen aramasi yapilamadi',
       ));
     }
   }

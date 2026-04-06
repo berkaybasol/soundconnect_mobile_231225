@@ -53,7 +53,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
       eventDate: DateTime(_today.year, _today.month, _today.day),
       startTime: const TimeOfDay(hour: 19, minute: 45),
       endTime: const TimeOfDay(hour: 21, minute: 30),
-      description: 'Canlı jazz standartları.',
+      description: 'Canli jazz standartlari.',
     ),
     _GuestEventItem(
       id: '4',
@@ -321,7 +321,7 @@ class _HeroPanel extends StatelessWidget {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Bugün Nerede Canlı Müzik Var?',
+                  'Bugun Nerede Canli Muzik Var?',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 18,
@@ -333,7 +333,7 @@ class _HeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '${_dateLabel()} tarihinde yakında $count etkinlik bulundu',
+            '${_dateLabel()} tarihinde yakinda $count etkinlik bulundu',
             style: const TextStyle(color: AppColors.textMuted),
           ),
         ],
@@ -389,7 +389,7 @@ class _InlineFilterPanel extends StatelessWidget {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Lokasyona göre ara',
+                  'Lokasyona gore ara',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w700,
@@ -401,23 +401,23 @@ class _InlineFilterPanel extends StatelessWidget {
             ],
           ),
           _FilterDropdown(
-            label: 'Şehir seç',
+            label: 'Sehir sec',
             value: selectedCity,
             items: cityOptions,
-            allLabel: 'Şehir',
+            allLabel: 'Sehir',
             onChanged: onCityChanged,
           ),
           const SizedBox(height: 8),
           _FilterDropdown(
-            label: 'İlçe seç',
+            label: 'Ilce sec',
             value: selectedDistrict,
             items: districtOptions,
-            allLabel: 'İlçe',
+            allLabel: 'Ilce',
             onChanged: onDistrictChanged,
           ),
           const SizedBox(height: 8),
           _FilterDropdown(
-            label: 'Mahalle seç',
+            label: 'Mahalle sec',
             value: selectedNeighborhood,
             items: neighborhoodOptions,
             allLabel: 'Mahalle',
@@ -434,7 +434,7 @@ class _InlineFilterPanel extends StatelessWidget {
                 border: Border.all(color: AppColors.border),
               ),
               child: Text(
-                'Seçilen mekan: $selectedVenueName',
+                'Secilen mekan: $selectedVenueName',
                 style: const TextStyle(color: AppColors.textMuted),
               ),
             ),
@@ -784,7 +784,7 @@ class _GuestEmptyState extends StatelessWidget {
               Icon(Icons.music_off, color: AppColors.textMuted, size: 32),
               SizedBox(height: 10),
               Text(
-                'Bugün bu filtrede etkinlik yok.',
+                'Bugun bu filtrede etkinlik yok.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -793,7 +793,7 @@ class _GuestEmptyState extends StatelessWidget {
               ),
               SizedBox(height: 6),
               Text(
-                'Farklı şehir, ilçe, mahalle veya mekan seçerek tekrar dene.',
+                'Farkli sehir, ilce, mahalle veya mekan secerek tekrar dene.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textMuted),
               ),
@@ -826,7 +826,7 @@ class _SearchFirstState extends StatelessWidget {
               Icon(Icons.search, color: AppColors.textMuted, size: 32),
               SizedBox(height: 10),
               Text(
-                "Mekanları görmek için önce 'Ara' butonuna bas.",
+                "Mekanlari gormek icin once 'Ara' butonuna bas.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -864,13 +864,13 @@ class _GuestLockFooter extends StatelessWidget {
                 side: const BorderSide(color: AppColors.border),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text('Giriş Yap'),
+              child: const Text('Giris Yap'),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: _GradientActionButton(
-              label: 'Üye Ol',
+              label: 'Uye Ol',
               onPressed: () {
                 Navigator.of(context).pushNamed(AppRoutes.register);
               },
@@ -956,7 +956,7 @@ class _VenueListScreen extends StatelessWidget {
       body: venues.isEmpty
           ? const Center(
               child: Text(
-                'Bu filtrelere uygun mekan bulunamadı.',
+                'Bu filtrelere uygun mekan bulunamadi.',
                 style: TextStyle(color: AppColors.textMuted),
               ),
             )
@@ -974,7 +974,7 @@ class _VenueListScreen extends StatelessWidget {
                       color: AppColors.textMuted,
                     ),
                     title: const Text(
-                      'Tüm mekanlar',
+                      'Tum mekanlar',
                       style: TextStyle(color: AppColors.textPrimary),
                     ),
                     trailing: selectedVenueKey == null

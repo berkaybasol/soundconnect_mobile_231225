@@ -34,7 +34,7 @@ class PromotionRepositoryImpl implements PromotionRepository {
       return Result.failure(
         const AppError(
           code: 'promotion_displayable_unknown',
-          message: 'Promotion alanı getirilemedi',
+          message: 'Promotion alani getirilemedi',
         ),
       );
     }

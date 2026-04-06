@@ -3,8 +3,8 @@ import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/entities/venue_event_detail.dart';
+import '../domain/entities/venue_event_item.dart';
 import '../domain/venue_event_repository.dart';
-import '../presentation/screens/venue_event_support.dart';
 
 class VenueEventRepositoryImpl implements VenueEventRepository {
   final ApiClient _apiClient;

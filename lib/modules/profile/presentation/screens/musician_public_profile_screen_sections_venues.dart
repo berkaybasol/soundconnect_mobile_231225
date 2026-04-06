@@ -1,27 +1,4 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'musician_public_profile_screen.dart';
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-
-  const _SectionTitle({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
 
 class _SectionHeader extends StatelessWidget {
   final String title;

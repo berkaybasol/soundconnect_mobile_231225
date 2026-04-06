@@ -92,6 +92,11 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
       <String, List<CommentItem>>{};
   final Set<String> _loadedReplyParents = <String>{};
 
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
+
   @override
   void initState() {
     super.initState();

@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element
-
 part of 'venue_public_profile_screen.dart';
 
 class _ActionButtons extends StatelessWidget {
@@ -55,27 +53,6 @@ class _ActionButtons extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-
-  const _SectionTitle({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
       ),
     );
   }

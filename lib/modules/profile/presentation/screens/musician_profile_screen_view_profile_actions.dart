@@ -1,11 +1,9 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
-
 part of 'musician_profile_screen.dart';
 
 extension _MusicianProfileViewStateProfileActions
     on _MusicianPublicProfileViewState {
   Future<void> _editProfilePhoto(MusicianProfile profile) async {
-    setState(() => _photoUploading = true);
+    _updateState(() => _photoUploading = true);
     try {
       final uploaded = await pickCropAndUploadProfilePhoto(
         context: context,
@@ -14,10 +12,11 @@ extension _MusicianProfileViewStateProfileActions
         ownerId: profile.id,
       );
       if (uploaded == null) return;
+      if (!mounted) return;
       await context.read<MusicianProfileCubit>().updateProfile(
         MusicianProfileSaveRequest(profilePicture: uploaded.assetId),
       );
-      setState(() {
+      _updateState(() {
         _uploadedProfilePhotoUrl = uploaded.preferredUrl;
       });
       if (!mounted) return;
@@ -31,7 +30,7 @@ extension _MusicianProfileViewStateProfileActions
       ).showSnackBar(SnackBar(content: Text('Fotograf yuklenemedi: $e')));
     } finally {
       if (mounted) {
-        setState(() => _photoUploading = false);
+        _updateState(() => _photoUploading = false);
       }
     }
   }
@@ -51,6 +50,7 @@ extension _MusicianProfileViewStateProfileActions
       initialValue: _socialUrlFor(profile, platform)?.trim() ?? '',
     );
     if (normalized == null) return;
+    if (!mounted) return;
 
     try {
       await context.read<MusicianProfileCubit>().updateProfile(

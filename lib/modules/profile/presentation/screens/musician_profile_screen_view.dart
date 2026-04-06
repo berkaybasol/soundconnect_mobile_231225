@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'musician_profile_screen.dart';
 
 class _MusicianPublicProfileView extends StatefulWidget {
@@ -22,6 +20,11 @@ class _MusicianPublicProfileViewState
   bool _photoUploading = false;
   String? _uploadedProfilePhotoUrl;
   final ImagePicker _imagePicker = ImagePicker();
+
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
 
   @override
   void didChangeDependencies() {

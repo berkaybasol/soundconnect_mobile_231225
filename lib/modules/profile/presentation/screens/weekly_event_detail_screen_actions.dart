@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
-
 part of 'weekly_event_detail_screen.dart';
 
 extension _WeeklyEventDetailScreenStateActions
@@ -30,7 +28,7 @@ extension _WeeklyEventDetailScreenStateActions
       if (!mounted) return;
       final shareUrl = payload?.shareUrl?.trim() ?? '';
       if (shareUrl.isEmpty) return;
-      setState(() {
+      _updateState(() {
         _shareUrl = shareUrl;
       });
     } catch (_) {
@@ -42,7 +40,7 @@ extension _WeeklyEventDetailScreenStateActions
     final repository = serviceLocator<MusicianProfileRepository>();
     final result = await repository.getPublicProfileByProfileId(profileId);
     if (!mounted || !result.isSuccess || result.data == null) return;
-    setState(() {
+    _updateState(() {
       _artistProfile = result.data;
     });
   }
@@ -51,7 +49,7 @@ extension _WeeklyEventDetailScreenStateActions
     final repository = serviceLocator<VenueProfileRepository>();
     final result = await repository.getPublicVenueProfile(venueId: venueId);
     if (!mounted || !result.isSuccess || result.data == null) return;
-    setState(() {
+    _updateState(() {
       _venueProfile = result.data;
     });
   }
@@ -77,12 +75,12 @@ extension _WeeklyEventDetailScreenStateActions
       final result = await _engagementRepository.listReplies(commentId);
       final items = result.data ?? const <CommentItem>[];
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _repliesByCommentId[commentId] = items;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _repliesByCommentId[commentId] = const <CommentItem>[];
       });
     }
@@ -143,7 +141,7 @@ extension _WeeklyEventDetailScreenStateActions
         : '${widget.event.title}\n'
               '${widget.event.eventDate} ${widget.event.startTime} - ${widget.event.endTime}\n'
               '@${widget.event.venueName}';
-    setState(() {
+    _updateState(() {
       _isSharing = true;
     });
     try {
@@ -161,7 +159,7 @@ extension _WeeklyEventDetailScreenStateActions
       ).showSnackBar(const SnackBar(content: Text('Paylasim acilamadi.')));
     } finally {
       if (mounted) {
-        setState(() {
+        _updateState(() {
           _isSharing = false;
         });
       }

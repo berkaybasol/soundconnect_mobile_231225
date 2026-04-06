@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously, unused_element, unused_element_parameter, unused_local_variable, invalid_use_of_protected_member
-
 part of 'video_reel_screen.dart';
 
 extension _VideoReelScreenStateActions on _VideoReelScreenState {
@@ -82,7 +80,7 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
           controller.dispose();
           return;
         }
-        setState(() {
+        _updateState(() {
           _playerController = controller;
           _playerError = null;
         });
@@ -98,7 +96,7 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
             alt.dispose();
             return;
           }
-          setState(() {
+          _updateState(() {
             _playerController = alt;
             _playerError = null;
           });
@@ -108,7 +106,7 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
     }
 
     if (!mounted) return;
-    setState(() {
+    _updateState(() {
       _playerController = null;
       _playerError = 'Video oynatilamadi.';
     });
@@ -252,12 +250,15 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
                           onPressed: () async {
                             final text = inputController.text.trim();
                             if (text.isEmpty) return;
+                            final statsCubit = context
+                                .read<InteractionStatsCubit>();
                             await cubit.create(
                               targetType: widget.targetType,
                               targetId: widget.targetId,
                               text: text,
                             );
-                            await context.read<InteractionStatsCubit>().load(
+                            if (!mounted) return;
+                            await statsCubit.load(
                               targetType: widget.targetType,
                               targetId: widget.targetId,
                               force: true,

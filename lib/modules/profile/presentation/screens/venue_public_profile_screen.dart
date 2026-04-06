@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -96,6 +94,11 @@ class _MusicianPublicProfileViewState
   List<WeeklyCalendarEvent> _fallbackWeeklyEvents = const [];
   String? _fallbackWeeklyEventsVenueId;
   bool _loadingFallbackWeeklyEvents = false;
+
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
 
   @override
   void didChangeDependencies() {

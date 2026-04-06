@@ -1,10 +1,8 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
-
 part of 'venue_management_panel_screen.dart';
 
 extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
   Future<void> _load() async {
-    setState(() {
+    _updateState(() {
       _loading = true;
       _error = null;
     });
@@ -25,7 +23,7 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
             .map(_fetchMusicianProfile),
       );
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _items = filtered;
         _musicianProfiles = {
           for (final entry in profileEntries)
@@ -35,7 +33,7 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _loading = false;
         _error = 'Basvurular getirilemedi: $e';
       });
@@ -78,7 +76,7 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
     required String methodLabel,
     required Future<dynamic> Function() action,
   }) async {
-    setState(() => _actionLoading = true);
+    _updateState(() => _actionLoading = true);
     try {
       await action();
       if (!mounted) return;
@@ -93,7 +91,7 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
       ).showSnackBar(SnackBar(content: Text('Islem basarisiz: $e')));
     } finally {
       if (mounted) {
-        setState(() => _actionLoading = false);
+        _updateState(() => _actionLoading = false);
       }
     }
   }

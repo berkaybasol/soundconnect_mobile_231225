@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element
-
 part of 'profile_audio_tab_shared.dart';
 
 extension _ProfileAudioTabInteractionMethods on ProfileAudioTab {
@@ -34,32 +32,6 @@ extension _ProfileAudioTabInteractionMethods on ProfileAudioTab {
               ? Duration(seconds: track.durationSeconds!)
               : null,
           mediaId: track.id,
-        );
-      }
-    }
-  }
-
-  Future<void> _toggleSpotifyTrack(SpotifyTrackPreview track) async {
-    final url = track.previewUrl;
-    if (url == null || url.isEmpty) return;
-    final currentId = audioHandler.mediaItem.value?.id;
-    final isPlaying = audioHandler.playbackState.value.playing;
-    final mediaId = 'spotify:${track.id}';
-    final isCurrent = currentId == mediaId;
-
-    if (audioHandler is AudioPlayerHandler) {
-      if (isCurrent && isPlaying) {
-        await audioHandler.pause();
-      } else if (isCurrent && !isPlaying) {
-        await audioHandler.play();
-      } else {
-        await (audioHandler as AudioPlayerHandler).playUrl(
-          url,
-          title: track.name,
-          duration: track.durationSeconds != null
-              ? Duration(seconds: track.durationSeconds!)
-              : null,
-          mediaId: mediaId,
         );
       }
     }

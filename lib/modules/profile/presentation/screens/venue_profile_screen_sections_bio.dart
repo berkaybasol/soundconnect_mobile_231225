@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
-
 part of 'venue_profile_screen.dart';
 
 class _BioSection extends StatefulWidget {
@@ -152,33 +150,6 @@ class _BioSectionState extends State<_BioSection> {
             ),
           ],
         ),
-      ],
-    );
-  }
-}
-
-class _FollowerRow extends StatelessWidget {
-  final int? followersCount;
-  final int? followingCount;
-
-  const _FollowerRow({
-    required this.followersCount,
-    required this.followingCount,
-  });
-
-  String _formatCount(int? value, String label) {
-    if (value == null) return '... $label';
-    return '$value $label';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ProfilePillBadge(text: _formatCount(followersCount, 'Takipci')),
-        const SizedBox(width: 12),
-        ProfilePillBadge(text: _formatCount(followingCount, 'Takip')),
       ],
     );
   }

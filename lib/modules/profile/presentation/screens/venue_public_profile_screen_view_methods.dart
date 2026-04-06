@@ -1,5 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'venue_public_profile_screen.dart';
 
 extension _VenuePublicProfileViewMethods on _MusicianPublicProfileViewState {
@@ -9,7 +7,7 @@ extension _VenuePublicProfileViewMethods on _MusicianPublicProfileViewState {
     if (profile.weeklyEvents.isNotEmpty) {
       if (_fallbackWeeklyEvents.isNotEmpty ||
           _fallbackWeeklyEventsVenueId != null) {
-        setState(() {
+        _updateState(() {
           _fallbackWeeklyEvents = const [];
           _fallbackWeeklyEventsVenueId = null;
         });
@@ -30,7 +28,7 @@ extension _VenuePublicProfileViewMethods on _MusicianPublicProfileViewState {
       final result = await _venueEventRepository.listByVenue(venueId);
       final items = result.data ?? const <VenueOwnerEventItem>[];
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _fallbackWeeklyEvents = items
             .map((item) => _toWeeklyCalendarEvent(profile, item))
             .toList();
@@ -38,7 +36,7 @@ extension _VenuePublicProfileViewMethods on _MusicianPublicProfileViewState {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _fallbackWeeklyEvents = const [];
         _fallbackWeeklyEventsVenueId = venueId;
       });

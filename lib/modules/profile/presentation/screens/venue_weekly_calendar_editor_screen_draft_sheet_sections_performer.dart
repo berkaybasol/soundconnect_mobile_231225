@@ -1,5 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'venue_weekly_calendar_editor_screen.dart';
 
 extension _VenueEventDraftSheetStateSectionsPerformer
@@ -27,7 +25,7 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                   const Duration(milliseconds: 320),
                   () => _runSearch(trimmed),
                 );
-                setState(() {});
+                _updateState(() {});
               },
               decoration: InputDecoration(
                 labelText: 'ÃƒÆ’Ã¢â‚¬Â¡alacak sanatÃƒÆ’Ã‚Â§Ãƒâ€Ã‚Â± / grup',
@@ -157,7 +155,7 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                       _performerController.selection = TextSelection.collapsed(
                         offset: _performerController.text.length,
                       );
-                      setState(() {
+                      _updateState(() {
                         _selectedMusicianId = item.profileId;
                         _selectedMusicianLabel = item.displayName;
                         _selectedMusicianSecondaryLabel = item.secondaryLabel;

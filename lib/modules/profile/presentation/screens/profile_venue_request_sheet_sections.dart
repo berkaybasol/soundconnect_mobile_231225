@@ -1,5 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'profile_venue_request_sheet.dart';
 
 extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
@@ -11,7 +9,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
         prefixIcon: Icon(Icons.search),
       ),
       onChanged: (value) {
-        setState(() {
+        _updateState(() {
           _searchQuery = value.trim();
         });
       },
@@ -24,7 +22,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () {
-          setState(() {
+          _updateState(() {
             _filtersExpanded = !_filtersExpanded;
           });
         },
@@ -140,7 +138,8 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                 .toList(),
             onChanged: _loadingNeighborhoods
                 ? null
-                : (value) => setState(() => _selectedNeighborhoodId = value),
+                : (value) =>
+                      _updateState(() => _selectedNeighborhoodId = value),
           ),
         ],
       ),
@@ -193,7 +192,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
           onChanged: disabled
               ? null
               : (value) {
-                  setState(() => _selectedVenueId = value);
+                  _updateState(() => _selectedVenueId = value);
                 },
           title: Text(
             venue.name,

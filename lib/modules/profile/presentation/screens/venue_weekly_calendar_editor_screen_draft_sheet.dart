@@ -1,5 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'venue_weekly_calendar_editor_screen.dart';
 
 class _VenueEventDraftSheet extends StatefulWidget {
@@ -38,6 +36,11 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   List<MusicianSearchOption> _searchResults = const [];
   Timer? _searchDebounce;
   int _searchToken = 0;
+
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
 
   @override
   void initState() {

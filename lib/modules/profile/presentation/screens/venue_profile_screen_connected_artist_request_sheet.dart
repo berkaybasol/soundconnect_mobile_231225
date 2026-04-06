@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'venue_profile_screen.dart';
 
 Future<MusicianRequestPayload?> showConnectedArtistRequestBottomSheet({
@@ -51,6 +49,11 @@ class _ConnectedArtistRequestSheetState
   String _searchError = '';
   String _query = '';
   List<MusicianSearchOption> _results = const <MusicianSearchOption>[];
+
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
 
   @override
   void dispose() {

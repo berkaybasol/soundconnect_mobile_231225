@@ -1,5 +1,3 @@
-// ignore_for_file: unused_local_variable
-
 part of 'profile_audio_tab_shared.dart';
 
 extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
@@ -20,7 +18,6 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
       ),
       builder: (sheetContext) {
         var loading = false;
-        var query = '';
         var results = <SpotifyTrackPreview>[];
         var errorText = '';
         final existingIds = currentTracks.map((e) => e.id).toSet();
@@ -32,7 +29,6 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
               final token = ++lastSearchToken;
               if (q.length < 2) {
                 setSheetState(() {
-                  query = q;
                   results = const [];
                   errorText = 'En az 2 karakter yaz.';
                 });
@@ -40,7 +36,6 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
               }
               setSheetState(() {
                 loading = true;
-                query = q;
                 errorText = '';
               });
               final result = await repository.searchTracks(q, limit: 10);

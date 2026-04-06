@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
-
 part of 'band_profile_screen.dart';
 
 extension _BandProfileViewStateActions on _BandProfileViewState {
@@ -7,7 +5,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     final bandId = _bandId;
     if (bandId == null || bandId.isEmpty) return;
 
-    setState(() {
+    _updateState(() {
       _loading = true;
       _errorText = null;
     });
@@ -17,14 +15,14 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     if (!mounted) return;
 
     if (!result.isSuccess || result.data == null) {
-      setState(() {
+      _updateState(() {
         _loading = false;
         _errorText = result.error?.message ?? 'Band profili getirilemedi.';
       });
       return;
     }
 
-    setState(() {
+    _updateState(() {
       _loading = false;
       _profile = result.data;
     });
@@ -42,18 +40,18 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     final trackIds = profile.spotifyTrackIds;
     if (trackIds.isEmpty) {
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _spotifyLoading = false;
         _spotifyTracks = const [];
       });
       return;
     }
 
-    setState(() => _spotifyLoading = true);
+    _updateState(() => _spotifyLoading = true);
     final result = await _spotifyRepository.getTracksByIds(trackIds);
     if (!mounted) return;
 
-    setState(() {
+    _updateState(() {
       _spotifyLoading = false;
       _spotifyTracks = result.isSuccess && result.data != null
           ? result.data!
@@ -64,7 +62,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   Future<void> _loadFollowersCount(String bandId) async {
     final result = await _bandFollowRepository.getFollowersCount(bandId);
     if (!mounted) return;
-    setState(() {
+    _updateState(() {
       _followersCount = result.data;
     });
   }
@@ -91,7 +89,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       return false;
     }
 
-    setState(() {
+    _updateState(() {
       _profile = result.data;
       _spotifyTracks = nextTracks;
     });
@@ -118,7 +116,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       return;
     }
 
-    setState(() {
+    _updateState(() {
       _profile = result.data;
     });
 
@@ -131,7 +129,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     final profile = _profile;
     if (profile == null) return;
 
-    setState(() => _photoUploading = true);
+    _updateState(() => _photoUploading = true);
     try {
       final uploaded = await pickCropAndUploadProfilePhoto(
         context: context,
@@ -159,7 +157,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
         return;
       }
 
-      setState(() {
+      _updateState(() {
         _profile = result.data;
         _uploadedProfilePhotoUrl = uploaded.preferredUrl;
       });
@@ -169,7 +167,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       );
     } finally {
       if (mounted) {
-        setState(() => _photoUploading = false);
+        _updateState(() => _photoUploading = false);
       }
     }
   }
@@ -210,7 +208,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       return;
     }
 
-    setState(() {
+    _updateState(() {
       _profile = result.data;
     });
 

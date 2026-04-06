@@ -76,6 +76,11 @@ class _VenueRequestSheetState extends State<_VenueRequestSheet> {
   bool _loadingDistricts = false;
   bool _loadingNeighborhoods = false;
 
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
+
   @override
   void dispose() {
     _searchController.dispose();

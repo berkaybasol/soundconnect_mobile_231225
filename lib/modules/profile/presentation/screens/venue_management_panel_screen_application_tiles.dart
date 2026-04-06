@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'venue_management_panel_screen.dart';
 
 extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {

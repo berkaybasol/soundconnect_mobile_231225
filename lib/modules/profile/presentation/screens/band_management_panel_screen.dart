@@ -39,6 +39,11 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
   bool _submitting = false;
   String? _errorText;
 
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
+
   @override
   void initState() {
     super.initState();

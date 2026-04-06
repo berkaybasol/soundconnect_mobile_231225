@@ -64,6 +64,11 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
   String? _replyToCommentId;
   bool _initializedLoads = false;
 
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
+
   @override
   void initState() {
     super.initState();

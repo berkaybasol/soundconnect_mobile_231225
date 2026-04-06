@@ -1,5 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'media_detail_screen.dart';
 
 extension _MediaDetailScreenActions on _MediaDetailScreenState {
@@ -7,7 +5,7 @@ extension _MediaDetailScreenActions on _MediaDetailScreenState {
     if (!widget.isVideo) return;
     final url = (widget.playbackUrl ?? '').trim();
     if (url.isEmpty) {
-      setState(() => _videoError = 'Video oynatma baglantisi bulunamadi.');
+      _updateState(() => _videoError = 'Video oynatma baglantisi bulunamadi.');
       return;
     }
     try {
@@ -18,14 +16,14 @@ extension _MediaDetailScreenActions on _MediaDetailScreenState {
         await controller.dispose();
         return;
       }
-      setState(() {
+      _updateState(() {
         _videoController = controller;
         _videoReady = true;
         _videoError = null;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _videoReady = false;
         _videoError = 'Video acilamadi. Lutfen tekrar dene.';
       });
@@ -100,7 +98,7 @@ extension _MediaDetailScreenActions on _MediaDetailScreenState {
 
     _commentController.clear();
     if (!mounted) return;
-    setState(() {
+    _updateState(() {
       _replyTo = null;
       _replyToCommentId = null;
     });

@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
-
 part of 'venue_profile_screen.dart';
 
 extension _ConnectedArtistRequestSheetStateMethods
@@ -17,21 +15,21 @@ extension _ConnectedArtistRequestSheetStateMethods
     _query = trimmed;
     final token = ++_searchToken;
     if (trimmed.length < 2) {
-      setState(() {
+      _updateState(() {
         _loading = false;
         _searchError = '';
         _results = const <MusicianSearchOption>[];
       });
       return;
     }
-    setState(() {
+    _updateState(() {
       _loading = true;
       _searchError = '';
     });
     try {
       final response = await widget.searchMusicians(trimmed);
       if (!mounted || token != _searchToken) return;
-      setState(() {
+      _updateState(() {
         _loading = false;
         _results = response;
         if (response.isEmpty) {
@@ -40,7 +38,7 @@ extension _ConnectedArtistRequestSheetStateMethods
       });
     } catch (_) {
       if (!mounted || token != _searchToken) return;
-      setState(() {
+      _updateState(() {
         _loading = false;
         _results = const <MusicianSearchOption>[];
         _searchError = 'Sanatci aramasi yapilamadi.';
@@ -68,7 +66,7 @@ extension _ConnectedArtistRequestSheetStateMethods
       return;
     }
 
-    setState(() {
+    _updateState(() {
       _selectedMusicianId = checked ? null : item.profileId;
     });
   }

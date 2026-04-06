@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'venue_profile_screen.dart';
 
 class _ProfileHeader extends StatelessWidget {
@@ -92,41 +90,6 @@ class _ProfileHeader extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ProfileIdentity extends StatelessWidget {
-  final MusicianProfile profile;
-
-  const _ProfileIdentity({required this.profile});
-
-  @override
-  Widget build(BuildContext context) {
-    final name = profile.username?.trim().isNotEmpty == true
-        ? profile.username!
-        : 'Kullanici';
-    final bandName = profile.bands.isNotEmpty ? profile.bands.first : null;
-
-    return Column(
-      children: [
-        GradientText(
-          text: name,
-          gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: AppColors.brandGradient,
-          ),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-        ),
-        if (bandName != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            bandName,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-          ),
-        ],
-      ],
     );
   }
 }

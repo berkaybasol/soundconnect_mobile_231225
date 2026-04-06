@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'venue_profile_screen.dart';
 
 class _MusicianPublicProfileView extends StatefulWidget {
@@ -16,9 +14,7 @@ class _MusicianPublicProfileViewState
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   final _artistVenueRepository =
       serviceLocator<ArtistVenueConnectionRepository>();
-  final _locationRepository = serviceLocator<LocationRepository>();
   final _musicianSearchRepository = serviceLocator<MusicianSearchRepository>();
-  final _venueDirectoryRepository = serviceLocator<VenueDirectoryRepository>();
   final _venueEventRepository = serviceLocator<VenueEventRepository>();
   String? _viewerUserId;
   String? _currentProfileUserId;
@@ -27,6 +23,11 @@ class _MusicianPublicProfileViewState
   List<WeeklyCalendarEvent> _fallbackWeeklyEvents = const [];
   String? _fallbackWeeklyEventsVenueId;
   bool _loadingFallbackWeeklyEvents = false;
+
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
 
   @override
   void didChangeDependencies() {

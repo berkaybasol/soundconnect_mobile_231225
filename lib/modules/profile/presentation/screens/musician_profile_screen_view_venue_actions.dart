@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'musician_profile_screen.dart';
 
 extension _MusicianProfileViewStateVenueActions
@@ -20,6 +18,7 @@ extension _MusicianProfileViewStateVenueActions
       final cities = await _fetchCities();
       final accepted = await _fetchAcceptedVenueConnections(profileId);
       final pending = await _fetchPendingVenueConnections(profileId);
+      if (!mounted) return;
 
       final selected = await showVenueRequestBottomSheet(
         context: context,

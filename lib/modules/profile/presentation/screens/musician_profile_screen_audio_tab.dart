@@ -1,6 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable
-
 part of 'musician_profile_screen.dart';
 
 class _AudioTab extends StatelessWidget {

@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 part of 'venue_profile_screen.dart';
 
 class _MediaContent extends StatelessWidget {
@@ -60,6 +58,7 @@ class _MediaContent extends StatelessWidget {
         );
       }
 
+      if (!context.mounted) return;
       await context.read<ProfileMediaCubit>().loadMedia(
         profileType: 'VENUE',
         profileId: galleryOwnerId,

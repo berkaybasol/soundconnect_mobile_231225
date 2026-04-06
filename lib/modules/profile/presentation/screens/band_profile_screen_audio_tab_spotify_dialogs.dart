@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'band_profile_screen.dart';
 
 extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {

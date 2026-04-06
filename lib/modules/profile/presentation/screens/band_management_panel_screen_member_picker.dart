@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
-
 part of 'band_management_panel_screen.dart';
 
 extension _BandManagementPanelScreenStateMemberPicker

@@ -1,5 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'profile_owner_video_tab.dart';
 
 extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
@@ -25,7 +23,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
 
   void _addProcessingVideo(String assetId) {
     if (assetId.trim().isEmpty) return;
-    setState(() {
+    _updateState(() {
       _processingVideoIds.add(assetId.trim());
     });
     _pollAttempt = 0;
@@ -113,7 +111,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     }
 
     if (!mounted) return;
-    setState(() {
+    _updateState(() {
       _videoUploading = true;
     });
 
@@ -178,7 +176,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
       );
     } finally {
       if (mounted) {
-        setState(() {
+        _updateState(() {
           _videoUploading = false;
         });
       }

@@ -1,7 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-// ignore_for_file: unused_element, unused_local_variable
-// ignore_for_file: use_key_in_widget_constructors
-
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
@@ -52,6 +48,7 @@ class ProfileAudioTab extends StatelessWidget {
   final String uploadActionLabel;
 
   const ProfileAudioTab({
+    super.key,
     required this.items,
     required this.profileId,
     required this.spotifyTracks,

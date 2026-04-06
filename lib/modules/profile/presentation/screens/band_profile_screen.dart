@@ -85,6 +85,11 @@ class _BandProfileViewState extends State<_BandProfileView> {
   String? _uploadedProfilePhotoUrl;
   String? _bandId;
 
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();

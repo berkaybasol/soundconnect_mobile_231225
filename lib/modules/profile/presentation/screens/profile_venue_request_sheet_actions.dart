@@ -1,10 +1,8 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'profile_venue_request_sheet.dart';
 
 extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
   Future<void> _onCityChanged(String? cityId) async {
-    setState(() {
+    _updateState(() {
       _selectedCityId = cityId;
       _selectedDistrictId = null;
       _selectedNeighborhoodId = null;
@@ -16,18 +14,18 @@ extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
     try {
       final districts = await widget.fetchDistricts(cityId);
       if (!widget.isMounted()) return;
-      setState(() {
+      _updateState(() {
         _districtOptions = districts;
         _loadingDistricts = false;
       });
     } catch (_) {
       if (!widget.isMounted()) return;
-      setState(() => _loadingDistricts = false);
+      _updateState(() => _loadingDistricts = false);
     }
   }
 
   Future<void> _onDistrictChanged(String? districtId) async {
-    setState(() {
+    _updateState(() {
       _selectedDistrictId = districtId;
       _selectedNeighborhoodId = null;
       _neighborhoodOptions = const [];
@@ -37,13 +35,13 @@ extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
     try {
       final neighborhoods = await widget.fetchNeighborhoods(districtId);
       if (!widget.isMounted()) return;
-      setState(() {
+      _updateState(() {
         _neighborhoodOptions = neighborhoods;
         _loadingNeighborhoods = false;
       });
     } catch (_) {
       if (!widget.isMounted()) return;
-      setState(() => _loadingNeighborhoods = false);
+      _updateState(() => _loadingNeighborhoods = false);
     }
   }
 
@@ -174,7 +172,7 @@ extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
   }
 
   void _resetFilters() {
-    setState(() {
+    _updateState(() {
       _selectedCityId = null;
       _selectedDistrictId = null;
       _selectedNeighborhoodId = null;

@@ -1,5 +1,3 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
-
 part of 'venue_management_panel_screen.dart';
 
 class _MusicianApplicationProfile {
@@ -33,6 +31,11 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
   String? _error;
   List<ArtistVenueApplication> _items = const [];
   Map<String, _MusicianApplicationProfile> _musicianProfiles = const {};
+
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
 
   bool get _showOutgoing => widget.mode == _ApplicationListMode.outgoing;
 

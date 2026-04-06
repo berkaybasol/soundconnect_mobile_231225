@@ -1,11 +1,9 @@
-// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
-
 part of 'band_management_panel_screen.dart';
 
 extension _BandManagementPanelScreenStateMemberActions
     on _BandManagementPanelScreenState {
   Future<void> _refreshProfile() async {
-    setState(() {
+    _updateState(() {
       _loading = true;
       _errorText = null;
     });
@@ -14,14 +12,14 @@ extension _BandManagementPanelScreenStateMemberActions
     if (!mounted) return;
 
     if (!result.isSuccess || result.data == null) {
-      setState(() {
+      _updateState(() {
         _loading = false;
         _errorText = result.error?.message ?? 'Band detaylari yuklenemedi.';
       });
       return;
     }
 
-    setState(() {
+    _updateState(() {
       _loading = false;
       _profile = result.data!;
     });
@@ -31,7 +29,7 @@ extension _BandManagementPanelScreenStateMemberActions
     final selection = await _showMusicianPicker();
     if (selection == null || !mounted) return;
 
-    setState(() => _submitting = true);
+    _updateState(() => _submitting = true);
     try {
       final profileResult = await _musicianProfileRepository
           .getPublicProfileByProfileId(selection.profileId);
@@ -80,7 +78,7 @@ extension _BandManagementPanelScreenStateMemberActions
       await _refreshProfile();
     } finally {
       if (mounted) {
-        setState(() => _submitting = false);
+        _updateState(() => _submitting = false);
       }
     }
   }
@@ -112,7 +110,7 @@ extension _BandManagementPanelScreenStateMemberActions
 
     if (confirmed != true || !mounted) return;
 
-    setState(() => _submitting = true);
+    _updateState(() => _submitting = true);
     try {
       final result = await _bandRepository.removeMember(
         bandId: _profile.id,
@@ -135,7 +133,7 @@ extension _BandManagementPanelScreenStateMemberActions
       await _refreshProfile();
     } finally {
       if (mounted) {
-        setState(() => _submitting = false);
+        _updateState(() => _submitting = false);
       }
     }
   }

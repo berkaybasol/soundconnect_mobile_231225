@@ -1,5 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'venue_weekly_calendar_editor_screen.dart';
 
 class _GradientOutlinePainter extends CustomPainter {

@@ -1,5 +1,3 @@
-// ignore_for_file: invalid_use_of_protected_member
-
 part of 'venue_weekly_calendar_editor_screen.dart';
 
 extension _VenueEventDraftSheetStateMethodsTimeMedia
@@ -193,7 +191,7 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
       ),
     );
     if (picked == null) return;
-    setState(() {
+    _updateState(() {
       if (isStart) {
         _startTime = picked;
       } else {
@@ -211,7 +209,7 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
     );
     if (picked == null) return;
 
-    setState(() {
+    _updateState(() {
       _posterUploading = true;
       _posterPreviewPath = picked.path;
     });
@@ -231,14 +229,14 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
         originalFileName: fileName,
       );
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _posterAssetId = uploaded.uuid.trim().isEmpty
             ? null
             : uploaded.uuid.trim();
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
+      _updateState(() {
         _posterAssetId = null;
         _posterPreviewPath = null;
       });
@@ -247,7 +245,7 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
       ).showSnackBar(SnackBar(content: Text('Afis yuklenemedi: $e')));
     } finally {
       if (mounted) {
-        setState(() => _posterUploading = false);
+        _updateState(() => _posterUploading = false);
       }
     }
   }

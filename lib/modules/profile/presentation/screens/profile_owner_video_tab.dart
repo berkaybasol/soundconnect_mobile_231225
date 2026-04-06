@@ -46,6 +46,11 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
   static const int _maxPollAttempt = 45;
   bool _videoUploading = false;
 
+  void _updateState(VoidCallback updater) {
+    if (!mounted) return;
+    setState(updater);
+  }
+
   @override
   void initState() {
     super.initState();

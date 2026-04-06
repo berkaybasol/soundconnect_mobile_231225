@@ -72,6 +72,29 @@ flutter analyze
 flutter test
 ```
 
+## Development Quality Gate
+
+Use a single command before opening a PR:
+
+```bash
+dart run tool/quality_gate.dart
+```
+
+This gate enforces:
+
+- formatted Dart files (`dart format --set-exit-if-changed`)
+- static analysis (`flutter analyze`)
+- tests (`flutter test`)
+- no temporary `//eklendi` comments
+- no increase in `ignore_for_file` debt
+- no regression in maximum Dart file size baseline
+
+When a baseline increase is intentional, update it explicitly:
+
+```bash
+dart run tool/quality_gate.dart --update-baseline
+```
+
 ## Current Technical Notes
 
 - The largest maintenance surface is `lib/modules/profile/presentation/screens`.

@@ -33,7 +33,8 @@ class MusicianProfileModel extends MusicianProfile {
       stageName: json['stageName'] as String?,
       bio: json['bio'] as String?,
       profilePicture:
-          json['profilePictureUrl'] as String? ?? json['profilePicture'] as String?,
+          json['profilePictureUrl'] as String? ??
+          json['profilePicture'] as String?,
       instagramUrl: json['instagramUrl'] as String?,
       youtubeUrl: json['youtubeUrl'] as String?,
       soundcloudUrl: json['soundcloudUrl'] as String?,

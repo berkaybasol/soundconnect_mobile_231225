@@ -28,7 +28,5 @@ abstract class AuthRepository {
     required String code,
   });
 
-  Future<Result<ResendCodeResult>> resendCode({
-    required String email,
-  });
+  Future<Result<ResendCodeResult>> resendCode({required String email});
 }

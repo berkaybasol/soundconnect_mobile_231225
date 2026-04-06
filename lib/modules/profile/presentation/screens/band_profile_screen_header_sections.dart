@@ -279,4 +279,3 @@ class _BandVenuesRow extends StatelessWidget {
     );
   }
 }
-

@@ -1,4 +1,4 @@
-﻿import '../../../core/error/app_error.dart';
+import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -18,18 +18,19 @@ class MusicianProfileRepositoryImpl implements MusicianProfileRepository {
     try {
       final response = await _apiClient.get<MusicianProfile>(
         MusicianProfileEndpoints.me,
-        decoder: (json) => MusicianProfileModel.fromJson(
-          json as Map<String, dynamic>,
-        ),
+        decoder: (json) =>
+            MusicianProfileModel.fromJson(json as Map<String, dynamic>),
       );
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'musician_profile_unknown',
-        message: 'Profil getirilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'musician_profile_unknown',
+          message: 'Profil getirilemedi',
+        ),
+      );
     }
   }
 
@@ -40,18 +41,19 @@ class MusicianProfileRepositoryImpl implements MusicianProfileRepository {
     try {
       final response = await _apiClient.get<MusicianProfile>(
         MusicianProfileEndpoints.publicByProfileId(profileId),
-        decoder: (json) => MusicianProfileModel.fromJson(
-          json as Map<String, dynamic>,
-        ),
+        decoder: (json) =>
+            MusicianProfileModel.fromJson(json as Map<String, dynamic>),
       );
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'musician_public_profile_unknown',
-        message: 'Public profil getirilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'musician_public_profile_unknown',
+          message: 'Public profil getirilemedi',
+        ),
+      );
     }
   }
 
@@ -63,18 +65,19 @@ class MusicianProfileRepositoryImpl implements MusicianProfileRepository {
       final response = await _apiClient.put<MusicianProfile>(
         MusicianProfileEndpoints.update,
         body: request.toJson(),
-        decoder: (json) => MusicianProfileModel.fromJson(
-          json as Map<String, dynamic>,
-        ),
+        decoder: (json) =>
+            MusicianProfileModel.fromJson(json as Map<String, dynamic>),
       );
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'musician_profile_update_unknown',
-        message: 'Profil guncellenemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'musician_profile_update_unknown',
+          message: 'Profil guncellenemedi',
+        ),
+      );
     }
   }
 }

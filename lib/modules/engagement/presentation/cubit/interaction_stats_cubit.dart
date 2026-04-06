@@ -8,7 +8,7 @@ class InteractionStatsCubit extends Cubit<InteractionStatsState> {
   final Set<String> _inFlight = <String>{};
 
   InteractionStatsCubit(this._repository)
-      : super(const InteractionStatsState.initial());
+    : super(const InteractionStatsState.initial());
 
   String _key(String targetType, String targetId) => '$targetType:$targetId';
 
@@ -26,8 +26,10 @@ class InteractionStatsCubit extends Cubit<InteractionStatsState> {
     _inFlight.add(key);
 
     final next = Map<String, InteractionStatsItemState>.from(state.items);
-    next[key] = (current ?? const InteractionStatsItemState.idle())
-        .copyWith(loading: true, error: null);
+    next[key] = (current ?? const InteractionStatsItemState.idle()).copyWith(
+      loading: true,
+      error: null,
+    );
     emit(state.copyWith(items: next));
 
     final likeCountResult = await _repository.getLikeCount(
@@ -78,7 +80,10 @@ class InteractionStatsCubit extends Cubit<InteractionStatsState> {
     final next = Map<String, InteractionStatsItemState>.from(state.items);
     next[key] = existing.copyWith(
       isLiked: !existing.isLiked,
-      likeCount: (existing.likeCount + (existing.isLiked ? -1 : 1)).clamp(0, 1 << 30),
+      likeCount: (existing.likeCount + (existing.isLiked ? -1 : 1)).clamp(
+        0,
+        1 << 30,
+      ),
       loading: true,
       error: null,
     );

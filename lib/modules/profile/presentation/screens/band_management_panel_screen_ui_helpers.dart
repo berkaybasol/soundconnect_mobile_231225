@@ -2,7 +2,8 @@
 
 part of 'band_management_panel_screen.dart';
 
-extension _BandManagementPanelScreenStateUiHelpers on _BandManagementPanelScreenState {
+extension _BandManagementPanelScreenStateUiHelpers
+    on _BandManagementPanelScreenState {
   Widget _actionCard({
     required BuildContext context,
     required IconData icon,

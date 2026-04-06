@@ -35,10 +35,12 @@ class TrackManagementRepositoryImpl implements TrackManagementRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'track_create_unknown',
-        message: 'Sarki eklenemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'track_create_unknown',
+          message: 'Sarki eklenemedi',
+        ),
+      );
     }
   }
 }

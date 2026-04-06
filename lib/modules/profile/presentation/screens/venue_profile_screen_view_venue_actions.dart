@@ -1,8 +1,9 @@
-﻿// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
+// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously, invalid_use_of_protected_member
 
 part of 'venue_profile_screen.dart';
 
-extension _VenueProfileViewStateVenueActions on _MusicianPublicProfileViewState {
+extension _VenueProfileViewStateVenueActions
+    on _MusicianPublicProfileViewState {
   Future<void> _ensureFallbackWeeklyEvents(VenueOwnerProfile profile) async {
     final venueId = profile.venueId.trim();
     if (venueId.isEmpty) return;
@@ -93,9 +94,7 @@ extension _VenueProfileViewStateVenueActions on _MusicianPublicProfileViewState 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Mekan baglanti istegi gonderildi (onay bekliyor).',
-          ),
+          content: Text('Mekan baglanti istegi gonderildi (onay bekliyor).'),
         ),
       );
     } catch (e) {

@@ -54,22 +54,23 @@ class AppTheme {
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          backgroundColor: AppColors.coral,
-          foregroundColor: AppColors.white,
-        ).copyWith(
-          animationDuration: const Duration(milliseconds: 110),
-          overlayColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.pressed)) {
-              return Colors.white.withValues(alpha: 0.18);
-            }
-            return null;
-          }),
-        ),
+        style:
+            ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              backgroundColor: AppColors.coral,
+              foregroundColor: AppColors.white,
+            ).copyWith(
+              animationDuration: const Duration(milliseconds: 110),
+              overlayColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.pressed)) {
+                  return Colors.white.withValues(alpha: 0.18);
+                }
+                return null;
+              }),
+            ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: _interactiveButtonStyle(
@@ -181,22 +182,23 @@ class AppTheme {
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          backgroundColor: AppColors.coralAlt,
-          foregroundColor: AppColors.white,
-        ).copyWith(
-          animationDuration: const Duration(milliseconds: 110),
-          overlayColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.pressed)) {
-              return Colors.white.withValues(alpha: 0.18);
-            }
-            return null;
-          }),
-        ),
+        style:
+            ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              backgroundColor: AppColors.coralAlt,
+              foregroundColor: AppColors.white,
+            ).copyWith(
+              animationDuration: const Duration(milliseconds: 110),
+              overlayColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.pressed)) {
+                  return Colors.white.withValues(alpha: 0.18);
+                }
+                return null;
+              }),
+            ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: _interactiveButtonStyle(

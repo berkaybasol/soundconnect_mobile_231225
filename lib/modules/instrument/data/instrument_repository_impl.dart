@@ -19,9 +19,10 @@ class InstrumentRepositoryImpl implements InstrumentRepository {
         InstrumentEndpoints.list,
         decoder: (json) {
           final list = (json as List<dynamic>? ?? [])
-              .map((item) => InstrumentModel.fromJson(
-                    item as Map<String, dynamic>,
-                  ))
+              .map(
+                (item) =>
+                    InstrumentModel.fromJson(item as Map<String, dynamic>),
+              )
               .toList();
           return list;
         },
@@ -30,10 +31,12 @@ class InstrumentRepositoryImpl implements InstrumentRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'instruments_unknown',
-        message: 'Enstruman listesi alinamadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'instruments_unknown',
+          message: 'Enstruman listesi alinamadi',
+        ),
+      );
     }
   }
 }

@@ -1,8 +1,9 @@
-﻿// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
+// ignore_for_file: unused_element, unused_element_parameter, unused_local_variable, use_build_context_synchronously
 
 part of 'musician_profile_screen.dart';
 
-extension _MusicianProfileViewStateVenueActions on _MusicianPublicProfileViewState {
+extension _MusicianProfileViewStateVenueActions
+    on _MusicianPublicProfileViewState {
   Future<void> _editVenues(String profileId) async {
     try {
       final acceptedIntro =
@@ -49,9 +50,7 @@ extension _MusicianProfileViewStateVenueActions on _MusicianPublicProfileViewSta
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Mekan baglanti istegi gonderildi (onay bekliyor).',
-          ),
+          content: Text('Mekan baglanti istegi gonderildi (onay bekliyor).'),
         ),
       );
     } catch (e) {

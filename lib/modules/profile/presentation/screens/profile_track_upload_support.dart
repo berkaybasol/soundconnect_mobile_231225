@@ -56,7 +56,7 @@ Future<void> showProfileTrackUploadSheet({
                 ? result!.files.first
                 : null;
             if (file == null) return;
-              final name = file.name.trim().isNotEmpty
+            final name = file.name.trim().isNotEmpty
                 ? file.name.trim()
                 : (file.path != null
                       ? profileAudioFileNameFromPath(
@@ -160,9 +160,7 @@ Future<void> showProfileTrackUploadSheet({
                 infoError = true;
               });
               messenger.showSnackBar(
-                SnackBar(
-                  content: Text('Yukleme basarisiz ($step): $e'),
-                ),
+                SnackBar(content: Text('Yukleme basarisiz ($step): $e')),
               );
             } finally {
               if (sheetContext.mounted) {

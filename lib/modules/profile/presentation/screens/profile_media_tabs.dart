@@ -5,10 +5,7 @@ import '../../../../shared/theme/app_colors.dart';
 class ProfileMediaTabs extends StatelessWidget {
   final List<Widget> tabs;
 
-  const ProfileMediaTabs({
-    super.key,
-    required this.tabs,
-  });
+  const ProfileMediaTabs({super.key, required this.tabs});
 
   @override
   Widget build(BuildContext context) {

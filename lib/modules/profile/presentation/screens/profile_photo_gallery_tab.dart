@@ -27,7 +27,10 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
     final targetId = item.id.trim();
     final stats = targetId.isEmpty
         ? null
-        : context.read<InteractionStatsCubit>().state.items['$targetType:$targetId'];
+        : context
+              .read<InteractionStatsCubit>()
+              .state
+              .items['$targetType:$targetId'];
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -74,11 +77,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             gradient: const LinearGradient(
-              colors: [
-                Color(0x1AFFFFFF),
-                Color(0x1A8A5CFF),
-                Color(0x1AFF7A3D),
-              ],
+              colors: [Color(0x1AFFFFFF), Color(0x1A8A5CFF), Color(0x1AFF7A3D)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -112,10 +111,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
               const Text(
                 'SoundConnect uzerinden galeri fotografi yuklemek icin dokun.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
             ],
           ),

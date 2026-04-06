@@ -61,4 +61,3 @@ class _GradientOutlinePainter extends CustomPainter {
         oldDelegate.strokeWidth != strokeWidth;
   }
 }
-

@@ -150,4 +150,3 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     );
   }
 }
-

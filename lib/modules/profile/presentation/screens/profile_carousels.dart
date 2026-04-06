@@ -161,7 +161,8 @@ class ActiveMusicianCarousel extends StatelessWidget {
         itemBuilder: (context, index) {
           final musician = items[index];
           final imageUrl = musician.profileImageUrl?.trim();
-          final hasImage = imageUrl != null &&
+          final hasImage =
+              imageUrl != null &&
               (imageUrl.startsWith('http://') ||
                   imageUrl.startsWith('https://'));
 

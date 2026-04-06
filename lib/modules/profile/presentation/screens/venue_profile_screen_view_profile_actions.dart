@@ -2,7 +2,8 @@
 
 part of 'venue_profile_screen.dart';
 
-extension _VenueProfileViewStateProfileActions on _MusicianPublicProfileViewState {
+extension _VenueProfileViewStateProfileActions
+    on _MusicianPublicProfileViewState {
   Future<void> _editProfilePhoto(VenueOwnerProfile profile) async {
     setState(() => _photoUploading = true);
     try {
@@ -168,5 +169,4 @@ extension _VenueProfileViewStateProfileActions on _MusicianPublicProfileViewStat
     );
     return result.data ?? const [];
   }
-
 }

@@ -85,9 +85,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     mediaItem.add(baseItem);
     await _player.setUrl(url);
     final resolvedDuration = _player.duration ?? duration;
-    mediaItem.add(
-      baseItem.copyWith(duration: resolvedDuration),
-    );
+    mediaItem.add(baseItem.copyWith(duration: resolvedDuration));
     await _player.play();
   }
 

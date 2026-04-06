@@ -2,7 +2,8 @@
 
 part of 'musician_profile_screen.dart';
 
-extension _MusicianProfileViewStateProfileActions on _MusicianPublicProfileViewState {
+extension _MusicianProfileViewStateProfileActions
+    on _MusicianPublicProfileViewState {
   Future<void> _editProfilePhoto(MusicianProfile profile) async {
     setState(() => _photoUploading = true);
     try {
@@ -141,5 +142,4 @@ extension _MusicianProfileViewStateProfileActions on _MusicianPublicProfileViewS
   ) {
     return _fetchVenueConnectionsByStatus(profileId, status: 'PENDING');
   }
-
 }

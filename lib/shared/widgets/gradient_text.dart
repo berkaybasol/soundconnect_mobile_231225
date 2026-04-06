@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class GradientText extends StatelessWidget {
   final String text;
@@ -37,4 +37,3 @@ class GradientText extends StatelessWidget {
     );
   }
 }
-

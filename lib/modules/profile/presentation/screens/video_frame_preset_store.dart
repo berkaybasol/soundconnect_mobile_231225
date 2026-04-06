@@ -13,7 +13,8 @@ class VideoFramePreset {
 }
 
 class VideoFramePresetStore {
-  static final Map<String, VideoFramePreset> _map = <String, VideoFramePreset>{};
+  static final Map<String, VideoFramePreset> _map =
+      <String, VideoFramePreset>{};
 
   static VideoFramePreset? get(String mediaId) {
     final key = mediaId.trim();

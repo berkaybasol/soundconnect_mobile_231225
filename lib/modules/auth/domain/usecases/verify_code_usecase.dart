@@ -6,10 +6,7 @@ class VerifyCodeUseCase {
 
   VerifyCodeUseCase(this._repository);
 
-  Future<Result<void>> call({
-    required String email,
-    required String code,
-  }) {
+  Future<Result<void>> call({required String email, required String code}) {
     return _repository.verifyCode(email: email, code: code);
   }
 }

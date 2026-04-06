@@ -144,7 +144,9 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
   Future<String?> _resolveVenueId(String? venueId) async {
     if (venueId != null && venueId.isNotEmpty) return venueId;
     final profiles = await getMyVenueProfiles();
-    if (!profiles.isSuccess || profiles.data == null || profiles.data!.isEmpty) {
+    if (!profiles.isSuccess ||
+        profiles.data == null ||
+        profiles.data!.isEmpty) {
       return null;
     }
     return profiles.data!.first.venueId;

@@ -13,7 +13,8 @@ class BandMemberSummaryModel extends BandMemberSummary {
     return BandMemberSummaryModel(
       userId: json['userId']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
-      profilePictureUrl: json['profilePictureUrl']?.toString() ??
+      profilePictureUrl:
+          json['profilePictureUrl']?.toString() ??
           json['profilePicture']?.toString(),
       role: json['role']?.toString() ?? '',
       status: json['status']?.toString() ?? '',

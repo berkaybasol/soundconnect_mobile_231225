@@ -22,10 +22,12 @@ class FollowRepositoryImpl implements FollowRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'follow_count_followers_unknown',
-        message: 'Followers count could not be loaded',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'follow_count_followers_unknown',
+          message: 'Followers count could not be loaded',
+        ),
+      );
     }
   }
 
@@ -40,10 +42,12 @@ class FollowRepositoryImpl implements FollowRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'follow_count_following_unknown',
-        message: 'Following count could not be loaded',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'follow_count_following_unknown',
+          message: 'Following count could not be loaded',
+        ),
+      );
     }
   }
 
@@ -65,10 +69,12 @@ class FollowRepositoryImpl implements FollowRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'follow_action_unknown',
-        message: 'Follow action failed',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'follow_action_unknown',
+          message: 'Follow action failed',
+        ),
+      );
     }
   }
 
@@ -90,10 +96,12 @@ class FollowRepositoryImpl implements FollowRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'unfollow_action_unknown',
-        message: 'Unfollow action failed',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'unfollow_action_unknown',
+          message: 'Unfollow action failed',
+        ),
+      );
     }
   }
 
@@ -111,10 +119,12 @@ class FollowRepositoryImpl implements FollowRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'follow_status_unknown',
-        message: 'Follow status could not be loaded',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'follow_status_unknown',
+          message: 'Follow status could not be loaded',
+        ),
+      );
     }
   }
 }

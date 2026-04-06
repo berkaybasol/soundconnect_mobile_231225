@@ -1,8 +1,4 @@
-enum UserStatus {
-  inactive,
-  active,
-  pendingVenueRequest,
-}
+enum UserStatus { inactive, active, pendingVenueRequest }
 
 extension UserStatusParser on UserStatus {
   static UserStatus fromApi(String? value) {

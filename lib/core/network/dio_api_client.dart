@@ -11,20 +11,18 @@ class DioApiClient implements ApiClient {
   final Dio _dio;
   final TokenStore _tokenStore;
 
-  DioApiClient({
-    Dio? dio,
-    required TokenStore tokenStore,
-    String? baseUrl,
-  })  : _dio = dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: baseUrl ?? NetworkConfig.baseUrl,
-                connectTimeout: const Duration(seconds: 15),
-                receiveTimeout: const Duration(seconds: 15),
-                headers: const {'Content-Type': 'application/json'},
-              ),
+  DioApiClient({Dio? dio, required TokenStore tokenStore, String? baseUrl})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: baseUrl ?? NetworkConfig.baseUrl,
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 15),
+              headers: const {'Content-Type': 'application/json'},
             ),
-        _tokenStore = tokenStore {
+          ),
+      _tokenStore = tokenStore {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {

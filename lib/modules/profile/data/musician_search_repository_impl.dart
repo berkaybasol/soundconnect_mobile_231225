@@ -29,10 +29,12 @@ class MusicianSearchRepositoryImpl implements MusicianSearchRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'musician_search_unknown',
-        message: 'Muzisyen aramasi yapilamadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'musician_search_unknown',
+          message: 'Muzisyen aramasi yapilamadi',
+        ),
+      );
     }
   }
 }

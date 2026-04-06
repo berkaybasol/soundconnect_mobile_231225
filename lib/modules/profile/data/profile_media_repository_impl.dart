@@ -25,9 +25,8 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
           profileType: profileType,
           profileId: profileId,
         ),
-        decoder: (json) => ProfileMediaModel.fromJson(
-          json as Map<String, dynamic>,
-        ),
+        decoder: (json) =>
+            ProfileMediaModel.fromJson(json as Map<String, dynamic>),
       );
 
       ProfileMedia finalMedia = response;
@@ -48,10 +47,12 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'profile_media_unknown',
-        message: 'Profil medyasi getirilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'profile_media_unknown',
+          message: 'Profil medyasi getirilemedi',
+        ),
+      );
     }
   }
 
@@ -59,11 +60,7 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
     try {
       return await _apiClient.get<List<MediaAssetModel>>(
         '/api/v1/public/media/owner/MUSICIAN_PROFILE/$profileId/kind/VIDEO',
-        query: const {
-          'page': 0,
-          'size': 20,
-          'sort': 'createdAt,desc',
-        },
+        query: const {'page': 0, 'size': 20, 'sort': 'createdAt,desc'},
         decoder: (json) {
           if (json is! Map<String, dynamic>) return const <MediaAssetModel>[];
           final content = json['content'];

@@ -6,22 +6,25 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_
 
 void main() {
   group('profile save requests', () {
-    test('VenueProfileSaveRequest serializes only non-empty trimmed fields', () {
-      const request = VenueProfileSaveRequest(
-        bio: '  Venue bio  ',
-        profilePicture: '  ',
-        instagramUrl: 'https://instagram.com/venue',
-        youtubeUrl: null,
-        websiteUrl: ' https://venue.example ',
-      );
+    test(
+      'VenueProfileSaveRequest serializes only non-empty trimmed fields',
+      () {
+        const request = VenueProfileSaveRequest(
+          bio: '  Venue bio  ',
+          profilePicture: '  ',
+          instagramUrl: 'https://instagram.com/venue',
+          youtubeUrl: null,
+          websiteUrl: ' https://venue.example ',
+        );
 
-      final json = request.toJson();
-      expect(json['bio'], 'Venue bio');
-      expect(json['instagramUrl'], 'https://instagram.com/venue');
-      expect(json['websiteUrl'], 'https://venue.example');
-      expect(json.containsKey('profilePicture'), isFalse);
-      expect(json.containsKey('youtubeUrl'), isFalse);
-    });
+        final json = request.toJson();
+        expect(json['bio'], 'Venue bio');
+        expect(json['instagramUrl'], 'https://instagram.com/venue');
+        expect(json['websiteUrl'], 'https://venue.example');
+        expect(json.containsKey('profilePicture'), isFalse);
+        expect(json.containsKey('youtubeUrl'), isFalse);
+      },
+    );
 
     test('MusicianProfileSaveRequest keeps list fields and trims strings', () {
       const request = MusicianProfileSaveRequest(
@@ -38,12 +41,9 @@ void main() {
       expect(json['stageName'], 'Artist');
       expect(json.containsKey('description'), isFalse);
       expect(json['spotifyTrackIds'], ['a', 'b']);
-      expect(
-        json['spotifyTracks'],
-        [
-          {'spotifyTrackId': 'a'},
-        ],
-      );
+      expect(json['spotifyTracks'], [
+        {'spotifyTrackId': 'a'},
+      ]);
       expect(json['instrumentIds'], ['guitar']);
     });
   });
@@ -60,12 +60,15 @@ void main() {
       );
     });
 
-    test('formatVenueDisplayTime normalizes to HH:MM and preserves unknown', () {
-      expect(formatVenueDisplayTime('9:7:00'), '09:07');
-      expect(formatVenueDisplayTime('21:45'), '21:45');
-      expect(formatVenueDisplayTime('  '), '');
-      expect(formatVenueDisplayTime('invalid'), 'invalid');
-    });
+    test(
+      'formatVenueDisplayTime normalizes to HH:MM and preserves unknown',
+      () {
+        expect(formatVenueDisplayTime('9:7:00'), '09:07');
+        expect(formatVenueDisplayTime('21:45'), '21:45');
+        expect(formatVenueDisplayTime('  '), '');
+        expect(formatVenueDisplayTime('invalid'), 'invalid');
+      },
+    );
   });
 
   group('VenueOwnerEventItem parsing', () {

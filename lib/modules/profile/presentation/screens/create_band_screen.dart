@@ -59,10 +59,7 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Band Olustur'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Band Olustur'), centerTitle: true),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -160,10 +157,7 @@ class _BrandGradientOutlineButton extends StatelessWidget {
         gradient: LinearGradient(
           colors: isEnabled
               ? AppColors.brandGradient
-              : [
-                  AppColors.border,
-                  AppColors.border,
-                ],
+              : [AppColors.border, AppColors.border],
         ),
       ),
       child: Padding(

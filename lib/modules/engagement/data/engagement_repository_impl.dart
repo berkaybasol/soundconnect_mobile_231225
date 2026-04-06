@@ -27,10 +27,12 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'engagement_like_count_unknown',
-        message: 'Like sayisi getirilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'engagement_like_count_unknown',
+          message: 'Like sayisi getirilemedi',
+        ),
+      );
     }
   }
 
@@ -48,10 +50,12 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'engagement_is_liked_unknown',
-        message: 'Begeni durumu getirilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'engagement_is_liked_unknown',
+          message: 'Begeni durumu getirilemedi',
+        ),
+      );
     }
   }
 
@@ -69,10 +73,12 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'engagement_like_unknown',
-        message: 'Begeni eklenemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'engagement_like_unknown',
+          message: 'Begeni eklenemedi',
+        ),
+      );
     }
   }
 
@@ -90,10 +96,12 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'engagement_unlike_unknown',
-        message: 'Begeni kaldirilamadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'engagement_unlike_unknown',
+          message: 'Begeni kaldirilamadi',
+        ),
+      );
     }
   }
 
@@ -107,21 +115,19 @@ class EngagementRepositoryImpl implements EngagementRepository {
     try {
       final response = await _apiClient.get<CommentPage>(
         EngagementEndpoints.listComments(targetType, targetId),
-        query: {
-          'page': page,
-          'size': size,
-          'sort': 'createdAt,desc',
-        },
+        query: {'page': page, 'size': size, 'sort': 'createdAt,desc'},
         decoder: (json) => _commentPageFromJson(json),
       );
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'engagement_comments_unknown',
-        message: 'Yorumlar getirilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'engagement_comments_unknown',
+          message: 'Yorumlar getirilemedi',
+        ),
+      );
     }
   }
 
@@ -152,10 +158,12 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'engagement_comment_replies_unknown',
-        message: 'Yanitlar getirilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'engagement_comment_replies_unknown',
+          message: 'Yanitlar getirilemedi',
+        ),
+      );
     }
   }
 
@@ -169,10 +177,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
     try {
       final response = await _apiClient.post<CommentItem>(
         EngagementEndpoints.createComment(targetType, targetId),
-        body: {
-          'text': text,
-          'parentCommentId': parentCommentId,
-        },
+        body: {'text': text, 'parentCommentId': parentCommentId},
         decoder: (json) =>
             CommentItemModel.fromJson(json as Map<String, dynamic>),
       );
@@ -180,10 +185,12 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'engagement_comment_create_unknown',
-        message: 'Yorum gonderilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'engagement_comment_create_unknown',
+          message: 'Yorum gonderilemedi',
+        ),
+      );
     }
   }
 
@@ -198,10 +205,12 @@ class EngagementRepositoryImpl implements EngagementRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'engagement_comment_delete_unknown',
-        message: 'Yorum silinemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'engagement_comment_delete_unknown',
+          message: 'Yorum silinemedi',
+        ),
+      );
     }
   }
 
@@ -212,7 +221,8 @@ class EngagementRepositoryImpl implements EngagementRepository {
         .whereType<Map<String, dynamic>>()
         .map(CommentItemModel.fromJson)
         .toList();
-    final totalElements = (map['totalElements'] as num?)?.toInt() ?? items.length;
+    final totalElements =
+        (map['totalElements'] as num?)?.toInt() ?? items.length;
     return CommentPage(items: items, totalElements: totalElements);
   }
 }

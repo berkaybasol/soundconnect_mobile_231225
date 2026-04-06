@@ -21,11 +21,13 @@ class BandProfileModel extends BandProfile {
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString().trim() ?? '',
       description: json['description']?.toString(),
-      profilePictureUrl: json['profilePictureUrl']?.toString() ??
+      profilePictureUrl:
+          json['profilePictureUrl']?.toString() ??
           json['profilePicture']?.toString(),
       instagramUrl: json['instagramUrl']?.toString(),
       youtubeUrl: json['youtubeUrl']?.toString(),
-      soundCloudUrl: json['soundCloudUrl']?.toString() ??
+      soundCloudUrl:
+          json['soundCloudUrl']?.toString() ??
           json['soundcloudUrl']?.toString(),
       spotifyEmbedUrl: json['spotifyEmbedUrl']?.toString(),
       spotifyArtistId: json['spotifyArtistId']?.toString(),

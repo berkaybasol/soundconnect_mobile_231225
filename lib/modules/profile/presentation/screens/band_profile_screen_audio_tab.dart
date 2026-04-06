@@ -291,4 +291,3 @@ class _BandAudioTab extends StatelessWidget {
     );
   }
 }
-

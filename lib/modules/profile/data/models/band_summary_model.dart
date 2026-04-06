@@ -13,7 +13,8 @@ class BandSummaryModel extends BandSummary {
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString().trim() ?? '',
       description: json['description']?.toString(),
-      profilePictureUrl: json['profilePictureUrl']?.toString() ??
+      profilePictureUrl:
+          json['profilePictureUrl']?.toString() ??
           json['profilePicture']?.toString(),
     );
   }

@@ -4,8 +4,5 @@ class CommentPage {
   final List<CommentItem> items;
   final int totalElements;
 
-  const CommentPage({
-    required this.items,
-    required this.totalElements,
-  });
+  const CommentPage({required this.items, required this.totalElements});
 }

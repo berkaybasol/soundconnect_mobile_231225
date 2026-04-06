@@ -60,9 +60,9 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
   }
 
   Future<void> _openCreateBandScreen() async {
-    final createdBand = await Navigator.of(context).pushNamed(
-      AppRoutes.createBand,
-    );
+    final createdBand = await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.createBand);
 
     if (!mounted || createdBand is! BandSummary) return;
 
@@ -70,9 +70,9 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
       _bands = [..._bands, createdBand];
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${createdBand.name} olusturuldu.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${createdBand.name} olusturuldu.')));
   }
 
   Future<void> _showBandActions(BandSummary band) async {
@@ -155,10 +155,7 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bandlerim'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Bandlerim'), centerTitle: true),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -168,10 +165,7 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
               const Text(
                 'Bandlerini bu panel uzerinden yonetebilirsin.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  height: 1.5,
-                ),
+                style: TextStyle(color: AppColors.textMuted, height: 1.5),
               ),
               const SizedBox(height: 24),
               if (_loading)
@@ -192,10 +186,7 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
                 const Text(
                   'Henuz bandiniz yok.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    height: 1.5,
-                  ),
+                  style: TextStyle(color: AppColors.textMuted, height: 1.5),
                 ),
                 const SizedBox(height: 16),
                 _BrandGradientOutlineButton(

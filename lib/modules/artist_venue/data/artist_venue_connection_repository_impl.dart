@@ -39,10 +39,12 @@ class ArtistVenueConnectionRepositoryImpl
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'artist_venue_connections_unknown',
-        message: 'Active venues could not be loaded',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'artist_venue_connections_unknown',
+          message: 'Active venues could not be loaded',
+        ),
+      );
     }
   }
 
@@ -68,7 +70,9 @@ class ArtistVenueConnectionRepositoryImpl
                   venueName: item.venueName ?? '',
                 ),
               )
-              .where((item) => item.requestId.isNotEmpty && item.venueId.isNotEmpty)
+              .where(
+                (item) => item.requestId.isNotEmpty && item.venueId.isNotEmpty,
+              )
               .toList();
           return list;
         },
@@ -77,10 +81,12 @@ class ArtistVenueConnectionRepositoryImpl
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'artist_venue_status_unknown',
-        message: 'Venue baglanti listesi alinmadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'artist_venue_status_unknown',
+          message: 'Venue baglanti listesi alinmadi',
+        ),
+      );
     }
   }
 
@@ -116,10 +122,12 @@ class ArtistVenueConnectionRepositoryImpl
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'venue_artist_status_unknown',
-        message: 'Muzisyen baglanti listesi alinamadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'venue_artist_status_unknown',
+          message: 'Muzisyen baglanti listesi alinamadi',
+        ),
+      );
     }
   }
 
@@ -169,10 +177,12 @@ class ArtistVenueConnectionRepositoryImpl
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'artist_venue_request_unknown',
-        message: 'Baglanti istegi gonderilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'artist_venue_request_unknown',
+          message: 'Baglanti istegi gonderilemedi',
+        ),
+      );
     }
   }
 
@@ -184,25 +194,26 @@ class ArtistVenueConnectionRepositoryImpl
       final response = await _apiClient.get<List<ArtistVenueApplication>>(
         ArtistVenueConnectionEndpoints.byVenue(venueId),
         decoder: (json) {
-          final list = (json as List<dynamic>? ?? const [])
-              .whereType<Map<String, dynamic>>()
-              .map(ArtistVenueConnectionResponse.fromJson)
-              .map(
-                (item) => ArtistVenueApplication(
-                  id: item.id,
-                  musicianProfileId: item.musicianProfileId,
-                  venueId: item.venueId,
-                  musicianStageName: item.musicianStageName ?? '',
-                  venueName: item.venueName ?? 'Mekan',
-                  message: item.message,
-                  status: item.status ?? 'PENDING',
-                  requestByType: item.requestByType ?? 'ARTIST',
-                  createdAt: item.createdAt ?? '',
-                ),
-              )
-              .where((item) => item.id.isNotEmpty)
-              .toList()
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          final list =
+              (json as List<dynamic>? ?? const [])
+                  .whereType<Map<String, dynamic>>()
+                  .map(ArtistVenueConnectionResponse.fromJson)
+                  .map(
+                    (item) => ArtistVenueApplication(
+                      id: item.id,
+                      musicianProfileId: item.musicianProfileId,
+                      venueId: item.venueId,
+                      musicianStageName: item.musicianStageName ?? '',
+                      venueName: item.venueName ?? 'Mekan',
+                      message: item.message,
+                      status: item.status ?? 'PENDING',
+                      requestByType: item.requestByType ?? 'ARTIST',
+                      createdAt: item.createdAt ?? '',
+                    ),
+                  )
+                  .where((item) => item.id.isNotEmpty)
+                  .toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         },
       );
@@ -210,10 +221,12 @@ class ArtistVenueConnectionRepositoryImpl
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'artist_venue_applications_unknown',
-        message: 'Basvurular getirilemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'artist_venue_applications_unknown',
+          message: 'Basvurular getirilemedi',
+        ),
+      );
     }
   }
 
@@ -249,10 +262,12 @@ class ArtistVenueConnectionRepositoryImpl
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'artist_venue_disconnect_unknown',
-        message: 'Baglanti kaldirilamadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'artist_venue_disconnect_unknown',
+          message: 'Baglanti kaldirilamadi',
+        ),
+      );
     }
   }
 
@@ -263,10 +278,12 @@ class ArtistVenueConnectionRepositoryImpl
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'artist_venue_action_unknown',
-        message: 'Islem tamamlanamadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'artist_venue_action_unknown',
+          message: 'Islem tamamlanamadi',
+        ),
+      );
     }
   }
 }

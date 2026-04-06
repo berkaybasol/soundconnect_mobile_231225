@@ -33,10 +33,12 @@ class LocationRepositoryImpl implements LocationRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'location_cities_unknown',
-        message: 'Cities could not be loaded',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'location_cities_unknown',
+          message: 'Cities could not be loaded',
+        ),
+      );
     }
   }
 
@@ -47,7 +49,9 @@ class LocationRepositoryImpl implements LocationRepository {
         LocationEndpoints.getDistrictsByCity(cityId),
         decoder: (json) {
           final list = (json as List<dynamic>? ?? [])
-              .map((item) => DistrictModel.fromJson(item as Map<String, dynamic>))
+              .map(
+                (item) => DistrictModel.fromJson(item as Map<String, dynamic>),
+              )
               .map((model) => model.toEntity())
               .toList();
           return list;
@@ -57,10 +61,12 @@ class LocationRepositoryImpl implements LocationRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'location_districts_unknown',
-        message: 'Districts could not be loaded',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'location_districts_unknown',
+          message: 'Districts could not be loaded',
+        ),
+      );
     }
   }
 
@@ -72,9 +78,8 @@ class LocationRepositoryImpl implements LocationRepository {
         decoder: (json) {
           final list = (json as List<dynamic>? ?? [])
               .map(
-                (item) => NeighborhoodModel.fromJson(
-                  item as Map<String, dynamic>,
-                ),
+                (item) =>
+                    NeighborhoodModel.fromJson(item as Map<String, dynamic>),
               )
               .map((model) => model.toEntity())
               .toList();
@@ -85,10 +90,12 @@ class LocationRepositoryImpl implements LocationRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'location_neighborhoods_unknown',
-        message: 'Neighborhoods could not be loaded',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'location_neighborhoods_unknown',
+          message: 'Neighborhoods could not be loaded',
+        ),
+      );
     }
   }
 }

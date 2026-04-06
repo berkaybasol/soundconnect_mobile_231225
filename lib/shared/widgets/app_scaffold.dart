@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class AppScaffold extends StatelessWidget {
   final String title;
@@ -31,10 +31,7 @@ class AppScaffold extends StatelessWidget {
             );
 
             if (!scrollable) {
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: content,
-              );
+              return Padding(padding: const EdgeInsets.all(16), child: content);
             }
 
             return SingleChildScrollView(

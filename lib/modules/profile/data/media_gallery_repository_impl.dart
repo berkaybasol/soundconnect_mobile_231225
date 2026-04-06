@@ -21,11 +21,7 @@ class MediaGalleryRepositoryImpl implements MediaGalleryRepository {
     try {
       final response = await _apiClient.get<List<MediaAsset>>(
         '/api/v1/public/media/owner/$ownerType/$ownerId/kind/IMAGE',
-        query: {
-          'page': page,
-          'size': size,
-          'sort': 'createdAt,desc',
-        },
+        query: {'page': page, 'size': size, 'sort': 'createdAt,desc'},
         decoder: (json) {
           if (json is! Map<String, dynamic>) return const <MediaAsset>[];
           final content = json['content'];

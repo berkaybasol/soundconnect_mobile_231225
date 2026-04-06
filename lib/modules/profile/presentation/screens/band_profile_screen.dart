@@ -160,64 +160,44 @@ class _BandProfileViewState extends State<_BandProfileView> {
                   hintText: 'Bandinden bahset...',
                 ),
                 afterBio: Padding(
-                  //eklendi
-                  padding: const EdgeInsets.symmetric(horizontal: 28), //eklendi
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: DecoratedBox(
-                    //eklendi
                     decoration: BoxDecoration(
-                      //eklendi
-                      borderRadius: BorderRadius.circular(18), //eklendi
+                      borderRadius: BorderRadius.circular(18),
                       gradient: const LinearGradient(
-                        //eklendi
-                        colors: AppColors.brandGradient, //eklendi
-                      ), //eklendi
-                    ), //eklendi
+                        colors: AppColors.brandGradient,
+                      ),
+                    ),
                     child: Padding(
-                      //eklendi
-                      padding: const EdgeInsets.all(0.7), //eklendi
+                      padding: const EdgeInsets.all(0.7),
                       child: ClipRRect(
-                        //eklendi
-                        borderRadius: BorderRadius.circular(18), //eklendi
+                        borderRadius: BorderRadius.circular(18),
                         child: Container(
-                          //eklendi
-                          color: AppColors.inputFill, //eklendi
+                          color: AppColors.inputFill,
                           child: TextButton.icon(
-                            //eklendi
-                            onPressed: () =>
-                                _openBandManagementPanel(context), //eklendi
+                            onPressed: () => _openBandManagementPanel(context),
                             style: TextButton.styleFrom(
-                              //eklendi
-                              foregroundColor: AppColors.white, //eklendi
-                              backgroundColor: Colors.transparent, //eklendi
-                              padding: const EdgeInsets.symmetric(
-                                //eklendi
-                                vertical: 14, //eklendi
-                              ), //eklendi
+                              foregroundColor: AppColors.white,
+                              backgroundColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                //eklendi
-                                borderRadius: BorderRadius.circular(
-                                  18,
-                                ), //eklendi
-                              ), //eklendi
-                            ), //eklendi
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
                             icon: const Icon(
-                              //eklendi
-                              Icons.dashboard_customize_outlined, //eklendi
-                              color: AppColors.white, //eklendi
-                            ), //eklendi
+                              Icons.dashboard_customize_outlined,
+                              color: AppColors.white,
+                            ),
                             label: const Text(
-                              //eklendi
-                              'Yonetim Paneli', //eklendi
-                              style: TextStyle(
-                                color: AppColors.white,
-                              ), //eklendi
-                            ), //eklendi
-                          ), //eklendi
-                        ), //eklendi
-                      ), //eklendi
-                    ), //eklendi
-                  ), //eklendi
-                ), //eklendi
+                              'Yonetim Paneli',
+                              style: TextStyle(color: AppColors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 18),
               ProfileSectionHeader(

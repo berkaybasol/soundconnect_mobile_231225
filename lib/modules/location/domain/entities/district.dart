@@ -3,9 +3,5 @@ class District {
   final String name;
   final String cityId;
 
-  const District({
-    required this.id,
-    required this.name,
-    required this.cityId,
-  });
+  const District({required this.id, required this.name, required this.cityId});
 }

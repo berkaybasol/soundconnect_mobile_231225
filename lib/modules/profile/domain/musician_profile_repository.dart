@@ -1,4 +1,4 @@
-﻿import '../../../core/error/result.dart';
+import '../../../core/error/result.dart';
 import '../data/models/musician_profile_save_request.dart';
 import 'entities/musician_profile.dart';
 

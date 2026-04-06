@@ -14,9 +14,7 @@ class SpotifyTrackPreviewModel extends SpotifyTrackPreview {
   factory SpotifyTrackPreviewModel.fromJson(Map<String, dynamic> json) {
     final artistsNode = json['artistNames'] ?? json['artists'];
     return SpotifyTrackPreviewModel(
-      id: json['spotifyTrackId']?.toString() ??
-          json['id']?.toString() ??
-          '',
+      id: json['spotifyTrackId']?.toString() ?? json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       previewUrl: json['previewUrl']?.toString(),
       durationSeconds: _durationSeconds(

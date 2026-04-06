@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -53,9 +53,9 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _submit() {
@@ -75,18 +75,18 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
     }
 
     context.read<AuthCubit>().register(
-          username: args.username,
-          email: args.email,
-          password: args.password,
-          rePassword: args.rePassword,
-          role: args.role,
-          venueName: _venueNameController.text.trim(),
-          venueAddress: _venueAddressController.text.trim(),
-          phone: _venuePhoneController.text.trim(),
-          cityId: _selectedCityId,
-          districtId: _selectedDistrictId,
-          neighborhoodId: _selectedNeighborhoodId,
-        );
+      username: args.username,
+      email: args.email,
+      password: args.password,
+      rePassword: args.rePassword,
+      role: args.role,
+      venueName: _venueNameController.text.trim(),
+      venueAddress: _venueAddressController.text.trim(),
+      phone: _venuePhoneController.text.trim(),
+      cityId: _selectedCityId,
+      districtId: _selectedDistrictId,
+      neighborhoodId: _selectedNeighborhoodId,
+    );
   }
 
   @override
@@ -108,7 +108,8 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
       },
       builder: (context, state) {
         final isLoading =
-            state.status == AuthStatus.loading && state.action == AuthAction.register;
+            state.status == AuthStatus.loading &&
+            state.action == AuthAction.register;
 
         return AppScaffold(
           title: 'Mekan bilgileri',
@@ -160,11 +161,15 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                           fillColor: AppColors.inputFill,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
-                            borderSide: const BorderSide(color: AppColors.border),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
-                            borderSide: const BorderSide(color: AppColors.border),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
                           ),
                           prefixIcon: const Icon(Icons.location_city_outlined),
                           hintText: 'Şehir seç',
@@ -199,11 +204,15 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                           fillColor: AppColors.inputFill,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
-                            borderSide: const BorderSide(color: AppColors.border),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
-                            borderSide: const BorderSide(color: AppColors.border),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
                           ),
                           prefixIcon: const Icon(Icons.map_outlined),
                           hintText: 'İlçe seç',
@@ -223,9 +232,9 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                             _selectedNeighborhoodId = null;
                           });
                           if (value != null) {
-                            context
-                                .read<LocationCubit>()
-                                .loadNeighborhoods(value);
+                            context.read<LocationCubit>().loadNeighborhoods(
+                              value,
+                            );
                           }
                         },
                       ),
@@ -237,11 +246,15 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                           fillColor: AppColors.inputFill,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
-                            borderSide: const BorderSide(color: AppColors.border),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
-                            borderSide: const BorderSide(color: AppColors.border),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
                           ),
                           prefixIcon: const Icon(Icons.place_outlined),
                           hintText: 'Mahalle seç (opsiyonel)',

@@ -39,7 +39,5 @@ abstract class EngagementRepository {
     String? parentCommentId,
   });
 
-  Future<Result<void>> deleteComment({
-    required String commentId,
-  });
+  Future<Result<void>> deleteComment({required String commentId});
 }

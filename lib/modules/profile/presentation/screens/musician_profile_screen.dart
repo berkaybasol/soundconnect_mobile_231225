@@ -17,7 +17,7 @@ import '../../../follow/presentation/cubit/follow_count_cubit.dart';
 import '../../../follow/presentation/cubit/follow_count_state.dart';
 import '../../../location/domain/location_repository.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
-import '../../../../app/router/app_routes.dart'; //eklendi
+import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../domain/entities/media_asset.dart';
@@ -30,7 +30,7 @@ import '../../data/models/musician_profile_save_request.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
-import 'my_bands_screen.dart'; //eklendi
+import 'my_bands_screen.dart';
 import 'profile_audio_tab_shared.dart';
 import 'profile_carousels.dart';
 import 'profile_common_widgets.dart';

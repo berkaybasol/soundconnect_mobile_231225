@@ -16,8 +16,7 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
       final filtered = response.where((item) {
         if (_showOutgoing) return item.requestByType == 'VENUE';
         return item.requestByType == 'ARTIST';
-      }).toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       final profileEntries = await Future.wait(
         filtered
             .map((item) => item.musicianProfileId)
@@ -47,9 +46,8 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
     String profileId,
   ) async {
     try {
-      final result = await _musicianProfileRepository.getPublicProfileByProfileId(
-        profileId,
-      );
+      final result = await _musicianProfileRepository
+          .getPublicProfileByProfileId(profileId);
       final data = result.data;
       if (data == null) return null;
       final stageName = data.stageName?.trim() ?? '';
@@ -71,7 +69,8 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
 
   bool _isValidImageUrl(String? value) {
     final normalized = value?.trim() ?? '';
-    return normalized.startsWith('http://') || normalized.startsWith('https://');
+    return normalized.startsWith('http://') ||
+        normalized.startsWith('https://');
   }
 
   Future<void> _runAction({
@@ -83,15 +82,15 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
     try {
       await action();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(methodLabel)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(methodLabel)));
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Islem basarisiz: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Islem basarisiz: $e')));
     } finally {
       if (mounted) {
         setState(() => _actionLoading = false);
@@ -120,5 +119,4 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
         return 'Beklemede';
     }
   }
-
 }

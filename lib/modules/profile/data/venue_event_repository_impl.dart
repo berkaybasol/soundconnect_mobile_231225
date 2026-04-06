@@ -28,10 +28,12 @@ class VenueEventRepositoryImpl implements VenueEventRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'venue_events_list_unknown',
-        message: 'Etkinlikler alinamadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'venue_events_list_unknown',
+          message: 'Etkinlikler alinamadi',
+        ),
+      );
     }
   }
 
@@ -63,10 +65,12 @@ class VenueEventRepositoryImpl implements VenueEventRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'venue_event_create_unknown',
-        message: 'Etkinlik eklenemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'venue_event_create_unknown',
+          message: 'Etkinlik eklenemedi',
+        ),
+      );
     }
   }
 
@@ -81,10 +85,12 @@ class VenueEventRepositoryImpl implements VenueEventRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'venue_event_delete_unknown',
-        message: 'Etkinlik silinemedi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'venue_event_delete_unknown',
+          message: 'Etkinlik silinemedi',
+        ),
+      );
     }
   }
 
@@ -110,10 +116,12 @@ class VenueEventRepositoryImpl implements VenueEventRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (_) {
-      return Result.failure(const AppError(
-        code: 'venue_event_detail_unknown',
-        message: 'Etkinlik detayi alinamadi',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'venue_event_detail_unknown',
+          message: 'Etkinlik detayi alinamadi',
+        ),
+      );
     }
   }
 }

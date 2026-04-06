@@ -36,10 +36,9 @@ class AuthRepositoryImpl implements AuthRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (e) {
-      return Result.failure(const AppError(
-        code: 'auth_login_unknown',
-        message: 'Login failed',
-      ));
+      return Result.failure(
+        const AppError(code: 'auth_login_unknown', message: 'Login failed'),
+      );
     }
   }
 
@@ -80,10 +79,12 @@ class AuthRepositoryImpl implements AuthRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (e) {
-      return Result.failure(const AppError(
-        code: 'auth_register_unknown',
-        message: 'Register failed',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'auth_register_unknown',
+          message: 'Register failed',
+        ),
+      );
     }
   }
 
@@ -102,17 +103,17 @@ class AuthRepositoryImpl implements AuthRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (e) {
-      return Result.failure(const AppError(
-        code: 'auth_verify_unknown',
-        message: 'Verification failed',
-      ));
+      return Result.failure(
+        const AppError(
+          code: 'auth_verify_unknown',
+          message: 'Verification failed',
+        ),
+      );
     }
   }
 
   @override
-  Future<Result<ResendCodeResult>> resendCode({
-    required String email,
-  }) async {
+  Future<Result<ResendCodeResult>> resendCode({required String email}) async {
     try {
       final response = await _apiClient.post<ResendCodeResult>(
         AuthEndpoints.resendCode,
@@ -125,10 +126,9 @@ class AuthRepositoryImpl implements AuthRepository {
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (e) {
-      return Result.failure(const AppError(
-        code: 'auth_resend_unknown',
-        message: 'Resend failed',
-      ));
+      return Result.failure(
+        const AppError(code: 'auth_resend_unknown', message: 'Resend failed'),
+      );
     }
   }
 }

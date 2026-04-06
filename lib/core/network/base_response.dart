@@ -16,8 +16,7 @@ class BaseResponse<T> {
     T Function(Object? json)? decoder,
   ) {
     final Object? rawData = json['data'];
-    final T? parsedData =
-        decoder != null ? decoder(rawData) : rawData as T?;
+    final T? parsedData = decoder != null ? decoder(rawData) : rawData as T?;
 
     return BaseResponse<T>(
       success: json['success'] as bool?,

@@ -53,7 +53,7 @@ class _AudioTab extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: () =>
                         _showSpotifyCatalog(context, spotifyPreviewItems),
-                    icon: const Icon(
+                    icon: const FaIcon(
                       FontAwesomeIcons.spotify,
                       size: 16,
                       color: Colors.white,

@@ -173,7 +173,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                     ),
                                     child: Row(
                                       children: [
-                                        const Icon(
+                                        const FaIcon(
                                           FontAwesomeIcons.spotify,
                                           size: 16,
                                           color: Color(0xFF1DB954),

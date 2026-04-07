@@ -38,7 +38,7 @@ Future<void> showProfileTrackUploadSheet({
       return StatefulBuilder(
         builder: (context, setSheetState) {
           Future<void> pickAudio() async {
-            final result = await FilePicker.platform.pickFiles(
+            final result = await FilePicker.pickFiles(
               type: FileType.custom,
               withData: true,
               allowMultiple: false,

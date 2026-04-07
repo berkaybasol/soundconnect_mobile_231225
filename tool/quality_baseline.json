@@ -1,4 +1,5 @@
 {
   "ignore_for_file_max": 0,
-  "max_dart_file_lines": 1200
+  "max_dart_file_lines": 1200,
+  "min_line_coverage_pct": 5.0
 }

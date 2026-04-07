@@ -27,7 +27,7 @@ class ProfileSpotifyPreviewCard extends StatelessWidget {
         gradientColors: spotifyGradient,
         iconColor: Color(0xFF1ED760),
         playIconColor: Color(0xFF1DB954),
-        leading: Icon(
+        leading: FaIcon(
           FontAwesomeIcons.spotify,
           size: 16,
           color: Color(0xFF1DB954),

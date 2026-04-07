@@ -48,8 +48,13 @@ flutter pub get
 flutter run --dart-define=SOUNDCONNECT_BASE_URL=http://localhost:8080
 ```
 
-If `SOUNDCONNECT_BASE_URL` is not provided, the app falls back to the local
-development default defined in `lib/core/network/network_config.dart`.
+For Android emulator use `http://10.0.2.2:8080`.
+For physical devices use your computer LAN IP (for example
+`http://192.168.1.50:8080`).
+
+Debug builds can fall back to the local development default in
+`lib/core/network/network_config.dart`. Non-debug builds require
+`SOUNDCONNECT_BASE_URL` and enforce HTTPS.
 
 ## Android Release Signing
 
@@ -84,10 +89,11 @@ This gate enforces:
 
 - formatted Dart files (`dart format --set-exit-if-changed`)
 - static analysis (`flutter analyze`)
-- tests (`flutter test`)
+- tests with coverage (`flutter test --coverage`)
 - no temporary `//eklendi` comments
 - no increase in `ignore_for_file` debt
 - no regression in maximum Dart file size baseline
+- no regression in baseline line coverage
 
 When a baseline increase is intentional, update it explicitly:
 

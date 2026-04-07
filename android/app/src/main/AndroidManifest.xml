@@ -7,7 +7,7 @@
         android:label="soundconnect_23_12_25codx"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="false">
         <service
             android:name="com.ryanheise.audioservice.AudioService"
             android:exported="false"

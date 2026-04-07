@@ -120,7 +120,7 @@ class ProfileAudioTab extends StatelessWidget {
                     onPressed: () async {
                       await _showSpotifyCatalog(context, spotifyPreviewItems);
                     },
-                    icon: const Icon(
+                    icon: const FaIcon(
                       FontAwesomeIcons.spotify,
                       size: 16,
                       color: Colors.white,

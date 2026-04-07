@@ -1,4 +1,4 @@
-part of 'band_profile_screen.dart';
+﻿part of 'band_profile_screen.dart';
 
 class _BandHeader extends StatelessWidget {
   final BandProfile profile;
@@ -102,8 +102,14 @@ class _BandHeader extends StatelessWidget {
 
 class _BandMembersRow extends StatelessWidget {
   final List<BandMemberSummary> items;
+  final String? Function(BandMemberSummary member)? avatarUrlOf;
+  final Future<void> Function(BandMemberSummary member)? onOpenMember;
 
-  const _BandMembersRow({required this.items});
+  const _BandMembersRow({
+    required this.items,
+    this.avatarUrlOf,
+    this.onOpenMember,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +117,7 @@ class _BandMembersRow extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.symmetric(horizontal: 20),
         child: Text(
-          'Bandde henuz uye gorunmuyor.',
+          'Bandde henüz üye görünmüyor.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );
@@ -124,6 +130,10 @@ class _BandMembersRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final item = items[index];
+          final String? avatarUrl = _resolveBandMemberAvatarUrl(
+            avatarUrlOf?.call(item) ?? item.profilePictureUrl,
+          );
+
           return Container(
             width: 168,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -138,10 +148,8 @@ class _BandMembersRow extends StatelessWidget {
                   radius: 18,
                   backgroundColor: AppColors.navBlueSoft,
                   backgroundImage:
-                      item.profilePictureUrl?.trim().isNotEmpty == true
-                      ? NetworkImage(item.profilePictureUrl!.trim())
-                      : null,
-                  child: item.profilePictureUrl?.trim().isNotEmpty == true
+                      avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                  child: avatarUrl != null
                       ? null
                       : const Icon(
                           Icons.person_outline,
@@ -150,30 +158,39 @@ class _BandMembersRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.username,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: onOpenMember == null
+                        ? null
+                        : () => onOpenMember!(item),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.username,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.localizedRoleLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.role,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -187,6 +204,35 @@ class _BandMembersRow extends StatelessWidget {
   }
 }
 
+String? _resolveBandMemberAvatarUrl(String? raw) {
+  final String value = raw?.trim() ?? '';
+  if (value.isEmpty) return null;
+  if (value.startsWith('//')) return 'https:$value';
+
+  final Uri? parsed = Uri.tryParse(value);
+  if (parsed == null) return null;
+
+  final bool isHttp = parsed.hasScheme &&
+      (parsed.scheme.toLowerCase() == 'http' ||
+          parsed.scheme.toLowerCase() == 'https') &&
+      parsed.host.isNotEmpty;
+  if (isHttp) return value;
+
+  final Uri? baseUri = Uri.tryParse(NetworkConfig.baseUrl);
+  if (baseUri == null || !baseUri.hasScheme || baseUri.host.isEmpty) {
+    return null;
+  }
+
+  final Uri resolved = value.startsWith('/')
+      ? baseUri.resolve(value)
+      : baseUri.resolve('/$value');
+  final String scheme = resolved.scheme.toLowerCase();
+  if ((scheme != 'http' && scheme != 'https') || resolved.host.isEmpty) {
+    return null;
+  }
+  return resolved.toString();
+}
+
 class _BandVenuesRow extends StatelessWidget {
   final List<String> items;
 
@@ -198,7 +244,7 @@ class _BandVenuesRow extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: Text(
-          'Henuz bir mekan eklenmedi.',
+          'Henüz bir mekan eklenmedi.',
           style: TextStyle(color: AppColors.textMuted),
         ),
       );

@@ -35,7 +35,7 @@ extension ProfileSocialPlatformUi on ProfileSocialPlatform {
     }
   }
 
-  IconData get icon {
+  FaIconData get icon {
     switch (this) {
       case ProfileSocialPlatform.soundcloud:
         return FontAwesomeIcons.soundcloud;
@@ -200,7 +200,7 @@ class ProfileSocialButtonRow extends StatelessWidget {
 
 class _ProfileSocialItem {
   final ProfileSocialPlatform platform;
-  final IconData icon;
+  final FaIconData icon;
   final String? url;
 
   const _ProfileSocialItem({
@@ -221,7 +221,7 @@ bool _isSocialUrlUsable(String? raw) {
 }
 
 class _ProfileSocialPill extends StatefulWidget {
-  final IconData icon;
+  final FaIconData icon;
   final bool active;
   final bool showAddBadge;
   final double width;

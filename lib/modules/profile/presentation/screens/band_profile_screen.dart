@@ -9,13 +9,17 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/network/network_config.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/entities/band_member_summary.dart';
 import '../../domain/entities/band_profile.dart';
 import '../../domain/entities/profile_media.dart';
+import '../../domain/musician_profile_repository.dart';
+import '../../domain/musician_search_repository.dart';
 import '../../../follow/domain/band_follow_repository.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../spotify/domain/spotify_repository.dart';
@@ -30,6 +34,7 @@ import 'profile_screen_support.dart';
 import 'profile_section_support.dart';
 import 'profile_social_support.dart';
 import 'profile_track_upload_support.dart';
+import 'profile_route_args.dart';
 
 part 'band_profile_screen_header_sections.dart';
 part 'band_profile_screen_audio_tab.dart';
@@ -70,6 +75,10 @@ class _BandProfileView extends StatefulWidget {
 
 class _BandProfileViewState extends State<_BandProfileView> {
   late final BandRepository _bandRepository = serviceLocator<BandRepository>();
+  late final MusicianProfileRepository _musicianProfileRepository =
+      serviceLocator<MusicianProfileRepository>();
+  late final MusicianSearchRepository _musicianSearchRepository =
+      serviceLocator<MusicianSearchRepository>();
   late final BandFollowRepository _bandFollowRepository =
       serviceLocator<BandFollowRepository>();
   late final SpotifyRepository _spotifyRepository =
@@ -84,6 +93,11 @@ class _BandProfileViewState extends State<_BandProfileView> {
   String? _errorText;
   String? _uploadedProfilePhotoUrl;
   String? _bandId;
+  final Map<String, String> _resolvedMemberProfileIdsByUserId =
+      <String, String>{};
+  final Map<String, String> _resolvedMemberAvatarUrlsByUserId =
+      <String, String>{};
+  final Set<String> _resolvingMemberUserIds = <String>{};
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -209,7 +223,11 @@ class _BandProfileViewState extends State<_BandProfileView> {
                 title: 'Uyeler',
                 actionLabel: profile.members.isEmpty ? null : 'Tumu',
               ),
-              _BandMembersRow(items: profile.members),
+              _BandMembersRow(
+                items: profile.members,
+                avatarUrlOf: _effectiveMemberAvatar,
+                onOpenMember: _openMemberProfile,
+              ),
               const SizedBox(height: 12),
               const ProfileSectionHeader(
                 title: 'Caldigi Mekanlar',

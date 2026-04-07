@@ -134,7 +134,7 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
                   ? const Color(0xFF1DB954)
                   : AppColors.textMuted,
               leading: isSpotify
-                  ? const Icon(
+                  ? const FaIcon(
                       FontAwesomeIcons.spotify,
                       size: 16,
                       color: Color(0xFF1DB954),

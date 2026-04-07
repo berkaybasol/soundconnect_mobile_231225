@@ -48,10 +48,10 @@ extension _BandManagementPanelScreenStateMemberPicker
                 if (result.isSuccess && result.data != null) {
                   results = result.data!;
                   if (results.isEmpty) {
-                    errorText = 'Sonuc bulunamadi.';
+                    errorText = 'Sonuç bulunamadı.';
                   }
                 } else {
-                  errorText = result.error?.message ?? 'Arama basarisiz.';
+                  errorText = result.error?.message ?? 'Arama başarısız.';
                 }
               });
             }
@@ -91,7 +91,7 @@ extension _BandManagementPanelScreenStateMemberPicker
                             }
                           },
                           decoration: InputDecoration(
-                            hintText: 'Muzisyen ara...',
+                            hintText: 'Müzisyen ara...',
                             prefixIcon: const Icon(Icons.search),
                             suffixIcon: IconButton(
                               onPressed: runSearch,
@@ -192,7 +192,7 @@ extension _BandManagementPanelScreenStateMemberPicker
                                     const SizedBox(width: 8),
                                     if (alreadyMember)
                                       const Text(
-                                        'Uye',
+                                        'Üye',
                                         style: TextStyle(
                                           color: AppColors.textMuted,
                                           fontWeight: FontWeight.w600,

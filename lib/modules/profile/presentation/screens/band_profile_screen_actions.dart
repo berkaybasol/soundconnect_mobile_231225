@@ -26,6 +26,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       _loading = false;
       _profile = result.data;
     });
+    unawaited(_hydrateMemberMetadata(result.data!.members));
 
     await _loadFollowersCount(result.data!.id);
     await _loadSpotifyCatalog(result.data!);
@@ -226,6 +227,152 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
         builder: (_) => BandManagementPanelScreen(profile: profile),
       ),
     );
+  }
+
+  String? _effectiveMemberAvatar(BandMemberSummary member) {
+    final String direct = member.profilePictureUrl?.trim() ?? '';
+    if (direct.isNotEmpty) return direct;
+    final String cached =
+        _resolvedMemberAvatarUrlsByUserId[member.userId]?.trim() ?? '';
+    return cached.isEmpty ? null : cached;
+  }
+
+  Future<void> _openMemberProfile(BandMemberSummary member) async {
+    final String profileId = await _resolveMemberProfileId(member) ?? '';
+    if (!mounted) return;
+    if (profileId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu üye için profil bilgisi bulunamadı.')),
+      );
+      return;
+    }
+
+    await Navigator.of(context).pushNamed(
+      AppRoutes.musicianPublicProfile,
+      arguments: PublicProfileArgs(profileId: profileId),
+    );
+  }
+
+  Future<String?> _resolveMemberProfileId(BandMemberSummary member) async {
+    final String direct = member.profileId?.trim() ?? '';
+    if (direct.isNotEmpty) return direct;
+
+    final String cached =
+        _resolvedMemberProfileIdsByUserId[member.userId]?.trim() ?? '';
+    if (cached.isNotEmpty) return cached;
+
+    await _resolveSingleMemberMetadata(member);
+    final String resolved =
+        _resolvedMemberProfileIdsByUserId[member.userId]?.trim() ?? '';
+    return resolved.isEmpty ? null : resolved;
+  }
+
+  Future<void> _hydrateMemberMetadata(List<BandMemberSummary> members) async {
+    if (members.isEmpty) return;
+    for (final member in members) {
+      await _resolveSingleMemberMetadata(member);
+    }
+  }
+
+  Future<void> _resolveSingleMemberMetadata(BandMemberSummary member) async {
+    final String userId = member.userId.trim();
+    if (userId.isEmpty || _resolvingMemberUserIds.contains(userId)) return;
+
+    final bool hasProfileId =
+        (member.profileId?.trim().isNotEmpty ?? false) ||
+        (_resolvedMemberProfileIdsByUserId[userId]?.trim().isNotEmpty ?? false);
+    final bool hasAvatar =
+        (member.profilePictureUrl?.trim().isNotEmpty ?? false) ||
+        (_resolvedMemberAvatarUrlsByUserId[userId]?.trim().isNotEmpty ?? false);
+    if (hasProfileId && hasAvatar) return;
+
+    _resolvingMemberUserIds.add(userId);
+    try {
+      String? resolvedProfileId = member.profileId?.trim();
+      String? resolvedAvatar = member.profilePictureUrl?.trim();
+      if (resolvedAvatar != null && resolvedAvatar.isEmpty) {
+        resolvedAvatar = null;
+      }
+
+      Future<void> bindByProfileId(String? candidate) async {
+        final String id = candidate?.trim() ?? '';
+        if (id.isEmpty) return;
+        final result = await _musicianProfileRepository.getPublicProfileByProfileId(
+          id,
+        );
+        if (!result.isSuccess || result.data == null) return;
+        final profile = result.data!;
+        if (profile.id.trim().isNotEmpty) {
+          resolvedProfileId = profile.id.trim();
+        }
+        final String photo = (profile.profilePicture ?? '').trim();
+        if (photo.isNotEmpty) {
+          resolvedAvatar = photo;
+        }
+      }
+
+      await bindByProfileId(resolvedProfileId);
+      if ((resolvedProfileId ?? '').isEmpty) {
+        await bindByProfileId(member.userId);
+      }
+
+      if ((resolvedProfileId ?? '').isEmpty) {
+        final String query = member.username.trim();
+        if (query.isNotEmpty) {
+          final search = await _musicianSearchRepository.search(query);
+          if (search.isSuccess && search.data != null && search.data!.isNotEmpty) {
+            final String usernameLower = query.toLowerCase();
+            final exact = search.data!.firstWhere(
+              (item) =>
+                  item.displayName.trim().toLowerCase() == usernameLower ||
+                  (item.secondaryLabel?.trim().toLowerCase() ?? '') ==
+                      '@$usernameLower',
+              orElse: () => search.data!.first,
+            );
+            resolvedProfileId = exact.profileId.trim();
+            final String searchAvatar = (exact.profilePictureUrl ?? '').trim();
+            if (searchAvatar.isNotEmpty) {
+              resolvedAvatar = searchAvatar;
+            }
+            await bindByProfileId(resolvedProfileId);
+          }
+        }
+      }
+
+      final bool changed = _upsertResolvedMember(
+        userId: userId,
+        profileId: resolvedProfileId,
+        avatarUrl: resolvedAvatar,
+      );
+      if (changed && mounted) {
+        _updateState(() {});
+      }
+    } finally {
+      _resolvingMemberUserIds.remove(userId);
+    }
+  }
+
+  bool _upsertResolvedMember({
+    required String userId,
+    required String? profileId,
+    required String? avatarUrl,
+  }) {
+    var changed = false;
+    final String profileValue = profileId?.trim() ?? '';
+    final String avatarValue = avatarUrl?.trim() ?? '';
+
+    if (profileValue.isNotEmpty &&
+        _resolvedMemberProfileIdsByUserId[userId] != profileValue) {
+      _resolvedMemberProfileIdsByUserId[userId] = profileValue;
+      changed = true;
+    }
+    if (avatarValue.isNotEmpty &&
+        _resolvedMemberAvatarUrlsByUserId[userId] != avatarValue) {
+      _resolvedMemberAvatarUrlsByUserId[userId] = avatarValue;
+      changed = true;
+    }
+
+    return changed;
   }
 
   String? _socialUrlFor(BandProfile profile, ProfileSocialPlatform platform) {

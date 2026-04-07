@@ -2,12 +2,22 @@ part of 'band_management_panel_screen.dart';
 
 class _MemberCard extends StatelessWidget {
   final BandMemberSummary member;
+  final VoidCallback onOpenProfile;
+  final String? avatarOverrideUrl;
   final VoidCallback? onRemove;
 
-  const _MemberCard({required this.member, required this.onRemove});
+  const _MemberCard({
+    required this.member,
+    required this.onOpenProfile,
+    required this.avatarOverrideUrl,
+    required this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final String? avatarUrl = _resolveMemberAvatarUrl(
+      avatarOverrideUrl ?? member.profilePictureUrl,
+    );
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -18,71 +28,150 @@ class _MemberCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: AppColors.navBlueSoft,
-            backgroundImage: member.profilePictureUrl?.trim().isNotEmpty == true
-                ? NetworkImage(member.profilePictureUrl!.trim())
-                : null,
-            child: member.profilePictureUrl?.trim().isNotEmpty == true
-                ? null
-                : const Icon(Icons.person_outline, color: AppColors.textMuted),
-          ),
-          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: onOpenProfile,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    _MemberAvatar(imageUrl: avatarUrl),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            member.username,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            member.localizedRoleLabel,
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          if (member.isFounder)
+            Row(
               children: [
-                Text(
-                  member.username,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: 0.16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Kurucu',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  member.role,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
+                IconButton(
+                  tooltip: 'Kurucu kaldırılamaz',
+                  onPressed: null,
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.redAccent.withValues(alpha: 0.45),
                   ),
                 ),
               ],
-            ),
-          ),
-          if (member.role.toUpperCase() == 'FOUNDER')
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: AppColors.white.withValues(alpha: 0.16),
-                ),
-              ),
-              child: const Text(
-                'Founder',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
-                ),
-              ),
             )
           else
             IconButton(
-              tooltip: 'Uyeyi cikar',
+              tooltip: 'Üyeyi çıkar',
               onPressed: onRemove,
               icon: const Icon(
-                Icons.person_remove_outlined,
-                color: AppColors.textMuted,
+                Icons.delete_outline_rounded,
+                color: Colors.redAccent,
               ),
             ),
         ],
       ),
     );
   }
+}
+
+class _MemberAvatar extends StatelessWidget {
+  final String? imageUrl;
+
+  const _MemberAvatar({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.navBlueSoft,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: imageUrl == null
+          ? const Icon(Icons.person_outline, color: AppColors.textMuted)
+          : Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  const Icon(Icons.person_outline, color: AppColors.textMuted),
+            ),
+    );
+  }
+}
+
+String? _resolveMemberAvatarUrl(String? raw) {
+  final String value = raw?.trim() ?? '';
+  if (value.isEmpty) return null;
+
+  if (value.startsWith('//')) {
+    return 'https:$value';
+  }
+
+  final Uri? parsed = Uri.tryParse(value);
+  if (parsed == null) return null;
+
+  final bool isHttp = parsed.hasScheme &&
+      (parsed.scheme.toLowerCase() == 'http' ||
+          parsed.scheme.toLowerCase() == 'https') &&
+      parsed.host.isNotEmpty;
+  if (isHttp) return value;
+
+  final Uri? baseUri = Uri.tryParse(NetworkConfig.baseUrl);
+  if (baseUri == null || !baseUri.hasScheme || baseUri.host.isEmpty) {
+    return null;
+  }
+
+  final Uri resolved = value.startsWith('/')
+      ? baseUri.resolve(value)
+      : baseUri.resolve('/$value');
+  final String scheme = resolved.scheme.toLowerCase();
+  if ((scheme != 'http' && scheme != 'https') || resolved.host.isEmpty) {
+    return null;
+  }
+  return resolved.toString();
 }
 
 class _EmptyCard extends StatelessWidget {

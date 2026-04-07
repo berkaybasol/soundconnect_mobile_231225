@@ -125,7 +125,7 @@ extension _BandManagementPanelScreenStateUiHelpers
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    'Reklam Alani',
+                    'Reklam Alanı',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,

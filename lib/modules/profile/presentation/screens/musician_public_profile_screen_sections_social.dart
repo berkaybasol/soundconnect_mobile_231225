@@ -88,7 +88,7 @@ bool _isSocialUrlUsable(String? raw) {
 }
 
 class _SocialPill extends StatefulWidget {
-  final IconData icon;
+  final FaIconData icon;
   final bool active;
   final VoidCallback? onTap;
 

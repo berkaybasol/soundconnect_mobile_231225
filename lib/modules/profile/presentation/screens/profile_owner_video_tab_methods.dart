@@ -88,7 +88,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     if (_videoUploading) return;
     final messenger = ScaffoldMessenger.of(context);
     final mediaCubit = context.read<ProfileMediaCubit>();
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       withData: false,
       allowMultiple: false,

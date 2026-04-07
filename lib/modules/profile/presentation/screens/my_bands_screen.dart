@@ -75,80 +75,13 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
     ).showSnackBar(SnackBar(content: Text('${createdBand.name} olusturuldu.')));
   }
 
-  Future<void> _showBandActions(BandSummary band) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+  Future<void> _openBandProfile(BandSummary band) async {
+    await Navigator.of(context).pushNamed(
+      AppRoutes.bandProfile,
+      arguments: BandProfileScreenArgs(
+        bandId: band.id,
+        openEditMode: false,
       ),
-      builder: (sheetContext) {
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  band.name,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.inputFill,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.account_box_outlined),
-                        title: const Text('Band profiline git'),
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          Navigator.of(context).pushNamed(
-                            AppRoutes.bandProfile,
-                            arguments: BandProfileScreenArgs(
-                              bandId: band.id,
-                              openEditMode: false,
-                            ),
-                          );
-                        },
-                      ),
-                      Divider(
-                        height: 1,
-                        color: AppColors.border.withValues(alpha: 0.85),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.edit_outlined),
-                        title: const Text('Bandi duzenle'),
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          Navigator.of(context).pushNamed(
-                            AppRoutes.bandProfile,
-                            arguments: BandProfileScreenArgs(
-                              bandId: band.id,
-                              openEditMode: true,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -214,7 +147,7 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
                               ),
                             ),
                             trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () => _showBandActions(band),
+                            onTap: () => _openBandProfile(band),
                           ),
                         ),
                       ),

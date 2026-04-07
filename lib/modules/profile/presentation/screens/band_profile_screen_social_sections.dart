@@ -71,7 +71,7 @@ class _BandSocialItem {
 }
 
 class _BandSocialPill extends StatelessWidget {
-  final IconData icon;
+  final FaIconData icon;
   final bool active;
   final bool showAddBadge;
   final VoidCallback onTap;
@@ -99,7 +99,7 @@ class _BandSocialPill extends StatelessWidget {
               border: Border.all(color: AppColors.border),
             ),
             child: Center(
-              child: Icon(
+              child: FaIcon(
                 icon,
                 size: 20,
                 color: active ? AppColors.textPrimary : AppColors.textMuted,

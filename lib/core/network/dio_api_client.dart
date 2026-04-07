@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../auth/token_store.dart';
 import '../error/app_error.dart';
@@ -16,7 +17,7 @@ class DioApiClient implements ApiClient {
           dio ??
           Dio(
             BaseOptions(
-              baseUrl: baseUrl ?? NetworkConfig.baseUrl,
+              baseUrl: _resolveBaseUrl(baseUrl),
               connectTimeout: const Duration(seconds: 15),
               receiveTimeout: const Duration(seconds: 15),
               headers: const {'Content-Type': 'application/json'},
@@ -35,6 +36,18 @@ class DioApiClient implements ApiClient {
           handler.next(options);
         },
       ),
+    );
+  }
+
+  static String _resolveBaseUrl(String? baseUrl) {
+    if (baseUrl == null) {
+      return NetworkConfig.baseUrl;
+    }
+    return resolveNetworkBaseUrl(
+      configuredBaseUrl: baseUrl,
+      isDebugBuild: kDebugMode,
+      debugFallbackBaseUrl: NetworkConfig.debugFallbackBaseUrl,
+      allowDebugFallback: false,
     );
   }
 
@@ -116,12 +129,43 @@ class DioApiClient implements ApiClient {
 
       return payload as T;
     } on DioException catch (e) {
+      final String message = _mapDioErrorMessage(e);
       throw ApiException(
         AppError(
           code: e.response?.statusCode?.toString() ?? 'network',
-          message: e.message ?? 'Network error',
+          message: message,
         ),
       );
     }
+  }
+
+  String _mapDioErrorMessage(DioException e) {
+    final String fallback = e.message ?? 'Network error';
+    final Uri uri = e.requestOptions.uri;
+    final String host = uri.host.trim().toLowerCase();
+
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      if (host == '10.0.2.2') {
+        return 'Baglanti zaman asimi: ${uri.origin}. '
+            '10.0.2.2 sadece emulator icin.';
+      }
+      return 'Baglanti zaman asimi: ${uri.origin}. '
+          'Backend/Ag/Firewall kontrol et.';
+    }
+
+    if (e.type == DioExceptionType.connectionError) {
+      if (host == 'localhost' || host == '127.0.0.1') {
+        return 'Baglanti reddedildi: ${uri.origin}. '
+            'Emulator icin 10.0.2.2 kullan.';
+      }
+      if (host == '10.0.2.2') {
+        return 'Baglanti reddedildi: ${uri.origin}. '
+            'Gercek cihazda PC LAN IP kullan.';
+      }
+    }
+
+    return fallback;
   }
 }

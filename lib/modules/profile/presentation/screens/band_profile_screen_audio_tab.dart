@@ -40,7 +40,7 @@ class _BandAudioTab extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () => _showSpotifyCatalog(context),
-                icon: const Icon(
+                icon: const FaIcon(
                   FontAwesomeIcons.spotify,
                   size: 16,
                   color: Colors.white,
@@ -173,7 +173,7 @@ class _BandAudioTab extends StatelessWidget {
                               ? const Color(0xFF1DB954)
                               : AppColors.textMuted,
                           leading: isSpotify
-                              ? const Icon(
+                              ? const FaIcon(
                                   FontAwesomeIcons.spotify,
                                   size: 16,
                                   color: Color(0xFF1DB954),
@@ -245,45 +245,6 @@ class _BandAudioTab extends StatelessWidget {
                 );
               }),
           ],
-        );
-      },
-    );
-    // ignore: dead_code
-    if (items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Text(
-          'Band henuz ses eklemedi.',
-          style: TextStyle(color: AppColors.textMuted),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final track = items[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: AppColors.inputFill,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: ListTile(
-            leading: const Icon(Icons.graphic_eq_rounded),
-            title: Text(
-              track.title?.toString() ?? 'Ses kaydi',
-              style: const TextStyle(color: AppColors.textPrimary),
-            ),
-            subtitle: Text(
-              track.playbackUrl?.toString().contains('spotify') == true
-                  ? 'Spotify'
-                  : 'SoundConnect',
-              style: const TextStyle(color: AppColors.textMuted),
-            ),
-          ),
         );
       },
     );

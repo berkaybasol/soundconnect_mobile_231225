@@ -22,7 +22,7 @@ val hasReleaseSigning = keystorePropertiesFile.exists() &&
 
 android {
     namespace = "com.berkayb.soundconnect.soundconnect_23_12_25codx"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = maxOf(flutter.compileSdkVersion, 36)
     ndkVersion = "27.0.12077973"
 
     compileOptions {

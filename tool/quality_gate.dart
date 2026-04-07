@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 const String _baselinePath = 'tool/quality_baseline.json';
+const String _coverageLcovPath = 'coverage/lcov.info';
 const List<String> _scanRoots = <String>['lib', 'test'];
 
 Future<void> main(List<String> args) async {
@@ -10,6 +11,12 @@ Future<void> main(List<String> args) async {
   final bool updateBaseline = args.contains('--update-baseline');
 
   final QualityMetrics metrics = await _collectMetrics();
+  final Map<String, dynamic> currentBaseline = await _loadBaseline();
+  final int ignoreForFileMax = _asInt(currentBaseline['ignore_for_file_max']);
+  final int maxDartFileLines = _asInt(currentBaseline['max_dart_file_lines']);
+  final double minLineCoveragePct = _asDouble(
+    currentBaseline['min_line_coverage_pct'],
+  );
 
   if (updateBaseline) {
     final Map<String, Object> baseline = <String, Object>{
@@ -17,16 +24,13 @@ Future<void> main(List<String> args) async {
       'max_dart_file_lines': metrics.maxDartFileLines > 1200
           ? metrics.maxDartFileLines
           : 1200,
+      'min_line_coverage_pct': minLineCoveragePct,
     };
     final String encoded = const JsonEncoder.withIndent('  ').convert(baseline);
     await File(_baselinePath).writeAsString('$encoded\n');
     stdout.writeln('Updated $_baselinePath');
     return;
   }
-
-  final Map<String, dynamic> baseline = await _loadBaseline();
-  final int ignoreForFileMax = _asInt(baseline['ignore_for_file_max']);
-  final int maxDartFileLines = _asInt(baseline['max_dart_file_lines']);
 
   _printMetrics(metrics, ignoreForFileMax, maxDartFileLines);
   _enforceMetrics(metrics, ignoreForFileMax, maxDartFileLines);
@@ -43,8 +47,17 @@ Future<void> main(List<String> args) async {
     'test',
   ]);
   await _runStep('flutter analyze', 'flutter', <String>['analyze']);
+
   if (!skipTests) {
-    await _runStep('flutter test', 'flutter', <String>['test']);
+    await _runStep('flutter test --coverage', 'flutter', <String>[
+      'test',
+      '--coverage',
+    ]);
+    final CoverageSummary coverage = await _loadCoverageSummary(
+      _coverageLcovPath,
+    );
+    _printCoverage(coverage, minLineCoveragePct);
+    _enforceCoverage(coverage, minLineCoveragePct);
   }
 
   stdout.writeln('Quality gate passed.');
@@ -84,9 +97,35 @@ Future<Map<String, dynamic>> _loadBaseline() async {
 }
 
 int _asInt(Object? value) {
-  if (value is int) return value;
-  if (value is String) return int.parse(value);
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    return int.parse(value);
+  }
   throw StateError('Expected integer value, got: $value');
+}
+
+double _asDouble(Object? value) {
+  if (value == null) {
+    return 0;
+  }
+  if (value is double) {
+    return value;
+  }
+  if (value is int) {
+    return value.toDouble();
+  }
+  if (value is num) {
+    return value.toDouble();
+  }
+  if (value is String) {
+    return double.parse(value);
+  }
+  throw StateError('Expected numeric value, got: $value');
 }
 
 Future<QualityMetrics> _collectMetrics() async {
@@ -137,6 +176,35 @@ Future<QualityMetrics> _collectMetrics() async {
   );
 }
 
+Future<CoverageSummary> _loadCoverageSummary(String path) async {
+  final File lcovFile = File(path);
+  if (!await lcovFile.exists()) {
+    throw StateError('Missing coverage report: $path');
+  }
+
+  int linesFound = 0;
+  int linesHit = 0;
+  final List<String> lines = await lcovFile.readAsLines();
+  for (final String line in lines) {
+    if (line.startsWith('LF:')) {
+      linesFound += int.parse(line.substring(3));
+      continue;
+    }
+    if (line.startsWith('LH:')) {
+      linesHit += int.parse(line.substring(3));
+    }
+  }
+
+  final double lineCoveragePct = linesFound == 0
+      ? 0
+      : (linesHit * 100.0) / linesFound;
+  return CoverageSummary(
+    linesFound: linesFound,
+    linesHit: linesHit,
+    lineCoveragePct: lineCoveragePct,
+  );
+}
+
 void _printMetrics(
   QualityMetrics metrics,
   int ignoreForFileMax,
@@ -151,6 +219,16 @@ void _printMetrics(
   );
   stdout.writeln(
     '- largest dart file: ${metrics.maxDartFilePath} (${metrics.maxDartFileLines} lines, max $maxDartFileLines)',
+  );
+}
+
+void _printCoverage(CoverageSummary coverage, double minLineCoveragePct) {
+  stdout.writeln(
+    '- line coverage: ${coverage.lineCoveragePct.toStringAsFixed(2)}% '
+    '(min ${minLineCoveragePct.toStringAsFixed(2)}%)',
+  );
+  stdout.writeln(
+    '- covered lines: ${coverage.linesHit}/${coverage.linesFound}',
   );
 }
 
@@ -190,6 +268,16 @@ void _enforceMetrics(
   throw StateError(buffer.toString());
 }
 
+void _enforceCoverage(CoverageSummary coverage, double minLineCoveragePct) {
+  if (coverage.lineCoveragePct + 0.0001 >= minLineCoveragePct) {
+    return;
+  }
+  throw StateError(
+    'Line coverage regression: ${coverage.lineCoveragePct.toStringAsFixed(2)}% '
+    'is below minimum ${minLineCoveragePct.toStringAsFixed(2)}%.',
+  );
+}
+
 class QualityMetrics {
   const QualityMetrics({
     required this.ignoreForFileCount,
@@ -202,4 +290,16 @@ class QualityMetrics {
   final int temporaryCommentCount;
   final int maxDartFileLines;
   final String maxDartFilePath;
+}
+
+class CoverageSummary {
+  const CoverageSummary({
+    required this.linesFound,
+    required this.linesHit,
+    required this.lineCoveragePct,
+  });
+
+  final int linesFound;
+  final int linesHit;
+  final double lineCoveragePct;
 }

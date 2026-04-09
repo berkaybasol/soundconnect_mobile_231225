@@ -7,6 +7,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/network/network_config.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../setlist/presentation/screens/band_setlist_builder_screen.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/entities/band_member_summary.dart';
 import '../../domain/entities/band_profile.dart';
@@ -115,8 +116,17 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                 context: context,
                 icon: Icons.edit_note_outlined,
                 title: 'Setlist Oluştur',
-                message:
-                    'Band bilgilerini yönetme paneli sıradaki adımda eklenecek.',
+                message: 'Setlist oluşturucu açılıyor.',
+                onTap: _submitting
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                BandSetlistBuilderScreen(bandProfile: _profile),
+                          ),
+                        );
+                      },
               ),
               const SizedBox(height: 14),
               _actionCard(

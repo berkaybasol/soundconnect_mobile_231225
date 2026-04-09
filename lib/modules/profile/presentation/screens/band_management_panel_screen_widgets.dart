@@ -153,7 +153,8 @@ String? _resolveMemberAvatarUrl(String? raw) {
   final Uri? parsed = Uri.tryParse(value);
   if (parsed == null) return null;
 
-  final bool isHttp = parsed.hasScheme &&
+  final bool isHttp =
+      parsed.hasScheme &&
       (parsed.scheme.toLowerCase() == 'http' ||
           parsed.scheme.toLowerCase() == 'https') &&
       parsed.host.isNotEmpty;

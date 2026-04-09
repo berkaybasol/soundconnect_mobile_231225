@@ -139,13 +139,14 @@ class _BandMembersWorkspaceScreenState
         final String query = member.username.trim();
         if (query.isNotEmpty) {
           final search = await _owner._musicianSearchRepository.search(query);
-          if (search.isSuccess && search.data != null && search.data!.isNotEmpty) {
+          if (search.isSuccess &&
+              search.data != null &&
+              search.data!.isNotEmpty) {
             final String usernameLower = query.toLowerCase();
             final exact = search.data!.firstWhere(
               (item) =>
                   item.displayName.trim().toLowerCase() == usernameLower ||
-                  (item.secondaryLabel?.trim().toLowerCase() ??
-                          '') ==
+                  (item.secondaryLabel?.trim().toLowerCase() ?? '') ==
                       '@$usernameLower',
               orElse: () => search.data!.first,
             );
@@ -283,9 +284,7 @@ class _BandMembersWorkspaceScreenState
                               member: member,
                               onOpenProfile: () => _openMemberProfile(member),
                               avatarOverrideUrl: _effectiveAvatar(member),
-                              onRemove:
-                                  _submitting ||
-                                      member.isFounder
+                              onRemove: _submitting || member.isFounder
                                   ? null
                                   : () => _removeMember(member),
                             ),

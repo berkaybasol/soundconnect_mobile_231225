@@ -56,6 +56,8 @@ import '../../modules/promotion/domain/promotion_repository.dart';
 import '../../modules/spotify/data/spotify_repository_impl.dart';
 import '../../modules/spotify/domain/spotify_repository.dart';
 import '../../modules/spotify/presentation/cubit/spotify_preview_cubit.dart';
+import '../../modules/setlist/data/setlist_repository_impl.dart';
+import '../../modules/setlist/domain/setlist_repository.dart';
 import '../auth/token_store.dart';
 import '../network/api_client.dart';
 import '../network/dio_api_client.dart';
@@ -147,6 +149,12 @@ void setupDependencies() {
     )
     ..registerLazySingleton<SpotifyRepository>(
       () => SpotifyRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<SetlistRepository>(
+      () => SetlistRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<TokenStore>(),
+      ),
     )
     ..registerLazySingleton<EngagementRepository>(
       () => EngagementRepositoryImpl(serviceLocator<ApiClient>()),

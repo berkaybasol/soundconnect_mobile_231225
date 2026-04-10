@@ -162,23 +162,46 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                     const SizedBox(height: 10),
                                 itemBuilder: (context, index) {
                                   final track = visibleTracks[index];
+                                  final albumArtUrl =
+                                      isValidNetworkImageUrl(track.albumImageUrl)
+                                      ? track.albumImageUrl!.trim()
+                                      : null;
                                   return Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: AppColors.inputFill,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
                                         color: AppColors.border,
                                       ),
                                     ),
                                     child: Row(
                                       children: [
-                                        const FaIcon(
-                                          FontAwesomeIcons.spotify,
-                                          size: 16,
-                                          color: Color(0xFF1DB954),
+                                        Container(
+                                          width: 48,
+                                          height: 48,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.navBlueSoft,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            image: albumArtUrl != null
+                                                ? DecorationImage(
+                                                    image: NetworkImage(
+                                                      albumArtUrl,
+                                                    ),
+                                                    fit: BoxFit.cover,
+                                                  )
+                                                : null,
+                                          ),
+                                          child: albumArtUrl == null
+                                              ? const Icon(
+                                                  Icons.music_note,
+                                                  color: AppColors.textMuted,
+                                                )
+                                              : null,
                                         ),
-                                        const SizedBox(width: 10),
+                                        const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
@@ -206,18 +229,26 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                             ],
                                           ),
                                         ),
-                                        IconButton(
-                                          tooltip: 'Spotify\'da ac',
+                                        const SizedBox(width: 8),
+                                        TextButton(
                                           onPressed: () => _openExternalUrl(
                                             context,
                                             track.spotifyUrl,
                                           ),
-                                          icon: const Icon(Icons.open_in_new),
+                                          child: const Text(
+                                            "Spotify'da Dinle",
+                                            style: TextStyle(
+                                              color: Color(0xFF1DB954),
+                                            ),
+                                          ),
                                         ),
                                         IconButton(
                                           tooltip: 'Kaldir',
                                           onPressed: () => removeTrack(track),
-                                          icon: const Icon(Icons.close),
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            color: AppColors.textMuted,
+                                          ),
                                         ),
                                       ],
                                     ),

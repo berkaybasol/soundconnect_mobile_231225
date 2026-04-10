@@ -68,6 +68,7 @@ class ArtistVenueConnectionRepositoryImpl
                   requestId: item.id,
                   venueId: item.venueId,
                   venueName: item.venueName ?? '',
+                  profileImageUrl: item.venueProfilePictureUrl,
                 ),
               )
               .where(
@@ -148,6 +149,18 @@ class ArtistVenueConnectionRepositoryImpl
   }
 
   @override
+  Future<Result<void>> createBandRequest({
+    required String bandId,
+    required String venueId,
+    required String message,
+  }) async {
+    return _createRequest(
+      requestByType: 'BAND',
+      body: {'bandId': bandId, 'venueId': venueId, 'message': message},
+    );
+  }
+
+  @override
   Future<Result<void>> createVenueRequest({
     required String musicianProfileId,
     required String venueId,
@@ -187,6 +200,46 @@ class ArtistVenueConnectionRepositoryImpl
   }
 
   @override
+  Future<Result<List<VenueConnection>>> getVenueConnectionsByBandStatus(
+    String bandId, {
+    required String status,
+  }) async {
+    try {
+      final response = await _apiClient.get<List<VenueConnection>>(
+        ArtistVenueConnectionEndpoints.byBand(bandId, status: status),
+        decoder: (json) {
+          final list = (json as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map(ArtistVenueConnectionResponse.fromJson)
+              .map(
+                (item) => VenueConnection(
+                  requestId: item.id,
+                  venueId: item.venueId,
+                  venueName: item.venueName ?? '',
+                  profileImageUrl: item.venueProfilePictureUrl,
+                ),
+              )
+              .where(
+                (item) => item.requestId.isNotEmpty && item.venueId.isNotEmpty,
+              )
+              .toList();
+          return list;
+        },
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_venue_status_unknown',
+          message: 'Band mekan baglanti listesi alinamadi',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<List<ArtistVenueApplication>>> listVenueApplications(
     String venueId,
   ) async {
@@ -202,8 +255,11 @@ class ArtistVenueConnectionRepositoryImpl
                     (item) => ArtistVenueApplication(
                       id: item.id,
                       musicianProfileId: item.musicianProfileId,
+                      bandId: item.bandId,
                       venueId: item.venueId,
                       musicianStageName: item.musicianStageName ?? '',
+                      bandName: item.bandName ?? '',
+                      bandProfilePictureUrl: item.bandProfilePictureUrl,
                       venueName: item.venueName ?? 'Mekan',
                       message: item.message,
                       status: item.status ?? 'PENDING',

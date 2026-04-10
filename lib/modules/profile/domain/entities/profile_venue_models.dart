@@ -33,11 +33,13 @@ class VenueConnection {
   final String requestId;
   final String venueId;
   final String venueName;
+  final String? profileImageUrl;
 
   const VenueConnection({
     required this.requestId,
     required this.venueId,
     required this.venueName,
+    this.profileImageUrl,
   });
 }
 

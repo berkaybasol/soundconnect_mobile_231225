@@ -10,7 +10,10 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       _errorText = null;
     });
 
-    final result = await _bandRepository.getBandById(bandId);
+    final ownerResult = await _bandRepository.getBandById(bandId);
+    final result = ownerResult.isSuccess && ownerResult.data != null
+        ? ownerResult
+        : await _bandRepository.getPublicBandById(bandId);
 
     if (!mounted) return;
 
@@ -25,9 +28,11 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     _updateState(() {
       _loading = false;
       _profile = result.data;
+      _activeVenues = const [];
     });
     unawaited(_hydrateMemberMetadata(result.data!.members));
 
+    await _loadActiveVenues(result.data!.id);
     await _loadFollowersCount(result.data!.id);
     await _loadSpotifyCatalog(result.data!);
     if (!mounted) return;
@@ -227,6 +232,31 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
         builder: (_) => BandManagementPanelScreen(profile: profile),
       ),
     );
+
+    if (!mounted) return;
+    await _loadActiveVenues(profile.id);
+  }
+
+  Future<void> _loadActiveVenues(String bandId) async {
+    final result = await _artistVenueRepository.getVenueConnectionsByBandStatus(
+      bandId,
+      status: 'ACCEPTED',
+    );
+    if (!mounted) return;
+
+    final List<VenueConnection> connections = result.isSuccess && result.data != null
+        ? result.data!
+              .where(
+                (item) =>
+                    item.venueId.trim().isNotEmpty &&
+                    item.venueName.trim().isNotEmpty,
+              )
+              .toList()
+        : const [];
+
+    _updateState(() {
+      _activeVenues = connections;
+    });
   }
 
   String? _effectiveMemberAvatar(BandMemberSummary member) {
@@ -297,9 +327,8 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       Future<void> bindByProfileId(String? candidate) async {
         final String id = candidate?.trim() ?? '';
         if (id.isEmpty) return;
-        final result = await _musicianProfileRepository.getPublicProfileByProfileId(
-          id,
-        );
+        final result = await _musicianProfileRepository
+            .getPublicProfileByProfileId(id);
         if (!result.isSuccess || result.data == null) return;
         final profile = result.data!;
         if (profile.id.trim().isNotEmpty) {
@@ -320,7 +349,9 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
         final String query = member.username.trim();
         if (query.isNotEmpty) {
           final search = await _musicianSearchRepository.search(query);
-          if (search.isSuccess && search.data != null && search.data!.isNotEmpty) {
+          if (search.isSuccess &&
+              search.data != null &&
+              search.data!.isNotEmpty) {
             final String usernameLower = query.toLowerCase();
             final exact = search.data!.firstWhere(
               (item) =>

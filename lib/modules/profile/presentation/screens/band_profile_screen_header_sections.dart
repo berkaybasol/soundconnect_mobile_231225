@@ -234,7 +234,7 @@ String? _resolveBandMemberAvatarUrl(String? raw) {
 }
 
 class _BandVenuesRow extends StatelessWidget {
-  final List<String> items;
+  final List<VenueConnection> items;
 
   const _BandVenuesRow({required this.items});
 
@@ -256,64 +256,83 @@ class _BandVenuesRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
-          final name = items[index];
-          return Container(
-            width: 160,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.inputFill, AppColors.navBlueSoft],
+          final venue = items[index];
+          final imageUrl = _resolveBandVenueImageUrl(venue.profileImageUrl);
+          final hasImage = imageUrl != null;
+          final canOpen = venue.venueId.trim().isNotEmpty;
+
+          return InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: canOpen
+                ? () {
+                    Navigator.of(context).pushNamed(
+                      AppRoutes.venuePublicProfile,
+                      arguments: VenuePublicProfileArgs(venueId: venue.venueId),
+                    );
+                  }
+                : null,
+            child: Container(
+              width: 170,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppColors.border),
               ),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: AppColors.navBlueSoft,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.white.withValues(alpha: 0.08),
-                        blurRadius: 6,
-                        spreadRadius: 0.5,
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.navBlueSoft,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.white.withValues(alpha: 0.08),
+                          blurRadius: 6,
+                          spreadRadius: 0.5,
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: hasImage
+                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          : const Icon(
+                              Icons.storefront_outlined,
+                              color: AppColors.coralAlt,
+                              size: 20,
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GradientText(
+                      text: venue.venueName,
+                      gradient: const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: AppColors.brandGradient,
                       ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.storefront_outlined,
-                    color: AppColors.coralAlt,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: GradientText(
-                    text: name,
-                    gradient: const LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: AppColors.brandGradient,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textMuted,
-                  size: 18,
-                ),
-              ],
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textMuted,
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -322,4 +341,34 @@ class _BandVenuesRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _resolveBandVenueImageUrl(String? raw) {
+  final String value = raw?.trim() ?? '';
+  if (value.isEmpty) return null;
+  if (value.startsWith('//')) return 'https:$value';
+
+  final Uri? parsed = Uri.tryParse(value);
+  if (parsed == null) return null;
+
+  final bool isHttp = parsed.hasScheme &&
+      (parsed.scheme.toLowerCase() == 'http' ||
+          parsed.scheme.toLowerCase() == 'https') &&
+      parsed.host.isNotEmpty;
+  if (isHttp) return value;
+
+  final Uri? baseUri = Uri.tryParse(NetworkConfig.baseUrl);
+  if (baseUri == null || !baseUri.hasScheme || baseUri.host.isEmpty) {
+    return null;
+  }
+
+  final Uri resolved = value.startsWith('/')
+      ? baseUri.resolve(value)
+      : baseUri.resolve('/$value');
+  final String scheme = resolved.scheme.toLowerCase();
+  if ((scheme != 'http' && scheme != 'https') || resolved.host.isEmpty) {
+    return null;
+  }
+
+  return resolved.toString();
 }

@@ -88,6 +88,18 @@ Future<void> showProfileTrackUploadSheet({
               });
               return;
             }
+            final validationError = profileAudioUploadValidationError(
+              fileName: name,
+              filePath: path,
+              bytes: bytesFromPicker,
+            );
+            if (validationError != null) {
+              setSheetState(() {
+                infoText = validationError;
+                infoError = true;
+              });
+              return;
+            }
             if (title.isEmpty) {
               setSheetState(() {
                 infoText = 'Sarki adi zorunlu.';

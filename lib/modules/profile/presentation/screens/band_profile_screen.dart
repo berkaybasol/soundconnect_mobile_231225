@@ -18,8 +18,11 @@ import '../../domain/band_repository.dart';
 import '../../domain/entities/band_member_summary.dart';
 import '../../domain/entities/band_profile.dart';
 import '../../domain/entities/profile_media.dart';
+import '../../domain/entities/profile_venue_models.dart';
 import '../../domain/musician_profile_repository.dart';
 import '../../domain/musician_search_repository.dart';
+import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
+import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../../follow/domain/band_follow_repository.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../spotify/domain/spotify_repository.dart';
@@ -59,8 +62,11 @@ class BandProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => serviceLocator<ProfileMediaCubit>(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
+        BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
+      ],
       child: const _BandProfileView(),
     );
   }
@@ -79,6 +85,8 @@ class _BandProfileViewState extends State<_BandProfileView> {
       serviceLocator<MusicianProfileRepository>();
   late final MusicianSearchRepository _musicianSearchRepository =
       serviceLocator<MusicianSearchRepository>();
+  late final ArtistVenueConnectionRepository _artistVenueRepository =
+      serviceLocator<ArtistVenueConnectionRepository>();
   late final BandFollowRepository _bandFollowRepository =
       serviceLocator<BandFollowRepository>();
   late final SpotifyRepository _spotifyRepository =
@@ -93,6 +101,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
   String? _errorText;
   String? _uploadedProfilePhotoUrl;
   String? _bandId;
+  List<VenueConnection> _activeVenues = const [];
   final Map<String, String> _resolvedMemberProfileIdsByUserId =
       <String, String>{};
   final Map<String, String> _resolvedMemberAvatarUrlsByUserId =
@@ -108,8 +117,14 @@ class _BandProfileViewState extends State<_BandProfileView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
-    final resolvedArgs = args is BandProfileScreenArgs ? args : null;
-    final nextBandId = resolvedArgs?.bandId;
+    String? nextBandId;
+    if (args is BandProfileScreenArgs) {
+      nextBandId = args.bandId;
+    } else if (args is Map<String, dynamic>) {
+      nextBandId = args['bandId']?.toString();
+    } else if (args is String) {
+      nextBandId = args;
+    }
     if (nextBandId == null || nextBandId.isEmpty || _bandId == nextBandId) {
       return;
     }
@@ -233,7 +248,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
                 title: 'Caldigi Mekanlar',
                 actionLabel: 'Tumu',
               ),
-              const _BandVenuesRow(items: []),
+              _BandVenuesRow(items: _activeVenues),
               const SizedBox(height: 12),
               const ProfileMediaTabs(
                 tabs: [

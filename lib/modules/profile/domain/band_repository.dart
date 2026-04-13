@@ -6,6 +6,7 @@ abstract class BandRepository {
   Future<Result<List<BandSummary>>> getMyBands();
 
   Future<Result<BandProfile>> getBandById(String bandId);
+  Future<Result<BandProfile>> getPublicBandById(String bandId);
 
   Future<Result<BandSummary>> createBand({
     required String name,

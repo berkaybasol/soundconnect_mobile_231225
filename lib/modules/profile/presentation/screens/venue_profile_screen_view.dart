@@ -134,6 +134,7 @@ class _MusicianPublicProfileViewState
                 followersCount: followersCount,
                 followingCount: followingCount,
                 activeVenues: ownerProfile.activeMusicians,
+                activeBands: ownerProfile.activeBands,
                 viewerUserId: '',
                 isFollowing: actionState.isFollowing,
                 followLoading: actionState.status == FollowActionStatus.loading,

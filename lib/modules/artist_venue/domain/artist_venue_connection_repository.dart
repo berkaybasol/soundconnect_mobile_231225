@@ -17,10 +17,19 @@ abstract class ArtistVenueConnectionRepository {
     required String venueId,
     required String message,
   });
+  Future<Result<void>> createBandRequest({
+    required String bandId,
+    required String venueId,
+    required String message,
+  });
   Future<Result<void>> createVenueRequest({
     required String musicianProfileId,
     required String venueId,
     required String message,
+  });
+  Future<Result<List<VenueConnection>>> getVenueConnectionsByBandStatus(
+    String bandId, {
+    required String status,
   });
   Future<Result<List<ArtistVenueApplication>>> listVenueApplications(
     String venueId,

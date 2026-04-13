@@ -13,7 +13,7 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
       final response = result.data ?? const <ArtistVenueApplication>[];
       final filtered = response.where((item) {
         if (_showOutgoing) return item.requestByType == 'VENUE';
-        return item.requestByType == 'ARTIST';
+        return item.requestByType == 'ARTIST' || item.requestByType == 'BAND';
       }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       final profileEntries = await Future.wait(
         filtered

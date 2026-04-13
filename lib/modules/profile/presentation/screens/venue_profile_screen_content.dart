@@ -6,6 +6,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final int? followersCount;
   final int? followingCount;
   final List<VenueActiveMusician>? activeVenues;
+  final List<VenueActiveBand>? activeBands;
   final String viewerUserId;
   final bool isFollowing;
   final bool followLoading;
@@ -32,6 +33,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.followersCount,
     required this.followingCount,
     required this.activeVenues,
+    required this.activeBands,
     required this.viewerUserId,
     required this.isFollowing,
     required this.followLoading,
@@ -54,9 +56,18 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   });
 
   List<VenueActiveMusician> _resolveVenues() {
-    if (activeVenues != null && activeVenues!.isNotEmpty) {
-      return activeVenues!;
-    }
+    final List<VenueActiveMusician> items = <VenueActiveMusician>[
+      ...(activeVenues ?? const <VenueActiveMusician>[]),
+      ...(activeBands ?? const <VenueActiveBand>[]).map(
+        (band) => VenueActiveMusician(
+          musicianProfileId: '',
+          bandId: band.bandId,
+          displayName: band.displayName,
+          profileImageUrl: band.profileImageUrl,
+        ),
+      ),
+    ];
+    if (items.isNotEmpty) return items;
     if (profile.activeVenues.isNotEmpty) {
       return profile.activeVenues
           .map(

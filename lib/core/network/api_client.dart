@@ -1,4 +1,4 @@
-﻿abstract class ApiClient {
+abstract class ApiClient {
   Future<T> get<T>(
     String path, {
     Map<String, dynamic>? query,
@@ -10,6 +10,11 @@
     T Function(Object? json)? decoder,
   });
   Future<T> put<T>(
+    String path, {
+    Object? body,
+    T Function(Object? json)? decoder,
+  });
+  Future<T> patch<T>(
     String path, {
     Object? body,
     T Function(Object? json)? decoder,

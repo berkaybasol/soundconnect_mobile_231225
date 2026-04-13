@@ -1,4 +1,5 @@
 import '../../domain/entities/venue_public_profile.dart';
+import 'venue_active_band_model.dart';
 import 'venue_active_musician_model.dart';
 import 'venue_event_summary_model.dart';
 
@@ -22,6 +23,7 @@ class VenuePublicProfileModel extends VenuePublicProfile {
     required super.districtName,
     required super.neighborhoodName,
     required super.activeMusicians,
+    required super.activeBands,
     required super.weeklyEvents,
   });
 
@@ -45,6 +47,7 @@ class VenuePublicProfileModel extends VenuePublicProfile {
       districtName: json['districtName']?.toString(),
       neighborhoodName: json['neighborhoodName']?.toString(),
       activeMusicians: _musicians(json['activeMusicians']),
+      activeBands: _bands(json['activeBands']),
       weeklyEvents: _events(json['weeklyEvents']),
     );
   }
@@ -62,6 +65,14 @@ class VenuePublicProfileModel extends VenuePublicProfile {
     return value
         .whereType<Map<String, dynamic>>()
         .map(VenueEventSummaryModel.fromJson)
+        .toList();
+  }
+
+  static List<VenueActiveBandModel> _bands(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map<String, dynamic>>()
+        .map(VenueActiveBandModel.fromJson)
         .toList();
   }
 }

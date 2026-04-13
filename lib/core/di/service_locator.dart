@@ -7,6 +7,14 @@ import '../../modules/auth/domain/usecases/register_usecase.dart';
 import '../../modules/auth/domain/usecases/resend_code_usecase.dart';
 import '../../modules/auth/domain/usecases/verify_code_usecase.dart';
 import '../../modules/auth/presentation/cubit/auth_cubit.dart';
+import '../../modules/dm/data/dm_repository_impl.dart';
+import '../../modules/dm/data/dm_realtime_client.dart';
+import '../../modules/dm/data/dm_user_profile_resolver_impl.dart';
+import '../../modules/dm/domain/dm_repository.dart';
+import '../../modules/dm/domain/dm_user_profile_resolver.dart';
+import '../../modules/dm/presentation/cubit/dm_badge_cubit.dart';
+import '../../modules/dm/presentation/cubit/dm_chat_cubit.dart';
+import '../../modules/dm/presentation/cubit/dm_conversations_cubit.dart';
 import '../../modules/engagement/data/engagement_repository_impl.dart';
 import '../../modules/engagement/domain/engagement_repository.dart';
 import '../../modules/engagement/presentation/cubit/comment_thread_cubit.dart';
@@ -190,6 +198,39 @@ void setupDependencies() {
         verifyCodeUseCase: serviceLocator<VerifyCodeUseCase>(),
         resendCodeUseCase: serviceLocator<ResendCodeUseCase>(),
         tokenStore: serviceLocator<TokenStore>(),
+      ),
+    )
+    ..registerLazySingleton<DmRepository>(
+      () => DmRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<DmUserProfileResolver>(
+      () => DmUserProfileResolverImpl(
+        musicianSearchRepository: serviceLocator<MusicianSearchRepository>(),
+        musicianProfileRepository: serviceLocator<MusicianProfileRepository>(),
+        venueDirectoryRepository: serviceLocator<VenueDirectoryRepository>(),
+        venueProfileRepository: serviceLocator<VenueProfileRepository>(),
+      ),
+    )
+    ..registerLazySingleton<DmRealtimeClient>(() => DmRealtimeClient())
+    ..registerLazySingleton<DmBadgeCubit>(
+      () => DmBadgeCubit(
+        serviceLocator<DmRepository>(),
+        serviceLocator<TokenStore>(),
+        realtimeClient: serviceLocator<DmRealtimeClient>(),
+      ),
+    )
+    ..registerFactory<DmConversationsCubit>(
+      () => DmConversationsCubit(
+        serviceLocator<DmRepository>(),
+        serviceLocator<TokenStore>(),
+        realtimeClient: serviceLocator<DmRealtimeClient>(),
+      ),
+    )
+    ..registerFactory<DmChatCubit>(
+      () => DmChatCubit(
+        serviceLocator<DmRepository>(),
+        serviceLocator<TokenStore>(),
+        realtimeClient: serviceLocator<DmRealtimeClient>(),
       ),
     );
 }

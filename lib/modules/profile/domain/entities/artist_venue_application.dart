@@ -1,8 +1,11 @@
 class ArtistVenueApplication {
   final String id;
   final String musicianProfileId;
+  final String bandId;
   final String venueId;
   final String musicianStageName;
+  final String bandName;
+  final String? bandProfilePictureUrl;
   final String venueName;
   final String? message;
   final String status;
@@ -12,8 +15,11 @@ class ArtistVenueApplication {
   const ArtistVenueApplication({
     required this.id,
     required this.musicianProfileId,
+    required this.bandId,
     required this.venueId,
     required this.musicianStageName,
+    required this.bandName,
+    required this.bandProfilePictureUrl,
     required this.venueName,
     required this.message,
     required this.status,

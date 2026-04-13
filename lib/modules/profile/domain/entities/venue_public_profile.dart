@@ -1,3 +1,4 @@
+import 'venue_active_band.dart';
 import 'venue_active_musician.dart';
 import 'venue_event_summary.dart';
 
@@ -20,6 +21,7 @@ class VenuePublicProfile {
   final String? districtName;
   final String? neighborhoodName;
   final List<VenueActiveMusician> activeMusicians;
+  final List<VenueActiveBand> activeBands;
   final List<VenueEventSummary> weeklyEvents;
 
   const VenuePublicProfile({
@@ -41,6 +43,7 @@ class VenuePublicProfile {
     required this.districtName,
     required this.neighborhoodName,
     required this.activeMusicians,
+    required this.activeBands,
     required this.weeklyEvents,
   });
 }

@@ -5,6 +5,7 @@ class _BandAudioTab extends StatelessWidget {
   final List<dynamic> items;
   final List<SpotifyTrackPreview> spotifyTracks;
   final bool spotifyLoading;
+  final bool editable;
   final Future<bool> Function(
     List<SpotifyTrackPreview> nextTracks, {
     required String failureMessage,
@@ -16,6 +17,7 @@ class _BandAudioTab extends StatelessWidget {
     required this.items,
     required this.spotifyTracks,
     required this.spotifyLoading,
+    required this.editable,
     required this.onSaveSpotifyTracks,
   });
 
@@ -53,66 +55,68 @@ class _BandAudioTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () => _showTrackUpload(context),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 24,
-                  horizontal: 18,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0x1AFFFFFF),
-                      Color(0x1A8A5CFF),
-                      Color(0x1AFF7A3D),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+            if (editable) ...[
+              InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => _showTrackUpload(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 24,
+                    horizontal: 18,
                   ),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.inputFill,
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: AppColors.textPrimary,
-                        size: 28,
-                      ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0x1AFFFFFF),
+                        Color(0x1A8A5CFF),
+                        Color(0x1AFF7A3D),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      items.isEmpty ? 'Henuz ses eklemediniz' : 'Ses ekle',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.inputFill,
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: AppColors.textPrimary,
+                          size: 28,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'SoundConnect uzerinden sarki yuklemek icin dokun.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
+                      const SizedBox(height: 10),
+                      Text(
+                        items.isEmpty ? 'Henuz ses eklemediniz' : 'Ses ekle',
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      const Text(
+                        'SoundConnect uzerinden sarki yuklemek icin dokun.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
             if (items.isEmpty)
               const Text(
                 'Band henuz ses eklemedi.',

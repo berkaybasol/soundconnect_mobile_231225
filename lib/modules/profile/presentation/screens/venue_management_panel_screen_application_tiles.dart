@@ -2,17 +2,24 @@ part of 'venue_management_panel_screen.dart';
 
 extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
   Widget _buildApplicationItem(ArtistVenueApplication item) {
+    final isBandRequest = item.requestByType == 'BAND';
     final musicianProfile = _musicianProfiles[item.musicianProfileId];
-    final musicianName =
-        musicianProfile?.displayName ??
-        (item.musicianStageName.trim().isNotEmpty
-            ? item.musicianStageName.trim()
-            : 'Sanatci');
+    final applicantName = isBandRequest
+        ? (item.bandName.trim().isNotEmpty ? item.bandName.trim() : 'Band')
+        : (musicianProfile?.displayName ??
+              (item.musicianStageName.trim().isNotEmpty
+                  ? item.musicianStageName.trim()
+                  : 'Sanatci'));
     final canCancel = _showOutgoing && item.status == 'PENDING';
     final canAccept = !_showOutgoing && item.status == 'PENDING';
     final canReject = !_showOutgoing && item.status == 'PENDING';
     final canDisconnect = item.status == 'ACCEPTED';
-    final canOpenProfile = item.musicianProfileId.isNotEmpty;
+    final canOpenMusicianProfile =
+        !isBandRequest && item.musicianProfileId.isNotEmpty;
+    final canOpenBandProfile = isBandRequest && item.bandId.isNotEmpty;
+    final applicantImageUrl = isBandRequest
+        ? item.bandProfilePictureUrl
+        : musicianProfile?.profilePictureUrl;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -29,9 +36,19 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
               Expanded(
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: !canOpenProfile
+                  onTap: !(canOpenMusicianProfile || canOpenBandProfile)
                       ? null
                       : () {
+                          if (canOpenBandProfile) {
+                            Navigator.of(context).pushNamed(
+                              AppRoutes.bandPublicProfile,
+                              arguments: BandProfileScreenArgs(
+                                bandId: item.bandId,
+                                viewMode: BandProfileViewMode.public,
+                              ),
+                            );
+                            return;
+                          }
                           Navigator.of(context).pushNamed(
                             AppRoutes.musicianPublicProfile,
                             arguments: {'profileId': item.musicianProfileId},
@@ -44,20 +61,14 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                         CircleAvatar(
                           radius: 20,
                           backgroundColor: AppColors.navBlueSoft,
-                          backgroundImage:
-                              _isValidImageUrl(
-                                musicianProfile?.profilePictureUrl,
-                              )
-                              ? NetworkImage(
-                                  musicianProfile!.profilePictureUrl!,
-                                )
+                          backgroundImage: _isValidImageUrl(applicantImageUrl)
+                              ? NetworkImage(applicantImageUrl!)
                               : null,
-                          child:
-                              !_isValidImageUrl(
-                                musicianProfile?.profilePictureUrl,
-                              )
-                              ? const Icon(
-                                  Icons.person_outline,
+                          child: !_isValidImageUrl(applicantImageUrl)
+                              ? Icon(
+                                  isBandRequest
+                                      ? Icons.groups_2_outlined
+                                      : Icons.person_outline,
                                   color: AppColors.textMuted,
                                 )
                               : null,
@@ -65,7 +76,7 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            musicianName,
+                            applicantName,
                             style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.w800,
@@ -116,13 +127,19 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                       fontSize: 13,
                     ),
                     children: [
-                      const TextSpan(text: 'Sanatcinin notu: '),
+                      TextSpan(
+                        text: isBandRequest
+                            ? 'Band notu: '
+                            : 'Sanatcinin notu: ',
+                      ),
                       TextSpan(
                         text:
                             item.message != null &&
                                 item.message!.trim().isNotEmpty
                             ? item.message!.trim()
-                            : 'Sanatcinin notu yok',
+                            : (isBandRequest
+                                  ? 'Band notu yok'
+                                  : 'Sanatcinin notu yok'),
                         style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w600,

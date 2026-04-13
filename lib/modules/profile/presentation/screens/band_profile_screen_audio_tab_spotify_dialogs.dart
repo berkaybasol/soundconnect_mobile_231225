@@ -127,11 +127,12 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                               ),
                             ),
                           ),
-                          IconButton(
-                            tooltip: 'Spotify parcasi ekle',
-                            onPressed: addTrack,
-                            icon: const Icon(Icons.add_circle_outline),
-                          ),
+                          if (editable)
+                            IconButton(
+                              tooltip: 'Spotify parcasi ekle',
+                              onPressed: addTrack,
+                              icon: const Icon(Icons.add_circle_outline),
+                            ),
                         ],
                       ),
                       if (feedbackText != null) ...[
@@ -242,14 +243,16 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                             ),
                                           ),
                                         ),
-                                        IconButton(
-                                          tooltip: 'Kaldir',
-                                          onPressed: () => removeTrack(track),
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            color: AppColors.textMuted,
+                                        if (editable)
+                                          IconButton(
+                                            tooltip: 'Kaldir',
+                                            onPressed: () =>
+                                                removeTrack(track),
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              color: AppColors.textMuted,
+                                            ),
                                           ),
-                                        ),
                                       ],
                                     ),
                                   );

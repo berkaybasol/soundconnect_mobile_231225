@@ -140,6 +140,7 @@ const _venueOwnerProfile = VenueOwnerProfile(
   neighborhoodName: null,
   status: null,
   activeMusicians: [],
+  activeBands: [],
   weeklyEvents: [],
 );
 
@@ -162,5 +163,6 @@ const _venuePublicProfile = VenuePublicProfile(
   districtName: null,
   neighborhoodName: null,
   activeMusicians: [],
+  activeBands: [],
   weeklyEvents: [],
 );

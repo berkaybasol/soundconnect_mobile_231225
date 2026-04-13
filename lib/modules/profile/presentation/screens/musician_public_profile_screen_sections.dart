@@ -162,12 +162,14 @@ class _ActionButtons extends StatelessWidget {
   final bool isFollowing;
   final bool isEnabled;
   final bool isLoading;
+  final VoidCallback onMessageTap;
   final VoidCallback onFollowToggle;
 
   const _ActionButtons({
     required this.isFollowing,
     required this.isEnabled,
     required this.isLoading,
+    required this.onMessageTap,
     required this.onFollowToggle,
   });
 
@@ -198,7 +200,7 @@ class _ActionButtons extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: onMessageTap,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.coralAlt,
                 foregroundColor: AppColors.white,

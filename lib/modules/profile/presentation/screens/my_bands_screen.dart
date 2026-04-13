@@ -77,10 +77,11 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
 
   Future<void> _openBandProfile(BandSummary band) async {
     await Navigator.of(context).pushNamed(
-      AppRoutes.bandProfile,
+      AppRoutes.bandMemberProfile,
       arguments: BandProfileScreenArgs(
         bandId: band.id,
         openEditMode: false,
+        viewMode: BandProfileViewMode.auto,
       ),
     );
   }

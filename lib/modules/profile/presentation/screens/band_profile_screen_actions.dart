@@ -10,10 +10,16 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       _errorText = null;
     });
 
-    final ownerResult = await _bandRepository.getBandById(bandId);
-    final result = ownerResult.isSuccess && ownerResult.data != null
-        ? ownerResult
-        : await _bandRepository.getPublicBandById(bandId);
+    final result = await () async {
+      if (_viewMode == BandProfileViewMode.public) {
+        return _bandRepository.getPublicBandById(bandId);
+      }
+      final ownerResult = await _bandRepository.getBandById(bandId);
+      if (ownerResult.isSuccess && ownerResult.data != null) {
+        return ownerResult;
+      }
+      return _bandRepository.getPublicBandById(bandId);
+    }();
 
     if (!mounted) return;
 
@@ -77,6 +83,14 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     List<SpotifyTrackPreview> nextTracks, {
     required String failureMessage,
   }) async {
+    if (!_canManageBand) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bu islem icin yetkiniz yok.')),
+        );
+      }
+      return false;
+    }
     final profile = _profile;
     if (profile == null) return false;
 
@@ -103,6 +117,12 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   }
 
   Future<void> _saveDescription(String value) async {
+    if (!_canManageBand) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu islem icin yetkiniz yok.')),
+      );
+      return;
+    }
     final profile = _profile;
     if (profile == null) return;
 
@@ -132,6 +152,12 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   }
 
   Future<void> _editProfilePhoto() async {
+    if (!_canManageBand) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu islem icin yetkiniz yok.')),
+      );
+      return;
+    }
     final profile = _profile;
     if (profile == null) return;
 
@@ -179,6 +205,12 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   }
 
   Future<void> _addSocialLink(ProfileSocialPlatform platform) async {
+    if (!_canManageBand) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu islem icin yetkiniz yok.')),
+      );
+      return;
+    }
     final profile = _profile;
     if (profile == null) return;
 
@@ -224,6 +256,12 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   }
 
   Future<void> _openBandManagementPanel(BuildContext context) async {
+    if (!_canManageBand) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yonetim paneline erisim yok.')),
+      );
+      return;
+    }
     final profile = _profile;
     if (profile == null) return;
 
@@ -244,7 +282,8 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     );
     if (!mounted) return;
 
-    final List<VenueConnection> connections = result.isSuccess && result.data != null
+    final List<VenueConnection> connections =
+        result.isSuccess && result.data != null
         ? result.data!
               .where(
                 (item) =>

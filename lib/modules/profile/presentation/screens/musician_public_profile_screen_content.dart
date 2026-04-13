@@ -84,6 +84,19 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 isFollowing: isFollowing,
                 isEnabled: canFollow,
                 isLoading: followLoading,
+                onMessageTap: () {
+                  if (profile.userId.trim().isEmpty) return;
+                  final username = (profile.username ?? '').trim();
+                  Navigator.of(context).pushNamed(
+                    AppRoutes.dmChat,
+                    arguments: DmChatScreenArgs(
+                      otherUserId: profile.userId,
+                      otherUsername: username.isNotEmpty ? username : null,
+                      otherUserProfilePicture: profile.profilePicture,
+                      currentUserId: viewerUserId,
+                    ),
+                  );
+                },
                 onFollowToggle: () {
                   if (!canFollow) return;
                   context.read<FollowActionCubit>().toggleFollow(

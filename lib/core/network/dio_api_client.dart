@@ -86,6 +86,15 @@ class DioApiClient implements ApiClient {
   }
 
   @override
+  Future<T> patch<T>(
+    String path, {
+    Object? body,
+    T Function(Object? json)? decoder,
+  }) {
+    return _request<T>('PATCH', path, body: body, decoder: decoder);
+  }
+
+  @override
   Future<T> delete<T>(
     String path, {
     Object? body,

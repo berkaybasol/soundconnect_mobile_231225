@@ -20,6 +20,7 @@ import '../../../../shared/widgets/waveform_stub.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/entities/venue_active_band.dart';
 import '../../domain/entities/venue_active_musician.dart';
 import '../../domain/entities/venue_public_profile.dart';
 import '../../domain/venue_event_repository.dart';
@@ -32,6 +33,7 @@ import 'profile_audio_transport.dart';
 import 'profile_common_widgets.dart';
 import 'profile_count_row.dart';
 import 'profile_photo_gallery_tab.dart';
+import '../../../dm/presentation/screens/dm_chat_screen.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_public_video_tab.dart';
 import 'profile_route_args.dart';
@@ -209,6 +211,7 @@ class _MusicianPublicProfileViewState
                 followersCount: followersCount,
                 followingCount: followingCount,
                 activeVenues: publicProfile.activeMusicians,
+                activeBands: publicProfile.activeBands,
                 viewerUserId: viewerUserId,
                 isFollowing: actionState.isFollowing,
                 followLoading: actionState.status == FollowActionStatus.loading,

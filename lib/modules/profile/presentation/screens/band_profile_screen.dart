@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
@@ -14,6 +15,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/token_store.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/entities/band_member_summary.dart';
 import '../../domain/entities/band_profile.dart';
@@ -47,13 +49,17 @@ part 'band_profile_screen_audio_tab_spotify_picker.dart';
 part 'band_profile_screen_actions.dart';
 part 'band_profile_screen_social_sections.dart';
 
+enum BandProfileViewMode { auto, member, public }
+
 class BandProfileScreenArgs {
   final String bandId;
   final bool openEditMode;
+  final BandProfileViewMode viewMode;
 
   const BandProfileScreenArgs({
     required this.bandId,
     this.openEditMode = false,
+    this.viewMode = BandProfileViewMode.auto,
   });
 }
 
@@ -80,6 +86,7 @@ class _BandProfileView extends StatefulWidget {
 }
 
 class _BandProfileViewState extends State<_BandProfileView> {
+  late final TokenStore _tokenStore = serviceLocator<TokenStore>();
   late final BandRepository _bandRepository = serviceLocator<BandRepository>();
   late final MusicianProfileRepository _musicianProfileRepository =
       serviceLocator<MusicianProfileRepository>();
@@ -101,6 +108,8 @@ class _BandProfileViewState extends State<_BandProfileView> {
   String? _errorText;
   String? _uploadedProfilePhotoUrl;
   String? _bandId;
+  BandProfileViewMode _viewMode = BandProfileViewMode.auto;
+  String? _currentUserId;
   List<VenueConnection> _activeVenues = const [];
   final Map<String, String> _resolvedMemberProfileIdsByUserId =
       <String, String>{};
@@ -116,20 +125,103 @@ class _BandProfileViewState extends State<_BandProfileView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final routeName = ModalRoute.of(context)?.settings.name ?? '';
     final args = ModalRoute.of(context)?.settings.arguments;
     String? nextBandId;
+    BandProfileViewMode nextMode = _modeFromRouteName(routeName);
     if (args is BandProfileScreenArgs) {
       nextBandId = args.bandId;
+      nextMode = args.viewMode;
     } else if (args is Map<String, dynamic>) {
       nextBandId = args['bandId']?.toString();
+      nextMode = _modeFromRaw(args['viewMode']) ?? nextMode;
     } else if (args is String) {
       nextBandId = args;
     }
-    if (nextBandId == null || nextBandId.isEmpty || _bandId == nextBandId) {
+    if (nextBandId == null ||
+        nextBandId.isEmpty ||
+        (_bandId == nextBandId && _viewMode == nextMode)) {
       return;
     }
     _bandId = nextBandId;
+    _viewMode = nextMode;
+    unawaited(_resolveCurrentUserId());
     _loadBandProfile();
+  }
+
+  bool get _canManageBand {
+    if (_viewMode == BandProfileViewMode.public ||
+        _viewMode == BandProfileViewMode.member) {
+      return false;
+    }
+    final profile = _profile;
+    final currentUserId = (_currentUserId ?? '').trim();
+    if (profile == null || currentUserId.isEmpty) return false;
+    for (final member in profile.members) {
+      if (member.userId.trim() == currentUserId) {
+        return member.isFounder;
+      }
+    }
+    return false;
+  }
+
+  BandProfileViewMode _modeFromRouteName(String routeName) {
+    if (routeName == AppRoutes.bandPublicProfile) {
+      return BandProfileViewMode.public;
+    }
+    if (routeName == AppRoutes.bandMemberProfile) {
+      return BandProfileViewMode.member;
+    }
+    return BandProfileViewMode.auto;
+  }
+
+  BandProfileViewMode? _modeFromRaw(Object? raw) {
+    if (raw is BandProfileViewMode) return raw;
+    final value = raw?.toString().trim().toLowerCase() ?? '';
+    switch (value) {
+      case 'public':
+        return BandProfileViewMode.public;
+      case 'member':
+        return BandProfileViewMode.member;
+      case 'auto':
+        return BandProfileViewMode.auto;
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _resolveCurrentUserId() async {
+    final token = (await _tokenStore.readToken())?.trim() ?? '';
+    if (token.isEmpty) {
+      _updateState(() => _currentUserId = null);
+      return;
+    }
+    String? resolved;
+    final parts = token.split('.');
+    if (parts.length >= 2) {
+      try {
+        final payload = utf8.decode(
+          base64Url.decode(base64Url.normalize(parts[1])),
+        );
+        final json = jsonDecode(payload);
+        if (json is Map<String, dynamic>) {
+          final candidates = <String?>[
+            json['userId']?.toString(),
+            json['uid']?.toString(),
+            json['id']?.toString(),
+            json['sub']?.toString(),
+          ];
+          for (final value in candidates) {
+            final normalized = value?.trim() ?? '';
+            if (normalized.isNotEmpty) {
+              resolved = normalized;
+              break;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    _updateState(() => _currentUserId = resolved);
   }
 
   @override
@@ -170,7 +262,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
                   profile: profile,
                   uploadedPhotoUrl: _uploadedProfilePhotoUrl,
                   uploading: _photoUploading,
-                  onEditPhoto: _editProfilePhoto,
+                  onEditPhoto: _canManageBand ? _editProfilePhoto : null,
                 ),
                 identity: ProfileIdentityHeader(
                   username: profile.name,
@@ -187,51 +279,56 @@ class _BandProfileViewState extends State<_BandProfileView> {
                 actionButtons: const SizedBox.shrink(),
                 bioSection: EditableBioSection(
                   bio: profile.description,
-                  editable: true,
+                  editable: _canManageBand,
                   onSave: _saveDescription,
                   emptyText: 'Henuz bir aciklama eklenmedi.',
                   addLabel: 'Aciklama ekle',
                   hintText: 'Bandinden bahset...',
                 ),
-                afterBio: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      gradient: const LinearGradient(
-                        colors: AppColors.brandGradient,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(0.7),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Container(
-                          color: AppColors.inputFill,
-                          child: TextButton.icon(
-                            onPressed: () => _openBandManagementPanel(context),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.white,
-                              backgroundColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
+                afterBio: _canManageBand
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            gradient: const LinearGradient(
+                              colors: AppColors.brandGradient,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(0.7),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: Container(
+                                color: AppColors.inputFill,
+                                child: TextButton.icon(
+                                  onPressed: () =>
+                                      _openBandManagementPanel(context),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.white,
+                                    backgroundColor: Colors.transparent,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.dashboard_customize_outlined,
+                                    color: AppColors.white,
+                                  ),
+                                  label: const Text(
+                                    'Yonetim Paneli',
+                                    style: TextStyle(color: AppColors.white),
+                                  ),
+                                ),
                               ),
-                            ),
-                            icon: const Icon(
-                              Icons.dashboard_customize_outlined,
-                              color: AppColors.white,
-                            ),
-                            label: const Text(
-                              'Yonetim Paneli',
-                              style: TextStyle(color: AppColors.white),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                ),
+                      )
+                    : const SizedBox.shrink(),
               ),
               const SizedBox(height: 18),
               ProfileSectionHeader(
@@ -283,6 +380,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
                       items: media.audios,
                       spotifyTracks: _spotifyTracks,
                       spotifyLoading: _spotifyLoading,
+                      editable: _canManageBand,
                       onSaveSpotifyTracks: _saveSpotifyTracks,
                     ),
                     ProfileOwnerVideoTab(
@@ -295,7 +393,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
                         ),
                       ],
                       profileId: profile.id,
-                      ownerMode: true,
+                      ownerMode: _canManageBand,
                       profileType: 'BAND',
                       uploadOwnerType: 'BAND',
                     ),
@@ -305,8 +403,8 @@ class _BandProfileViewState extends State<_BandProfileView> {
               const SizedBox(height: 18),
               _BandSocialButtonRow(
                 profile: profile,
-                editable: true,
-                onAddLink: _addSocialLink,
+                editable: _canManageBand,
+                onAddLink: _canManageBand ? _addSocialLink : null,
               ),
               const SizedBox(height: 24),
             ],

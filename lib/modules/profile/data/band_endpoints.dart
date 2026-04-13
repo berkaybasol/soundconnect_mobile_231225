@@ -1,9 +1,11 @@
 class BandEndpoints {
   static const String userBase = '/api/v1/user/bands';
+  static const String publicBase = '/api/v1/public/bands';
   static const String create = '$userBase/create';
   static const String myBands = '$userBase/my';
 
   static String byId(String bandId) => '$userBase/$bandId';
+  static String publicById(String bandId) => '$publicBase/$bandId';
   static String invite(String bandId, String invitedUserId, {String? message}) {
     final query = <String, String>{'invitedUserId': invitedUserId};
     if (message != null && message.trim().isNotEmpty) {

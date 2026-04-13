@@ -1,10 +1,10 @@
-﻿part of 'band_profile_screen.dart';
+part of 'band_profile_screen.dart';
 
 class _BandHeader extends StatelessWidget {
   final BandProfile profile;
   final String? uploadedPhotoUrl;
   final bool uploading;
-  final VoidCallback onEditPhoto;
+  final VoidCallback? onEditPhoto;
 
   const _BandHeader({
     required this.profile,
@@ -61,38 +61,42 @@ class _BandHeader extends StatelessWidget {
                       ),
               ),
             ),
-            Positioned(
-              right: -4,
-              bottom: -4,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(999),
-                onTap: uploading ? null : onEditPhoto,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: AppColors.brandGradient,
+            if (onEditPhoto != null)
+              Positioned(
+                right: -4,
+                bottom: -4,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: uploading ? null : onEditPhoto,
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: AppColors.brandGradient,
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.navBlueDeep,
+                        width: 2,
+                      ),
                     ),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.navBlueDeep, width: 2),
-                  ),
-                  child: uploading
-                      ? const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
+                    child: uploading
+                        ? const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.edit_outlined,
+                            size: 16,
                             color: Colors.white,
                           ),
-                        )
-                      : const Icon(
-                          Icons.edit_outlined,
-                          size: 16,
-                          color: Colors.white,
-                        ),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -147,8 +151,9 @@ class _BandMembersRow extends StatelessWidget {
                 CircleAvatar(
                   radius: 18,
                   backgroundColor: AppColors.navBlueSoft,
-                  backgroundImage:
-                      avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                  backgroundImage: avatarUrl != null
+                      ? NetworkImage(avatarUrl)
+                      : null,
                   child: avatarUrl != null
                       ? null
                       : const Icon(
@@ -212,7 +217,8 @@ String? _resolveBandMemberAvatarUrl(String? raw) {
   final Uri? parsed = Uri.tryParse(value);
   if (parsed == null) return null;
 
-  final bool isHttp = parsed.hasScheme &&
+  final bool isHttp =
+      parsed.hasScheme &&
       (parsed.scheme.toLowerCase() == 'http' ||
           parsed.scheme.toLowerCase() == 'https') &&
       parsed.host.isNotEmpty;
@@ -351,7 +357,8 @@ String? _resolveBandVenueImageUrl(String? raw) {
   final Uri? parsed = Uri.tryParse(value);
   if (parsed == null) return null;
 
-  final bool isHttp = parsed.hasScheme &&
+  final bool isHttp =
+      parsed.hasScheme &&
       (parsed.scheme.toLowerCase() == 'http' ||
           parsed.scheme.toLowerCase() == 'https') &&
       parsed.host.isNotEmpty;

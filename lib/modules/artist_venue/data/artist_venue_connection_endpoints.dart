@@ -15,6 +15,13 @@ class ArtistVenueConnectionEndpoints {
     return '$base/venue/$venueId?status=$status';
   }
 
+  static String byBand(String bandId, {String? status}) {
+    if (status == null || status.isEmpty) {
+      return '$base/band/$bandId';
+    }
+    return '$base/band/$bandId?status=$status';
+  }
+
   static String request(String requestByType) {
     return '$base/request?requestByType=$requestByType';
   }

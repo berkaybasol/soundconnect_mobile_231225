@@ -64,6 +64,27 @@ class BandRepositoryImpl implements BandRepository {
   }
 
   @override
+  Future<Result<BandProfile>> getPublicBandById(String bandId) async {
+    try {
+      final response = await _apiClient.get<BandProfile>(
+        BandEndpoints.publicById(bandId),
+        decoder: (json) =>
+            BandProfileModel.fromJson(json as Map<String, dynamic>),
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_public_profile_unknown',
+          message: 'Public band profili getirilemedi',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<BandSummary>> createBand({
     required String name,
     String? description,

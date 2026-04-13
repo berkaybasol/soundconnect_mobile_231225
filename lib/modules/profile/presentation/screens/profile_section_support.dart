@@ -34,6 +34,7 @@ class ProfileActionButtons extends StatelessWidget {
   final bool isLoading;
   final bool ownerMode;
   final VoidCallback? onEditProfilePressed;
+  final VoidCallback? onMessagePressed;
   final VoidCallback onFollowToggle;
 
   const ProfileActionButtons({
@@ -43,6 +44,7 @@ class ProfileActionButtons extends StatelessWidget {
     required this.isLoading,
     required this.ownerMode,
     required this.onEditProfilePressed,
+    this.onMessagePressed,
     required this.onFollowToggle,
   });
 
@@ -77,7 +79,7 @@ class ProfileActionButtons extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: onMessagePressed,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.coralAlt,
                 foregroundColor: AppColors.white,

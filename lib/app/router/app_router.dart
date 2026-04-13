@@ -4,6 +4,8 @@ import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
 import '../../modules/auth/presentation/screens/venue_application_screen.dart';
 import '../../modules/auth/presentation/screens/venue_pending_screen.dart';
+import '../../modules/dm/presentation/screens/dm_chat_screen.dart';
+import '../../modules/dm/presentation/screens/dm_conversations_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/create_band_screen.dart';
@@ -63,6 +65,16 @@ class AppRouter {
           settings: settings,
           builder: (_) => const BandProfileScreen(),
         );
+      case AppRoutes.bandMemberProfile:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const BandProfileScreen(),
+        );
+      case AppRoutes.bandPublicProfile:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const BandProfileScreen(),
+        );
       case AppRoutes.musicianPublicProfile:
         return MaterialPageRoute(
           settings: settings,
@@ -77,6 +89,16 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const VenuePublicProfileScreen(),
+        );
+      case AppRoutes.dmConversations:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const DmConversationsScreen(),
+        );
+      case AppRoutes.dmChat:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const DmChatScreen(),
         );
       case AppRoutes.home:
         return MaterialPageRoute(

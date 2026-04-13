@@ -7,20 +7,27 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/network/network_config.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
+import '../../../location/domain/location_repository.dart';
 import '../../../setlist/presentation/screens/band_setlist_builder_screen.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/entities/band_member_summary.dart';
 import '../../domain/entities/band_profile.dart';
+import '../../domain/entities/profile_venue_models.dart';
 import '../../domain/entities/musician_search_option.dart';
 import '../../domain/musician_profile_repository.dart';
 import '../../domain/musician_search_repository.dart';
+import '../../domain/venue_directory_repository.dart';
 import 'profile_route_args.dart';
+import 'profile_venue_request_sheet.dart';
+import 'profile_venue_support.dart';
 
 part 'band_management_panel_screen_widgets.dart';
 part 'band_management_panel_screen_member_actions.dart';
 part 'band_management_panel_screen_member_picker.dart';
 part 'band_management_panel_screen_members_workspace.dart';
 part 'band_management_panel_screen_ui_helpers.dart';
+part 'band_management_panel_screen_venue_actions.dart';
 
 class BandManagementPanelScreen extends StatefulWidget {
   final BandProfile profile;
@@ -38,6 +45,12 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
       serviceLocator<MusicianSearchRepository>();
   late final MusicianProfileRepository _musicianProfileRepository =
       serviceLocator<MusicianProfileRepository>();
+  late final VenueDirectoryRepository _venueDirectoryRepository =
+      serviceLocator<VenueDirectoryRepository>();
+  late final LocationRepository _locationRepository =
+      serviceLocator<LocationRepository>();
+  late final ArtistVenueConnectionRepository _artistVenueRepository =
+      serviceLocator<ArtistVenueConnectionRepository>();
 
   late BandProfile _profile = widget.profile;
   bool _loading = false;
@@ -133,7 +146,8 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                 context: context,
                 icon: Icons.perm_media_outlined,
                 title: 'Aktif Mekanları Düzenle',
-                message: 'Band medya akışları sıradaki adımda eklenecek.',
+                message: 'Mekan bağlantı paneli açılıyor.',
+                onTap: _submitting ? null : _editBandVenues,
               ),
               const SizedBox(height: 14),
               _actionCard(

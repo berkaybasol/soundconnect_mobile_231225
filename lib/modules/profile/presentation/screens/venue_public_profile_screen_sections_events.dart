@@ -24,6 +24,7 @@ class _ActiveMusicianCarousel extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final musician = items[index];
+          final isBand = musician.bandId.trim().isNotEmpty;
           final imageUrl = musician.profileImageUrl?.trim();
           final hasImage =
               imageUrl != null &&
@@ -31,14 +32,25 @@ class _ActiveMusicianCarousel extends StatelessWidget {
                   imageUrl.startsWith('https://'));
           return InkWell(
             borderRadius: BorderRadius.circular(22),
-            onTap: musician.musicianProfileId.trim().isEmpty
-                ? null
-                : () {
-                    Navigator.of(context).pushNamed(
-                      AppRoutes.musicianPublicProfile,
-                      arguments: {'profileId': musician.musicianProfileId},
-                    );
-                  },
+            onTap: isBand
+                ? (musician.bandId.trim().isEmpty
+                      ? null
+                      : () {
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.bandPublicProfile,
+                            arguments: musician.bandId,
+                          );
+                        })
+                : (musician.musicianProfileId.trim().isEmpty
+                      ? null
+                      : () {
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.musicianPublicProfile,
+                            arguments: {
+                              'profileId': musician.musicianProfileId,
+                            },
+                          );
+                        }),
             child: Container(
               width: 170,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -70,8 +82,10 @@ class _ActiveMusicianCarousel extends StatelessWidget {
                     child: ClipOval(
                       child: hasImage
                           ? Image.network(imageUrl, fit: BoxFit.cover)
-                          : const Icon(
-                              Icons.person_outline,
+                          : Icon(
+                              isBand
+                                  ? Icons.groups_2_outlined
+                                  : Icons.person_outline,
                               color: AppColors.coralAlt,
                               size: 20,
                             ),

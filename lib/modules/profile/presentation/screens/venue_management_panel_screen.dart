@@ -12,6 +12,7 @@ import '../../../promotion/domain/promotion_repository.dart';
 import '../../domain/entities/artist_venue_application.dart';
 import '../../domain/musician_profile_repository.dart';
 import '../../domain/entities/venue_owner_profile.dart';
+import 'band_profile_screen.dart';
 
 part 'venue_management_panel_screen_applications.dart';
 part 'venue_management_panel_screen_application_actions.dart';

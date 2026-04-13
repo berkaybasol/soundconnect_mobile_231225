@@ -8,8 +8,12 @@ class AppRoutes {
   static const myBands = '/my-bands';
   static const createBand = '/create-band';
   static const bandProfile = '/band-profile';
+  static const bandMemberProfile = '/band-member-profile';
+  static const bandPublicProfile = '/band-public-profile';
   static const musicianPublicProfile = '/musician-public-profile';
   static const venueProfile = '/venue-profile';
   static const venuePublicProfile = '/venue-public-profile';
+  static const dmConversations = '/dm-conversations';
+  static const dmChat = '/dm-chat';
   static const home = '/home';
 }

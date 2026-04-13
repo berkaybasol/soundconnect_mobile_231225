@@ -20,6 +20,7 @@ import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_venue_models.dart';
 import '../../domain/entities/profile_media.dart';
+import '../../domain/entities/venue_active_band.dart';
 import '../../domain/entities/venue_active_musician.dart';
 import '../../domain/entities/venue_owner_profile.dart';
 import '../../domain/musician_search_repository.dart';

@@ -8,7 +8,7 @@ class NetworkConfig {
   static String get debugFallbackBaseUrl {
     if (defaultTargetPlatform == TargetPlatform.android) {
       // Default to the current LAN host for physical Android devices.
-      return 'http://192.168.1.111:8080';
+      return 'http://192.168.1.100:8080';
     }
     return 'http://localhost:8080';
   }

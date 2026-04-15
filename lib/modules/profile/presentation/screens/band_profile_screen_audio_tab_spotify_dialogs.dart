@@ -164,7 +164,9 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                 itemBuilder: (context, index) {
                                   final track = visibleTracks[index];
                                   final albumArtUrl =
-                                      isValidNetworkImageUrl(track.albumImageUrl)
+                                      isValidNetworkImageUrl(
+                                        track.albumImageUrl,
+                                      )
                                       ? track.albumImageUrl!.trim()
                                       : null;
                                   return Container(
@@ -246,8 +248,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                         if (editable)
                                           IconButton(
                                             tooltip: 'Kaldir',
-                                            onPressed: () =>
-                                                removeTrack(track),
+                                            onPressed: () => removeTrack(track),
                                             icon: const Icon(
                                               Icons.delete_outline,
                                               color: AppColors.textMuted,

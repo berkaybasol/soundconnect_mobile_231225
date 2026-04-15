@@ -35,6 +35,7 @@ import '../../modules/instrument/data/instrument_repository_impl.dart';
 import '../../modules/instrument/domain/instrument_repository.dart';
 import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
 import '../../modules/profile/data/musician_profile_repository_impl.dart';
+import '../../modules/profile/data/listener_profile_repository_impl.dart';
 import '../../modules/profile/data/band_repository_impl.dart';
 import '../../modules/profile/data/musician_search_repository_impl.dart';
 import '../../modules/profile/data/media_gallery_repository_impl.dart';
@@ -46,6 +47,7 @@ import '../../modules/profile/data/venue_directory_repository_impl.dart';
 import '../../modules/profile/data/venue_event_repository_impl.dart';
 import '../../modules/profile/data/venue_profile_repository_impl.dart';
 import '../../modules/profile/domain/musician_profile_repository.dart';
+import '../../modules/profile/domain/listener_profile_repository.dart';
 import '../../modules/profile/domain/band_repository.dart';
 import '../../modules/profile/domain/musician_search_repository.dart';
 import '../../modules/profile/domain/media_gallery_repository.dart';
@@ -57,6 +59,7 @@ import '../../modules/profile/domain/venue_directory_repository.dart';
 import '../../modules/profile/domain/venue_event_repository.dart';
 import '../../modules/profile/domain/venue_profile_repository.dart';
 import '../../modules/profile/presentation/cubit/musician_profile_cubit.dart';
+import '../../modules/profile/presentation/cubit/listener_profile_cubit.dart';
 import '../../modules/profile/presentation/cubit/profile_media_cubit.dart';
 import '../../modules/profile/presentation/cubit/venue_profile_cubit.dart';
 import '../../modules/promotion/data/promotion_repository_impl.dart';
@@ -66,6 +69,10 @@ import '../../modules/spotify/domain/spotify_repository.dart';
 import '../../modules/spotify/presentation/cubit/spotify_preview_cubit.dart';
 import '../../modules/setlist/data/setlist_repository_impl.dart';
 import '../../modules/setlist/domain/setlist_repository.dart';
+import '../../modules/tablegroup/data/table_group_repository_impl.dart';
+import '../../modules/tablegroup/domain/table_group_repository.dart';
+import '../../modules/tablegroup/presentation/cubit/table_group_create_cubit.dart';
+import '../../modules/tablegroup/presentation/cubit/table_group_list_cubit.dart';
 import '../auth/token_store.dart';
 import '../network/api_client.dart';
 import '../network/dio_api_client.dart';
@@ -101,11 +108,17 @@ void setupDependencies() {
     ..registerLazySingleton<MusicianProfileRepository>(
       () => MusicianProfileRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<ListenerProfileRepository>(
+      () => ListenerProfileRepositoryImpl(serviceLocator<ApiClient>()),
+    )
     ..registerLazySingleton<BandRepository>(
       () => BandRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerFactory<MusicianProfileCubit>(
       () => MusicianProfileCubit(serviceLocator<MusicianProfileRepository>()),
+    )
+    ..registerFactory<ListenerProfileCubit>(
+      () => ListenerProfileCubit(serviceLocator<ListenerProfileRepository>()),
     )
     ..registerLazySingleton<ProfileMediaRepository>(
       () => ProfileMediaRepositoryImpl(serviceLocator<ApiClient>()),
@@ -164,8 +177,23 @@ void setupDependencies() {
         serviceLocator<TokenStore>(),
       ),
     )
+    ..registerLazySingleton<TableGroupRepository>(
+      () => TableGroupRepositoryImpl(serviceLocator<ApiClient>()),
+    )
     ..registerLazySingleton<EngagementRepository>(
       () => EngagementRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<TableGroupCreateCubit>(
+      () => TableGroupCreateCubit(
+        tableGroupRepository: serviceLocator<TableGroupRepository>(),
+        locationRepository: serviceLocator<LocationRepository>(),
+      ),
+    )
+    ..registerFactory<TableGroupListCubit>(
+      () => TableGroupListCubit(
+        tableGroupRepository: serviceLocator<TableGroupRepository>(),
+        locationRepository: serviceLocator<LocationRepository>(),
+      ),
     )
     ..registerFactory<SpotifyPreviewCubit>(
       () => SpotifyPreviewCubit(serviceLocator<SpotifyRepository>()),

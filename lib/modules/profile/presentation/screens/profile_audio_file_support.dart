@@ -110,8 +110,9 @@ bool _looksLikeImage(Uint8List bytes) {
       bytes[5] == 0x74 &&
       bytes[6] == 0x79 &&
       bytes[7] == 0x70) {
-    final String brand = String.fromCharCodes(bytes.sublist(8, 12))
-        .toLowerCase();
+    final String brand = String.fromCharCodes(
+      bytes.sublist(8, 12),
+    ).toLowerCase();
     if (brand == 'heic' ||
         brand == 'heix' ||
         brand == 'hevc' ||

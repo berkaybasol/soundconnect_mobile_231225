@@ -41,6 +41,16 @@ class AppShell extends StatelessWidget {
                 title: 'Mekan Public Gorunumu',
                 route: AppRoutes.venuePublicProfile,
               ),
+              const SizedBox(height: 12),
+              _RouteButton(
+                title: 'Listener Profili',
+                route: AppRoutes.listenerProfile,
+              ),
+              const SizedBox(height: 12),
+              _RouteButton(
+                title: 'Muzik Birlestir',
+                route: AppRoutes.tableGroupList,
+              ),
             ],
           ),
         ),

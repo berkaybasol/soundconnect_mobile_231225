@@ -11,8 +11,11 @@ import '../../modules/profile/presentation/screens/musician_public_profile_scree
 import '../../modules/profile/presentation/screens/create_band_screen.dart';
 import '../../modules/profile/presentation/screens/band_profile_screen.dart';
 import '../../modules/profile/presentation/screens/my_bands_screen.dart';
+import '../../modules/profile/presentation/screens/listener_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
+import '../../modules/tablegroup/presentation/screens/table_group_create_screen.dart';
+import '../../modules/tablegroup/presentation/screens/table_group_list_screen.dart';
 import '../app_shell.dart';
 import 'app_routes.dart';
 
@@ -89,6 +92,21 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const VenuePublicProfileScreen(),
+        );
+      case AppRoutes.listenerProfile:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ListenerProfileScreen(),
+        );
+      case AppRoutes.tableGroupList:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const TableGroupListScreen(),
+        );
+      case AppRoutes.tableGroupCreate:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const TableGroupCreateScreen(),
         );
       case AppRoutes.dmConversations:
         return MaterialPageRoute(

@@ -13,6 +13,9 @@ class AppRoutes {
   static const musicianPublicProfile = '/musician-public-profile';
   static const venueProfile = '/venue-profile';
   static const venuePublicProfile = '/venue-public-profile';
+  static const listenerProfile = '/listener-profile';
+  static const tableGroupList = '/table-group-list';
+  static const tableGroupCreate = '/table-group-create';
   static const dmConversations = '/dm-conversations';
   static const dmChat = '/dm-chat';
   static const home = '/home';

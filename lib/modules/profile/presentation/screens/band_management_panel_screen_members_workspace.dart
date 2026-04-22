@@ -3,7 +3,7 @@ part of 'band_management_panel_screen.dart';
 class _BandMembersWorkspaceScreen extends StatefulWidget {
   final _BandManagementPanelScreenState owner;
 
-  const _BandMembersWorkspaceScreen({required this.owner});
+  _BandMembersWorkspaceScreen({required this.owner});
 
   @override
   State<_BandMembersWorkspaceScreen> createState() =>
@@ -58,7 +58,7 @@ class _BandMembersWorkspaceScreenState
     if (!mounted) return;
     if (profileId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu üye için profil bilgisi bulunamadı.')),
+        SnackBar(content: Text('Bu üye için profil bilgisi bulunamadı.')),
       );
       return;
     }
@@ -200,10 +200,10 @@ class _BandMembersWorkspaceScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Üyeleri Yönet'), centerTitle: true),
+      appBar: AppBar(title: Text('Üyeleri Yönet'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: _buildMembersCard(),
         ),
       ),
@@ -215,13 +215,16 @@ class _BandMembersWorkspaceScreenState
       radius: 22,
       strokeWidth: 1,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.inputFill, AppColors.navBlueSoft],
+            colors: [
+              Theme.of(context).colorScheme.surfaceContainerHighest,
+              Theme.of(context).colorScheme.surfaceContainer,
+            ],
           ),
         ),
         child: Column(
@@ -233,50 +236,52 @@ class _BandMembersWorkspaceScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Üyeler',
                         style: TextStyle(
-                          color: AppColors.textPrimary,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         '${_profile.members.length} aktif üye listeleniyor',
-                        style: const TextStyle(color: AppColors.textMuted),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 IconButton(
                   tooltip: 'Üye ekle',
                   onPressed: _submitting ? null : _inviteMember,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.person_add_alt_1_outlined,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 IconButton(
                   tooltip: 'Yenile',
                   onPressed: _submitting ? null : _refreshMembers,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.refresh_rounded,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             SizedBox(
               height: 460,
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(child: CircularProgressIndicator())
                   : _errorText != null
                   ? _EmptyCard(text: _errorText!)
                   : _profile.members.isEmpty
-                  ? const _EmptyCard(text: 'Bandde henüz üye görünmüyor.')
+                  ? _EmptyCard(text: 'Bandde henüz üye görünmüyor.')
                   : ListView(
                       children: _profile.members
                           .map(

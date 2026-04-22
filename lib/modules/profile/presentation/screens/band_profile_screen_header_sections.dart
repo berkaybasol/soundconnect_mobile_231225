@@ -6,7 +6,7 @@ class _BandHeader extends StatelessWidget {
   final bool uploading;
   final VoidCallback? onEditPhoto;
 
-  const _BandHeader({
+  _BandHeader({
     required this.profile,
     required this.uploadedPhotoUrl,
     required this.uploading,
@@ -20,7 +20,7 @@ class _BandHeader extends StatelessWidget {
         : profile.profilePictureUrl?.trim();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: EdgeInsets.only(top: 8),
       child: SizedBox(
         width: 104,
         height: 104,
@@ -33,8 +33,8 @@ class _BandHeader extends StatelessWidget {
               height: 104,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.inputFill,
-                border: Border.all(color: AppColors.border),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: Border.all(color: Theme.of(context).dividerColor),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.brandGradient[2].withValues(alpha: 0.35),
@@ -48,15 +48,15 @@ class _BandHeader extends StatelessWidget {
                     ? Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, __, ___) => Icon(
                           Icons.groups_2_outlined,
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           size: 42,
                         ),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.groups_2_outlined,
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         size: 42,
                       ),
               ),
@@ -72,9 +72,7 @@ class _BandHeader extends StatelessWidget {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: AppColors.brandGradient,
-                      ),
+                      gradient: LinearGradient(colors: AppColors.brandGradient),
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: AppColors.navBlueDeep,
@@ -82,17 +80,17 @@ class _BandHeader extends StatelessWidget {
                       ),
                     ),
                     child: uploading
-                        ? const Padding(
+                        ? Padding(
                             padding: EdgeInsets.all(8),
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                           )
-                        : const Icon(
+                        : Icon(
                             Icons.edit_outlined,
                             size: 16,
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                   ),
                 ),
@@ -109,20 +107,18 @@ class _BandMembersRow extends StatelessWidget {
   final String? Function(BandMemberSummary member)? avatarUrlOf;
   final Future<void> Function(BandMemberSummary member)? onOpenMember;
 
-  const _BandMembersRow({
-    required this.items,
-    this.avatarUrlOf,
-    this.onOpenMember,
-  });
+  _BandMembersRow({required this.items, this.avatarUrlOf, this.onOpenMember});
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20),
         child: Text(
           'Bandde henüz üye görünmüyor.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -130,7 +126,7 @@ class _BandMembersRow extends StatelessWidget {
     return SizedBox(
       height: 72,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final item = items[index];
@@ -140,28 +136,30 @@ class _BandMembersRow extends StatelessWidget {
 
           return Container(
             width: 168,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.inputFill,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: AppColors.navBlueSoft,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainer,
                   backgroundImage: avatarUrl != null
                       ? NetworkImage(avatarUrl)
                       : null,
                   child: avatarUrl != null
                       ? null
-                      : const Icon(
+                      : Icon(
                           Icons.person_outline,
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
@@ -169,7 +167,7 @@ class _BandMembersRow extends StatelessWidget {
                         ? null
                         : () => onOpenMember!(item),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: EdgeInsets.symmetric(vertical: 4),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,18 +176,20 @@ class _BandMembersRow extends StatelessWidget {
                             item.username,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2),
                           Text(
                             item.localizedRoleLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textMuted,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
@@ -202,7 +202,7 @@ class _BandMembersRow extends StatelessWidget {
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => SizedBox(width: 10),
         itemCount: items.length,
       ),
     );
@@ -242,16 +242,18 @@ String? _resolveBandMemberAvatarUrl(String? raw) {
 class _BandVenuesRow extends StatelessWidget {
   final List<VenueConnection> items;
 
-  const _BandVenuesRow({required this.items});
+  _BandVenuesRow({required this.items});
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: Text(
           'Henüz bir mekan eklenmedi.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -259,7 +261,7 @@ class _BandVenuesRow extends StatelessWidget {
     return SizedBox(
       height: 62,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final venue = items[index];
@@ -279,15 +281,18 @@ class _BandVenuesRow extends StatelessWidget {
                 : null,
             child: Container(
               width: 170,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                  colors: [
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                    Theme.of(context).colorScheme.surfaceContainer,
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Row(
                 children: [
@@ -295,7 +300,7 @@ class _BandVenuesRow extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppColors.navBlueSoft,
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -308,23 +313,23 @@ class _BandVenuesRow extends StatelessWidget {
                     child: ClipOval(
                       child: hasImage
                           ? Image.network(imageUrl, fit: BoxFit.cover)
-                          : const Icon(
+                          : Icon(
                               Icons.storefront_outlined,
                               color: AppColors.coralAlt,
                               size: 20,
                             ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: GradientText(
                       text: venue.venueName,
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: AppColors.brandGradient,
                       ),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
@@ -332,9 +337,9 @@ class _BandVenuesRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 18,
                   ),
                 ],
@@ -342,7 +347,7 @@ class _BandVenuesRow extends StatelessWidget {
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => SizedBox(width: 12),
         itemCount: items.length,
       ),
     );

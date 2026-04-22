@@ -38,7 +38,7 @@ class WeeklyCalendarEvent {
   final String? imageAssetPath;
   final String description;
 
-  const WeeklyCalendarEvent({
+  WeeklyCalendarEvent({
     required this.id,
     required this.title,
     required this.artistName,
@@ -68,7 +68,7 @@ bool _isNetworkLikePath(String? value) {
 class WeeklyEventDetailScreen extends StatefulWidget {
   final WeeklyCalendarEvent event;
 
-  const WeeklyEventDetailScreen({super.key, required this.event});
+  WeeklyEventDetailScreen({super.key, required this.event});
 
   @override
   State<WeeklyEventDetailScreen> createState() =>
@@ -130,7 +130,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                      padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
                       child: Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -171,7 +171,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(horizontal: 16),
                       child: _ActionButton(
                         icon: Icons.ios_share_outlined,
                         label: 'Paylas',
@@ -182,11 +182,11 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                      padding: EdgeInsets.fromLTRB(16, 18, 16, 0),
                       child: Text(
                         event.description,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           height: 1.5,
                           fontSize: 14,
                         ),
@@ -195,7 +195,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 22, 16, 8),
+                      padding: EdgeInsets.fromLTRB(16, 22, 16, 8),
                       child: _SectionTitle(text: 'Sorular & Yorumlar'),
                     ),
                   ),
@@ -207,17 +207,21 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                       },
                       builder: (context, state) {
                         if (state.loading && state.comments.isEmpty) {
-                          return const Padding(
+                          return Padding(
                             padding: EdgeInsets.fromLTRB(16, 12, 16, 18),
                             child: LinearProgressIndicator(),
                           );
                         }
                         if (state.comments.isEmpty) {
-                          return const Padding(
+                          return Padding(
                             padding: EdgeInsets.fromLTRB(16, 12, 16, 18),
                             child: Text(
                               'Henuz yorum yok. Ilk yorumu sen yaz.',
-                              style: TextStyle(color: AppColors.textMuted),
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           );
                         }
@@ -228,9 +232,9 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                             final comment = state.comments[index];
                             final replies =
                                 _repliesByCommentId[comment.id] ??
-                                const <CommentItem>[];
+                                <CommentItem>[];
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
+                              padding: EdgeInsets.only(bottom: 10),
                               child: _CommentTile(
                                 comment: comment,
                                 timeLabel: _timeLabel(comment.createdAt),
@@ -244,12 +248,12 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                       },
                     ),
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 14)),
+                  SliverToBoxAdapter(child: SizedBox(height: 14)),
                 ],
               ),
             ),
             Container(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
               decoration: BoxDecoration(
                 color: AppColors.navBlue,
                 border: Border(
@@ -265,32 +269,44 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                       controller: _commentController,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _addComment(),
-                      style: const TextStyle(color: AppColors.textPrimary),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                       decoration: InputDecoration(
                         hintText: 'Yorum yaz...',
-                        hintStyle: const TextStyle(color: AppColors.textMuted),
-                        prefixIcon: const Icon(
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        prefixIcon: Icon(
                           Icons.mode_comment_outlined,
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         filled: true,
-                        fillColor: AppColors.inputFill,
+                        fillColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: AppColors.border),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: AppColors.border),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   BlocBuilder<CommentThreadCubit, CommentThreadState>(
                     bloc: _commentCubit,
                     builder: (context, state) => Material(
-                      color: AppColors.inputFill,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(14),
                       child: InkWell(
                         onTap: state.submitting ? null : _addComment,
@@ -300,19 +316,25 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                           height: 46,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border),
+                            border: Border.all(
+                              color: Theme.of(context).dividerColor,
+                            ),
                           ),
                           child: state.submitting
-                              ? const Padding(
+                              ? Padding(
                                   padding: EdgeInsets.all(12),
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: AppColors.textPrimary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                 )
-                              : const Icon(
+                              : Icon(
                                   Icons.send_rounded,
-                                  color: AppColors.textPrimary,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                 ),
                         ),
                       ),

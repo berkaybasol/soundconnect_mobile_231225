@@ -7,7 +7,7 @@ class _CommentTile extends StatelessWidget {
   final String Function(DateTime? createdAt) replyTimeLabelBuilder;
   final VoidCallback onReplyTap;
 
-  const _CommentTile({
+  _CommentTile({
     required this.comment,
     required this.timeLabel,
     required this.replies,
@@ -18,13 +18,13 @@ class _CommentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.inputFill,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,7 +34,7 @@ class _CommentTile extends StatelessWidget {
               height: 30,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
-                gradient: const LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(colors: AppColors.brandGradient),
               ),
               clipBehavior: Clip.antiAlias,
               alignment: Alignment.center,
@@ -46,8 +46,8 @@ class _CommentTile extends StatelessWidget {
                         comment.user.username.isNotEmpty
                             ? comment.user.username[0]
                             : '?',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppColors.white,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -56,13 +56,13 @@ class _CommentTile extends StatelessWidget {
                       comment.user.username.isNotEmpty
                           ? comment.user.username[0]
                           : '?',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.white,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,8 +72,8 @@ class _CommentTile extends StatelessWidget {
                       Expanded(
                         child: Text(
                           '@${comment.user.username}',
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
@@ -81,22 +81,22 @@ class _CommentTile extends StatelessWidget {
                       ),
                       Text(
                         timeLabel,
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Text(
                     comment.text,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       height: 1.35,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Row(
                     children: [
                       InkWell(
@@ -105,8 +105,10 @@ class _CommentTile extends StatelessWidget {
                           comment.replyCount > 0
                               ? 'Yanitla (${comment.replyCount})'
                               : 'Yanitla',
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -115,14 +117,16 @@ class _CommentTile extends StatelessWidget {
                     ],
                   ),
                   if (replies.isNotEmpty) ...[
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     ...replies.map(
                       (reply) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: EdgeInsets.only(bottom: 8),
                         child: Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.navBlueSoft,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainer,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: AppColors.white.withValues(alpha: 0.06),
@@ -139,7 +143,7 @@ class _CommentTile extends StatelessWidget {
                                     height: 24,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(999),
-                                      gradient: const LinearGradient(
+                                      gradient: LinearGradient(
                                         colors: AppColors.brandGradient,
                                       ),
                                     ),
@@ -157,8 +161,8 @@ class _CommentTile extends StatelessWidget {
                                               reply.user.username.isNotEmpty
                                                   ? reply.user.username[0]
                                                   : '?',
-                                              style: const TextStyle(
-                                                color: Colors.white,
+                                              style: TextStyle(
+                                                color: AppColors.white,
                                                 fontWeight: FontWeight.w700,
                                                 fontSize: 11,
                                               ),
@@ -168,14 +172,14 @@ class _CommentTile extends StatelessWidget {
                                             reply.user.username.isNotEmpty
                                                 ? reply.user.username[0]
                                                 : '?',
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: AppColors.white,
                                               fontWeight: FontWeight.w700,
                                               fontSize: 11,
                                             ),
                                           ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -186,8 +190,10 @@ class _CommentTile extends StatelessWidget {
                                             Expanded(
                                               child: Text(
                                                 '@${reply.user.username}',
-                                                style: const TextStyle(
-                                                  color: AppColors.textPrimary,
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                 ),
@@ -197,18 +203,22 @@ class _CommentTile extends StatelessWidget {
                                               replyTimeLabelBuilder(
                                                 reply.createdAt,
                                               ),
-                                              style: const TextStyle(
-                                                color: AppColors.textMuted,
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
                                                 fontSize: 11,
                                               ),
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: 4),
                                         Text(
                                           reply.text,
-                                          style: const TextStyle(
-                                            color: AppColors.textPrimary,
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
                                             height: 1.35,
                                           ),
                                         ),

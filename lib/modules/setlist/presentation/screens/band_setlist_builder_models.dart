@@ -16,7 +16,7 @@ class _PreviewPalette {
   final Color muted;
   final Color chip;
 
-  const _PreviewPalette({
+  _PreviewPalette({
     required this.background,
     required this.border,
     required this.header,
@@ -30,9 +30,9 @@ class _PreviewPalette {
   factory _PreviewPalette.fromTheme(_PreviewTheme theme) {
     switch (theme) {
       case _PreviewTheme.cod:
-        return const _PreviewPalette(
+        return _PreviewPalette(
           background: Color(0xFF0F1117),
-          border: AppColors.border,
+          border: Color(0xFF2A3447),
           header: Color(0xFFA6ACC5),
           content: Color(0xFFD7DBE8),
           lineNumber: Color(0xFF6B7285),
@@ -41,7 +41,7 @@ class _PreviewPalette {
           chip: Color(0xFF262E3E),
         );
       case _PreviewTheme.soft:
-        return const _PreviewPalette(
+        return _PreviewPalette(
           background: Color(0xFFF7F9FC),
           border: Color(0xFFDCE3EF),
           header: Color(0xFF51607C),
@@ -52,7 +52,7 @@ class _PreviewPalette {
           chip: Color(0xFFE9EEF8),
         );
       case _PreviewTheme.dark:
-        return const _PreviewPalette(
+        return _PreviewPalette(
           background: Color(0xFF090B10),
           border: Color(0xFF1D2230),
           header: Color(0xFF8EA4D8),
@@ -144,7 +144,7 @@ class _ToneValue {
   final _ToneAccidental accidental;
   final bool original;
 
-  const _ToneValue({
+  _ToneValue({
     required this.note,
     required this.quality,
     required this.accidental,
@@ -152,7 +152,7 @@ class _ToneValue {
   });
 
   factory _ToneValue.original() {
-    return const _ToneValue(
+    return _ToneValue(
       note: _ToneNote.c,
       quality: _ToneQuality.major,
       accidental: _ToneAccidental.natural,

@@ -108,11 +108,11 @@ Future<String?> promptForSocialLink(
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Vazgec'),
+            child: Text('Vazgec'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(draftValue),
-            child: const Text('Kaydet'),
+            child: Text('Kaydet'),
           ),
         ],
       );
@@ -130,7 +130,7 @@ class ProfileSocialButtonRow extends StatelessWidget {
   final ValueChanged<ProfileSocialPlatform>? onAddLink;
   final double pillWidth;
 
-  const ProfileSocialButtonRow({
+  ProfileSocialButtonRow({
     super.key,
     required this.profile,
     this.editable = false,
@@ -147,7 +147,7 @@ class ProfileSocialButtonRow extends StatelessWidget {
     if (uri == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Gecersiz link')));
+      ).showSnackBar(SnackBar(content: Text('Gecersiz link')));
       return;
     }
 
@@ -155,7 +155,7 @@ class ProfileSocialButtonRow extends StatelessWidget {
     if (!success && context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Link acilamadi')));
+      ).showSnackBar(SnackBar(content: Text('Link acilamadi')));
     }
   }
 
@@ -175,7 +175,7 @@ class ProfileSocialButtonRow extends StatelessWidget {
         ? allItems
         : allItems.where((item) => item.active).toList();
 
-    if (visibleItems.isEmpty) return const SizedBox.shrink();
+    if (visibleItems.isEmpty) return SizedBox.shrink();
 
     return Wrap(
       alignment: WrapAlignment.center,
@@ -203,7 +203,7 @@ class _ProfileSocialItem {
   final FaIconData icon;
   final String? url;
 
-  const _ProfileSocialItem({
+  _ProfileSocialItem({
     required this.platform,
     required this.icon,
     required this.url,
@@ -227,7 +227,7 @@ class _ProfileSocialPill extends StatefulWidget {
   final double width;
   final VoidCallback? onTap;
 
-  const _ProfileSocialPill({
+  _ProfileSocialPill({
     required this.icon,
     required this.active,
     required this.width,
@@ -244,14 +244,20 @@ class _ProfileSocialPillState extends State<_ProfileSocialPill> {
 
   @override
   Widget build(BuildContext context) {
-    const iconGradient = LinearGradient(
+    final iconGradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFFF7A3D), Color(0xFFEF5F86), Color(0xFFB85CFF)],
+      colors: [
+        AppColors.socialOrange,
+        AppColors.socialPink,
+        AppColors.socialPurple,
+      ],
     );
 
     final isInteractive = widget.onTap != null;
-    final borderColor = _pressed ? AppColors.textMuted : AppColors.border;
+    final borderColor = _pressed
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : Theme.of(context).dividerColor;
     final shadowOpacity = _pressed ? 0.12 : 0.05;
 
     return GestureDetector(
@@ -263,25 +269,25 @@ class _ProfileSocialPillState extends State<_ProfileSocialPill> {
       onTap: widget.onTap,
       child: AnimatedScale(
         scale: _pressed ? 0.96 : 1,
-        duration: const Duration(milliseconds: 120),
+        duration: Duration(milliseconds: 120),
         curve: Curves.easeOut,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 140),
+              duration: Duration(milliseconds: 140),
               curve: Curves.easeOut,
               width: widget.width,
               height: 42,
               decoration: BoxDecoration(
-                color: AppColors.inputFill,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: borderColor),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: shadowOpacity),
+                    color: AppColors.pureBlack.withValues(alpha: shadowOpacity),
                     blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    offset: Offset(0, 3),
                   ),
                 ],
               ),
@@ -299,7 +305,9 @@ class _ProfileSocialPillState extends State<_ProfileSocialPill> {
                     : FaIcon(
                         widget.icon,
                         size: 20,
-                        color: AppColors.textMuted.withValues(alpha: 0.65),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
                       ),
               ),
             ),
@@ -310,11 +318,11 @@ class _ProfileSocialPillState extends State<_ProfileSocialPill> {
                 child: Container(
                   width: 18,
                   height: 18,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: Color(0xFFF47C7C),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add, size: 12, color: Colors.white),
+                  child: Icon(Icons.add, size: 12, color: AppColors.white),
                 ),
               ),
           ],

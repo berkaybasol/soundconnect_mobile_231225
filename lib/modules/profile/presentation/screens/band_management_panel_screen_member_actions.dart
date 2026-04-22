@@ -48,7 +48,7 @@ extension _BandManagementPanelScreenStateMemberActions
       final invitedUserId = profileResult.data!.userId.trim();
       if (invitedUserId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Davet edilecek kullanıcı bulunamadı.')),
+          SnackBar(content: Text('Davet edilecek kullanıcı bulunamadı.')),
         );
         return;
       }
@@ -89,19 +89,21 @@ extension _BandManagementPanelScreenStateMemberActions
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.navBlueDeep,
-          title: const Text('Üyeyi Çıkar'),
+          title: Text('Üyeyi Çıkar'),
           content: Text(
             '${member.username} bandden çıkarılsın mı?',
-            style: const TextStyle(color: AppColors.textMuted),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('İptal'),
+              child: Text('İptal'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Çıkar'),
+              child: Text('Çıkar'),
             ),
           ],
         );

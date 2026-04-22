@@ -12,7 +12,7 @@ import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -30,7 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isPasswordObscured = true;
   bool _isRePasswordObscured = true;
 
-  final List<String> _roles = const [
+  final List<String> _roles = [
     'ROLE_LISTENER',
     'ROLE_MUSICIAN',
     'ROLE_VENUE',
@@ -38,7 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     'ROLE_PRODUCER',
     'ROLE_ORGANIZER',
   ];
-  final List<_RoleOption> _roleOptions = const [
+  final List<_RoleOption> _roleOptions = [
     _RoleOption(
       id: 'ROLE_LISTENER',
       title: 'Sosyal Deneyim',
@@ -188,7 +188,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (_stepIndex < _totalSteps - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 260),
+        duration: Duration(milliseconds: 260),
         curve: Curves.easeOut,
       );
       return;
@@ -226,7 +226,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     _pageController.previousPage(
-      duration: const Duration(milliseconds: 220),
+      duration: Duration(milliseconds: 220),
       curve: Curves.easeOut,
     );
   }
@@ -238,7 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (roleId == 'ROLE_VENUE' && _stepIndex == 3) {
       if (_totalSteps == 5) {
         _pageController.nextPage(
-          duration: const Duration(milliseconds: 260),
+          duration: Duration(milliseconds: 260),
           curve: Curves.easeOut,
         );
       }
@@ -247,14 +247,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildProgressIndicator(double progressValue) {
     final steps = _totalSteps == 5
-        ? const [
+        ? [
             Icons.headphones,
             Icons.favorite_border,
             Icons.link,
             Icons.storefront_outlined,
             Icons.check_circle,
           ]
-        : const [
+        : [
             Icons.headphones,
             Icons.favorite_border,
             Icons.link,
@@ -278,18 +278,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Container(
       width: 22,
       height: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 6),
+      margin: EdgeInsets.symmetric(horizontal: 6),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(99),
         child: Stack(
           children: [
-            Container(color: AppColors.border),
+            Container(color: Theme.of(context).dividerColor),
             Align(
               alignment: Alignment.centerLeft,
               child: FractionallySizedBox(
                 widthFactor: fill,
                 child: Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(colors: AppColors.brandGradient),
                   ),
                 ),
@@ -311,20 +311,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         gradient: (fill > 0)
-            ? const LinearGradient(
+            ? LinearGradient(
                 colors: [
-                  Color(0xFF7B2FF7),
-                  Color(0xFF9B5DE5),
-                  Color(0xFFC65BF0),
-                  Color(0xFFF26CA7),
+                  AppColors.neonPurpleGradient[0],
+                  AppColors.neonPurpleGradient[1],
+                  AppColors.neonPurpleGradient[2],
+                  AppColors.neonPurpleGradient[3],
                 ],
               )
             : null,
-        color: (fill > 0) ? null : AppColors.border,
+        color: (fill > 0) ? null : Theme.of(context).dividerColor,
         boxShadow: isActive || isComplete
             ? [
                 BoxShadow(
-                  color: const Color(0xFF9B5DE5).withValues(alpha: 0.16),
+                  color: AppColors.neonPurpleGradient[1].withValues(
+                    alpha: 0.16,
+                  ),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),
@@ -332,18 +334,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
             : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(1.2),
+        padding: EdgeInsets.all(1.2),
         child: Container(
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: borderRadius,
           ),
           child: Icon(
             icon,
             size: 18,
-            color: Color.lerp(AppColors.textMuted, AppColors.coralAlt, fill),
+            color: Color.lerp(
+              Theme.of(context).colorScheme.onSurfaceVariant,
+              AppColors.coralAlt,
+              fill,
+            ),
           ),
         ),
       ),
@@ -354,16 +360,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'Kullanici adi olustur',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 6),
-        const Text(
+        SizedBox(height: 6),
+        Text(
           'Hesap olusturmak icin bir kullanici adi ekle.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         GradientTextField(
           controller: _usernameController,
           label: 'Kullanici adi',
@@ -377,16 +385,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'E-posta adresini ekle',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 6),
-        const Text(
+        SizedBox(height: 6),
+        Text(
           'Dogrulama kodunu bu adrese gonderecegiz.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         GradientTextField(
           controller: _emailController,
           label: 'E-posta',
@@ -400,16 +410,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'Sifre belirle',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 6),
-        const Text(
+        SizedBox(height: 6),
+        Text(
           'Sifren en az 8, en fazla 20 karakter olmali.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         GradientTextField(
           controller: _passwordController,
           label: 'Sifre',
@@ -428,7 +440,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         GradientTextField(
           controller: _rePasswordController,
           label: 'Sifre tekrar',
@@ -462,25 +474,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           "SoundConnect'te ne yapmak istiyorsun?",
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 6),
-        const Text(
+        SizedBox(height: 6),
+        Text(
           'Muzigi nasil yasayacagini sec. SoundConnect\'i sana gore sekillendirelim.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Expanded(
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 ...otherOptions.map(_buildRoleOption),
-                const SizedBox(height: 16),
-                const Divider(color: AppColors.border),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
+                Divider(color: Theme.of(context).dividerColor),
+                SizedBox(height: 16),
                 _buildRoleOption(venueOption),
               ],
             ),
@@ -494,16 +508,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'Mekan bilgilerini paylas',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 6),
-        const Text(
+        SizedBox(height: 6),
+        Text(
           'Bilgileri doldurduktan sonra kisa surede sizinle iletisime gececegiz.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Expanded(
           child: SingleChildScrollView(
             child: Column(
@@ -514,19 +530,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   label: 'Mekan adi',
                   prefixIcon: Icons.storefront_outlined,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 GradientTextField(
                   controller: _venueAddressController,
                   label: 'Adres',
                   prefixIcon: Icons.location_on_outlined,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 GradientTextField(
                   controller: _venuePhoneController,
                   label: 'Telefon',
                   prefixIcon: Icons.phone_outlined,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 BlocBuilder<LocationCubit, LocationState>(
                   builder: (context, locationState) {
                     if (locationState.cities.isEmpty &&
@@ -541,25 +557,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           value: _selectedCityId,
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: AppColors.inputFill,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
                               ),
                             ),
-                            prefixIcon: const Icon(
-                              Icons.location_city_outlined,
-                            ),
+                            prefixIcon: Icon(Icons.location_city_outlined),
                             hintText: 'Sehir sec',
                           ),
-                          dropdownColor: AppColors.navBlueSoft,
+                          dropdownColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainer,
                           items: locationState.cities
                               .map(
                                 (city) => DropdownMenuItem(
@@ -583,28 +601,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             }
                           },
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: _selectedDistrictId,
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: AppColors.inputFill,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
                               ),
                             ),
-                            prefixIcon: const Icon(Icons.map_outlined),
+                            prefixIcon: Icon(Icons.map_outlined),
                             hintText: 'Ilce sec',
                           ),
-                          dropdownColor: AppColors.navBlueSoft,
+                          dropdownColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainer,
                           items: locationState.districts
                               .map(
                                 (district) => DropdownMenuItem(
@@ -625,28 +647,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             }
                           },
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: _selectedNeighborhoodId,
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: AppColors.inputFill,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(
-                                color: AppColors.border,
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
                               ),
                             ),
-                            prefixIcon: const Icon(Icons.place_outlined),
+                            prefixIcon: Icon(Icons.place_outlined),
                             hintText: 'Mahalle sec (opsiyonel)',
                           ),
-                          dropdownColor: AppColors.navBlueSoft,
+                          dropdownColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainer,
                           items: locationState.neighborhoods
                               .map(
                                 (neighborhood) => DropdownMenuItem(
@@ -706,21 +732,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return AppScaffold(
           title: 'Kaydol',
           centerContent: true,
-          centerAlignment: const Alignment(0, -0.48),
+          centerAlignment: Alignment(0, -0.48),
           scrollable: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   ValueListenableBuilder<double>(
                     valueListenable: _pageProgress,
                     builder: (context, value, child) {
                       return Center(child: _buildProgressIndicator(value));
                     },
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
                   Expanded(
                     child: PageView.builder(
                       controller: _pageController,
@@ -761,14 +787,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   Row(
                     children: [
                       TextButton(
                         onPressed: isLoading ? null : _back,
-                        child: const Text('Geri'),
+                        child: Text('Geri'),
                       ),
-                      const Spacer(),
+                      Spacer(),
                       GradientOutlineButton(
                         onPressed: isLoading ? null : _next,
                         label: _stepIndex == _totalSteps - 1
@@ -791,7 +817,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final borderRadius = BorderRadius.circular(18);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: 12),
       child: InkWell(
         borderRadius: borderRadius,
         onTap: () {
@@ -800,12 +826,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Container(
           decoration: BoxDecoration(
             gradient: isSelected
-                ? const LinearGradient(colors: AppColors.brandGradient)
+                ? LinearGradient(colors: AppColors.brandGradient)
                 : null,
-            color: isSelected ? null : AppColors.inputFill,
+            color: isSelected
+                ? null
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: borderRadius,
             border: Border.all(
-              color: isSelected ? Colors.transparent : AppColors.border,
+              color: isSelected
+                  ? Colors.transparent
+                  : Theme.of(context).dividerColor,
               width: 1.0,
             ),
             boxShadow: isSelected
@@ -821,11 +851,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Padding(
             padding: EdgeInsets.all(isSelected ? 1.0 : 0),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 18),
               decoration: BoxDecoration(
-                color: AppColors.inputFill.withValues(
-                  alpha: isSelected ? 0.98 : 1,
-                ),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest
+                    .withValues(alpha: isSelected ? 0.98 : 1),
                 borderRadius: borderRadius,
               ),
               child: Row(
@@ -834,7 +863,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: AppColors.navBlueSoft,
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: isSelected
                           ? [
@@ -852,63 +881,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ? ShaderMask(
                             blendMode: BlendMode.srcIn,
                             shaderCallback: (Rect bounds) {
-                              return const LinearGradient(
+                              return LinearGradient(
                                 colors: AppColors.brandGradient,
                               ).createShader(bounds);
                             },
-                            child: Icon(option.icon, color: Colors.white),
+                            child: Icon(option.icon, color: AppColors.white),
                           )
-                        : Icon(option.icon, color: AppColors.textMuted),
+                        : Icon(
+                            option.icon,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       option.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ),
                   if (option.badge != null) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.navBlueSoft,
+                        color: Theme.of(context).colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
                       child: Text(
                         option.badge!,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                   ],
                   isSelected
                       ? ShaderMask(
                           blendMode: BlendMode.srcIn,
                           shaderCallback: (Rect bounds) {
-                            return const LinearGradient(
+                            return LinearGradient(
                               colors: AppColors.brandGradient,
                             ).createShader(bounds);
                           },
-                          child: const Icon(
+                          child: Icon(
                             Icons.chevron_right,
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                         )
                       : Icon(
                           Icons.chevron_right,
-                          color: AppColors.textMuted.withValues(alpha: 0.7),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
                 ],
               ),
@@ -926,7 +964,7 @@ class _RoleOption {
   final IconData icon;
   final String? badge;
 
-  const _RoleOption({
+  _RoleOption({
     required this.id,
     required this.title,
     required this.icon,

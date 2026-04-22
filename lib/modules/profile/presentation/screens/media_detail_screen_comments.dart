@@ -5,7 +5,7 @@ class _CommentBubble extends StatelessWidget {
   final String timeLabel;
   final VoidCallback onReply;
 
-  const _CommentBubble({
+  _CommentBubble({
     required this.comment,
     required this.timeLabel,
     required this.onReply,
@@ -14,52 +14,58 @@ class _CommentBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: AppColors.navBlueSoft,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             backgroundImage: comment.user.avatarUrl != null
                 ? NetworkImage(comment.user.avatarUrl!)
                 : null,
             child: comment.user.avatarUrl == null
-                ? const Icon(Icons.person, size: 18, color: AppColors.textMuted)
+                ? Icon(
+                    Icons.person,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )
                 : null,
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '@${comment.user.username}',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   comment.text,
-                  style: const TextStyle(color: AppColors.textMuted),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Row(
                   children: [
                     Text(
                       timeLabel,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 11,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     InkWell(
                       onTap: onReply,
                       borderRadius: BorderRadius.circular(8),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: 4,
                           vertical: 2,
@@ -67,7 +73,9 @@ class _CommentBubble extends StatelessWidget {
                         child: Text(
                           'Yanitla',
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -93,7 +101,7 @@ class _CommentInput extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onClearReply;
 
-  const _CommentInput({
+  _CommentInput({
     required this.controller,
     required this.focusNode,
     required this.replyTo,
@@ -109,20 +117,20 @@ class _CommentInput extends StatelessWidget {
       children: [
         if (replyTo != null)
           Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            margin: EdgeInsets.only(bottom: 8),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.navBlueSoft,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     'Yanitlaniyor $replyTo',
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -130,26 +138,26 @@ class _CommentInput extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: onClearReply,
-                  icon: const Icon(Icons.close, size: 16),
+                  icon: Icon(Icons.close, size: 16),
                 ),
               ],
             ),
           ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: AppColors.navBlueSoft,
+            color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.sentiment_satisfied_alt,
                 size: 18,
-                color: AppColors.textMuted,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Expanded(
                 child: TextField(
                   controller: controller,
@@ -160,7 +168,9 @@ class _CommentInput extends StatelessWidget {
                     hintText: replyTo == null
                         ? 'Yorum yaz...'
                         : 'Yanitla $replyTo',
-                    hintStyle: const TextStyle(color: AppColors.textMuted),
+                    hintStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     border: InputBorder.none,
                     isDense: true,
                   ),
@@ -170,7 +180,9 @@ class _CommentInput extends StatelessWidget {
                 onPressed: submitting ? null : onSend,
                 icon: Icon(
                   Icons.send,
-                  color: submitting ? AppColors.textMuted : AppColors.coralAlt,
+                  color: submitting
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                      : AppColors.coralAlt,
                 ),
               ),
             ],

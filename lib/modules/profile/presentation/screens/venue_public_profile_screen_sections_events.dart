@@ -3,16 +3,18 @@ part of 'venue_public_profile_screen.dart';
 class _ActiveMusicianCarousel extends StatelessWidget {
   final List<VenueActiveMusician> items;
 
-  const _ActiveMusicianCarousel({required this.items});
+  _ActiveMusicianCarousel({required this.items});
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: Text(
           'Mekan bilgisi yok.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -20,7 +22,7 @@ class _ActiveMusicianCarousel extends StatelessWidget {
     return SizedBox(
       height: 62,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final musician = items[index];
@@ -53,15 +55,18 @@ class _ActiveMusicianCarousel extends StatelessWidget {
                         }),
             child: Container(
               width: 170,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                  colors: [
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                    Theme.of(context).colorScheme.surfaceContainer,
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Row(
                 children: [
@@ -69,7 +74,7 @@ class _ActiveMusicianCarousel extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppColors.navBlueSoft,
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -91,7 +96,7 @@ class _ActiveMusicianCarousel extends StatelessWidget {
                             ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,12 +104,12 @@ class _ActiveMusicianCarousel extends StatelessWidget {
                       children: [
                         GradientText(
                           text: musician.displayName,
-                          gradient: const LinearGradient(
+                          gradient: LinearGradient(
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                             colors: AppColors.brandGradient,
                           ),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
@@ -114,9 +119,9 @@ class _ActiveMusicianCarousel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 18,
                   ),
                 ],
@@ -124,7 +129,7 @@ class _ActiveMusicianCarousel extends StatelessWidget {
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => SizedBox(width: 12),
         itemCount: items.length,
       ),
     );

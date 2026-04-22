@@ -16,6 +16,7 @@ import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_create_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_list_screen.dart';
+import '../../modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
 import '../app_shell.dart';
 import 'app_routes.dart';
 
@@ -25,12 +26,12 @@ class AppRouter {
       case AppRoutes.login:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const LoginScreen(),
+          builder: (_) => LoginScreen(),
         );
       case AppRoutes.register:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const RegisterScreen(),
+          builder: (_) => RegisterScreen(),
         );
       case AppRoutes.otpVerify:
         return MaterialPageRoute(
@@ -46,87 +47,99 @@ class AppRouter {
       case AppRoutes.venuePending:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const VenuePendingScreen(),
+          builder: (_) => VenuePendingScreen(),
         );
       case AppRoutes.musicianProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const MusicianProfileScreen(),
+          builder: (_) => MusicianProfileScreen(),
         );
       case AppRoutes.myBands:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const MyBandsScreen(),
+          builder: (_) => MyBandsScreen(),
         );
       case AppRoutes.createBand:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const CreateBandScreen(),
+          builder: (_) => CreateBandScreen(),
         );
       case AppRoutes.bandProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const BandProfileScreen(),
+          builder: (_) => BandProfileScreen(),
         );
       case AppRoutes.bandMemberProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const BandProfileScreen(),
+          builder: (_) => BandProfileScreen(),
         );
       case AppRoutes.bandPublicProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const BandProfileScreen(),
+          builder: (_) => BandProfileScreen(),
         );
       case AppRoutes.musicianPublicProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const MusicianPublicProfileScreen(),
+          builder: (_) => MusicianPublicProfileScreen(),
         );
       case AppRoutes.venueProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const VenueProfileScreen(),
+          builder: (_) => VenueProfileScreen(),
         );
       case AppRoutes.venuePublicProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const VenuePublicProfileScreen(),
+          builder: (_) => VenuePublicProfileScreen(),
         );
       case AppRoutes.listenerProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const ListenerProfileScreen(),
+          builder: (_) => ListenerProfileScreen(),
         );
       case AppRoutes.tableGroupList:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const TableGroupListScreen(),
+          builder: (_) => TableGroupListScreen(),
         );
       case AppRoutes.tableGroupCreate:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const TableGroupCreateScreen(),
+          builder: (_) => TableGroupCreateScreen(),
+        );
+      case AppRoutes.tableGroupDetail:
+        final args = settings.arguments as TableGroupDetailArgs?;
+        if (args == null) {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => TableGroupListScreen(),
+          );
+        }
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => TableGroupDetailScreen(args: args),
         );
       case AppRoutes.dmConversations:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const DmConversationsScreen(),
+          builder: (_) => DmConversationsScreen(),
         );
       case AppRoutes.dmChat:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const DmChatScreen(),
+          builder: (_) => DmChatScreen(),
         );
       case AppRoutes.home:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const AppShell(),
+          builder: (_) => AppShell(),
         );
       default:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const LoginScreen(),
+          builder: (_) => LoginScreen(),
         );
     }
   }

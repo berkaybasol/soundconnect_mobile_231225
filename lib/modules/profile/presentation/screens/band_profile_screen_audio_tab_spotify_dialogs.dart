@@ -8,7 +8,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
     if (!ok && context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Link acilamadi')));
+      ).showSnackBar(SnackBar(content: Text('Link acilamadi')));
     }
   }
 
@@ -19,7 +19,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
@@ -99,7 +99,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
               heightFactor: 0.88,
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -108,20 +108,20 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                           width: 44,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: AppColors.border,
+                            color: Theme.of(context).dividerColor,
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'Band Spotify Katalogu',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: AppColors.textPrimary,
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
                               ),
@@ -131,36 +131,42 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                             IconButton(
                               tooltip: 'Spotify parcasi ekle',
                               onPressed: addTrack,
-                              icon: const Icon(Icons.add_circle_outline),
+                              icon: Icon(Icons.add_circle_outline),
                             ),
                         ],
                       ),
                       if (feedbackText != null) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                         Text(
                           feedbackText!,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: feedbackIsError
                                 ? AppColors.coralAlt
-                                : AppColors.textMuted,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
                       ],
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Expanded(
                         child: visibleTracks.isEmpty
-                            ? const Center(
+                            ? Center(
                                 child: Text(
                                   'Spotify parcasi yok.',
-                                  style: TextStyle(color: AppColors.textMuted),
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               )
                             : ListView.separated(
                                 itemCount: visibleTracks.length,
                                 separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 10),
+                                    SizedBox(height: 10),
                                 itemBuilder: (context, index) {
                                   final track = visibleTracks[index];
                                   final albumArtUrl =
@@ -170,12 +176,14 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                       ? track.albumImageUrl!.trim()
                                       : null;
                                   return Container(
-                                    padding: const EdgeInsets.all(12),
+                                    padding: EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: AppColors.inputFill,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest,
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                        color: AppColors.border,
+                                        color: Theme.of(context).dividerColor,
                                       ),
                                     ),
                                     child: Row(
@@ -184,7 +192,9 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                           width: 48,
                                           height: 48,
                                           decoration: BoxDecoration(
-                                            color: AppColors.navBlueSoft,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.surfaceContainer,
                                             borderRadius: BorderRadius.circular(
                                               12,
                                             ),
@@ -198,13 +208,15 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                                 : null,
                                           ),
                                           child: albumArtUrl == null
-                                              ? const Icon(
+                                              ? Icon(
                                                   Icons.music_note,
-                                                  color: AppColors.textMuted,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
                                                 )
                                               : null,
                                         ),
-                                        const SizedBox(width: 12),
+                                        SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
@@ -214,34 +226,38 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                                 track.name,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: AppColors.textPrimary,
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
+                                              SizedBox(height: 4),
                                               Text(
                                                 track.artistNames.join(', '),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: AppColors.textMuted,
+                                                style: TextStyle(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
                                                   fontSize: 12,
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
+                                        SizedBox(width: 8),
                                         TextButton(
                                           onPressed: () => _openExternalUrl(
                                             context,
                                             track.spotifyUrl,
                                           ),
-                                          child: const Text(
+                                          child: Text(
                                             "Spotify'da Dinle",
                                             style: TextStyle(
-                                              color: Color(0xFF1DB954),
+                                              color: AppColors.spotifyGreen,
                                             ),
                                           ),
                                         ),
@@ -249,9 +265,11 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                           IconButton(
                                             tooltip: 'Kaldir',
                                             onPressed: () => removeTrack(track),
-                                            icon: const Icon(
+                                            icon: Icon(
                                               Icons.delete_outline,
-                                              color: AppColors.textMuted,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
                                             ),
                                           ),
                                       ],

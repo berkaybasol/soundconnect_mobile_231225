@@ -32,7 +32,7 @@ class MediaDetailScreen extends StatefulWidget {
   final int commentCount;
   final bool isSpotify;
 
-  const MediaDetailScreen({
+  MediaDetailScreen({
     super.key,
     required this.title,
     required this.isVideo,
@@ -87,7 +87,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
   Widget build(BuildContext context) {
     _positionStream ??= serviceLocator<AudioHandler>() is AudioPlayerHandler
         ? (serviceLocator<AudioHandler>() as AudioPlayerHandler).positionStream
-        : const Stream<Duration>.empty();
+        : Stream<Duration>.empty();
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title), centerTitle: true),
@@ -150,7 +150,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
           final likeLoading = stats?.loading ?? false;
 
           return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             children: [
               if (widget.isVideo)
                 _VideoHero(
@@ -173,7 +173,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                   progress: progress,
                   onSeek: _seekToRatio,
                 ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _CountRow(
                 likeCount: resolvedLikeCount,
                 commentCount: resolvedCommentCount,
@@ -186,34 +186,38 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                         targetId: targetId,
                       ),
               ),
-              const SizedBox(height: 16),
-              const Text(
+              SizedBox(height: 16),
+              Text(
                 'Yorumlar',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               BlocBuilder<CommentThreadCubit, CommentThreadState>(
                 builder: (context, commentState) {
                   if (!hasTarget) {
-                    return const Text(
+                    return Text(
                       'Yorum hedefi bulunamadi.',
-                      style: TextStyle(color: AppColors.textMuted),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     );
                   }
                   if (commentState.loading && commentState.comments.isEmpty) {
-                    return const Padding(
+                    return Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
                       child: LinearProgressIndicator(),
                     );
                   }
                   if (commentState.comments.isEmpty) {
-                    return const Text(
+                    return Text(
                       'Henuz yorum yok.',
-                      style: TextStyle(color: AppColors.textMuted),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     );
                   }
                   return Column(
@@ -234,14 +238,17 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                             },
                           ),
                           if (index < commentState.comments.length - 1)
-                            const Divider(color: AppColors.border, height: 16),
+                            Divider(
+                              color: Theme.of(context).dividerColor,
+                              height: 16,
+                            ),
                         ],
                       );
                     }),
                   );
                 },
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               _CommentInput(
                 controller: _commentController,
                 focusNode: _commentFocusNode,

@@ -5,21 +5,21 @@ import '../../../../shared/theme/app_colors.dart';
 class ProfilePillBadge extends StatelessWidget {
   final String text;
 
-  const ProfilePillBadge({super.key, required this.text});
+  ProfilePillBadge({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -37,7 +37,7 @@ class ProfileActionButtons extends StatelessWidget {
   final VoidCallback? onMessagePressed;
   final VoidCallback onFollowToggle;
 
-  const ProfileActionButtons({
+  ProfileActionButtons({
     super.key,
     required this.isFollowing,
     required this.isEnabled,
@@ -51,20 +51,20 @@ class ProfileActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (ownerMode) {
-      return const SizedBox.shrink();
+      return SizedBox.shrink();
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: 32),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton(
               onPressed: isEnabled && !isLoading ? onFollowToggle : null,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                side: BorderSide(color: Theme.of(context).dividerColor),
+                padding: EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -76,19 +76,19 @@ class ProfileActionButtons extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
               onPressed: onMessagePressed,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.coralAlt,
                 foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: const Text('Mesaj Gonder'),
+              child: Text('Mesaj Gonder'),
             ),
           ),
         ],
@@ -100,16 +100,16 @@ class ProfileActionButtons extends StatelessWidget {
 class ProfileSectionTitle extends StatelessWidget {
   final String title;
 
-  const ProfileSectionTitle({super.key, required this.title});
+  ProfileSectionTitle({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Text(
         title,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 15,
           fontWeight: FontWeight.w600,
         ),
@@ -123,7 +123,7 @@ class ProfileSectionHeader extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? actionOnTap;
 
-  const ProfileSectionHeader({
+  ProfileSectionHeader({
     super.key,
     required this.title,
     this.actionLabel,
@@ -133,30 +133,30 @@ class ProfileSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const Spacer(),
+          Spacer(),
           if (actionLabel != null)
             InkWell(
               onTap: actionOnTap,
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Text(
                   actionLabel!,
                   style: TextStyle(
                     color: actionOnTap != null
                         ? AppColors.coralAlt
-                        : AppColors.textMuted,
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),

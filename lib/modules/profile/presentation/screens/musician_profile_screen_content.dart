@@ -77,10 +77,10 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const GradientText(
+          title: GradientText(
             text: 'SoundConnect',
             gradient: LinearGradient(colors: AppColors.brandGradient),
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
           ),
           leading: const BackButton(),
           centerTitle: true,
@@ -156,7 +156,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 onAddTap: onEditVenues,
               ),
               const SizedBox(height: 12),
-              const ProfileMediaTabs(
+              ProfileMediaTabs(
                 tabs: [
                   Tab(
                     child: Row(

@@ -25,7 +25,7 @@ class ProfileOwnerVideoTab extends StatefulWidget {
   final String profileType;
   final String uploadOwnerType;
 
-  const ProfileOwnerVideoTab({
+  ProfileOwnerVideoTab({
     super.key,
     required this.items,
     required this.profileId,
@@ -43,7 +43,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
   Timer? _processingPollTimer;
   bool _pollBusy = false;
   int _pollAttempt = 0;
-  static const int _maxPollAttempt = 45;
+  static int _maxPollAttempt = 45;
   bool _videoUploading = false;
 
   void _updateState(VoidCallback updater) {
@@ -82,13 +82,10 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
               onTap: _videoUploading ? null : _pickAndUploadVideo,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 24,
-                  horizontal: 18,
-                ),
+                padding: EdgeInsets.symmetric(vertical: 24, horizontal: 18),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [
                       Color(0x1AFFFFFF),
                       Color(0x1A8A5CFF),
@@ -97,7 +94,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Column(
                   children: [
@@ -106,35 +103,39 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                       height: 54,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.inputFill,
-                        border: Border.all(color: AppColors.border),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.add,
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         size: 28,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Text(
                       hasAny ? 'Video ekle' : 'Henuz video eklemediniz',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
+                    SizedBox(height: 4),
+                    Text(
                       'SoundConnect uzerinden video yuklemek icin dokun.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                       ),
                     ),
                     if (_videoUploading) ...[
-                      const SizedBox(height: 10),
-                      const SizedBox(
+                      SizedBox(height: 10),
+                      SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
@@ -147,19 +148,21 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
           ),
           if (_processingVideoIds.isNotEmpty) _buildProcessingCard(),
           if (widget.items.isEmpty && _processingVideoIds.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(20),
               child: Text(
                 'Henuz video eklemediniz.',
-                style: TextStyle(color: AppColors.textMuted),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             )
           else if (widget.items.isNotEmpty)
             GridView.builder(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20),
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              physics: NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
@@ -174,20 +177,22 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
     }
 
     if (widget.items.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(20),
         child: Text(
           'Kullanici henuz video eklemedi.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      physics: NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,

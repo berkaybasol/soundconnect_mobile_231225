@@ -14,7 +14,7 @@ class VenueCalendarEventCard extends StatelessWidget {
   final bool saving;
   final VoidCallback onDelete;
 
-  const VenueCalendarEventCard({
+  VenueCalendarEventCard({
     super.key,
     required this.posterImage,
     required this.title,
@@ -41,13 +41,13 @@ class VenueCalendarEventCard extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            color: AppColors.inputFill,
-            border: Border.all(color: AppColors.border),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: Border.all(color: Theme.of(context).dividerColor),
             boxShadow: [
               BoxShadow(
-                color: AppColors.black.withValues(alpha: 0.18),
+                color: AppColors.pureBlack.withValues(alpha: 0.18),
                 blurRadius: 20,
-                offset: const Offset(0, 10),
+                offset: Offset(0, 10),
               ),
             ],
           ),

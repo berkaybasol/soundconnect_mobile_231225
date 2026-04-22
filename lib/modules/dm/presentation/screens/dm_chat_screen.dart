@@ -17,7 +17,7 @@ class DmChatScreenArgs {
   final String? currentUserId;
   final String? otherMusicianProfileId;
 
-  const DmChatScreenArgs({
+  DmChatScreenArgs({
     required this.otherUserId,
     this.otherUsername,
     this.otherUserProfilePicture,
@@ -27,19 +27,19 @@ class DmChatScreenArgs {
 }
 
 class DmChatScreen extends StatelessWidget {
-  const DmChatScreen({super.key});
+  DmChatScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => serviceLocator<DmChatCubit>(),
-      child: const _DmChatView(),
+      child: _DmChatView(),
     );
   }
 }
 
 class _DmChatView extends StatefulWidget {
-  const _DmChatView();
+  _DmChatView();
 
   @override
   State<_DmChatView> createState() => _DmChatViewState();
@@ -104,27 +104,27 @@ class _DmChatViewState extends State<_DmChatView> {
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: AppColors.navBlueSoft,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
                 backgroundImage: _hasAvatar(args?.otherUserProfilePicture)
                     ? NetworkImage(args!.otherUserProfilePicture!.trim())
                     : null,
                 child: _hasAvatar(args?.otherUserProfilePicture)
                     ? null
-                    : const Icon(Icons.person_outline, size: 18),
+                    : Icon(Icons.person_outline, size: 18),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 2),
-                    const Text(
+                    SizedBox(height: 2),
+                    Text(
                       'Dogrudan mesaj',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -136,12 +136,12 @@ class _DmChatViewState extends State<_DmChatView> {
         actions: [
           IconButton(
             onPressed: () => context.read<DmChatCubit>().refresh(),
-            icon: const Icon(Icons.refresh_rounded),
+            icon: Icon(Icons.refresh_rounded),
           ),
         ],
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -166,7 +166,7 @@ class _DmChatViewState extends State<_DmChatView> {
                         if (!_scrollController.hasClients) return;
                         _scrollController.animateTo(
                           _scrollController.position.maxScrollExtent,
-                          duration: const Duration(milliseconds: 220),
+                          duration: Duration(milliseconds: 220),
                           curve: Curves.easeOutCubic,
                         );
                       });
@@ -175,14 +175,14 @@ class _DmChatViewState extends State<_DmChatView> {
                   builder: (context, state) {
                     if (state.status == DmChatStatus.loading &&
                         state.messages.isEmpty) {
-                      return const Center(child: CircularProgressIndicator());
+                      return Center(child: CircularProgressIndicator());
                     }
                     if (state.messages.isEmpty) {
-                      return const _ChatEmptyState();
+                      return _ChatEmptyState();
                     }
                     return ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+                      padding: EdgeInsets.fromLTRB(12, 14, 12, 10),
                       itemCount: state.messages.length,
                       itemBuilder: (context, index) {
                         final item = state.messages[index];
@@ -223,19 +223,19 @@ class _DmChatViewState extends State<_DmChatView> {
 
   Widget _composer() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
+      decoration: BoxDecoration(
         color: AppColors.navBlueDeep,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
         children: [
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.inputFill,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: TextField(
                 controller: _messageController,
@@ -243,7 +243,7 @@ class _DmChatViewState extends State<_DmChatView> {
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Mesaj yaz...',
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
@@ -254,11 +254,11 @@ class _DmChatViewState extends State<_DmChatView> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           BlocBuilder<DmChatCubit, DmChatState>(
             builder: (context, state) {
               return DecoratedBox(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [AppColors.gradientA, AppColors.gradientC],
                   ),
@@ -267,12 +267,12 @@ class _DmChatViewState extends State<_DmChatView> {
                 child: IconButton(
                   onPressed: state.sending ? null : _send,
                   icon: state.sending
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.send_rounded, color: AppColors.white),
+                      : Icon(Icons.send_rounded, color: AppColors.white),
                 ),
               );
             },
@@ -302,9 +302,7 @@ class _DmChatViewState extends State<_DmChatView> {
     if (!mounted) return;
     if (resolved.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bu kullanici icin acik profil bulunamadi'),
-        ),
+        SnackBar(content: Text('Bu kullanici icin acik profil bulunamadi')),
       );
       return;
     }
@@ -352,13 +350,13 @@ class _DmChatViewState extends State<_DmChatView> {
 }
 
 class _ChatEmptyState extends StatelessWidget {
-  const _ChatEmptyState();
+  _ChatEmptyState();
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -367,25 +365,27 @@ class _ChatEmptyState extends StatelessWidget {
               height: 76,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.inputFill,
-                border: Border.all(color: AppColors.border),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.mark_chat_unread_outlined,
-                color: AppColors.textMuted,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 32,
               ),
             ),
-            const SizedBox(height: 14),
-            const Text(
+            SizedBox(height: 14),
+            Text(
               'Henuz mesaj yok',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'Sohbeti baslatmak icin ilk mesaji gonderebilirsin.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textMuted),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -395,33 +395,40 @@ class _ChatEmptyState extends StatelessWidget {
 }
 
 class _DateHeader extends StatelessWidget {
-  const _DateHeader({required this.date});
+  _DateHeader({required this.date});
 
   final DateTime? date;
 
   @override
   Widget build(BuildContext context) {
     final text = _formatDate(date);
-    if (text.isEmpty) return const SizedBox.shrink();
+    if (text.isEmpty) return SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 10),
+      padding: EdgeInsets.fromLTRB(0, 8, 0, 10),
       child: Row(
         children: [
-          const Expanded(child: Divider(height: 1, color: AppColors.border)),
+          Expanded(
+            child: Divider(height: 1, color: Theme.of(context).dividerColor),
+          ),
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            margin: EdgeInsets.symmetric(horizontal: 10),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.inputFill,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Text(
               text,
-              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-          const Expanded(child: Divider(height: 1, color: AppColors.border)),
+          Expanded(
+            child: Divider(height: 1, color: Theme.of(context).dividerColor),
+          ),
         ],
       ),
     );
@@ -434,7 +441,7 @@ class _DateHeader extends StatelessWidget {
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(local.year, local.month, local.day);
     if (day == today) return 'Bugun';
-    if (day == today.subtract(const Duration(days: 1))) return 'Dun';
+    if (day == today.subtract(Duration(days: 1))) return 'Dun';
     final dd = local.day.toString().padLeft(2, '0');
     final mm = local.month.toString().padLeft(2, '0');
     final yy = local.year.toString();
@@ -447,7 +454,7 @@ class _DmMessageBubble extends StatelessWidget {
   final bool isMine;
   final String? senderAvatarUrl;
 
-  const _DmMessageBubble({
+  _DmMessageBubble({
     required this.message,
     required this.isMine,
     required this.senderAvatarUrl,
@@ -457,23 +464,23 @@ class _DmMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeText = _formatTime(message.sentAt);
     final bubble = Container(
-      constraints: const BoxConstraints(maxWidth: 296),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      constraints: BoxConstraints(maxWidth: 296),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         gradient: isMine
-            ? const LinearGradient(
-                colors: [AppColors.gradientA, AppColors.gradientC],
-              )
+            ? LinearGradient(colors: [AppColors.gradientA, AppColors.gradientC])
             : null,
-        color: isMine ? null : AppColors.inputFill,
+        color: isMine
+            ? null
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(14),
-          topRight: const Radius.circular(14),
+          topLeft: Radius.circular(14),
+          topRight: Radius.circular(14),
           bottomLeft: Radius.circular(isMine ? 14 : 6),
           bottomRight: Radius.circular(isMine ? 6 : 14),
         ),
         border: Border.all(
-          color: isMine ? Colors.transparent : AppColors.border,
+          color: isMine ? Colors.transparent : Theme.of(context).dividerColor,
         ),
       ),
       child: Column(
@@ -481,9 +488,9 @@ class _DmMessageBubble extends StatelessWidget {
         children: [
           Text(
             message.content,
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -492,12 +499,12 @@ class _DmMessageBubble extends StatelessWidget {
                 style: TextStyle(
                   color: isMine
                       ? AppColors.white.withValues(alpha: 0.84)
-                      : AppColors.textMuted,
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 11,
                 ),
               ),
               if (isMine) ...[
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Icon(
                   message.readAt == null
                       ? Icons.done_rounded
@@ -515,7 +522,7 @@ class _DmMessageBubble extends StatelessWidget {
     );
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: 8),
       child: Align(
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
         child: isMine
@@ -526,19 +533,23 @@ class _DmMessageBubble extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 14,
-                    backgroundColor: AppColors.navBlueSoft,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
                     backgroundImage: _hasAvatar(senderAvatarUrl)
                         ? NetworkImage(senderAvatarUrl!.trim())
                         : null,
                     child: _hasAvatar(senderAvatarUrl)
                         ? null
-                        : const Icon(
+                        : Icon(
                             Icons.person_outline,
                             size: 12,
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   bubble,
                 ],
               ),
@@ -563,16 +574,16 @@ class _DmMessageBubble extends StatelessWidget {
 class _ProfileTargetSheet extends StatelessWidget {
   final List<DmProfileTarget> items;
 
-  const _ProfileTargetSheet({required this.items});
+  _ProfileTargetSheet({required this.items});
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: ListView.separated(
         shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
         itemCount: items.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => Divider(height: 1),
         itemBuilder: (context, index) {
           final item = items[index];
           final imageUrl = item.imageUrl?.trim();
@@ -582,7 +593,7 @@ class _ProfileTargetSheet extends StatelessWidget {
                   imageUrl.startsWith('https://'));
           return ListTile(
             leading: CircleAvatar(
-              backgroundColor: AppColors.navBlueSoft,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
               backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
               child: hasImage
                   ? null
@@ -590,7 +601,7 @@ class _ProfileTargetSheet extends StatelessWidget {
                       item.type == DmProfileTargetType.musician
                           ? Icons.person_outline
                           : Icons.storefront_outlined,
-                      color: AppColors.textMuted,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
             ),
             title: Text(item.displayName),

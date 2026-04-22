@@ -4,7 +4,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
   Widget _buildSearchInput() {
     return TextField(
       controller: _searchController,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         hintText: 'Mekan ara...',
         prefixIcon: Icon(Icons.search),
       ),
@@ -27,7 +27,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
           });
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -35,14 +35,14 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                 _filtersExpanded
                     ? Icons.filter_alt_off
                     : Icons.filter_alt_outlined,
-                color: AppColors.textMuted,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 20,
               ),
-              const SizedBox(width: 6),
-              const Text(
+              SizedBox(width: 6),
+              Text(
                 'Filtrele',
                 style: TextStyle(
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -56,11 +56,15 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
   Widget _buildFiltersPanel() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
-        color: AppColors.inputFill.withValues(alpha: 0.55),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.55)),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.55),
+        ),
       ),
       child: Column(
         children: [
@@ -69,15 +73,15 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
             children: [
               TextButton.icon(
                 onPressed: _resetFilters,
-                icon: const Icon(
+                icon: Icon(
                   Icons.refresh,
                   size: 16,
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                label: const Text(
+                label: Text(
                   'Filtreyi Sifirla',
                   style: TextStyle(
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -86,7 +90,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
           ),
           DropdownButtonFormField<String>(
             value: _selectedCityId,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Sehir sec',
               prefixIcon: Icon(Icons.location_city_outlined),
             ),
@@ -100,12 +104,12 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                 .toList(),
             onChanged: (value) => _onCityChanged(value),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           DropdownButtonFormField<String>(
             value: _selectedDistrictId,
             decoration: InputDecoration(
               hintText: _loadingDistricts ? 'Ilce yukleniyor...' : 'Ilce sec',
-              prefixIcon: const Icon(Icons.map_outlined),
+              prefixIcon: Icon(Icons.map_outlined),
             ),
             items: _districtOptions
                 .map(
@@ -119,14 +123,14 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                 ? null
                 : (value) => _onDistrictChanged(value),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           DropdownButtonFormField<String>(
             value: _selectedNeighborhoodId,
             decoration: InputDecoration(
               hintText: _loadingNeighborhoods
                   ? 'Semt yukleniyor...'
                   : 'Semt sec',
-              prefixIcon: const Icon(Icons.place_outlined),
+              prefixIcon: Icon(Icons.place_outlined),
             ),
             items: _neighborhoodOptions
                 .map(
@@ -148,10 +152,12 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
 
   Widget _buildVenueList(List<VenueOption> filteredVenues) {
     if (filteredVenues.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Mekan bulunamadi.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -178,12 +184,14 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
     return Opacity(
       opacity: disabled ? 0.65 : 1,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: AppColors.inputFill,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: checked ? AppColors.coralAlt : AppColors.border,
+            color: checked
+                ? AppColors.coralAlt
+                : Theme.of(context).dividerColor,
           ),
         ),
         child: RadioListTile<String>(
@@ -196,8 +204,8 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                 },
           title: Text(
             venue.name,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -207,7 +215,10 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                 : isPending
                 ? 'Bu mekan icin onay bekleniyor.'
                 : (location.isNotEmpty ? location : 'Konum bilgisi yok'),
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
           ),
           activeColor: AppColors.coralAlt,
           controlAffinity: ListTileControlAffinity.trailing,
@@ -222,14 +233,14 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
         Expanded(
           child: OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Vazgec'),
+            child: Text('Vazgec'),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         Expanded(
           child: ElevatedButton(
             onPressed: _selectedVenueId == null ? null : _submit,
-            child: const Text('Devam'),
+            child: Text('Devam'),
           ),
         ),
       ],

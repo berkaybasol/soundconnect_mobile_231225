@@ -10,7 +10,7 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
       final result = await _artistVenueRepository.listVenueApplications(
         widget.venueId,
       );
-      final response = result.data ?? const <ArtistVenueApplication>[];
+      final response = result.data ?? <ArtistVenueApplication>[];
       final filtered = response.where((item) {
         if (_showOutgoing) return item.requestByType == 'VENUE';
         return item.requestByType == 'ARTIST' || item.requestByType == 'BAND';
@@ -99,11 +99,11 @@ extension _VenueApplicationsSheetStateActions on _VenueApplicationsSheetState {
   Color _statusColor(String status) {
     switch (status) {
       case 'ACCEPTED':
-        return const Color(0xFF4CD47A);
+        return Color(0xFF4CD47A);
       case 'REJECTED':
-        return AppColors.textMuted;
+        return Theme.of(context).colorScheme.onSurfaceVariant;
       default:
-        return const Color(0xFFE7B65A);
+        return Color(0xFFE7B65A);
     }
   }
 

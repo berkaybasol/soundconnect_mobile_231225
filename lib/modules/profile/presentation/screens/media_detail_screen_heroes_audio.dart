@@ -11,7 +11,7 @@ class _AudioHero extends StatelessWidget {
   final double progress;
   final ValueChanged<double> onSeek;
 
-  const _AudioHero({
+  _AudioHero({
     required this.title,
     required this.isSpotify,
     required this.playbackUrl,
@@ -26,11 +26,11 @@ class _AudioHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -40,30 +40,30 @@ class _AudioHero extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           WaveformStub(
             gradientColors: isSpotify
-                ? const [
-                    Color(0xFF1ED760),
-                    Color(0xFF1DB954),
-                    Color(0xFF18A34A),
+                ? [
+                    AppColors.spotifyGreenBright,
+                    AppColors.spotifyGreen,
+                    AppColors.spotifyGreenDark,
                   ]
                 : AppColors.brandGradient,
-            iconColor: isSpotify ? const Color(0xFF1DB954) : AppColors.coralAlt,
+            iconColor: isSpotify ? AppColors.spotifyGreen : AppColors.coralAlt,
             playIconColor: isSpotify
-                ? const Color(0xFF1DB954)
-                : AppColors.textMuted,
+                ? AppColors.spotifyGreen
+                : Theme.of(context).colorScheme.onSurfaceVariant,
             leading: isSpotify
-                ? const FaIcon(
+                ? FaIcon(
                     FontAwesomeIcons.spotify,
                     size: 16,
-                    color: Color(0xFF1DB954),
+                    color: AppColors.spotifyGreen,
                   )
                 : Image.asset(
                     'assets/logo.png',
@@ -77,7 +77,7 @@ class _AudioHero extends StatelessWidget {
             progress: progress,
             onSeek: onSeek,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -87,10 +87,10 @@ class _AudioHero extends StatelessWidget {
                     ? null
                     : onBack10,
                 color: isSpotify
-                    ? const Color(0xFF1DB954)
-                    : AppColors.textMuted,
+                    ? AppColors.spotifyGreen
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               _TransportButton(
                 icon: isPlaying
                     ? Icons.pause_rounded
@@ -99,19 +99,19 @@ class _AudioHero extends StatelessWidget {
                     ? null
                     : onPlay,
                 color: isSpotify
-                    ? const Color(0xFF1DB954)
-                    : AppColors.textMuted,
+                    ? AppColors.spotifyGreen
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 big: true,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               _TransportButton(
                 icon: Icons.forward_10_rounded,
                 onTap: playbackUrl == null || playbackUrl!.isEmpty
                     ? null
                     : onForward10,
                 color: isSpotify
-                    ? const Color(0xFF1DB954)
-                    : AppColors.textMuted,
+                    ? AppColors.spotifyGreen
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),
@@ -127,7 +127,7 @@ class _TransportButton extends StatelessWidget {
   final Color color;
   final bool big;
 
-  const _TransportButton({
+  _TransportButton({
     required this.icon,
     required this.onTap,
     required this.color,
@@ -147,9 +147,9 @@ class _TransportButton extends StatelessWidget {
             width: big ? 36 : 32,
             height: big ? 36 : 32,
             decoration: BoxDecoration(
-              color: AppColors.navBlueSoft,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Icon(icon, size: big ? 20 : 16, color: color),
           ),

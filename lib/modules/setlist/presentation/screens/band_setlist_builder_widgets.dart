@@ -5,7 +5,7 @@ class _SongSlotTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _SongSlotTile({
+  _SongSlotTile({
     required this.index,
     required this.selected,
     required this.onTap,
@@ -23,17 +23,23 @@ class _SongSlotTile extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           gradient: selected
-              ? const LinearGradient(colors: AppColors.brandGradient)
+              ? LinearGradient(colors: AppColors.brandGradient)
               : null,
-          color: selected ? null : AppColors.inputFill,
+          color: selected
+              ? null
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           border: Border.all(
-            color: selected ? Colors.transparent : AppColors.border,
+            color: selected
+                ? Colors.transparent
+                : Theme.of(context).dividerColor,
           ),
         ),
         child: Text(
           '${index + 1}',
           style: TextStyle(
-            color: selected ? Colors.white : AppColors.textPrimary,
+            color: selected
+                ? AppColors.white
+                : Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w800,
             fontSize: 12,
           ),
@@ -47,7 +53,7 @@ class _SetMarkerTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _SetMarkerTile({required this.selected, required this.onTap});
+  _SetMarkerTile({required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -61,17 +67,23 @@ class _SetMarkerTile extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           gradient: selected
-              ? const LinearGradient(colors: AppColors.brandGradient)
+              ? LinearGradient(colors: AppColors.brandGradient)
               : null,
-          color: selected ? null : AppColors.inputFill,
+          color: selected
+              ? null
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           border: Border.all(
-            color: selected ? Colors.transparent : AppColors.border,
+            color: selected
+                ? Colors.transparent
+                : Theme.of(context).dividerColor,
           ),
         ),
         child: Text(
           '|',
           style: TextStyle(
-            color: selected ? Colors.white : AppColors.textPrimary,
+            color: selected
+                ? AppColors.white
+                : Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w900,
             fontSize: 16,
           ),
@@ -87,7 +99,7 @@ class _AddMiniTile extends StatelessWidget {
   final double opacity;
   final VoidCallback? onTap;
 
-  const _AddMiniTile({
+  _AddMiniTile({
     this.icon,
     this.label,
     this.opacity = 0.55,
@@ -108,16 +120,16 @@ class _AddMiniTile extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            color: AppColors.inputFill,
-            border: Border.all(color: AppColors.border),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: icon != null
               ? Icon(icon, size: 16)
               : Text(
                   label ?? '+',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
         ),
@@ -131,7 +143,7 @@ class _SelectedSetEditor extends StatelessWidget {
   final bool canRemove;
   final VoidCallback onRemove;
 
-  const _SelectedSetEditor({
+  _SelectedSetEditor({
     required this.setItem,
     required this.canRemove,
     required this.onRemove,
@@ -140,34 +152,34 @@ class _SelectedSetEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+      padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(13),
-        color: AppColors.navBlueSoft,
-        border: Border.all(color: AppColors.border),
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 'Set',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const Spacer(),
+              Spacer(),
               IconButton(
                 onPressed: canRemove ? onRemove : null,
-                icon: const Icon(Icons.remove_circle_outline),
+                icon: Icon(Icons.remove_circle_outline),
               ),
             ],
           ),
           TextField(
             controller: setItem.titleController,
-            style: const TextStyle(color: AppColors.textPrimary),
-            decoration: const InputDecoration(
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            decoration: InputDecoration(
               hintText: 'Set Başlığı',
               border: OutlineInputBorder(),
             ),
@@ -185,7 +197,7 @@ class _SelectedSongEditor extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onPickTone;
 
-  const _SelectedSongEditor({
+  _SelectedSongEditor({
     required this.rowNo,
     required this.row,
     required this.canRemove,
@@ -199,12 +211,12 @@ class _SelectedSongEditor extends StatelessWidget {
       return Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: const LinearGradient(colors: AppColors.brandGradient),
+          gradient: LinearGradient(colors: AppColors.brandGradient),
         ),
         child: Container(
-          margin: const EdgeInsets.all(1.2),
+          margin: EdgeInsets.all(1.2),
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(10.8),
           ),
           child: child,
@@ -213,11 +225,11 @@ class _SelectedSongEditor extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+      padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(13),
-        color: AppColors.navBlueSoft,
-        border: Border.all(color: AppColors.border),
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         children: [
@@ -229,69 +241,68 @@ class _SelectedSongEditor extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(7),
-                  color: AppColors.inputFill,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 ),
                 child: Text(
                   '$rowNo',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppColors.coralLight,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              const _InlineActionHint(symbol: '+', label: 'Şarkı'),
-              const SizedBox(width: 6),
-              const _InlineActionHint(symbol: '|', label: 'Set'),
-              const Spacer(),
+              SizedBox(width: 8),
+              _InlineActionHint(symbol: '+', label: 'Şarkı'),
+              SizedBox(width: 6),
+              _InlineActionHint(symbol: '|', label: 'Set'),
+              Spacer(),
               IconButton(
                 onPressed: canRemove ? onRemove : null,
-                icon: const Icon(Icons.remove_circle_outline),
+                icon: Icon(Icons.remove_circle_outline),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           shell(
             TextField(
               controller: row.artistController,
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: const InputDecoration(
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              decoration: InputDecoration(
                 hintText: 'Sanatçı Adı',
                 border: OutlineInputBorder(borderSide: BorderSide.none),
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           shell(
             TextField(
               controller: row.songController,
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: const InputDecoration(
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              decoration: InputDecoration(
                 hintText: 'Şarkı Adı',
                 border: OutlineInputBorder(borderSide: BorderSide.none),
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           shell(
             InkWell(
               borderRadius: BorderRadius.circular(10.8),
               onTap: onPickTone,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 14,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         row.tone.display,
-                        style: const TextStyle(color: AppColors.textPrimary),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down),
+                    Icon(Icons.arrow_drop_down),
                   ],
                 ),
               ),
@@ -307,7 +318,7 @@ class _InlineActionHint extends StatelessWidget {
   final String symbol;
   final String label;
 
-  const _InlineActionHint({required this.symbol, required this.label});
+  _InlineActionHint({required this.symbol, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -319,25 +330,25 @@ class _InlineActionHint extends StatelessWidget {
           height: 18,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(5),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Text(
             symbol,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 11,
               fontWeight: FontWeight.w900,
               height: 1.0,
             ),
           ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.textMuted,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -354,7 +365,7 @@ class _TonePickerField<T> extends StatelessWidget {
   final String Function(T value) itemLabel;
   final ValueChanged<T?> onChanged;
 
-  const _TonePickerField({
+  _TonePickerField({
     required this.label,
     required this.value,
     required this.items,
@@ -368,7 +379,7 @@ class _TonePickerField<T> extends StatelessWidget {
       value: value,
       isExpanded: true,
       menuMaxHeight: 300,
-      dropdownColor: AppColors.navBlueSoft,
+      dropdownColor: Theme.of(context).colorScheme.surfaceContainer,
       borderRadius: BorderRadius.circular(12),
       items: items
           .map(
@@ -376,7 +387,9 @@ class _TonePickerField<T> extends StatelessWidget {
               value: item,
               child: Text(
                 itemLabel(item),
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ),
           )
@@ -385,7 +398,7 @@ class _TonePickerField<T> extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: AppColors.inputFill,
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       ),
     );
   }
@@ -399,7 +412,7 @@ class _CodeEditorPreview extends StatelessWidget {
   final VoidCallback? onFullscreen;
   final bool fullscreenMode;
 
-  const _CodeEditorPreview({
+  _CodeEditorPreview({
     required this.title,
     required this.items,
     required this.theme,
@@ -426,22 +439,22 @@ class _CodeEditorPreview extends StatelessWidget {
         if (theme != _PreviewTheme.cod) {
           blockRows.add(
             Container(
-              margin: const EdgeInsets.only(bottom: 10),
+              margin: EdgeInsets.only(bottom: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(colors: AppColors.brandGradient),
               ),
               child: Container(
-                margin: const EdgeInsets.all(1.2),
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                margin: EdgeInsets.all(1.2),
+                padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10.8),
                   color: palette.card,
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.segment, size: 16, color: AppColors.coral),
-                    const SizedBox(width: 8),
+                    Icon(Icons.segment, size: 16, color: AppColors.coral),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         setTitle,
@@ -481,14 +494,14 @@ class _CodeEditorPreview extends StatelessWidget {
       if (theme != _PreviewTheme.cod) {
         blockRows.add(
           Container(
-            margin: const EdgeInsets.only(bottom: 10),
+            margin: EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
               color: palette.card,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: palette.border),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -498,20 +511,18 @@ class _CodeEditorPreview extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(6),
-                      gradient: const LinearGradient(
-                        colors: AppColors.brandGradient,
-                      ),
+                      gradient: LinearGradient(colors: AppColors.brandGradient),
                     ),
                     child: Text(
                       '$songNo',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 9),
+                  SizedBox(width: 9),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,7 +534,7 @@ class _CodeEditorPreview extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           artist,
                           style: TextStyle(
@@ -536,10 +547,7 @@ class _CodeEditorPreview extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
                       color: palette.chip,
@@ -563,7 +571,7 @@ class _CodeEditorPreview extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: palette.background,
         borderRadius: BorderRadius.circular(11),
@@ -625,10 +633,7 @@ class _CodeEditorPreview extends StatelessWidget {
                     ),
                   ],
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                       color: palette.card,
@@ -645,7 +650,7 @@ class _CodeEditorPreview extends StatelessWidget {
                   ),
                 ),
               if (!fullscreenMode && onThemeSelected != null)
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
               if (!fullscreenMode && onFullscreen != null)
                 IconButton(
                   onPressed: onFullscreen,
@@ -658,14 +663,11 @@ class _CodeEditorPreview extends StatelessWidget {
                 ),
             ],
           ),
-          if (!fullscreenMode)
-            const SizedBox(height: 8)
-          else
-            const SizedBox(height: 6),
+          if (!fullscreenMode) SizedBox(height: 8) else SizedBox(height: 6),
           if (theme == _PreviewTheme.cod)
             ...lines.asMap().entries.map(
               (entry) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
+                padding: EdgeInsets.symmetric(vertical: 2),
                 child: RichText(
                   text: TextSpan(
                     style: TextStyle(
@@ -686,8 +688,8 @@ class _CodeEditorPreview extends StatelessWidget {
             )
           else ...[
             Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+              margin: EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.fromLTRB(10, 9, 10, 9),
               decoration: BoxDecoration(
                 color: palette.card,
                 borderRadius: BorderRadius.circular(10),

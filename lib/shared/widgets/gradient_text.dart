@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class GradientText extends StatelessWidget {
   final String text;
@@ -29,7 +30,7 @@ class GradientText extends StatelessWidget {
       child: Text(
         text,
         textAlign: textAlign,
-        style: (style ?? const TextStyle()).copyWith(color: Colors.white),
+        style: (style ?? const TextStyle()).copyWith(color: AppColors.white),
         maxLines: maxLines,
         overflow: overflow,
         softWrap: softWrap,

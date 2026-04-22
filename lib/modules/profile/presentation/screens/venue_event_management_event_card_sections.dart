@@ -7,7 +7,7 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
   final bool saving;
   final VoidCallback onDelete;
 
-  const _VenueCalendarEventPosterStack({
+  _VenueCalendarEventPosterStack({
     required this.hasPoster,
     required this.posterUrl,
     required this.dateLabel,
@@ -24,17 +24,20 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
             child: hasPoster
                 ? Image.network(posterUrl!, fit: BoxFit.cover)
                 : Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [AppColors.navBlueSoft, AppColors.navBlueDeep],
+                        colors: [
+                          Theme.of(context).colorScheme.surfaceContainer,
+                          AppColors.navBlueDeep,
+                        ],
                       ),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Icon(
                         Icons.image_outlined,
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         size: 28,
                       ),
                     ),
@@ -51,7 +54,7 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
                     Colors.transparent,
                     AppColors.navBlueDeep.withValues(alpha: 0.34),
                   ],
-                  stops: const [0, 0.42, 1],
+                  stops: [0, 0.42, 1],
                 ),
               ),
             ),
@@ -89,7 +92,7 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppColors.black.withValues(alpha: 0.30),
+                    AppColors.pureBlack.withValues(alpha: 0.30),
                     Colors.transparent,
                   ],
                 ),
@@ -143,14 +146,14 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
                 height: 120,
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
-                    center: const Alignment(0, 1),
+                    center: Alignment(0, 1),
                     radius: 1.15,
                     colors: [
                       AppColors.coralAlt.withValues(alpha: 0.36),
                       AppColors.coralLight.withValues(alpha: 0.18),
                       Colors.transparent,
                     ],
-                    stops: const [0, 0.48, 1],
+                    stops: [0, 0.48, 1],
                   ),
                 ),
               ),
@@ -167,11 +170,11 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    AppColors.black.withValues(alpha: 0.50),
+                    AppColors.pureBlack.withValues(alpha: 0.50),
                     AppColors.navBlueDeep.withValues(alpha: 0.24),
                     Colors.transparent,
                   ],
-                  stops: const [0, 0.42, 1],
+                  stops: [0, 0.42, 1],
                 ),
               ),
             ),
@@ -181,7 +184,7 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              padding: EdgeInsets.fromLTRB(16, 14, 16, 12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -198,7 +201,7 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.white,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -215,9 +218,7 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
               height: 46,
               decoration: BoxDecoration(
                 color: AppColors.navBlueDeep.withValues(alpha: 0.62),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                ),
+                borderRadius: BorderRadius.only(topLeft: Radius.circular(14)),
                 border: Border.all(
                   color: AppColors.white.withValues(alpha: 0.08),
                 ),
@@ -230,15 +231,15 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
                 icon: ShaderMask(
                   blendMode: BlendMode.srcIn,
                   shaderCallback: (bounds) {
-                    return const LinearGradient(
+                    return LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: AppColors.brandGradient,
                     ).createShader(bounds);
                   },
-                  child: const Icon(
+                  child: Icon(
                     Icons.delete_outline_rounded,
-                    color: Colors.white,
+                    color: AppColors.white,
                     size: 21,
                   ),
                 ),

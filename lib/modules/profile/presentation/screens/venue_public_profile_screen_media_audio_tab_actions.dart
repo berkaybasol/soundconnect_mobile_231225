@@ -43,13 +43,13 @@ extension _VenuePublicProfileAudioTabActions on _AudioTab {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -58,34 +58,38 @@ extension _VenuePublicProfileAudioTabActions on _AudioTab {
                     width: 44,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.border,
+                      color: Theme.of(context).dividerColor,
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Text(
+                SizedBox(height: 12),
+                Text(
                   'Sanatcinin Spotify Katalogu ',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Expanded(
                   child: ListView.separated(
                     itemCount: tracks.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, __) => SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final track = tracks[index];
                       return Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.inputFill,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -93,7 +97,9 @@ extension _VenuePublicProfileAudioTabActions on _AudioTab {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: AppColors.navBlueSoft,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainer,
                                 borderRadius: BorderRadius.circular(12),
                                 image: track.albumImageUrl != null
                                     ? DecorationImage(
@@ -105,13 +111,15 @@ extension _VenuePublicProfileAudioTabActions on _AudioTab {
                                     : null,
                               ),
                               child: track.albumImageUrl == null
-                                  ? const Icon(
+                                  ? Icon(
                                       Icons.music_note,
-                                      color: AppColors.textMuted,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     )
                                   : null,
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,31 +128,35 @@ extension _VenuePublicProfileAudioTabActions on _AudioTab {
                                     track.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 4),
                                   Text(
                                     track.artistNames.join(', '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.textMuted,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                       fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             TextButton(
                               onPressed: () =>
                                   _openExternalUrl(context, track.spotifyUrl),
-                              child: const Text(
+                              child: Text(
                                 "Spotify'da Dinle",
-                                style: TextStyle(color: Color(0xFF1DB954)),
+                                style: TextStyle(color: AppColors.spotifyGreen),
                               ),
                             ),
                           ],

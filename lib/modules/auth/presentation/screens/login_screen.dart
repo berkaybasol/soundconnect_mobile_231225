@@ -8,7 +8,7 @@ import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -52,15 +52,15 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               Center(child: Image.asset('assets/logo.png', height: 180)),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               GradientTextField(
                 controller: _usernameController,
                 label: 'Kullanıcı adı',
                 prefixIcon: Icons.person_outline,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               GradientTextField(
                 controller: _passwordController,
                 label: 'Şifre',
@@ -79,33 +79,35 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
+                    colorFilter: ColorFilter.mode(
                       AppColors.coralLight,
                       BlendMode.srcIn,
                     ),
                     child: Image.asset('assets/fish.png', height: 16),
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   TextButton(
                     onPressed: () {},
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      padding: EdgeInsets.symmetric(horizontal: 6),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Şifreni mi unuttun?',
-                      style: TextStyle(color: AppColors.textMuted),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               InkWell(
                 borderRadius: BorderRadius.circular(18),
                 onTap: isLoading
@@ -115,21 +117,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         final password = _passwordController.text.trim();
                         if (username.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('kullanıcı adı boş olamaz'),
-                            ),
+                            SnackBar(content: Text('kullanıcı adı boş olamaz')),
                           );
                           return;
                         }
                         if (password.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('şifre boş olamaz')),
+                            SnackBar(content: Text('şifre boş olamaz')),
                           );
                           return;
                         }
                         if (password.length < 3 || password.length > 30) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text('Şifre 3-30 karakter olmalı'),
                             ),
                           );
@@ -145,19 +145,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     gradient: LinearGradient(
                       colors: isLoading
                           ? [
-                              AppColors.border.withValues(alpha: 0.7),
-                              AppColors.border.withValues(alpha: 0.7),
+                              Theme.of(
+                                context,
+                              ).dividerColor.withValues(alpha: 0.7),
+                              Theme.of(
+                                context,
+                              ).dividerColor.withValues(alpha: 0.7),
                             ]
                           : AppColors.brandGradient,
                     ),
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(1),
+                    padding: EdgeInsets.all(1),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(vertical: 16),
                       decoration: BoxDecoration(
-                        color: AppColors.navBlueDeep,
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(17),
                       ),
                       alignment: Alignment.center,
@@ -165,8 +169,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         isLoading ? 'Giriş yapılıyor...' : 'Giriş yap',
                         style: TextStyle(
                           color: isLoading
-                              ? AppColors.textMuted
-                              : AppColors.textPrimary,
+                              ? Theme.of(context).colorScheme.onSurfaceVariant
+                              : Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -174,35 +178,35 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               Row(
                 children: [
-                  const Expanded(child: Divider()),
+                  Expanded(child: Divider()),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
                       'veya',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
-                  const Expanded(child: Divider()),
+                  Expanded(child: Divider()),
                 ],
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               OutlinedButton.icon(
                 onPressed: () {},
                 icon: Image.asset('assets/google.png', height: 20),
-                label: const Text('Google ile devam et'),
+                label: Text('Google ile devam et'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.border),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  side: BorderSide(color: Theme.of(context).dividerColor),
+                  padding: EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -213,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextButton(
                     onPressed: () =>
                         Navigator.pushNamed(context, AppRoutes.register),
-                    child: const Text('Üye ol'),
+                    child: Text('Üye ol'),
                   ),
                 ],
               ),

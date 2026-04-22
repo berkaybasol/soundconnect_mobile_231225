@@ -5,7 +5,7 @@ class _BandSocialButtonRow extends StatelessWidget {
   final bool editable;
   final ValueChanged<ProfileSocialPlatform>? onAddLink;
 
-  const _BandSocialButtonRow({
+  _BandSocialButtonRow({
     required this.profile,
     required this.editable,
     required this.onAddLink,
@@ -37,7 +37,7 @@ class _BandSocialButtonRow extends StatelessWidget {
         ? items
         : items.where((item) => item.active).toList();
 
-    if (visible.isEmpty) return const SizedBox.shrink();
+    if (visible.isEmpty) return SizedBox.shrink();
 
     return Wrap(
       alignment: WrapAlignment.center,
@@ -59,7 +59,7 @@ class _BandSocialItem {
   final ProfileSocialPlatform platform;
   final String? url;
 
-  const _BandSocialItem({required this.platform, required this.url});
+  _BandSocialItem({required this.platform, required this.url});
 
   bool get active {
     final value = url?.trim().toLowerCase();
@@ -76,7 +76,7 @@ class _BandSocialPill extends StatelessWidget {
   final bool showAddBadge;
   final VoidCallback onTap;
 
-  const _BandSocialPill({
+  _BandSocialPill({
     required this.icon,
     required this.active,
     required this.showAddBadge,
@@ -94,15 +94,17 @@ class _BandSocialPill extends StatelessWidget {
             width: 64,
             height: 42,
             decoration: BoxDecoration(
-              color: AppColors.inputFill,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Center(
               child: FaIcon(
                 icon,
                 size: 20,
-                color: active ? AppColors.textPrimary : AppColors.textMuted,
+                color: active
+                    ? Theme.of(context).colorScheme.onSurface
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -113,11 +115,11 @@ class _BandSocialPill extends StatelessWidget {
               child: Container(
                 width: 18,
                 height: 18,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.coralAlt,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.add, size: 12, color: Colors.white),
+                child: Icon(Icons.add, size: 12, color: AppColors.white),
               ),
             ),
         ],

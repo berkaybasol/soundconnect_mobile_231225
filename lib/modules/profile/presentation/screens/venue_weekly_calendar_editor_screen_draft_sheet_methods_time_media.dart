@@ -4,8 +4,8 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
     on _VenueEventDraftSheetState {
   Future<void> _pickTime({required bool isStart}) async {
     final current = isStart
-        ? (_startTime ?? const TimeOfDay(hour: 20, minute: 0))
-        : (_endTime ?? const TimeOfDay(hour: 22, minute: 0));
+        ? (_startTime ?? TimeOfDay(hour: 20, minute: 0))
+        : (_endTime ?? TimeOfDay(hour: 22, minute: 0));
     final initialHour = current.hour == 0 ? 24 : current.hour;
     int selectedHour = initialHour;
     int selectedMinute = current.minute.clamp(0, 59);
@@ -25,42 +25,44 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
     final picked = await showModalBottomSheet<TimeOfDay>(
       context: context,
       backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GradientText(
                   text: isStart ? 'Baslangic Saati' : 'Bitis Saati',
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: AppColors.brandGradient,
                   ),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Saati ve dakikayi kaydirarak sec.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Saati ve dakikayi kaydirarak sec.',
-                  style: TextStyle(color: AppColors.textMuted, height: 1.4),
-                ),
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
                 Container(
                   height: 216,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.inputFill,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Row(
                     children: [
@@ -86,8 +88,10 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
                                 (hour) => Center(
                                   child: Text(
                                     hour.toString().padLeft(2, '0'),
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
                                       fontSize: 24,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -97,12 +101,12 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
                               .toList(),
                         ),
                       ),
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text(
                           ':',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
                           ),
@@ -135,10 +139,13 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
                                     minute.toString().padLeft(2, '0'),
                                     style: TextStyle(
                                       color: selectedHour == 24 && minute == 30
-                                          ? AppColors.textMuted.withValues(
-                                              alpha: 0.45,
-                                            )
-                                          : AppColors.textPrimary,
+                                          ? Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant
+                                                .withValues(alpha: 0.45)
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
                                       fontSize: 24,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -151,18 +158,18 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Text(
                   selectedHour == 24 && selectedMinute == 0
                       ? 'Secilen saat: 24.00'
                       : 'Secilen saat: ${selectedHour.toString().padLeft(2, '0')}.${selectedMinute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(
                     TimeOfDay(
@@ -171,15 +178,17 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
                     ),
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.inputFill,
-                    foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.border),
-                    minimumSize: const Size.fromHeight(52),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    side: BorderSide(color: Theme.of(context).dividerColor),
+                    minimumSize: Size.fromHeight(52),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Saati Sec',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),

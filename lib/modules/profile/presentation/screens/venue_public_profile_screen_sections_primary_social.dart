@@ -3,7 +3,7 @@ part of 'venue_public_profile_screen.dart';
 class _SocialButtonRow extends StatelessWidget {
   final MusicianProfile profile;
 
-  const _SocialButtonRow({required this.profile});
+  _SocialButtonRow({required this.profile});
 
   Future<void> _launchExternalUrl(BuildContext context, String? url) async {
     final trimmed = url?.trim();
@@ -16,7 +16,7 @@ class _SocialButtonRow extends StatelessWidget {
     if (uri == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Gecersiz link')));
+      ).showSnackBar(SnackBar(content: Text('Gecersiz link')));
       return;
     }
 
@@ -24,7 +24,7 @@ class _SocialButtonRow extends StatelessWidget {
     if (!success && context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Link acilamadi')));
+      ).showSnackBar(SnackBar(content: Text('Link acilamadi')));
     }
   }
 
@@ -68,7 +68,7 @@ class _SocialButtonRow extends StatelessWidget {
       );
     }
 
-    if (socialButtons.isEmpty) return const SizedBox.shrink();
+    if (socialButtons.isEmpty) return SizedBox.shrink();
 
     return Wrap(
       alignment: WrapAlignment.center,
@@ -92,7 +92,7 @@ class _SocialPill extends StatefulWidget {
   final bool active;
   final VoidCallback? onTap;
 
-  const _SocialPill({required this.icon, required this.active, this.onTap});
+  _SocialPill({required this.icon, required this.active, this.onTap});
 
   @override
   State<_SocialPill> createState() => _SocialPillState();
@@ -103,13 +103,19 @@ class _SocialPillState extends State<_SocialPill> {
 
   @override
   Widget build(BuildContext context) {
-    const iconGradient = LinearGradient(
+    final iconGradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFFF7A3D), Color(0xFFEF5F86), Color(0xFFB85CFF)],
+      colors: [
+        AppColors.socialOrange,
+        AppColors.socialPink,
+        AppColors.socialPurple,
+      ],
     );
 
-    final borderColor = _pressed ? AppColors.textMuted : AppColors.border;
+    final borderColor = _pressed
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : Theme.of(context).dividerColor;
     final shadowOpacity = _pressed ? 0.12 : 0.05;
 
     return GestureDetector(
@@ -121,22 +127,22 @@ class _SocialPillState extends State<_SocialPill> {
       onTap: widget.active ? widget.onTap : null,
       child: AnimatedScale(
         scale: _pressed ? 0.96 : 1,
-        duration: const Duration(milliseconds: 120),
+        duration: Duration(milliseconds: 120),
         curve: Curves.easeOut,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
+          duration: Duration(milliseconds: 140),
           curve: Curves.easeOut,
           width: 74,
           height: 42,
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: borderColor),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: shadowOpacity),
+                color: AppColors.pureBlack.withValues(alpha: shadowOpacity),
                 blurRadius: 8,
-                offset: const Offset(0, 3),
+                offset: Offset(0, 3),
               ),
             ],
           ),

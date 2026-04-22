@@ -5,7 +5,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../domain/band_repository.dart';
 
 class CreateBandScreen extends StatefulWidget {
-  const CreateBandScreen({super.key});
+  CreateBandScreen({super.key});
 
   @override
   State<CreateBandScreen> createState() => _CreateBandScreenState();
@@ -59,13 +59,13 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Band Olustur'), centerTitle: true),
+      appBar: AppBar(title: Text('Band Olustur'), centerTitle: true),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 28),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: BoxConstraints(maxWidth: 420),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -75,8 +75,8 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
                     enabled: !_submitting,
                     autofocus: true,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -86,18 +86,18 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
                     ),
                   ),
                   if (_errorText != null) ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Text(
                       _errorText!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Color(0xFFFFB4B4),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   _BrandGradientOutlineButton(
                     label: _submitting ? 'Olusturuluyor...' : 'Bandi olustur',
                     onPressed: _submitting ? null : _submit,
@@ -117,13 +117,18 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
   }) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: const TextStyle(color: AppColors.textMuted),
-      prefixIcon: Icon(icon, color: AppColors.textMuted),
+      hintStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       filled: true,
-      fillColor: AppColors.inputFill,
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: BorderSide(color: Theme.of(context).dividerColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -131,7 +136,7 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: BorderSide(color: Theme.of(context).dividerColor),
       ),
     );
   }
@@ -141,10 +146,7 @@ class _BrandGradientOutlineButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
 
-  const _BrandGradientOutlineButton({
-    required this.label,
-    required this.onPressed,
-  });
+  _BrandGradientOutlineButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -157,11 +159,14 @@ class _BrandGradientOutlineButton extends StatelessWidget {
         gradient: LinearGradient(
           colors: isEnabled
               ? AppColors.brandGradient
-              : [AppColors.border, AppColors.border],
+              : [
+                  Theme.of(context).dividerColor,
+                  Theme.of(context).dividerColor,
+                ],
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(1.2),
+        padding: EdgeInsets.all(1.2),
         child: ClipRRect(
           borderRadius: borderRadius,
           child: Material(
@@ -169,12 +174,12 @@ class _BrandGradientOutlineButton extends StatelessWidget {
             child: InkWell(
               onTap: onPressed,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 15),
+                padding: EdgeInsets.symmetric(vertical: 15),
                 child: Text(
                   label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
                   ),

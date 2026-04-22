@@ -47,7 +47,7 @@ class ProfileAudioTab extends StatelessWidget {
   final String emptyUploadPrompt;
   final String uploadActionLabel;
 
-  const ProfileAudioTab({
+  ProfileAudioTab({
     super.key,
     required this.items,
     required this.profileId,
@@ -82,15 +82,17 @@ class ProfileAudioTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final positionStream = audioHandler is AudioPlayerHandler
         ? (audioHandler as AudioPlayerHandler).positionStream
-        : const Stream<Duration>.empty();
+        : Stream<Duration>.empty();
     final spotifyPreviewItems = spotifyTracks;
 
     if (!ownerMode && items.isEmpty && spotifyPreviewItems.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(20),
         child: Text(
           'Kullanici henuz ses eklemedi.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -104,11 +106,11 @@ class ProfileAudioTab extends StatelessWidget {
         final statsState = context.watch<InteractionStatsCubit>().state;
 
         return Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20),
           child: Column(
             children: [
               if (spotifyLoading)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(bottom: 12),
                   child: LinearProgressIndicator(),
                 ),
@@ -120,19 +122,19 @@ class ProfileAudioTab extends StatelessWidget {
                     onPressed: () async {
                       await _showSpotifyCatalog(context, spotifyPreviewItems);
                     },
-                    icon: const FaIcon(
+                    icon: FaIcon(
                       FontAwesomeIcons.spotify,
                       size: 16,
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1DB954),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.spotifyGreen,
+                      foregroundColor: AppColors.white,
                     ),
-                    label: const Text('Spotify Katalogu'),
+                    label: Text('Spotify Katalogu'),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
               ],
               if (ownerMode) ...[
                 InkWell(
@@ -140,22 +142,15 @@ class ProfileAudioTab extends StatelessWidget {
                   onTap: () => _showSoundConnectTrackUploadSheet(context),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 24,
-                      horizontal: 18,
-                    ),
+                    padding: EdgeInsets.symmetric(vertical: 24, horizontal: 18),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0x1AFFFFFF),
-                          Color(0x1A8A5CFF),
-                          Color(0x1AFF7A3D),
-                        ],
+                      gradient: LinearGradient(
+                        colors: AppColors.uploadCardGradient,
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                     child: Column(
                       children: [
@@ -164,29 +159,37 @@ class ProfileAudioTab extends StatelessWidget {
                           height: 54,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppColors.inputFill,
-                            border: Border.all(color: AppColors.border),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: Border.all(
+                              color: Theme.of(context).dividerColor,
+                            ),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.add,
-                            color: AppColors.textPrimary,
+                            color: Theme.of(context).colorScheme.onSurface,
                             size: 28,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        SizedBox(height: 10),
                         Text(
                           items.isEmpty ? emptyUploadPrompt : uploadActionLabel,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
+                        SizedBox(height: 4),
+                        Text(
                           'SoundConnect \u00FCzerinden \u015Fark\u0131 y\u00FCklemek i\u00E7in dokun.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
@@ -194,12 +197,14 @@ class ProfileAudioTab extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
               ],
               if (!ownerMode && items.isEmpty)
-                const Text(
+                Text(
                   'Kullanici henuz ses eklemedi.',
-                  style: TextStyle(color: AppColors.textMuted),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ...List.generate(items.length, (index) {
                 return _buildAudioTrackItem(

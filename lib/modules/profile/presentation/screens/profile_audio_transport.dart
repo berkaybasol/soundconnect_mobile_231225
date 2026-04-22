@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/theme/app_colors.dart';
-
 class ProfileAudioTransportRow extends StatelessWidget {
   final bool isPlaying;
   final Color iconColor;
@@ -9,7 +7,7 @@ class ProfileAudioTransportRow extends StatelessWidget {
   final VoidCallback? onBack10;
   final VoidCallback? onForward10;
 
-  const ProfileAudioTransportRow({
+  ProfileAudioTransportRow({
     super.key,
     required this.isPlaying,
     required this.iconColor,
@@ -28,14 +26,14 @@ class ProfileAudioTransportRow extends StatelessWidget {
           onTap: onBack10,
           color: iconColor,
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         _ProfileTransportButton(
           icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
           onTap: onPlayPause,
           color: iconColor,
           big: true,
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         _ProfileTransportButton(
           icon: Icons.forward_10_rounded,
           onTap: onForward10,
@@ -52,7 +50,7 @@ class _ProfileTransportButton extends StatelessWidget {
   final Color color;
   final bool big;
 
-  const _ProfileTransportButton({
+  _ProfileTransportButton({
     required this.icon,
     required this.onTap,
     required this.color,
@@ -72,9 +70,9 @@ class _ProfileTransportButton extends StatelessWidget {
             width: big ? 36 : 32,
             height: big ? 36 : 32,
             decoration: BoxDecoration(
-              color: AppColors.navBlueSoft,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Icon(icon, size: big ? 20 : 16, color: color),
           ),

@@ -5,16 +5,16 @@ import '../../../../shared/theme/app_colors.dart';
 class ProfileMediaTabs extends StatelessWidget {
   final List<Widget> tabs;
 
-  const ProfileMediaTabs({super.key, required this.tabs});
+  ProfileMediaTabs({super.key, required this.tabs});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: 20),
       child: TabBar(
-        labelColor: AppColors.textPrimary,
-        unselectedLabelColor: AppColors.textMuted,
-        indicator: const _GradientTabIndicator(
+        labelColor: Theme.of(context).colorScheme.onSurface,
+        unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        indicator: _GradientTabIndicator(
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
@@ -23,7 +23,7 @@ class ProfileMediaTabs extends StatelessWidget {
           thickness: 2,
           horizontalInset: 0,
         ),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+        labelPadding: EdgeInsets.symmetric(horizontal: 6),
         tabs: tabs,
       ),
     );
@@ -35,7 +35,7 @@ class _GradientTabIndicator extends Decoration {
   final double thickness;
   final double horizontalInset;
 
-  const _GradientTabIndicator({
+  _GradientTabIndicator({
     required this.gradient,
     this.thickness = 2,
     this.horizontalInset = 0,

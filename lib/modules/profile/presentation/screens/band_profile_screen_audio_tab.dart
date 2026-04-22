@@ -12,7 +12,7 @@ class _BandAudioTab extends StatelessWidget {
   })
   onSaveSpotifyTracks;
 
-  const _BandAudioTab({
+  _BandAudioTab({
     required this.profile,
     required this.items,
     required this.spotifyTracks,
@@ -26,7 +26,7 @@ class _BandAudioTab extends StatelessWidget {
     final audioHandler = serviceLocator<AudioHandler>();
     final positionStream = audioHandler is AudioPlayerHandler
         ? audioHandler.positionStream
-        : const Stream<Duration>.empty();
+        : Stream<Duration>.empty();
 
     return StreamBuilder<Duration>(
       stream: positionStream,
@@ -36,38 +36,35 @@ class _BandAudioTab extends StatelessWidget {
         final isPlaying = audioHandler.playbackState.value.playing;
 
         return ListView(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20),
           children: [
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () => _showSpotifyCatalog(context),
-                icon: const FaIcon(
+                icon: FaIcon(
                   FontAwesomeIcons.spotify,
                   size: 16,
-                  color: Colors.white,
+                  color: AppColors.white,
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1DB954),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.spotifyGreen,
+                  foregroundColor: AppColors.white,
                 ),
-                label: const Text('Spotify Katalogu'),
+                label: Text('Spotify Katalogu'),
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             if (editable) ...[
               InkWell(
                 borderRadius: BorderRadius.circular(18),
                 onTap: () => _showTrackUpload(context),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 24,
-                    horizontal: 18,
-                  ),
+                  padding: EdgeInsets.symmetric(vertical: 24, horizontal: 18),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(18),
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [
                         Color(0x1AFFFFFF),
                         Color(0x1A8A5CFF),
@@ -76,7 +73,7 @@ class _BandAudioTab extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Column(
                     children: [
@@ -85,29 +82,33 @@ class _BandAudioTab extends StatelessWidget {
                         height: 54,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.inputFill,
-                          border: Border.all(color: AppColors.border),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.add,
-                          color: AppColors.textPrimary,
+                          color: Theme.of(context).colorScheme.onSurface,
                           size: 28,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Text(
                         items.isEmpty ? 'Henuz ses eklemediniz' : 'Ses ekle',
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
+                      SizedBox(height: 4),
+                      Text(
                         'SoundConnect uzerinden sarki yuklemek icin dokun.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                       ),
@@ -115,12 +116,14 @@ class _BandAudioTab extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
             ],
             if (items.isEmpty)
-              const Text(
+              Text(
                 'Band henuz ses eklemedi.',
-                style: TextStyle(color: AppColors.textMuted),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               )
             else
               ...items.asMap().entries.map((entry) {
@@ -149,7 +152,7 @@ class _BandAudioTab extends StatelessWidget {
                 final fallbackCommentCount = 32 + (index * 3);
 
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.only(bottom: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -158,29 +161,29 @@ class _BandAudioTab extends StatelessWidget {
                         actionLabel: isSpotify
                             ? "Tamamini Spotify'da Dinle"
                             : null,
-                        actionColor: isSpotify ? const Color(0xFF1DB954) : null,
+                        actionColor: isSpotify ? AppColors.spotifyGreen : null,
                         waveform: WaveformStub(
                           samples: WaveformStub.samplesFromSeed(
                             '$trackId:${track.title}:${track.mediaAssetId}',
                           ),
                           gradientColors: isSpotify
-                              ? const [
-                                  Color(0xFF1ED760),
-                                  Color(0xFF1DB954),
-                                  Color(0xFF18A34A),
+                              ? [
+                                  AppColors.spotifyGreenBright,
+                                  AppColors.spotifyGreen,
+                                  AppColors.spotifyGreenDark,
                                 ]
                               : AppColors.brandGradient,
                           iconColor: isSpotify
-                              ? const Color(0xFF1DB954)
+                              ? AppColors.spotifyGreen
                               : AppColors.coralAlt,
                           playIconColor: isSpotify
-                              ? const Color(0xFF1DB954)
-                              : AppColors.textMuted,
+                              ? AppColors.spotifyGreen
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                           leading: isSpotify
-                              ? const FaIcon(
+                              ? FaIcon(
                                   FontAwesomeIcons.spotify,
                                   size: 16,
-                                  color: Color(0xFF1DB954),
+                                  color: AppColors.spotifyGreen,
                                 )
                               : Image.asset(
                                   'assets/logo.png',
@@ -207,8 +210,8 @@ class _BandAudioTab extends StatelessWidget {
                         bottomControls: ProfileAudioTransportRow(
                           isPlaying: isCurrent && isPlaying,
                           iconColor: isSpotify
-                              ? const Color(0xFF1DB954)
-                              : AppColors.textMuted,
+                              ? AppColors.spotifyGreen
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                           onPlayPause: () => _toggleTrack(track, audioHandler),
                           onBack10: isCurrent
                               ? () {
@@ -236,7 +239,7 @@ class _BandAudioTab extends StatelessWidget {
                               : null,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       ProfileCountRow(
                         likeCount: fallbackLikeCount,
                         commentCount: fallbackCommentCount,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
-import '../../../../shared/theme/app_colors.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
@@ -13,7 +12,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
   final bool ownerMode;
   final Future<void> Function()? onAddPhoto;
 
-  const ProfilePhotoGalleryTab({
+  ProfilePhotoGalleryTab({
     super.key,
     required this.items,
     required this.ownerMode,
@@ -65,23 +64,23 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
     return null;
   }
 
-  Widget _buildUploadCard() {
+  Widget _buildUploadCard(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onAddPhoto,
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 18),
+          padding: EdgeInsets.symmetric(vertical: 24, horizontal: 18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [Color(0x1AFFFFFF), Color(0x1A8A5CFF), Color(0x1AFF7A3D)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Column(
             children: [
@@ -90,28 +89,31 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
                 height: 54,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.inputFill,
-                  border: Border.all(color: AppColors.border),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.add_photo_alternate_outlined,
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   size: 28,
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(
                 items.isEmpty ? 'Henuz fotograf eklemediniz' : 'Fotograf ekle',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
-              const Text(
+              SizedBox(height: 4),
+              Text(
                 'SoundConnect uzerinden galeri fotografi yuklemek icin dokun.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -129,21 +131,23 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (ownerMode) _buildUploadCard(),
+        if (ownerMode) _buildUploadCard(context),
         if (visibleItems.isEmpty)
           Padding(
             padding: EdgeInsets.fromLTRB(20, ownerMode ? 0 : 20, 20, 20),
-            child: const Text(
+            child: Text(
               'Henuz fotograf eklenmedi.',
-              style: TextStyle(color: AppColors.textMuted),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           )
         else
           GridView.builder(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
             shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            physics: NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
               crossAxisSpacing: 6,
               mainAxisSpacing: 6,
@@ -158,9 +162,11 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
                 onTap: () => _openImage(context, item),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.inputFill,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Stack(
@@ -169,10 +175,12 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
                       Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(
+                        errorBuilder: (_, __, ___) => Center(
                           child: Icon(
                             Icons.broken_image_outlined,
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             size: 34,
                           ),
                         ),

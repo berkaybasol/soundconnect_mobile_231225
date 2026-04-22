@@ -7,7 +7,7 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
   final VoidCallback onOpenOnSpotify;
   final VoidCallback onRemove;
 
-  const _SpotifyCatalogTrackTile({
+  _SpotifyCatalogTrackTile({
     required this.track,
     required this.ownerMode,
     required this.onConfirmDismiss,
@@ -28,20 +28,20 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
           : DismissDirection.none,
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFFB3261E),
+          color: Color(0xFFB3261E),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
+        child: Icon(Icons.delete_outline, color: AppColors.white),
       ),
       confirmDismiss: ownerMode ? (_) => onConfirmDismiss() : null,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.inputFill,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -49,7 +49,7 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.navBlueSoft,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(12),
                 image: albumArtUrl != null
                     ? DecorationImage(
@@ -59,10 +59,13 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
                     : null,
               ),
               child: albumArtUrl == null
-                  ? const Icon(Icons.music_note, color: AppColors.textMuted)
+                  ? Icon(
+                      Icons.music_note,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    )
                   : null,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,39 +74,39 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
                     track.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     track.artistNames.join(', '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             TextButton(
               onPressed: onOpenOnSpotify,
-              child: const Text(
+              child: Text(
                 "Spotify'da Dinle",
-                style: TextStyle(color: Color(0xFF1DB954)),
+                style: TextStyle(color: AppColors.spotifyGreen),
               ),
             ),
             if (ownerMode)
               IconButton(
                 tooltip: 'Katalogdan kaldir',
                 onPressed: onRemove,
-                icon: const Icon(
+                icon: Icon(
                   Icons.delete_outline,
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
           ],

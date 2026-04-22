@@ -13,6 +13,10 @@ class GradientOutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fillColor = theme.colorScheme.surfaceContainerHighest;
+    final enabledTextColor = theme.colorScheme.onSurface;
+    final disabledTextColor = theme.colorScheme.onSurfaceVariant;
     final borderRadius = BorderRadius.circular(18);
     final isEnabled = onPressed != null;
 
@@ -22,21 +26,23 @@ class GradientOutlineButton extends StatelessWidget {
         boxShadow: isEnabled
             ? [
                 BoxShadow(
-                  color: const Color(0xFF9B5DE5).withValues(alpha: 0.16),
+                  color: AppColors.neonPurpleGradient[1].withValues(
+                    alpha: 0.16,
+                  ),
                   blurRadius: 12,
                   spreadRadius: 1,
                 ),
               ]
             : null,
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [
-            Color(0xFF7B2FF7),
-            Color(0xFF9B5DE5),
-            Color(0xFFC65BF0),
-            Color(0xFFF26CA7),
-            Color(0xFFFF7AA2),
-            Color(0xFFB66DFF),
-            Color(0xFF7B2FF7),
+            AppColors.neonPurpleGradient[0],
+            AppColors.neonPurpleGradient[1],
+            AppColors.neonPurpleGradient[2],
+            AppColors.neonPurpleGradient[3],
+            AppColors.neonPurpleGradient[4],
+            AppColors.neonPurpleGradient[5],
+            AppColors.neonPurpleGradient[0],
           ],
         ),
       ),
@@ -45,13 +51,13 @@ class GradientOutlineButton extends StatelessWidget {
         child: ClipRRect(
           borderRadius: borderRadius,
           child: Container(
-            color: AppColors.inputFill,
+            color: fillColor,
             child: TextButton(
               onPressed: onPressed,
               style: TextButton.styleFrom(
                 foregroundColor: isEnabled
-                    ? AppColors.textPrimary
-                    : AppColors.textMuted,
+                    ? enabledTextColor
+                    : disabledTextColor,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 28,
                   vertical: 14,

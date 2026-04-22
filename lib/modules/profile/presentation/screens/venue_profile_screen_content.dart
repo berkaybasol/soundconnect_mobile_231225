@@ -27,7 +27,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final List<WeeklyCalendarEvent> weeklyEvents;
   final String galleryOwnerId;
 
-  const _MusicianPublicProfileContent({
+  _MusicianPublicProfileContent({
     required this.profile,
     required this.media,
     required this.followersCount,
@@ -57,8 +57,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
 
   List<VenueActiveMusician> _resolveVenues() {
     final List<VenueActiveMusician> items = <VenueActiveMusician>[
-      ...(activeVenues ?? const <VenueActiveMusician>[]),
-      ...(activeBands ?? const <VenueActiveBand>[]).map(
+      ...(activeVenues ?? <VenueActiveMusician>[]),
+      ...(activeBands ?? <VenueActiveBand>[]).map(
         (band) => VenueActiveMusician(
           musicianProfileId: '',
           bandId: band.bandId,
@@ -79,7 +79,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
           )
           .toList();
     }
-    return const [];
+    return [];
   }
 
   ProfileMedia _resolveMedia(ProfileMedia? media) {
@@ -89,7 +89,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
             media.audios.isNotEmpty)) {
       return media;
     }
-    return const ProfileMedia(featuredVideo: null, videos: [], audios: []);
+    return ProfileMedia(featuredVideo: null, videos: [], audios: []);
   }
 
   @override
@@ -104,12 +104,12 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const GradientText(
+          title: GradientText(
             text: 'SoundConnect',
             gradient: LinearGradient(colors: AppColors.brandGradient),
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
           ),
-          leading: const BackButton(),
+          leading: BackButton(),
           centerTitle: true,
           actions: ownerMode
               ? [
@@ -172,38 +172,38 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 ),
                 afterBio: ownerMode
                     ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        padding: EdgeInsets.symmetric(horizontal: 28),
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(18),
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               colors: AppColors.brandGradient,
                             ),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(0.7),
+                            padding: EdgeInsets.all(0.7),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(18),
                               child: Container(
-                                color: AppColors.inputFill,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                                 child: TextButton.icon(
                                   onPressed: () =>
                                       _openVenueManagementPanel(context),
                                   style: TextButton.styleFrom(
                                     foregroundColor: AppColors.white,
                                     backgroundColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
+                                    padding: EdgeInsets.symmetric(vertical: 14),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(18),
                                     ),
                                   ),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.dashboard_customize_outlined,
                                     color: AppColors.white,
                                   ),
-                                  label: const Text(
+                                  label: Text(
                                     'Yonetim Paneli',
                                     style: TextStyle(color: AppColors.white),
                                   ),
@@ -215,10 +215,10 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                       )
                     : null,
               ),
-              const SizedBox(height: 18),
-              const ProfileSectionHeader(title: 'Haftalik Takvim'),
+              SizedBox(height: 18),
+              ProfileSectionHeader(title: 'Haftalik Takvim'),
               WeeklyEventCarousel(items: weeklyEvents),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               ProfileSectionHeader(
                 title: 'Aktif Sanatcilar',
                 actionLabel: venueEditable ? 'Duzenle' : 'Tumu',
@@ -229,8 +229,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 editable: venueEditable,
                 onAddTap: onEditVenues,
               ),
-              const SizedBox(height: 12),
-              const ProfileMediaTabs(
+              SizedBox(height: 12),
+              ProfileMediaTabs(
                 tabs: [
                   Tab(
                     child: Row(
@@ -258,18 +258,18 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 media: resolvedMedia,
                 profileId: profile.id,
                 galleryOwnerId: galleryOwnerId,
-                spotifyTracks: const [],
+                spotifyTracks: [],
                 spotifyLoading: spotifyLoading,
                 ownerMode: ownerMode,
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               ProfileSocialButtonRow(
                 pillWidth: 74,
                 profile: profile,
                 editable: socialEditable,
                 onAddLink: onAddSocialLink,
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
             ],
           ),
         ),

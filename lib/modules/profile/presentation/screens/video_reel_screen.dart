@@ -91,7 +91,7 @@ class _VideoReelScreenState extends State<VideoReelScreen>
       playerLayer = Center(
         child: Text(
           _playerError ?? 'Video yukleniyor...',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppColors.white.withValues(alpha: 0.70)),
           textAlign: TextAlign.center,
         ),
       );
@@ -124,7 +124,7 @@ class _VideoReelScreenState extends State<VideoReelScreen>
         _stopPlayback();
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.pureBlack,
         body: Stack(
           children: [
             Positioned.fill(
@@ -146,7 +146,7 @@ class _VideoReelScreenState extends State<VideoReelScreen>
                     _stopPlayback();
                     Navigator.of(context).pop();
                   },
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: const Icon(Icons.arrow_back, color: AppColors.white),
                 ),
               ),
             ),
@@ -189,7 +189,7 @@ class _VideoReelScreenState extends State<VideoReelScreen>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -232,7 +232,7 @@ class _ReelActionButton extends StatelessWidget {
             ),
             child: Icon(
               icon,
-              color: active ? AppColors.coralAlt : Colors.white,
+              color: active ? AppColors.coralAlt : AppColors.white,
             ),
           ),
         ),
@@ -240,7 +240,7 @@ class _ReelActionButton extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.white,
             fontWeight: FontWeight.w700,
             fontSize: 12,
           ),

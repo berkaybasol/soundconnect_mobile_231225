@@ -6,7 +6,7 @@ class _MetaChip extends StatelessWidget {
   final String? imageUrl;
   final VoidCallback? onTap;
 
-  const _MetaChip({
+  _MetaChip({
     required this.icon,
     required this.text,
     this.imageUrl,
@@ -25,14 +25,14 @@ class _MetaChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: isInteractive
                   ? AppColors.white.withValues(alpha: 0.14)
-                  : AppColors.border,
+                  : Theme.of(context).dividerColor,
             ),
           ),
           child: Row(
@@ -42,14 +42,14 @@ class _MetaChip extends StatelessWidget {
                 icon: icon,
                 imageUrl: hasImage ? resolvedImage : null,
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
+                constraints: BoxConstraints(maxWidth: 220),
                 child: isInteractive
                     ? ShaderMask(
                         blendMode: BlendMode.srcIn,
                         shaderCallback: (bounds) {
-                          return const LinearGradient(
+                          return LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: AppColors.brandGradient,
@@ -58,8 +58,8 @@ class _MetaChip extends StatelessWidget {
                         child: Text(
                           text,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -68,27 +68,27 @@ class _MetaChip extends StatelessWidget {
                     : Text(
                         text,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
               ),
               if (isInteractive) ...[
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 ShaderMask(
                   blendMode: BlendMode.srcIn,
                   shaderCallback: (bounds) {
-                    return const LinearGradient(
+                    return LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: AppColors.brandGradient,
                     ).createShader(bounds);
                   },
-                  child: const Icon(
+                  child: Icon(
                     Icons.chevron_right_rounded,
-                    color: Colors.white,
+                    color: AppColors.white,
                     size: 14,
                   ),
                 ),
@@ -105,7 +105,7 @@ class _MetaLeadingVisual extends StatelessWidget {
   final IconData icon;
   final String? imageUrl;
 
-  const _MetaLeadingVisual({required this.icon, required this.imageUrl});
+  _MetaLeadingVisual({required this.icon, required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +115,7 @@ class _MetaLeadingVisual extends StatelessWidget {
         height: 20,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         clipBehavior: Clip.antiAlias,
         child: Image.network(
@@ -137,20 +137,20 @@ class _GradientIcon extends StatelessWidget {
   final IconData icon;
   final double size;
 
-  const _GradientIcon({required this.icon, required this.size});
+  _GradientIcon({required this.icon, required this.size});
 
   @override
   Widget build(BuildContext context) {
     return ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) {
-        return const LinearGradient(
+        return LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: AppColors.brandGradient,
         ).createShader(bounds);
       },
-      child: Icon(icon, size: size, color: Colors.white),
+      child: Icon(icon, size: size, color: AppColors.white),
     );
   }
 }

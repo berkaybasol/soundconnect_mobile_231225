@@ -10,22 +10,25 @@ Future<void> _openManagementPromotionLink(String? rawUrl) async {
 
 Widget _buildManagementShiftedBannerImage(Widget child) {
   return ClipRect(
-    child: Transform.translate(offset: const Offset(0, 4), child: child),
+    child: Transform.translate(offset: Offset(0, 4), child: child),
   );
 }
 
-Widget _buildManagementAdPlaceholderCard() {
+Widget _buildManagementAdPlaceholderCard(BuildContext context) {
   return _GradientOutline(
     radius: 22,
     strokeWidth: 1,
     child: Ink(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.inputFill, AppColors.navBlueSoft],
+          colors: [
+            Theme.of(context).colorScheme.surfaceContainerHighest,
+            Theme.of(context).colorScheme.surfaceContainer,
+          ],
         ),
       ),
       child: Column(
@@ -38,22 +41,20 @@ Widget _buildManagementAdPlaceholderCard() {
                 height: 38,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: AppColors.brandGradient,
-                  ),
+                  gradient: LinearGradient(colors: AppColors.brandGradient),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.campaign_outlined,
                   color: AppColors.white,
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
-              const Expanded(
+              SizedBox(width: 12),
+              Expanded(
                 child: Text(
                   'Reklam Alani',
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                     fontSize: 16,
                   ),
@@ -61,19 +62,21 @@ Widget _buildManagementAdPlaceholderCard() {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           AspectRatio(
             aspectRatio: 1240 / 400,
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
                     AppColors.navBlueDeep,
-                    AppColors.navBlueSoft.withValues(alpha: 0.94),
+                    Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer.withValues(alpha: 0.94),
                   ],
                 ),
               ),
@@ -85,7 +88,7 @@ Widget _buildManagementAdPlaceholderCard() {
                     fit: BoxFit.cover,
                     width: double.infinity,
                     height: double.infinity,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    errorBuilder: (_, __, ___) => SizedBox.shrink(),
                   ),
                 ),
               ),
@@ -97,7 +100,7 @@ Widget _buildManagementAdPlaceholderCard() {
   );
 }
 
-Widget _buildManagementPromotionFallback() {
+Widget _buildManagementPromotionFallback(BuildContext context) {
   return _buildManagementShiftedBannerImage(
     Image.asset(
       'assets/buraya bakarlar v3.png',
@@ -111,11 +114,13 @@ Widget _buildManagementPromotionFallback() {
             end: Alignment.bottomRight,
             colors: [
               AppColors.navBlueDeep,
-              AppColors.navBlueSoft.withValues(alpha: 0.94),
+              Theme.of(
+                context,
+              ).colorScheme.surfaceContainer.withValues(alpha: 0.94),
             ],
           ),
         ),
-        child: const Center(
+        child: Center(
           child: Icon(
             Icons.campaign_outlined,
             color: AppColors.white,
@@ -132,7 +137,7 @@ Widget _buildManagementPromotionCard(BuildContext context) {
   return FutureBuilder<Result<List<PromotionItem>>>(
     future: repository.getDisplayableByPlacement('VENUE_MANAGEMENT_PANEL'),
     builder: (context, snapshot) {
-      final items = snapshot.data?.data ?? const <PromotionItem>[];
+      final items = snapshot.data?.data ?? <PromotionItem>[];
       final item = items.isNotEmpty ? items.first : null;
       final imageUrl = item?.mediaUrl?.trim();
       final hasImage =
@@ -140,7 +145,7 @@ Widget _buildManagementPromotionCard(BuildContext context) {
           imageUrl.isNotEmpty &&
           (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'));
 
-      if (item == null) return _buildManagementAdPlaceholderCard();
+      if (item == null) return _buildManagementAdPlaceholderCard(context);
 
       return InkWell(
         borderRadius: BorderRadius.circular(22),
@@ -151,10 +156,13 @@ Widget _buildManagementPromotionCard(BuildContext context) {
           child: Ink(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                colors: [
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
+                  Theme.of(context).colorScheme.surfaceContainer,
+                ],
               ),
             ),
             child: Column(
@@ -163,14 +171,14 @@ Widget _buildManagementPromotionCard(BuildContext context) {
                 AspectRatio(
                   aspectRatio: 1240 / 400,
                   child: Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       borderRadius: BorderRadius.vertical(
                         top: Radius.circular(22),
                       ),
                       color: AppColors.navBlueDeep,
                     ),
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
+                      borderRadius: BorderRadius.vertical(
                         top: Radius.circular(22),
                       ),
                       child: hasImage
@@ -181,52 +189,58 @@ Widget _buildManagementPromotionCard(BuildContext context) {
                                 width: double.infinity,
                                 height: double.infinity,
                                 errorBuilder: (_, __, ___) =>
-                                    _buildManagementPromotionFallback(),
+                                    _buildManagementPromotionFallback(context),
                               ),
                             )
-                          : _buildManagementPromotionFallback(),
+                          : _buildManagementPromotionFallback(context),
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  padding: EdgeInsets.fromLTRB(16, 14, 16, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.navBlueDeep,
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Sponsorlu Icerik',
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Text(
                         item.title,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
                         ),
                       ),
                       if (item.description?.trim().isNotEmpty ?? false) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                         Text(
                           item.description!.trim(),
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             height: 1.45,
                           ),
                         ),

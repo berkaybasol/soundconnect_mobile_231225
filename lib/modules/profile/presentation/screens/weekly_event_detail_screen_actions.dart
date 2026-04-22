@@ -73,7 +73,7 @@ extension _WeeklyEventDetailScreenStateActions
   Future<void> _loadReplies(String commentId) async {
     try {
       final result = await _engagementRepository.listReplies(commentId);
-      final items = result.data ?? const <CommentItem>[];
+      final items = result.data ?? <CommentItem>[];
       if (!mounted) return;
       _updateState(() {
         _repliesByCommentId[commentId] = items;
@@ -81,7 +81,7 @@ extension _WeeklyEventDetailScreenStateActions
     } catch (_) {
       if (!mounted) return;
       _updateState(() {
-        _repliesByCommentId[commentId] = const <CommentItem>[];
+        _repliesByCommentId[commentId] = <CommentItem>[];
       });
     }
   }
@@ -115,7 +115,7 @@ extension _WeeklyEventDetailScreenStateActions
         settings: RouteSettings(
           arguments: PublicProfileArgs(profileId: profileId),
         ),
-        builder: (_) => const musician_public.MusicianPublicProfileScreen(),
+        builder: (_) => musician_public.MusicianPublicProfileScreen(),
       ),
     );
   }
@@ -128,7 +128,7 @@ extension _WeeklyEventDetailScreenStateActions
         settings: RouteSettings(
           arguments: VenuePublicProfileArgs(venueId: venueId),
         ),
-        builder: (_) => const venue_public.VenuePublicProfileScreen(),
+        builder: (_) => venue_public.VenuePublicProfileScreen(),
       ),
     );
   }
@@ -149,14 +149,14 @@ extension _WeeklyEventDetailScreenStateActions
         ShareParams(
           text: shareText,
           subject: widget.event.title,
-          sharePositionOrigin: const Rect.fromLTWH(0, 0, 1, 1),
+          sharePositionOrigin: Rect.fromLTWH(0, 0, 1, 1),
         ),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Paylasim acilamadi.')));
+      ).showSnackBar(SnackBar(content: Text('Paylasim acilamadi.')));
     } finally {
       if (mounted) {
         _updateState(() {
@@ -175,7 +175,7 @@ extension _WeeklyEventDetailScreenStateActions
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.navBlue,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (sheetContext) {
@@ -194,27 +194,37 @@ extension _WeeklyEventDetailScreenStateActions
                   autofocus: true,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => Navigator.of(sheetContext).pop(),
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Yanita yaz...',
-                    hintStyle: const TextStyle(color: AppColors.textMuted),
+                    hintStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     filled: true,
-                    fillColor: AppColors.inputFill,
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).dividerColor,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).dividerColor,
+                      ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () => Navigator.of(sheetContext).pop(),
-                child: const Text('Ekle'),
+                child: Text('Ekle'),
               ),
             ],
           ),
@@ -241,10 +251,10 @@ extension _WeeklyEventDetailScreenStateActions
       context: context,
       barrierLabel: 'Poster',
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.9),
+      barrierColor: AppColors.pureBlack.withValues(alpha: 0.9),
       pageBuilder: (context, _, __) {
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: AppColors.pureBlack,
           body: Stack(
             children: [
               Positioned.fill(
@@ -258,15 +268,15 @@ extension _WeeklyEventDetailScreenStateActions
                                   imagePath,
                                   fit: BoxFit.contain,
                                   errorBuilder: (_, __, ___) =>
-                                      _imageFallback(),
+                                      _imageFallback(context),
                                 )
                               : Image.asset(
                                   imagePath,
                                   fit: BoxFit.contain,
                                   errorBuilder: (_, __, ___) =>
-                                      _imageFallback(),
+                                      _imageFallback(context),
                                 )
-                        : _imageFallback(),
+                        : _imageFallback(context),
                   ),
                 ),
               ),
@@ -275,7 +285,7 @@ extension _WeeklyEventDetailScreenStateActions
                 right: 12,
                 child: IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  icon: Icon(Icons.close_rounded, color: AppColors.white),
                 ),
               ),
             ],

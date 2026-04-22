@@ -21,6 +21,7 @@ class DmConversationsCubit extends Cubit<DmConversationsState> {
     DmRealtimeClient? realtimeClient,
   }) : _realtimeClient = realtimeClient ?? DmRealtimeClient(),
        super(const DmConversationsState.idle()) {
+    _realtimeClient.retain();
     _messageSubscription = _realtimeClient.messageStream.listen(
       _onRealtimeMessage,
     );
@@ -136,6 +137,7 @@ class DmConversationsCubit extends Cubit<DmConversationsState> {
   @override
   Future<void> close() async {
     await _messageSubscription?.cancel();
+    await _realtimeClient.release();
     return super.close();
   }
 }

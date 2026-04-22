@@ -75,7 +75,7 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -88,12 +88,12 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
             },
             title: track.title,
             actionLabel: isSpotify ? "Tamamini Spotify'da Dinle" : null,
-            actionColor: isSpotify ? const Color(0xFF1DB954) : null,
+            actionColor: isSpotify ? AppColors.spotifyGreen : null,
             bottomControls: ProfileAudioTransportRow(
               isPlaying: isCurrent && isPlaying,
               iconColor: isSpotify
-                  ? const Color(0xFF1DB954)
-                  : AppColors.textMuted,
+                  ? AppColors.spotifyGreen
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               onPlayPause: () => _toggleTrack(track),
               onBack10: isCurrent
                   ? () {
@@ -121,23 +121,23 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
                 '${track.id}:${track.title}:${track.mediaAssetId}',
               ),
               gradientColors: isSpotify
-                  ? const [
-                      Color(0xFF1ED760),
-                      Color(0xFF1DB954),
-                      Color(0xFF18A34A),
+                  ? [
+                      AppColors.spotifyGreenBright,
+                      AppColors.spotifyGreen,
+                      AppColors.spotifyGreenDark,
                     ]
                   : AppColors.brandGradient,
               iconColor: isSpotify
-                  ? const Color(0xFF1DB954)
+                  ? AppColors.spotifyGreen
                   : AppColors.coralAlt,
               playIconColor: isSpotify
-                  ? const Color(0xFF1DB954)
-                  : AppColors.textMuted,
+                  ? AppColors.spotifyGreen
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               leading: isSpotify
-                  ? const FaIcon(
+                  ? FaIcon(
                       FontAwesomeIcons.spotify,
                       size: 16,
-                      color: Color(0xFF1DB954),
+                      color: AppColors.spotifyGreen,
                     )
                   : Image.asset(
                       'assets/logo.png',
@@ -160,7 +160,7 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
                   : null,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           ProfileCountRow(
             likeCount: likeCount,
             commentCount: commentCount,

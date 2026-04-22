@@ -12,7 +12,7 @@ import '../cubit/table_group_create_state.dart';
 enum _SeatGender { me, female, male, other }
 
 class TableGroupCreateScreen extends StatefulWidget {
-  const TableGroupCreateScreen({super.key});
+  TableGroupCreateScreen({super.key});
 
   @override
   State<TableGroupCreateScreen> createState() => _TableGroupCreateScreenState();
@@ -21,18 +21,16 @@ class TableGroupCreateScreen extends StatefulWidget {
 class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _venueController = TextEditingController();
-  final TextEditingController _noteController = TextEditingController();
   final FocusNode _venueFocusNode = FocusNode();
   final FocusNode _cityFocusNode = FocusNode();
   final FocusNode _districtFocusNode = FocusNode();
   final FocusNode _neighborhoodFocusNode = FocusNode();
-  final FocusNode _noteFocusNode = FocusNode();
 
   int _femaleCount = 0;
   int _maleCount = 0;
   int _otherCount = 0;
-  RangeValues _ageRange = const RangeValues(22, 35);
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 23, minute: 0);
+  RangeValues _ageRange = RangeValues(22, 35);
+  TimeOfDay _selectedTime = TimeOfDay(hour: 23, minute: 0);
   String? _selectedCityId;
   String? _selectedDistrictId;
   String? _selectedNeighborhoodId;
@@ -45,7 +43,6 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
     _cityFocusNode.addListener(_onVenueChanged);
     _districtFocusNode.addListener(_onVenueChanged);
     _neighborhoodFocusNode.addListener(_onVenueChanged);
-    _noteFocusNode.addListener(_onVenueChanged);
   }
 
   void _onVenueChanged() {
@@ -65,9 +62,6 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
     _districtFocusNode.dispose();
     _neighborhoodFocusNode.removeListener(_onVenueChanged);
     _neighborhoodFocusNode.dispose();
-    _noteFocusNode.removeListener(_onVenueChanged);
-    _noteFocusNode.dispose();
-    _noteController.dispose();
     super.dispose();
   }
 
@@ -143,23 +137,31 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: const Color(0xFF9A58F4),
-              surface: AppColors.navBlueSoft,
-              onSurface: AppColors.textPrimary,
+              primary: AppColors.brandGradient.last,
+              surface: Theme.of(context).colorScheme.surfaceContainer,
+              onSurface: Theme.of(context).colorScheme.onSurface,
             ),
-            dialogTheme: const DialogThemeData(
-              backgroundColor: AppColors.navBlueSoft,
+            dialogTheme: DialogThemeData(
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             ),
             timePickerTheme: TimePickerThemeData(
-              backgroundColor: AppColors.navBlueSoft,
-              dialBackgroundColor: AppColors.inputFill,
-              hourMinuteColor: AppColors.inputFill,
-              hourMinuteTextColor: AppColors.textPrimary,
-              dayPeriodColor: AppColors.inputFill,
-              dayPeriodTextColor: AppColors.textPrimary,
-              entryModeIconColor: AppColors.textMuted,
-              dialHandColor: const Color(0xFF9A58F4),
-              dialTextColor: AppColors.textPrimary,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+              dialBackgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              hourMinuteColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              hourMinuteTextColor: Theme.of(context).colorScheme.onSurface,
+              dayPeriodColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              dayPeriodTextColor: Theme.of(context).colorScheme.onSurface,
+              entryModeIconColor: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant,
+              dialHandColor: AppColors.brandGradient.last,
+              dialTextColor: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           child: child!,
@@ -177,21 +179,19 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_guestCount < 1) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('En az 1 katilimci secmelisin')),
+        SnackBar(content: Text('En az 1 katilimci secmelisin')),
       );
       return;
     }
     if (_selectedCityId == null || _selectedCityId!.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('Sehir secimi zorunlu')));
+      messenger.showSnackBar(SnackBar(content: Text('Sehir secimi zorunlu')));
       return;
     }
 
     final expiresAt = _mergeDateAndTime();
     if (!expiresAt.isAfter(DateTime.now())) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Masanin bitis zamani simdiden ileri olmali'),
-        ),
+        SnackBar(content: Text('Masanin bitis zamani simdiden ileri olmali')),
       );
       return;
     }
@@ -214,7 +214,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
     );
     if (!mounted) return;
     if (!ok) return;
-    messenger.showSnackBar(const SnackBar(content: Text('Masa olusturuldu')));
+    messenger.showSnackBar(SnackBar(content: Text('Masa olusturuldu')));
     navigator.pop(true);
   }
 
@@ -235,9 +235,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
           final loading = state.status == TableGroupCreateStatus.submitting;
 
           return Scaffold(
-            appBar: AppBar(title: const Text('Masa Olustur')),
+            appBar: AppBar(title: Text('Masa Olustur')),
             body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -254,7 +254,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                             seatGenders: _seatGenders(),
                             totalSeats: _totalSeats,
                           ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -266,7 +266,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                                 onRemove: () =>
                                     _changeGenderCount(_SeatGender.female, -1),
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                               _GenderSeatMiniControl(
                                 icon: Icons.male_rounded,
                                 count: _maleCount,
@@ -275,7 +275,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                                 onRemove: () =>
                                     _changeGenderCount(_SeatGender.male, -1),
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                               _GenderSeatMiniControl(
                                 icon: Icons.all_inclusive_rounded,
                                 count: _otherCount,
@@ -286,29 +286,35 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10),
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.schedule_rounded,
                                 size: 15,
-                                color: AppColors.textMuted,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
-                              const SizedBox(width: 6),
+                              SizedBox(width: 6),
                               Text(
                                 _formatCardTime(),
-                                style: const TextStyle(
-                                  color: AppColors.textMuted,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                   fontSize: 13,
                                 ),
                               ),
-                              const SizedBox(width: 14),
-                              const Icon(
+                              SizedBox(width: 14),
+                              Icon(
                                 Icons.location_on_outlined,
                                 size: 15,
-                                color: AppColors.textMuted,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
-                              const SizedBox(width: 6),
+                              SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   _venueController.text.trim().isEmpty
@@ -316,27 +322,35 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                                       : _venueController.text.trim(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: AppColors.textMuted,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                     fontSize: 13,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(
+                                padding: EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.08),
+                                  color: AppColors.white.withValues(
+                                    alpha: 0.08,
+                                  ),
                                   borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(color: AppColors.border),
+                                  border: Border.all(
+                                    color: Theme.of(context).dividerColor,
+                                  ),
                                 ),
                                 child: Text(
                                   _genderDistributionText,
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -344,9 +358,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          const _FieldCaption('Mekanin adi'),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 12),
+                          _FieldCaption('Mekanin adi'),
+                          SizedBox(height: 6),
                           _GradientFocusFrame(
                             isFocused: _venueFocusNode.hasFocus,
                             child: TextFormField(
@@ -355,7 +369,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Ornek: Jolly Joker',
                                 filled: true,
-                                fillColor: AppColors.inputFill,
+                                fillColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(15),
                                   borderSide: BorderSide.none,
@@ -373,13 +389,16 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                                 if (value == null || value.trim().isEmpty) {
                                   return 'Mekan adi zorunlu';
                                 }
+                                if (value.trim().length > 64) {
+                                  return 'Mekan adi en fazla 64 karakter olabilir';
+                                }
                                 return null;
                               },
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          const _FieldCaption('Sehir'),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 12),
+                          _FieldCaption('Sehir'),
+                          SizedBox(height: 6),
                           _GradientFocusFrame(
                             isFocused: _cityFocusNode.hasFocus,
                             child: DropdownButtonFormField<String>(
@@ -388,7 +407,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Sehir sec',
                                 filled: true,
-                                fillColor: AppColors.inputFill,
+                                fillColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(15),
                                   borderSide: BorderSide.none,
@@ -402,10 +423,12 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                                   borderSide: BorderSide.none,
                                 ),
                               ),
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
-                              dropdownColor: AppColors.navBlueSoft,
+                              dropdownColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainer,
                               items: state.cities
                                   .map(
                                     (city) => DropdownMenuItem<String>(
@@ -432,9 +455,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                                   : null,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          const _FieldCaption('Ilce'),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 12),
+                          _FieldCaption('Ilce'),
+                          SizedBox(height: 6),
                           _GradientFocusFrame(
                             isFocused: _districtFocusNode.hasFocus,
                             child: DropdownButtonFormField<String>(
@@ -443,7 +466,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Ilce sec',
                                 filled: true,
-                                fillColor: AppColors.inputFill,
+                                fillColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(15),
                                   borderSide: BorderSide.none,
@@ -457,10 +482,12 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                                   borderSide: BorderSide.none,
                                 ),
                               ),
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
-                              dropdownColor: AppColors.navBlueSoft,
+                              dropdownColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainer,
                               items: state.districts
                                   .map(
                                     (district) => DropdownMenuItem<String>(
@@ -482,9 +509,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               },
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          const _FieldCaption('Mahalle (opsiyonel)'),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 12),
+                          _FieldCaption('Mahalle (opsiyonel)'),
+                          SizedBox(height: 6),
                           _GradientFocusFrame(
                             isFocused: _neighborhoodFocusNode.hasFocus,
                             child: DropdownButtonFormField<String>(
@@ -493,7 +520,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Mahalle sec',
                                 filled: true,
-                                fillColor: AppColors.inputFill,
+                                fillColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(15),
                                   borderSide: BorderSide.none,
@@ -507,10 +536,12 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                                   borderSide: BorderSide.none,
                                 ),
                               ),
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
-                              dropdownColor: AppColors.navBlueSoft,
+                              dropdownColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainer,
                               items: state.neighborhoods
                                   .map(
                                     (neighborhood) => DropdownMenuItem<String>(
@@ -524,11 +555,11 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16),
                           Text(
                             'Yas araligi: ${_ageRange.start.round()} - ${_ageRange.end.round()}',
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           _PremiumAgeRangeSlider(
@@ -539,49 +570,20 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                             onChanged: (value) =>
                                 setState(() => _ageRange = value),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           OutlinedButton.icon(
                             onPressed: _pickTime,
-                            icon: const Icon(Icons.schedule),
+                            icon: Icon(Icons.schedule),
                             label: Text(
                               'Aktif kalacagi saat: '
                               '${_selectedTime.hour.toString().padLeft(2, '0')}:'
                               '${_selectedTime.minute.toString().padLeft(2, '0')}',
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          const _FieldCaption('Aciklama (opsiyonel)'),
-                          const SizedBox(height: 6),
-                          _GradientFocusFrame(
-                            isFocused: _noteFocusNode.hasFocus,
-                            child: TextFormField(
-                              controller: _noteController,
-                              focusNode: _noteFocusNode,
-                              minLines: 2,
-                              maxLines: 4,
-                              decoration: InputDecoration(
-                                hintText: 'Masa ile ilgili kisa not',
-                                filled: true,
-                                fillColor: AppColors.inputFill,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     InkWell(
                       borderRadius: BorderRadius.circular(18),
                       onTap: loading ? null : () => _submit(context),
@@ -590,19 +592,23 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                           gradient: LinearGradient(
                             colors: loading
                                 ? [
-                                    AppColors.border.withValues(alpha: 0.7),
-                                    AppColors.border.withValues(alpha: 0.7),
+                                    Theme.of(
+                                      context,
+                                    ).dividerColor.withValues(alpha: 0.7),
+                                    Theme.of(
+                                      context,
+                                    ).dividerColor.withValues(alpha: 0.7),
                                   ]
                                 : AppColors.brandGradient,
                           ),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(1),
+                          padding: EdgeInsets.all(1),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: EdgeInsets.symmetric(vertical: 16),
                             decoration: BoxDecoration(
-                              color: AppColors.navBlueDeep,
+                              color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(17),
                             ),
                             alignment: Alignment.center,
@@ -610,8 +616,10 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
                               loading ? 'Olusturuluyor...' : 'Masa Olustur',
                               style: TextStyle(
                                 color: loading
-                                    ? AppColors.textMuted
-                                    : AppColors.textPrimary,
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant
+                                    : Theme.of(context).colorScheme.onSurface,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -634,10 +642,7 @@ class _TableSeatPreview extends StatelessWidget {
   final List<_SeatGender> seatGenders;
   final int totalSeats;
 
-  const _TableSeatPreview({
-    required this.seatGenders,
-    required this.totalSeats,
-  });
+  _TableSeatPreview({required this.seatGenders, required this.totalSeats});
 
   List<Color> _seatGradient() {
     return AppColors.brandGradient;
@@ -680,10 +685,10 @@ class _TableSeatPreview extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: const [Color(0xFFFCFBFF), Color(0xFFF2EEF9)],
+                    colors: [Color(0xFFFCFBFF), Color(0xFFF2EEF9)],
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.45),
+                    color: AppColors.white.withValues(alpha: 0.45),
                     width: 1.0,
                   ),
                 ),
@@ -700,7 +705,7 @@ class _TableSeatPreview extends StatelessWidget {
                           height: 14,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(999),
-                            color: Colors.black.withValues(alpha: 0.10),
+                            color: AppColors.pureBlack.withValues(alpha: 0.10),
                           ),
                         ),
                       ),
@@ -711,9 +716,9 @@ class _TableSeatPreview extends StatelessWidget {
                           height: 24,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
-                            color: const Color(0xFFF0EDF7),
+                            color: Color(0xFFF0EDF7),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.8),
+                              color: AppColors.white.withValues(alpha: 0.8),
                               width: 0.8,
                             ),
                           ),
@@ -733,11 +738,11 @@ class _TableSeatPreview extends StatelessWidget {
                           ),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(1.4),
+                          padding: EdgeInsets.all(1.4),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(32.6),
                             child: Container(
-                              color: Colors.white.withValues(alpha: 0.88),
+                              color: AppColors.white.withValues(alpha: 0.88),
                             ),
                           ),
                         ),
@@ -788,12 +793,12 @@ class _TableSeatPreview extends StatelessWidget {
                         colors: seatGradient,
                       ),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.96),
+                        color: AppColors.white.withValues(alpha: 0.96),
                         width: 1.7,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.20),
+                          color: AppColors.pureBlack.withValues(alpha: 0.20),
                           blurRadius: 4.8,
                           offset: inwardShadowOffset,
                         ),
@@ -809,14 +814,18 @@ class _TableSeatPreview extends StatelessWidget {
                                 Icon(
                                   Icons.bookmark_rounded,
                                   size: 18,
-                                  color: Colors.white.withValues(alpha: 0.98),
+                                  color: AppColors.white.withValues(
+                                    alpha: 0.98,
+                                  ),
                                 ),
                                 Positioned(
                                   top: 5.5,
                                   child: Icon(
                                     Icons.star_rounded,
                                     size: 8,
-                                    color: Colors.white.withValues(alpha: 0.98),
+                                    color: AppColors.white.withValues(
+                                      alpha: 0.98,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -825,7 +834,7 @@ class _TableSeatPreview extends StatelessWidget {
                         : Icon(
                             _seatIcon(seatGenders[i]),
                             size: _seatIconSize(seatGenders[i]),
-                            color: Colors.white.withValues(alpha: 0.98),
+                            color: AppColors.white.withValues(alpha: 0.98),
                           ),
                   ),
                 ),
@@ -845,7 +854,7 @@ class _SectionCard extends StatelessWidget {
   final String subtitle;
   final Widget child;
 
-  const _SectionCard({
+  _SectionCard({
     required this.title,
     required this.subtitle,
     required this.child,
@@ -856,39 +865,39 @@ class _SectionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: AppColors.inputFill,
-        border: Border.all(color: AppColors.border),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: AppColors.pureBlack.withValues(alpha: 0.15),
             blurRadius: 14,
-            offset: const Offset(0, 6),
+            offset: Offset(0, 6),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        padding: EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               subtitle,
-              style: const TextStyle(
-                color: AppColors.textMuted,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 height: 1.35,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             child,
           ],
         ),
@@ -900,14 +909,14 @@ class _SectionCard extends StatelessWidget {
 class _FieldCaption extends StatelessWidget {
   final String text;
 
-  const _FieldCaption(this.text);
+  _FieldCaption(this.text);
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: AppColors.textMuted,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontSize: 12,
         fontWeight: FontWeight.w600,
       ),
@@ -919,28 +928,25 @@ class _GradientFocusFrame extends StatelessWidget {
   final bool isFocused;
   final Widget child;
 
-  const _GradientFocusFrame({
-    required this.isFocused,
-    required this.child,
-  });
+  _GradientFocusFrame({required this.isFocused, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      padding: const EdgeInsets.all(1.3),
+      duration: Duration(milliseconds: 160),
+      padding: EdgeInsets.all(1.3),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: isFocused
-            ? const LinearGradient(
+            ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: AppColors.brandGradient,
               )
             : LinearGradient(
                 colors: [
-                  AppColors.border,
-                  AppColors.border.withValues(alpha: 0.92),
+                  Theme.of(context).dividerColor,
+                  Theme.of(context).dividerColor.withValues(alpha: 0.92),
                 ],
               ),
       ),
@@ -956,7 +962,7 @@ class _PremiumAgeRangeSlider extends StatelessWidget {
   final int divisions;
   final ValueChanged<RangeValues> onChanged;
 
-  const _PremiumAgeRangeSlider({
+  _PremiumAgeRangeSlider({
     required this.values,
     required this.min,
     required this.max,
@@ -987,7 +993,9 @@ class _PremiumAgeRangeSlider extends StatelessWidget {
                   height: 10,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
-                    color: AppColors.border.withValues(alpha: 0.95),
+                    color: Theme.of(
+                      context,
+                    ).dividerColor.withValues(alpha: 0.95),
                   ),
                 ),
               ),
@@ -998,7 +1006,7 @@ class _PremiumAgeRangeSlider extends StatelessWidget {
                     : (activeRight - activeLeft),
                 child: Container(
                   height: 10,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.all(Radius.circular(999)),
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
@@ -1013,16 +1021,16 @@ class _PremiumAgeRangeSlider extends StatelessWidget {
                   trackHeight: 0.01,
                   activeTrackColor: Colors.transparent,
                   inactiveTrackColor: Colors.transparent,
-                  thumbColor: Colors.white,
-                  overlayColor: const Color(0xFFC15CE0).withValues(alpha: 0.16),
-                  rangeThumbShape: const RoundRangeSliderThumbShape(
+                  thumbColor: AppColors.white,
+                  overlayColor: Color(0xFFC15CE0).withValues(alpha: 0.16),
+                  rangeThumbShape: RoundRangeSliderThumbShape(
                     enabledThumbRadius: 10,
                   ),
                   rangeValueIndicatorShape:
-                      const PaddleRangeSliderValueIndicatorShape(),
-                  valueIndicatorColor: const Color(0xFF9A58F4),
-                  valueIndicatorTextStyle: const TextStyle(
-                    color: Colors.white,
+                      PaddleRangeSliderValueIndicatorShape(),
+                  valueIndicatorColor: AppColors.brandGradient.last,
+                  valueIndicatorTextStyle: TextStyle(
+                    color: AppColors.white,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1052,7 +1060,7 @@ class _GenderSeatMiniControl extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onRemove;
 
-  const _GenderSeatMiniControl({
+  _GenderSeatMiniControl({
     required this.icon,
     required this.count,
     required this.onAdd,
@@ -1079,26 +1087,30 @@ class _GenderSeatMiniControl extends StatelessWidget {
               colors: _seatGradient(),
             ),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.95),
+              color: AppColors.white.withValues(alpha: 0.95),
               width: 1.2,
             ),
           ),
-          child: Icon(icon, size: 24, color: Colors.white.withValues(alpha: 0.98)),
+          child: Icon(
+            icon,
+            size: 24,
+            color: AppColors.white.withValues(alpha: 0.98),
+          ),
         ),
-        const SizedBox(height: 5),
+        SizedBox(height: 5),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             InkWell(
               borderRadius: BorderRadius.circular(999),
               onTap: onRemove,
-              child: const SizedBox(
+              child: SizedBox(
                 width: 28,
                 height: 28,
                 child: Icon(
                   Icons.remove,
                   size: 18,
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -1107,8 +1119,8 @@ class _GenderSeatMiniControl extends StatelessWidget {
               child: Text(
                 count.toString(),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1117,13 +1129,13 @@ class _GenderSeatMiniControl extends StatelessWidget {
             InkWell(
               borderRadius: BorderRadius.circular(999),
               onTap: onAdd,
-              child: const SizedBox(
+              child: SizedBox(
                 width: 28,
                 height: 28,
                 child: Icon(
                   Icons.add,
                   size: 18,
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

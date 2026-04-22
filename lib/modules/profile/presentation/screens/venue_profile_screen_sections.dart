@@ -6,7 +6,7 @@ class _ProfileHeader extends StatelessWidget {
   final bool uploading;
   final String? uploadedPhotoUrl;
 
-  const _ProfileHeader({
+  _ProfileHeader({
     required this.profile,
     this.onEditPhoto,
     this.uploading = false,
@@ -21,7 +21,7 @@ class _ProfileHeader extends StatelessWidget {
     final hasRemotePhoto = candidate.startsWith('http');
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 0),
+      padding: EdgeInsets.only(top: 8, bottom: 0),
       child: SizedBox(
         width: 96,
         height: 96,
@@ -34,8 +34,8 @@ class _ProfileHeader extends StatelessWidget {
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.inputFill,
-                border: Border.all(color: AppColors.border),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: Border.all(color: Theme.of(context).dividerColor),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.brandGradient[2].withValues(alpha: 0.35),
@@ -47,9 +47,9 @@ class _ProfileHeader extends StatelessWidget {
               child: ClipOval(
                 child: hasRemotePhoto
                     ? Image.network(candidate, fit: BoxFit.cover)
-                    : const Icon(
+                    : Icon(
                         Icons.person_outline,
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         size: 40,
                       ),
               ),
@@ -63,7 +63,7 @@ class _ProfileHeader extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: AppColors.brandGradient,
@@ -72,18 +72,14 @@ class _ProfileHeader extends StatelessWidget {
                     border: Border.all(color: AppColors.navBlueDeep, width: 2),
                   ),
                   child: uploading
-                      ? const Padding(
+                      ? Padding(
                           padding: EdgeInsets.all(6),
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: AppColors.white,
                           ),
                         )
-                      : const Icon(
-                          Icons.edit,
-                          size: 14,
-                          color: AppColors.white,
-                        ),
+                      : Icon(Icons.edit, size: 14, color: AppColors.white),
                 ),
               ),
             ),

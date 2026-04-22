@@ -5,7 +5,7 @@ class _SpotifyCatalogSheet extends StatefulWidget {
   final BuildContext hostContext;
   final List<SpotifyTrackPreview> initialTracks;
 
-  const _SpotifyCatalogSheet({
+  _SpotifyCatalogSheet({
     required this.tab,
     required this.hostContext,
     required this.initialTracks,
@@ -115,7 +115,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
       heightFactor: 0.88,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -124,20 +124,20 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.border,
+                    color: Theme.of(context).dividerColor,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Sanatcinin Spotify Katalogu',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
                       ),
@@ -147,56 +147,57 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
                     IconButton(
                       tooltip: 'Spotify parcasi ekle',
                       onPressed: _addTrack,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.add_circle_outline,
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                 ],
               ),
               if (_feedbackText != null) ...[
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 9,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   decoration: BoxDecoration(
                     color: _feedbackIsError
-                        ? const Color(0xFF3A1F1F)
-                        : AppColors.inputFill,
+                        ? Color(0xFF3A1F1F)
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: _feedbackIsError
-                          ? const Color(0xFF8B3A3A)
-                          : AppColors.border,
+                          ? Color(0xFF8B3A3A)
+                          : Theme.of(context).dividerColor,
                     ),
                   ),
                   child: Text(
                     _feedbackText!,
                     style: TextStyle(
                       color: _feedbackIsError
-                          ? const Color(0xFFFFB4B4)
-                          : AppColors.textMuted,
+                          ? Color(0xFFFFB4B4)
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
                     ),
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Flexible(
                 child: _visibleTracks.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           'Henuz Spotify parcasi eklemediniz.',
-                          style: TextStyle(color: AppColors.textMuted),
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.separated(
                         itemCount: _visibleTracks.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        separatorBuilder: (_, __) => SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final track = _visibleTracks[index];
                           return _SpotifyCatalogTrackTile(

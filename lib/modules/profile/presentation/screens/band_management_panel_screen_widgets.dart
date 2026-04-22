@@ -6,7 +6,7 @@ class _MemberCard extends StatelessWidget {
   final String? avatarOverrideUrl;
   final VoidCallback? onRemove;
 
-  const _MemberCard({
+  _MemberCard({
     required this.member,
     required this.onOpenProfile,
     required this.avatarOverrideUrl,
@@ -19,12 +19,12 @@ class _MemberCard extends StatelessWidget {
       avatarOverrideUrl ?? member.profilePictureUrl,
     );
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
@@ -33,27 +33,29 @@ class _MemberCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               onTap: onOpenProfile,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   children: [
                     _MemberAvatar(imageUrl: avatarUrl),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             member.username,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Text(
                             member.localizedRoleLabel,
-                            style: const TextStyle(
-                              color: AppColors.textMuted,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
@@ -65,15 +67,12 @@ class _MemberCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           if (member.isFounder)
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppColors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(999),
@@ -81,10 +80,10 @@ class _MemberCard extends StatelessWidget {
                       color: AppColors.white.withValues(alpha: 0.16),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Kurucu',
                     style: TextStyle(
-                      color: AppColors.textMuted,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                     ),
@@ -104,10 +103,7 @@ class _MemberCard extends StatelessWidget {
             IconButton(
               tooltip: 'Üyeyi çıkar',
               onPressed: onRemove,
-              icon: const Icon(
-                Icons.delete_outline_rounded,
-                color: Colors.redAccent,
-              ),
+              icon: Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
             ),
         ],
       ),
@@ -118,25 +114,30 @@ class _MemberCard extends StatelessWidget {
 class _MemberAvatar extends StatelessWidget {
   final String? imageUrl;
 
-  const _MemberAvatar({required this.imageUrl});
+  _MemberAvatar({required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 44,
       height: 44,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.navBlueSoft,
+        color: Theme.of(context).colorScheme.surfaceContainer,
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl == null
-          ? const Icon(Icons.person_outline, color: AppColors.textMuted)
+          ? Icon(
+              Icons.person_outline,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            )
           : Image.network(
               imageUrl!,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.person_outline, color: AppColors.textMuted),
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.person_outline,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
     );
   }
@@ -178,21 +179,21 @@ String? _resolveMemberAvatarUrl(String? raw) {
 class _EmptyCard extends StatelessWidget {
   final String text;
 
-  const _EmptyCard({required this.text});
+  _EmptyCard({required this.text});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.textMuted),
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );
   }
@@ -203,7 +204,7 @@ class _GradientOutline extends StatelessWidget {
   final double radius;
   final double strokeWidth;
 
-  const _GradientOutline({
+  _GradientOutline({
     required this.child,
     required this.radius,
     required this.strokeWidth,
@@ -228,10 +229,7 @@ class _GradientOutlinePainter extends CustomPainter {
   final double radius;
   final double strokeWidth;
 
-  const _GradientOutlinePainter({
-    required this.radius,
-    required this.strokeWidth,
-  });
+  _GradientOutlinePainter({required this.radius, required this.strokeWidth});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -243,7 +241,7 @@ class _GradientOutlinePainter extends CustomPainter {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: AppColors.brandGradient,

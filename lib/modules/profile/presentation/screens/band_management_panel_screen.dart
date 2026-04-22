@@ -32,7 +32,7 @@ part 'band_management_panel_screen_venue_actions.dart';
 class BandManagementPanelScreen extends StatefulWidget {
   final BandProfile profile;
 
-  const BandManagementPanelScreen({super.key, required this.profile});
+  BandManagementPanelScreen({super.key, required this.profile});
 
   @override
   State<BandManagementPanelScreen> createState() =>
@@ -71,51 +71,54 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Band Yönetimi'), centerTitle: true),
+      appBar: AppBar(title: Text('Band Yönetimi'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                    colors: [
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                      Theme.of(context).colorScheme.surfaceContainer,
+                    ],
                   ),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GradientText(
                       text: _profile.name,
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: AppColors.brandGradient,
                       ),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: 8),
+                    Text(
                       'Buradan band profilini destekleyecek yönetim araçlarına erişebilirsin.',
                       style: TextStyle(
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.45,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               _actionCard(
                 context: context,
                 icon: Icons.group_add_outlined,
@@ -124,7 +127,7 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                 trailingLabel: '${_profile.members.length} üye',
                 onTap: _submitting ? null : _openMembersPage,
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _actionCard(
                 context: context,
                 icon: Icons.edit_note_outlined,
@@ -141,7 +144,7 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                         );
                       },
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _actionCard(
                 context: context,
                 icon: Icons.perm_media_outlined,
@@ -149,7 +152,7 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                 message: 'Mekan bağlantı paneli açılıyor.',
                 onTap: _submitting ? null : _editBandVenues,
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _actionCard(
                 context: context,
                 icon: Icons.analytics_outlined,
@@ -157,7 +160,7 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                 trailingLabel: 'Yakında!',
                 message: 'Band istatistik paneli sıradaki adımda eklenecek.',
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               _adPlaceholderCard(),
             ],
           ),

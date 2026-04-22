@@ -11,7 +11,7 @@ class VenueNameCarousel extends StatelessWidget {
   final bool editable;
   final VoidCallback? onAddTap;
 
-  const VenueNameCarousel({
+  VenueNameCarousel({
     super.key,
     required this.items,
     this.editable = false,
@@ -23,22 +23,24 @@ class VenueNameCarousel extends StatelessWidget {
     if (items.isEmpty) {
       if (editable && onAddTap != null) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               onPressed: onAddTap,
-              icon: const Icon(Icons.add_circle_outline, size: 18),
-              label: const Text('Muzisyen Ekle'),
+              icon: Icon(Icons.add_circle_outline, size: 18),
+              label: Text('Muzisyen Ekle'),
             ),
           ),
         );
       }
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: Text(
           'Mekan bilgisi yok.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -46,21 +48,24 @@ class VenueNameCarousel extends StatelessWidget {
     return SizedBox(
       height: 62,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final name = items[index];
           return Container(
             width: 160,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                colors: [
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
+                  Theme.of(context).colorScheme.surfaceContainer,
+                ],
               ),
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Row(
               children: [
@@ -68,7 +73,7 @@ class VenueNameCarousel extends StatelessWidget {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: AppColors.navBlueSoft,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
@@ -78,39 +83,52 @@ class VenueNameCarousel extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.storefront_outlined,
                     color: AppColors.coralAlt,
                     size: 20,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
-                  child: GradientText(
-                    text: name,
-                    gradient: const LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: AppColors.brandGradient,
-                    ),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Theme.of(context).brightness == Brightness.light
+                      ? Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      : GradientText(
+                          text: name,
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: AppColors.brandGradient,
+                          ),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right,
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   size: 18,
                 ),
               ],
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => SizedBox(width: 12),
         itemCount: items.length,
       ),
     );
@@ -122,7 +140,7 @@ class ActiveMusicianCarousel extends StatelessWidget {
   final bool editable;
   final VoidCallback? onAddTap;
 
-  const ActiveMusicianCarousel({
+  ActiveMusicianCarousel({
     super.key,
     required this.items,
     this.editable = false,
@@ -134,22 +152,24 @@ class ActiveMusicianCarousel extends StatelessWidget {
     if (items.isEmpty) {
       if (editable && onAddTap != null) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               onPressed: onAddTap,
-              icon: const Icon(Icons.add_circle_outline, size: 18),
-              label: const Text('Mekan Ekle'),
+              icon: Icon(Icons.add_circle_outline, size: 18),
+              label: Text('Mekan Ekle'),
             ),
           ),
         );
       }
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: Text(
           'Mekan bilgisi yok.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -157,7 +177,7 @@ class ActiveMusicianCarousel extends StatelessWidget {
     return SizedBox(
       height: 62,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final musician = items[index];
@@ -191,15 +211,18 @@ class ActiveMusicianCarousel extends StatelessWidget {
                         }),
             child: Container(
               width: 170,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                  colors: [
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                    Theme.of(context).colorScheme.surfaceContainer,
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Row(
                 children: [
@@ -207,7 +230,7 @@ class ActiveMusicianCarousel extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppColors.navBlueSoft,
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -229,16 +252,16 @@ class ActiveMusicianCarousel extends StatelessWidget {
                             ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: GradientText(
                       text: musician.displayName,
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: AppColors.brandGradient,
                       ),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
@@ -246,9 +269,9 @@ class ActiveMusicianCarousel extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 18,
                   ),
                 ],
@@ -256,7 +279,7 @@ class ActiveMusicianCarousel extends StatelessWidget {
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => SizedBox(width: 12),
         itemCount: items.length,
       ),
     );
@@ -266,16 +289,18 @@ class ActiveMusicianCarousel extends StatelessWidget {
 class ActiveBandCarousel extends StatelessWidget {
   final List<VenueActiveBand> items;
 
-  const ActiveBandCarousel({super.key, required this.items});
+  ActiveBandCarousel({super.key, required this.items});
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: Text(
           'Band bilgisi yok.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -283,7 +308,7 @@ class ActiveBandCarousel extends StatelessWidget {
     return SizedBox(
       height: 62,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final band = items[index];
@@ -305,15 +330,18 @@ class ActiveBandCarousel extends StatelessWidget {
                   },
             child: Container(
               width: 170,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                  colors: [
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                    Theme.of(context).colorScheme.surfaceContainer,
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Row(
                 children: [
@@ -321,7 +349,7 @@ class ActiveBandCarousel extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppColors.navBlueSoft,
+                      color: Theme.of(context).colorScheme.surfaceContainer,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -334,23 +362,23 @@ class ActiveBandCarousel extends StatelessWidget {
                     child: ClipOval(
                       child: hasImage
                           ? Image.network(imageUrl, fit: BoxFit.cover)
-                          : const Icon(
+                          : Icon(
                               Icons.groups_2_outlined,
                               color: AppColors.coralAlt,
                               size: 20,
                             ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: GradientText(
                       text: band.displayName,
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: AppColors.brandGradient,
                       ),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
@@ -358,9 +386,9 @@ class ActiveBandCarousel extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 18,
                   ),
                 ],
@@ -368,7 +396,7 @@ class ActiveBandCarousel extends StatelessWidget {
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => SizedBox(width: 12),
         itemCount: items.length,
       ),
     );

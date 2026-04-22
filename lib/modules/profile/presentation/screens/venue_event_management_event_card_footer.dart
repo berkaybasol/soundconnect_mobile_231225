@@ -4,23 +4,22 @@ class _VenueCalendarEventFooter extends StatelessWidget {
   final String performerName;
   final String title;
 
-  const _VenueCalendarEventFooter({
-    required this.performerName,
-    required this.title,
-  });
+  _VenueCalendarEventFooter({required this.performerName, required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
             AppColors.navBlueDeep,
-            AppColors.navBlueSoft.withValues(alpha: 0.98),
+            Theme.of(
+              context,
+            ).colorScheme.surfaceContainer.withValues(alpha: 0.98),
           ],
         ),
       ),
@@ -28,7 +27,7 @@ class _VenueCalendarEventFooter extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
             decoration: BoxDecoration(
               color: AppColors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(14),
@@ -43,12 +42,12 @@ class _VenueCalendarEventFooter extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Text(
             title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.white,
               fontWeight: FontWeight.w800,
               fontSize: 15,
@@ -64,7 +63,7 @@ class _VenueCalendarEventFooter extends StatelessWidget {
 class _InfoInlineBlock extends StatelessWidget {
   final String text;
 
-  const _InfoInlineBlock({required this.text});
+  _InfoInlineBlock({required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -73,8 +72,8 @@ class _InfoInlineBlock extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: AppColors.textPrimary,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
         fontSize: 10.5,
         fontWeight: FontWeight.w700,
       ),

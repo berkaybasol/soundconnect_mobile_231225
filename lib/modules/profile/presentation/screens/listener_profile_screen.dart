@@ -10,35 +10,33 @@ import 'profile_common_widgets.dart';
 import 'profile_screen_support.dart';
 
 class ListenerProfileScreen extends StatelessWidget {
-  const ListenerProfileScreen({super.key});
+  ListenerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => serviceLocator<ListenerProfileCubit>()..loadMyProfile(),
-      child: const _ListenerProfileView(),
+      child: _ListenerProfileView(),
     );
   }
 }
 
 class _ListenerProfileView extends StatelessWidget {
-  const _ListenerProfileView();
+  _ListenerProfileView();
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ListenerProfileCubit, ListenerProfileState>(
       builder: (context, state) {
         if (state.status == ListenerProfileStatus.loading) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
         if (state.status == ListenerProfileStatus.failure ||
             state.profile == null) {
           return Scaffold(
             appBar: AppBar(
-              title: const GradientText(
+              title: GradientText(
                 text: 'SoundConnect',
                 gradient: LinearGradient(colors: AppColors.brandGradient),
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
@@ -47,7 +45,7 @@ class _ListenerProfileView extends StatelessWidget {
             ),
             body: Center(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -55,11 +53,11 @@ class _ListenerProfileView extends StatelessWidget {
                       state.error?.message ?? 'Listener profili getirilemedi',
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     OutlinedButton(
                       onPressed: () =>
                           context.read<ListenerProfileCubit>().loadMyProfile(),
-                      child: const Text('Tekrar dene'),
+                      child: Text('Tekrar dene'),
                     ),
                   ],
                 ),
@@ -74,32 +72,36 @@ class _ListenerProfileView extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const GradientText(
+            title: GradientText(
               text: 'SoundConnect',
               gradient: LinearGradient(colors: AppColors.brandGradient),
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
             ),
             centerTitle: true,
-            leading: const BackButton(),
+            leading: BackButton(),
           ),
           body: RefreshIndicator(
             onRefresh: () =>
                 context.read<ListenerProfileCubit>().loadMyProfile(),
             child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
+              physics: AlwaysScrollableScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ProfileTopSection(
                     header: Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: EdgeInsets.only(top: 8),
                       child: Container(
                         width: 96,
                         height: 96,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.inputFill,
-                          border: Border.all(color: AppColors.border),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: AppColors.brandGradient[2].withValues(
@@ -113,9 +115,11 @@ class _ListenerProfileView extends StatelessWidget {
                         child: ClipOval(
                           child: hasAvatar
                               ? Image.network(avatarUrl!, fit: BoxFit.cover)
-                              : const Icon(
+                              : Icon(
                                   Icons.person_outline,
-                                  color: AppColors.textMuted,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                   size: 40,
                                 ),
                         ),
@@ -130,27 +134,27 @@ class _ListenerProfileView extends StatelessWidget {
                       followersCount: profile.followerCount,
                       followingCount: profile.followingCount,
                     ),
-                    actionButtons: const SizedBox.shrink(),
+                    actionButtons: SizedBox.shrink(),
                     bioSection: EditableBioSection(
                       bio: profile.bio,
                       editable: false,
                       onSave: null,
                     ),
                   ),
-                  const SizedBox(height: 28),
-                  const Padding(
+                  SizedBox(height: 28),
+                  Padding(
                     padding: EdgeInsets.symmetric(horizontal: 24),
                     child: Text(
                       'Bu gecici listener profil ekranidir. Diger modullere gecis icin temel profil bilgileri aktif.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         height: 1.5,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
                 ],
               ),
             ),

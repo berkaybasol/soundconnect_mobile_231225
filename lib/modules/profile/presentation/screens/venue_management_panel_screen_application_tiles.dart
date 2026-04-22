@@ -22,11 +22,11 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
         : musicianProfile?.profilePictureUrl;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,12 +55,14 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                           );
                         },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    padding: EdgeInsets.symmetric(vertical: 2),
                     child: Row(
                       children: [
                         CircleAvatar(
                           radius: 20,
-                          backgroundColor: AppColors.navBlueSoft,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainer,
                           backgroundImage: _isValidImageUrl(applicantImageUrl)
                               ? NetworkImage(applicantImageUrl!)
                               : null,
@@ -69,16 +71,18 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                                   isBandRequest
                                       ? Icons.groups_2_outlined
                                       : Icons.person_outline,
-                                  color: AppColors.textMuted,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 )
                               : null,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             applicantName,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w800,
                               fontSize: 15,
                             ),
@@ -89,12 +93,9 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: _statusColor(item.status).withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(999),
@@ -111,19 +112,19 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _showOutgoing
               ? Text(
                   'Hedef mekan: ${item.venueName}',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
                   ),
                 )
               : RichText(
                   text: TextSpan(
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                     ),
                     children: [
@@ -140,15 +141,15 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                             : (isBandRequest
                                   ? 'Band notu yok'
                                   : 'Sanatcinin notu yok'),
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
                 ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -189,7 +190,7 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                           action: () =>
                               _artistVenueRepository.cancelRequest(item.id),
                         ),
-                  child: const Text('Iptal Et'),
+                  child: Text('Iptal Et'),
                 ),
               if (canDisconnect)
                 OutlinedButton(
@@ -201,7 +202,7 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                           action: () =>
                               _artistVenueRepository.disconnect(item.id),
                         ),
-                  child: const Text('Baglantiyi Kaldir'),
+                  child: Text('Baglantiyi Kaldir'),
                 ),
             ],
           ),
@@ -222,24 +223,24 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
         radius: 12,
         strokeWidth: 1,
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: AppColors.navBlueSoft,
+            color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
+                shaderCallback: (bounds) => LinearGradient(
                   colors: AppColors.brandGradient,
                 ).createShader(bounds),
-                child: Icon(icon, size: 18, color: Colors.white),
+                child: Icon(icon, size: 18, color: AppColors.white),
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.white,
                   fontWeight: FontWeight.w700,
                 ),

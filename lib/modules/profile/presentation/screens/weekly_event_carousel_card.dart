@@ -4,7 +4,7 @@ class _WeeklyEventCard extends StatefulWidget {
   final WeeklyCalendarEvent event;
   final bool compactTitle;
 
-  const _WeeklyEventCard({required this.event, required this.compactTitle});
+  _WeeklyEventCard({required this.event, required this.compactTitle});
 
   @override
   State<_WeeklyEventCard> createState() => _WeeklyEventCardState();
@@ -35,7 +35,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       splashColor: AppColors.coral.withValues(alpha: 0.22),
-      highlightColor: Colors.white.withValues(alpha: 0.05),
+      highlightColor: AppColors.white.withValues(alpha: 0.05),
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -50,13 +50,13 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
           width: compactTitle ? 162 : 174,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-            color: AppColors.inputFill,
+            border: Border.all(color: Theme.of(context).dividerColor),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.16),
+                color: AppColors.pureBlack.withValues(alpha: 0.16),
                 blurRadius: 18,
-                offset: const Offset(0, 8),
+                offset: Offset(0, 8),
               ),
             ],
           ),
@@ -70,7 +70,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                   fit: StackFit.expand,
                   children: [
                     ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
+                      borderRadius: BorderRadius.vertical(
                         top: Radius.circular(16),
                       ),
                       child: FutureBuilder<String?>(
@@ -79,16 +79,16 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                           final resolved = snapshot.data?.trim();
                           if (resolved == null || resolved.isEmpty) {
                             return WeeklyEventCarousel(
-                              items: const [],
-                            )._placeholder();
+                              items: [],
+                            )._placeholder(context);
                           }
                           if (_isNetworkImage(resolved)) {
                             return Image.network(
                               resolved,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => WeeklyEventCarousel(
-                                items: const [],
-                              )._placeholder(),
+                                items: [],
+                              )._placeholder(context),
                             );
                           }
                           if (_isAssetImage(resolved)) {
@@ -96,27 +96,27 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                               resolved,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => WeeklyEventCarousel(
-                                items: const [],
-                              )._placeholder(),
+                                items: [],
+                              )._placeholder(context),
                             );
                           }
                           return WeeklyEventCarousel(
-                            items: const [],
-                          )._placeholder();
+                            items: [],
+                          )._placeholder(context);
                         },
                       ),
                     ),
                     DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(
+                        borderRadius: BorderRadius.vertical(
                           top: Radius.circular(16),
                         ),
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withValues(alpha: 0.08),
-                            Colors.black.withValues(alpha: 0.28),
+                            AppColors.pureBlack.withValues(alpha: 0.08),
+                            AppColors.pureBlack.withValues(alpha: 0.28),
                           ],
                         ),
                       ),
@@ -126,7 +126,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                       left: 0,
                       right: 0,
                       child: Container(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
@@ -144,7 +144,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.white,
                             fontSize: compactTitle ? 10 : 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.2,
@@ -171,7 +171,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w800,
                         fontSize: compactTitle ? 13 : 14,
                         height: 1.15,
@@ -185,10 +185,14 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                         vertical: compactTitle ? 6 : 7,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.navBlueSoft.withValues(alpha: 0.42),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainer.withValues(alpha: 0.42),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppColors.border.withValues(alpha: 0.7),
+                          color: Theme.of(
+                            context,
+                          ).dividerColor.withValues(alpha: 0.7),
                         ),
                       ),
                       child: Row(
@@ -208,7 +212,9 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: AppColors.textPrimary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                     fontSize: compactTitle ? 11 : 12,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -226,10 +232,14 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                         vertical: compactTitle ? 5 : 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.inputFill,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: AppColors.border.withValues(alpha: 0.9),
+                          color: Theme.of(
+                            context,
+                          ).dividerColor.withValues(alpha: 0.9),
                         ),
                       ),
                       child: Row(
@@ -238,19 +248,19 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                           ShaderMask(
                             blendMode: BlendMode.srcIn,
                             shaderCallback: (bounds) {
-                              return const LinearGradient(
+                              return LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: AppColors.brandGradient,
                               ).createShader(bounds);
                             },
-                            child: const Icon(
+                            child: Icon(
                               Icons.schedule_rounded,
                               size: 13,
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           Flexible(
                             child: Text(
                               timeLabel,
@@ -258,7 +268,9 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: AppColors.textMuted,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontSize: compactTitle ? 11 : 12,
                                 fontWeight: FontWeight.w600,
                               ),

@@ -6,7 +6,7 @@ import '../core/di/service_locator.dart';
 import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../modules/location/presentation/cubit/location_cubit.dart';
-import '../shared/theme/app_theme.dart';
+import '../shared/theme/theme_controller.dart';
 import 'app_shell.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
@@ -24,8 +24,13 @@ AppLaunchTarget resolveLaunchTarget(String? token) {
 
 class SoundConnectApp extends StatefulWidget {
   final Future<String?>? initialTokenFuture;
+  final ThemeController? themeController;
 
-  const SoundConnectApp({super.key, this.initialTokenFuture});
+  const SoundConnectApp({
+    super.key,
+    this.initialTokenFuture,
+    this.themeController,
+  });
 
   @override
   State<SoundConnectApp> createState() => _SoundConnectAppState();
@@ -33,10 +38,16 @@ class SoundConnectApp extends StatefulWidget {
 
 class _SoundConnectAppState extends State<SoundConnectApp> {
   late final Future<String?> _initialTokenFuture;
+  late final ThemeController _themeController;
 
   @override
   void initState() {
     super.initState();
+    _themeController =
+        widget.themeController ??
+        (serviceLocator.isRegistered<ThemeController>()
+            ? serviceLocator<ThemeController>()
+            : ThemeController.memory());
     _initialTokenFuture =
         (widget.initialTokenFuture ?? serviceLocator<TokenStore>().readToken())
             .timeout(const Duration(seconds: 2), onTimeout: () => null)
@@ -59,22 +70,25 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
               create: (_) => serviceLocator<LocationCubit>(),
             ),
           ],
-          child: MaterialApp(
-            title: 'SoundConnect',
-            theme: AppTheme.light,
-            darkTheme: AppTheme.navy,
-            themeMode: ThemeMode.dark,
-            onGenerateRoute: AppRouter.onGenerateRoute,
-            home: waitingForToken
-                ? const _LaunchLoadingScreen()
-                : switch (launchTarget) {
-                    AppLaunchTarget.home => const AppShell(),
-                    AppLaunchTarget.login => const LoginScreen(),
-                  },
-            routes: {
-              AppRoutes.login: (_) => const LoginScreen(),
-              AppRoutes.home: (_) => const AppShell(),
-            },
+          child: AnimatedBuilder(
+            animation: _themeController,
+            builder: (_, __) => MaterialApp(
+              title: 'SoundConnect',
+              theme: _themeController.lightTheme,
+              darkTheme: _themeController.darkTheme,
+              themeMode: _themeController.themeMode,
+              onGenerateRoute: AppRouter.onGenerateRoute,
+              home: waitingForToken
+                  ? _LaunchLoadingScreen()
+                  : switch (launchTarget) {
+                      AppLaunchTarget.home => AppShell(),
+                      AppLaunchTarget.login => LoginScreen(),
+                    },
+              routes: {
+                AppRoutes.login: (_) => LoginScreen(),
+                AppRoutes.home: (_) => AppShell(),
+              },
+            ),
           ),
         );
       },

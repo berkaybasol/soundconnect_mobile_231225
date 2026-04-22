@@ -30,7 +30,7 @@ class WeeklyEventCarousel extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final bool compactTitle;
 
-  const WeeklyEventCarousel({
+  WeeklyEventCarousel({
     super.key,
     required this.items,
     this.padding = const EdgeInsets.symmetric(horizontal: 20),
@@ -40,14 +40,16 @@ class WeeklyEventCarousel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20),
         child: SizedBox(
           height: 88,
           child: Center(
             child: Text(
               'Bu hafta icin etkinlik bulunamadi.',
-              style: TextStyle(color: AppColors.textMuted),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),
@@ -60,7 +62,7 @@ class WeeklyEventCarousel extends StatelessWidget {
         padding: padding,
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => SizedBox(width: 10),
         itemBuilder: (context, index) {
           final event = items[index];
           return _WeeklyEventCard(event: event, compactTitle: compactTitle);
@@ -69,17 +71,23 @@ class WeeklyEventCarousel extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.navBlueSoft, AppColors.inputFill],
+          colors: [
+            Theme.of(context).colorScheme.surfaceContainer,
+            Theme.of(context).colorScheme.surfaceContainerHighest,
+          ],
         ),
       ),
       alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, color: AppColors.textMuted),
+      child: Icon(
+        Icons.image_outlined,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }

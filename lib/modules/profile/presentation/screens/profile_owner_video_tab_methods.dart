@@ -32,9 +32,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
 
   void _startPolling() {
     if (_processingPollTimer != null) return;
-    _processingPollTimer = Timer.periodic(const Duration(seconds: 8), (
-      _,
-    ) async {
+    _processingPollTimer = Timer.periodic(Duration(seconds: 8), (_) async {
       if (!mounted) return;
       if (_processingVideoIds.isEmpty) {
         _processingPollTimer?.cancel();
@@ -47,7 +45,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
         _processingPollTimer = null;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
                 'Video isleme beklenenden uzun surdu. Biraz sonra tekrar kontrol et.',
               ),
@@ -92,7 +90,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
       type: FileType.custom,
       withData: false,
       allowMultiple: false,
-      allowedExtensions: const ['mp4', 'mov', 'mkv'],
+      allowedExtensions: ['mp4', 'mov', 'mkv'],
     );
     final file = result?.files.isNotEmpty == true ? result!.files.first : null;
     if (file == null) return;
@@ -105,7 +103,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     if ((pickedPath == null && pickedBytes == null) || pickedName.isEmpty) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Once bir video dosyasi sec.')),
+        SnackBar(content: Text('Once bir video dosyasi sec.')),
       );
       return;
     }
@@ -163,7 +161,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
 
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Video yuklendi, isleniyor. Kisa sure sonra gorunecek.',
           ),
@@ -186,12 +184,12 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
   Widget _buildProcessingCard() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-      padding: const EdgeInsets.all(14),
+      margin: EdgeInsets.fromLTRB(20, 0, 20, 14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,18 +198,21 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
             _processingVideoIds.length == 1
                 ? 'Video isleniyor'
                 : '${_processingVideoIds.length} video isleniyor',
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
-          const Text(
+          SizedBox(height: 6),
+          Text(
             'Isleme tamamlaninca video otomatik olarak gorunecek.',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
           ),
-          const SizedBox(height: 10),
-          const LinearProgressIndicator(minHeight: 6),
+          SizedBox(height: 10),
+          LinearProgressIndicator(minHeight: 6),
         ],
       ),
     );
@@ -239,9 +240,9 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     final commentCount = stats?.commentCount ?? fallbackCommentCount;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
         image: thumbnail != null
             ? DecorationImage(image: NetworkImage(thumbnail), fit: BoxFit.cover)
             : null,
@@ -287,7 +288,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
                 light: true,
               ),
             ),
-            const Center(
+            Center(
               child: Icon(
                 Icons.play_circle_outline,
                 color: AppColors.white,

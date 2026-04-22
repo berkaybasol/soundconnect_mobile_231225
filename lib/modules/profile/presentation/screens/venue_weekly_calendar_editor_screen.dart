@@ -28,10 +28,7 @@ part 'venue_weekly_calendar_editor_screen_painter.dart';
 class VenueWeeklyCalendarEditorScreen extends StatefulWidget {
   final VenueOwnerProfile ownerProfile;
 
-  const VenueWeeklyCalendarEditorScreen({
-    super.key,
-    required this.ownerProfile,
-  });
+  VenueWeeklyCalendarEditorScreen({super.key, required this.ownerProfile});
 
   @override
   State<VenueWeeklyCalendarEditorScreen> createState() =>
@@ -45,7 +42,7 @@ class _VenueWeeklyCalendarEditorScreenState
   bool _saving = false;
   bool _changed = false;
   String? _error;
-  List<VenueOwnerEventItem> _events = const [];
+  List<VenueOwnerEventItem> _events = [];
 
   List<VenueOwnerEventItem> get _sortedEvents {
     final items = [..._events];
@@ -72,7 +69,7 @@ class _VenueWeeklyCalendarEditorScreenState
       final result = await _venueEventRepository.listByVenue(
         widget.ownerProfile.venueId,
       );
-      final items = result.data ?? const <VenueOwnerEventItem>[];
+      final items = result.data ?? <VenueOwnerEventItem>[];
       if (!mounted) return;
       setState(() {
         _events = items;
@@ -92,7 +89,7 @@ class _VenueWeeklyCalendarEditorScreenState
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) =>
@@ -112,7 +109,7 @@ class _VenueWeeklyCalendarEditorScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Etkinlik eklendi.')));
+      ).showSnackBar(SnackBar(content: Text('Etkinlik eklendi.')));
       await _loadEvents();
     } catch (e) {
       if (!mounted) return;
@@ -135,7 +132,7 @@ class _VenueWeeklyCalendarEditorScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Etkinlik silindi.')));
+      ).showSnackBar(SnackBar(content: Text('Etkinlik silindi.')));
       await _loadEvents();
     } catch (e) {
       if (!mounted) return;
@@ -180,12 +177,12 @@ class _VenueWeeklyCalendarEditorScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Haftalik Takvim'),
+        title: Text('Haftalik Takvim'),
         centerTitle: true,
         actions: [
           IconButton(
             onPressed: _loading || _saving ? null : _loadEvents,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: Icon(Icons.refresh_rounded),
           ),
         ],
       ),
@@ -197,72 +194,74 @@ class _VenueWeeklyCalendarEditorScreenState
         },
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(22),
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                      colors: [
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                        Theme.of(context).colorScheme.surfaceContainer,
+                      ],
                     ),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       GradientText(
                         text: widget.ownerProfile.venueName,
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: AppColors.brandGradient,
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const Text(
+                      SizedBox(height: 6),
+                      Text(
                         'Bu ekrandan haftalik takvime yeni etkinlik ekleyebilir ve mevcut etkinlikleri silebilirsin.',
                         style: TextStyle(
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           height: 1.45,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 if (_loading)
-                  const Expanded(
-                    child: Center(child: CircularProgressIndicator()),
-                  )
+                  Expanded(child: Center(child: CircularProgressIndicator()))
                 else if (_error != null)
                   Expanded(
                     child: Center(
                       child: Text(
                         _error!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textMuted),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   )
                 else
                   Expanded(
                     child: GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 0.68,
-                          ),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.68,
+                      ),
                       itemCount: _sortedEvents.length + 1,
                       itemBuilder: (context, index) {
                         if (index == 0) {

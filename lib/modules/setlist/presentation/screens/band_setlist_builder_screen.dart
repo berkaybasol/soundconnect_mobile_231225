@@ -13,7 +13,7 @@ part 'band_setlist_builder_widgets.dart';
 class BandSetlistBuilderScreen extends StatefulWidget {
   final BandProfile bandProfile;
 
-  const BandSetlistBuilderScreen({super.key, required this.bandProfile});
+  BandSetlistBuilderScreen({super.key, required this.bandProfile});
 
   @override
   State<BandSetlistBuilderScreen> createState() =>
@@ -82,7 +82,7 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
     final result = await showModalBottomSheet<_ToneValue>(
       context: context,
       backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (sheetContext) => StatefulBuilder(
@@ -90,28 +90,28 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
           return SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 18),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'Ton Seçimi',
                         style: TextStyle(
-                          color: AppColors.textPrimary,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
                         ),
                       ),
-                      const Spacer(),
+                      Spacer(),
                       IconButton(
                         onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   _TonePickerField<_ToneNote>(
                     label: '1) Nota',
                     value: value.note,
@@ -124,7 +124,7 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   _TonePickerField<_ToneAccidental>(
                     label: '2) Diyez / Bemol',
                     value: value.accidental,
@@ -137,7 +137,7 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   _TonePickerField<_ToneQuality>(
                     label: '3) Major / Minor',
                     value: value.quality,
@@ -150,19 +150,19 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton(
                       onPressed: () =>
                           Navigator.of(sheetContext).pop(_ToneValue.original()),
-                      child: const Text('Orijinal Ton'),
+                      child: Text('Orijinal Ton'),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   FilledButton(
                     onPressed: () => Navigator.of(sheetContext).pop(value),
-                    child: const Text('Uygula'),
+                    child: Text('Uygula'),
                   ),
                 ],
               ),
@@ -200,7 +200,7 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
           color: AppColors.navBlueDeep,
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              padding: EdgeInsets.fromLTRB(12, 12, 12, 14),
               child: SizedBox(
                 width: screenSize.width - 24,
                 height: screenSize.height - 26,
@@ -234,15 +234,13 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
           files: <XFile>[XFile(file.path, mimeType: 'image/png')],
           subject: '$title Görsel',
           text: '$title setlist görseli',
-          sharePositionOrigin: const Rect.fromLTWH(0, 0, 1, 1),
+          sharePositionOrigin: Rect.fromLTWH(0, 0, 1, 1),
         ),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gorsel olusturma sirasinda hata olustu.'),
-        ),
+        SnackBar(content: Text('Gorsel olusturma sirasinda hata olustu.')),
       );
     } finally {
       if (mounted) {
@@ -255,10 +253,10 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('Canlı Önizleme')),
+          appBar: AppBar(title: Text('Canlı Önizleme')),
           body: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              padding: EdgeInsets.fromLTRB(12, 12, 12, 14),
               child: _CodeEditorPreview(
                 title: title,
                 items: _items,
@@ -282,19 +280,19 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Setlist Oluştur'),
+        title: Text('Setlist Oluştur'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: EdgeInsets.only(right: 8),
             child: TextButton.icon(
               onPressed: _isExportingPdf ? null : _savePreviewImage,
               icon: _isExportingPdf
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.image_outlined),
+                  : Icon(Icons.image_outlined),
               label: Text(
                 _isExportingPdf ? 'Hazırlanıyor' : 'Fotoğrafı Kaydet',
               ),
@@ -304,22 +302,22 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 20),
           child: Column(
             children: [
               TextField(
                 controller: _setlistNameController,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Setlist Adı',
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               SizedBox(
                 height: 38,
                 child: Row(
@@ -344,7 +342,7 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
                                         setState(() => _selectedIndex = idx),
                                   );
                             return Padding(
-                              padding: const EdgeInsets.only(right: 8),
+                              padding: EdgeInsets.only(right: 8),
                               child: tile,
                             );
                           }).toList(),
@@ -352,12 +350,12 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
                       ),
                     ),
                     _AddMiniTile(icon: Icons.add, onTap: _addSong),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     _AddMiniTile(label: '|', opacity: 0.45, onTap: _addSet),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               if (selected is _SongItem)
                 _SelectedSongEditor(
                   rowNo: _songNoAt(_selectedIndex),
@@ -373,7 +371,7 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
                   onRemove: _removeSelected,
                 ),
               if (!isKeyboardOpen) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Expanded(
                   child: _CodeEditorPreview(
                     title: title,

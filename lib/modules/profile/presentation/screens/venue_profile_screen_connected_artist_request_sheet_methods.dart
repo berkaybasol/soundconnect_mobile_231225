@@ -4,10 +4,7 @@ extension _ConnectedArtistRequestSheetStateMethods
     on _ConnectedArtistRequestSheetState {
   void _onQueryChanged(String raw) {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(
-      const Duration(milliseconds: 280),
-      () => _runSearch(raw),
-    );
+    _searchDebounce = Timer(Duration(milliseconds: 280), () => _runSearch(raw));
   }
 
   Future<void> _runSearch(String raw) async {
@@ -18,7 +15,7 @@ extension _ConnectedArtistRequestSheetStateMethods
       _updateState(() {
         _loading = false;
         _searchError = '';
-        _results = const <MusicianSearchOption>[];
+        _results = <MusicianSearchOption>[];
       });
       return;
     }
@@ -40,7 +37,7 @@ extension _ConnectedArtistRequestSheetStateMethods
       if (!mounted || token != _searchToken) return;
       _updateState(() {
         _loading = false;
-        _results = const <MusicianSearchOption>[];
+        _results = <MusicianSearchOption>[];
         _searchError = 'Sanatci aramasi yapilamadi.';
       });
     }
@@ -53,15 +50,13 @@ extension _ConnectedArtistRequestSheetStateMethods
 
     if (isAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu muzisyen zaten profilinde bagli.')),
+        SnackBar(content: Text('Bu muzisyen zaten profilinde bagli.')),
       );
       return;
     }
     if (isPending) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bu muzisyene zaten basvurdun (beklemede).'),
-        ),
+        SnackBar(content: Text('Bu muzisyene zaten basvurdun (beklemede).')),
       );
       return;
     }
@@ -77,7 +72,7 @@ extension _ConnectedArtistRequestSheetStateMethods
       context: context,
       useRootNavigator: true,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.35),
+      barrierColor: AppColors.pureBlack.withValues(alpha: 0.35),
       builder: (dialogContext) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
@@ -87,47 +82,47 @@ extension _ConnectedArtistRequestSheetStateMethods
               borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 14),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Basvuru Notu (Opsiyonel)',
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     TextField(
                       minLines: 3,
                       maxLines: 5,
                       onChanged: (value) {
                         noteDraft = value;
                       },
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText:
                             'Istersen kisa bir not ekleyebilirsin (zorunlu degil).',
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text('Vazgec'),
+                            child: Text('Vazgec'),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () => Navigator.of(
                               dialogContext,
                             ).pop(noteDraft.trim()),
-                            child: const Text('Gonder'),
+                            child: Text('Gonder'),
                           ),
                         ),
                       ],
@@ -147,7 +142,7 @@ extension _ConnectedArtistRequestSheetStateMethods
     if (selectedMusicianId == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Lutfen bir muzisyen sec.')));
+      ).showSnackBar(SnackBar(content: Text('Lutfen bir muzisyen sec.')));
       return;
     }
     final message = await _showOptionalMessageDialog();

@@ -3,7 +3,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
 
 class GuestEventHomeScreen extends StatefulWidget {
-  const GuestEventHomeScreen({super.key});
+  GuestEventHomeScreen({super.key});
 
   @override
   State<GuestEventHomeScreen> createState() => _GuestEventHomeScreenState();
@@ -17,56 +17,56 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
       id: '1',
       performerName: 'Luna Echo',
       performerType: 'MUSICIAN',
-      bandMembers: const [],
+      bandMembers: [],
       venueName: 'Sahil Sahne',
       venueCity: 'Istanbul',
       venueDistrict: 'Besiktas',
       venueNeighborhood: 'Sinanpasa',
       eventDate: DateTime(_today.year, _today.month, _today.day),
-      startTime: const TimeOfDay(hour: 20, minute: 30),
-      endTime: const TimeOfDay(hour: 22, minute: 0),
+      startTime: TimeOfDay(hour: 20, minute: 30),
+      endTime: TimeOfDay(hour: 22, minute: 0),
       description: 'Akustik pop ve indie seckiler.',
     ),
     _GuestEventItem(
       id: '2',
       performerName: 'Neon Tide',
       performerType: 'BAND',
-      bandMembers: const ['Mert', 'Ece', 'Can'],
+      bandMembers: ['Mert', 'Ece', 'Can'],
       venueName: 'Ritim Klub',
       venueCity: 'Istanbul',
       venueDistrict: 'Kadikoy',
       venueNeighborhood: 'Moda',
       eventDate: DateTime(_today.year, _today.month, _today.day),
-      startTime: const TimeOfDay(hour: 21, minute: 0),
-      endTime: const TimeOfDay(hour: 23, minute: 15),
+      startTime: TimeOfDay(hour: 21, minute: 0),
+      endTime: TimeOfDay(hour: 23, minute: 15),
       description: 'Alternatif rock gecesi.',
     ),
     _GuestEventItem(
       id: '3',
       performerName: 'Aegean Jazz Trio',
       performerType: 'BAND',
-      bandMembers: const ['Baris', 'Deniz', 'Selin'],
+      bandMembers: ['Baris', 'Deniz', 'Selin'],
       venueName: 'Blue Note Izmir',
       venueCity: 'Izmir',
       venueDistrict: 'Konak',
       venueNeighborhood: 'Alsancak',
       eventDate: DateTime(_today.year, _today.month, _today.day),
-      startTime: const TimeOfDay(hour: 19, minute: 45),
-      endTime: const TimeOfDay(hour: 21, minute: 30),
+      startTime: TimeOfDay(hour: 19, minute: 45),
+      endTime: TimeOfDay(hour: 21, minute: 30),
       description: 'Canli jazz standartlari.',
     ),
     _GuestEventItem(
       id: '4',
       performerName: 'Sokak Ritim',
       performerType: 'MUSICIAN',
-      bandMembers: const [],
+      bandMembers: [],
       venueName: 'Kiyi Sahne',
       venueCity: 'Istanbul',
       venueDistrict: 'Besiktas',
       venueNeighborhood: 'Levent',
       eventDate: DateTime(_today.year, _today.month, _today.day),
-      startTime: const TimeOfDay(hour: 18, minute: 30),
-      endTime: const TimeOfDay(hour: 20, minute: 0),
+      startTime: TimeOfDay(hour: 18, minute: 30),
+      endTime: TimeOfDay(hour: 20, minute: 0),
       description: 'Perkusion ve dunya muzikleri.',
     ),
   ];
@@ -146,7 +146,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
     }).toList();
     final visibleEvents = _showVenueOptions
         ? filteredEvents
-        : const <_GuestEventItem>[];
+        : <_GuestEventItem>[];
     final selectedVenue = venues
         .where((v) => v.venueKey == _selectedVenueKey)
         .cast<_VenueFilterOption?>()
@@ -161,13 +161,13 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: _HeroPanel(count: visibleEvents.length),
                     ),
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                      padding: EdgeInsets.fromLTRB(16, 12, 16, 10),
                       child: _InlineFilterPanel(
                         selectedCity: _selectedCity,
                         selectedDistrict: _selectedDistrict,
@@ -234,22 +234,22 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
                     ),
                   ),
                   if (!_showVenueOptions)
-                    const SliverFillRemaining(
+                    SliverFillRemaining(
                       hasScrollBody: false,
                       child: _SearchFirstState(),
                     )
                   else if (visibleEvents.isEmpty)
-                    const SliverFillRemaining(
+                    SliverFillRemaining(
                       hasScrollBody: false,
                       child: _GuestEmptyState(),
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate((context, index) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: EdgeInsets.only(bottom: 12),
                             child: _EventCard(item: visibleEvents[index]),
                           );
                         }, childCount: visibleEvents.length),
@@ -258,7 +258,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
                 ],
               ),
             ),
-            const _GuestLockFooter(),
+            _GuestLockFooter(),
           ],
         ),
       ),
@@ -269,7 +269,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
 class _HeroPanel extends StatelessWidget {
   final int count;
 
-  const _HeroPanel({required this.count});
+  _HeroPanel({required this.count});
 
   String _dateLabel() {
     final now = DateTime.now();
@@ -282,15 +282,15 @@ class _HeroPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFF1A2740), Color(0xFF10243B), Color(0xFF1B1E37)],
         ),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,9 +302,7 @@ class _HeroPanel extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: AppColors.brandGradient,
-                  ),
+                  gradient: LinearGradient(colors: AppColors.brandGradient),
                   boxShadow: [
                     BoxShadow(
                       color: AppColors.brandGradient[2].withValues(alpha: 0.35),
@@ -312,18 +310,14 @@ class _HeroPanel extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.music_note,
-                  color: Colors.white,
-                  size: 18,
-                ),
+                child: Icon(Icons.music_note, color: AppColors.white, size: 18),
               ),
-              const SizedBox(width: 10),
-              const Expanded(
+              SizedBox(width: 10),
+              Expanded(
                 child: Text(
                   'Bugun Nerede Canli Muzik Var?',
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
@@ -331,10 +325,12 @@ class _HeroPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Text(
             '${_dateLabel()} tarihinde yakinda $count etkinlik bulundu',
-            style: const TextStyle(color: AppColors.textMuted),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -356,7 +352,7 @@ class _InlineFilterPanel extends StatelessWidget {
   final Future<void> Function() onSearchTap;
   final VoidCallback onClearAll;
 
-  const _InlineFilterPanel({
+  _InlineFilterPanel({
     required this.selectedCity,
     required this.selectedDistrict,
     required this.selectedNeighborhood,
@@ -374,30 +370,34 @@ class _InlineFilterPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Icon(Icons.tune, color: AppColors.textMuted, size: 18),
-              const SizedBox(width: 8),
-              const Expanded(
+              Icon(
+                Icons.tune,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Expanded(
                 child: Text(
                   'Lokasyona gore ara',
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
                 ),
               ),
-              TextButton(onPressed: onClearAll, child: const Text('Temizle')),
+              TextButton(onPressed: onClearAll, child: Text('Temizle')),
             ],
           ),
           _FilterDropdown(
@@ -407,7 +407,7 @@ class _InlineFilterPanel extends StatelessWidget {
             allLabel: 'Sehir',
             onChanged: onCityChanged,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _FilterDropdown(
             label: 'Ilce sec',
             value: selectedDistrict,
@@ -415,7 +415,7 @@ class _InlineFilterPanel extends StatelessWidget {
             allLabel: 'Ilce',
             onChanged: onDistrictChanged,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _FilterDropdown(
             label: 'Mahalle sec',
             value: selectedNeighborhood,
@@ -423,23 +423,25 @@ class _InlineFilterPanel extends StatelessWidget {
             allLabel: 'Mahalle',
             onChanged: onNeighborhoodChanged,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (selectedVenueName != null && selectedVenueName!.trim().isNotEmpty)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.navBlueSoft,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Text(
                 'Secilen mekan: $selectedVenueName',
-                style: const TextStyle(color: AppColors.textMuted),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           if (selectedVenueName != null && selectedVenueName!.trim().isNotEmpty)
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
           _GradientActionButton(
             label: 'Ara',
             icon: Icons.search,
@@ -460,7 +462,7 @@ class _FilterDropdown extends StatelessWidget {
   final String allLabel;
   final ValueChanged<String?> onChanged;
 
-  const _FilterDropdown({
+  _FilterDropdown({
     required this.label,
     required this.value,
     required this.items,
@@ -473,7 +475,7 @@ class _FilterDropdown extends StatelessWidget {
     return _GradientDropdownField(
       hint: label,
       value: value,
-      dropdownColor: AppColors.navBlueSoft,
+      dropdownColor: Theme.of(context).colorScheme.surfaceContainer,
       items: [
         DropdownMenuItem<String?>(value: null, child: Text(allLabel)),
         ...items.map(
@@ -492,7 +494,7 @@ class _GradientDropdownField extends StatefulWidget {
   final ValueChanged<String?> onChanged;
   final Color dropdownColor;
 
-  const _GradientDropdownField({
+  _GradientDropdownField({
     required this.hint,
     required this.value,
     required this.items,
@@ -530,18 +532,18 @@ class _GradientDropdownFieldState extends State<_GradientDropdownField> {
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(12);
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      padding: const EdgeInsets.all(1.2),
+      duration: Duration(milliseconds: 160),
+      padding: EdgeInsets.all(1.2),
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         gradient: _isFocused
-            ? const LinearGradient(colors: AppColors.brandGradient)
+            ? LinearGradient(colors: AppColors.brandGradient)
             : null,
-        color: _isFocused ? null : AppColors.border,
+        color: _isFocused ? null : Theme.of(context).dividerColor,
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.inputFill,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(10.8),
         ),
         child: DropdownButtonFormField<String?>(
@@ -550,11 +552,10 @@ class _GradientDropdownFieldState extends State<_GradientDropdownField> {
           isExpanded: true,
           decoration: InputDecoration(
             hintText: widget.hint,
-            hintStyle: const TextStyle(color: AppColors.textMuted),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
+            hintStyle: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             isDense: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.8),
@@ -569,7 +570,7 @@ class _GradientDropdownFieldState extends State<_GradientDropdownField> {
               borderSide: BorderSide.none,
             ),
             filled: true,
-            fillColor: AppColors.inputFill,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
           dropdownColor: widget.dropdownColor,
           items: widget.items,
@@ -583,7 +584,7 @@ class _GradientDropdownFieldState extends State<_GradientDropdownField> {
 class _EventCard extends StatelessWidget {
   final _GuestEventItem item;
 
-  const _EventCard({required this.item});
+  _EventCard({required this.item});
 
   String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
@@ -600,19 +601,21 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(1.2),
+      padding: EdgeInsets.all(1.2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [Color(0x40F07A5E), Color(0x20E062A9), Color(0x409A58F4)],
         ),
       ),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.inputFill,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -624,37 +627,37 @@ class _EventCard extends StatelessWidget {
                   height: 38,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    color: AppColors.navBlueSoft,
-                    border: Border.all(color: AppColors.border),
+                    color: Theme.of(context).colorScheme.surfaceContainer,
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     item.venueName.trim().isEmpty
                         ? '?'
                         : item.venueName.trim()[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         item.venueName,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         '${item.venueDistrict} / ${item.venueNeighborhood}',
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                       ),
@@ -662,20 +665,15 @@ class _EventCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
-                    gradient: const LinearGradient(
-                      colors: AppColors.brandGradient,
-                    ),
+                    gradient: LinearGradient(colors: AppColors.brandGradient),
                   ),
                   child: Text(
                     _timeLabel(),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppColors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -683,32 +681,29 @@ class _EventCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: Text(
                     item.performerName,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
-                    color: AppColors.navBlueSoft,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                   ),
                   child: Text(
                     item.performerType,
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -717,36 +712,40 @@ class _EventCard extends StatelessWidget {
               ],
             ),
             if (item.description.trim().isNotEmpty) ...[
-              const SizedBox(height: 7),
+              SizedBox(height: 7),
               Text(
                 item.description,
-                style: const TextStyle(
-                  color: AppColors.textMuted,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   height: 1.35,
                 ),
               ),
             ],
             if (item.bandMembers.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: item.bandMembers
                     .map(
                       (member) => Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.navBlueSoft,
+                          color: Theme.of(context).colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                         child: Text(
                           member,
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -764,30 +763,34 @@ class _EventCard extends StatelessWidget {
 }
 
 class _GuestEmptyState extends StatelessWidget {
-  const _GuestEmptyState();
+  _GuestEmptyState();
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: 24),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.music_off, color: AppColors.textMuted, size: 32),
+              Icon(
+                Icons.music_off,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 32,
+              ),
               SizedBox(height: 10),
               Text(
                 'Bugun bu filtrede etkinlik yok.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -795,7 +798,9 @@ class _GuestEmptyState extends StatelessWidget {
               Text(
                 'Farkli sehir, ilce, mahalle veya mekan secerek tekrar dene.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textMuted),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -806,30 +811,34 @@ class _GuestEmptyState extends StatelessWidget {
 }
 
 class _SearchFirstState extends StatelessWidget {
-  const _SearchFirstState();
+  _SearchFirstState();
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: 24),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.search, color: AppColors.textMuted, size: 32),
+              Icon(
+                Icons.search,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 32,
+              ),
               SizedBox(height: 10),
               Text(
                 "Mekanlari gormek icin once 'Ara' butonuna bas.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -842,15 +851,15 @@ class _SearchFirstState extends StatelessWidget {
 }
 
 class _GuestLockFooter extends StatelessWidget {
-  const _GuestLockFooter();
+  _GuestLockFooter();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(16, 10, 16, 16),
+      decoration: BoxDecoration(
         color: AppColors.navBlueDeep,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
         children: [
@@ -860,14 +869,14 @@ class _GuestLockFooter extends StatelessWidget {
                 Navigator.of(context).pushNamed(AppRoutes.login);
               },
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                side: BorderSide(color: Theme.of(context).dividerColor),
+                padding: EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text('Giris Yap'),
+              child: Text('Giris Yap'),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: _GradientActionButton(
               label: 'Uye Ol',
@@ -899,7 +908,7 @@ class _GuestEventItem {
   String get venueKey =>
       '$venueName|$venueCity|$venueDistrict|$venueNeighborhood';
 
-  const _GuestEventItem({
+  _GuestEventItem({
     required this.id,
     required this.performerName,
     required this.performerType,
@@ -922,7 +931,7 @@ class _VenueFilterOption {
   final String district;
   final String neighborhood;
 
-  const _VenueFilterOption({
+  _VenueFilterOption({
     required this.venueKey,
     required this.venueName,
     required this.city,
@@ -944,41 +953,42 @@ class _VenueListScreen extends StatelessWidget {
   final List<_VenueFilterOption> venues;
   final String? selectedVenueKey;
 
-  const _VenueListScreen({
-    required this.venues,
-    required this.selectedVenueKey,
-  });
+  _VenueListScreen({required this.venues, required this.selectedVenueKey});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mekanlar')),
+      appBar: AppBar(title: Text('Mekanlar')),
       body: venues.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 'Bu filtrelere uygun mekan bulunamadi.',
-                style: TextStyle(color: AppColors.textMuted),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             )
           : ListView.separated(
-              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              padding: EdgeInsets.only(top: 8, bottom: 16),
               itemCount: venues.length + 1,
               separatorBuilder: (_, __) =>
-                  const Divider(color: AppColors.border, height: 1),
+                  Divider(color: Theme.of(context).dividerColor, height: 1),
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return ListTile(
                     onTap: () => Navigator.of(context).pop('__all__'),
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.public,
-                      color: AppColors.textMuted,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    title: const Text(
+                    title: Text(
                       'Tum mekanlar',
-                      style: TextStyle(color: AppColors.textPrimary),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                     trailing: selectedVenueKey == null
-                        ? const Icon(Icons.check, color: AppColors.coralLight)
+                        ? Icon(Icons.check, color: AppColors.coralLight)
                         : null,
                   );
                 }
@@ -988,25 +998,31 @@ class _VenueListScreen extends StatelessWidget {
                 return ListTile(
                   onTap: () => Navigator.of(context).pop(venue.venueKey),
                   leading: CircleAvatar(
-                    backgroundColor: AppColors.navBlueSoft,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
                     child: Text(
                       venue.venueName.isEmpty ? '?' : venue.venueName[0],
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   title: Text(
                     venue.venueName,
-                    style: const TextStyle(color: AppColors.textPrimary),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                   subtitle: Text(
                     '${venue.city} / ${venue.district} / ${venue.neighborhood}',
-                    style: const TextStyle(color: AppColors.textMuted),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   trailing: isSelected
-                      ? const Icon(Icons.check, color: AppColors.coralLight)
+                      ? Icon(Icons.check, color: AppColors.coralLight)
                       : null,
                 );
               },
@@ -1020,7 +1036,7 @@ class _GradientActionButton extends StatelessWidget {
   final IconData? icon;
   final VoidCallback? onPressed;
 
-  const _GradientActionButton({
+  _GradientActionButton({
     required this.label,
     this.icon,
     required this.onPressed,
@@ -1030,7 +1046,7 @@ class _GradientActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: AppColors.brandGradient),
+        gradient: LinearGradient(colors: AppColors.brandGradient),
         borderRadius: BorderRadius.circular(12),
       ),
       child: ElevatedButton(
@@ -1038,8 +1054,8 @@ class _GradientActionButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          foregroundColor: AppColors.white,
+          padding: EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -1050,7 +1066,7 @@ class _GradientActionButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(icon, size: 18),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(label),
                 ],
               ),

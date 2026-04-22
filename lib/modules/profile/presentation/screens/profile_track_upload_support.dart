@@ -31,7 +31,7 @@ Future<void> showProfileTrackUploadSheet({
     context: hostContext,
     isScrollControlled: true,
     backgroundColor: AppColors.navBlueDeep,
-    shape: const RoundedRectangleBorder(
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (sheetContext) {
@@ -42,7 +42,7 @@ Future<void> showProfileTrackUploadSheet({
               type: FileType.custom,
               withData: true,
               allowMultiple: false,
-              allowedExtensions: const [
+              allowedExtensions: [
                 'mp3',
                 'm4a',
                 'aac',
@@ -163,7 +163,7 @@ Future<void> showProfileTrackUploadSheet({
               if (!sheetContext.mounted) return;
               Navigator.of(sheetContext).pop();
               messenger.showSnackBar(
-                const SnackBar(content: Text('Sarki basariyla eklendi.')),
+                SnackBar(content: Text('Sarki basariyla eklendi.')),
               );
             } catch (e) {
               if (!sheetContext.mounted) return;
@@ -182,83 +182,95 @@ Future<void> showProfileTrackUploadSheet({
           }
 
           return AnimatedPadding(
-            duration: const Duration(milliseconds: 180),
+            duration: Duration(milliseconds: 180),
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
+                    Text(
                       'SoundConnect uzerinden sarki ekle',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: uploading ? null : pickAudio,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        side: const BorderSide(color: AppColors.border),
-                        backgroundColor: AppColors.inputFill,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onSurface,
+                        side: BorderSide(color: Theme.of(context).dividerColor),
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                       ),
-                      icon: const Icon(Icons.library_music_outlined),
+                      icon: Icon(Icons.library_music_outlined),
                       label: Text(
                         pickedName == null ? 'Ses dosyasi sec' : pickedName!,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     TextField(
                       enabled: !uploading,
                       controller: titleController,
-                      cursorColor: AppColors.textPrimary,
+                      cursorColor: Theme.of(context).colorScheme.onSurface,
                       decoration: InputDecoration(
                         hintText: 'Sarki adi',
                         filled: true,
-                        fillColor: AppColors.inputFill,
+                        fillColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.border),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.border),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                         disabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.border),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                       ),
                     ),
                     if (infoText != null) ...[
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Text(
                         infoText!,
                         style: TextStyle(
                           color: infoError
-                              ? const Color(0xFFFFB4B4)
-                              : AppColors.textMuted,
+                              ? Color(0xFFFFB4B4)
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     FilledButton(
                       onPressed: uploading ? null : uploadTrack,
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.coralAlt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        foregroundColor: AppColors.white,
+                        padding: EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: Text(uploading ? 'Yukleniyor...' : 'Yukle'),
                     ),

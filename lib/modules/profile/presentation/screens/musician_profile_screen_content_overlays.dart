@@ -7,7 +7,7 @@ extension _MusicianPublicProfileContentOverlays
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Kapat',
-      barrierColor: Colors.black.withValues(alpha: 0.35),
+      barrierColor: AppColors.pureBlack.withValues(alpha: 0.35),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return Align(
@@ -18,8 +18,8 @@ extension _MusicianPublicProfileContentOverlays
             child: Material(
               color: Colors.transparent,
               child: Container(
-                decoration: const BoxDecoration(
-                  color: AppColors.navBlueDeep,
+                decoration: BoxDecoration(
+                  color: Theme.of(dialogContext).colorScheme.surface,
                   borderRadius: BorderRadius.horizontal(
                     left: Radius.circular(20),
                   ),

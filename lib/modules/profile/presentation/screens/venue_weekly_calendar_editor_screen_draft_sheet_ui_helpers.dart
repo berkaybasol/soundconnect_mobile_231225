@@ -3,11 +3,11 @@ part of 'venue_weekly_calendar_editor_screen.dart';
 extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
   Widget _sectionCard({required Widget child}) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: child,
     );
@@ -15,11 +15,11 @@ extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
 
   Widget _sectionLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 8),
+      padding: EdgeInsets.only(left: 2, bottom: 8),
       child: Text(
         label,
-        style: const TextStyle(
-          color: AppColors.textMuted,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.2,
@@ -30,21 +30,23 @@ extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
 
   Widget _fieldFrame({required Widget child, required bool active}) {
     return Container(
-      padding: const EdgeInsets.all(1.2),
+      padding: EdgeInsets.all(1.2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: active
-            ? const LinearGradient(
+            ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: AppColors.brandGradient,
               )
             : null,
-        border: active ? null : Border.all(color: AppColors.border),
+        border: active
+            ? null
+            : Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.inputFill,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16.8),
         ),
         child: child,
@@ -54,23 +56,23 @@ extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
 
   Widget _gradientIcon(IconData icon, {double size = 20}) {
     return ShaderMask(
-      shaderCallback: (bounds) => const LinearGradient(
+      shaderCallback: (bounds) => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: AppColors.brandGradient,
       ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
       blendMode: BlendMode.srcIn,
-      child: Icon(icon, size: size, color: Colors.white),
+      child: Icon(icon, size: size, color: AppColors.white),
     );
   }
 
   Widget _pickerSelectionOverlay() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: EdgeInsets.symmetric(vertical: 6),
       child: IgnorePointer(
         child: CustomPaint(
           painter: _GradientOutlinePainter(borderRadius: 14, strokeWidth: 1.4),
-          child: const SizedBox.expand(),
+          child: SizedBox.expand(),
         ),
       ),
     );
@@ -99,7 +101,7 @@ extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
             borderRadius: BorderRadius.circular(18),
             onTap: onTap,
             child: Ink(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
                 color: AppColors.navBlueDeep.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(18),
@@ -107,12 +109,12 @@ extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
               child: Row(
                 children: [
                   _gradientIcon(icon, size: 18),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       value,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

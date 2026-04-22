@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class WaveformStub extends StatelessWidget {
-  final List<Color> gradientColors;
-  final Color iconColor;
-  final Color playIconColor;
-  final Color leadingBackgroundColor;
+  final List<Color>? gradientColors;
+  final Color? iconColor;
+  final Color? playIconColor;
+  final Color? leadingBackgroundColor;
   final Widget? leading;
   final Widget? footer;
   final VoidCallback? onPlay;
@@ -20,10 +20,10 @@ class WaveformStub extends StatelessWidget {
 
   const WaveformStub({
     super.key,
-    this.gradientColors = AppColors.brandGradient,
-    this.iconColor = AppColors.coralAlt,
-    this.playIconColor = AppColors.textMuted,
-    this.leadingBackgroundColor = AppColors.navBlueSoft,
+    this.gradientColors,
+    this.iconColor,
+    this.playIconColor,
+    this.leadingBackgroundColor,
     this.leading,
     this.footer,
     this.onPlay,
@@ -133,13 +133,21 @@ class WaveformStub extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveGradientColors = gradientColors ?? AppColors.brandGradient;
+    final effectiveIconColor = iconColor ?? theme.colorScheme.primary;
+    final effectiveLeadingBackgroundColor =
+        leadingBackgroundColor ?? theme.colorScheme.surfaceContainer;
+    final panelColor = theme.colorScheme.surfaceContainerHighest;
+    final borderColor = theme.dividerColor;
+
     return Container(
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: panelColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -150,14 +158,18 @@ class WaveformStub extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: leadingBackgroundColor,
+                  color: effectiveLeadingBackgroundColor,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: borderColor),
                 ),
                 child: Center(
                   child:
                       leading ??
-                      Icon(Icons.music_note, size: 16, color: iconColor),
+                      Icon(
+                        Icons.music_note,
+                        size: 16,
+                        color: effectiveIconColor,
+                      ),
                 ),
               ),
               const SizedBox(width: 6),
@@ -199,7 +211,7 @@ class WaveformStub extends StatelessWidget {
                                 CustomPaint(
                                   painter: _WaveformPainter(
                                     samples: waveformSamples,
-                                    gradientColors: gradientColors,
+                                    gradientColors: effectiveGradientColors,
                                     baseOpacity: 0.35,
                                     progress: animatedProgress,
                                   ),
@@ -212,7 +224,7 @@ class WaveformStub extends StatelessWidget {
                                     child: Container(
                                       width: 2,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
+                                        color: AppColors.white.withValues(
                                           alpha: 0.7,
                                         ),
                                         borderRadius: BorderRadius.circular(2),

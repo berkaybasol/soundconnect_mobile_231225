@@ -3,29 +3,34 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
 
 class VenuePendingScreen extends StatelessWidget {
-  const VenuePendingScreen({super.key});
+  VenuePendingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppColors.navBlueDeep, AppColors.navBlueSoft],
+            colors: [
+              AppColors.navBlueDeep,
+              Theme.of(context).colorScheme.surfaceContainer,
+            ],
           ),
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(18),
+                  padding: EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: AppColors.inputFill,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
@@ -35,41 +40,44 @@ class VenuePendingScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.verified_outlined,
                     color: AppColors.coralLight,
                     size: 44,
                   ),
                 ),
-                const SizedBox(height: 24),
-                const Text(
+                SizedBox(height: 24),
+                Text(
                   'Basvurun alindi',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Text(
+                SizedBox(height: 12),
+                Text(
                   'Mekan uyeligini incelemeye aldik. '
                   'Gun icinde ekibimiz sana ulasacak. '
                   'Bu surecte hesabin beklemede.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 15,
                     height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
+                SizedBox(height: 6),
+                Text(
                   'Anlayisin icin tesekkurler.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                  ),
                 ),
-                const SizedBox(height: 28),
+                SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -80,7 +88,7 @@ class VenuePendingScreen extends StatelessWidget {
                         (route) => false,
                       );
                     },
-                    child: const Text('Giris ekranina don'),
+                    child: Text('Giris ekranina don'),
                   ),
                 ),
               ],

@@ -27,7 +27,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
   final Future<bool?> Function(BuildContext context) openWeeklyCalendar;
   final Future<void> Function(BuildContext context) openConnectedArtists;
 
-  const VenueManagementPanelScreen({
+  VenueManagementPanelScreen({
     super.key,
     required this.ownerProfile,
     required this.openWeeklyCalendar,
@@ -37,51 +37,54 @@ class VenueManagementPanelScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mekan Yonetimi'), centerTitle: true),
+      appBar: AppBar(title: Text('Mekan Yonetimi'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [AppColors.inputFill, AppColors.navBlueSoft],
+                    colors: [
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                      Theme.of(context).colorScheme.surfaceContainer,
+                    ],
                   ),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GradientText(
                       text: ownerProfile.venueName,
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: AppColors.brandGradient,
                       ),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: 8),
+                    Text(
                       'Buradan mekan profilini destekleyen yonetim araclarina erisebilirsin.',
                       style: TextStyle(
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.45,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.calendar_month_outlined,
@@ -94,7 +97,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
                   }
                 },
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.hub_outlined,
@@ -106,14 +109,14 @@ class VenueManagementPanelScreen extends StatelessWidget {
                   openConnectedArtists: openConnectedArtists,
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.mode_comment_outlined,
                 title: 'Isletmene Gelen Yorumlari Goruntule',
                 message: 'Isletmene gelen yorumlar burada listelenecek.',
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.dashboard_customize_outlined,
@@ -121,7 +124,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
                 message: 'Istatistikler modulu yakinda burada acilacak.',
                 trailingLabel: 'Yakinda!',
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.extension_outlined,
@@ -129,7 +132,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
                 message: 'Kampanya ve tanitim alani yakinda burada acilacak.',
                 trailingLabel: 'Yakinda!',
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               _buildManagementPromotionCard(context),
             ],
           ),

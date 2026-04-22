@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../shared/theme/app_colors.dart';
+import '../core/di/service_locator.dart';
+import '../shared/theme/app_theme_variant.dart';
+import '../shared/theme/theme_controller.dart';
 import 'router/app_routes.dart';
 
 class AppShell extends StatelessWidget {
@@ -8,8 +10,34 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeController = serviceLocator.isRegistered<ThemeController>()
+        ? serviceLocator<ThemeController>()
+        : ThemeController.memory();
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil Secimi')),
+      appBar: AppBar(
+        title: const Text('Profil Secimi'),
+        actions: [
+          PopupMenuButton<AppThemeVariant>(
+            tooltip: 'Tema Sec',
+            initialValue: themeController.variant,
+            onSelected: (value) {
+              themeController.setVariant(value);
+            },
+            itemBuilder: (_) => AppThemeVariant.values
+                .map(
+                  (variant) => PopupMenuItem<AppThemeVariant>(
+                    value: variant,
+                    child: Text(variant.label),
+                  ),
+                )
+                .toList(),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14),
+              child: Icon(Icons.palette_outlined),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -19,7 +47,7 @@ class AppShell extends StatelessWidget {
               const SizedBox(height: 8),
               const Text(
                 'Devam etmek istedigin profil gorunumunu sec.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+                style: TextStyle(fontSize: 14),
               ),
               const SizedBox(height: 20),
               _RouteButton(

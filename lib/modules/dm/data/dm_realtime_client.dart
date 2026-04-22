@@ -12,6 +12,7 @@ class DmRealtimeClient {
   String? _connectedUserId;
   bool _connected = false;
   Future<void>? _connectInFlight;
+  int _retainCount = 0;
 
   final StreamController<DmMessage> _messageController =
       StreamController<DmMessage>.broadcast();
@@ -21,6 +22,19 @@ class DmRealtimeClient {
   Stream<DmMessage> get messageStream => _messageController.stream;
   Stream<int> get badgeStream => _badgeController.stream;
   bool get isConnected => _connected;
+
+  void retain() {
+    _retainCount += 1;
+  }
+
+  Future<void> release() async {
+    if (_retainCount > 0) {
+      _retainCount -= 1;
+    }
+    if (_retainCount == 0) {
+      await disconnect();
+    }
+  }
 
   Future<void> connect({required String userId, required String token}) async {
     if (_connectedUserId == userId && _connected) return;

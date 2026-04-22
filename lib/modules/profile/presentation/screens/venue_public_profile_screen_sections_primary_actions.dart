@@ -7,7 +7,7 @@ class _ActionButtons extends StatelessWidget {
   final VoidCallback onMessageTap;
   final VoidCallback onFollowToggle;
 
-  const _ActionButtons({
+  _ActionButtons({
     required this.isFollowing,
     required this.isEnabled,
     required this.isLoading,
@@ -18,16 +18,16 @@ class _ActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: 32),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton(
               onPressed: isEnabled && !isLoading ? onFollowToggle : null,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                side: BorderSide(color: Theme.of(context).dividerColor),
+                padding: EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -39,19 +39,19 @@ class _ActionButtons extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
               onPressed: onMessageTap,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.coralAlt,
                 foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: const Text('Mesaj Gonder'),
+              child: Text('Mesaj Gonder'),
             ),
           ),
         ],
@@ -64,28 +64,28 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final String? actionLabel;
 
-  const _SectionHeader({required this.title, this.actionLabel});
+  _SectionHeader({required this.title, this.actionLabel});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const Spacer(),
+          Spacer(),
           if (actionLabel != null)
             Text(
               actionLabel!,
-              style: const TextStyle(
-                color: AppColors.textMuted,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),

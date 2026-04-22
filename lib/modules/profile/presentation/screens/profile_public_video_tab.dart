@@ -12,25 +12,27 @@ import 'video_reel_screen.dart';
 class ProfilePublicVideoTab extends StatelessWidget {
   final List<MediaAsset> items;
 
-  const ProfilePublicVideoTab({super.key, required this.items});
+  ProfilePublicVideoTab({super.key, required this.items});
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(20),
         child: Text(
           'Kullanici henuz video eklemedi.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      physics: NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
@@ -57,9 +59,9 @@ class ProfilePublicVideoTab extends StatelessWidget {
         final commentCount = stats?.commentCount ?? fallbackCommentCount;
         return Container(
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
             image: thumbnail != null
                 ? DecorationImage(
                     image: NetworkImage(thumbnail),
@@ -108,7 +110,7 @@ class ProfilePublicVideoTab extends StatelessWidget {
                     light: true,
                   ),
                 ),
-                const Center(
+                Center(
                   child: Icon(
                     Icons.play_circle_outline,
                     color: AppColors.white,

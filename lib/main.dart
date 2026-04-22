@@ -3,10 +3,13 @@ import 'package:audio_service/audio_service.dart';
 import 'app/app.dart';
 import 'core/audio/audio_player_handler.dart';
 import 'core/di/service_locator.dart';
+import 'shared/theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupDependencies();
+  final themeController = await ThemeController.create();
+  serviceLocator.registerSingleton<ThemeController>(themeController);
   final audioHandler = await AudioService.init(
     builder: () => AudioPlayerHandler(),
     config: const AudioServiceConfig(

@@ -56,7 +56,7 @@ class BandProfileScreenArgs {
   final bool openEditMode;
   final BandProfileViewMode viewMode;
 
-  const BandProfileScreenArgs({
+  BandProfileScreenArgs({
     required this.bandId,
     this.openEditMode = false,
     this.viewMode = BandProfileViewMode.auto,
@@ -64,7 +64,7 @@ class BandProfileScreenArgs {
 }
 
 class BandProfileScreen extends StatelessWidget {
-  const BandProfileScreen({super.key});
+  BandProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -73,13 +73,13 @@ class BandProfileScreen extends StatelessWidget {
         BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
         BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
       ],
-      child: const _BandProfileView(),
+      child: _BandProfileView(),
     );
   }
 }
 
 class _BandProfileView extends StatefulWidget {
-  const _BandProfileView();
+  _BandProfileView();
 
   @override
   State<_BandProfileView> createState() => _BandProfileViewState();
@@ -100,7 +100,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
       serviceLocator<SpotifyRepository>();
   final ImagePicker _imagePicker = ImagePicker();
   BandProfile? _profile;
-  List<SpotifyTrackPreview> _spotifyTracks = const [];
+  List<SpotifyTrackPreview> _spotifyTracks = [];
   int? _followersCount;
   bool _loading = true;
   bool _photoUploading = false;
@@ -110,7 +110,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
   String? _bandId;
   BandProfileViewMode _viewMode = BandProfileViewMode.auto;
   String? _currentUserId;
-  List<VenueConnection> _activeVenues = const [];
+  List<VenueConnection> _activeVenues = [];
   final Map<String, String> _resolvedMemberProfileIdsByUserId =
       <String, String>{};
   final Map<String, String> _resolvedMemberAvatarUrlsByUserId =
@@ -227,12 +227,12 @@ class _BandProfileViewState extends State<_BandProfileView> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_profile == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Band Profili')),
+        appBar: AppBar(title: Text('Band Profili')),
         body: Center(child: Text(_errorText ?? 'Band profili getirilemedi.')),
       );
     }
@@ -241,12 +241,12 @@ class _BandProfileViewState extends State<_BandProfileView> {
     final mediaState = context.watch<ProfileMediaCubit>().state;
     final media =
         mediaState.media ??
-        const ProfileMedia(featuredVideo: null, videos: [], audios: []);
+        ProfileMedia(featuredVideo: null, videos: [], audios: []);
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const GradientText(
+          title: GradientText(
             text: 'SoundConnect',
             gradient: LinearGradient(colors: AppColors.brandGradient),
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
@@ -276,7 +276,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
                   followingLabel: 'Takip',
                   showFollowing: false,
                 ),
-                actionButtons: const SizedBox.shrink(),
+                actionButtons: SizedBox.shrink(),
                 bioSection: EditableBioSection(
                   bio: profile.description,
                   editable: _canManageBand,
@@ -287,38 +287,38 @@ class _BandProfileViewState extends State<_BandProfileView> {
                 ),
                 afterBio: _canManageBand
                     ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        padding: EdgeInsets.symmetric(horizontal: 28),
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(18),
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               colors: AppColors.brandGradient,
                             ),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(0.7),
+                            padding: EdgeInsets.all(0.7),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(18),
                               child: Container(
-                                color: AppColors.inputFill,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                                 child: TextButton.icon(
                                   onPressed: () =>
                                       _openBandManagementPanel(context),
                                   style: TextButton.styleFrom(
                                     foregroundColor: AppColors.white,
                                     backgroundColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
+                                    padding: EdgeInsets.symmetric(vertical: 14),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(18),
                                     ),
                                   ),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.dashboard_customize_outlined,
                                     color: AppColors.white,
                                   ),
-                                  label: const Text(
+                                  label: Text(
                                     'Yonetim Paneli',
                                     style: TextStyle(color: AppColors.white),
                                   ),
@@ -328,9 +328,9 @@ class _BandProfileViewState extends State<_BandProfileView> {
                           ),
                         ),
                       )
-                    : const SizedBox.shrink(),
+                    : SizedBox.shrink(),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               ProfileSectionHeader(
                 title: 'Uyeler',
                 actionLabel: profile.members.isEmpty ? null : 'Tumu',
@@ -340,14 +340,14 @@ class _BandProfileViewState extends State<_BandProfileView> {
                 avatarUrlOf: _effectiveMemberAvatar,
                 onOpenMember: _openMemberProfile,
               ),
-              const SizedBox(height: 12),
-              const ProfileSectionHeader(
+              SizedBox(height: 12),
+              ProfileSectionHeader(
                 title: 'Caldigi Mekanlar',
                 actionLabel: 'Tumu',
               ),
               _BandVenuesRow(items: _activeVenues),
-              const SizedBox(height: 12),
-              const ProfileMediaTabs(
+              SizedBox(height: 12),
+              ProfileMediaTabs(
                 tabs: [
                   Tab(
                     child: Row(
@@ -400,13 +400,13 @@ class _BandProfileViewState extends State<_BandProfileView> {
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               _BandSocialButtonRow(
                 profile: profile,
                 editable: _canManageBand,
                 onAddLink: _canManageBand ? _addSocialLink : null,
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
             ],
           ),
         ),

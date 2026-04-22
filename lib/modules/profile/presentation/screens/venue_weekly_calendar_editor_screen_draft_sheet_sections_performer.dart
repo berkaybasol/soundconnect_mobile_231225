@@ -22,7 +22,7 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                 }
                 _searchDebounce?.cancel();
                 _searchDebounce = Timer(
-                  const Duration(milliseconds: 320),
+                  Duration(milliseconds: 320),
                   () => _runSearch(trimmed),
                 );
                 _updateState(() {});
@@ -31,19 +31,19 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                 labelText: 'ÃƒÆ’Ã¢â‚¬Â¡alacak sanatÃƒÆ’Ã‚Â§Ãƒâ€Ã‚Â± / grup',
                 hintText:
                     'Ãƒâ€Ã‚Â°sim yaz, eÃƒâ€¦Ã…Â¸leÃƒâ€¦Ã…Â¸irse profile baÃƒâ€Ã…Â¸lanÃƒâ€Ã‚Â±r',
-                contentPadding: const EdgeInsets.symmetric(
+                contentPadding: EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 18,
                 ),
-                prefixIcon: const Padding(
+                prefixIcon: Padding(
                   padding: EdgeInsets.only(left: 14, right: 10),
                   child: Icon(
                     Icons.search,
                     size: 19,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                prefixIconConstraints: const BoxConstraints(
+                prefixIconConstraints: BoxConstraints(
                   minWidth: 0,
                   minHeight: 0,
                 ),
@@ -54,7 +54,7 @@ extension _VenueEventDraftSheetStateSectionsPerformer
             ),
           ),
           if (_selectedMusicianId != null) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () {
@@ -71,20 +71,19 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppColors.navBlueDeep.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: AppColors.navBlueSoft,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainer,
                       backgroundImage:
                           _selectedMusicianImageUrl != null &&
                               _selectedMusicianImageUrl!.startsWith('http')
@@ -93,22 +92,24 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                       child:
                           _selectedMusicianImageUrl == null ||
                               !_selectedMusicianImageUrl!.startsWith('http')
-                          ? const Icon(
+                          ? Icon(
                               Icons.person_outline,
                               size: 18,
-                              color: AppColors.textMuted,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             )
                           : null,
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             _selectedMusicianLabel ?? 'SoundConnect Profili',
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
                             ),
@@ -116,8 +117,10 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                           if (_selectedMusicianSecondaryLabel != null)
                             Text(
                               _selectedMusicianSecondaryLabel!,
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontSize: 11,
                               ),
                             ),
@@ -131,22 +134,22 @@ extension _VenueEventDraftSheetStateSectionsPerformer
             ),
           ],
           if (_searchLoading) ...[
-            const SizedBox(height: 10),
-            const LinearProgressIndicator(minHeight: 2),
+            SizedBox(height: 10),
+            LinearProgressIndicator(minHeight: 2),
           ] else if (_searchResults.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Container(
-              constraints: const BoxConstraints(maxHeight: 190),
+              constraints: BoxConstraints(maxHeight: 190),
               decoration: BoxDecoration(
                 color: AppColors.navBlueDeep.withValues(alpha: 0.68),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _searchResults.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: AppColors.border),
+                    Divider(height: 1, color: Theme.of(context).dividerColor),
                 itemBuilder: (context, index) {
                   final item = _searchResults[index];
                   return ListTile(
@@ -160,13 +163,15 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                         _selectedMusicianLabel = item.displayName;
                         _selectedMusicianSecondaryLabel = item.secondaryLabel;
                         _selectedMusicianImageUrl = item.profilePictureUrl;
-                        _searchResults = const [];
+                        _searchResults = [];
                         _searchError = null;
                       });
                     },
                     leading: CircleAvatar(
                       radius: 18,
-                      backgroundColor: AppColors.navBlueSoft,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainer,
                       backgroundImage:
                           item.profilePictureUrl != null &&
                               item.profilePictureUrl!.startsWith('http')
@@ -175,16 +180,18 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                       child:
                           item.profilePictureUrl == null ||
                               !item.profilePictureUrl!.startsWith('http')
-                          ? const Icon(
+                          ? Icon(
                               Icons.person_outline,
-                              color: AppColors.textMuted,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             )
                           : null,
                     ),
                     title: Text(
                       item.displayName,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -192,7 +199,11 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                         ? null
                         : Text(
                             item.secondaryLabel!,
-                            style: const TextStyle(color: AppColors.textMuted),
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
                   );
                 },
@@ -200,10 +211,13 @@ extension _VenueEventDraftSheetStateSectionsPerformer
             ),
           ] else if (_searchError != null &&
               _performerController.text.trim().length >= 2) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               _searchError!,
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
           ],
         ],

@@ -16,6 +16,7 @@ class AppRoutes {
   static const listenerProfile = '/listener-profile';
   static const tableGroupList = '/table-group-list';
   static const tableGroupCreate = '/table-group-create';
+  static const tableGroupDetail = '/table-group-detail';
   static const dmConversations = '/dm-conversations';
   static const dmChat = '/dm-chat';
   static const home = '/home';

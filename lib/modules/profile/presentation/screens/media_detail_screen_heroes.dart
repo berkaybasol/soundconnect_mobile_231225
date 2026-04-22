@@ -6,7 +6,7 @@ class _VideoHero extends StatelessWidget {
   final bool ready;
   final String? errorText;
 
-  const _VideoHero({
+  _VideoHero({
     required this.controller,
     required this.thumbnailUrl,
     required this.ready,
@@ -22,9 +22,9 @@ class _VideoHero extends StatelessWidget {
     return Container(
       height: 240,
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
         image: thumbnailUrl != null
             ? DecorationImage(
                 image: NetworkImage(thumbnailUrl!),
@@ -82,8 +82,8 @@ class _VideoHero extends StatelessWidget {
               child: Text(
                 errorText ?? 'Video yukleniyor...',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
@@ -98,7 +98,7 @@ class _VideoHero extends StatelessWidget {
 class _ImageHero extends StatelessWidget {
   final String? imageUrl;
 
-  const _ImageHero({required this.imageUrl});
+  _ImageHero({required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -106,16 +106,16 @@ class _ImageHero extends StatelessWidget {
     return Container(
       height: 320,
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: url == null || url.isEmpty
-          ? const Center(
+          ? Center(
               child: Icon(
                 Icons.broken_image_outlined,
-                color: AppColors.textMuted,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 40,
               ),
             )
@@ -126,9 +126,9 @@ class _ImageHero extends StatelessWidget {
                 child: Image.network(
                   url,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
+                  errorBuilder: (_, __, ___) => Icon(
                     Icons.broken_image_outlined,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 40,
                   ),
                 ),
@@ -145,7 +145,7 @@ class _CountRow extends StatelessWidget {
   final bool likeLoading;
   final VoidCallback? onLikeTap;
 
-  const _CountRow({
+  _CountRow({
     required this.likeCount,
     required this.commentCount,
     required this.liked,
@@ -165,26 +165,32 @@ class _CountRow extends StatelessWidget {
               Icon(
                 liked ? Icons.favorite : Icons.favorite_border,
                 size: 18,
-                color: liked ? AppColors.coralAlt : AppColors.textMuted,
+                color: liked
+                    ? AppColors.coralAlt
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Text(
                 likeCount.toString(),
-                style: const TextStyle(color: AppColors.textMuted),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 16),
-        const Icon(
+        SizedBox(width: 16),
+        Icon(
           Icons.chat_bubble_outline,
           size: 18,
-          color: AppColors.textMuted,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Text(
           commentCount.toString(),
-          style: const TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );

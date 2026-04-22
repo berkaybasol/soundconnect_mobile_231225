@@ -8,7 +8,7 @@ class EditableBioSection extends StatefulWidget {
   final String addLabel;
   final String hintText;
 
-  const EditableBioSection({
+  EditableBioSection({
     super.key,
     required this.bio,
     required this.editable,
@@ -56,7 +56,10 @@ class _EditableBioSectionState extends State<EditableBioSection> {
       return Text(
         hasBio ? resolvedBio : widget.emptyText,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.textMuted, height: 1.6),
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          height: 1.6,
+        ),
       );
     }
 
@@ -76,13 +79,16 @@ class _EditableBioSectionState extends State<EditableBioSection> {
       return Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 4, right: 20),
+            padding: EdgeInsets.only(top: 4, right: 20),
             child: SizedBox(
               width: double.infinity,
               child: Text(
                 resolvedBio,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textMuted, height: 1.6),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.6,
+                ),
               ),
             ),
           ),
@@ -97,9 +103,13 @@ class _EditableBioSectionState extends State<EditableBioSection> {
                   _isEditing = true;
                 });
               },
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(2),
-                child: Icon(Icons.edit, size: 14, color: AppColors.textMuted),
+                child: Icon(
+                  Icons.edit,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -117,24 +127,24 @@ class _EditableBioSectionState extends State<EditableBioSection> {
           decoration: InputDecoration(
             hintText: widget.hintText,
             filled: true,
-            fillColor: AppColors.inputFill,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border),
+              borderSide: BorderSide(color: Theme.of(context).dividerColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border),
+              borderSide: BorderSide(color: Theme.of(context).dividerColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.coralAlt),
+              borderSide: BorderSide(color: AppColors.coralAlt),
             ),
           ),
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           onChanged: (value) => _draft = value,
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -142,18 +152,18 @@ class _EditableBioSectionState extends State<EditableBioSection> {
               onPressed: _saving
                   ? null
                   : () => setState(() => _isEditing = false),
-              child: const Text('Iptal'),
+              child: Text('Iptal'),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             FilledButton(
               onPressed: _saving ? null : _handleSave,
               child: _saving
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Kaydet'),
+                  : Text('Kaydet'),
             ),
           ],
         ),

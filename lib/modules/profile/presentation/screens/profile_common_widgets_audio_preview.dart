@@ -4,7 +4,7 @@ class ProfileSpotifyPreviewCard extends StatelessWidget {
   final double ringSize;
   final String actionLabel;
 
-  const ProfileSpotifyPreviewCard({
+  ProfileSpotifyPreviewCard({
     super.key,
     this.ringSize = 64,
     this.actionLabel = "Tamamini Spotify'da Dinle",
@@ -12,25 +12,25 @@ class ProfileSpotifyPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const spotifyGradient = [
-      Color(0xFF1ED760),
-      Color(0xFF1DB954),
-      Color(0xFF18A34A),
+    final spotifyGradient = [
+      AppColors.spotifyGreenBright,
+      AppColors.spotifyGreen,
+      AppColors.spotifyGreenDark,
     ];
 
     return ProfileAudioPreviewCard(
       title: 'Spotify Preview',
       actionLabel: actionLabel,
-      actionColor: const Color(0xFF1DB954),
+      actionColor: AppColors.spotifyGreen,
       ringSize: ringSize,
-      waveform: const WaveformStub(
+      waveform: WaveformStub(
         gradientColors: spotifyGradient,
-        iconColor: Color(0xFF1ED760),
-        playIconColor: Color(0xFF1DB954),
+        iconColor: AppColors.spotifyGreenBright,
+        playIconColor: AppColors.spotifyGreen,
         leading: FaIcon(
           FontAwesomeIcons.spotify,
           size: 16,
-          color: Color(0xFF1DB954),
+          color: AppColors.spotifyGreen,
         ),
         height: 92,
         waveformHeight: 44,
@@ -50,7 +50,7 @@ class ProfileAudioPreviewCard extends StatefulWidget {
   final Widget? bottomControls;
   final double ringSize;
 
-  const ProfileAudioPreviewCard({
+  ProfileAudioPreviewCard({
     super.key,
     required this.title,
     required this.waveform,
@@ -72,7 +72,7 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _heartController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 760),
+    duration: Duration(milliseconds: 760),
   );
   late final Animation<double> _heartScale = TweenSequence<double>([
     TweenSequenceItem(
@@ -106,7 +106,7 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
       .animate(
         CurvedAnimation(
           parent: _heartController,
-          curve: const Interval(0.08, 0.9, curve: Curves.easeOutCubic),
+          curve: Interval(0.08, 0.9, curve: Curves.easeOutCubic),
         ),
       );
   late final Animation<double> _ringOpacity = TweenSequence<double>([
@@ -136,11 +136,15 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
         alignment: Alignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.inputFill,
+              gradient: LinearGradient(
+                colors: AppColors.uploadedAudioCardGradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -150,19 +154,21 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 if (widget.actionLabel != null) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   GestureDetector(
                     onTap: widget.onActionTap,
                     child: Text(
                       widget.actionLabel!,
                       style: TextStyle(
-                        color: widget.actionColor ?? AppColors.textMuted,
+                        color:
+                            widget.actionColor ??
+                            Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         decoration: widget.onActionTap != null
                             ? TextDecoration.underline
@@ -171,10 +177,10 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
                     ),
                   ),
                 ],
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 widget.waveform,
                 if (widget.bottomControls != null) ...[
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   widget.bottomControls!,
                 ],
               ],
@@ -185,7 +191,7 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
               animation: _heartController,
               builder: (context, _) {
                 if (_heartController.value == 0) {
-                  return const SizedBox.shrink();
+                  return SizedBox.shrink();
                 }
                 return Stack(
                   alignment: Alignment.center,
@@ -214,13 +220,13 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
                         child: ShaderMask(
                           blendMode: BlendMode.srcIn,
                           shaderCallback: (Rect bounds) {
-                            return const LinearGradient(
+                            return LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: AppColors.brandGradient,
                             ).createShader(bounds);
                           },
-                          child: const Icon(Icons.favorite, size: 76),
+                          child: Icon(Icons.favorite, size: 76),
                         ),
                       ),
                     ),
@@ -228,7 +234,7 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
                       opacity: _heartOpacity.value * 0.45,
                       child: Transform.scale(
                         scale: _heartScale.value * 1.05,
-                        child: const Icon(
+                        child: Icon(
                           Icons.favorite,
                           size: 82,
                           color: Color(0x66FF5F8F),

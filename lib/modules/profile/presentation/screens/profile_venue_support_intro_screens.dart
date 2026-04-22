@@ -1,7 +1,7 @@
 part of 'profile_venue_support.dart';
 
 class VenueIntroScreen extends StatelessWidget {
-  const VenueIntroScreen({super.key});
+  VenueIntroScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -9,30 +9,30 @@ class VenueIntroScreen extends StatelessWidget {
       backgroundColor: AppColors.navBlueDeep,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          padding: EdgeInsets.fromLTRB(24, 28, 24, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Mekan Baglanti Sureci',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w800,
                   fontSize: 30,
                   height: 1.15,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
+              SizedBox(height: 10),
+              Text(
                 'Devam etmeden once kisa bilgi',
                 style: TextStyle(
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 28),
-              const Expanded(
+              SizedBox(height: 28),
+              Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
@@ -61,7 +61,7 @@ class VenueIntroScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -69,8 +69,8 @@ class VenueIntroScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.coralAlt,
                     foregroundColor: AppColors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 17),
-                    textStyle: const TextStyle(
+                    padding: EdgeInsets.symmetric(vertical: 17),
+                    textStyle: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                     ),
@@ -78,7 +78,7 @@ class VenueIntroScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Anladim, Devam Et'),
+                  child: Text('Anladim, Devam Et'),
                 ),
               ),
             ],
@@ -90,7 +90,7 @@ class VenueIntroScreen extends StatelessWidget {
 }
 
 class MusicianIntroScreen extends StatelessWidget {
-  const MusicianIntroScreen({super.key});
+  MusicianIntroScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -98,30 +98,30 @@ class MusicianIntroScreen extends StatelessWidget {
       backgroundColor: AppColors.navBlueDeep,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          padding: EdgeInsets.fromLTRB(24, 28, 24, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Muzisyen Baglanti Sureci',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w800,
                   fontSize: 30,
                   height: 1.15,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
+              SizedBox(height: 10),
+              Text(
                 'Devam etmeden once kisa bilgi',
                 style: TextStyle(
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 28),
-              const Expanded(
+              SizedBox(height: 28),
+              Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
@@ -150,7 +150,7 @@ class MusicianIntroScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -158,8 +158,8 @@ class MusicianIntroScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.coralAlt,
                     foregroundColor: AppColors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 17),
-                    textStyle: const TextStyle(
+                    padding: EdgeInsets.symmetric(vertical: 17),
+                    textStyle: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                     ),
@@ -167,7 +167,7 @@ class MusicianIntroScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Anladim, Devam Et'),
+                  child: Text('Anladim, Devam Et'),
                 ),
               ),
             ],
@@ -184,7 +184,7 @@ class _VenueIntroStep extends StatelessWidget {
   final String text;
   final bool showInlineSettingsIcon;
 
-  const _VenueIntroStep({
+  _VenueIntroStep({
     required this.icon,
     required this.title,
     required this.text,
@@ -197,14 +197,18 @@ class _VenueIntroStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 2, right: 10),
+          padding: EdgeInsets.only(top: 2, right: 10),
           child: ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
+            shaderCallback: (bounds) => LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFFFF7A3D), Color(0xFFEF5F86), Color(0xFFB85CFF)],
+              colors: [
+                AppColors.socialOrange,
+                AppColors.socialPink,
+                AppColors.socialPurple,
+              ],
             ).createShader(bounds),
-            child: Icon(icon, size: 20, color: Colors.white),
+            child: Icon(icon, size: 20, color: AppColors.white),
           ),
         ),
         Expanded(
@@ -213,18 +217,18 @@ class _VenueIntroStep extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               if (showInlineSettingsIcon && text.contains('Ayarlar'))
                 Builder(
                   builder: (_) {
-                    const bodyStyle = TextStyle(
-                      color: AppColors.textMuted,
+                    final bodyStyle = TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                       height: 1.44,
@@ -246,20 +250,22 @@ class _VenueIntroStep extends StatelessWidget {
                         style: bodyStyle,
                         children: [
                           TextSpan(text: left),
-                          const WidgetSpan(
+                          WidgetSpan(
                             alignment: PlaceholderAlignment.middle,
                             child: Padding(
                               padding: EdgeInsets.only(right: 4),
                               child: Icon(
                                 Icons.settings,
                                 size: 15,
-                                color: AppColors.textMuted,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
                           TextSpan(text: beforeFocus),
                           if (focusedText.isNotEmpty)
-                            const TextSpan(
+                            TextSpan(
                               text: focus,
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
@@ -272,8 +278,8 @@ class _VenueIntroStep extends StatelessWidget {
               else
                 Text(
                   text,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     height: 1.44,

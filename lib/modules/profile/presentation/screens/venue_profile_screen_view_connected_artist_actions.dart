@@ -8,7 +8,7 @@ extension _VenueProfileViewStateConnectedArtistActions
           await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               fullscreenDialog: true,
-              builder: (_) => const MusicianIntroScreen(),
+              builder: (_) => MusicianIntroScreen(),
             ),
           ) ??
           false;

@@ -70,6 +70,7 @@ import '../../modules/spotify/presentation/cubit/spotify_preview_cubit.dart';
 import '../../modules/setlist/data/setlist_repository_impl.dart';
 import '../../modules/setlist/domain/setlist_repository.dart';
 import '../../modules/tablegroup/data/table_group_repository_impl.dart';
+import '../../modules/tablegroup/data/table_group_chat_realtime_client.dart';
 import '../../modules/tablegroup/domain/table_group_repository.dart';
 import '../../modules/tablegroup/presentation/cubit/table_group_create_cubit.dart';
 import '../../modules/tablegroup/presentation/cubit/table_group_list_cubit.dart';
@@ -179,6 +180,9 @@ void setupDependencies() {
     )
     ..registerLazySingleton<TableGroupRepository>(
       () => TableGroupRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<TableGroupChatRealtimeClient>(
+      () => TableGroupChatRealtimeClient(),
     )
     ..registerLazySingleton<EngagementRepository>(
       () => EngagementRepositoryImpl(serviceLocator<ApiClient>()),

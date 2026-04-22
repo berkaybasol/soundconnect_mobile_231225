@@ -7,6 +7,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../shared/theme/app_colors.dart';
 export '../../domain/entities/profile_upload_result.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
@@ -75,7 +76,7 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
         AndroidUiSettings(
           toolbarTitle: cropTitle,
           toolbarColor: cropToolbarColor,
-          toolbarWidgetColor: Colors.white,
+          toolbarWidgetColor: AppColors.white,
           activeControlsWidgetColor: cropAccentColor,
           lockAspectRatio: true,
           hideBottomControls: false,

@@ -8,29 +8,29 @@ Future<void> _showArtistAndApplicationSheet({
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.navBlueDeep,
-    shape: const RoundedRectangleBorder(
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (sheetContext) {
       return SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Center(
+              Center(
                 child: Text(
                   'Sanatci Baglantilarini Yonet',
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                     fontSize: 18,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _buildManagementActionCard(
                 context: sheetContext,
                 icon: Icons.group_outlined,
@@ -41,7 +41,7 @@ Future<void> _showArtistAndApplicationSheet({
                   await openConnectedArtists(context);
                 },
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _buildManagementActionCard(
                 context: sheetContext,
                 icon: Icons.send_outlined,
@@ -53,7 +53,7 @@ Future<void> _showArtistAndApplicationSheet({
                     context: context,
                     isScrollControlled: true,
                     backgroundColor: AppColors.navBlueDeep,
-                    shape: const RoundedRectangleBorder(
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.vertical(
                         top: Radius.circular(24),
                       ),
@@ -65,7 +65,7 @@ Future<void> _showArtistAndApplicationSheet({
                   );
                 },
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _buildManagementActionCard(
                 context: sheetContext,
                 icon: Icons.inbox_outlined,
@@ -77,7 +77,7 @@ Future<void> _showArtistAndApplicationSheet({
                     context: context,
                     isScrollControlled: true,
                     backgroundColor: AppColors.navBlueDeep,
-                    shape: const RoundedRectangleBorder(
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.vertical(
                         top: Radius.circular(24),
                       ),

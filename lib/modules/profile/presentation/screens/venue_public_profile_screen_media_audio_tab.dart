@@ -6,7 +6,7 @@ class _AudioTab extends StatelessWidget {
   final bool spotifyLoading;
   final AudioHandler audioHandler;
 
-  const _AudioTab({
+  _AudioTab({
     required this.items,
     required this.spotifyTracks,
     required this.spotifyLoading,
@@ -17,15 +17,17 @@ class _AudioTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final positionStream = audioHandler is AudioPlayerHandler
         ? (audioHandler as AudioPlayerHandler).positionStream
-        : const Stream<Duration>.empty();
+        : Stream<Duration>.empty();
     final spotifyPreviewItems = spotifyTracks;
 
     if (items.isEmpty && spotifyPreviewItems.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(20),
         child: Text(
           'Kullanici henuz ses eklemedi.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -39,11 +41,11 @@ class _AudioTab extends StatelessWidget {
         final statsState = context.watch<InteractionStatsCubit>().state;
 
         return Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20),
           child: Column(
             children: [
               if (spotifyLoading)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(bottom: 12),
                   child: LinearProgressIndicator(),
                 ),
@@ -53,19 +55,19 @@ class _AudioTab extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: () =>
                         _showSpotifyCatalog(context, spotifyPreviewItems),
-                    icon: const FaIcon(
+                    icon: FaIcon(
                       FontAwesomeIcons.spotify,
                       size: 16,
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1DB954),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.spotifyGreen,
+                      foregroundColor: AppColors.white,
                     ),
-                    label: const Text('Spotify Katalogu'),
+                    label: Text('Spotify Katalogu'),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
               ],
               ...List.generate(items.length, (index) {
                 return _buildAudioTrackItem(

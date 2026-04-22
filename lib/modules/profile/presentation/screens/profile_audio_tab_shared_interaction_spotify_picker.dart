@@ -13,7 +13,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
@@ -29,7 +29,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
               final token = ++lastSearchToken;
               if (q.length < 2) {
                 setSheetState(() {
-                  results = const [];
+                  results = [];
                   errorText = 'En az 2 karakter yaz.';
                 });
                 return;
@@ -54,7 +54,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
             }
 
             return AnimatedPadding(
-              duration: const Duration(milliseconds: 180),
+              duration: Duration(milliseconds: 180),
               curve: Curves.easeOut,
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -66,7 +66,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
                     maxHeight: MediaQuery.of(context).size.height * 0.78,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
                     child: Column(
                       children: [
                         TextField(
@@ -77,47 +77,51 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
                             searchDebounce?.cancel();
                             if (value.trim().length >= 2) {
                               searchDebounce = Timer(
-                                const Duration(milliseconds: 320),
+                                Duration(milliseconds: 320),
                                 runSearch,
                               );
                             } else {
                               setSheetState(() {
-                                results = const [];
+                                results = [];
                                 errorText = '';
                               });
                             }
                           },
                           decoration: InputDecoration(
                             hintText: 'Spotify parca ara...',
-                            prefixIcon: const Icon(Icons.search),
+                            prefixIcon: Icon(Icons.search),
                             suffixIcon: IconButton(
                               onPressed: runSearch,
-                              icon: const Icon(Icons.arrow_forward),
+                              icon: Icon(Icons.arrow_forward),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         if (loading) ...[
-                          const LinearProgressIndicator(minHeight: 2),
-                          const SizedBox(height: 12),
+                          LinearProgressIndicator(minHeight: 2),
+                          SizedBox(height: 12),
                         ],
                         if (!loading && errorText.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
+                            padding: EdgeInsets.only(bottom: 8),
                             child: Text(
                               errorText,
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
                         if (!loading && results.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
+                            padding: EdgeInsets.only(bottom: 8),
                             child: Text(
                               '${results.length} sonuc',
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
@@ -125,19 +129,22 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
                         Expanded(
                           child: ListView.separated(
                             itemCount: results.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 8),
+                            separatorBuilder: (_, __) => SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final track = results[index];
                               final alreadyAdded = existingIds.contains(
                                 track.id,
                               );
                               return Container(
-                                padding: const EdgeInsets.all(10),
+                                padding: EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: AppColors.inputFill,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppColors.border),
+                                  border: Border.all(
+                                    color: Theme.of(context).dividerColor,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
@@ -152,30 +159,38 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               color: alreadyAdded
-                                                  ? AppColors.textMuted
-                                                  : AppColors.textPrimary,
+                                                  ? Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant
+                                                  : Theme.of(
+                                                      context,
+                                                    ).colorScheme.onSurface,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                          const SizedBox(height: 3),
+                                          SizedBox(height: 3),
                                           Text(
                                             track.artistNames.join(', '),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: AppColors.textMuted,
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
                                               fontSize: 12,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     if (alreadyAdded)
-                                      const Text(
+                                      Text(
                                         'Eklendi',
                                         style: TextStyle(
-                                          color: AppColors.textMuted,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       )
@@ -184,7 +199,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
                                         onPressed: () => Navigator.of(
                                           sheetContext,
                                         ).pop(track),
-                                        icon: const Icon(
+                                        icon: Icon(
                                           Icons.add_circle_outline,
                                           color: AppColors.coralAlt,
                                         ),

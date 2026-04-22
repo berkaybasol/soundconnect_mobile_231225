@@ -12,7 +12,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final List<SpotifyTrackPreview> spotifyTracks;
   final bool spotifyLoading;
 
-  const _MusicianPublicProfileContent({
+  _MusicianPublicProfileContent({
     required this.profile,
     required this.media,
     required this.followersCount,
@@ -30,7 +30,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       return activeVenues!;
     }
     if (profile.activeVenues.isNotEmpty) return profile.activeVenues;
-    return const [];
+    return [];
   }
 
   ProfileMedia _resolveMedia(ProfileMedia? media) {
@@ -40,7 +40,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
             media.audios.isNotEmpty)) {
       return media;
     }
-    return const ProfileMedia(featuredVideo: null, videos: [], audios: []);
+    return ProfileMedia(featuredVideo: null, videos: [], audios: []);
   }
 
   @override
@@ -55,31 +55,31 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const GradientText(
+          title: GradientText(
             text: 'SoundConnect',
             gradient: LinearGradient(colors: AppColors.brandGradient),
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
           ),
-          leading: const BackButton(),
+          leading: BackButton(),
           centerTitle: true,
         ),
         body: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Align(
                 alignment: Alignment.center,
                 child: _ProfileHeader(profile: profile),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _ProfileIdentity(profile: profile),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _FollowerRow(
                 followersCount: followersCount,
                 followingCount: followingCount,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _ActionButtons(
                 isFollowing: isFollowing,
                 isEnabled: canFollow,
@@ -105,40 +105,37 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
+                padding: EdgeInsets.symmetric(horizontal: 28),
                 child: Text(
                   profile.bio?.trim().isNotEmpty == true
                       ? profile.bio!
                       : 'Henuz bir aciklama eklenmedi.',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     height: 1.6,
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              const _SectionHeader(
-                title: 'Caldigi Mekanlar',
-                actionLabel: 'Tumu',
-              ),
+              SizedBox(height: 18),
+              _SectionHeader(title: 'Caldigi Mekanlar', actionLabel: 'Tumu'),
               _VenueCarousel(items: _resolveVenues()),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _MediaTabs(),
               _MediaContent(
                 media: resolvedMedia,
                 spotifyTracks: spotifyTracks,
                 spotifyLoading: spotifyLoading,
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               _SocialButtonRow(profile: profile),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
             ],
           ),
         ),
-        bottomNavigationBar: const ProfilePublicBottomBar(),
+        bottomNavigationBar: ProfilePublicBottomBar(),
       ),
     );
   }

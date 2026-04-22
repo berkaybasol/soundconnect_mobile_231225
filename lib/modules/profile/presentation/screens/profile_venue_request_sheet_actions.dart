@@ -6,8 +6,8 @@ extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
       _selectedCityId = cityId;
       _selectedDistrictId = null;
       _selectedNeighborhoodId = null;
-      _districtOptions = const [];
-      _neighborhoodOptions = const [];
+      _districtOptions = [];
+      _neighborhoodOptions = [];
       _loadingDistricts = cityId != null;
     });
     if (cityId == null) return;
@@ -28,7 +28,7 @@ extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
     _updateState(() {
       _selectedDistrictId = districtId;
       _selectedNeighborhoodId = null;
-      _neighborhoodOptions = const [];
+      _neighborhoodOptions = [];
       _loadingNeighborhoods = districtId != null;
     });
     if (districtId == null) return;
@@ -50,7 +50,7 @@ extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
     if (venueId == null) return;
     final message = await _showNoteDialog();
     if (!mounted || message == null) return;
-    await Future<void>.delayed(const Duration(milliseconds: 16));
+    await Future<void>.delayed(Duration(milliseconds: 16));
     if (!mounted) return;
     Navigator.of(
       context,
@@ -64,54 +64,54 @@ extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          insetPadding: EdgeInsets.symmetric(horizontal: 24),
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.navBlueDeep,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 14),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Basvuru Notu (Opsiyonel)',
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     TextField(
                       minLines: 3,
                       maxLines: 5,
                       onChanged: (value) {
                         noteDraft = value;
                       },
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText:
                             'Istersen kisa bir not ekleyebilirsin (zorunlu degil).',
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text('Vazgec'),
+                            child: Text('Vazgec'),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () => Navigator.of(
                               dialogContext,
                             ).pop(noteDraft.trim()),
-                            child: const Text('Gonder'),
+                            child: Text('Gonder'),
                           ),
                         ),
                       ],
@@ -176,8 +176,8 @@ extension _VenueRequestSheetStateActions on _VenueRequestSheetState {
       _selectedCityId = null;
       _selectedDistrictId = null;
       _selectedNeighborhoodId = null;
-      _districtOptions = const [];
-      _neighborhoodOptions = const [];
+      _districtOptions = [];
+      _neighborhoodOptions = [];
     });
   }
 }

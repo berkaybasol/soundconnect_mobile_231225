@@ -18,7 +18,9 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
     this._tokenStore, {
     DmRealtimeClient? realtimeClient,
   }) : _realtimeClient = realtimeClient ?? DmRealtimeClient(),
-       super(const DmBadgeState.initial());
+       super(const DmBadgeState.initial()) {
+    _realtimeClient.retain();
+  }
 
   StreamSubscription<int>? _badgeSubscription;
   String? _startedUserId;
@@ -88,6 +90,7 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
   @override
   Future<void> close() async {
     await _badgeSubscription?.cancel();
+    await _realtimeClient.release();
     return super.close();
   }
 }

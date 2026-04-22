@@ -3,7 +3,7 @@ part of 'venue_weekly_calendar_editor_screen.dart';
 class _VenueEventDraftSheet extends StatefulWidget {
   final VenueOwnerProfile ownerProfile;
 
-  const _VenueEventDraftSheet({required this.ownerProfile});
+  _VenueEventDraftSheet({required this.ownerProfile});
 
   @override
   State<_VenueEventDraftSheet> createState() => _VenueEventDraftSheetState();
@@ -22,8 +22,8 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   final _descriptionFocusNode = FocusNode();
   final ImagePicker _imagePicker = ImagePicker();
   DateTime? _selectedDate = DateTime.now();
-  TimeOfDay? _startTime = const TimeOfDay(hour: 20, minute: 0);
-  TimeOfDay? _endTime = const TimeOfDay(hour: 22, minute: 0);
+  TimeOfDay? _startTime = TimeOfDay(hour: 20, minute: 0);
+  TimeOfDay? _endTime = TimeOfDay(hour: 22, minute: 0);
   String? _selectedMusicianId;
   String? _selectedMusicianLabel;
   String? _selectedMusicianSecondaryLabel;
@@ -33,7 +33,7 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   bool _posterUploading = false;
   bool _searchLoading = false;
   String? _searchError;
-  List<MusicianSearchOption> _searchResults = const [];
+  List<MusicianSearchOption> _searchResults = [];
   Timer? _searchDebounce;
   int _searchToken = 0;
 
@@ -82,8 +82,8 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
         selectionHandleColor: AppColors.brandGradient[1],
       ),
       inputDecorationTheme: baseTheme.inputDecorationTheme.copyWith(
-        prefixIconColor: AppColors.textMuted,
-        suffixIconColor: AppColors.textMuted,
+        prefixIconColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        suffixIconColor: Theme.of(context).colorScheme.onSurfaceVariant,
         filled: false,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
@@ -93,7 +93,7 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: AppColors.brandGradient[1],
-        linearTrackColor: AppColors.border,
+        linearTrackColor: Theme.of(context).dividerColor,
       ),
     );
 
@@ -112,15 +112,15 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildDraftSheetHeaderCard(),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               _buildDraftSheetBasicInfoSection(),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _buildDraftSheetPerformerSection(),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _buildDraftSheetDateTimeSection(),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _buildDraftSheetDescriptionSection(),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _buildDraftSheetSaveButton(),
             ],
           ),

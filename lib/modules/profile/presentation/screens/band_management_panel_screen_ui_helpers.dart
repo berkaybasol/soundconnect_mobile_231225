@@ -23,24 +23,27 @@ extension _BandManagementPanelScreenStateUiHelpers
         radius: 18,
         strokeWidth: 1,
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [AppColors.inputFill, AppColors.navBlueSoft],
+              colors: [
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+                Theme.of(context).colorScheme.surfaceContainer,
+              ],
             ),
           ),
           child: Row(
             children: [
               Icon(icon, color: AppColors.white, size: 24),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
                   ),
@@ -48,10 +51,7 @@ extension _BandManagementPanelScreenStateUiHelpers
               ),
               if (trailingLabel != null) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppColors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(999),
@@ -61,18 +61,18 @@ extension _BandManagementPanelScreenStateUiHelpers
                   ),
                   child: Text(
                     trailingLabel,
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
               ],
-              const Icon(
+              Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: AppColors.textMuted,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 16,
               ),
             ],
@@ -84,7 +84,7 @@ extension _BandManagementPanelScreenStateUiHelpers
 
   Widget _shiftedBannerImage(Widget child) {
     return ClipRect(
-      child: Transform.translate(offset: const Offset(0, 4), child: child),
+      child: Transform.translate(offset: Offset(0, 4), child: child),
     );
   }
 
@@ -93,13 +93,16 @@ extension _BandManagementPanelScreenStateUiHelpers
       radius: 22,
       strokeWidth: 1,
       child: Ink(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.inputFill, AppColors.navBlueSoft],
+            colors: [
+              Theme.of(context).colorScheme.surfaceContainerHighest,
+              Theme.of(context).colorScheme.surfaceContainer,
+            ],
           ),
         ),
         child: Column(
@@ -112,22 +115,20 @@ extension _BandManagementPanelScreenStateUiHelpers
                   height: 38,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: AppColors.brandGradient,
-                    ),
+                    gradient: LinearGradient(colors: AppColors.brandGradient),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.campaign_outlined,
                     color: AppColors.white,
                     size: 20,
                   ),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
+                SizedBox(width: 12),
+                Expanded(
                   child: Text(
                     'Reklam Alanı',
                     style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
@@ -135,19 +136,21 @@ extension _BandManagementPanelScreenStateUiHelpers
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             AspectRatio(
               aspectRatio: 1240 / 400,
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
                       AppColors.navBlueDeep,
-                      AppColors.navBlueSoft.withValues(alpha: 0.94),
+                      Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainer.withValues(alpha: 0.94),
                     ],
                   ),
                 ),
@@ -159,7 +162,7 @@ extension _BandManagementPanelScreenStateUiHelpers
                       fit: BoxFit.cover,
                       width: double.infinity,
                       height: double.infinity,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      errorBuilder: (_, __, ___) => SizedBox.shrink(),
                     ),
                   ),
                 ),

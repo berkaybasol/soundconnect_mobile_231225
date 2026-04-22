@@ -4,7 +4,7 @@ class _HeroHeader extends StatelessWidget {
   final WeeklyCalendarEvent event;
   final VoidCallback onImageTap;
 
-  const _HeroHeader({required this.event, required this.onImageTap});
+  _HeroHeader({required this.event, required this.onImageTap});
 
   @override
   Widget build(BuildContext context) {
@@ -20,16 +20,16 @@ class _HeroHeader extends StatelessWidget {
                       ? Image.network(
                           event.imageAssetPath!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _imageFallback(),
+                          errorBuilder: (_, __, ___) => _imageFallback(context),
                         )
                       : Image.asset(
                           event.imageAssetPath!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _imageFallback(),
+                          errorBuilder: (_, __, ___) => _imageFallback(context),
                         )
-                : _imageFallback(),
+                : _imageFallback(context),
           ),
-          const IgnorePointer(
+          IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -49,33 +49,30 @@ class _HeroHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.28),
+                      color: AppColors.pureBlack.withValues(alpha: 0.28),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: AppColors.white.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Text(
                       '${event.eventDate} - ${event.startTime} - ${event.endTime}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Text(
                     event.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppColors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
                       height: 1.15,
@@ -89,13 +86,13 @@ class _HeroHeader extends StatelessWidget {
             top: 10,
             left: 10,
             child: Material(
-              color: Colors.black.withValues(alpha: 0.28),
+              color: AppColors.pureBlack.withValues(alpha: 0.28),
               borderRadius: BorderRadius.circular(999),
               child: IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
+                  color: AppColors.white,
                 ),
               ),
             ),
@@ -106,13 +103,13 @@ class _HeroHeader extends StatelessWidget {
   }
 }
 
-Widget _imageFallback() {
+Widget _imageFallback(BuildContext context) {
   return Container(
-    color: AppColors.inputFill,
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
     alignment: Alignment.center,
-    child: const Icon(
+    child: Icon(
       Icons.image_outlined,
-      color: AppColors.textMuted,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
       size: 42,
     ),
   );
@@ -121,14 +118,14 @@ Widget _imageFallback() {
 class _SectionTitle extends StatelessWidget {
   final String text;
 
-  const _SectionTitle({required this.text});
+  _SectionTitle({required this.text});
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: AppColors.textPrimary,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
         fontWeight: FontWeight.w700,
         fontSize: 16,
       ),
@@ -142,7 +139,7 @@ class _ActionButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool isLoading;
 
-  const _ActionButton({
+  _ActionButton({
     required this.icon,
     required this.label,
     required this.onPressed,
@@ -154,19 +151,19 @@ class _ActionButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: isLoading ? null : onPressed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.textPrimary,
-        side: const BorderSide(color: AppColors.border),
-        backgroundColor: AppColors.inputFill,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        side: BorderSide(color: Theme.of(context).dividerColor),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: EdgeInsets.symmetric(vertical: 12),
       ),
       icon: isLoading
-          ? const SizedBox(
+          ? SizedBox(
               width: 17,
               height: 17,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: AppColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             )
           : Icon(icon, size: 17),

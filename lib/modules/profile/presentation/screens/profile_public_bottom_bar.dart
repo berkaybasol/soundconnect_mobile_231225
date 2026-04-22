@@ -9,8 +9,60 @@ import '../../../../shared/theme/app_colors.dart';
 
 class ProfilePublicBottomBar extends StatelessWidget {
   final int currentIndex;
+  final String? profileImageUrl;
 
-  const ProfilePublicBottomBar({super.key, this.currentIndex = 3});
+  ProfilePublicBottomBar({
+    super.key,
+    this.currentIndex = 3,
+    this.profileImageUrl,
+  });
+
+  Widget _profileAvatar(BuildContext context, bool active) {
+    final hasImage = profileImageUrl?.trim().isNotEmpty == true;
+    final imageUrl = profileImageUrl?.trim() ?? '';
+    final child = hasImage
+        ? ClipOval(
+            child: Image.network(
+              imageUrl,
+              width: 18,
+              height: 18,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  const Icon(Icons.person_outline, size: 18),
+            ),
+          )
+        : const Icon(Icons.person_outline, size: 18);
+
+    if (!active) {
+      return Container(
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Center(child: child),
+      );
+    }
+
+    return Container(
+      width: 24,
+      height: 24,
+      padding: const EdgeInsets.all(1.4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(colors: AppColors.brandGradient),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.navBlueDeep,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.navBlueDeep, width: 1),
+        ),
+        child: Center(child: child),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,19 +75,23 @@ class ProfilePublicBottomBar extends StatelessWidget {
             currentIndex: currentIndex,
             type: BottomNavigationBarType.fixed,
             backgroundColor: AppColors.navBlueDeep,
-            selectedItemColor: AppColors.textMuted,
-            unselectedItemColor: AppColors.textMuted,
+            selectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
             onTap: (index) {
               if (index == 2) {
                 Navigator.of(context).pushNamed(AppRoutes.dmConversations);
+                return;
+              }
+              if (index == 3) {
+                Navigator.of(context).pushNamed(AppRoutes.musicianProfile);
               }
             },
             items: [
-              const BottomNavigationBarItem(
+              BottomNavigationBarItem(
                 icon: Icon(Icons.campaign_outlined),
                 label: 'Ilan',
               ),
-              const BottomNavigationBarItem(
+              BottomNavigationBarItem(
                 icon: Icon(Icons.rocket_launch_outlined),
                 label: 'Git',
               ),
@@ -43,8 +99,9 @@ class ProfilePublicBottomBar extends StatelessWidget {
                 icon: _ForumIconWithBadge(unreadCount: state.unreadCount),
                 label: 'Mesajlar',
               ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
+              BottomNavigationBarItem(
+                icon: _profileAvatar(context, false),
+                activeIcon: _profileAvatar(context, true),
                 label: 'Profil',
               ),
             ],
@@ -58,31 +115,31 @@ class ProfilePublicBottomBar extends StatelessWidget {
 class _ForumIconWithBadge extends StatelessWidget {
   final int unreadCount;
 
-  const _ForumIconWithBadge({required this.unreadCount});
+  _ForumIconWithBadge({required this.unreadCount});
 
   @override
   Widget build(BuildContext context) {
     if (unreadCount <= 0) {
-      return const Icon(Icons.forum_outlined);
+      return Icon(Icons.forum_outlined);
     }
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        const Icon(Icons.forum_outlined),
+        Icon(Icons.forum_outlined),
         Positioned(
           right: -7,
           top: -6,
           child: Container(
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: const BoxDecoration(
+            constraints: BoxConstraints(minWidth: 16, minHeight: 16),
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
               color: AppColors.coralAlt,
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
                 unreadCount > 99 ? '99+' : unreadCount.toString(),
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.white,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,

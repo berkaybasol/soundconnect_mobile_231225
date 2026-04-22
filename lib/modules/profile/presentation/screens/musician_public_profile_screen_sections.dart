@@ -3,12 +3,12 @@ part of 'musician_public_profile_screen.dart';
 class _ProfileHeader extends StatelessWidget {
   final MusicianProfile profile;
 
-  const _ProfileHeader({required this.profile});
+  _ProfileHeader({required this.profile});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 0),
+      padding: EdgeInsets.only(top: 8, bottom: 0),
       child: SizedBox(
         width: 96,
         height: 96,
@@ -21,8 +21,8 @@ class _ProfileHeader extends StatelessWidget {
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.inputFill,
-                border: Border.all(color: AppColors.border),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: Border.all(color: Theme.of(context).dividerColor),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.brandGradient[2].withValues(alpha: 0.35),
@@ -34,9 +34,9 @@ class _ProfileHeader extends StatelessWidget {
               child: ClipOval(
                 child: profile.profilePicture?.startsWith('http') == true
                     ? Image.network(profile.profilePicture!, fit: BoxFit.cover)
-                    : const Icon(
+                    : Icon(
                         Icons.person_outline,
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         size: 40,
                       ),
               ),
@@ -48,7 +48,7 @@ class _ProfileHeader extends StatelessWidget {
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: AppColors.brandGradient,
@@ -56,11 +56,7 @@ class _ProfileHeader extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.navBlueDeep, width: 2),
                 ),
-                child: const Icon(
-                  Icons.music_note,
-                  size: 14,
-                  color: AppColors.white,
-                ),
+                child: Icon(Icons.music_note, size: 14, color: AppColors.white),
               ),
             ),
           ],
@@ -73,7 +69,7 @@ class _ProfileHeader extends StatelessWidget {
 class _ProfileIdentity extends StatelessWidget {
   final MusicianProfile profile;
 
-  const _ProfileIdentity({required this.profile});
+  _ProfileIdentity({required this.profile});
 
   @override
   Widget build(BuildContext context) {
@@ -86,18 +82,21 @@ class _ProfileIdentity extends StatelessWidget {
       children: [
         GradientText(
           text: name,
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: AppColors.brandGradient,
           ),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
         if (bandName != null) ...[
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             bandName,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
           ),
         ],
       ],
@@ -109,10 +108,7 @@ class _FollowerRow extends StatelessWidget {
   final int? followersCount;
   final int? followingCount;
 
-  const _FollowerRow({
-    required this.followersCount,
-    required this.followingCount,
-  });
+  _FollowerRow({required this.followersCount, required this.followingCount});
 
   String _formatCount(int? value, String label) {
     if (value == null) return '... $label';
@@ -125,7 +121,7 @@ class _FollowerRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _PillBadge(text: _formatCount(followersCount, 'Takipci')),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         _PillBadge(text: _formatCount(followingCount, 'Takip')),
       ],
     );
@@ -135,21 +131,21 @@ class _FollowerRow extends StatelessWidget {
 class _PillBadge extends StatelessWidget {
   final String text;
 
-  const _PillBadge({required this.text});
+  _PillBadge({required this.text});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -165,7 +161,7 @@ class _ActionButtons extends StatelessWidget {
   final VoidCallback onMessageTap;
   final VoidCallback onFollowToggle;
 
-  const _ActionButtons({
+  _ActionButtons({
     required this.isFollowing,
     required this.isEnabled,
     required this.isLoading,
@@ -176,16 +172,16 @@ class _ActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: 32),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton(
               onPressed: isEnabled && !isLoading ? onFollowToggle : null,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                side: BorderSide(color: Theme.of(context).dividerColor),
+                padding: EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -197,19 +193,19 @@ class _ActionButtons extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
               onPressed: onMessageTap,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.coralAlt,
                 foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: const Text('Mesaj Gonder'),
+              child: Text('Mesaj Gonder'),
             ),
           ),
         ],

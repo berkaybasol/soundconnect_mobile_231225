@@ -23,7 +23,7 @@ Future<VenueRequestPayload?> showVenueRequestBottomSheet({
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.navBlueDeep,
-    shape: const RoundedRectangleBorder(
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (_) => _VenueRequestSheet(
@@ -48,7 +48,7 @@ class _VenueRequestSheet extends StatefulWidget {
   fetchNeighborhoods;
   final bool Function() isMounted;
 
-  const _VenueRequestSheet({
+  _VenueRequestSheet({
     required this.allVenues,
     required this.cities,
     required this.acceptedIds,
@@ -71,8 +71,8 @@ class _VenueRequestSheetState extends State<_VenueRequestSheet> {
   String? _selectedCityId;
   String? _selectedDistrictId;
   String? _selectedNeighborhoodId;
-  List<VenueLookupOption> _districtOptions = const [];
-  List<VenueLookupOption> _neighborhoodOptions = const [];
+  List<VenueLookupOption> _districtOptions = [];
+  List<VenueLookupOption> _neighborhoodOptions = [];
   bool _loadingDistricts = false;
   bool _loadingNeighborhoods = false;
 
@@ -91,7 +91,7 @@ class _VenueRequestSheetState extends State<_VenueRequestSheet> {
   Widget build(BuildContext context) {
     final filteredVenues = _filteredVenues();
     return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
+      duration: Duration(milliseconds: 180),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
@@ -102,28 +102,28 @@ class _VenueRequestSheetState extends State<_VenueRequestSheet> {
               MediaQuery.of(context).size.height *
               (_filtersExpanded ? 0.93 : 0.84),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Center(
+                Center(
                   child: Text(
                     'Caldigin Mekanlari Duzenle',
                     style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _buildSearchInput(),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 _buildFilterToggle(),
                 if (_filtersExpanded) ...[
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   _buildFiltersPanel(),
                 ],
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 Expanded(child: _buildVenueList(filteredVenues)),
                 _buildFooterButtons(),
               ],

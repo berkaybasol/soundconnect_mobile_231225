@@ -5,21 +5,18 @@ import '../core/auth/token_store.dart';
 import '../core/di/service_locator.dart';
 import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
+import '../modules/event/presentation/screens/guest_event_home_screen.dart';
 import '../modules/location/presentation/cubit/location_cubit.dart';
 import '../shared/theme/theme_controller.dart';
 import 'app_shell.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
 
-enum AppLaunchTarget { login, home }
+enum AppLaunchTarget { guest, home }
 
-AppLaunchTarget resolveLaunchTarget(String? token) {
-  final hasStoredSession = (token ?? '').trim().isNotEmpty;
-  if (hasStoredSession) {
-    // Login-first flow: even with a cached token we start from login screen.
-    return AppLaunchTarget.login;
-  }
-  return AppLaunchTarget.login;
+AppLaunchTarget resolveLaunchTarget(String? _) {
+  // Temporary guest-first launch flow while onboarding/home is in progress.
+  return AppLaunchTarget.guest;
 }
 
 class SoundConnectApp extends StatefulWidget {
@@ -82,7 +79,7 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
                   ? _LaunchLoadingScreen()
                   : switch (launchTarget) {
                       AppLaunchTarget.home => AppShell(),
-                      AppLaunchTarget.login => LoginScreen(),
+                      AppLaunchTarget.guest => GuestEventHomeScreen(),
                     },
               routes: {
                 AppRoutes.login: (_) => LoginScreen(),

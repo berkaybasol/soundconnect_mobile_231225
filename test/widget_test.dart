@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:soundconnect_23_12_25codx/app/app.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
-import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/event/presentation/screens/guest_event_home_screen.dart';
 
 void main() {
   setUpAll(setupDependencies);
@@ -20,23 +20,23 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('Login screen renders when token is empty', (
+  testWidgets('Guest home renders when token is empty', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
       SoundConnectApp(initialTokenFuture: Future<String?>.value(null)),
     );
     await tester.pumpAndSettle();
-    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.byType(GuestEventHomeScreen), findsOneWidget);
   });
 
-  testWidgets('Login screen renders when token exists', (
+  testWidgets('Guest home renders when token exists', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
       SoundConnectApp(initialTokenFuture: Future<String?>.value('token')),
     );
     await tester.pumpAndSettle();
-    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.byType(GuestEventHomeScreen), findsOneWidget);
   });
 }

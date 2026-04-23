@@ -15,6 +15,8 @@ import '../../modules/dm/domain/dm_user_profile_resolver.dart';
 import '../../modules/dm/presentation/cubit/dm_badge_cubit.dart';
 import '../../modules/dm/presentation/cubit/dm_chat_cubit.dart';
 import '../../modules/dm/presentation/cubit/dm_conversations_cubit.dart';
+import '../../modules/event/data/event_discovery_repository_impl.dart';
+import '../../modules/event/domain/event_discovery_repository.dart';
 import '../../modules/engagement/data/engagement_repository_impl.dart';
 import '../../modules/engagement/domain/engagement_repository.dart';
 import '../../modules/engagement/presentation/cubit/comment_thread_cubit.dart';
@@ -88,6 +90,9 @@ void setupDependencies() {
     )
     ..registerLazySingleton<LocationRepository>(
       () => LocationRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<EventDiscoveryRepository>(
+      () => EventDiscoveryRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerFactory<LocationCubit>(
       () => LocationCubit(serviceLocator<LocationRepository>()),

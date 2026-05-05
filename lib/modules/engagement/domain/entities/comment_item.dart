@@ -3,6 +3,7 @@ import 'comment_user_summary.dart';
 class CommentItem {
   final String id;
   final CommentUserSummary user;
+  final bool anonymousAuthor;
   final String text;
   final bool deleted;
   final String? parentCommentId;
@@ -12,6 +13,7 @@ class CommentItem {
   const CommentItem({
     required this.id,
     required this.user,
+    this.anonymousAuthor = false,
     required this.text,
     required this.deleted,
     required this.parentCommentId,

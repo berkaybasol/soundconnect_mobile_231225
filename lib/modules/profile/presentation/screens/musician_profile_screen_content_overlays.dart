@@ -49,14 +49,18 @@ extension _MusicianPublicProfileContentOverlays
                           ),
                         ),
                         ListTile(
-                          leading: const Icon(Icons.groups_outlined),
-                          title: const Text('Bandlerim'),
+                          leading: const Icon(
+                            Icons.dashboard_customize_outlined,
+                          ),
+                          title: const Text('Yonetim Paneli'),
                           onTap: () {
                             Navigator.of(dialogContext).pop();
-                            Navigator.of(context).pushNamed(
-                              AppRoutes.myBands,
-                              arguments: MyBandsScreenArgs(
-                                bands: profile.bands,
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => MusicianManagementPanelScreen(
+                                  musicianProfile: profile,
+                                  onCreateVenueConnection: onEditVenues,
+                                ),
                               ),
                             );
                           },

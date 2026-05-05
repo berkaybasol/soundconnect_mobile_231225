@@ -1,7 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_theme_variant.dart';
+import '../../../../shared/theme/theme_controller.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../cubit/auth_cubit.dart';
@@ -28,13 +34,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeController = serviceLocator.isRegistered<ThemeController>()
+        ? serviceLocator<ThemeController>()
+        : ThemeController.memory();
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action != AuthAction.login) return;
         if (state.status == AuthStatus.success) {
+          final stageMode = _stageModeFromToken(state.loginResult?.token);
+          final route = stageMode == StageMode.mainstage
+              ? AppRoutes.listenerProfile
+              : AppRoutes.home;
           Navigator.of(
             context,
-          ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+          ).pushNamedAndRemoveUntil(route, (route) => false);
         } else if (state.status == AuthStatus.failure) {
           final message = state.error?.message ?? 'Login failed';
           ScaffoldMessenger.of(
@@ -49,6 +62,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
         return AppScaffold(
           title: '',
+          actions: [
+            PopupMenuButton<AppThemeVariant>(
+              tooltip: 'Tema Sec',
+              initialValue: themeController.variant,
+              onSelected: themeController.setVariant,
+              itemBuilder: (_) => AppThemeVariant.values
+                  .map(
+                    (variant) => PopupMenuItem<AppThemeVariant>(
+                      value: variant,
+                      child: Text(variant.label),
+                    ),
+                  )
+                  .toList(),
+              icon: const Icon(Icons.palette_outlined),
+            ),
+          ],
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -226,5 +255,44 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       },
     );
+  }
+
+  StageMode _stageModeFromToken(String? token) {
+    final roles = _rolesFromToken(token);
+    return StageModeResolver.fromRoles(roles);
+  }
+
+  List<String> _rolesFromToken(String? token) {
+    final raw = token?.trim() ?? '';
+    if (raw.isEmpty) return const [];
+
+    final parts = raw.split('.');
+    if (parts.length < 2) return const [];
+
+    try {
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final map = jsonDecode(payload);
+      if (map is! Map<String, dynamic>) return const [];
+
+      final dynamic rolesValue =
+          map['roles'] ?? map['authorities'] ?? map['role'];
+      if (rolesValue is List) {
+        return rolesValue
+            .map((role) => role.toString().trim())
+            .where((role) => role.isNotEmpty)
+            .toList();
+      }
+      if (rolesValue is String) {
+        return rolesValue
+            .split(',')
+            .map((role) => role.trim())
+            .where((role) => role.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+
+    return const [];
   }
 }

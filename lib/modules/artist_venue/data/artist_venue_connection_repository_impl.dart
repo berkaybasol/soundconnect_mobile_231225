@@ -260,6 +260,7 @@ class ArtistVenueConnectionRepositoryImpl
                       musicianStageName: item.musicianStageName ?? '',
                       bandName: item.bandName ?? '',
                       bandProfilePictureUrl: item.bandProfilePictureUrl,
+                      venueProfilePictureUrl: item.venueProfilePictureUrl,
                       venueName: item.venueName ?? 'Mekan',
                       message: item.message,
                       status: item.status ?? 'PENDING',
@@ -281,6 +282,54 @@ class ArtistVenueConnectionRepositoryImpl
         const AppError(
           code: 'artist_venue_applications_unknown',
           message: 'Basvurular getirilemedi',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<List<ArtistVenueApplication>>> listMusicianVenueApplications(
+    String musicianProfileId,
+  ) async {
+    try {
+      final response = await _apiClient.get<List<ArtistVenueApplication>>(
+        ArtistVenueConnectionEndpoints.byMusician(musicianProfileId),
+        decoder: (json) {
+          final list =
+              (json as List<dynamic>? ?? const [])
+                  .whereType<Map<String, dynamic>>()
+                  .map(ArtistVenueConnectionResponse.fromJson)
+                  .map(
+                    (item) => ArtistVenueApplication(
+                      id: item.id,
+                      musicianProfileId: item.musicianProfileId,
+                      bandId: item.bandId,
+                      venueId: item.venueId,
+                      musicianStageName: item.musicianStageName ?? '',
+                      bandName: item.bandName ?? '',
+                      bandProfilePictureUrl: item.bandProfilePictureUrl,
+                      venueProfilePictureUrl: item.venueProfilePictureUrl,
+                      venueName: item.venueName ?? 'Mekan',
+                      message: item.message,
+                      status: item.status ?? 'PENDING',
+                      requestByType: item.requestByType ?? 'VENUE',
+                      createdAt: item.createdAt ?? '',
+                    ),
+                  )
+                  .where((item) => item.id.isNotEmpty)
+                  .toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        },
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'musician_venue_applications_unknown',
+          message: 'Mekan basvurulari getirilemedi',
         ),
       );
     }

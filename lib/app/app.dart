@@ -6,9 +6,9 @@ import '../core/di/service_locator.dart';
 import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../modules/event/presentation/screens/guest_event_home_screen.dart';
+import '../modules/profile/presentation/screens/backstage_profiles_home_screen.dart';
 import '../modules/location/presentation/cubit/location_cubit.dart';
 import '../shared/theme/theme_controller.dart';
-import 'app_shell.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
 
@@ -78,12 +78,13 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
               home: waitingForToken
                   ? _LaunchLoadingScreen()
                   : switch (launchTarget) {
-                      AppLaunchTarget.home => AppShell(),
+                      AppLaunchTarget.home =>
+                        const BackstageProfilesHomeScreen(),
                       AppLaunchTarget.guest => GuestEventHomeScreen(),
                     },
               routes: {
                 AppRoutes.login: (_) => LoginScreen(),
-                AppRoutes.home: (_) => AppShell(),
+                AppRoutes.home: (_) => const BackstageProfilesHomeScreen(),
               },
             ),
           ),

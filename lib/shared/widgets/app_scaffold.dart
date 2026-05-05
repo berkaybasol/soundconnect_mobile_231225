@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class AppScaffold extends StatelessWidget {
   final String title;
   final Widget child;
+  final List<Widget>? actions;
   final bool centerContent;
   final AlignmentGeometry centerAlignment;
   final bool scrollable;
@@ -11,6 +12,7 @@ class AppScaffold extends StatelessWidget {
     super.key,
     required this.title,
     required this.child,
+    this.actions,
     this.centerContent = false,
     this.centerAlignment = Alignment.center,
     this.scrollable = true,
@@ -19,7 +21,7 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(title: Text(title), actions: actions),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

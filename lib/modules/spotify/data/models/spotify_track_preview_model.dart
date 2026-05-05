@@ -9,10 +9,12 @@ class SpotifyTrackPreviewModel extends SpotifyTrackPreview {
     required super.spotifyUrl,
     required super.albumImageUrl,
     required super.artistNames,
+    super.artistIds,
   });
 
   factory SpotifyTrackPreviewModel.fromJson(Map<String, dynamic> json) {
     final artistsNode = json['artistNames'] ?? json['artists'];
+    final artistIdsNode = json['artistIds'] ?? json['artists'];
     return SpotifyTrackPreviewModel(
       id: json['spotifyTrackId']?.toString() ?? json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
@@ -23,6 +25,7 @@ class SpotifyTrackPreviewModel extends SpotifyTrackPreview {
       spotifyUrl: json['spotifyUrl']?.toString(),
       albumImageUrl: json['albumImageUrl']?.toString(),
       artistNames: _stringList(artistsNode),
+      artistIds: _artistIdList(artistIdsNode),
     );
   }
 
@@ -37,6 +40,7 @@ class SpotifyTrackPreviewModel extends SpotifyTrackPreview {
       'albumName': null,
       'albumImageUrl': albumImageUrl,
       'artistNames': artistNames,
+      'artistIds': artistIds,
     };
   }
 
@@ -55,6 +59,23 @@ class SpotifyTrackPreviewModel extends SpotifyTrackPreview {
           .map((item) {
             if (item is Map<String, dynamic>) {
               return item['name']?.toString() ?? '';
+            }
+            return item.toString();
+          })
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
+
+  static List<String> _artistIdList(Object? value) {
+    if (value is List) {
+      return value
+          .map((item) {
+            if (item is Map<String, dynamic>) {
+              return item['id']?.toString() ??
+                  item['spotifyArtistId']?.toString() ??
+                  '';
             }
             return item.toString();
           })

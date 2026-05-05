@@ -143,6 +143,62 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   editable: descriptionEditable,
                   onSave: onSaveDescription,
                 ),
+                afterBio: ownerMode
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            gradient: LinearGradient(
+                              colors: AppColors.brandGradient,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(0.7),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: Container(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                child: TextButton.icon(
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            MusicianManagementPanelScreen(
+                                              musicianProfile: profile,
+                                              onCreateVenueConnection:
+                                                  onEditVenues,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.white,
+                                    backgroundColor: Colors.transparent,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.dashboard_customize_outlined,
+                                    color: AppColors.white,
+                                  ),
+                                  label: const Text(
+                                    'Yonetim Paneli',
+                                    style: TextStyle(color: AppColors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(height: 18),
               ProfileSectionHeader(

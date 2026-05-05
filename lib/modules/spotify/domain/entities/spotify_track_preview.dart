@@ -6,6 +6,7 @@ class SpotifyTrackPreview {
   final String? spotifyUrl;
   final String? albumImageUrl;
   final List<String> artistNames;
+  final List<String> artistIds;
 
   const SpotifyTrackPreview({
     required this.id,
@@ -15,5 +16,6 @@ class SpotifyTrackPreview {
     required this.spotifyUrl,
     required this.albumImageUrl,
     required this.artistNames,
+    this.artistIds = const [],
   });
 }

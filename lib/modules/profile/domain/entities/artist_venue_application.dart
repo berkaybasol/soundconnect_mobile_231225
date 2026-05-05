@@ -6,6 +6,7 @@ class ArtistVenueApplication {
   final String musicianStageName;
   final String bandName;
   final String? bandProfilePictureUrl;
+  final String? venueProfilePictureUrl;
   final String venueName;
   final String? message;
   final String status;
@@ -20,6 +21,7 @@ class ArtistVenueApplication {
     required this.musicianStageName,
     required this.bandName,
     required this.bandProfilePictureUrl,
+    required this.venueProfilePictureUrl,
     required this.venueName,
     required this.message,
     required this.status,

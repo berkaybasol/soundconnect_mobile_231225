@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../app/router/app_routes.dart';
-import '../../../../core/di/service_locator.dart';
-import '../../../dm/presentation/cubit/dm_badge_cubit.dart';
-import '../../../dm/presentation/cubit/dm_badge_state.dart';
+import 'profile_public_bottom_bar.dart';
 import '../../../../shared/theme/app_colors.dart';
 
 part 'profile_venue_support_intro_screens.dart';

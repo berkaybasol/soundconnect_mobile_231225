@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/policy/stage_mode.dart';
 import '../../modules/auth/presentation/screens/login_screen.dart';
 import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
@@ -6,18 +7,20 @@ import '../../modules/auth/presentation/screens/venue_application_screen.dart';
 import '../../modules/auth/presentation/screens/venue_pending_screen.dart';
 import '../../modules/dm/presentation/screens/dm_chat_screen.dart';
 import '../../modules/dm/presentation/screens/dm_conversations_screen.dart';
+import '../../modules/notification/presentation/screens/notification_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/create_band_screen.dart';
+import '../../modules/profile/presentation/screens/backstage_profiles_home_screen.dart';
 import '../../modules/profile/presentation/screens/band_profile_screen.dart';
 import '../../modules/profile/presentation/screens/my_bands_screen.dart';
 import '../../modules/profile/presentation/screens/listener_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
+import '../../modules/overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_create_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_list_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
-import '../app_shell.dart';
 import 'app_routes.dart';
 
 class AppRouter {
@@ -99,6 +102,19 @@ class AppRouter {
           settings: settings,
           builder: (_) => ListenerProfileScreen(),
         );
+      case AppRoutes.overthinkingFeed:
+        final args = settings.arguments as OverthinkingFeedArgs?;
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => OverthinkingFeedScreen(
+            bottomBarStageMode: args?.bottomBarStageMode ?? StageMode.mainstage,
+          ),
+        );
+      case AppRoutes.notifications:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const NotificationScreen(),
+        );
       case AppRoutes.tableGroupList:
         return MaterialPageRoute(
           settings: settings,
@@ -131,10 +147,18 @@ class AppRouter {
           settings: settings,
           builder: (_) => DmChatScreen(),
         );
+      case AppRoutes.backstageProfilesHome:
+        final args = settings.arguments as BackstageProfilesHomeArgs?;
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => BackstageProfilesHomeScreen(
+            profileImageUrl: args?.profileImageUrl,
+          ),
+        );
       case AppRoutes.home:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => AppShell(),
+          builder: (_) => const BackstageProfilesHomeScreen(),
         );
       default:
         return MaterialPageRoute(

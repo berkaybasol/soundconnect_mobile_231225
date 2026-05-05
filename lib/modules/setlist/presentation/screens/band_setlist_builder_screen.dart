@@ -11,9 +11,10 @@ part 'band_setlist_builder_models.dart';
 part 'band_setlist_builder_widgets.dart';
 
 class BandSetlistBuilderScreen extends StatefulWidget {
-  final BandProfile bandProfile;
+  final BandProfile? bandProfile;
+  final String? initialTitle;
 
-  BandSetlistBuilderScreen({super.key, required this.bandProfile});
+  BandSetlistBuilderScreen({super.key, this.bandProfile, this.initialTitle});
 
   @override
   State<BandSetlistBuilderScreen> createState() =>
@@ -30,7 +31,13 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
   @override
   void initState() {
     super.initState();
-    _setlistNameController.text = '${widget.bandProfile.name} Setlist';
+    final initialTitle = widget.initialTitle?.trim();
+    final bandName = widget.bandProfile?.name.trim();
+    _setlistNameController.text = initialTitle?.isNotEmpty == true
+        ? initialTitle!
+        : bandName?.isNotEmpty == true
+        ? '$bandName Setlist'
+        : 'Setlist';
     _setlistNameController.addListener(_refresh);
     _items.first.attach(_refresh);
   }

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../cubit/listener_profile_cubit.dart';
 import '../cubit/listener_profile_state.dart';
 import 'profile_common_widgets.dart';
+import 'profile_public_bottom_bar.dart';
 import 'profile_screen_support.dart';
 
 class ListenerProfileScreen extends StatelessWidget {
@@ -158,6 +160,11 @@ class _ListenerProfileView extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+          bottomNavigationBar: ProfilePublicBottomBar(
+            currentIndex: 4,
+            profileImageUrl: hasAvatar ? avatarUrl : null,
+            stageMode: StageMode.mainstage,
           ),
         );
       },

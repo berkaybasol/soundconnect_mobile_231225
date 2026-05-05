@@ -36,6 +36,13 @@ import '../../modules/location/presentation/cubit/location_cubit.dart';
 import '../../modules/instrument/data/instrument_repository_impl.dart';
 import '../../modules/instrument/domain/instrument_repository.dart';
 import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
+import '../../modules/notification/data/notification_realtime_client.dart';
+import '../../modules/notification/data/notification_repository_impl.dart';
+import '../../modules/notification/domain/notification_repository.dart';
+import '../../modules/notification/presentation/cubit/notification_cubit.dart';
+import '../../modules/overthinking/data/overthinking_repository_impl.dart';
+import '../../modules/overthinking/domain/overthinking_repository.dart';
+import '../../modules/overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import '../../modules/profile/data/musician_profile_repository_impl.dart';
 import '../../modules/profile/data/listener_profile_repository_impl.dart';
 import '../../modules/profile/data/band_repository_impl.dart';
@@ -110,6 +117,19 @@ void setupDependencies() {
     )
     ..registerFactory<InstrumentCubit>(
       () => InstrumentCubit(serviceLocator<InstrumentRepository>()),
+    )
+    ..registerLazySingleton<NotificationRepository>(
+      () => NotificationRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<NotificationRealtimeClient>(
+      () => NotificationRealtimeClient(),
+    )
+    ..registerLazySingleton<NotificationCubit>(
+      () => NotificationCubit(
+        serviceLocator<NotificationRepository>(),
+        serviceLocator<TokenStore>(),
+        realtimeClient: serviceLocator<NotificationRealtimeClient>(),
+      ),
     )
     ..registerLazySingleton<MusicianProfileRepository>(
       () => MusicianProfileRepositoryImpl(serviceLocator<ApiClient>()),
@@ -212,6 +232,15 @@ void setupDependencies() {
     )
     ..registerFactory<CommentThreadCubit>(
       () => CommentThreadCubit(serviceLocator<EngagementRepository>()),
+    )
+    ..registerLazySingleton<OverthinkingRepository>(
+      () => OverthinkingRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<OverthinkingFeedCubit>(
+      () => OverthinkingFeedCubit(
+        overthinkingRepository: serviceLocator<OverthinkingRepository>(),
+        engagementRepository: serviceLocator<EngagementRepository>(),
+      ),
     )
     ..registerLazySingleton<AuthRepository>(
       () => AuthRepositoryImpl(serviceLocator<ApiClient>()),

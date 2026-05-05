@@ -5,6 +5,7 @@ class CommentItemModel extends CommentItem {
   const CommentItemModel({
     required super.id,
     required super.user,
+    super.anonymousAuthor,
     required super.text,
     required super.deleted,
     required super.parentCommentId,
@@ -24,6 +25,7 @@ class CommentItemModel extends CommentItem {
               username: 'unknown',
               avatarUrl: null,
             ),
+      anonymousAuthor: json['anonymousAuthor'] == true,
       text: json['text']?.toString() ?? '',
       deleted: json['deleted'] == true,
       parentCommentId: json['parentCommentId']?.toString(),

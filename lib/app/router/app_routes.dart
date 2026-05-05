@@ -14,10 +14,13 @@ class AppRoutes {
   static const venueProfile = '/venue-profile';
   static const venuePublicProfile = '/venue-public-profile';
   static const listenerProfile = '/listener-profile';
+  static const overthinkingFeed = '/overthinking-feed';
+  static const notifications = '/notifications';
   static const tableGroupList = '/table-group-list';
   static const tableGroupCreate = '/table-group-create';
   static const tableGroupDetail = '/table-group-detail';
   static const dmConversations = '/dm-conversations';
   static const dmChat = '/dm-chat';
+  static const backstageProfilesHome = '/backstage-profiles-home';
   static const home = '/home';
 }

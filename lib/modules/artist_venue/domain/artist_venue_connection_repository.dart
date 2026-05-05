@@ -34,6 +34,9 @@ abstract class ArtistVenueConnectionRepository {
   Future<Result<List<ArtistVenueApplication>>> listVenueApplications(
     String venueId,
   );
+  Future<Result<List<ArtistVenueApplication>>> listMusicianVenueApplications(
+    String musicianProfileId,
+  );
   Future<Result<void>> acceptRequest(String requestId);
   Future<Result<void>> rejectRequest(String requestId);
   Future<Result<void>> cancelRequest(String requestId);

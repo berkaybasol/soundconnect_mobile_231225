@@ -10,6 +10,7 @@ import '../../../../shared/theme/app_theme_variant.dart';
 import '../../../../shared/theme/theme_controller.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
+import '../../domain/entities/user_status.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
@@ -41,6 +42,12 @@ class _LoginScreenState extends State<LoginScreen> {
       listener: (context, state) {
         if (state.action != AuthAction.login) return;
         if (state.status == AuthStatus.success) {
+          if (state.loginResult?.status == UserStatus.pendingVenueRequest) {
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(AppRoutes.venuePending, (route) => false);
+            return;
+          }
           final stageMode = _stageModeFromToken(state.loginResult?.token);
           final route = stageMode == StageMode.mainstage
               ? AppRoutes.listenerProfile

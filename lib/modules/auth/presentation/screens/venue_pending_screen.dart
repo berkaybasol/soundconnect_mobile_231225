@@ -1,9 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
 
 class VenuePendingScreen extends StatelessWidget {
   VenuePendingScreen({super.key});
+
+  static const Color _whatsAppGreen = Color(0xFF25D366);
+
+  static final Uri _whatsAppSupportUri = Uri.https('wa.me', '/905378581093', {
+    'text':
+        'Merhaba, SoundConnect mekan başvurum hakkında bilgi almak istiyorum.',
+  });
+
+  Future<void> _openWhatsAppSupport(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final opened = await launchUrl(
+      _whatsAppSupportUri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('WhatsApp bağlantısı açılamadı.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,15 +63,11 @@ class VenuePendingScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Icon(
-                    Icons.verified_outlined,
-                    color: AppColors.coralLight,
-                    size: 44,
-                  ),
+                  child: _GradientIcon(icon: Icons.verified_outlined, size: 44),
                 ),
                 SizedBox(height: 24),
                 Text(
-                  'Basvurun alindi',
+                  'Hesabın İnceleniyor...',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
@@ -58,9 +77,8 @@ class VenuePendingScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 12),
                 Text(
-                  'Mekan uyeligini incelemeye aldik. '
-                  'Gun icinde ekibimiz sana ulasacak. '
-                  'Bu surecte hesabin beklemede.',
+                  'Mekan üyeliğini incelemeye aldık. '
+                  'Gün içinde ekibimiz seninle iletişime geçecek.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -69,27 +87,78 @@ class VenuePendingScreen extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 6),
-                Text(
-                  'Anlayisin icin tesekkurler.',
+                Text.rich(
+                  TextSpan(
+                    text: 'Soruların için ',
+                    children: [
+                      TextSpan(
+                        text: 'destek@soundconnect.com.tr',
+                        style: TextStyle(
+                          color: _whatsAppGreen,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      TextSpan(text: ' adresine mail gönderebilirsin.'),
+                    ],
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 14,
                   ),
                 ),
-                SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        AppRoutes.login,
-                        (route) => false,
-                      );
-                    },
-                    child: Text('Giris ekranina don'),
+                SizedBox(height: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => _openWhatsAppSupport(context),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'veya ',
+                        children: [
+                          TextSpan(
+                            text: 'buraya tıklayarak',
+                            style: TextStyle(
+                              color: _whatsAppGreen,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          TextSpan(text: ' '),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Padding(
+                              padding: EdgeInsets.only(right: 4),
+                              child: FaIcon(
+                                FontAwesomeIcons.whatsapp,
+                                color: _whatsAppGreen,
+                                size: 15,
+                              ),
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'WhatsApp üzerinden bize ulaşabilirsin.',
+                          ),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
+                ),
+                SizedBox(height: 28),
+                _GradientOutlineButton(
+                  label: 'Giriş ekranına dön',
+                  onTap: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      AppRoutes.login,
+                      (route) => false,
+                    );
+                  },
                 ),
               ],
             ),
@@ -97,5 +166,98 @@ class VenuePendingScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _GradientIcon extends StatelessWidget {
+  const _GradientIcon({required this.icon, required this.size});
+
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) {
+        return LinearGradient(
+          colors: AppColors.brandGradient,
+        ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height));
+      },
+      child: Icon(icon, size: size),
+    );
+  }
+}
+
+class _GradientOutlineButton extends StatelessWidget {
+  const _GradientOutlineButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: CustomPaint(
+        painter: _GradientBorderPainter(
+          borderRadius: 18,
+          strokeWidth: 1.4,
+          colors: AppColors.brandGradient,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GradientBorderPainter extends CustomPainter {
+  const _GradientBorderPainter({
+    required this.borderRadius,
+    required this.strokeWidth,
+    required this.colors,
+  });
+
+  final double borderRadius;
+  final double strokeWidth;
+  final List<Color> colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rRect = RRect.fromRectAndRadius(
+      rect.deflate(strokeWidth / 2),
+      Radius.circular(borderRadius),
+    );
+    final paint = Paint()
+      ..shader = LinearGradient(colors: colors).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    canvas.drawRRect(rRect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GradientBorderPainter oldDelegate) {
+    return oldDelegate.borderRadius != borderRadius ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.colors != colors;
   }
 }

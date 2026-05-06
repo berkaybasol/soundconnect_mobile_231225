@@ -91,6 +91,43 @@ void main() {
       },
     );
 
+    test('login success preserves pending venue status', () async {
+      final _FakeAuthRepository repository = _FakeAuthRepository(
+        loginResponse: const Result<LoginResult>.success(
+          LoginResult(
+            token: 'pending-token',
+            status: UserStatus.pendingVenueRequest,
+          ),
+        ),
+      );
+      final AuthCubit cubit = _createCubit(
+        repository: repository,
+        tokenStore: _InMemoryTokenStore(),
+      );
+
+      final Future<void> expectation = expectLater(
+        cubit.stream,
+        emitsInOrder(<Matcher>[
+          isA<AuthState>()
+              .having((AuthState s) => s.status, 'status', AuthStatus.loading)
+              .having((AuthState s) => s.action, 'action', AuthAction.login),
+          isA<AuthState>()
+              .having((AuthState s) => s.status, 'status', AuthStatus.success)
+              .having((AuthState s) => s.action, 'action', AuthAction.login)
+              .having(
+                (AuthState s) => s.loginResult?.status,
+                'login.status',
+                UserStatus.pendingVenueRequest,
+              ),
+        ]),
+      );
+
+      await cubit.login(username: 'venue', password: 'pass');
+      await expectation;
+
+      await cubit.close();
+    });
+
     test('register success stores register result in state', () async {
       final _FakeAuthRepository repository = _FakeAuthRepository(
         registerResponse: const Result<RegisterResult>.success(

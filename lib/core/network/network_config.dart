@@ -7,8 +7,8 @@ class NetworkConfig {
   );
   static String get debugFallbackBaseUrl {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      // Default to the current LAN host for physical Android devices.
-      return 'http://192.168.1.103:8080';
+      // USB debug default. Run `adb reverse tcp:8080 tcp:8080` before launching.
+      return 'http://127.0.0.1:8080';
     }
     return 'http://localhost:8080';
   }

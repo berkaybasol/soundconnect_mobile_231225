@@ -8,6 +8,7 @@ extension _BandManagementPanelScreenStateUiHelpers
     required String title,
     required String message,
     String? trailingLabel,
+    bool useGradientIcon = false,
     VoidCallback? onTap,
   }) {
     return InkWell(
@@ -37,7 +38,10 @@ extension _BandManagementPanelScreenStateUiHelpers
           ),
           child: Row(
             children: [
-              Icon(icon, color: AppColors.white, size: 24),
+              if (!useGradientIcon)
+                Icon(icon, color: AppColors.white, size: 24)
+              else
+                _GradientIcon(icon: icon, size: 24),
               SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -171,6 +175,26 @@ extension _BandManagementPanelScreenStateUiHelpers
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GradientIcon extends StatelessWidget {
+  final IconData icon;
+  final double size;
+
+  _GradientIcon({required this.icon, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      shaderCallback: (rect) => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: AppColors.brandGradient,
+      ).createShader(rect),
+      blendMode: BlendMode.srcIn,
+      child: Icon(icon, color: AppColors.white, size: size),
     );
   }
 }

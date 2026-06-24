@@ -3,8 +3,9 @@ part of 'band_profile_screen.dart';
 extension _BandAudioTabSpotifyPicker on _BandAudioTab {
   Future<SpotifyTrackPreview?> _showSpotifyTrackPicker(
     BuildContext context,
-    List<SpotifyTrackPreview> currentTracks,
-  ) async {
+    List<SpotifyTrackPreview> currentTracks, {
+    Future<bool> Function(SpotifyTrackPreview track)? onTrackSelected,
+  }) async {
     final queryController = TextEditingController();
     final repository = serviceLocator<SpotifyRepository>();
     Timer? searchDebounce;
@@ -22,9 +23,35 @@ extension _BandAudioTabSpotifyPicker on _BandAudioTab {
         var results = <SpotifyTrackPreview>[];
         var errorText = '';
         final existingIds = currentTracks.map((e) => e.id).toSet();
+        final savingIds = <String>{};
 
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            Future<void> selectTrack(SpotifyTrackPreview track) async {
+              if (existingIds.contains(track.id) ||
+                  savingIds.contains(track.id)) {
+                return;
+              }
+              if (onTrackSelected == null) {
+                Navigator.of(sheetContext).pop(track);
+                return;
+              }
+              setSheetState(() {
+                savingIds.add(track.id);
+                errorText = '';
+              });
+              final ok = await onTrackSelected(track);
+              if (!sheetContext.mounted) return;
+              setSheetState(() {
+                savingIds.remove(track.id);
+                if (ok) {
+                  existingIds.add(track.id);
+                } else {
+                  errorText = 'Spotify parçası eklenemedi.';
+                }
+              });
+            }
+
             Future<void> runSearch() async {
               final q = queryController.text.trim();
               final token = ++lastSearchToken;
@@ -49,10 +76,10 @@ extension _BandAudioTabSpotifyPicker on _BandAudioTab {
                 if (result.isSuccess && result.data != null) {
                   results = result.data!;
                   if (results.isEmpty) {
-                    errorText = 'Sonuc bulunamadi.';
+                    errorText = 'Sonuç bulunamadı.';
                   }
                 } else {
-                  errorText = result.error?.message ?? 'Arama basarisiz.';
+                  errorText = result.error?.message ?? 'Arama başarısız.';
                 }
               });
             }
@@ -92,7 +119,7 @@ extension _BandAudioTabSpotifyPicker on _BandAudioTab {
                             }
                           },
                           decoration: InputDecoration(
-                            hintText: 'Spotify parcasi ara...',
+                            hintText: 'Spotify parçası ara...',
                             prefixIcon: Icon(Icons.search),
                             suffixIcon: IconButton(
                               onPressed: runSearch,
@@ -126,6 +153,7 @@ extension _BandAudioTabSpotifyPicker on _BandAudioTab {
                               final alreadyAdded = existingIds.contains(
                                 track.id,
                               );
+                              final saving = savingIds.contains(track.id);
                               return Container(
                                 padding: EdgeInsets.all(10),
                                 decoration: BoxDecoration(
@@ -185,11 +213,17 @@ extension _BandAudioTabSpotifyPicker on _BandAudioTab {
                                           fontWeight: FontWeight.w600,
                                         ),
                                       )
+                                    else if (saving)
+                                      SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
                                     else
                                       IconButton(
-                                        onPressed: () => Navigator.of(
-                                          sheetContext,
-                                        ).pop(track),
+                                        onPressed: () => selectTrack(track),
                                         icon: Icon(
                                           Icons.add_circle_outline,
                                           color: AppColors.coralAlt,

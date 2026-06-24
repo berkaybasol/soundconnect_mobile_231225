@@ -20,7 +20,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
         ? musicianProfile.username!.trim()
         : 'Sanatçı';
     return Scaffold(
-      appBar: AppBar(title: const Text('Yönetim paneli'), centerTitle: true),
+      appBar: AppBar(title: const Text('Yönetim Paneli'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -82,7 +82,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.queue_music_outlined,
-                title: 'Setlist oluşturucu',
+                title: 'Setlist Oluşturucu',
                 message: 'Kendi setlistini bandsiz olarak oluştur.',
                 onTap: () {
                   Navigator.of(context).push(
@@ -98,7 +98,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.hub_outlined,
-                title: 'Mekan bağlantılarını yönet',
+                title: 'Mekan Bağlantılarını Yönet',
                 message: 'Mekan bağlantıları ve başvuru akışları burada.',
                 onTap: () => _showMusicianVenueConnectionHub(
                   context: context,
@@ -110,7 +110,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.mode_comment_outlined,
-                title: 'Yorumlar ve geri bildirimler',
+                title: 'Yorumlar ve Geri Bildirimler',
                 message: 'Yorum yönetimi yakında burada açılacak.',
                 trailingLabel: 'Yakında!',
               ),
@@ -118,7 +118,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.insights_outlined,
-                title: 'Profil istatistikleri',
+                title: 'Profil İstatistikleri',
                 message: 'Profil istatistikleri yakında burada açılacak.',
                 trailingLabel: 'Yakında!',
               ),
@@ -152,7 +152,7 @@ Future<void> _showMusicianVenueConnectionHub({
             children: [
               Center(
                 child: Text(
-                  'Mekan bağlantılarını yönet',
+                  'Mekan Bağlantılarını Yönet',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
@@ -164,7 +164,7 @@ Future<void> _showMusicianVenueConnectionHub({
               _buildMusicianVenueManagementCard(
                 context: sheetContext,
                 icon: Icons.add_business_outlined,
-                title: 'Mekan bağlantısı oluştur',
+                title: 'Mekan Bağlantısı Oluştur',
                 message: 'Yeni bir mekana bağlantı isteği gönder.',
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -183,7 +183,7 @@ Future<void> _showMusicianVenueConnectionHub({
               _buildMusicianVenueManagementCard(
                 context: sheetContext,
                 icon: Icons.inbox_outlined,
-                title: 'Gelen mekan istekleri',
+                title: 'Gelen Mekan İstekleri',
                 message: 'Mekanlardan gelen bağlantı istekleri burada.',
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
@@ -198,7 +198,7 @@ Future<void> _showMusicianVenueConnectionHub({
               _buildMusicianVenueManagementCard(
                 context: sheetContext,
                 icon: Icons.send_outlined,
-                title: 'Gönderdiğim istekler',
+                title: 'Gönderdiğim İstekler',
                 message: 'Mekanlara gönderdiğin başvurular burada.',
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
@@ -416,8 +416,8 @@ class _MusicianVenueApplicationsSheetState
   @override
   Widget build(BuildContext context) {
     final title = _showOutgoing
-        ? 'Gönderdiğim istekler'
-        : 'Gelen mekan istekleri';
+        ? 'Gönderdiğim İstekler'
+        : 'Gelen Mekan İstekleri';
     return SafeArea(
       top: false,
       child: SizedBox(

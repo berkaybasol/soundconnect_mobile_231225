@@ -1,7 +1,31 @@
 part of 'profile_venue_support.dart';
 
-class VenueIntroScreen extends StatelessWidget {
+class VenueIntroScreen extends StatefulWidget {
   VenueIntroScreen({super.key});
+
+  @override
+  State<VenueIntroScreen> createState() => _VenueIntroScreenState();
+}
+
+class _VenueIntroScreenState extends State<VenueIntroScreen> {
+  bool _dontShowAgain = false;
+  bool _savingPreference = false;
+
+  Future<void> _continue() async {
+    if (_savingPreference) return;
+    setState(() => _savingPreference = true);
+    try {
+      if (_dontShowAgain) {
+        await setVenueConnectionIntroHidden(true);
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } finally {
+      if (mounted) {
+        setState(() => _savingPreference = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +38,7 @@ class VenueIntroScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Mekan Baglanti Sureci',
+                'Mekan Bağlantı Süreci',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w800,
@@ -24,7 +48,7 @@ class VenueIntroScreen extends StatelessWidget {
               ),
               SizedBox(height: 10),
               Text(
-                'Devam etmeden once kisa bilgi',
+                'Devam etmeden önce kısa bir bilgi',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 15,
@@ -38,23 +62,23 @@ class VenueIntroScreen extends StatelessWidget {
                     children: [
                       _VenueIntroStep(
                         icon: Icons.send_outlined,
-                        title: 'Istek Gonder',
+                        title: 'İstek Gönder',
                         text:
-                            'Aktif olarak sahne aldigin mekanlara buradan baglanti istegi gonderebilirsin. Istek gonderdiginde ilgili mekana bir bildirim iletilir.',
+                            'Aktif olarak sahne aldığın mekanlara buradan bağlantı isteği gönderebilirsin. İstek gönderdiğinde ilgili mekana bildirim iletilir.',
                       ),
                       SizedBox(height: 22),
                       _VenueIntroStep(
                         icon: Icons.hourglass_top_rounded,
                         title: 'Onay Bekle',
                         text:
-                            'Mekan baglanti istegini onaylayabilir veya reddedebilir. Onaylandiginda baglantiniz kurulacak ve hem senin profilinde hem de mekanin profilinde gorunur hale gelecektir.',
+                            'Mekan bağlantı isteğini onaylayabilir veya reddedebilir. Onaylandığında bağlantınız kurulacak; hem senin profilinde hem de mekanın profilinde görünür hale gelir.',
                       ),
                       SizedBox(height: 22),
                       _VenueIntroStep(
                         icon: Icons.settings_outlined,
                         title: 'Durumu Takip Et',
                         text:
-                            'Gonderdigin baglanti isteklerinin durumunu istedigin zaman Ayarlar -> Basvurularim bolumunden goruntuleyebilir ve surecin hangi asamada oldugunu takip edebilirsin.',
+                            'Gönderdiğin bağlantı isteklerinin durumunu istediğin zaman Ayarlar -> Başvurularım bölümünden görüntüleyebilir ve sürecin hangi aşamada olduğunu takip edebilirsin.',
                         showInlineSettingsIcon: true,
                       ),
                     ],
@@ -62,10 +86,44 @@ class VenueIntroScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 14),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _savingPreference
+                    ? null
+                    : () => setState(() => _dontShowAgain = !_dontShowAgain),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        value: _dontShowAgain,
+                        onChanged: _savingPreference
+                            ? null
+                            : (value) => setState(
+                                  () => _dontShowAgain = value ?? false,
+                                ),
+                        activeColor: AppColors.coralAlt,
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Bunu bir daha gösterme',
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 6),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
+                  onPressed: _savingPreference ? null : _continue,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.coralAlt,
                     foregroundColor: AppColors.white,
@@ -78,7 +136,9 @@ class VenueIntroScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: Text('Anladim, Devam Et'),
+                  child: Text(
+                    _savingPreference ? 'Kaydediliyor...' : 'Anladım, devam et',
+                  ),
                 ),
               ),
             ],
@@ -103,7 +163,7 @@ class MusicianIntroScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Muzisyen Baglanti Sureci',
+                'Müzisyen Bağlantı Süreci',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w800,
@@ -113,7 +173,7 @@ class MusicianIntroScreen extends StatelessWidget {
               ),
               SizedBox(height: 10),
               Text(
-                'Devam etmeden once kisa bilgi',
+                'Devam etmeden önce kısa bir bilgi',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 15,
@@ -127,23 +187,23 @@ class MusicianIntroScreen extends StatelessWidget {
                     children: [
                       _VenueIntroStep(
                         icon: Icons.send_outlined,
-                        title: 'Istek Gonder',
+                        title: 'İstek Gönder',
                         text:
-                            'Mekaninda sahne alabilecek muzisyenlere buradan baglanti istegi gonderebilirsin. Istek gonderdiginde ilgili muzisyene bir bildirim iletilir.',
+                            'Mekanında sahne alabilecek müzisyenlere buradan bağlantı isteği gönderebilirsin. İstek gönderdiğinde ilgili müzisyene bildirim iletilir.',
                       ),
                       SizedBox(height: 22),
                       _VenueIntroStep(
                         icon: Icons.hourglass_top_rounded,
                         title: 'Onay Bekle',
                         text:
-                            'Muzisyen baglanti istegini onaylayabilir veya reddedebilir. Onaylandiginda baglantiniz kurulacak ve hem senin profilinde hem de muzisyenin profilinde gorunur hale gelecektir.',
+                            'Müzisyen bağlantı isteğini onaylayabilir veya reddedebilir. Onaylandığında bağlantınız kurulacak; hem senin profilinde hem de müzisyenin profilinde görünür hale gelir.',
                       ),
                       SizedBox(height: 22),
                       _VenueIntroStep(
                         icon: Icons.settings_outlined,
                         title: 'Durumu Takip Et',
                         text:
-                            'Gonderdigin baglanti isteklerinin durumunu istedigin zaman Ayarlar -> Basvurularim bolumunden goruntuleyebilir ve surecin hangi asamada oldugunu takip edebilirsin.',
+                            'Gönderdiğin bağlantı isteklerinin durumunu istediğin zaman Ayarlar -> Başvurularım bölümünden görüntüleyebilir ve sürecin hangi aşamada olduğunu takip edebilirsin.',
                         showInlineSettingsIcon: true,
                       ),
                     ],
@@ -167,7 +227,7 @@ class MusicianIntroScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: Text('Anladim, Devam Et'),
+                  child: Text('Anladım, devam et'),
                 ),
               ),
             ],
@@ -235,7 +295,7 @@ class _VenueIntroStep extends StatelessWidget {
                     );
                     final idx = text.indexOf('Ayarlar');
                     final left = text.substring(0, idx);
-                    const focus = 'Ayarlar -> Basvurularim';
+                    const focus = 'Ayarlar -> Başvurularım';
                     final focusStart = text.indexOf(focus, idx);
                     final hasFocus = focusStart >= 0;
                     final beforeFocus = hasFocus

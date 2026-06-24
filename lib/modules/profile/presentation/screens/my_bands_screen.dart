@@ -21,6 +21,7 @@ class MyBandsScreen extends StatefulWidget {
 }
 
 class _MyBandsScreenState extends State<MyBandsScreen> {
+  static const int _maxBandCount = 3;
   late final BandRepository _bandRepository = serviceLocator<BandRepository>();
   List<BandSummary> _bands = [];
   bool _initialized = false;
@@ -48,7 +49,7 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
     if (!result.isSuccess || result.data == null) {
       setState(() {
         _loading = false;
-        _errorText = result.error?.message ?? 'Bandler getirilemedi.';
+        _errorText = result.error?.message ?? 'Bandlerin getirilemedi.';
       });
       return;
     }
@@ -60,6 +61,15 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
   }
 
   Future<void> _openCreateBandScreen() async {
+    if (_bands.length >= _maxBandCount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Yalnızca $_maxBandCount band oluşturabilirsin.'),
+        ),
+      );
+      return;
+    }
+
     final createdBand = await Navigator.of(
       context,
     ).pushNamed(AppRoutes.createBand);
@@ -72,22 +82,28 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('${createdBand.name} olusturuldu.')));
+    ).showSnackBar(SnackBar(content: Text('${createdBand.name} oluşturuldu.')));
   }
 
   Future<void> _openBandProfile(BandSummary band) async {
-    await Navigator.of(context).pushNamed(
-      AppRoutes.bandMemberProfile,
+    final result = await Navigator.of(context).pushNamed(
+      AppRoutes.bandProfile,
       arguments: BandProfileScreenArgs(
         bandId: band.id,
         openEditMode: false,
         viewMode: BandProfileViewMode.auto,
       ),
     );
+
+    if (!mounted || result != true) return;
+    setState(() {
+      _bands = _bands.where((item) => item.id != band.id).toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final canCreateBand = _bands.length < _maxBandCount;
     return Scaffold(
       appBar: AppBar(title: Text('Bandlerim'), centerTitle: true),
       body: SafeArea(
@@ -97,11 +113,21 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Bandlerini bu panel uzerinden yonetebilirsin.',
+                'Bandlerini buradan yönetebilirsin.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   height: 1.5,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Yalnızca $_maxBandCount band oluşturabilirsin.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               SizedBox(height: 24),
@@ -121,7 +147,7 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
                 )
               else if (_bands.isEmpty) ...[
                 Text(
-                  'Henuz bandiniz yok.',
+                  'Henüz bir band hesabın yok.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -130,7 +156,7 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
                 ),
                 SizedBox(height: 16),
                 _BrandGradientOutlineButton(
-                  label: 'Band olustur',
+                  label: 'Band oluştur',
                   onPressed: _openCreateBandScreen,
                 ),
               ] else ...[
@@ -167,9 +193,21 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
                 ),
                 SizedBox(height: 8),
                 _BrandGradientOutlineButton(
-                  label: 'Yeni band olustur',
-                  onPressed: _openCreateBandScreen,
+                  label: 'Yeni band oluştur',
+                  onPressed: canCreateBand ? _openCreateBandScreen : null,
                 ),
+                if (!canCreateBand) ...[
+                  SizedBox(height: 10),
+                  Text(
+                    'Band oluşturma limitine ulaştın.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ],
           ),
@@ -181,18 +219,26 @@ class _MyBandsScreenState extends State<MyBandsScreen> {
 
 class _BrandGradientOutlineButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   _BrandGradientOutlineButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(16);
+    final isEnabled = onPressed != null;
 
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
-        gradient: LinearGradient(colors: AppColors.brandGradient),
+        gradient: LinearGradient(
+          colors: isEnabled
+              ? AppColors.brandGradient
+              : [
+                  Theme.of(context).dividerColor,
+                  Theme.of(context).dividerColor,
+                ],
+        ),
       ),
       child: Padding(
         padding: EdgeInsets.all(1.2),

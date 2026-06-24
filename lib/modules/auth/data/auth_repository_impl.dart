@@ -34,12 +34,50 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return Result.success(response);
     } on ApiException catch (e) {
-      return Result.failure(e.error);
+      return Result.failure(_normalizeLoginError(e.error));
     } catch (e) {
       return Result.failure(
-        const AppError(code: 'auth_login_unknown', message: 'Login failed'),
+        const AppError(
+          code: 'auth_login_unknown',
+          message:
+              'Giriş yapılamadı. Bilgilerini kontrol edip tekrar deneyebilirsin.',
+        ),
       );
     }
+  }
+
+  AppError _normalizeLoginError(AppError error) {
+    final message = error.message.trim();
+    final lowerMessage = message.toLowerCase();
+    final isCredentialError =
+        error.code == '1001' ||
+        error.code == '1100' ||
+        error.code == '401' ||
+        error.code == '403' ||
+        lowerMessage.contains('user not found') ||
+        lowerMessage.contains('bad credentials') ||
+        lowerMessage.contains('invalid username') ||
+        lowerMessage.contains('invalid credentials') ||
+        lowerMessage.contains('kullanıcı sistemde bulunamadı') ||
+        lowerMessage.contains('kullanıcı adı veya şifre hatalı');
+
+    if (isCredentialError) {
+      return const AppError(
+        code: 'auth_invalid_credentials',
+        message:
+            'Kullanıcı adı veya şifre hatalı. Bilgilerini kontrol edip tekrar deneyebilirsin.',
+      );
+    }
+
+    if (message.isEmpty || lowerMessage == 'login failed') {
+      return const AppError(
+        code: 'auth_login_failed',
+        message:
+            'Giriş yapılamadı. Bilgilerini kontrol edip tekrar deneyebilirsin.',
+      );
+    }
+
+    return error;
   }
 
   @override

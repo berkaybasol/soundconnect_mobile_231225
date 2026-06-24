@@ -29,7 +29,7 @@ extension _ProfileAudioTabSpotifyCatalogMethods on ProfileAudioTab {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              cubit.state.error?.message ?? 'Spotify parcasi silinemedi.',
+              cubit.state.error?.message ?? 'Spotify parçası silinemedi.',
             ),
           ),
         );
@@ -38,7 +38,7 @@ extension _ProfileAudioTabSpotifyCatalogMethods on ProfileAudioTab {
     }
     if (showSnackbar) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Spotify parcasi kaldirildi.')),
+        const SnackBar(content: Text('Spotify parçası kaldırıldı.')),
       );
     }
     return true;

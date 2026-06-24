@@ -52,7 +52,7 @@ extension _MusicianPublicProfileContentOverlays
                           leading: const Icon(
                             Icons.dashboard_customize_outlined,
                           ),
-                          title: const Text('Yönetim paneli'),
+                          title: const Text('Yönetim Paneli'),
                           onTap: () {
                             Navigator.of(dialogContext).pop();
                             Navigator.of(context).push(

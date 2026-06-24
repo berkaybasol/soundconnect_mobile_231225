@@ -64,7 +64,7 @@ class _AudioTab extends StatelessWidget {
                       backgroundColor: AppColors.spotifyGreen,
                       foregroundColor: AppColors.white,
                     ),
-                    label: Text('Spotify kataloğu'),
+                    label: Text('Spotify Kataloğu'),
                   ),
                 ),
                 SizedBox(height: 16),

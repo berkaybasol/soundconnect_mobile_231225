@@ -103,7 +103,7 @@ class BandRepositoryImpl implements BandRepository {
       return Result.failure(
         const AppError(
           code: 'band_create_unknown',
-          message: 'Band olusturulamadi',
+          message: 'Band oluşturulamadı',
         ),
       );
     }
@@ -146,7 +146,7 @@ class BandRepositoryImpl implements BandRepository {
       return Result.failure(
         const AppError(
           code: 'band_update_unknown',
-          message: 'Band guncellenemedi',
+          message: 'Band güncellenemedi',
         ),
       );
     }
@@ -254,6 +254,26 @@ class BandRepositoryImpl implements BandRepository {
         const AppError(
           code: 'band_leave_unknown',
           message: 'Bandden ayrilma islemi tamamlanamadi',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteBand({required String bandId}) async {
+    try {
+      await _apiClient.delete<Object?>(
+        BandEndpoints.delete(bandId),
+        decoder: (_) => null,
+      );
+      return const Result.success(null);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_delete_unknown',
+          message: 'Band silinemedi',
         ),
       );
     }

@@ -20,6 +20,8 @@ class _MusicianPublicProfileViewState
   bool _photoUploading = false;
   String? _uploadedProfilePhotoUrl;
   final ImagePicker _imagePicker = ImagePicker();
+  bool _openManagementPanelOnLoad = false;
+  bool _managementPanelOpened = false;
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -31,10 +33,13 @@ class _MusicianPublicProfileViewState
     super.didChangeDependencies();
     if (_viewerUserId != null) return;
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is PublicProfileArgs) {
+    if (args is MusicianProfileScreenArgs) {
+      _openManagementPanelOnLoad = args.openManagementPanel;
+    } else if (args is PublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is Map<String, dynamic>) {
       _viewerUserId = args['viewerUserId']?.toString();
+      _openManagementPanelOnLoad = args['openManagementPanel'] == true;
     } else if (args is String) {
       _viewerUserId = args;
     }
@@ -75,6 +80,7 @@ class _MusicianPublicProfileViewState
           }
 
           final profile = state.profile!;
+          _openManagementPanelAfterLoad(profile);
           _currentProfileUserId = profile.userId;
           _loadCoordinator.scheduleMediaLoad(
             context,
@@ -139,5 +145,21 @@ class _MusicianPublicProfileViewState
         },
       ),
     );
+  }
+
+  void _openManagementPanelAfterLoad(MusicianProfile profile) {
+    if (!_openManagementPanelOnLoad || _managementPanelOpened) return;
+    _managementPanelOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => MusicianManagementPanelScreen(
+            musicianProfile: profile,
+            onCreateVenueConnection: () => _editVenues(profile.id),
+          ),
+        ),
+      );
+    });
   }
 }

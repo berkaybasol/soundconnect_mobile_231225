@@ -56,6 +56,12 @@ part 'musician_profile_screen_view.dart';
 part 'musician_profile_screen_view_profile_actions.dart';
 part 'musician_profile_screen_view_venue_actions.dart';
 
+class MusicianProfileScreenArgs {
+  final bool openManagementPanel;
+
+  const MusicianProfileScreenArgs({this.openManagementPanel = false});
+}
+
 class MusicianProfileScreen extends StatelessWidget {
   const MusicianProfileScreen({super.key});
 

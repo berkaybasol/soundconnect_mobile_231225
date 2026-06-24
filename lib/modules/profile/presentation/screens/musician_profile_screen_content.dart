@@ -191,7 +191,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                     color: AppColors.white,
                                   ),
                                   label: const Text(
-                                    'Yönetim paneli',
+                                    'Yönetim Paneli',
                                     style: TextStyle(color: AppColors.white),
                                   ),
                                 ),

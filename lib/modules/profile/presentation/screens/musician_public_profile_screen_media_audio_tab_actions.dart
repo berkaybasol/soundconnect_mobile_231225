@@ -65,7 +65,7 @@ extension _MusicianPublicProfileAudioTabActions on _AudioTab {
                 ),
                 SizedBox(height: 12),
                 Text(
-                  'Sanatçının Spotify kataloğu',
+                  'Sanatçının Spotify Kataloğu',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,

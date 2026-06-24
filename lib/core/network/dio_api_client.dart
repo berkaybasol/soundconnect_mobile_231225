@@ -138,14 +138,49 @@ class DioApiClient implements ApiClient {
 
       return payload as T;
     } on DioException catch (e) {
-      final String message = _mapDioErrorMessage(e);
+      final errorPayload = e.response?.data;
+      final String message = _messageFromErrorPayload(errorPayload) ??
+          _mapDioErrorMessage(e);
+      final String code =
+          _codeFromErrorPayload(errorPayload) ??
+          e.response?.statusCode?.toString() ??
+          'network';
       throw ApiException(
         AppError(
-          code: e.response?.statusCode?.toString() ?? 'network',
+          code: code,
           message: message,
+          details: _detailsFromErrorPayload(errorPayload),
         ),
       );
     }
+  }
+
+  String? _messageFromErrorPayload(Object? payload) {
+    if (payload is! Map<String, dynamic>) return null;
+    final details = _detailsFromErrorPayload(payload);
+    if (details.isNotEmpty) return details.first;
+    final message = payload['message']?.toString().trim();
+    if (message != null && message.isNotEmpty) return message;
+    return null;
+  }
+
+  String? _codeFromErrorPayload(Object? payload) {
+    if (payload is! Map<String, dynamic>) return null;
+    final raw = payload['code'];
+    final code = raw?.toString().trim();
+    return code == null || code.isEmpty ? null : code;
+  }
+
+  List<String> _detailsFromErrorPayload(Object? payload) {
+    if (payload is! Map<String, dynamic>) return const [];
+    final rawDetails = payload['details'];
+    if (rawDetails is List) {
+      return rawDetails
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    return const [];
   }
 
   String _mapDioErrorMessage(DioException e) {

@@ -131,7 +131,7 @@ class ProfileAudioTab extends StatelessWidget {
                       backgroundColor: AppColors.spotifyGreen,
                       foregroundColor: AppColors.white,
                     ),
-                    label: Text('Spotify Katalogu'),
+                    label: Text('Spotify Kataloğu'),
                   ),
                 ),
                 SizedBox(height: 16),

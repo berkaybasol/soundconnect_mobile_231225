@@ -53,29 +53,33 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
   }
 
   Future<void> _addTrack() async {
-    final selected = await widget.tab._showSpotifyTrackPicker(
+    await widget.tab._showSpotifyTrackPicker(
       widget.hostContext,
       _visibleTracks,
+      onTrackSelected: (selected) async {
+        if (_visibleTracks.any((element) => element.id == selected.id)) {
+          if (mounted) {
+            setState(() {
+              _feedbackText = 'Bu parça zaten ekli.';
+              _feedbackIsError = true;
+            });
+          }
+          return true;
+        }
+        final nextTracks = [..._visibleTracks, selected];
+        final ok = await _saveTracks(
+          nextTracks,
+          failureMessage: 'Spotify parçası eklenemedi.',
+        );
+        if (!ok || !mounted) return false;
+        setState(() {
+          _visibleTracks.add(selected);
+          _feedbackText = 'Spotify parçası eklendi.';
+          _feedbackIsError = false;
+        });
+        return true;
+      },
     );
-    if (selected == null || !mounted) return;
-    if (_visibleTracks.any((element) => element.id == selected.id)) {
-      setState(() {
-        _feedbackText = 'Bu parca zaten ekli.';
-        _feedbackIsError = true;
-      });
-      return;
-    }
-    final nextTracks = [..._visibleTracks, selected];
-    final ok = await _saveTracks(
-      nextTracks,
-      failureMessage: 'Spotify parcasi eklenemedi.',
-    );
-    if (!ok || !mounted) return;
-    setState(() {
-      _visibleTracks.add(selected);
-      _feedbackText = 'Spotify parcasi eklendi.';
-      _feedbackIsError = false;
-    });
   }
 
   Future<void> _removeTrack(SpotifyTrackPreview track) async {
@@ -88,7 +92,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
     if (!success || !mounted) return;
     setState(() {
       _visibleTracks.removeWhere((e) => e.id == track.id);
-      _feedbackText = 'Spotify parcasi kaldirildi.';
+      _feedbackText = 'Spotify parçası kaldırıldı.';
       _feedbackIsError = false;
     });
   }
@@ -103,7 +107,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
     if (!success || !mounted) return false;
     setState(() {
       _visibleTracks.removeWhere((e) => e.id == track.id);
-      _feedbackText = 'Spotify parcasi kaldirildi.';
+      _feedbackText = 'Spotify parçası kaldırıldı.';
       _feedbackIsError = false;
     });
     return true;
@@ -134,7 +138,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Sanatcinin Spotify Katalogu',
+                      'Sanatçının Spotify Kataloğu',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
@@ -145,7 +149,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
                   ),
                   if (widget.tab.ownerMode)
                     IconButton(
-                      tooltip: 'Spotify parcasi ekle',
+                      tooltip: 'Spotify parçası ekle',
                       onPressed: _addTrack,
                       icon: Icon(
                         Icons.add_circle_outline,
@@ -187,7 +191,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
                 child: _visibleTracks.isEmpty
                     ? Center(
                         child: Text(
-                          'Henuz Spotify parcasi eklemediniz.',
+                          'Henüz Spotify parçası eklemediniz.',
                           style: TextStyle(
                             color: Theme.of(
                               context,

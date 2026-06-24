@@ -51,6 +51,7 @@ import '../../modules/profile/data/media_gallery_repository_impl.dart';
 import '../../modules/profile/data/profile_media_management_repository_impl.dart';
 import '../../modules/profile/data/profile_media_repository_impl.dart';
 import '../../modules/profile/data/profile_media_upload_repository_impl.dart';
+import '../../modules/profile/data/profile_search_repository_impl.dart';
 import '../../modules/profile/data/track_management_repository_impl.dart';
 import '../../modules/profile/data/venue_directory_repository_impl.dart';
 import '../../modules/profile/data/venue_event_repository_impl.dart';
@@ -63,6 +64,7 @@ import '../../modules/profile/domain/media_gallery_repository.dart';
 import '../../modules/profile/domain/profile_media_management_repository.dart';
 import '../../modules/profile/domain/profile_media_repository.dart';
 import '../../modules/profile/domain/profile_media_upload_repository.dart';
+import '../../modules/profile/domain/profile_search_repository.dart';
 import '../../modules/profile/domain/track_management_repository.dart';
 import '../../modules/profile/domain/venue_directory_repository.dart';
 import '../../modules/profile/domain/venue_event_repository.dart';
@@ -160,6 +162,9 @@ void setupDependencies() {
     )
     ..registerLazySingleton<VenueDirectoryRepository>(
       () => VenueDirectoryRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<ProfileSearchRepository>(
+      () => ProfileSearchRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<MusicianSearchRepository>(
       () => MusicianSearchRepositoryImpl(serviceLocator<ApiClient>()),

@@ -59,8 +59,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
     DmBadgeState state,
   ) {
     return [
-      BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Akis'),
-      BottomNavigationBarItem(icon: _announcementIcon(context), label: 'Ilan'),
+      BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Akış'),
+      BottomNavigationBarItem(icon: _announcementIcon(context), label: 'İlan'),
       BottomNavigationBarItem(
         icon: Icon(Icons.rocket_launch_outlined),
         label: 'Git',

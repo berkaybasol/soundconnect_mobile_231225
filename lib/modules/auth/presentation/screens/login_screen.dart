@@ -56,7 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
             context,
           ).pushNamedAndRemoveUntil(route, (route) => false);
         } else if (state.status == AuthStatus.failure) {
-          final message = state.error?.message ?? 'Login failed';
+          final message =
+              state.error?.message ??
+              'Giriş yapılamadı. Bilgilerini kontrol edip tekrar deneyebilirsin.';
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(message)));

@@ -6,15 +6,17 @@ extension _BandManagementPanelScreenStateVenueActions
     if (_submitting) return;
     _updateState(() => _submitting = true);
     try {
-      final acceptedIntro =
-          await Navigator.of(context).push<bool>(
-            MaterialPageRoute(
-              fullscreenDialog: true,
-              builder: (_) => VenueIntroScreen(),
-            ),
-          ) ??
-          false;
-      if (!acceptedIntro || !mounted) return;
+      if (await shouldShowVenueConnectionIntro()) {
+        final acceptedIntro =
+            await Navigator.of(context).push<bool>(
+              MaterialPageRoute(
+                fullscreenDialog: true,
+                builder: (_) => VenueIntroScreen(),
+              ),
+            ) ??
+            false;
+        if (!acceptedIntro || !mounted) return;
+      }
 
       final allVenues = await _fetchAllVenues();
       final cities = await _fetchCities();

@@ -42,4 +42,6 @@ abstract class BandRepository {
   });
 
   Future<Result<void>> leaveBand({required String bandId});
+
+  Future<Result<void>> deleteBand({required String bandId});
 }

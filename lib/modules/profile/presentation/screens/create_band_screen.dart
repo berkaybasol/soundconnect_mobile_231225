@@ -28,7 +28,7 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
 
     if (name.isEmpty) {
       setState(() {
-        _errorText = 'Band adi zorunlu.';
+        _errorText = 'Band adı zorunlu.';
       });
       return;
     }
@@ -48,7 +48,7 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
     if (!result.isSuccess || result.data == null) {
       setState(() {
         _submitting = false;
-        _errorText = result.error?.message ?? 'Band olusturulamadi.';
+        _errorText = result.error?.message ?? 'Band oluşturulamadı.';
       });
       return;
     }
@@ -59,7 +59,7 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Band Olustur'), centerTitle: true),
+      appBar: AppBar(title: Text('Band Oluştur'), centerTitle: true),
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -81,7 +81,7 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                     decoration: _inputDecoration(
-                      hintText: 'Band adi',
+                      hintText: 'Band adı',
                       icon: Icons.groups_2_outlined,
                     ),
                   ),
@@ -99,7 +99,7 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
                   ],
                   SizedBox(height: 18),
                   _BrandGradientOutlineButton(
-                    label: _submitting ? 'Olusturuluyor...' : 'Bandi olustur',
+                    label: _submitting ? 'Oluşturuluyor...' : 'Bandı oluştur',
                     onPressed: _submitting ? null : _submit,
                   ),
                 ],

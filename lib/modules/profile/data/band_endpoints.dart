@@ -20,4 +20,5 @@ class BandEndpoints {
   static String removeMember(String bandId, String userId) =>
       '$userBase/$bandId/remove/$userId';
   static String leave(String bandId) => '$userBase/$bandId/leave';
+  static String delete(String bandId) => '$userBase/$bandId/delete';
 }

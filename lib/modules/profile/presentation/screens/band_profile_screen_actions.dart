@@ -156,7 +156,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     if (!_canManageBand) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bu islem icin yetkiniz yok.')),
+            const SnackBar(content: Text('Bu işlem için yetkin yok.')),
         );
       }
       return false;
@@ -189,7 +189,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   Future<void> _saveDescription(String value) async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu islem icin yetkiniz yok.')),
+        const SnackBar(content: Text('Bu işlem için yetkin yok.')),
       );
       return;
     }
@@ -206,7 +206,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     if (!result.isSuccess || result.data == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.error?.message ?? 'Aciklama kaydedilemedi.'),
+            content: Text(result.error?.message ?? 'Açıklama kaydedilemedi.'),
         ),
       );
       return;
@@ -218,13 +218,13 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Aciklama guncellendi.')));
+    ).showSnackBar(const SnackBar(content: Text('Açıklama güncellendi.')));
   }
 
   Future<void> _editProfilePhoto() async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu islem icin yetkiniz yok.')),
+        const SnackBar(content: Text('Bu işlem için yetkin yok.')),
       );
       return;
     }
@@ -252,7 +252,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              result.error?.message ?? 'Profil fotografi guncellenemedi.',
+              result.error?.message ?? 'Profil fotoğrafı güncellenemedi.',
             ),
           ),
         );
@@ -265,7 +265,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotografi guncellendi.')),
+        const SnackBar(content: Text('Profil fotoğrafı güncellendi.')),
       );
     } finally {
       if (mounted) {
@@ -277,7 +277,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   Future<void> _addSocialLink(ProfileSocialPlatform platform) async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu islem icin yetkiniz yok.')),
+        const SnackBar(content: Text('Bu işlem için yetkin yok.')),
       );
       return;
     }
@@ -322,26 +322,30 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('${platform.label} guncellendi.')));
+    ).showSnackBar(SnackBar(content: Text('${platform.label} güncellendi.')));
   }
 
   Future<void> _openBandManagementPanel(BuildContext context) async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yonetim paneline erisim yok.')),
+        const SnackBar(content: Text('Yönetim paneline erişim yok.')),
       );
       return;
     }
     final profile = _profile;
     if (profile == null) return;
 
-    await Navigator.of(context).push(
+    final deleted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => BandManagementPanelScreen(profile: profile),
       ),
     );
 
     if (!mounted) return;
+    if (deleted == true) {
+      Navigator.of(context).pop(true);
+      return;
+    }
     await _loadActiveVenues(profile.id);
   }
 

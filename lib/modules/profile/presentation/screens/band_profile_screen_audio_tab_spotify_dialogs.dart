@@ -47,33 +47,35 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
             }
 
             Future<void> addTrack() async {
-              final selected = await _showSpotifyTrackPicker(
+              await _showSpotifyTrackPicker(
                 context,
                 visibleTracks,
-              );
-              if (selected == null || !sheetContext.mounted) return;
-              if (visibleTracks.any((track) => track.id == selected.id)) {
-                setSheetState(() {
-                  feedbackText = 'Bu parca zaten ekli.';
-                  feedbackIsError = true;
-                });
-                return;
-              }
+                onTrackSelected: (selected) async {
+                  if (visibleTracks.any((track) => track.id == selected.id)) {
+                    setSheetState(() {
+                      feedbackText = 'Bu parça zaten ekli.';
+                      feedbackIsError = true;
+                    });
+                    return true;
+                  }
 
-              final nextTracks = [...visibleTracks, selected];
-              final ok = await saveTracks(
-                nextTracks,
-                failureMessage: 'Spotify parcasi eklenemedi.',
-              );
-              if (!ok || !sheetContext.mounted) return;
+                  final nextTracks = [...visibleTracks, selected];
+                  final ok = await saveTracks(
+                    nextTracks,
+                    failureMessage: 'Spotify parçası eklenemedi.',
+                  );
+                  if (!ok || !sheetContext.mounted) return false;
 
-              setSheetState(() {
-                visibleTracks
-                  ..clear()
-                  ..addAll(nextTracks);
-                feedbackText = 'Spotify parcasi eklendi.';
-                feedbackIsError = false;
-              });
+                  setSheetState(() {
+                    visibleTracks
+                      ..clear()
+                      ..addAll(nextTracks);
+                    feedbackText = 'Spotify parçası eklendi.';
+                    feedbackIsError = false;
+                  });
+                  return true;
+                },
+              );
             }
 
             Future<void> removeTrack(SpotifyTrackPreview track) async {
@@ -82,7 +84,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                   .toList();
               final ok = await saveTracks(
                 nextTracks,
-                failureMessage: 'Spotify parcasi kaldirilamadi.',
+                failureMessage: 'Spotify parçası kaldırılamadı.',
               );
               if (!ok || !sheetContext.mounted) return;
 
@@ -90,7 +92,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                 visibleTracks
                   ..clear()
                   ..addAll(nextTracks);
-                feedbackText = 'Spotify parcasi kaldirildi.';
+                feedbackText = 'Spotify parçası kaldırıldı.';
                 feedbackIsError = false;
               });
             }
@@ -118,7 +120,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                         children: [
                           Expanded(
                             child: Text(
-                              'Band Spotify Katalogu',
+                              'Band Spotify Kataloğu',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.onSurface,
@@ -129,7 +131,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                           ),
                           if (editable)
                             IconButton(
-                              tooltip: 'Spotify parcasi ekle',
+                              tooltip: 'Spotify parçası ekle',
                               onPressed: addTrack,
                               icon: Icon(Icons.add_circle_outline),
                             ),
@@ -155,7 +157,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                         child: visibleTracks.isEmpty
                             ? Center(
                                 child: Text(
-                                  'Spotify parcasi yok.',
+                                  'Spotify parçası yok.',
                                   style: TextStyle(
                                     color: Theme.of(
                                       context,

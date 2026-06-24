@@ -160,6 +160,16 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                 trailingLabel: 'Yakında!',
                 message: 'Band istatistik paneli sıradaki adımda eklenecek.',
               ),
+              SizedBox(height: 14),
+              _actionCard(
+                context: context,
+                icon: Icons.delete_forever_outlined,
+                title: 'Bandı Sil',
+                message: 'Band silme onayı açılıyor.',
+                trailingLabel: 'Kalıcı',
+                useGradientIcon: true,
+                onTap: _submitting ? null : _confirmDeleteBand,
+              ),
               SizedBox(height: 18),
               _adPlaceholderCard(),
             ],
@@ -167,5 +177,56 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteBand() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Bandı sil'),
+        content: Text(
+          'Bu bandı silmek istediğine emin misin? Bu işlem geri alınamaz.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              'Sil',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+
+    final result = await _bandRepository.deleteBand(bandId: _profile.id);
+    if (!mounted) return;
+
+    if (!result.isSuccess) {
+      setState(() {
+        _submitting = false;
+        _errorText = result.error?.message ?? 'Band silinemedi.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_errorText!)),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${_profile.name} silindi.')),
+    );
+    Navigator.of(context).pop(true);
   }
 }

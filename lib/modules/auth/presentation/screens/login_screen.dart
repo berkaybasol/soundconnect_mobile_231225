@@ -71,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
           title: '',
           actions: [
             PopupMenuButton<AppThemeVariant>(
-              tooltip: 'Tema Sec',
+              tooltip: 'Tema seç',
               initialValue: themeController.variant,
               onSelected: themeController.setVariant,
               itemBuilder: (_) => AppThemeVariant.values
@@ -247,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Hesabin yok mu?',
+                    'Hesabın yok mu?',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   TextButton(

@@ -13,9 +13,9 @@ class EditableBioSection extends StatefulWidget {
     required this.bio,
     required this.editable,
     required this.onSave,
-    this.emptyText = 'Henuz bir aciklama eklenmedi.',
-    this.addLabel = 'Aciklama ekle',
-    this.hintText = 'Kendinden bahset...',
+    this.emptyText = 'Henüz bir açıklama eklenmedi.',
+    this.addLabel = 'Profiline birkaç cümle ekle',
+    this.hintText = 'Kendinden biraz bahset...',
   });
 
   @override
@@ -152,7 +152,7 @@ class _EditableBioSectionState extends State<EditableBioSection> {
               onPressed: _saving
                   ? null
                   : () => setState(() => _isEditing = false),
-              child: Text('Iptal'),
+              child: Text('İptal'),
             ),
             SizedBox(width: 10),
             FilledButton(

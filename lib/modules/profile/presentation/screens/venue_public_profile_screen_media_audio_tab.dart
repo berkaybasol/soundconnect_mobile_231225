@@ -24,7 +24,7 @@ class _AudioTab extends StatelessWidget {
       return Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Kullanici henuz ses eklemedi.',
+          'Kullanıcı henüz ses eklemedi.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),

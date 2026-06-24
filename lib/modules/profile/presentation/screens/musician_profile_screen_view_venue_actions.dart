@@ -49,14 +49,14 @@ extension _MusicianProfileViewStateVenueActions
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Mekan baglanti istegi gonderildi (onay bekliyor).'),
+          content: Text('Mekan bağlantı isteği gönderildi (onay bekliyor).'),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Mekanlar guncellenemedi: $e')));
+      ).showSnackBar(SnackBar(content: Text('Mekanlar güncellenemedi: $e')));
     }
   }
 }

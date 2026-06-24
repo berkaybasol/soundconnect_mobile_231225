@@ -89,7 +89,7 @@ class ProfileAudioTab extends StatelessWidget {
       return Padding(
         padding: EdgeInsets.all(20),
         child: Text(
-          'Kullanici henuz ses eklemedi.',
+          'Kullanıcı henüz ses eklemedi.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -201,7 +201,7 @@ class ProfileAudioTab extends StatelessWidget {
               ],
               if (!ownerMode && items.isEmpty)
                 Text(
-                  'Kullanici henuz ses eklemedi.',
+                  'Kullanıcı henüz ses eklemedi.',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

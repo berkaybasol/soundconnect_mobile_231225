@@ -92,6 +92,7 @@ class _MusicianPublicProfileViewState
   String? _publicVenueId;
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
+  bool _viewerUserIdResolved = false;
   String? _currentProfileUserId;
   List<WeeklyCalendarEvent> _fallbackWeeklyEvents = const [];
   String? _fallbackWeeklyEventsVenueId;
@@ -116,7 +117,8 @@ class _MusicianPublicProfileViewState
       }
       context.read<VenueProfileCubit>().loadPublic(venueId: _publicVenueId);
     }
-    if (_viewerUserId != null) return;
+    if (_viewerUserIdResolved) return;
+    _viewerUserIdResolved = true;
     if (args is VenuePublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is PublicProfileArgs) {
@@ -126,6 +128,17 @@ class _MusicianPublicProfileViewState
     } else if (args is String) {
       _viewerUserId = args;
     }
+    if ((_viewerUserId ?? '').trim().isEmpty) {
+      _loadViewerUserIdFromToken();
+    }
+  }
+
+  Future<void> _loadViewerUserIdFromToken() async {
+    final resolved = await resolveCurrentViewerUserId();
+    if (!mounted) return;
+    final value = resolved?.trim() ?? '';
+    if (value.isEmpty || value == (_viewerUserId ?? '').trim()) return;
+    setState(() => _viewerUserId = value);
   }
 
   @override

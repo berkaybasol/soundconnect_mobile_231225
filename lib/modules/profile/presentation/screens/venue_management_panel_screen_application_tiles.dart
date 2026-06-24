@@ -190,7 +190,7 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                           action: () =>
                               _artistVenueRepository.cancelRequest(item.id),
                         ),
-                  child: Text('Iptal Et'),
+                  child: Text('İptal et'),
                 ),
               if (canDisconnect)
                 OutlinedButton(

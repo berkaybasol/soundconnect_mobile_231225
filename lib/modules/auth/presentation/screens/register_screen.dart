@@ -51,23 +51,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ),
     _RoleOption(
       id: 'ROLE_VENUE',
-      title: 'Mekan Temsilcisiyim',
+      title: 'Mekan temsilcisiyim',
       icon: Icons.storefront_outlined,
-      badge: 'Basvuru',
+      badge: 'Başvuru',
     ),
     _RoleOption(
       id: 'ROLE_STUDIO',
-      title: 'Studyo Temsilcisiyim',
+      title: 'Stüdyo temsilcisiyim',
       icon: Icons.mic_none,
     ),
     _RoleOption(
       id: 'ROLE_PRODUCER',
-      title: 'Produktorum',
+      title: 'Prodüktörüm',
       icon: Icons.graphic_eq,
     ),
     _RoleOption(
       id: 'ROLE_ORGANIZER',
-      title: 'Organizatorum',
+      title: 'Organizatörüm',
       icon: Icons.event,
     ),
   ];
@@ -155,31 +155,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (_stepIndex == 0) {
         final username = _usernameController.text.trim();
         if (username.isEmpty) {
-          _showError('Kullanici adi bos olamaz');
+          _showError('Kullanıcı adı boş olamaz.');
         } else {
-          _showError('Kullanici adi 3 ile 30 karakter arasinda olmali.');
+          _showError('Kullanıcı adı 3 ile 30 karakter arasında olmalı.');
         }
       } else if (_stepIndex == 1) {
         final email = _emailController.text.trim();
         if (email.isEmpty) {
-          _showError('E-posta bos olamaz.');
+          _showError('E-posta boş olamaz.');
         } else {
-          _showError('Gecerli bir e-posta girin.');
+          _showError('Geçerli bir e-posta gir.');
         }
       } else if (_stepIndex == 2) {
         final password = _passwordController.text.trim();
         final rePassword = _rePasswordController.text.trim();
         if (password.isEmpty) {
-          _showError('Sifre bos olamaz.');
+          _showError('Şifre boş olamaz.');
         } else if (password.length < 8 || password.length > 20) {
-          _showError('Sifreniz en az 8, en fazla 20 karakterden olusmalidir.');
+          _showError('Şifren en az 8, en fazla 20 karakterden oluşmalı.');
         } else if (rePassword.isEmpty) {
-          _showError('Sifre tekrari bos olamaz.');
+          _showError('Şifre tekrarı boş olamaz.');
         } else {
-          _showError('Sifreler eslesmeli.');
+          _showError('Şifreler eşleşmeli.');
         }
       } else if (_stepIndex == 3) {
-        _showError('Rol secilmelidir.');
+        _showError('Rol seçilmelidir.');
       } else {
         _showError('Mekan bilgilerini eksiksiz doldur.');
       }
@@ -361,12 +361,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Kullanici adi olustur',
+          'Kullanıcı adı oluştur',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 6),
         Text(
-          'Hesap olusturmak icin bir kullanici adi ekle.',
+          'Hesap oluşturmak için bir kullanıcı adı ekle.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -374,7 +374,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SizedBox(height: 12),
         GradientTextField(
           controller: _usernameController,
-          label: 'Kullanici adi',
+          label: 'Kullanıcı adı',
           prefixIcon: Icons.person_outline,
         ),
       ],
@@ -391,7 +391,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         SizedBox(height: 6),
         Text(
-          'Dogrulama kodunu bu adrese gonderecegiz.',
+          'Doğrulama kodunu bu adrese göndereceğiz.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -411,12 +411,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Sifre belirle',
+          'Şifre belirle',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 6),
         Text(
-          'Sifren en az 8, en fazla 20 karakter olmali.',
+          'Şifren en az 8, en fazla 20 karakter olmalı.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -424,7 +424,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SizedBox(height: 12),
         GradientTextField(
           controller: _passwordController,
-          label: 'Sifre',
+          label: 'Şifre',
           prefixIcon: Icons.lock_outline,
           obscureText: _isPasswordObscured,
           suffixIcon: IconButton(
@@ -443,7 +443,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SizedBox(height: 16),
         GradientTextField(
           controller: _rePasswordController,
-          label: 'Sifre tekrar',
+          label: 'Şifre tekrar',
           prefixIcon: Icons.lock_outline,
           obscureText: _isRePasswordObscured,
           suffixIcon: IconButton(
@@ -480,7 +480,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         SizedBox(height: 6),
         Text(
-          'Muzigi nasil yasayacagini sec. SoundConnect\'i sana gore sekillendirelim.',
+          'Müziği nasıl yaşayacağını seç. SoundConnect\'i sana göre şekillendirelim.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -509,12 +509,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Mekan bilgilerini paylas',
+          'Mekan bilgilerini paylaş',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 6),
         Text(
-          'Bilgileri doldurduktan sonra kisa surede sizinle iletisime gececegiz.',
+          'Bilgileri doldurduktan sonra kısa sürede sizinle iletişime geçeceğiz.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -527,7 +527,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 GradientTextField(
                   controller: _venueNameController,
-                  label: 'Mekan adi',
+                  label: 'Mekan adı',
                   prefixIcon: Icons.storefront_outlined,
                 ),
                 SizedBox(height: 12),
@@ -573,7 +573,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             prefixIcon: Icon(Icons.location_city_outlined),
-                            hintText: 'Sehir sec',
+                            hintText: 'Şehir seç',
                           ),
                           dropdownColor: Theme.of(
                             context,
@@ -622,7 +622,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             prefixIcon: Icon(Icons.map_outlined),
-                            hintText: 'Ilce sec',
+                            hintText: 'İlçe seç',
                           ),
                           dropdownColor: Theme.of(
                             context,
@@ -668,7 +668,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             prefixIcon: Icon(Icons.place_outlined),
-                            hintText: 'Mahalle sec (opsiyonel)',
+                            hintText: 'Mahalle seç (opsiyonel)',
                           ),
                           dropdownColor: Theme.of(
                             context,
@@ -712,7 +712,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             arguments: OtpVerifyArgs(email: email, role: _selectedRole),
           );
         } else if (state.status == AuthStatus.failure) {
-          final message = state.error?.message ?? 'Register failed';
+          final message = state.error?.message ?? 'Kayıt başarısız.';
           _showError(message);
         }
       },

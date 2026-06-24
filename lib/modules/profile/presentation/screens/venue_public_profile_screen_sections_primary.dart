@@ -83,7 +83,7 @@ class _ProfileIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = profile.username?.trim().isNotEmpty == true
         ? profile.username!
-        : 'Kullanici';
+        : 'Kullanıcı';
     final bandName = profile.bands.isNotEmpty ? profile.bands.first : null;
 
     return Column(
@@ -128,7 +128,7 @@ class _FollowerRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _PillBadge(text: _formatCount(followersCount, 'Takipci')),
+        _PillBadge(text: _formatCount(followersCount, 'Takipçi')),
         SizedBox(width: 12),
         _PillBadge(text: _formatCount(followingCount, 'Takip')),
       ],

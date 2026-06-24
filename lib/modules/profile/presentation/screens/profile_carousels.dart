@@ -29,7 +29,7 @@ class VenueNameCarousel extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onAddTap,
               icon: Icon(Icons.add_circle_outline, size: 18),
-              label: Text('Muzisyen Ekle'),
+              label: Text('Mekan ekle'),
             ),
           ),
         );
@@ -158,7 +158,7 @@ class ActiveMusicianCarousel extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onAddTap,
               icon: Icon(Icons.add_circle_outline, size: 18),
-              label: Text('Mekan Ekle'),
+              label: Text('Müzisyen ekle'),
             ),
           ),
         );
@@ -166,7 +166,7 @@ class ActiveMusicianCarousel extends StatelessWidget {
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: Text(
-          'Mekan bilgisi yok.',
+          'Müzisyen bilgisi yok.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),

@@ -29,7 +29,7 @@ class _AudioTab extends StatelessWidget {
       uploadOwnerType: 'MUSICIAN_PROFILE',
       uploadProfileType: 'MUSICIAN',
       showSpotifyCatalogButtonWhenOwnerAndEmpty: true,
-      emptyUploadPrompt: 'Henuz ses eklemediniz',
+      emptyUploadPrompt: 'Henüz ses eklemediniz',
       uploadActionLabel: 'Ses ekle',
     );
   }

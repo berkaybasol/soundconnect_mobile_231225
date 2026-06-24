@@ -75,7 +75,7 @@ class _ProfileIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = profile.username?.trim().isNotEmpty == true
         ? profile.username!
-        : 'Kullanici';
+        : 'Kullanıcı';
     final bandName = profile.bands.isNotEmpty ? profile.bands.first : null;
 
     return Column(
@@ -120,7 +120,7 @@ class _FollowerRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _PillBadge(text: _formatCount(followersCount, 'Takipci')),
+        _PillBadge(text: _formatCount(followersCount, 'Takipçi')),
         SizedBox(width: 12),
         _PillBadge(text: _formatCount(followingCount, 'Takip')),
       ],
@@ -189,7 +189,7 @@ class _ActionButtons extends StatelessWidget {
               child: Text(
                 isLoading
                     ? 'Bekle...'
-                    : (isFollowing ? 'Takip Ediliyor' : 'Takip Et'),
+                    : (isFollowing ? 'Takip ediliyor' : 'Takip et'),
               ),
             ),
           ),
@@ -205,7 +205,7 @@ class _ActionButtons extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: Text('Mesaj Gonder'),
+              child: Text('Mesaj gönder'),
             ),
           ),
         ],

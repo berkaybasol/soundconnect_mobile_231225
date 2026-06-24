@@ -50,5 +50,19 @@ void main() {
       );
       expect(withoutUrls.preferredUrl, isNull);
     });
+
+    test('resolves viewer user id from jwt payload candidates', () {
+      expect(
+        resolveUserIdFromJwtToken(
+          'header.eyJ1c2VySWQiOiJ1c2VyLTEyMyJ9.signature',
+        ),
+        'user-123',
+      );
+      expect(
+        resolveUserIdFromJwtToken('header.eyJzdWIiOiJzdWItNDU2In0.signature'),
+        'sub-456',
+      );
+      expect(resolveUserIdFromJwtToken('not-a-jwt'), isNull);
+    });
   });
 }

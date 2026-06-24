@@ -67,7 +67,7 @@ class VenuePendingScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 24),
                 Text(
-                  'Hesabın İnceleniyor...',
+                  'Hesabın inceleniyor...',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
@@ -98,7 +98,7 @@ class VenuePendingScreen extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      TextSpan(text: ' adresine mail gönderebilirsin.'),
+                      TextSpan(text: ' adresine e-posta gönderebilirsin.'),
                     ],
                   ),
                   textAlign: TextAlign.center,
@@ -118,7 +118,7 @@ class VenuePendingScreen extends StatelessWidget {
                         text: 'veya ',
                         children: [
                           TextSpan(
-                            text: 'buraya tıklayarak',
+                            text: 'buraya dokunarak',
                             style: TextStyle(
                               color: _whatsAppGreen,
                               fontWeight: FontWeight.w800,

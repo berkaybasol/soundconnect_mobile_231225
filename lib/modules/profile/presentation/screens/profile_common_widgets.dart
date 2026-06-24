@@ -18,7 +18,7 @@ class ProfileIdentityHeader extends StatelessWidget {
     super.key,
     required this.username,
     required this.secondaryText,
-    this.fallbackName = 'Kullanici',
+    this.fallbackName = 'Kullanıcı',
   });
 
   @override
@@ -75,7 +75,7 @@ class ProfileFollowerSummary extends StatelessWidget {
     super.key,
     required this.followersCount,
     required this.followingCount,
-    this.followersLabel = 'Takipci',
+    this.followersLabel = 'Takipçi',
     this.followingLabel = 'Takip',
     this.showFollowing = true,
   });

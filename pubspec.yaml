@@ -92,6 +92,7 @@ flutter:
     - assets/confined.png
     - assets/scanonim.png
     - assets/who.png
+    - assets/ME!2-transparent.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

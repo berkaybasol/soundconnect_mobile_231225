@@ -32,6 +32,10 @@ abstract class BandRepository {
     String? message,
   });
 
+  Future<Result<void>> acceptInvite({required String bandId});
+
+  Future<Result<void>> rejectInvite({required String bandId});
+
   Future<Result<void>> removeMember({
     required String bandId,
     required String userId,

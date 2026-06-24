@@ -176,7 +176,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
         _eventsError = null;
       } else {
         _events = const <DiscoveryEvent>[];
-        _eventsError = result.error?.message ?? 'Etkinlikler alinamadi.';
+        _eventsError = result.error?.message ?? 'Etkinlikler alınamadı.';
       }
     });
   }
@@ -318,7 +318,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Masalari goruntulemek veya masa acabilmek icin uye olun.',
+                          'Masaları görüntülemek veya masa açabilmek için üye olun.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
@@ -340,13 +340,13 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
                                       context,
                                     ).pushNamed(AppRoutes.login);
                                   },
-                                  child: const Text('Giris Yap'),
+                                  child: const Text('Giriş Yap'),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: _GradientActionButton(
-                                  label: 'Uye Ol',
+                                  label: 'Üye Ol',
                                   backgroundColor: AppColors.navBlueDeep,
                                   onPressed: () {
                                     Navigator.of(context).pop();
@@ -445,7 +445,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
                           hasScrollBody: false,
                           child: _ErrorState(
                             message: _initialError!,
-                            actionLabel: 'Tekrar Dene',
+                            actionLabel: 'Tekrar dene',
                             onAction: _loadInitial,
                           ),
                         )
@@ -557,7 +557,7 @@ class _HeroPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Bugun Nerede Canli Muzik Var?',
+                  'Bugün Nerede Canlı Müzik Var?',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 18,
@@ -569,7 +569,7 @@ class _HeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Filtreye gore $count etkinlik bulundu',
+            'Filtreye göre $count etkinlik bulundu',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -629,7 +629,7 @@ class _InlineFilterPanel extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Lokasyona gore ara',
+                  'Lokasyona göre ara',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
@@ -641,23 +641,23 @@ class _InlineFilterPanel extends StatelessWidget {
             ],
           ),
           _FilterDropdown(
-            label: 'Sehir sec',
+            label: 'Şehir seç',
             value: selectedCityId,
             items: cityOptions,
-            allLabel: 'Sehir',
+            allLabel: 'Şehir',
             onChanged: onCityChanged,
           ),
           const SizedBox(height: 8),
           _FilterDropdown(
-            label: 'Ilce sec',
+            label: 'İlçe seç',
             value: selectedDistrictId,
             items: districtOptions,
-            allLabel: 'Ilce',
+            allLabel: 'İlçe',
             onChanged: onDistrictChanged,
           ),
           const SizedBox(height: 8),
           _FilterDropdown(
-            label: 'Mahalle sec',
+            label: 'Mahalle seç',
             value: selectedNeighborhoodId,
             items: neighborhoodOptions,
             allLabel: 'Mahalle',
@@ -869,7 +869,7 @@ class _EventCard extends StatelessWidget {
             endTime: item.endTime == null ? '--:--' : _formatTime(item.endTime!),
             imageAssetPath: item.posterImageUrl,
             description: item.description.trim().isEmpty
-                ? 'Etkinlik aciklamasi bulunmuyor.'
+                ? 'Etkinlik açıklaması bulunmuyor.'
                 : item.description,
           ),
         ),
@@ -996,7 +996,7 @@ class _EventCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Detaylar icin tikla',
+                    'Detaylar için tıkla',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 11,
@@ -1087,7 +1087,7 @@ class _GuestEmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Farkli sehir, ilce, mahalle veya mekan secerek tekrar dene.',
+                'Farklı şehir, ilçe, mahalle veya mekan seçerek tekrar dene.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1126,11 +1126,19 @@ class _SearchFirstState extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                "Mekanlari gormek icin once 'Ara' butonuna bas.",
+                'Henüz bir konum seçmedin.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Yakındaki canlı müzik mekanlarını görmek için konumunu seçip arama yap.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -1226,13 +1234,13 @@ class _GuestLockFooter extends StatelessWidget {
                 side: BorderSide(color: Theme.of(context).dividerColor),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text('Giris Yap'),
+              child: const Text('Giriş Yap'),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: _GradientActionButton(
-              label: 'Uye Ol',
+              label: 'Üye Ol',
               backgroundColor: AppColors.navBlueDeep,
               onPressed: () {
                 Navigator.of(context).pushNamed(AppRoutes.register);
@@ -1396,7 +1404,7 @@ class _GuestTableAccessFabState extends State<_GuestTableAccessFab>
                 ],
               ),
               child: Text(
-                'Masa acmak icin\ntiklayin',
+                'Masa açmak için\ndokunun',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 12,
@@ -1436,4 +1444,3 @@ class _GuestTableAccessFabState extends State<_GuestTableAccessFab>
     );
   }
 }
-

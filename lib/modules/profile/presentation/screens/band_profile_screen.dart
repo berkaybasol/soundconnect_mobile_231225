@@ -12,6 +12,7 @@ import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/network/network_config.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../../../app/router/app_routes.dart';
@@ -102,8 +103,10 @@ class _BandProfileViewState extends State<_BandProfileView> {
   BandProfile? _profile;
   List<SpotifyTrackPreview> _spotifyTracks = [];
   int? _followersCount;
+  bool _isFollowingBand = false;
   bool _loading = true;
   bool _photoUploading = false;
+  bool _bandFollowLoading = false;
   bool _spotifyLoading = false;
   String? _errorText;
   String? _uploadedProfilePhotoUrl;
@@ -222,6 +225,48 @@ class _BandProfileViewState extends State<_BandProfileView> {
       } catch (_) {}
     }
     _updateState(() => _currentUserId = resolved);
+    final profile = _profile;
+    if (profile != null) {
+      unawaited(_loadBandFollowStatus(profile.id));
+    }
+  }
+
+  bool _isCurrentUserActiveBandMember(BandProfile profile) {
+    final userId = (_currentUserId ?? '').trim();
+    if (userId.isEmpty) return false;
+    return profile.members.any(
+      (member) =>
+          member.userId.trim() == userId &&
+          member.status.trim().toUpperCase() == 'ACTIVE',
+    );
+  }
+
+  Widget _buildBandActionButtons(BandProfile profile) {
+    if (_canManageBand || _isCurrentUserActiveBandMember(profile)) {
+      return SizedBox.shrink();
+    }
+
+    final hasViewer = (_currentUserId ?? '').trim().isNotEmpty;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 32),
+      child: Center(
+        child: GradientOutlineButton(
+          label: _bandFollowLoading
+              ? 'Bekle...'
+              : (_isFollowingBand ? 'Takip Ediliyor' : 'Takip Et'),
+          loading: _bandFollowLoading,
+          leading: Icon(
+            _isFollowingBand
+                ? Icons.check_circle_outline
+                : Icons.person_add_alt_1,
+            size: 18,
+          ),
+          onPressed: hasViewer && !_bandFollowLoading
+              ? () => _toggleBandFollow(profile.id)
+              : null,
+        ),
+      ),
+    );
   }
 
   @override
@@ -272,17 +317,17 @@ class _BandProfileViewState extends State<_BandProfileView> {
                 followerSummary: ProfileFollowerSummary(
                   followersCount: _followersCount,
                   followingCount: null,
-                  followersLabel: 'Takipci',
+                  followersLabel: 'Takipçi',
                   followingLabel: 'Takip',
                   showFollowing: false,
                 ),
-                actionButtons: SizedBox.shrink(),
+                actionButtons: _buildBandActionButtons(profile),
                 bioSection: EditableBioSection(
                   bio: profile.description,
                   editable: _canManageBand,
                   onSave: _saveDescription,
-                  emptyText: 'Henuz bir aciklama eklenmedi.',
-                  addLabel: 'Aciklama ekle',
+                  emptyText: 'Henüz bir açıklama eklenmedi.',
+                  addLabel: 'Profiline birkaç cümle ekle',
                   hintText: 'Bandinden bahset...',
                 ),
                 afterBio: _canManageBand

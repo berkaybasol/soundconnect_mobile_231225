@@ -11,6 +11,66 @@ class BandFollowRepositoryImpl implements BandFollowRepository {
   BandFollowRepositoryImpl(this._apiClient);
 
   @override
+  Future<Result<void>> followBand(String bandId) async {
+    try {
+      await _apiClient.post<Object?>(
+        BandFollowEndpoints.band(bandId),
+        decoder: (_) => null,
+      );
+      return const Result.success(null);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_follow_action_unknown',
+          message: 'Band could not be followed',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> unfollowBand(String bandId) async {
+    try {
+      await _apiClient.delete<Object?>(
+        BandFollowEndpoints.band(bandId),
+        decoder: (_) => null,
+      );
+      return const Result.success(null);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_unfollow_action_unknown',
+          message: 'Band could not be unfollowed',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<bool>> isFollowingBand(String bandId) async {
+    try {
+      final response = await _apiClient.get<bool>(
+        BandFollowEndpoints.isFollowing(bandId),
+        decoder: (json) => json == true,
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_follow_status_unknown',
+          message: 'Band follow status could not be loaded',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<int>> getFollowersCount(String bandId) async {
     try {
       final response = await _apiClient.get<int>(

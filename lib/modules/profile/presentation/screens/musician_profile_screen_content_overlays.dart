@@ -45,14 +45,14 @@ extension _MusicianPublicProfileContentOverlays
                           child: ListTile(
                             enabled: false,
                             leading: Icon(Icons.assignment_outlined),
-                            title: Text('Basvurularim'),
+                            title: Text('Başvurularım'),
                           ),
                         ),
                         ListTile(
                           leading: const Icon(
                             Icons.dashboard_customize_outlined,
                           ),
-                          title: const Text('Yonetim Paneli'),
+                          title: const Text('Yönetim paneli'),
                           onTap: () {
                             Navigator.of(dialogContext).pop();
                             Navigator.of(context).push(

@@ -12,6 +12,7 @@ import '../../../overthinking/domain/overthinking_repository.dart';
 import '../../../overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../../overthinking/presentation/screens/overthinking_manage_screen.dart';
+import '../../../profile/presentation/screens/band_invite_decision_screen.dart';
 import '../../../profile/presentation/screens/band_profile_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_detail_screen.dart';
 import '../../domain/entities/app_notification.dart';
@@ -32,6 +33,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<NotificationCubit>().refresh();
+    });
   }
 
   @override
@@ -52,62 +57,59 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<NotificationCubit>.value(
-      value: serviceLocator<NotificationCubit>()..refresh(),
-      child: BlocConsumer<NotificationCubit, NotificationState>(
-        listener: (context, state) {
-          final error = state.errorMessage;
-          if (error == null || error.trim().isEmpty) return;
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(error)));
-        },
-        builder: (context, state) {
-          final loading =
-              state.status == NotificationStatus.loading && state.items.isEmpty;
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Bildirimler'),
-              actions: [
-                TextButton(
-                  onPressed: state.unreadCount <= 0
-                      ? null
-                      : () => context.read<NotificationCubit>().markAllAsRead(),
-                  child: const Text('Tumunu oku'),
-                ),
-              ],
-            ),
-            body: RefreshIndicator(
-              onRefresh: () => context.read<NotificationCubit>().refresh(),
-              child: loading
-                  ? const _NotificationLoadingList()
-                  : state.items.isEmpty
-                  ? const _EmptyNotifications()
-                  : ListView.separated(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
-                      itemBuilder: (context, index) {
-                        if (index >= state.items.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(18),
-                            child: Center(child: CircularProgressIndicator()),
-                          );
-                        }
-                        final item = state.items[index];
-                        return _NotificationTile(notification: item);
-                      },
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemCount:
-                          state.items.length +
-                          (state.status == NotificationStatus.loadingMore
-                              ? 1
-                              : 0),
-                    ),
-            ),
-          );
-        },
-      ),
+    return BlocConsumer<NotificationCubit, NotificationState>(
+      listener: (context, state) {
+        final error = state.errorMessage;
+        if (error == null || error.trim().isEmpty) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error)));
+      },
+      builder: (context, state) {
+        final loading =
+            state.status == NotificationStatus.loading && state.items.isEmpty;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Bildirimler'),
+            actions: [
+              TextButton(
+                onPressed: state.unreadCount <= 0
+                    ? null
+                    : () => context.read<NotificationCubit>().markAllAsRead(),
+                child: const Text('Tumunu oku'),
+              ),
+            ],
+          ),
+          body: RefreshIndicator(
+            onRefresh: () => context.read<NotificationCubit>().refresh(),
+            child: loading
+                ? const _NotificationLoadingList()
+                : state.items.isEmpty
+                ? const _EmptyNotifications()
+                : ListView.separated(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
+                    itemBuilder: (context, index) {
+                      if (index >= state.items.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(18),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final item = state.items[index];
+                      return _NotificationTile(notification: item);
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemCount:
+                        state.items.length +
+                        (state.status == NotificationStatus.loadingMore
+                            ? 1
+                            : 0),
+                  ),
+          ),
+        );
+      },
     );
   }
 }
@@ -483,11 +485,29 @@ class _NotificationTile extends StatelessWidget {
 
   void _openBandTarget(BuildContext context, AppNotification notification) {
     final action = notification.payload['action']?.toString().trim() ?? '';
+    final bandId = notification.payload['bandId']?.toString().trim() ?? '';
+    if (action == 'INVITE_RECEIVED' && bandId.isNotEmpty) {
+      final bandName =
+          notification.payload['bandName']?.toString().trim() ?? '';
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => BandInviteDecisionScreen(
+            args: BandInviteDecisionScreenArgs(
+              bandId: bandId,
+              bandName: bandName.isEmpty ? null : bandName,
+              title: notification.title,
+              message: notification.message,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     if (action == 'INVITE_RECEIVED' || action == 'MEMBER_REMOVED') {
       Navigator.of(context).pushNamed(AppRoutes.myBands);
       return;
     }
-    final bandId = notification.payload['bandId']?.toString().trim() ?? '';
     if (bandId.isEmpty) {
       Navigator.of(context).pushNamed(AppRoutes.myBands);
       return;
@@ -539,8 +559,8 @@ class _NotificationTypeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = _senderAvatarUrl;
-    if (_isDmNotification && avatarUrl.isNotEmpty) {
+    final avatarUrl = _notificationAvatarUrl;
+    if ((_isDmNotification || _isSocialNotification) && avatarUrl.isNotEmpty) {
       return Container(
         width: 40,
         height: 40,
@@ -581,13 +601,21 @@ class _NotificationTypeIcon extends StatelessWidget {
     return module == 'DM' || notification.type.startsWith('DM');
   }
 
+  bool get _isSocialNotification {
+    final module = notification.payload['module']?.toString().trim() ?? '';
+    return module == 'SOCIAL' || notification.type.startsWith('SOCIAL');
+  }
+
   String get type => notification.type;
 
-  String get _senderAvatarUrl {
+  String get _notificationAvatarUrl {
     for (final key in const [
       'senderAvatarUrl',
       'senderProfilePictureUrl',
       'senderProfilePicture',
+      'followerAvatarUrl',
+      'followerProfilePictureUrl',
+      'followerProfilePicture',
       'profilePictureUrl',
       'avatarUrl',
     ]) {

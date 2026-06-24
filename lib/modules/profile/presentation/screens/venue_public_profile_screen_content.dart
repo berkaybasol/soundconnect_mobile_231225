@@ -136,7 +136,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 child: Text(
                   profile.bio?.trim().isNotEmpty == true
                       ? profile.bio!
-                      : 'Henuz bir aciklama eklenmedi.',
+                      : 'Henüz bir açıklama eklenmedi.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,

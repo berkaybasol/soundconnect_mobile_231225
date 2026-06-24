@@ -145,7 +145,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   secondaryText: profile.bands.isNotEmpty
                       ? profile.bands.first
                       : null,
-                  fallbackName: 'Kullanici',
+                  fallbackName: 'Kullanıcı',
                 ),
                 followerSummary: ProfileFollowerSummary(
                   followersCount: followersCount,

@@ -20,6 +20,7 @@ import '../../modules/profile/presentation/screens/venue_public_profile_screen.d
 import '../../modules/overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_create_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_list_screen.dart';
+import '../../modules/tablegroup/presentation/screens/table_group_route_args.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
 import 'app_routes.dart';
 
@@ -116,9 +117,12 @@ class AppRouter {
           builder: (_) => const NotificationScreen(),
         );
       case AppRoutes.tableGroupList:
+        final args = settings.arguments as TableGroupListArgs?;
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => TableGroupListScreen(),
+          builder: (_) => TableGroupListScreen(
+            args: args ?? const TableGroupListArgs(),
+          ),
         );
       case AppRoutes.tableGroupCreate:
         return MaterialPageRoute(

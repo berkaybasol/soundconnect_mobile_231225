@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../notification/presentation/cubit/notification_cubit.dart';
 import '../../../notification/presentation/cubit/notification_state.dart';
@@ -23,8 +22,6 @@ class StageHomeTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final borderColor = Theme.of(context).dividerColor;
     final textColor = Theme.of(context).colorScheme.onSurfaceVariant;
-    final notificationCubit = serviceLocator<NotificationCubit>()
-      ..ensureStarted();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
@@ -63,23 +60,20 @@ class StageHomeTopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          BlocProvider<NotificationCubit>.value(
-            value: notificationCubit,
-            child: BlocBuilder<NotificationCubit, NotificationState>(
-              builder: (context, state) {
-                return IconButton(
-                  onPressed:
-                      onNotificationsTap ??
-                      () => Navigator.of(
-                        context,
-                      ).pushNamed(AppRoutes.notifications),
-                  icon: _NotificationBell(unreadCount: state.unreadCount),
-                  iconSize: 31,
-                  splashRadius: 24,
-                  tooltip: 'Bildirimler',
-                );
-              },
-            ),
+          BlocBuilder<NotificationCubit, NotificationState>(
+            builder: (context, state) {
+              return IconButton(
+                onPressed:
+                    onNotificationsTap ??
+                    () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.notifications),
+                icon: _NotificationBell(unreadCount: state.unreadCount),
+                iconSize: 31,
+                splashRadius: 24,
+                tooltip: 'Bildirimler',
+              );
+            },
           ),
           IconButton(
             onPressed: onMenuTap,

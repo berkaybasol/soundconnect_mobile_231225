@@ -11,6 +11,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../dm/presentation/cubit/dm_badge_cubit.dart';
 import '../../../dm/presentation/cubit/dm_badge_state.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
+import '../../../tablegroup/presentation/screens/table_group_route_args.dart';
 import 'backstage_profiles_home_screen.dart';
 import 'profile_bottom_bar_avatar_cache.dart';
 
@@ -26,49 +27,15 @@ class ProfilePublicBottomBar extends StatelessWidget {
     this.stageMode = StageMode.backstage,
   });
 
-  Widget _profileAvatar(BuildContext context, bool active, String? imageUrl) {
-    final hasImage = imageUrl?.trim().isNotEmpty == true;
-    final safeImageUrl = imageUrl?.trim() ?? '';
-    final child = hasImage
-        ? ClipOval(
-            child: Image.network(
-              safeImageUrl,
-              width: 18,
-              height: 18,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.person_outline, size: 18),
-            ),
-          )
-        : const Icon(Icons.person_outline, size: 18);
-
-    if (!active) {
-      return Container(
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Center(child: child),
-      );
-    }
-
-    return Container(
-      width: 24,
-      height: 24,
-      padding: const EdgeInsets.all(1.4),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(colors: AppColors.brandGradient),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.navBlueDeep,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.navBlueDeep, width: 1),
-        ),
-        child: Center(child: child),
+  Widget _profileAvatar(BuildContext context, bool active) {
+    final tint = IconTheme.of(context).color;
+    return ColorFiltered(
+      colorFilter: ColorFilter.mode(tint ?? Colors.white, BlendMode.srcIn),
+      child: Image.asset(
+        'assets/ME!2-transparent.png',
+        width: active ? 25 : 23,
+        height: active ? 25 : 23,
+        fit: BoxFit.contain,
       ),
     );
   }
@@ -90,7 +57,6 @@ class ProfilePublicBottomBar extends StatelessWidget {
   List<BottomNavigationBarItem> _backstageItems(
     BuildContext context,
     DmBadgeState state,
-    String? resolvedProfileImageUrl,
   ) {
     return [
       BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Akis'),
@@ -104,8 +70,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
         label: 'Mesajlar',
       ),
       BottomNavigationBarItem(
-        icon: _profileAvatar(context, false, resolvedProfileImageUrl),
-        activeIcon: _profileAvatar(context, true, resolvedProfileImageUrl),
+        icon: _profileAvatar(context, false),
+        activeIcon: _profileAvatar(context, true),
         label: 'Profil',
       ),
     ];
@@ -114,7 +80,6 @@ class ProfilePublicBottomBar extends StatelessWidget {
   List<BottomNavigationBarItem> _mainstageItems(
     BuildContext context,
     DmBadgeState state,
-    String? resolvedProfileImageUrl,
   ) {
     return [
       BottomNavigationBarItem(icon: Icon(Icons.circle_outlined), label: 'Bos'),
@@ -122,14 +87,17 @@ class ProfilePublicBottomBar extends StatelessWidget {
         icon: _assetIcon(context, 'assets/confined.png'),
         label: 'Overthinking',
       ),
-      BottomNavigationBarItem(icon: Icon(Icons.circle_outlined), label: 'Bos'),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.groups_2_outlined),
+        label: 'Müzik Birleştirir!',
+      ),
       BottomNavigationBarItem(
         icon: _ForumIconWithBadge(unreadCount: state.unreadCount),
         label: 'Mesajlar',
       ),
       BottomNavigationBarItem(
-        icon: _profileAvatar(context, false, resolvedProfileImageUrl),
-        activeIcon: _profileAvatar(context, true, resolvedProfileImageUrl),
+        icon: _profileAvatar(context, false),
+        activeIcon: _profileAvatar(context, true),
         label: 'Profil',
       ),
     ];
@@ -248,11 +216,13 @@ class ProfilePublicBottomBar extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _MainstageLauncherTile(
-                  icon: Icons.circle_outlined,
-                  label: 'Bos',
-                  description: 'Yakinda',
-                  enabled: false,
-                  onTap: null,
+                  icon: Icons.groups_2_outlined,
+                  label: 'Müzik Birleştirir!',
+                  description: 'Masalara geç',
+                  enabled: true,
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(AppRoutes.tableGroupList),
                 ),
                 const SizedBox(height: 8),
                 _MainstageLauncherTile(
@@ -270,6 +240,15 @@ class ProfilePublicBottomBar extends StatelessWidget {
     );
 
     if (route == null || !context.mounted) return;
+    if (route == AppRoutes.tableGroupList) {
+      Navigator.of(context).pushNamed(
+        route,
+        arguments: const TableGroupListArgs(
+          bottomBarStageMode: StageMode.backstage,
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pushNamed(
       route,
       arguments: const OverthinkingFeedArgs(
@@ -282,6 +261,16 @@ class ProfilePublicBottomBar extends StatelessWidget {
     if (index == 1) {
       if (currentIndex == 1) return;
       Navigator.of(context).pushNamed(AppRoutes.overthinkingFeed);
+      return;
+    }
+    if (index == 2) {
+      if (currentIndex == 2) return;
+      Navigator.of(context).pushNamed(
+        AppRoutes.tableGroupList,
+        arguments: const TableGroupListArgs(
+          bottomBarStageMode: StageMode.mainstage,
+        ),
+      );
       return;
     }
     if (index == 3) {
@@ -321,8 +310,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
               _handleBackstageTap(context, index, resolvedProfileImageUrl);
             },
             items: stageMode == StageMode.mainstage
-                ? _mainstageItems(context, state, resolvedProfileImageUrl)
-                : _backstageItems(context, state, resolvedProfileImageUrl),
+                ? _mainstageItems(context, state)
+                : _backstageItems(context, state),
           );
         },
       ),

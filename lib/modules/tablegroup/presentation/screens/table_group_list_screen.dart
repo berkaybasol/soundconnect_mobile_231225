@@ -10,25 +10,33 @@ import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/table_group_participant.dart';
 import '../../domain/entities/table_group.dart';
 import 'table_group_detail_screen.dart';
+import 'table_group_route_args.dart';
 import '../cubit/table_group_list_cubit.dart';
 import '../cubit/table_group_list_state.dart';
 
 part 'table_group_list_screen_widgets.dart';
 
 class TableGroupListScreen extends StatelessWidget {
-  TableGroupListScreen({super.key});
+  final TableGroupListArgs args;
+
+  TableGroupListScreen({
+    super.key,
+    this.args = const TableGroupListArgs(),
+  });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => serviceLocator<TableGroupListCubit>()..initialize(),
-      child: _TableGroupListView(),
+      child: _TableGroupListView(args: args),
     );
   }
 }
 
 class _TableGroupListView extends StatefulWidget {
-  _TableGroupListView();
+  final TableGroupListArgs args;
+
+  _TableGroupListView({required this.args});
 
   @override
   State<_TableGroupListView> createState() => _TableGroupListViewState();
@@ -102,7 +110,7 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
       builder: (context) => AlertDialog(
         title: Text('Bilgilendirme'),
         content: Text(
-          "Masaya katılma talebin şu an beklemede. Kabul edildiğinde ya da reddedildiğinde sana hemen haber vereceğiz. Durumu 'Mesajlar > Müzik Birleştirir' kısmından kontrol edebilirsin.",
+          "Masaya katılma talebin şu an beklemede. Kabul edildiğinde ya da reddedildiğinde sana hemen haber vereceğiz. Durumu 'Mesajlar > Müzik Birleştirir!' kısmından kontrol edebilirsin.",
         ),
         actions: [
           TextButton(
@@ -145,7 +153,10 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
     if (!mounted) return;
     await Navigator.of(context).pushNamed(
       AppRoutes.tableGroupDetail,
-      arguments: TableGroupDetailArgs(tableGroupId: group.id),
+      arguments: TableGroupDetailArgs(
+        tableGroupId: group.id,
+        bottomBarStageMode: widget.args.bottomBarStageMode,
+      ),
     );
     if (!mounted) return;
     context.read<TableGroupListCubit>().reload();
@@ -539,7 +550,7 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Muzik Birlestir!',
+                                  'Müzik Birleştirir!',
                                   style: TextStyle(
                                     color: Theme.of(
                                       context,
@@ -715,7 +726,9 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
                       ),
                     ),
                     ProfilePublicBottomBar(
+                      currentIndex: 2,
                       profileImageUrl: currentUserProfileImage,
+                      stageMode: widget.args.bottomBarStageMode,
                     ),
                   ],
                 ),

@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/entities/user_status.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
@@ -99,7 +100,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
             state.status == AuthStatus.success) {
           final navigator = Navigator.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("SoundConnect'e hos geldin!")),
+            const SnackBar(content: Text("SoundConnect'e hoş geldin!")),
           );
           final isVenuePending =
               _role == 'ROLE_VENUE' ||
@@ -125,7 +126,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
         } else if (state.status == AuthStatus.failure &&
             (state.action == AuthAction.verify ||
                 state.action == AuthAction.resend)) {
-          final message = state.error?.message ?? 'Verification failed';
+          final message = state.error?.message ?? 'Doğrulama başarısız.';
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(message)));
@@ -143,7 +144,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
         final canSubmit = effectiveEmail != null && effectiveEmail.isNotEmpty;
 
         return AppScaffold(
-          title: 'E-postayi dogrula',
+          title: 'E-postayı doğrula',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -151,7 +152,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               const Text('E-postana gelen 6 haneli kodu gir.'),
               const SizedBox(height: 6),
               Text(
-                'Kod gecerliligi: $_formattedRemaining',
+                'Kod geçerliliği: $_formattedRemaining',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
@@ -183,20 +184,20 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
+              GradientOutlineButton(
                 onPressed: isVerifying || !canSubmit
                     ? null
                     : () {
                         if (effectiveEmail.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('E-posta bos olamaz')),
+                            const SnackBar(content: Text('E-posta boş olamaz.')),
                           );
                           return;
                         }
                         if (!_isValidEmail(effectiveEmail)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Gecerli bir e-posta giriniz'),
+                              content: Text('Geçerli bir e-posta gir.'),
                             ),
                           );
                           return;
@@ -204,7 +205,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                         final code = _codeController.text.trim();
                         if (code.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Kod bos olamaz')),
+                            const SnackBar(content: Text('Kod boş olamaz.')),
                           );
                           return;
                         }
@@ -212,7 +213,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
-                                'Kodun suresi doldu. Tekrar gonder.',
+                                'Kodun süresi doldu. Tekrar gönder.',
                               ),
                             ),
                           );
@@ -221,7 +222,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                         if (!_isValidCode(code)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Kod 6 haneli olmali'),
+                              content: Text('Kod 6 haneli olmalı.'),
                             ),
                           );
                           return;
@@ -231,7 +232,8 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                           code: code,
                         );
                       },
-                child: Text(isVerifying ? 'Dogrulaniyor...' : 'Dogrula'),
+                label: isVerifying ? 'Doğrulanıyor...' : 'Doğrula',
+                loading: isVerifying,
               ),
               const SizedBox(height: 12),
               TextButton(
@@ -240,14 +242,14 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                     : () {
                         if (effectiveEmail.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('E-posta bos olamaz')),
+                            const SnackBar(content: Text('E-posta boş olamaz.')),
                           );
                           return;
                         }
                         if (!_isValidEmail(effectiveEmail)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Gecerli bir e-posta giriniz'),
+                              content: Text('Geçerli bir e-posta gir.'),
                             ),
                           );
                           return;
@@ -258,8 +260,8 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                       },
                 child: Text(
                   isResending
-                      ? 'Tekrar gonderiliyor...'
-                      : 'Tekrar gonder (${resendInfo?.cooldownSeconds ?? 30}s)',
+                      ? 'Tekrar gönderiliyor...'
+                      : 'Tekrar gönder (${resendInfo?.cooldownSeconds ?? 30}s)',
                 ),
               ),
             ],

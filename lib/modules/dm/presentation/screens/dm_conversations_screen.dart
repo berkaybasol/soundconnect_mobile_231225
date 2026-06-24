@@ -460,7 +460,7 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Birincil Mesajlar'),
-              Tab(text: 'Muzik Birlestirir'),
+              Tab(text: 'Müzik Birleştirir!'),
             ],
           ),
         ),
@@ -564,7 +564,9 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
           children: [
-            _SearchInfo(text: 'Muzik Birlestirir icin aktif masa bulunamadi'),
+            _SearchInfo(
+              text: 'Müzik Birleştirir! için aktif masa bulunamadı',
+            ),
           ],
         ),
       );
@@ -909,7 +911,7 @@ class _MusicJoinTableTile extends StatelessWidget {
                     Text(
                       venueName.isNotEmpty
                           ? venueName
-                          : 'Muzik Birlestir masasi',
+                          : 'Müzik Birleştirir! masası',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w700),

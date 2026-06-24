@@ -79,6 +79,7 @@ class _MusicianPublicProfileViewState
   String? _targetProfileId;
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
+  bool _viewerUserIdResolved = false;
   String? _currentProfileUserId;
 
   @override
@@ -97,7 +98,8 @@ class _MusicianPublicProfileViewState
         );
       }
     }
-    if (_viewerUserId != null) return;
+    if (_viewerUserIdResolved) return;
+    _viewerUserIdResolved = true;
     if (args is PublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is Map<String, dynamic>) {
@@ -105,6 +107,17 @@ class _MusicianPublicProfileViewState
     } else if (args is String) {
       _viewerUserId = args;
     }
+    if ((_viewerUserId ?? '').trim().isEmpty) {
+      _loadViewerUserIdFromToken();
+    }
+  }
+
+  Future<void> _loadViewerUserIdFromToken() async {
+    final resolved = await resolveCurrentViewerUserId();
+    if (!mounted) return;
+    final value = resolved?.trim() ?? '';
+    if (value.isEmpty || value == (_viewerUserId ?? '').trim()) return;
+    setState(() => _viewerUserId = value);
   }
 
   @override

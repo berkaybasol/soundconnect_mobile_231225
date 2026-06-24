@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../dm/data/dm_auth_support.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
@@ -17,8 +18,12 @@ import '../../domain/table_group_repository.dart';
 
 class TableGroupDetailArgs {
   final String tableGroupId;
+  final StageMode bottomBarStageMode;
 
-  const TableGroupDetailArgs({required this.tableGroupId});
+  const TableGroupDetailArgs({
+    required this.tableGroupId,
+    this.bottomBarStageMode = StageMode.backstage,
+  });
 }
 
 class TableGroupDetailScreen extends StatefulWidget {
@@ -559,7 +564,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen> {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Text(
-          "Masaya katılma talebin şu an beklemede. Kabul edildiğinde ya da reddedildiğinde sana hemen haber vereceğiz. Durumu 'Mesajlar > Müzik Birleştirir' kısmından kontrol edebilirsin.",
+          "Masaya katılma talebin şu an beklemede. Kabul edildiğinde ya da reddedildiğinde sana hemen haber vereceğiz. Durumu 'Mesajlar > Müzik Birleştirir!' kısmından kontrol edebilirsin.",
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
             height: 1.4,

@@ -60,7 +60,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
   void _submit() {
     final args = widget.args;
     if (args == null) {
-      _showError('Kayit bilgileri eksik.');
+      _showError('Kayıt bilgileri eksik.');
       return;
     }
 
@@ -101,7 +101,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
             arguments: OtpVerifyArgs(email: email, role: widget.args?.role),
           );
         } else if (state.status == AuthStatus.failure) {
-          final message = state.error?.message ?? 'Register failed';
+          final message = state.error?.message ?? 'Kayıt başarısız.';
           _showError(message);
         }
       },
@@ -121,7 +121,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
               ),
               SizedBox(height: 6),
               Text(
-                'Bilgileri doldurduktan sonra kisa surede sizinle iletisime gececegiz.',
+                'Bilgileri doldurduktan sonra kısa sürede sizinle iletişime geçeceğiz.',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

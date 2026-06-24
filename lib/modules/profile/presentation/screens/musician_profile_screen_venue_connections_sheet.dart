@@ -18,9 +18,9 @@ class MusicianManagementPanelScreen extends StatelessWidget {
         ? musicianProfile.stageName!.trim()
         : musicianProfile.username?.trim().isNotEmpty == true
         ? musicianProfile.username!.trim()
-        : 'Sanatci';
+        : 'Sanatçı';
     return Scaffold(
-      appBar: AppBar(title: const Text('Yonetim Paneli'), centerTitle: true),
+      appBar: AppBar(title: const Text('Yönetim paneli'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -58,7 +58,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Buradan profilini destekleyen yonetim araclarina erisebilirsin.',
+                      'Buradan profilini destekleyen yönetim araçlarına erişebilirsin.',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.45,
@@ -72,7 +72,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
                 context: context,
                 icon: Icons.groups_outlined,
                 title: 'Bandlerim',
-                message: 'Bagli oldugun bandleri buradan yonet.',
+                message: 'Bağlı olduğun bandleri buradan yönet.',
                 onTap: () => Navigator.of(context).pushNamed(
                   AppRoutes.myBands,
                   arguments: MyBandsScreenArgs(bands: musicianProfile.bands),
@@ -82,8 +82,8 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.queue_music_outlined,
-                title: 'Setlist Olusturucu',
-                message: 'Kendi setlistini bandsiz olarak olustur.',
+                title: 'Setlist oluşturucu',
+                message: 'Kendi setlistini bandsiz olarak oluştur.',
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -98,8 +98,8 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.hub_outlined,
-                title: 'Mekan Baglantilarini Yonet',
-                message: 'Mekan baglantilari ve basvuru akislari burada.',
+                title: 'Mekan bağlantılarını yönet',
+                message: 'Mekan bağlantıları ve başvuru akışları burada.',
                 onTap: () => _showMusicianVenueConnectionHub(
                   context: context,
                   musicianProfileId: musicianProfile.id,
@@ -110,17 +110,17 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.mode_comment_outlined,
-                title: 'Yorumlar ve Geri Bildirimler',
-                message: 'Yorum yonetimi yakinda burada acilacak.',
-                trailingLabel: 'Yakinda!',
+                title: 'Yorumlar ve geri bildirimler',
+                message: 'Yorum yönetimi yakında burada açılacak.',
+                trailingLabel: 'Yakında!',
               ),
               const SizedBox(height: 14),
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.insights_outlined,
-                title: 'Profil Istatistikleri',
-                message: 'Profil istatistikleri yakinda burada acilacak.',
-                trailingLabel: 'Yakinda!',
+                title: 'Profil istatistikleri',
+                message: 'Profil istatistikleri yakında burada açılacak.',
+                trailingLabel: 'Yakında!',
               ),
             ],
           ),
@@ -152,7 +152,7 @@ Future<void> _showMusicianVenueConnectionHub({
             children: [
               Center(
                 child: Text(
-                  'Mekan Baglantilarini Yonet',
+                  'Mekan bağlantılarını yönet',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
@@ -164,8 +164,8 @@ Future<void> _showMusicianVenueConnectionHub({
               _buildMusicianVenueManagementCard(
                 context: sheetContext,
                 icon: Icons.add_business_outlined,
-                title: 'Mekan Baglantisi Olustur',
-                message: 'Yeni bir mekana baglanti istegi gonder.',
+                title: 'Mekan bağlantısı oluştur',
+                message: 'Yeni bir mekana bağlantı isteği gönder.',
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   if (onCreateVenueConnection != null) {
@@ -174,7 +174,7 @@ Future<void> _showMusicianVenueConnectionHub({
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Mekan baglantisi su an baslatilamiyor.'),
+                      content: Text('Mekan bağlantısı şu an başlatılamıyor.'),
                     ),
                   );
                 },
@@ -183,8 +183,8 @@ Future<void> _showMusicianVenueConnectionHub({
               _buildMusicianVenueManagementCard(
                 context: sheetContext,
                 icon: Icons.inbox_outlined,
-                title: 'Gelen Mekan Istekleri',
-                message: 'Mekanlardan gelen baglanti istekleri burada.',
+                title: 'Gelen mekan istekleri',
+                message: 'Mekanlardan gelen bağlantı istekleri burada.',
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
                   await _showMusicianVenueApplicationList(
@@ -198,8 +198,8 @@ Future<void> _showMusicianVenueConnectionHub({
               _buildMusicianVenueManagementCard(
                 context: sheetContext,
                 icon: Icons.send_outlined,
-                title: 'Gonderdigim Istekler',
-                message: 'Mekanlara gonderdigin basvurular burada.',
+                title: 'Gönderdiğim istekler',
+                message: 'Mekanlara gönderdiğin başvurular burada.',
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
                   await _showMusicianVenueApplicationList(
@@ -416,8 +416,8 @@ class _MusicianVenueApplicationsSheetState
   @override
   Widget build(BuildContext context) {
     final title = _showOutgoing
-        ? 'Gonderdigim Istekler'
-        : 'Gelen Mekan Istekleri';
+        ? 'Gönderdiğim istekler'
+        : 'Gelen mekan istekleri';
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -458,8 +458,8 @@ class _MusicianVenueApplicationsSheetState
                     ? Center(
                         child: Text(
                           _showOutgoing
-                              ? 'Gonderdigin mekan istegi bulunmuyor.'
-                              : 'Gelen mekan istegi bulunmuyor.',
+                              ? 'Gönderdiğin mekan isteği bulunmuyor.'
+                              : 'Gelen mekan isteği bulunmuyor.',
                           style: TextStyle(
                             color: Theme.of(
                               context,
@@ -641,7 +641,7 @@ class _MusicianVenueApplicationsSheetState
                   onTap: _actionLoading
                       ? null
                       : () => _runAction(
-                          methodLabel: 'Mekan istegi onaylandi.',
+                          methodLabel: 'Mekan isteği onaylandı.',
                           action: () =>
                               _artistVenueRepository.acceptRequest(item.id),
                         ),
@@ -653,7 +653,7 @@ class _MusicianVenueApplicationsSheetState
                   onTap: _actionLoading
                       ? null
                       : () => _runAction(
-                          methodLabel: 'Mekan istegi reddedildi.',
+                          methodLabel: 'Mekan isteği reddedildi.',
                           action: () =>
                               _artistVenueRepository.rejectRequest(item.id),
                         ),
@@ -663,22 +663,22 @@ class _MusicianVenueApplicationsSheetState
                   onPressed: _actionLoading
                       ? null
                       : () => _runAction(
-                          methodLabel: 'Mekan istegi iptal edildi.',
+                          methodLabel: 'Mekan isteği iptal edildi.',
                           action: () =>
                               _artistVenueRepository.cancelRequest(item.id),
                         ),
-                  child: const Text('Iptal Et'),
+                  child: const Text('İptal et'),
                 ),
               if (canDisconnect)
                 OutlinedButton(
                   onPressed: _actionLoading
                       ? null
                       : () => _runAction(
-                          methodLabel: 'Baglanti kaldirildi.',
+                          methodLabel: 'Bağlantı kaldırıldı.',
                           action: () =>
                               _artistVenueRepository.disconnect(item.id),
                         ),
-                  child: const Text('Baglantiyi Kaldir'),
+                  child: const Text('Bağlantıyı kaldır'),
                 ),
             ],
           ),
@@ -716,7 +716,7 @@ class _MusicianVenueApplicationsSheetState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Islem basarisiz: $e')));
+      ).showSnackBar(SnackBar(content: Text('İşlem başarısız: $e')));
     } finally {
       if (mounted) {
         setState(() => _actionLoading = false);
@@ -744,7 +744,7 @@ class _MusicianVenueApplicationsSheetState
   String _statusLabel(String status) {
     switch (status) {
       case 'ACCEPTED':
-        return 'Onaylandi';
+        return 'Onaylandı';
       case 'REJECTED':
         return 'Reddedildi';
       default:

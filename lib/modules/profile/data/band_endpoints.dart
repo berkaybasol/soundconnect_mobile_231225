@@ -15,6 +15,8 @@ class BandEndpoints {
     return uri.toString();
   }
 
+  static String acceptInvite(String bandId) => '$userBase/$bandId/accept';
+  static String rejectInvite(String bandId) => '$userBase/$bandId/reject';
   static String removeMember(String bandId, String userId) =>
       '$userBase/$bandId/remove/$userId';
   static String leave(String bandId) => '$userBase/$bandId/leave';

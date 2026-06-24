@@ -111,7 +111,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 child: Text(
                   profile.bio?.trim().isNotEmpty == true
                       ? profile.bio!
-                      : 'Henuz bir aciklama eklenmedi.',
+                      : 'Henüz bir açıklama eklenmedi.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -120,7 +120,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 18),
-              _SectionHeader(title: 'Caldigi Mekanlar', actionLabel: 'Tumu'),
+              _SectionHeader(title: 'Çaldığı Mekanlar', actionLabel: 'Tümü'),
               _VenueCarousel(items: _resolveVenues()),
               SizedBox(height: 12),
               _MediaTabs(),

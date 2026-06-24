@@ -21,13 +21,13 @@ extension _MusicianProfileViewStateProfileActions
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotografi guncellendi')),
+        const SnackBar(content: Text('Profil fotoğrafı güncellendi')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Fotograf yuklenemedi: $e')));
+      ).showSnackBar(SnackBar(content: Text('Fotoğraf yüklenemedi: $e')));
     } finally {
       if (mounted) {
         _updateState(() => _photoUploading = false);
@@ -77,19 +77,19 @@ extension _MusicianProfileViewStateProfileActions
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Aciklama guncellendi')));
+      ).showSnackBar(const SnackBar(content: Text('Açıklama güncellendi')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Aciklama kaydedilemedi')));
+      ).showSnackBar(const SnackBar(content: Text('Açıklama kaydedilemedi')));
     }
   }
 
   void _onEditProfilePressed() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Asagidaki alanlardan profilini duzenleyebilirsin.'),
+        content: Text('Aşağıdaki alanlardan profilini düzenleyebilirsin.'),
       ),
     );
   }

@@ -87,7 +87,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
           actions: ownerMode
               ? [
                   IconButton(
-                    tooltip: 'Menu',
+                    tooltip: 'Menü',
                     onPressed: () => _showOwnerQuickMenu(context),
                     icon: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -118,7 +118,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   secondaryText: profile.bands.isNotEmpty
                       ? profile.bands.first
                       : null,
-                  fallbackName: 'Kullanici',
+                  fallbackName: 'Kullanıcı',
                 ),
                 followerSummary: ProfileFollowerSummary(
                   followersCount: followersCount,
@@ -142,6 +142,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   bio: profile.bio,
                   editable: descriptionEditable,
                   onSave: onSaveDescription,
+                  addLabel: 'Kendini birkaç cümleyle anlat',
+                  hintText: 'Müziğini, tarzını ve seni anlatan birkaç şey yaz...',
                 ),
                 afterBio: ownerMode
                     ? Padding(
@@ -189,7 +191,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                     color: AppColors.white,
                                   ),
                                   label: const Text(
-                                    'Yonetim Paneli',
+                                    'Yönetim paneli',
                                     style: TextStyle(color: AppColors.white),
                                   ),
                                 ),
@@ -202,8 +204,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               ProfileSectionHeader(
-                title: 'Caldigi Mekanlar',
-                actionLabel: venueEditable ? 'Duzenle' : 'Tumu',
+                title: 'Çaldığı Mekanlar',
+                actionLabel: venueEditable ? 'Düzenle' : 'Tümü',
                 actionOnTap: venueEditable ? onEditVenues : null,
               ),
               VenueNameCarousel(

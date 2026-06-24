@@ -6,15 +6,17 @@ extension _BandManagementPanelScreenStateMemberPicker
     final queryController = TextEditingController();
     Timer? searchDebounce;
     int lastSearchToken = 0;
+    var pickerActive = true;
 
-    final selected = await showModalBottomSheet<MusicianSearchOption>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.navBlueDeep,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
+    try {
+      return await showModalBottomSheet<MusicianSearchOption>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppColors.navBlueDeep,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (sheetContext) {
         var loading = false;
         var results = <MusicianSearchOption>[];
         var errorText = '';
@@ -24,26 +26,42 @@ extension _BandManagementPanelScreenStateMemberPicker
 
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            void updateSheet(VoidCallback updater) {
+              if (!pickerActive || !context.mounted || !sheetContext.mounted) {
+                return;
+              }
+              setSheetState(updater);
+            }
+
             Future<void> runSearch() async {
+              if (!pickerActive || !context.mounted || !sheetContext.mounted) {
+                return;
+              }
+
               final query = queryController.text.trim();
               final token = ++lastSearchToken;
               if (query.length < 2) {
-                setSheetState(() {
+                updateSheet(() {
                   results = [];
                   errorText = 'En az 2 karakter yaz.';
                 });
                 return;
               }
 
-              setSheetState(() {
+              updateSheet(() {
                 loading = true;
                 errorText = '';
               });
 
               final result = await _musicianSearchRepository.search(query);
-              if (!sheetContext.mounted || token != lastSearchToken) return;
+              if (!pickerActive ||
+                  !context.mounted ||
+                  !sheetContext.mounted ||
+                  token != lastSearchToken) {
+                return;
+              }
 
-              setSheetState(() {
+              updateSheet(() {
                 loading = false;
                 if (result.isSuccess && result.data != null) {
                   results = result.data!;
@@ -84,7 +102,7 @@ extension _BandManagementPanelScreenStateMemberPicker
                                 runSearch,
                               );
                             } else {
-                              setSheetState(() {
+                              updateSheet(() {
                                 results = [];
                                 errorText = '';
                               });
@@ -217,9 +235,13 @@ extension _BandManagementPanelScreenStateMemberPicker
                                       )
                                     else
                                       IconButton(
-                                        onPressed: () => Navigator.of(
-                                          sheetContext,
-                                        ).pop(musician),
+                                        onPressed: () {
+                                          pickerActive = false;
+                                          searchDebounce?.cancel();
+                                          Navigator.of(
+                                            sheetContext,
+                                          ).pop(musician);
+                                        },
                                         icon: Icon(
                                           Icons.add_circle_outline,
                                           color: AppColors.coralAlt,
@@ -239,11 +261,13 @@ extension _BandManagementPanelScreenStateMemberPicker
             );
           },
         );
-      },
-    );
-
-    searchDebounce?.cancel();
-    queryController.dispose();
-    return selected;
+        },
+      );
+    } finally {
+      pickerActive = false;
+      searchDebounce?.cancel();
+      await Future<void>.delayed(Duration(milliseconds: 350));
+      queryController.dispose();
+    }
   }
 }

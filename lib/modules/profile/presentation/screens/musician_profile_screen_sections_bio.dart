@@ -47,7 +47,7 @@ class _BioSectionState extends State<_BioSection> {
 
     if (!widget.editable) {
       return Text(
-        hasBio ? resolvedBio : 'Henuz bir aciklama eklenmedi.',
+        hasBio ? resolvedBio : 'Henüz bir açıklama eklenmedi.',
         textAlign: TextAlign.center,
         style: TextStyle(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -65,7 +65,7 @@ class _BioSectionState extends State<_BioSection> {
               _isEditing = true;
             });
           },
-          child: Text('Aciklama ekle'),
+          child: Text('Kendini birkaç cümleyle anlat'),
         );
       }
 
@@ -118,7 +118,7 @@ class _BioSectionState extends State<_BioSection> {
           maxLines: 6,
           textInputAction: TextInputAction.newline,
           decoration: InputDecoration(
-            hintText: 'Kendinden bahset...',
+            hintText: 'Müziğini, tarzını ve seni anlatan birkaç şey yaz...',
             filled: true,
             fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: OutlineInputBorder(
@@ -145,7 +145,7 @@ class _BioSectionState extends State<_BioSection> {
               onPressed: _saving
                   ? null
                   : () => setState(() => _isEditing = false),
-              child: Text('Iptal'),
+              child: Text('İptal'),
             ),
             SizedBox(width: 10),
             FilledButton(

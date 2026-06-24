@@ -302,7 +302,7 @@ class _ConnectedArtistRequestSheetState
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text('Iptal'),
+                        child: Text('İptal'),
                       ),
                     ),
                     SizedBox(width: 10),

@@ -40,6 +40,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
 
     await _loadActiveVenues(result.data!.id);
     await _loadFollowersCount(result.data!.id);
+    await _loadBandFollowStatus(result.data!.id);
     await _loadSpotifyCatalog(result.data!);
     if (!mounted) return;
     await context.read<ProfileMediaCubit>().loadMedia(
@@ -77,6 +78,75 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     _updateState(() {
       _followersCount = result.data;
     });
+  }
+
+  Future<void> _loadBandFollowStatus(String bandId) async {
+    if ((_currentUserId ?? '').trim().isEmpty) return;
+    final profile = _profile;
+    if (profile != null &&
+        (_canManageBand || _isCurrentUserActiveBandMember(profile))) {
+      return;
+    }
+
+    final result = await _bandFollowRepository.isFollowingBand(bandId);
+    if (!mounted) return;
+    if (result.isSuccess && result.data != null) {
+      _updateState(() {
+        _isFollowingBand = result.data!;
+      });
+    }
+  }
+
+  Future<void> _toggleBandFollow(String bandId) async {
+    if (_bandFollowLoading) return;
+    if ((_currentUserId ?? '').trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Takip etmek icin giris yapmalisin.')),
+      );
+      return;
+    }
+
+    _updateState(() => _bandFollowLoading = true);
+    final wasFollowing = _isFollowingBand;
+    final result = wasFollowing
+        ? await _bandFollowRepository.unfollowBand(bandId)
+        : await _bandFollowRepository.followBand(bandId);
+
+    if (!mounted) return;
+
+    if (!result.isSuccess) {
+      _updateState(() => _bandFollowLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.error?.message ??
+                (wasFollowing
+                    ? 'Band takipten cikarilamadi.'
+                    : 'Band takip edilemedi.'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    _updateState(() {
+      _bandFollowLoading = false;
+      _isFollowingBand = !wasFollowing;
+      final count = _followersCount;
+      if (count != null) {
+        _followersCount = wasFollowing
+            ? (count > 0 ? count - 1 : 0)
+            : count + 1;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          wasFollowing ? 'Band takipten cikarildi.' : 'Band takip edildi.',
+        ),
+      ),
+    );
   }
 
   Future<bool> _saveSpotifyTracks(

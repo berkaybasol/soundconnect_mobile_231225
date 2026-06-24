@@ -177,6 +177,46 @@ class BandRepositoryImpl implements BandRepository {
   }
 
   @override
+  Future<Result<void>> acceptInvite({required String bandId}) async {
+    try {
+      await _apiClient.post<Object?>(
+        BandEndpoints.acceptInvite(bandId),
+        decoder: (_) => null,
+      );
+      return const Result.success(null);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_accept_invite_unknown',
+          message: 'Band daveti kabul edilemedi',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> rejectInvite({required String bandId}) async {
+    try {
+      await _apiClient.post<Object?>(
+        BandEndpoints.rejectInvite(bandId),
+        decoder: (_) => null,
+      );
+      return const Result.success(null);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_reject_invite_unknown',
+          message: 'Band daveti reddedilemedi',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<void>> removeMember({
     required String bandId,
     required String userId,

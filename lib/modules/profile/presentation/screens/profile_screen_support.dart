@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 export '../../domain/entities/profile_upload_result.dart';
@@ -33,6 +35,33 @@ bool isValidNetworkImageUrl(String? value) {
   return uri.hasScheme &&
       (uri.scheme == 'http' || uri.scheme == 'https') &&
       uri.host.isNotEmpty;
+}
+
+String? resolveUserIdFromJwtToken(String? token) {
+  final rawToken = token?.trim() ?? '';
+  if (rawToken.isEmpty) return null;
+  final parts = rawToken.split('.');
+  if (parts.length < 2) return null;
+
+  try {
+    final payload = utf8.decode(
+      base64Url.decode(base64Url.normalize(parts[1])),
+    );
+    final decoded = jsonDecode(payload);
+    if (decoded is! Map<String, dynamic>) return null;
+    for (final key in const ['userId', 'uid', 'id', 'sub']) {
+      final value = decoded[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+Future<String?> resolveCurrentViewerUserId() async {
+  final tokenStore = serviceLocator<TokenStore>();
+  return resolveUserIdFromJwtToken(await tokenStore.readToken());
 }
 
 String inferImageMimeType(String fileName) {

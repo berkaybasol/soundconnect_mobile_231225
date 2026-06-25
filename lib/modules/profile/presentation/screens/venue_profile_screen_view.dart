@@ -11,6 +11,8 @@ class _MusicianPublicProfileView extends StatefulWidget {
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
   String? _ownerVenueId;
+  bool _openIncomingApplicationsOnLoad = false;
+  bool _incomingApplicationsOpened = false;
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   final _artistVenueRepository =
       serviceLocator<ArtistVenueConnectionRepository>();
@@ -36,14 +38,21 @@ class _MusicianPublicProfileViewState
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is VenueProfileArgs) {
         _ownerVenueId = args.venueId;
+        _openIncomingApplicationsOnLoad = args.openIncomingApplications;
       } else if (args is String) {
         _ownerVenueId = args;
+      } else if (args is Map<String, dynamic>) {
+        _ownerVenueId = args['venueId']?.toString();
+        _openIncomingApplicationsOnLoad =
+            args['openIncomingApplications'] == true;
       }
       context.read<VenueProfileCubit>().loadOwner(venueId: _ownerVenueId);
     }
     if (_viewerUserId != null) return;
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is PublicProfileArgs) {
+    if (args is VenueProfileArgs) {
+      _viewerUserId = args.viewerUserId;
+    } else if (args is PublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is Map<String, dynamic>) {
       _viewerUserId = args['viewerUserId']?.toString();
@@ -72,6 +81,7 @@ class _MusicianPublicProfileViewState
             ),
           );
         }
+        _scheduleIncomingApplicationsSheet(ownerProfile);
         final profile = _toDisplayProfile(ownerProfile);
         final primaryWeeklyEvents = _toWeeklyCalendarEvents(ownerProfile);
         if (primaryWeeklyEvents.isEmpty) {
@@ -160,5 +170,25 @@ class _MusicianPublicProfileViewState
         );
       },
     );
+  }
+
+  void _scheduleIncomingApplicationsSheet(VenueOwnerProfile ownerProfile) {
+    if (!_openIncomingApplicationsOnLoad || _incomingApplicationsOpened) return;
+    _incomingApplicationsOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppColors.navBlueDeep,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (_) => VenueApplicationsSheet(
+          venueId: ownerProfile.venueId,
+          mode: ApplicationListMode.incoming,
+        ),
+      );
+    });
   }
 }

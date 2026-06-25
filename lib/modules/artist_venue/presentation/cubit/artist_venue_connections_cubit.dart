@@ -13,7 +13,10 @@ class ArtistVenueConnectionsCubit extends Cubit<ArtistVenueConnectionsState> {
     emit(
       state.copyWith(status: ArtistVenueConnectionsStatus.loading, error: null),
     );
-    final result = await _repository.getAcceptedVenues(musicianProfileId);
+    final result = await _repository.getVenueConnectionsByStatus(
+      musicianProfileId,
+      status: 'ACCEPTED',
+    );
     if (result.isSuccess && result.data != null) {
       emit(
         state.copyWith(

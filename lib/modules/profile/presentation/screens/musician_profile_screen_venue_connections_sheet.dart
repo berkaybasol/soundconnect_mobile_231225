@@ -609,33 +609,43 @@ class _MusicianVenueApplicationsSheetState
             ],
           ),
           const SizedBox(height: 8),
-          RichText(
-            text: TextSpan(
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 13,
-              ),
-              children: [
-                TextSpan(text: _showOutgoing ? 'Notun: ' : 'Mekan notu: '),
-                TextSpan(
-                  text: item.message != null && item.message!.trim().isNotEmpty
-                      ? item.message!.trim()
-                      : (_showOutgoing ? 'Not eklenmedi' : 'Mekan notu yok'),
+          _showOutgoing
+              ? Text(
+                  'Hedef mekan: $venueName',
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                )
+              : RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                    children: [
+                      const TextSpan(text: 'Mekan notu: '),
+                      TextSpan(
+                        text:
+                            item.message != null &&
+                                item.message!.trim().isNotEmpty
+                            ? item.message!.trim()
+                            : 'Mekan notu yok',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               if (canAccept)
-                _buildPrimaryActionButton(
+                _buildGradientActionButton(
                   icon: Icons.check_rounded,
                   label: 'Onayla',
                   onTap: _actionLoading
@@ -647,7 +657,7 @@ class _MusicianVenueApplicationsSheetState
                         ),
                 ),
               if (canReject)
-                _buildPrimaryActionButton(
+                _buildGradientActionButton(
                   icon: Icons.close_rounded,
                   label: 'Reddet',
                   onTap: _actionLoading
@@ -687,15 +697,44 @@ class _MusicianVenueApplicationsSheetState
     );
   }
 
-  Widget _buildPrimaryActionButton({
+  Widget _buildGradientActionButton({
     required IconData icon,
     required String label,
     required VoidCallback? onTap,
   }) {
-    return FilledButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: _MusicianVenueGradientOutline(
+        radius: 12,
+        strokeWidth: 1,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: AppColors.brandGradient,
+                ).createShader(bounds),
+                child: Icon(icon, size: 18, color: AppColors.white),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

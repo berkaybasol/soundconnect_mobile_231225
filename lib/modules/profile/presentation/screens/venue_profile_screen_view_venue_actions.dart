@@ -19,11 +19,11 @@ extension _VenueProfileViewStateVenueActions
         _fallbackWeeklyEventsVenueId == venueId) {
       return;
     }
-    if (_fallbackWeeklyEventsVenueId == venueId &&
-        _fallbackWeeklyEvents.isNotEmpty) {
+    if (_fallbackWeeklyEventsVenueId == venueId) {
       return;
     }
 
+    _fallbackWeeklyEventsVenueId = venueId;
     _loadingFallbackWeeklyEvents = true;
     try {
       final result = await _venueEventRepository.listByVenue(venueId);
@@ -33,7 +33,6 @@ extension _VenueProfileViewStateVenueActions
         _fallbackWeeklyEvents = items
             .map((item) => _toWeeklyCalendarEvent(profile, item))
             .toList();
-        _fallbackWeeklyEventsVenueId = venueId;
       });
     } catch (_) {
       if (!mounted) return;

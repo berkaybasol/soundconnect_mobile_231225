@@ -10,18 +10,18 @@ class _MusicianApplicationProfile {
   });
 }
 
-class _VenueApplicationsSheet extends StatefulWidget {
+class VenueApplicationsSheet extends StatefulWidget {
   final String venueId;
-  final _ApplicationListMode mode;
+  final ApplicationListMode mode;
 
-  _VenueApplicationsSheet({required this.venueId, required this.mode});
+  VenueApplicationsSheet({required this.venueId, required this.mode});
 
   @override
-  State<_VenueApplicationsSheet> createState() =>
+  State<VenueApplicationsSheet> createState() =>
       _VenueApplicationsSheetState();
 }
 
-class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
+class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {
   final _artistVenueRepository =
       serviceLocator<ArtistVenueConnectionRepository>();
   final _musicianProfileRepository =
@@ -37,7 +37,7 @@ class _VenueApplicationsSheetState extends State<_VenueApplicationsSheet> {
     setState(updater);
   }
 
-  bool get _showOutgoing => widget.mode == _ApplicationListMode.outgoing;
+  bool get _showOutgoing => widget.mode == ApplicationListMode.outgoing;
 
   @override
   void initState() {

@@ -1,4 +1,5 @@
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
+import 'profile_venue_models.dart';
 
 class MusicianProfile {
   final String id;
@@ -16,6 +17,7 @@ class MusicianProfile {
   final List<SpotifyTrackPreview> spotifyTracks;
   final List<String> instruments;
   final List<String> activeVenues;
+  final List<VenueConnection> activeVenueConnections;
   final List<String> bands;
 
   const MusicianProfile({
@@ -34,6 +36,7 @@ class MusicianProfile {
     required this.spotifyTracks,
     required this.instruments,
     required this.activeVenues,
+    this.activeVenueConnections = const [],
     required this.bands,
   });
 }

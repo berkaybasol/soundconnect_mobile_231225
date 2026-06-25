@@ -22,6 +22,8 @@ class _MusicianPublicProfileViewState
   final ImagePicker _imagePicker = ImagePicker();
   bool _openManagementPanelOnLoad = false;
   bool _managementPanelOpened = false;
+  bool _openIncomingVenueApplicationsOnLoad = false;
+  bool _incomingVenueApplicationsOpened = false;
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -35,11 +37,15 @@ class _MusicianPublicProfileViewState
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is MusicianProfileScreenArgs) {
       _openManagementPanelOnLoad = args.openManagementPanel;
+      _openIncomingVenueApplicationsOnLoad =
+          args.openIncomingVenueApplications;
     } else if (args is PublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is Map<String, dynamic>) {
       _viewerUserId = args['viewerUserId']?.toString();
       _openManagementPanelOnLoad = args['openManagementPanel'] == true;
+      _openIncomingVenueApplicationsOnLoad =
+          args['openIncomingVenueApplications'] == true;
     } else if (args is String) {
       _viewerUserId = args;
     }
@@ -80,6 +86,7 @@ class _MusicianPublicProfileViewState
           }
 
           final profile = state.profile!;
+          _scheduleIncomingVenueApplicationsSheet(profile);
           _openManagementPanelAfterLoad(profile);
           _currentProfileUserId = profile.userId;
           _loadCoordinator.scheduleMediaLoad(
@@ -159,6 +166,22 @@ class _MusicianPublicProfileViewState
             onCreateVenueConnection: () => _editVenues(profile.id),
           ),
         ),
+      );
+    });
+  }
+
+  void _scheduleIncomingVenueApplicationsSheet(MusicianProfile profile) {
+    if (!_openIncomingVenueApplicationsOnLoad ||
+        _incomingVenueApplicationsOpened) {
+      return;
+    }
+    _incomingVenueApplicationsOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showMusicianVenueApplicationList(
+        context: context,
+        musicianProfileId: profile.id,
+        mode: _MusicianVenueApplicationListMode.incoming,
       );
     });
   }

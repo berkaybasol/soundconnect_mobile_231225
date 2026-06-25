@@ -4,6 +4,7 @@ import 'entities/venue_event_item.dart';
 
 abstract class VenueEventRepository {
   Future<Result<List<VenueOwnerEventItem>>> listByVenue(String venueId);
+  Future<Result<List<VenueOwnerEventItem>>> listPublicByVenue(String venueId);
   Future<Result<void>> create({
     required String venueId,
     required VenueEventDraft draft,

@@ -8,8 +8,13 @@ class PublicProfileArgs {
 class VenueProfileArgs {
   final String? venueId;
   final String? viewerUserId;
+  final bool openIncomingApplications;
 
-  const VenueProfileArgs({this.venueId, this.viewerUserId});
+  const VenueProfileArgs({
+    this.venueId,
+    this.viewerUserId,
+    this.openIncomingApplications = false,
+  });
 }
 
 class VenuePublicProfileArgs {

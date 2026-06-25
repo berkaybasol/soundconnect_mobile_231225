@@ -20,6 +20,7 @@ import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
+import '../../domain/entities/profile_venue_models.dart';
 import '../../domain/entities/track.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
@@ -171,11 +172,6 @@ class _MusicianPublicProfileViewState
             context,
             mounted: mounted,
             userId: profile.userId,
-          );
-          _loadCoordinator.scheduleAcceptedVenuesLoad(
-            context,
-            mounted: mounted,
-            profileId: profile.id,
           );
           final viewerUserId = _viewerUserId ?? '';
           _loadCoordinator.scheduleFollowStatusLoad(

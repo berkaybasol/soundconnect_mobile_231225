@@ -38,6 +38,34 @@ class VenueEventRepositoryImpl implements VenueEventRepository {
   }
 
   @override
+  Future<Result<List<VenueOwnerEventItem>>> listPublicByVenue(
+    String venueId,
+  ) async {
+    try {
+      final response = await _apiClient.get<List<VenueOwnerEventItem>>(
+        '/api/v1/events/venue/$venueId',
+        decoder: (json) {
+          final list = json is List ? json : const [];
+          return list
+              .whereType<Map<String, dynamic>>()
+              .map(VenueOwnerEventItem.fromJson)
+              .toList();
+        },
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'venue_events_public_list_unknown',
+          message: 'Etkinlikler alinamadi',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<void>> create({
     required String venueId,
     required VenueEventDraft draft,

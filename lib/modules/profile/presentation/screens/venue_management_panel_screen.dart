@@ -142,4 +142,4 @@ class VenueManagementPanelScreen extends StatelessWidget {
   }
 }
 
-enum _ApplicationListMode { outgoing, incoming }
+enum ApplicationListMode { outgoing, incoming }

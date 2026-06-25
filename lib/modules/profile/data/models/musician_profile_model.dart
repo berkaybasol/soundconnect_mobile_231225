@@ -1,4 +1,5 @@
 import '../../domain/entities/musician_profile.dart';
+import '../../domain/entities/profile_venue_models.dart';
 import '../../../spotify/data/models/spotify_track_preview_model.dart';
 
 class MusicianProfileModel extends MusicianProfile {
@@ -18,12 +19,16 @@ class MusicianProfileModel extends MusicianProfile {
     required super.spotifyTracks,
     required super.instruments,
     required super.activeVenues,
+    required super.activeVenueConnections,
     required super.bands,
   });
 
   factory MusicianProfileModel.fromJson(Map<String, dynamic> json) {
     final instruments = _stringList(json['instruments']);
     final activeVenues = _stringList(json['activeVenues']);
+    final activeVenueConnections = _activeVenueConnections(
+      json['activeVenueConnections'],
+    );
     final bands = _bandNames(json['bands']);
 
     return MusicianProfileModel(
@@ -44,8 +49,28 @@ class MusicianProfileModel extends MusicianProfile {
       spotifyTracks: _spotifyTracks(json['spotifyTracks']),
       instruments: instruments,
       activeVenues: activeVenues,
+      activeVenueConnections: activeVenueConnections,
       bands: bands,
     );
+  }
+
+  static List<VenueConnection> _activeVenueConnections(Object? value) {
+    if (value is! List) return const [];
+    return value.whereType<Map<String, dynamic>>().map((item) {
+      final venueId = item['venueId']?.toString() ?? '';
+      return VenueConnection(
+        requestId: item['requestId']?.toString() ?? venueId,
+        venueId: venueId,
+        venueName: item['venueName']?.toString() ?? '',
+        profileImageUrl:
+            item['profileImageUrl']?.toString() ??
+            item['venueProfilePictureUrl']?.toString() ??
+            item['profilePictureUrl']?.toString(),
+      );
+    }).where((item) {
+      return item.venueId.trim().isNotEmpty &&
+          item.venueName.trim().isNotEmpty;
+    }).toList(growable: false);
   }
 
   static List<String> _stringList(Object? value) {

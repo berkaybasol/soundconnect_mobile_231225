@@ -58,8 +58,12 @@ part 'musician_profile_screen_view_venue_actions.dart';
 
 class MusicianProfileScreenArgs {
   final bool openManagementPanel;
+  final bool openIncomingVenueApplications;
 
-  const MusicianProfileScreenArgs({this.openManagementPanel = false});
+  const MusicianProfileScreenArgs({
+    this.openManagementPanel = false,
+    this.openIncomingVenueApplications = false,
+  });
 }
 
 class MusicianProfileScreen extends StatelessWidget {

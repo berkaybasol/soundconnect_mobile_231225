@@ -5,7 +5,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final ProfileMedia? media;
   final int? followersCount;
   final int? followingCount;
-  final List<String>? activeVenues;
+  final List<VenueConnection>? activeVenues;
   final String viewerUserId;
   final bool isFollowing;
   final bool followLoading;
@@ -47,11 +47,24 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.onEditVenues,
   });
 
-  List<String> _resolveVenues() {
+  List<VenueConnection> _resolveVenues() {
     if (activeVenues != null && activeVenues!.isNotEmpty) {
       return activeVenues!;
     }
-    if (profile.activeVenues.isNotEmpty) return profile.activeVenues;
+    if (profile.activeVenueConnections.isNotEmpty) {
+      return profile.activeVenueConnections;
+    }
+    if (profile.activeVenues.isNotEmpty) {
+      return profile.activeVenues
+          .map(
+            (name) => VenueConnection(
+              requestId: '',
+              venueId: '',
+              venueName: name,
+            ),
+          )
+          .toList(growable: false);
+    }
     return const [];
   }
 

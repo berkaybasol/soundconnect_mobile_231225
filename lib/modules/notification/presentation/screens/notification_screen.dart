@@ -14,6 +14,8 @@ import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart
 import '../../../overthinking/presentation/screens/overthinking_manage_screen.dart';
 import '../../../profile/presentation/screens/band_invite_decision_screen.dart';
 import '../../../profile/presentation/screens/band_profile_screen.dart';
+import '../../../profile/presentation/screens/musician_profile_screen.dart';
+import '../../../profile/presentation/screens/profile_route_args.dart';
 import '../../../tablegroup/presentation/screens/table_group_detail_screen.dart';
 import '../../domain/entities/app_notification.dart';
 import '../cubit/notification_cubit.dart';
@@ -76,7 +78,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 onPressed: state.unreadCount <= 0
                     ? null
                     : () => context.read<NotificationCubit>().markAllAsRead(),
-                child: const Text('Tumunu oku'),
+                child: const Text('Tümünü oku'),
               ),
             ],
           ),
@@ -166,7 +168,7 @@ class _NotificationTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            notification.title,
+                            _displayText(notification.title),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -194,7 +196,7 @@ class _NotificationTile extends StatelessWidget {
                     if (notification.message.trim().isNotEmpty) ...[
                       const SizedBox(height: 5),
                       Text(
-                        notification.message.trim(),
+                        _displayText(notification.message.trim()),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -385,11 +387,25 @@ class _NotificationTile extends StatelessWidget {
       return;
     }
 
+    if (action == 'REQUEST_CREATED' &&
+        (requestByType == 'ARTIST' || requestByType == 'BAND')) {
+      Navigator.of(context).pushNamed(
+        AppRoutes.venueProfile,
+        arguments: const VenueProfileArgs(openIncomingApplications: true),
+      );
+      return;
+    }
+
     if (requestByType == 'VENUE') {
       Navigator.of(context).pushNamed(
         action == 'REQUEST_CREATED'
             ? AppRoutes.musicianProfile
             : AppRoutes.venueProfile,
+        arguments: action == 'REQUEST_CREATED'
+            ? const MusicianProfileScreenArgs(
+                openIncomingVenueApplications: true,
+              )
+            : null,
       );
       return;
     }
@@ -536,17 +552,103 @@ class _NotificationTile extends StatelessWidget {
   }
 
   String _timeLabel(DateTime? createdAt) {
-    if (createdAt == null) return 'Simdi';
-    final diff = DateTime.now().difference(createdAt.toLocal());
-    if (diff.inMinutes < 1) return 'Simdi';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk once';
-    if (diff.inHours < 24) return '${diff.inHours} sa once';
-    if (diff.inDays < 7) return '${diff.inDays} gun once';
-    return '${createdAt.day.toString().padLeft(2, '0')}.'
-        '${createdAt.month.toString().padLeft(2, '0')}.'
-        '${createdAt.year}';
+    if (createdAt == null) return 'Şimdi';
+    final now = DateTime.now();
+    var localCreatedAt = createdAt.toLocal();
+    var diff = now.difference(localCreatedAt);
+    if (diff.inSeconds < -60 && diff.inHours > -6) {
+      final timezoneAdjusted = localCreatedAt.subtract(const Duration(hours: 3));
+      final adjustedDiff = now.difference(timezoneAdjusted);
+      if (!adjustedDiff.isNegative) {
+        localCreatedAt = timezoneAdjusted;
+        diff = adjustedDiff;
+      }
+    }
+    if (diff.inSeconds < 60) return 'Şimdi';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
+    if (diff.inHours < 24) return '${diff.inHours} sa önce';
+    if (diff.inDays < 7) return '${diff.inDays} gün önce';
+    return '${localCreatedAt.day.toString().padLeft(2, '0')}.'
+        '${localCreatedAt.month.toString().padLeft(2, '0')}.'
+        '${localCreatedAt.year}';
+  }
+
+  String _displayText(String value) {
+    var text = value.trim();
+    for (final entry in _turkishNotificationTextFixes.entries) {
+      text = text.replaceAll(entry.key, entry.value);
+    }
+    return text;
   }
 }
+
+const Map<String, String> _turkishNotificationTextFixes = {
+  'Ä±': 'ı',
+  'Ä°': 'İ',
+  'ÄŸ': 'ğ',
+  'Äž': 'Ğ',
+  'Ã¼': 'ü',
+  'Ãœ': 'Ü',
+  'Ã¶': 'ö',
+  'Ã–': 'Ö',
+  'ÅŸ': 'ş',
+  'Å': 'Ş',
+  'Ã§': 'ç',
+  'Ã‡': 'Ç',
+  'Simdi': 'Şimdi',
+  'suan': 'şu an',
+  'Su an': 'Şu an',
+  'once': 'önce',
+  'gun': 'gün',
+  'Tumunu': 'Tümünü',
+  'Muzisyen': 'Müzisyen',
+  'Kullanici': 'Kullanıcı',
+  'kullanici': 'kullanıcı',
+  'takipcin': 'takipçin',
+  'takipci': 'takipçi',
+  'takip etmeye basladi': 'takip etmeye başladı',
+  'bandini': 'bandını',
+  'bandina': 'bandına',
+  'bandinin': 'bandının',
+  'bandinden': 'bandından',
+  'bandden': 'banddan',
+  'uyesi': 'üyesi',
+  'uyelerinden': 'üyelerinden',
+  'uyeligin': 'üyeliğin',
+  'cikarildin': 'çıkarıldın',
+  'cikarildi': 'çıkarıldı',
+  'ayrildi': 'ayrıldı',
+  'aldi': 'aldı',
+  'aldin': 'aldın',
+  'gonderdi': 'gönderdi',
+  'gonderilen': 'gönderilen',
+  'istegi': 'isteği',
+  'istegin': 'isteğin',
+  'basvuru': 'başvuru',
+  'Basvuru': 'Başvuru',
+  'basvurun': 'başvurun',
+  'Basvurun': 'Başvurun',
+  'basladi': 'başladı',
+  'onaylandi': 'onaylandı',
+  'reddedildi': 'reddedildi',
+  'Katildigin': 'Katıldığın',
+  'katildigin': 'katıldığın',
+  'Katilimci': 'Katılımcı',
+  'katilimci': 'katılımcı',
+  'katilim': 'katılım',
+  'Mekan': 'Mekân',
+  'mekanina': 'mekânına',
+  'mekana': 'mekâna',
+  'baglanti': 'bağlantı',
+  'adli': 'adlı',
+  'goruntuleme': 'görüntüleme',
+  'paylasimina': 'paylaşımına',
+  'profilini paylasmak': 'profilini paylaşmak',
+  'Artik': 'Artık',
+  'Yazar su an': 'Yazar şu an',
+  'Yeni bir takipçin var.': 'Yeni bir takipçin var.',
+  'Yeni bir takipcin var.': 'Yeni bir takipçin var.',
+};
 
 class _NotificationTypeIcon extends StatelessWidget {
   final AppNotification notification;
@@ -560,7 +662,10 @@ class _NotificationTypeIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = _notificationAvatarUrl;
-    if ((_isDmNotification || _isSocialNotification) && avatarUrl.isNotEmpty) {
+    if ((_isDmNotification ||
+            _isSocialNotification ||
+            _isArtistVenueNotification) &&
+        avatarUrl.isNotEmpty) {
       return Container(
         width: 40,
         height: 40,
@@ -580,20 +685,7 @@ class _NotificationTypeIcon extends StatelessWidget {
         ),
       );
     }
-    final icon = switch (type) {
-      final value when value.startsWith('OVERTHINKING') =>
-        Icons.psychology_alt_outlined,
-      final value when value.startsWith('BAND') => Icons.album_outlined,
-      final value when value.startsWith('TABLE') => Icons.groups_2_outlined,
-      final value when value.startsWith('MEDIA') => Icons.play_circle_outline,
-      final value when value.startsWith('DM') => Icons.forum_outlined,
-      final value when value.startsWith('ARTIST_VENUE') =>
-        Icons.handshake_outlined,
-      final value when value.startsWith('SOCIAL') =>
-        Icons.person_add_alt_outlined,
-      _ => Icons.notifications_none_outlined,
-    };
-    return _iconContainer(context, icon);
+    return _iconContainer(context, _iconForType);
   }
 
   bool get _isDmNotification {
@@ -606,13 +698,28 @@ class _NotificationTypeIcon extends StatelessWidget {
     return module == 'SOCIAL' || notification.type.startsWith('SOCIAL');
   }
 
+  bool get _isArtistVenueNotification {
+    final module = notification.payload['module']?.toString().trim() ?? '';
+    return module == 'ARTIST_VENUE' ||
+        notification.type.startsWith('ARTIST_VENUE');
+  }
+
   String get type => notification.type;
 
   String get _notificationAvatarUrl {
     for (final key in const [
+      'actorAvatarUrl',
+      'actorProfilePictureUrl',
+      'actorProfilePicture',
       'senderAvatarUrl',
       'senderProfilePictureUrl',
       'senderProfilePicture',
+      'applicantAvatarUrl',
+      'applicantProfilePictureUrl',
+      'applicantProfilePicture',
+      'venueAvatarUrl',
+      'venueProfilePictureUrl',
+      'venueProfilePicture',
       'followerAvatarUrl',
       'followerProfilePictureUrl',
       'followerProfilePicture',
@@ -626,7 +733,23 @@ class _NotificationTypeIcon extends StatelessWidget {
   }
 
   Widget _fallbackIcon(BuildContext context) {
-    return _iconContainer(context, Icons.forum_outlined);
+    return _iconContainer(context, _iconForType);
+  }
+
+  IconData get _iconForType {
+    return switch (type) {
+      final value when value.startsWith('OVERTHINKING') =>
+        Icons.psychology_alt_outlined,
+      final value when value.startsWith('BAND') => Icons.album_outlined,
+      final value when value.startsWith('TABLE') => Icons.groups_2_outlined,
+      final value when value.startsWith('MEDIA') => Icons.play_circle_outline,
+      final value when value.startsWith('DM') => Icons.forum_outlined,
+      final value when value.startsWith('ARTIST_VENUE') =>
+        Icons.handshake_outlined,
+      final value when value.startsWith('SOCIAL') =>
+        Icons.person_add_alt_outlined,
+      _ => Icons.notifications_none_outlined,
+    };
   }
 
   Widget _iconContainer(BuildContext context, IconData icon) {
@@ -678,7 +801,7 @@ class _SocialProfileTargetSheet extends StatelessWidget {
             ),
             title: Text(item.displayName),
             subtitle: Text(
-              item.type == DmProfileTargetType.musician ? 'Muzisyen' : 'Mekan',
+              item.type == DmProfileTargetType.musician ? 'Müzisyen' : 'Mekân',
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).pop(item),

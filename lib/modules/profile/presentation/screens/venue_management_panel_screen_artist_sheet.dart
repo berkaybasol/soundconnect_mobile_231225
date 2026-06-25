@@ -58,9 +58,9 @@ Future<void> _showArtistAndApplicationSheet({
                         top: Radius.circular(24),
                       ),
                     ),
-                    builder: (_) => _VenueApplicationsSheet(
+                    builder: (_) => VenueApplicationsSheet(
                       venueId: ownerProfile.venueId,
-                      mode: _ApplicationListMode.outgoing,
+                      mode: ApplicationListMode.outgoing,
                     ),
                   );
                 },
@@ -82,9 +82,9 @@ Future<void> _showArtistAndApplicationSheet({
                         top: Radius.circular(24),
                       ),
                     ),
-                    builder: (_) => _VenueApplicationsSheet(
+                    builder: (_) => VenueApplicationsSheet(
                       venueId: ownerProfile.venueId,
-                      mode: _ApplicationListMode.incoming,
+                      mode: ApplicationListMode.incoming,
                     ),
                   );
                 },

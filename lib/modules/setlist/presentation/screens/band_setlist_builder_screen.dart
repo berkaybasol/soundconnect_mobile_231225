@@ -21,6 +21,13 @@ class BandSetlistBuilderScreen extends StatefulWidget {
       _BandSetlistBuilderScreenState();
 }
 
+class _SetlistExportPage {
+  final List<_TimelineItem> items;
+  final int songNumberOffset;
+
+  _SetlistExportPage({required this.items, required this.songNumberOffset});
+}
+
 class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
   final TextEditingController _setlistNameController = TextEditingController();
   final List<_TimelineItem> _items = <_TimelineItem>[_SongItem()];
@@ -191,6 +198,10 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
     return no;
   }
 
+  int get _songCount => _items.whereType<_SongItem>().length;
+
+  int get _exportImageCount => _buildExportPages().length;
+
   Future<void> _savePreviewImage() async {
     if (_isExportingPdf) return;
     setState(() => _isExportingPdf = true);
@@ -201,46 +212,63 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
       final controller = ScreenshotController();
       final screenSize = MediaQuery.of(context).size;
       final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-
-      final bytes = await controller.captureFromWidget(
-        Material(
-          color: AppColors.navBlueDeep,
-          child: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(12, 12, 12, 14),
-              child: SizedBox(
-                width: screenSize.width - 24,
-                height: screenSize.height - 26,
-                child: _CodeEditorPreview(
-                  title: title,
-                  items: _items,
-                  theme: _previewTheme,
-                  fullscreenMode: true,
-                ),
-              ),
-            ),
-          ),
-        ),
-        context: context,
-        pixelRatio: pixelRatio,
-      );
-
+      final exportPages = _buildExportPages();
       final tempDir = await getTemporaryDirectory();
       final safeName = title
           .replaceAll(RegExp(r'[^\w\s-]'), '')
           .replaceAll(RegExp(r'\s+'), '_')
           .trim();
-      final filename =
-          '${safeName.isEmpty ? 'setlist' : safeName}_${DateTime.now().millisecondsSinceEpoch}.png';
-      final file = File('${tempDir.path}/$filename');
-      await file.writeAsBytes(bytes, flush: true);
+      final baseName = safeName.isEmpty ? 'setlist' : safeName;
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final files = <XFile>[];
+      if (!mounted) return;
+
+      for (var pageIndex = 0; pageIndex < exportPages.length; pageIndex++) {
+        if (!mounted) return;
+        final page = exportPages[pageIndex];
+        final pageTitle = exportPages.length == 1
+            ? title
+            : '$title (${pageIndex + 1}/${exportPages.length})';
+        final bytes = await controller.captureFromWidget(
+          Material(
+            color: AppColors.navBlueDeep,
+            child: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12, 12, 12, 14),
+                child: SizedBox(
+                  width: screenSize.width - 24,
+                  height: screenSize.height - 26,
+                  child: _CodeEditorPreview(
+                    title: pageTitle,
+                    items: page.items,
+                    theme: _previewTheme,
+                    fullscreenMode: true,
+                    exportCompact: true,
+                    songNumberOffset: page.songNumberOffset,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          context: context,
+          pixelRatio: pixelRatio,
+        );
+        final partSuffix = exportPages.length == 1 ? '' : '_${pageIndex + 1}';
+        final file = File(
+          '${tempDir.path}/${baseName}_$timestamp$partSuffix.png',
+        );
+        await file.writeAsBytes(bytes, flush: true);
+        files.add(XFile(file.path, mimeType: 'image/png'));
+      }
 
       if (!mounted) return;
       await SharePlus.instance.share(
         ShareParams(
-          files: <XFile>[XFile(file.path, mimeType: 'image/png')],
+          files: files,
           subject: '$title Görsel',
-          text: '$title setlist görseli',
+          text: exportPages.length == 1
+              ? '$title setlist görseli'
+              : '$title setlist görselleri',
           sharePositionOrigin: Rect.fromLTWH(0, 0, 1, 1),
         ),
       );
@@ -254,6 +282,50 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
         setState(() => _isExportingPdf = false);
       }
     }
+  }
+
+  List<_SetlistExportPage> _buildExportPages() {
+    final maxSongsPerImage = _previewTheme == _PreviewTheme.cod ? 32 : 10;
+    final pages = <_SetlistExportPage>[];
+    var current = <_TimelineItem>[];
+    var currentSongCount = 0;
+    var totalSongsBeforePage = 0;
+
+    void flush() {
+      if (current.isEmpty) return;
+      pages.add(
+        _SetlistExportPage(
+          items: List<_TimelineItem>.of(current),
+          songNumberOffset: totalSongsBeforePage,
+        ),
+      );
+      totalSongsBeforePage += currentSongCount;
+      current = <_TimelineItem>[];
+      currentSongCount = 0;
+    }
+
+    for (final item in _items) {
+      if (item is _SongItem && currentSongCount >= maxSongsPerImage) {
+        flush();
+      }
+      if (item is _SetItem &&
+          current.isNotEmpty &&
+          currentSongCount >= maxSongsPerImage) {
+        flush();
+      }
+
+      current.add(item);
+      if (item is _SongItem) {
+        currentSongCount += 1;
+      }
+    }
+    flush();
+
+    return pages.isEmpty
+        ? <_SetlistExportPage>[
+            _SetlistExportPage(items: _items, songNumberOffset: 0),
+          ]
+        : pages;
   }
 
   void _openFullPreview(String title) {
@@ -322,6 +394,28 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
                 decoration: InputDecoration(
                   labelText: 'Setlist Adı',
                   border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    border: Border.all(color: Theme.of(context).dividerColor),
+                  ),
+                  child: Text(
+                    '$_songCount şarkı · $_exportImageCount fotoğraf',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
               SizedBox(height: 10),

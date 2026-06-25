@@ -411,6 +411,8 @@ class _CodeEditorPreview extends StatelessWidget {
   final ValueChanged<_PreviewTheme>? onThemeSelected;
   final VoidCallback? onFullscreen;
   final bool fullscreenMode;
+  final bool exportCompact;
+  final int songNumberOffset;
 
   _CodeEditorPreview({
     required this.title,
@@ -419,6 +421,8 @@ class _CodeEditorPreview extends StatelessWidget {
     this.onThemeSelected,
     this.onFullscreen,
     this.fullscreenMode = false,
+    this.exportCompact = false,
+    this.songNumberOffset = 0,
   });
 
   @override
@@ -429,7 +433,23 @@ class _CodeEditorPreview extends StatelessWidget {
         : Alignment.centerLeft;
     final lines = <String>['SETLIST "$title"'];
     final blockRows = <Widget>[];
-    var songNo = 0;
+    var songNo = songNumberOffset;
+    final logoHeight = exportCompact
+        ? (theme == _PreviewTheme.cod ? 58.0 : 98.0)
+        : 98.0;
+    final logoScale = exportCompact
+        ? (theme == _PreviewTheme.cod ? 1.0 : 1.65)
+        : 1.95;
+    final rowBottomMargin = exportCompact ? 6.0 : 10.0;
+    final songRowPadding = exportCompact
+        ? EdgeInsets.fromLTRB(9, 7, 9, 7)
+        : EdgeInsets.fromLTRB(10, 10, 10, 10);
+    final setRowPadding = exportCompact
+        ? EdgeInsets.fromLTRB(10, 7, 10, 7)
+        : EdgeInsets.fromLTRB(12, 10, 12, 10);
+    final titlePadding = exportCompact
+        ? EdgeInsets.fromLTRB(10, 7, 10, 7)
+        : EdgeInsets.fromLTRB(10, 9, 10, 9);
     for (final item in items) {
       if (item is _SetItem) {
         final setTitle = item.titleController.text.trim().isEmpty
@@ -439,14 +459,14 @@ class _CodeEditorPreview extends StatelessWidget {
         if (theme != _PreviewTheme.cod) {
           blockRows.add(
             Container(
-              margin: EdgeInsets.only(bottom: 10),
+              margin: EdgeInsets.only(bottom: rowBottomMargin),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 gradient: LinearGradient(colors: AppColors.brandGradient),
               ),
               child: Container(
                 margin: EdgeInsets.all(1.2),
-                padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
+                padding: setRowPadding,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10.8),
                   color: palette.card,
@@ -461,6 +481,7 @@ class _CodeEditorPreview extends StatelessWidget {
                         style: TextStyle(
                           color: palette.content,
                           fontWeight: FontWeight.w800,
+                          fontSize: exportCompact ? 12 : null,
                         ),
                       ),
                     ),
@@ -494,14 +515,14 @@ class _CodeEditorPreview extends StatelessWidget {
       if (theme != _PreviewTheme.cod) {
         blockRows.add(
           Container(
-            margin: EdgeInsets.only(bottom: 10),
+            margin: EdgeInsets.only(bottom: rowBottomMargin),
             decoration: BoxDecoration(
               color: palette.card,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: palette.border),
             ),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
+              padding: songRowPadding,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -529,18 +550,23 @@ class _CodeEditorPreview extends StatelessWidget {
                       children: [
                         Text(
                           songName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: palette.content,
                             fontWeight: FontWeight.w800,
+                            fontSize: exportCompact ? 13 : null,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        SizedBox(height: exportCompact ? 1 : 2),
                         Text(
                           artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: palette.muted,
                             fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                            fontSize: exportCompact ? 10.5 : 12,
                           ),
                         ),
                       ],
@@ -556,7 +582,7 @@ class _CodeEditorPreview extends StatelessWidget {
                       song.tone.display,
                       style: TextStyle(
                         color: palette.content,
-                        fontSize: 11,
+                        fontSize: exportCompact ? 10 : 11,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -582,23 +608,10 @@ class _CodeEditorPreview extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: SizedBox(
-                  height: 98,
-                  child: ClipRect(
-                    child: Align(
-                      alignment: logoAlignment,
-                      child: Transform.scale(
-                        scale: 1.95,
-                        alignment: logoAlignment,
-                        child: Image.asset(
-                          'assets/logotransparent.png',
-                          height: 98,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.high,
-                        ),
-                      ),
-                    ),
-                  ),
+                child: _buildPreviewHeader(
+                  logoAlignment,
+                  logoHeight,
+                  logoScale,
                 ),
               ),
               if (!fullscreenMode && onThemeSelected != null)
@@ -621,13 +634,6 @@ class _CodeEditorPreview extends StatelessWidget {
                       value: _PreviewTheme.soft,
                       child: Text(
                         'soft',
-                        style: TextStyle(color: palette.content),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _PreviewTheme.dark,
-                      child: Text(
-                        'dark',
                         style: TextStyle(color: palette.content),
                       ),
                     ),
@@ -688,8 +694,8 @@ class _CodeEditorPreview extends StatelessWidget {
             )
           else ...[
             Container(
-              margin: EdgeInsets.only(bottom: 10),
-              padding: EdgeInsets.fromLTRB(10, 9, 10, 9),
+              margin: EdgeInsets.only(bottom: rowBottomMargin),
+              padding: titlePadding,
               decoration: BoxDecoration(
                 color: palette.card,
                 borderRadius: BorderRadius.circular(10),
@@ -700,12 +706,86 @@ class _CodeEditorPreview extends StatelessWidget {
                 style: TextStyle(
                   color: palette.content,
                   fontWeight: FontWeight.w800,
+                  fontSize: exportCompact ? 13 : null,
                 ),
               ),
             ),
             ...blockRows,
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewHeader(
+    Alignment logoAlignment,
+    double logoHeight,
+    double logoScale,
+  ) {
+    if (exportCompact && theme == _PreviewTheme.cod) {
+      return SizedBox(
+        height: logoHeight,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            r'''
+  ____                       _  ____                            _
+ / ___|  ___  _   _ _ __ __| |/ ___|___  _ __  _ __   ___  ___| |_
+ \___ \ / _ \| | | | '__/ _` | |   / _ \| '_ \| '_ \ / _ \/ __| __|
+  ___) | (_) | |_| | | | (_| | |__| (_) | | | | | | |  __/ (__| |_
+ |____/ \___/ \__,_|_|  \__,_|\____\___/|_| |_|_| |_|\___|\___|\__|
+''',
+            maxLines: 6,
+            overflow: TextOverflow.clip,
+            style: TextStyle(
+              color: AppColors.coralLight,
+              fontFamily: 'monospace',
+              fontSize: 5.4,
+              fontWeight: FontWeight.w700,
+              height: 1.0,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (exportCompact) {
+      return SizedBox(
+        height: logoHeight,
+        child: ClipRect(
+          child: Align(
+            alignment: logoAlignment,
+            child: Transform.scale(
+              scale: logoScale,
+              alignment: logoAlignment,
+              child: Image.asset(
+                'assets/logotransparent.png',
+                height: logoHeight,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: logoHeight,
+      child: ClipRect(
+        child: Align(
+          alignment: logoAlignment,
+          child: Transform.scale(
+            scale: logoScale,
+            alignment: logoAlignment,
+            child: Image.asset(
+              'assets/logotransparent.png',
+              height: logoHeight,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ),
       ),
     );
   }

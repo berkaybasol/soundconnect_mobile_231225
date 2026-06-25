@@ -1,6 +1,6 @@
 part of 'band_setlist_builder_screen.dart';
 
-enum _PreviewTheme { cod, soft, dark }
+enum _PreviewTheme { cod, soft }
 
 extension on _PreviewTheme {
   String get label => name;
@@ -50,17 +50,6 @@ class _PreviewPalette {
           card: Color(0xFFFFFFFF),
           muted: Color(0xFF66748F),
           chip: Color(0xFFE9EEF8),
-        );
-      case _PreviewTheme.dark:
-        return _PreviewPalette(
-          background: Color(0xFF090B10),
-          border: Color(0xFF1D2230),
-          header: Color(0xFF8EA4D8),
-          content: Color(0xFFE4ECFF),
-          lineNumber: Color(0xFF5E6F92),
-          card: Color(0xFF121722),
-          muted: Color(0xFF8A98B6),
-          chip: Color(0xFF20293A),
         );
     }
   }

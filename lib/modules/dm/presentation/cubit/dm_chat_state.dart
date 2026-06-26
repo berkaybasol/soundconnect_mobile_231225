@@ -2,7 +2,7 @@ import '../../../../core/error/app_error.dart';
 import '../../../../core/state/copy_with.dart';
 import '../../domain/entities/dm_message.dart';
 
-enum DmChatStatus { idle, loading, success, failure }
+enum DmChatStatus { idle, loading, loadingMore, success, failure }
 
 class DmChatState {
   final DmChatStatus status;
@@ -10,6 +10,8 @@ class DmChatState {
   final bool sending;
   final AppError? error;
   final String? conversationId;
+  final int page;
+  final bool hasNext;
 
   const DmChatState({
     required this.status,
@@ -17,6 +19,8 @@ class DmChatState {
     required this.sending,
     required this.error,
     required this.conversationId,
+    required this.page,
+    required this.hasNext,
   });
 
   const DmChatState.idle()
@@ -24,7 +28,9 @@ class DmChatState {
       messages = const <DmMessage>[],
       sending = false,
       error = null,
-      conversationId = null;
+      conversationId = null,
+      page = 0,
+      hasNext = false;
 
   DmChatState copyWith({
     DmChatStatus? status,
@@ -32,6 +38,8 @@ class DmChatState {
     bool? sending,
     Object? error = copyWithUnset,
     Object? conversationId = copyWithUnset,
+    int? page,
+    bool? hasNext,
   }) {
     return DmChatState(
       status: status ?? this.status,
@@ -41,6 +49,8 @@ class DmChatState {
       conversationId: identical(conversationId, copyWithUnset)
           ? this.conversationId
           : conversationId as String?,
+      page: page ?? this.page,
+      hasNext: hasNext ?? this.hasNext,
     );
   }
 }

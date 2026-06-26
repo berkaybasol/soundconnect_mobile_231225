@@ -276,6 +276,7 @@ void setupDependencies() {
     )
     ..registerLazySingleton<DmUserProfileResolver>(
       () => DmUserProfileResolverImpl(
+        apiClient: serviceLocator<ApiClient>(),
         musicianSearchRepository: serviceLocator<MusicianSearchRepository>(),
         musicianProfileRepository: serviceLocator<MusicianProfileRepository>(),
         venueDirectoryRepository: serviceLocator<VenueDirectoryRepository>(),

@@ -39,7 +39,15 @@ class DmChatCubit extends Cubit<DmChatState> {
     if (normalizedCurrent.isNotEmpty) {
       _currentUserId = normalizedCurrent;
     }
-    emit(state.copyWith(status: DmChatStatus.loading, error: null));
+    emit(
+      state.copyWith(
+        status: DmChatStatus.loading,
+        messages: const [],
+        page: 0,
+        hasNext: false,
+        error: null,
+      ),
+    );
     final conversationResult = await _repository.getOrCreateConversation(
       otherUserId: otherUserId,
     );
@@ -75,18 +83,62 @@ class DmChatCubit extends Cubit<DmChatState> {
       );
       return;
     }
-    final sorted = [...(messagesResult.data ?? const <DmMessage>[])]
+    final page = messagesResult.data;
+    final sorted = [...(page?.items ?? const <DmMessage>[])]
       ..sort(_compareMessageTime);
     _tryResolveCurrentUserId(sorted);
     emit(
       state.copyWith(
         status: DmChatStatus.success,
         messages: sorted,
+        page: 0,
+        hasNext: page?.hasNext ?? false,
         error: null,
       ),
     );
     await _markIncomingUnreadAsRead(sorted);
     await _ensureRealtimeConnected();
+  }
+
+  Future<void> loadMore() async {
+    final conversationId = state.conversationId;
+    if (conversationId == null ||
+        conversationId.trim().isEmpty ||
+        !state.hasNext ||
+        state.status == DmChatStatus.loadingMore) {
+      return;
+    }
+
+    final nextPage = state.page + 1;
+    emit(state.copyWith(status: DmChatStatus.loadingMore, error: null));
+    final messagesResult = await _repository.getConversationMessages(
+      conversationId: conversationId,
+      page: nextPage,
+    );
+    if (!messagesResult.isSuccess || messagesResult.data == null) {
+      emit(
+        state.copyWith(
+          status: DmChatStatus.success,
+          error: messagesResult.error,
+        ),
+      );
+      return;
+    }
+
+    final merged = _mergeUniqueById([
+      ...state.messages,
+      ...messagesResult.data!.items,
+    ])..sort(_compareMessageTime);
+    _tryResolveCurrentUserId(merged);
+    emit(
+      state.copyWith(
+        status: DmChatStatus.success,
+        messages: merged,
+        page: nextPage,
+        hasNext: messagesResult.data!.hasNext,
+        error: null,
+      ),
+    );
   }
 
   Future<bool> send(String content) async {
@@ -122,6 +174,7 @@ class DmChatCubit extends Cubit<DmChatState> {
         status: DmChatStatus.success,
         sending: false,
         messages: next,
+        hasNext: state.hasNext,
         error: null,
       ),
     );

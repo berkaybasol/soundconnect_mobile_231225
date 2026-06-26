@@ -7,6 +7,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../domain/dm_user_profile_resolver.dart';
 import '../../domain/entities/dm_message.dart';
 import '../../domain/entities/dm_profile_target.dart';
+import '../../../notification/presentation/cubit/notification_cubit.dart';
 import '../cubit/dm_chat_cubit.dart';
 import '../cubit/dm_chat_state.dart';
 
@@ -16,6 +17,7 @@ class DmChatScreenArgs {
   final String? otherUserProfilePicture;
   final String? currentUserId;
   final String? otherMusicianProfileId;
+  final String? conversationId;
 
   DmChatScreenArgs({
     required this.otherUserId,
@@ -23,6 +25,7 @@ class DmChatScreenArgs {
     this.otherUserProfilePicture,
     this.currentUserId,
     this.otherMusicianProfileId,
+    this.conversationId,
   });
 }
 
@@ -50,6 +53,7 @@ class _DmChatViewState extends State<_DmChatView> {
   final ScrollController _scrollController = ScrollController();
   DmChatScreenArgs? _args;
   int _lastMessageCount = 0;
+  String? _lastNewestMessageId;
 
   @override
   void didChangeDependencies() {
@@ -68,6 +72,7 @@ class _DmChatViewState extends State<_DmChatView> {
               ?.toString(),
           currentUserId: rawArgs['currentUserId']?.toString(),
           otherMusicianProfileId: rawArgs['otherMusicianProfileId']?.toString(),
+          conversationId: rawArgs['conversationId']?.toString(),
         );
       }
     }
@@ -84,6 +89,13 @@ class _DmChatViewState extends State<_DmChatView> {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels <= 140) {
+      context.read<DmChatCubit>().loadMore();
+    }
   }
 
   @override
@@ -160,7 +172,25 @@ class _DmChatViewState extends State<_DmChatView> {
                         SnackBar(content: Text(state.error!.message)),
                       );
                     }
-                    if (state.messages.length != _lastMessageCount) {
+                    final conversationId = state.conversationId?.trim() ??
+                        args?.conversationId?.trim() ??
+                        '';
+                    if (conversationId.isNotEmpty &&
+                        state.status == DmChatStatus.success) {
+                      if (serviceLocator.isRegistered<NotificationCubit>()) {
+                        serviceLocator<NotificationCubit>()
+                            .markDmConversationAsReadLocally(conversationId);
+                      }
+                    }
+                    final newestMessageId = state.messages.isEmpty
+                        ? null
+                        : state.messages.last.messageId;
+                    final shouldScrollToBottom =
+                        state.messages.length != _lastMessageCount &&
+                        newestMessageId != null &&
+                        newestMessageId != _lastNewestMessageId;
+                    _lastNewestMessageId = newestMessageId;
+                    if (shouldScrollToBottom) {
                       _lastMessageCount = state.messages.length;
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (!_scrollController.hasClients) return;
@@ -170,6 +200,8 @@ class _DmChatViewState extends State<_DmChatView> {
                           curve: Curves.easeOutCubic,
                         );
                       });
+                    } else {
+                      _lastMessageCount = state.messages.length;
                     }
                   },
                   builder: (context, state) {
@@ -180,35 +212,59 @@ class _DmChatViewState extends State<_DmChatView> {
                     if (state.messages.isEmpty) {
                       return _ChatEmptyState();
                     }
-                    return ListView.builder(
-                      controller: _scrollController,
-                      padding: EdgeInsets.fromLTRB(12, 14, 12, 10),
-                      itemCount: state.messages.length,
-                      itemBuilder: (context, index) {
-                        final item = state.messages[index];
-                        final previous = index > 0
-                            ? state.messages[index - 1]
-                            : null;
-                        final showDateHeader = !_isSameDay(
-                          previous?.sentAt,
-                          item.sentAt,
-                        );
-                        final isMine =
-                            args != null && item.senderId != args.otherUserId;
-                        final senderAvatarUrl = isMine
-                            ? null
-                            : args?.otherUserProfilePicture;
-                        return Column(
-                          children: [
-                            if (showDateHeader) _DateHeader(date: item.sentAt),
-                            _DmMessageBubble(
-                              message: item,
-                              isMine: isMine,
-                              senderAvatarUrl: senderAvatarUrl,
-                            ),
-                          ],
-                        );
+                    return NotificationListener<ScrollNotification>(
+                      onNotification: (_) {
+                        _onScroll();
+                        return false;
                       },
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: EdgeInsets.fromLTRB(12, 14, 12, 10),
+                        itemCount:
+                            state.messages.length +
+                            (state.status == DmChatStatus.loadingMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == 0 &&
+                              state.status == DmChatStatus.loadingMore) {
+                            return Padding(
+                              padding: EdgeInsets.symmetric(vertical: 10),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final messageIndex =
+                              state.status == DmChatStatus.loadingMore
+                              ? index - 1
+                              : index;
+                          if (messageIndex < 0 ||
+                              messageIndex >= state.messages.length) {
+                            return SizedBox.shrink();
+                          }
+                          final item = state.messages[messageIndex];
+                          final previous = messageIndex > 0
+                              ? state.messages[messageIndex - 1]
+                              : null;
+                          final showDateHeader = !_isSameDay(
+                            previous?.sentAt,
+                            item.sentAt,
+                          );
+                          final isMine =
+                              args != null && item.senderId != args.otherUserId;
+                          final senderAvatarUrl = isMine
+                              ? null
+                              : args?.otherUserProfilePicture;
+                          return Column(
+                            children: [
+                              if (showDateHeader)
+                                _DateHeader(date: item.sentAt),
+                              _DmMessageBubble(
+                                message: item,
+                                isMine: isMine,
+                                senderAvatarUrl: senderAvatarUrl,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     );
                   },
                 ),

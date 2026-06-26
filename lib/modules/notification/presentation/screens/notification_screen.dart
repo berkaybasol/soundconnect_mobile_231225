@@ -279,19 +279,9 @@ class _NotificationTile extends StatelessWidget {
       final senderId =
           notification.payload['senderId']?.toString().trim() ?? '';
       if (senderId.isEmpty) return;
-      final senderUsername =
-          notification.payload['senderUsername']?.toString().trim() ?? '';
-      final senderAvatarUrl = _senderAvatarUrl(notification.payload);
-      Navigator.of(context).pushNamed(
-        AppRoutes.dmChat,
-        arguments: DmChatScreenArgs(
-          otherUserId: senderId,
-          otherUsername: senderUsername.isEmpty ? null : senderUsername,
-          otherUserProfilePicture: senderAvatarUrl.isEmpty
-              ? null
-              : senderAvatarUrl,
-        ),
-      );
+      final args = await _resolveDmChatArgs(notification, senderId);
+      if (!context.mounted) return;
+      Navigator.of(context).pushNamed(AppRoutes.dmChat, arguments: args);
       return;
     }
     if (_isArtistVenueNotification(notification)) {
@@ -318,6 +308,56 @@ class _NotificationTile extends StatelessWidget {
   bool _isDmNotification(AppNotification notification) {
     final module = notification.payload['module']?.toString().trim() ?? '';
     return module == 'DM' || notification.type.startsWith('DM');
+  }
+
+  Future<DmChatScreenArgs> _resolveDmChatArgs(
+    AppNotification notification,
+    String senderId,
+  ) async {
+    final senderUsername =
+        notification.payload['senderUsername']?.toString().trim() ?? '';
+    final senderAvatarUrl = _senderAvatarUrl(notification.payload);
+
+    try {
+      final targets = await serviceLocator<DmUserProfileResolver>()
+          .resolveByUserId(userId: senderId, usernameHint: senderUsername);
+      final target = _preferredDmTarget(targets);
+      if (target != null) {
+        return DmChatScreenArgs(
+          conversationId: _cleanNullable(
+            notification.payload['conversationId']?.toString(),
+          ),
+          otherUserId: senderId,
+          otherUsername: target.displayName,
+          otherUserProfilePicture: _cleanNullable(target.imageUrl),
+        );
+      }
+    } catch (_) {
+      // Bildirimden mesaja giris, profil cozumu basarisiz olsa da calismali.
+    }
+
+    return DmChatScreenArgs(
+      conversationId: _cleanNullable(
+        notification.payload['conversationId']?.toString(),
+      ),
+      otherUserId: senderId,
+      otherUsername: _cleanNullable(senderUsername),
+      otherUserProfilePicture: _cleanNullable(senderAvatarUrl),
+    );
+  }
+
+  DmProfileTarget? _preferredDmTarget(List<DmProfileTarget> targets) {
+    for (final target in targets) {
+      if (target.type == DmProfileTargetType.venue) {
+        return target;
+      }
+    }
+    return targets.isEmpty ? null : targets.first;
+  }
+
+  String? _cleanNullable(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   bool _isArtistVenueNotification(AppNotification notification) {

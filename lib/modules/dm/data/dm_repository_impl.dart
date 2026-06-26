@@ -2,6 +2,7 @@ import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/pagination/page.dart';
 import '../domain/dm_repository.dart';
 import '../domain/entities/dm_conversation_preview.dart';
 import '../domain/entities/dm_message.dart';
@@ -67,13 +68,16 @@ class DmRepositoryImpl implements DmRepository {
   }
 
   @override
-  Future<Result<List<DmMessage>>> getConversationMessages({
+  Future<Result<Page<DmMessage>>> getConversationMessages({
     required String conversationId,
+    int page = 0,
+    int size = 30,
   }) async {
     try {
-      final items = await _apiClient.get<List<DmMessage>>(
+      final items = await _apiClient.get<Page<DmMessage>>(
         DmEndpoints.conversationMessages(conversationId),
-        decoder: (json) => _decodeMessageList(json),
+        query: {'page': page, 'size': size, 'sort': 'createdAt,desc'},
+        decoder: (json) => _decodeMessagePage(json, page),
       );
       return Result.success(items);
     } on ApiException catch (e) {
@@ -149,11 +153,20 @@ class DmRepositoryImpl implements DmRepository {
         .toList();
   }
 
-  List<DmMessage> _decodeMessageList(Object? json) {
-    if (json is! List) return const [];
-    return json
+  Page<DmMessage> _decodeMessagePage(Object? json, int fallbackPage) {
+    final map = json as Map<String, dynamic>? ?? const {};
+    final content = (map['content'] as List<dynamic>? ?? const [])
         .whereType<Map>()
         .map((item) => DmMessageModel.fromJson(item.cast<String, dynamic>()))
         .toList();
+    final currentPage = (map['number'] as num?)?.toInt() ?? fallbackPage;
+    final bool hasNext = map['last'] is bool
+        ? !(map['last'] as bool)
+        : (map['hasNext'] as bool?) ?? false;
+    return Page<DmMessage>(
+      items: content,
+      hasNext: hasNext,
+      nextCursor: hasNext ? (currentPage + 1).toString() : null,
+    );
   }
 }

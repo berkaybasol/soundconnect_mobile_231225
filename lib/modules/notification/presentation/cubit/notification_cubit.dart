@@ -161,6 +161,35 @@ class NotificationCubit extends Cubit<NotificationState> {
     );
   }
 
+  void markDmConversationAsReadLocally(String conversationId) {
+    final normalizedConversationId = conversationId.trim();
+    if (normalizedConversationId.isEmpty) return;
+
+    var changedCount = 0;
+    final updatedItems = state.items.map((item) {
+      final module = item.payload['module']?.toString().trim() ?? '';
+      final itemConversationId =
+          item.payload['conversationId']?.toString().trim() ?? '';
+      final isDmNotification = module == 'DM' || item.type.startsWith('DM');
+      if (!item.read &&
+          isDmNotification &&
+          itemConversationId == normalizedConversationId) {
+        changedCount += 1;
+        return item.copyWith(read: true);
+      }
+      return item;
+    }).toList();
+
+    if (changedCount == 0) return;
+    emit(
+      state.copyWith(
+        items: updatedItems,
+        unreadCount: (state.unreadCount - changedCount).clamp(0, 999999),
+        clearError: true,
+      ),
+    );
+  }
+
   Future<void> markAllAsRead() async {
     final result = await _repository.markAllAsRead();
     if (!result.isSuccess) {

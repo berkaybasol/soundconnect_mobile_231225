@@ -737,15 +737,19 @@ class _ConversationTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.of(context).pushNamed(
+        onTap: () async {
+          await Navigator.of(context).pushNamed(
             AppRoutes.dmChat,
             arguments: DmChatScreenArgs(
+              conversationId: item.conversationId,
               otherUserId: item.otherUserId,
               otherUsername: item.otherUsername,
               otherUserProfilePicture: item.otherUserProfilePicture,
             ),
           );
+          if (context.mounted) {
+            context.read<DmConversationsCubit>().load();
+          }
         },
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),

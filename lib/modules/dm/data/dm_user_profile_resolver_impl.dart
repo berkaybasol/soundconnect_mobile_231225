@@ -1,3 +1,4 @@
+import '../../../core/network/api_client.dart';
 import '../domain/dm_user_profile_resolver.dart';
 import '../domain/entities/dm_profile_target.dart';
 import '../../profile/domain/entities/musician_search_option.dart';
@@ -8,17 +9,20 @@ import '../../profile/domain/venue_directory_repository.dart';
 import '../../profile/domain/venue_profile_repository.dart';
 
 class DmUserProfileResolverImpl implements DmUserProfileResolver {
+  final ApiClient _apiClient;
   final MusicianSearchRepository _musicianSearchRepository;
   final MusicianProfileRepository _musicianProfileRepository;
   final VenueDirectoryRepository _venueDirectoryRepository;
   final VenueProfileRepository _venueProfileRepository;
 
   DmUserProfileResolverImpl({
+    required ApiClient apiClient,
     required MusicianSearchRepository musicianSearchRepository,
     required MusicianProfileRepository musicianProfileRepository,
     required VenueDirectoryRepository venueDirectoryRepository,
     required VenueProfileRepository venueProfileRepository,
-  }) : _musicianSearchRepository = musicianSearchRepository,
+  }) : _apiClient = apiClient,
+       _musicianSearchRepository = musicianSearchRepository,
        _musicianProfileRepository = musicianProfileRepository,
        _venueDirectoryRepository = venueDirectoryRepository,
        _venueProfileRepository = venueProfileRepository;
@@ -38,6 +42,14 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
 
     final List<DmProfileTarget> resolved = <DmProfileTarget>[];
     final seen = <String>{};
+
+    final profileTargets = await _resolveProfileTargets(normalizedUserId);
+    for (final item in profileTargets) {
+      final key = '${item.type.name}:${item.id}';
+      if (seen.add(key)) {
+        resolved.add(item);
+      }
+    }
 
     final musicianTargets = await _resolveMusicianTargets(
       userId: normalizedUserId,
@@ -60,6 +72,48 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
 
     _cacheByUserId[normalizedUserId] = resolved;
     return resolved;
+  }
+
+  Future<List<DmProfileTarget>> _resolveProfileTargets(String userId) async {
+    try {
+      return await _apiClient.get<List<DmProfileTarget>>(
+        '/api/v1/public/profiles/by-user/$userId',
+        decoder: (json) {
+          if (json is! Map<String, dynamic>) return const [];
+          final profiles = json['profiles'];
+          if (profiles is! List) return const [];
+          return profiles
+              .whereType<Map<String, dynamic>>()
+              .map(_profileTargetFromJson)
+              .whereType<DmProfileTarget>()
+              .toList();
+        },
+      );
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  DmProfileTarget? _profileTargetFromJson(Map<String, dynamic> json) {
+    final type = _targetTypeFromApi(json['type']?.toString());
+    final id = json['profileId']?.toString().trim() ?? '';
+    final displayName = json['displayName']?.toString().trim() ?? '';
+    if (type == null || id.isEmpty || displayName.isEmpty) return null;
+    final imageUrl = json['profilePictureUrl']?.toString().trim() ?? '';
+    return DmProfileTarget(
+      type: type,
+      id: id,
+      displayName: displayName,
+      imageUrl: imageUrl.isEmpty ? null : imageUrl,
+    );
+  }
+
+  DmProfileTargetType? _targetTypeFromApi(String? value) {
+    return switch (value?.trim().toUpperCase()) {
+      'MUSICIAN' => DmProfileTargetType.musician,
+      'VENUE' => DmProfileTargetType.venue,
+      _ => null,
+    };
   }
 
   Future<List<DmProfileTarget>> _resolveMusicianTargets({

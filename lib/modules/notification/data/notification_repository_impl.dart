@@ -147,6 +147,29 @@ class NotificationRepositoryImpl implements NotificationRepository {
     }
   }
 
+  @override
+  Future<Result<int>> clearAllNotifications() async {
+    try {
+      final response = await _apiClient.delete<int>(
+        NotificationEndpoints.clearAll,
+        decoder: (json) {
+          final map = json as Map<String, dynamic>? ?? const {};
+          return (map['deleted'] as num?)?.toInt() ?? 0;
+        },
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'notification_clear_all_unknown',
+          message: 'Bildirimler temizlenemedi',
+        ),
+      );
+    }
+  }
+
   Page<AppNotification> _decodePage(Object? json, int fallbackPage) {
     final map = json as Map<String, dynamic>? ?? const {};
     final content = (map['content'] as List<dynamic>? ?? const [])

@@ -195,6 +195,24 @@ class NotificationCubit extends Cubit<NotificationState> {
     );
   }
 
+  Future<void> clearAllNotifications() async {
+    if (state.items.isEmpty) return;
+    final result = await _repository.clearAllNotifications();
+    if (!result.isSuccess) {
+      emit(state.copyWith(errorMessage: result.error?.message));
+      return;
+    }
+    emit(
+      state.copyWith(
+        items: const [],
+        unreadCount: 0,
+        page: 0,
+        hasNext: false,
+        clearError: true,
+      ),
+    );
+  }
+
   void _onRealtimeNotification(AppNotification notification) {
     final existingIndex = state.items.indexWhere(
       (item) => item.id == notification.id,

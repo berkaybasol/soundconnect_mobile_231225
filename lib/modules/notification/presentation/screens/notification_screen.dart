@@ -74,11 +74,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
           appBar: AppBar(
             title: const Text('Bildirimler'),
             actions: [
-              TextButton(
-                onPressed: state.unreadCount <= 0
-                    ? null
-                    : () => context.read<NotificationCubit>().markAllAsRead(),
-                child: const Text('Tümünü oku'),
+              PopupMenuButton<_NotificationAction>(
+                onSelected: (action) => _handleAction(context, state, action),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _NotificationAction.markAllRead,
+                    enabled: state.unreadCount > 0,
+                    child: const Text('Tümünü oku'),
+                  ),
+                  PopupMenuItem(
+                    value: _NotificationAction.clearAll,
+                    enabled: state.items.isNotEmpty,
+                    child: const Text('Tümünü temizle'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -114,7 +123,44 @@ class _NotificationScreenState extends State<NotificationScreen> {
       },
     );
   }
+
+  Future<void> _handleAction(
+    BuildContext context,
+    NotificationState state,
+    _NotificationAction action,
+  ) async {
+    final cubit = context.read<NotificationCubit>();
+    switch (action) {
+      case _NotificationAction.markAllRead:
+        await cubit.markAllAsRead();
+        return;
+      case _NotificationAction.clearAll:
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Bildirimleri temizle'),
+            content: const Text('Tüm bildirimlerin silinecek.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Vazgeç'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Temizle'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed == true && context.mounted) {
+          await cubit.clearAllNotifications();
+        }
+        return;
+    }
+  }
 }
+
+enum _NotificationAction { markAllRead, clearAll }
 
 class _NotificationTile extends StatelessWidget {
   final AppNotification notification;
@@ -557,7 +603,9 @@ class _NotificationTile extends StatelessWidget {
     var localCreatedAt = createdAt.toLocal();
     var diff = now.difference(localCreatedAt);
     if (diff.inSeconds < -60 && diff.inHours > -6) {
-      final timezoneAdjusted = localCreatedAt.subtract(const Duration(hours: 3));
+      final timezoneAdjusted = localCreatedAt.subtract(
+        const Duration(hours: 3),
+      );
       final adjustedDiff = now.difference(timezoneAdjusted);
       if (!adjustedDiff.isNegative) {
         localCreatedAt = timezoneAdjusted;

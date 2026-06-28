@@ -20,7 +20,8 @@ import '../cubit/profile_media_cubit.dart';
 
 enum ProfileMediaOwnerType {
   musician('MUSICIAN'),
-  venue('VENUE');
+  venue('VENUE'),
+  studio('STUDIO');
 
   final String apiValue;
 

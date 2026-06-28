@@ -17,6 +17,7 @@ import '../../modules/profile/presentation/screens/my_bands_screen.dart';
 import '../../modules/profile/presentation/screens/listener_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
+import '../../modules/profile/presentation/screens/studio_profile_screen.dart';
 import '../../modules/overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_create_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_list_screen.dart';
@@ -97,6 +98,16 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => VenuePublicProfileScreen(),
+        );
+      case AppRoutes.studioProfile:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const StudioProfileScreen(),
+        );
+      case AppRoutes.studioPublicProfile:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const StudioPublicProfileScreen(),
         );
       case AppRoutes.listenerProfile:
         return MaterialPageRoute(

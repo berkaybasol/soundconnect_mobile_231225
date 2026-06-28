@@ -144,6 +144,10 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
       Navigator.of(context).pushNamed(AppRoutes.listenerProfile);
       return;
     }
+    if (roles.contains('ROLE_STUDIO') || roles.contains('STUDIO')) {
+      Navigator.of(context).pushNamed(AppRoutes.studioProfile);
+      return;
+    }
     Navigator.of(context).pushNamed(AppRoutes.musicianProfile);
   }
 
@@ -166,6 +170,10 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
     }
     if (roles.contains('ROLE_LISTENER') || roles.contains('LISTENER')) {
       Navigator.of(context).pushNamed(AppRoutes.listenerProfile);
+      return;
+    }
+    if (roles.contains('ROLE_STUDIO') || roles.contains('STUDIO')) {
+      Navigator.of(context).pushNamed(AppRoutes.studioProfile);
       return;
     }
     Navigator.of(context).pushNamed(

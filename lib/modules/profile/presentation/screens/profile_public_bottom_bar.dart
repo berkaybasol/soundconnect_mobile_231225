@@ -19,12 +19,14 @@ class ProfilePublicBottomBar extends StatelessWidget {
   final int currentIndex;
   final String? profileImageUrl;
   final StageMode stageMode;
+  final bool profileTapAlwaysOpensOwnProfile;
 
   ProfilePublicBottomBar({
     super.key,
     this.currentIndex = 4,
     this.profileImageUrl,
     this.stageMode = StageMode.backstage,
+    this.profileTapAlwaysOpensOwnProfile = false,
   });
 
   Widget _profileAvatar(BuildContext context, bool active) {
@@ -128,17 +130,25 @@ class ProfilePublicBottomBar extends StatelessWidget {
       return;
     }
     if (index == 4) {
-      if (currentIndex == 4) return;
+      if (currentIndex == 4 && !profileTapAlwaysOpensOwnProfile) return;
       _openBackstageProfile(context);
     }
   }
 
   Future<void> _openBackstageProfile(BuildContext context) async {
+    await _openProfileForCurrentRole(context);
+  }
+
+  Future<void> _openProfileForCurrentRole(BuildContext context) async {
     final token = await serviceLocator<TokenStore>().readToken();
     if (!context.mounted) return;
     final roles = _rolesFromToken(
       token,
     ).map((role) => role.trim().toUpperCase()).toSet();
+    if (roles.contains('ROLE_STUDIO') || roles.contains('STUDIO')) {
+      Navigator.of(context).pushNamed(AppRoutes.studioProfile);
+      return;
+    }
     if (roles.contains('ROLE_VENUE') || roles.contains('VENUE')) {
       Navigator.of(context).pushNamed(AppRoutes.venueProfile);
       return;
@@ -279,8 +289,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
       return;
     }
     if (index == 4) {
-      if (currentIndex == 4) return;
-      Navigator.of(context).pushNamed(AppRoutes.listenerProfile);
+      if (currentIndex == 4 && !profileTapAlwaysOpensOwnProfile) return;
+      _openProfileForCurrentRole(context);
     }
   }
 

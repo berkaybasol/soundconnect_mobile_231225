@@ -164,7 +164,9 @@ class _MusicianPublicProfileContent extends StatelessWidget {
             ],
           ),
         ),
-        bottomNavigationBar: ProfilePublicBottomBar(),
+        bottomNavigationBar: ProfilePublicBottomBar(
+          profileTapAlwaysOpensOwnProfile: true,
+        ),
       ),
     );
   }

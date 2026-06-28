@@ -53,6 +53,7 @@ class DioApiClient implements ApiClient {
 
   bool _isPublicPath(String path) {
     return path.startsWith('/api/v1/auth') ||
+        path.startsWith('/api/v1/public') ||
         path.startsWith('/api/v1/cities') ||
         path.startsWith('/api/v1/districts') ||
         path.startsWith('/api/v1/neighborhoods');

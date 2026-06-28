@@ -13,6 +13,8 @@ class AppRoutes {
   static const musicianPublicProfile = '/musician-public-profile';
   static const venueProfile = '/venue-profile';
   static const venuePublicProfile = '/venue-public-profile';
+  static const studioProfile = '/studio-profile';
+  static const studioPublicProfile = '/studio-public-profile';
   static const listenerProfile = '/listener-profile';
   static const overthinkingFeed = '/overthinking-feed';
   static const notifications = '/notifications';

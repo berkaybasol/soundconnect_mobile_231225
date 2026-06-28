@@ -69,7 +69,7 @@ class _BackstageProfileSearchSheetState
       setState(() {
         _loading = false;
         _results = const [];
-        _message = query.isEmpty ? null : 'Arama için en az 2 karakter yaz.';
+        _message = query.isEmpty ? null : 'Arama icin en az 2 karakter yaz.';
       });
       return;
     }
@@ -85,7 +85,7 @@ class _BackstageProfileSearchSheetState
       setState(() {
         _loading = false;
         _results = const [];
-        _message = result.error?.message ?? 'Arama şu anda yapılamıyor.';
+        _message = result.error?.message ?? 'Arama su anda yapilamiyor.';
       });
       return;
     }
@@ -94,7 +94,7 @@ class _BackstageProfileSearchSheetState
     setState(() {
       _loading = false;
       _results = results;
-      _message = results.isEmpty ? 'Sonuç bulunamadı.' : null;
+      _message = results.isEmpty ? 'Sonuc bulunamadi.' : null;
     });
   }
 
@@ -110,7 +110,7 @@ class _BackstageProfileSearchSheetState
         );
         return;
       case ProfileSearchResultType.listener:
-        _showComingSoon(messenger, 'Dinleyici profili yakında açılacak.');
+        _showComingSoon(messenger, 'Dinleyici profili yakinda acilacak.');
         return;
       case ProfileSearchResultType.band:
         navigator.pushNamed(
@@ -122,7 +122,10 @@ class _BackstageProfileSearchSheetState
         );
         return;
       case ProfileSearchResultType.studio:
-        _showComingSoon(messenger, 'Stüdyo profili yakında açılacak.');
+        navigator.pushNamed(
+          AppRoutes.studioPublicProfile,
+          arguments: PublicProfileArgs(profileId: item.targetId),
+        );
         return;
       case ProfileSearchResultType.venue:
         navigator.pushNamed(
@@ -169,7 +172,7 @@ class _BackstageProfileSearchSheetState
                   textInputAction: TextInputAction.search,
                   onSubmitted: _runSearch,
                   decoration: InputDecoration(
-                    hintText: 'Müzisyen, dinleyici, band, stüdyo veya mekan ara...',
+                    hintText: 'Muzisyen, dinleyici, band, studio veya mekan ara...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _controller.text.isEmpty
                         ? null
@@ -312,6 +315,6 @@ class _ProfileSearchResultTile extends StatelessWidget {
         !raw.startsWith('@')) {
       return '@$raw';
     }
-    return '${item.typeLabel} · $raw';
+    return '${item.typeLabel} - $raw';
   }
 }

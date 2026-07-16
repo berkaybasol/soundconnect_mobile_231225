@@ -15,7 +15,7 @@ extension _ConnectedArtistRequestSheetStateMethods
       _updateState(() {
         _loading = false;
         _searchError = '';
-        _results = <MusicianSearchOption>[];
+        _results = <ProfileSearchResult>[];
       });
       return;
     }
@@ -24,7 +24,7 @@ extension _ConnectedArtistRequestSheetStateMethods
       _searchError = '';
     });
     try {
-      final response = await widget.searchMusicians(trimmed);
+      final response = await widget.searchArtists(trimmed);
       if (!mounted || token != _searchToken) return;
       _updateState(() {
         _loading = false;
@@ -37,32 +37,33 @@ extension _ConnectedArtistRequestSheetStateMethods
       if (!mounted || token != _searchToken) return;
       _updateState(() {
         _loading = false;
-        _results = <MusicianSearchOption>[];
+        _results = <ProfileSearchResult>[];
         _searchError = 'Sanatci aramasi yapilamadi.';
       });
     }
   }
 
-  void _toggleSelection(MusicianSearchOption item) {
-    final checked = _selectedMusicianId == item.profileId;
-    final isAccepted = widget.acceptedIds.contains(item.profileId);
-    final isPending = widget.pendingIds.contains(item.profileId);
+  void _toggleSelection(ProfileSearchResult item) {
+    final targetKey = _connectionKey(item);
+    final checked = _selectedTargetKey == targetKey;
+    final isAccepted = widget.acceptedIds.contains(targetKey);
+    final isPending = widget.pendingIds.contains(targetKey);
 
     if (isAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bu muzisyen zaten profilinde bagli.')),
+        SnackBar(content: Text('Bu sanatci zaten profilinde bagli.')),
       );
       return;
     }
     if (isPending) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bu muzisyene zaten basvurdun (beklemede).')),
+        SnackBar(content: Text('Bu sanatciya zaten basvurdun (beklemede).')),
       );
       return;
     }
 
     _updateState(() {
-      _selectedMusicianId = checked ? null : item.profileId;
+      _selectedTargetKey = checked ? null : targetKey;
     });
   }
 
@@ -138,8 +139,8 @@ extension _ConnectedArtistRequestSheetStateMethods
   }
 
   Future<void> _continue() async {
-    final selectedMusicianId = _selectedMusicianId;
-    if (selectedMusicianId == null) {
+    final selectedTargetKey = _selectedTargetKey;
+    if (selectedTargetKey == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Lutfen bir muzisyen sec.')));
@@ -147,11 +148,29 @@ extension _ConnectedArtistRequestSheetStateMethods
     }
     final message = await _showOptionalMessageDialog();
     if (message == null || !mounted) return;
+    ProfileSearchResult? selected;
+    for (final item in _results) {
+      if (_connectionKey(item) == selectedTargetKey) {
+        selected = item;
+        break;
+      }
+    }
+    if (selected == null) return;
     Navigator.of(context).pop(
-      MusicianRequestPayload(
-        musicianProfileId: selectedMusicianId,
+      ConnectedArtistRequestPayload(
+        type: selected.type == ProfileSearchResultType.band
+            ? ConnectedArtistType.band
+            : ConnectedArtistType.musician,
+        targetId: selected.targetId,
         message: message,
       ),
     );
+  }
+
+  String _connectionKey(ProfileSearchResult item) {
+    final prefix = item.type == ProfileSearchResultType.band
+        ? 'BAND'
+        : 'MUSICIAN';
+    return '$prefix:${item.targetId}';
   }
 }

@@ -1,13 +1,13 @@
 part of 'venue_profile_screen.dart';
 
-Future<MusicianRequestPayload?> showConnectedArtistRequestBottomSheet({
+Future<ConnectedArtistRequestPayload?> showConnectedArtistRequestBottomSheet({
   required BuildContext context,
   required Set<String> acceptedIds,
   required Set<String> pendingIds,
-  required Future<List<MusicianSearchOption>> Function(String query)
-  searchMusicians,
+  required Future<List<ProfileSearchResult>> Function(String query)
+  searchArtists,
 }) {
-  return showModalBottomSheet<MusicianRequestPayload>(
+  return showModalBottomSheet<ConnectedArtistRequestPayload>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.navBlueDeep,
@@ -17,7 +17,7 @@ Future<MusicianRequestPayload?> showConnectedArtistRequestBottomSheet({
     builder: (_) => _ConnectedArtistRequestSheet(
       acceptedIds: acceptedIds,
       pendingIds: pendingIds,
-      searchMusicians: searchMusicians,
+      searchArtists: searchArtists,
     ),
   );
 }
@@ -25,13 +25,12 @@ Future<MusicianRequestPayload?> showConnectedArtistRequestBottomSheet({
 class _ConnectedArtistRequestSheet extends StatefulWidget {
   final Set<String> acceptedIds;
   final Set<String> pendingIds;
-  final Future<List<MusicianSearchOption>> Function(String query)
-  searchMusicians;
+  final Future<List<ProfileSearchResult>> Function(String query) searchArtists;
 
   _ConnectedArtistRequestSheet({
     required this.acceptedIds,
     required this.pendingIds,
-    required this.searchMusicians,
+    required this.searchArtists,
   });
 
   @override
@@ -42,13 +41,13 @@ class _ConnectedArtistRequestSheet extends StatefulWidget {
 class _ConnectedArtistRequestSheetState
     extends State<_ConnectedArtistRequestSheet> {
   final TextEditingController _searchController = TextEditingController();
-  String? _selectedMusicianId;
+  String? _selectedTargetKey;
   Timer? _searchDebounce;
   int _searchToken = 0;
   bool _loading = false;
   String _searchError = '';
   String _query = '';
-  List<MusicianSearchOption> _results = <MusicianSearchOption>[];
+  List<ProfileSearchResult> _results = <ProfileSearchResult>[];
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -80,7 +79,7 @@ class _ConnectedArtistRequestSheetState
               children: [
                 Center(
                   child: Text(
-                    'Baglantili Muzisyenleri Duzenle',
+                    'Baglantili Sanatcilari Duzenle',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
@@ -91,7 +90,7 @@ class _ConnectedArtistRequestSheetState
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Muzisyen ara...',
+                    hintText: 'Muzisyen veya band ara...',
                     prefixIcon: Icon(Icons.search),
                   ),
                   onChanged: _onQueryChanged,
@@ -103,7 +102,7 @@ class _ConnectedArtistRequestSheetState
                       ? Center(
                           child: Text(
                             _query.length < 2
-                                ? 'Bir muzisyen aramak icin en az 2 karakter yaz.'
+                                ? 'Bir muzisyen veya band aramak icin en az 2 karakter yaz.'
                                 : _searchError.isNotEmpty
                                 ? _searchError
                                 : 'Sonuc bulunamadi.',
@@ -120,12 +119,12 @@ class _ConnectedArtistRequestSheetState
                           itemBuilder: (context, index) {
                             final item = _results[index];
                             final checked =
-                                _selectedMusicianId == item.profileId;
+                                _selectedTargetKey == _connectionKey(item);
                             final isAccepted = widget.acceptedIds.contains(
-                              item.profileId,
+                              _connectionKey(item),
                             );
                             final isPending = widget.pendingIds.contains(
-                              item.profileId,
+                              _connectionKey(item),
                             );
                             final disabled = isAccepted || isPending;
                             return InkWell(
@@ -206,11 +205,10 @@ class _ConnectedArtistRequestSheetState
                                       child: ClipOval(
                                         child:
                                             isValidNetworkImageUrl(
-                                              item.profilePictureUrl,
+                                              item.imageUrl,
                                             )
                                             ? AppCachedNetworkImage(
-                                                imageUrl:
-                                                    item.profilePictureUrl,
+                                                imageUrl: item.imageUrl,
                                                 width: 36,
                                                 height: 36,
                                                 cacheWidth: 108,
@@ -239,7 +237,7 @@ class _ConnectedArtistRequestSheetState
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            item.displayName,
+                                            item.title,
                                             style: TextStyle(
                                               color: Theme.of(context)
                                                   .colorScheme
@@ -250,10 +248,14 @@ class _ConnectedArtistRequestSheetState
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                          if (item.secondaryLabel != null) ...[
+                                          if (item.subtitle?.isNotEmpty ==
+                                                  true ||
+                                              item.typeLabel.isNotEmpty) ...[
                                             SizedBox(height: 2),
                                             Text(
-                                              item.secondaryLabel!,
+                                              item.subtitle?.isNotEmpty == true
+                                                  ? '${item.typeLabel} · ${item.subtitle}'
+                                                  : item.typeLabel,
                                               style: TextStyle(
                                                 color: Theme.of(
                                                   context,

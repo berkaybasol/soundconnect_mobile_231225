@@ -1,3 +1,4 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,21 +9,29 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
+import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_state.dart';
 import '../../../follow/presentation/cubit/follow_count_cubit.dart';
 import '../../../follow/presentation/cubit/follow_count_state.dart';
+import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../domain/entities/studio_profile.dart';
+import '../../domain/entities/track.dart';
 import '../../domain/studio_profile_repository.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../cubit/studio_profile_cubit.dart';
 import '../cubit/studio_profile_state.dart';
+import 'profile_audio_tab_shared.dart';
 import 'profile_common_widgets.dart';
 import 'profile_media_tabs.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_route_args.dart';
 import 'profile_screen_support.dart';
 import 'profile_section_support.dart';
+
+part 'studio_profile_backline_taxonomy.dart';
+part 'studio_profile_room_detail.dart';
+part 'studio_profile_recordings.dart';
 
 class StudioProfileScreen extends StatelessWidget {
   const StudioProfileScreen({super.key});
@@ -36,6 +45,7 @@ class StudioProfileScreen extends StatelessWidget {
         ),
         BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
+        BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
       ],
       child: const _StudioProfileView(isPublic: false),
     );
@@ -53,6 +63,7 @@ class StudioPublicProfileScreen extends StatelessWidget {
         BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),
+        BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
       ],
       child: const _StudioProfileView(isPublic: true),
     );
@@ -266,7 +277,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
                   onReservation: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Rezervasyon yakında açılacak.'),
+                        content: Text(
+                          'Rezervasyon oluşturmak için Odalar sekmesinden bir oda seç.',
+                        ),
                       ),
                     );
                   },
@@ -379,7 +392,8 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       children: [
         if (!isSelf)
           FilledButton.icon(
-            onPressed: viewerUserId.isEmpty ||
+            onPressed:
+                viewerUserId.isEmpty ||
                     actionState.status == FollowActionStatus.loading
                 ? null
                 : () async {
@@ -399,14 +413,14 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
             onPressed: profile.userId.isEmpty
                 ? null
                 : () => Navigator.of(context).pushNamed(
-                      AppRoutes.dmChat,
-                      arguments: DmChatScreenArgs(
-                        otherUserId: profile.userId,
-                        otherUsername: profile.displayName,
-                        otherUserProfilePicture: profile.profilePictureUrl,
-                        currentUserId: viewerUserId,
-                      ),
+                    AppRoutes.dmChat,
+                    arguments: DmChatScreenArgs(
+                      otherUserId: profile.userId,
+                      otherUsername: profile.displayName,
+                      otherUserProfilePicture: profile.profilePictureUrl,
+                      currentUserId: viewerUserId,
                     ),
+                  ),
             icon: const Icon(Icons.chat_bubble_outline),
             label: const Text('DM'),
           ),
@@ -801,16 +815,20 @@ class _StudioDashboardContent extends StatelessWidget {
               if (isPublic)
                 Expanded(
                   child: _StudioActionButton(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Rezervasyon İste',
-                  outlined: false,
-                  onTap: onReservation,
+                    icon: Icons.calendar_month_outlined,
+                    label: 'Rezervasyon İste',
+                    outlined: false,
+                    onTap: onReservation,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 18),
-          const _StudioDarkTabs(),
+          _StudioDarkTabs(
+            profileId: profile.id,
+            canReserve: isPublic,
+            ownerMode: !isPublic,
+          ),
         ],
       ),
     );
@@ -916,7 +934,10 @@ class _StudioHeroAvatar extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(colors: AppColors.brandGradient),
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFF050910), width: 2),
+                    border: Border.all(
+                      color: const Color(0xFF050910),
+                      width: 2,
+                    ),
                   ),
                   child: uploading
                       ? const Padding(
@@ -1079,7 +1100,15 @@ class _StudioSocialGradientIcon extends StatelessWidget {
 }
 
 class _StudioDarkTabs extends StatelessWidget {
-  const _StudioDarkTabs();
+  final String profileId;
+  final bool canReserve;
+  final bool ownerMode;
+
+  const _StudioDarkTabs({
+    required this.profileId,
+    required this.canReserve,
+    required this.ownerMode,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1104,16 +1133,13 @@ class _StudioDarkTabs extends StatelessWidget {
           builder: (context, _) {
             return IndexedStack(
               index: controller.index,
-              children: const [
-                _StudioComingSoonPanel(
-                  icon: Icons.meeting_room_outlined,
-                  title: 'Odalar yakında',
+              children: [
+                _StudioRoomsPanel(canReserve: canReserve),
+                _StudioRecordingsPanel(
+                  profileId: profileId,
+                  ownerMode: ownerMode,
                 ),
-                _StudioComingSoonPanel(
-                  icon: Icons.graphic_eq,
-                  title: 'Kayıtlar yakında',
-                ),
-                _StudioBacklinePanel(),
+                const _StudioBacklinePanel(),
               ],
             );
           },
@@ -1186,6 +1212,383 @@ class _StudioComingSoonPanel extends StatelessWidget {
   }
 }
 
+class _StudioRoomsPanel extends StatelessWidget {
+  final bool canReserve;
+
+  const _StudioRoomsPanel({this.canReserve = false});
+
+  static const _rooms = [
+    _StudioRoomItem(
+      name: 'Prova Odası A',
+      type: 'Prova',
+      capacity: '4-6 kişi',
+      price: '₺600 / saat',
+      status: 'Müsait',
+      statusColor: Color(0xFF0E8F2F),
+      icon: Icons.groups_2_outlined,
+      gradient: [Color(0xFF1C2B3F), Color(0xFF4B2D52)],
+      features: ['PA sistem', 'Davul seti', '2 gitar amfisi'],
+    ),
+    _StudioRoomItem(
+      name: 'Kayıt Odası',
+      type: 'Kayıt',
+      capacity: '2-4 kişi',
+      price: '₺1.200 / saat',
+      status: 'Yoğun',
+      statusColor: Color(0xFFB17400),
+      icon: Icons.graphic_eq,
+      gradient: [Color(0xFF172A3A), Color(0xFF3B2747)],
+      features: ['Vokal kabini', 'Control room', '16 kanal kayıt'],
+    ),
+    _StudioRoomItem(
+      name: 'Podcast / Vokal Odası',
+      type: 'Vokal • Podcast',
+      capacity: '2-3 kişi',
+      price: '₺450 / saat',
+      status: 'Müsait',
+      statusColor: Color(0xFF0E8F2F),
+      icon: Icons.mic_none_outlined,
+      gradient: [Color(0xFF1E2538), Color(0xFF563040)],
+      features: ['Akustik izolasyon', 'Masa mikrofonları', 'Kulaklık seti'],
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: _StudioPanel(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Stüdyo Odaları',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    _StudioRoomLimitPill(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 3),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2),
+                child: Text(
+                  'Prova, kayıt ve vokal çalışmaları için uygun alanlar',
+                  style: TextStyle(color: Color(0xFF9AA4B2), fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ..._rooms.map(
+                (room) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _StudioRoomCard(room: room, canReserve: canReserve),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioRoomLimitPill extends StatelessWidget {
+  const _StudioRoomLimitPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101722),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFF263244)),
+      ),
+      child: const Text(
+        '3 / 10',
+        style: TextStyle(
+          color: Color(0xFFB5BDCA),
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioRoomCard extends StatelessWidget {
+  final _StudioRoomItem room;
+  final bool canReserve;
+
+  const _StudioRoomCard({required this.room, required this.canReserve});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              _StudioRoomDetailScreen(room: room, canReserve: canReserve),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF101722),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF202B3A)),
+        ),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _StudioRoomPhoto(room: room),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              room.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _StudioRoomStatusPill(room: room),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        room.type,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFB5BDCA),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StudioRoomMeta(
+                              icon: Icons.people_outline,
+                              label: room.capacity,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _StudioRoomMeta(
+                              icon: Icons.payments_outlined,
+                              label: room.price,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final feature in room.features)
+                    _StudioRoomFeatureChip(label: feature),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioRoomPhoto extends StatelessWidget {
+  final _StudioRoomItem room;
+
+  const _StudioRoomPhoto({required this.room});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 92,
+      height: 86,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: room.gradient,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF2B3546)),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -18,
+            bottom: -20,
+            child: Icon(
+              room.icon,
+              size: 78,
+              color: Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          Center(
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.20),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+              ),
+              child: Icon(room.icon, color: Colors.white, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioRoomStatusPill extends StatelessWidget {
+  final _StudioRoomItem room;
+
+  const _StudioRoomStatusPill({required this.room});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: room.statusColor.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: room.statusColor.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        room.status,
+        style: TextStyle(
+          color: room.statusColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioRoomMeta extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _StudioRoomMeta({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _StudioSocialGradientIcon(icon, size: 14),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFD5DBE5),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StudioRoomFeatureChip extends StatelessWidget {
+  final String label;
+
+  const _StudioRoomFeatureChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A101A),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFF263244)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFFB5BDCA),
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioRoomItem {
+  final String name;
+  final String type;
+  final String capacity;
+  final String price;
+  final String status;
+  final Color statusColor;
+  final IconData icon;
+  final List<Color> gradient;
+  final List<String> features;
+  final List<String> photoUrls;
+
+  const _StudioRoomItem({
+    required this.name,
+    required this.type,
+    required this.capacity,
+    required this.price,
+    required this.status,
+    required this.statusColor,
+    required this.icon,
+    required this.gradient,
+    required this.features,
+    this.photoUrls = const [],
+  });
+}
+
 class _StudioBacklinePanel extends StatelessWidget {
   const _StudioBacklinePanel();
 
@@ -1198,7 +1601,6 @@ class _StudioBacklinePanel extends StatelessWidget {
       icon: Icons.music_note_outlined,
       total: 2,
       available: 1,
-      usage: 'Kiralık',
     ),
     _BacklineItem(
       title: 'Shure SM58',
@@ -1208,7 +1610,6 @@ class _StudioBacklinePanel extends StatelessWidget {
       icon: Icons.mic_none_outlined,
       total: 6,
       available: 4,
-      usage: 'Kiralık',
     ),
     _BacklineItem(
       title: 'Yamaha Stage Custom',
@@ -1218,7 +1619,6 @@ class _StudioBacklinePanel extends StatelessWidget {
       icon: Icons.circle_outlined,
       total: 1,
       available: 0,
-      usage: 'Stüdyo İçi',
     ),
     _BacklineItem(
       title: 'Nord Stage 3',
@@ -1228,7 +1628,6 @@ class _StudioBacklinePanel extends StatelessWidget {
       icon: Icons.keyboard_outlined,
       total: 1,
       available: 1,
-      usage: 'Stüdyo İçi',
     ),
   ];
 
@@ -1382,18 +1781,12 @@ class _BacklineFilters extends StatefulWidget {
 }
 
 class _BacklineFiltersState extends State<_BacklineFilters> {
-  String? _selectedFilter;
+  String _selectedFilter = 'Tümü';
 
   @override
   Widget build(BuildContext context) {
-    const filters = [
-      'Tümü',
-      'Amfi',
-      'Mikrofon',
-      'Davul',
-      'Klavye',
-      'PA',
-    ];
+    const filters = _backlineQuickFilters;
+    final hasCustomSelection = !filters.contains(_selectedFilter);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -1403,25 +1796,23 @@ class _BacklineFiltersState extends State<_BacklineFilters> {
               label: filters[i],
               selected: _selectedFilter == filters[i],
               onTap: () {
-                setState(() {
-                  _selectedFilter = _selectedFilter == filters[i]
-                      ? null
-                      : filters[i];
-                });
+                setState(() => _selectedFilter = filters[i]);
               },
             ),
             const SizedBox(width: 8),
           ],
           _BacklineFilterChip(
-            label: 'Tüm Kategoriler',
-            selected: false,
+            label: hasCustomSelection ? _selectedFilter : 'Tüm Kategoriler',
+            selected: hasCustomSelection,
             trailingIcon: Icons.chevron_right,
-            onTap: () {
-              Navigator.of(context).push(
+            onTap: () async {
+              final selected = await Navigator.of(context).push<String>(
                 MaterialPageRoute(
                   builder: (_) => const _BacklineCategoriesScreen(),
                 ),
               );
+              if (!mounted || selected == null) return;
+              setState(() => _selectedFilter = selected);
             },
           ),
         ],
@@ -1459,9 +1850,7 @@ class _BacklineFilterChip extends StatelessWidget {
                 )
               : null,
           borderRadius: radius,
-          border: selected
-              ? null
-              : Border.all(color: const Color(0xFF263244)),
+          border: selected ? null : Border.all(color: const Color(0xFF263244)),
         ),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1485,59 +1874,9 @@ class _BacklineFilterChip extends StatelessWidget {
               ),
               if (trailingIcon != null) ...[
                 const SizedBox(width: 4),
-                Icon(
-                  trailingIcon,
-                  color: const Color(0xFFB5BDCA),
-                  size: 15,
-                ),
+                Icon(trailingIcon, color: const Color(0xFFB5BDCA), size: 15),
               ],
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BacklineCategoriesScreen extends StatelessWidget {
-  const _BacklineCategoriesScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.black,
-      appBar: AppBar(
-        backgroundColor: AppColors.black,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text(
-          'Tüm Kategoriler',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF101722),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF202B3A)),
-          ),
-          child: const Text(
-            'Kategori listesi yakında burada olacak.',
-            style: TextStyle(
-              color: Color(0xFFB5BDCA),
-              fontSize: 14,
-            ),
           ),
         ),
       ),
@@ -1580,7 +1919,6 @@ class _BacklineItem {
   final IconData icon;
   final int total;
   final int available;
-  final String usage;
 
   const _BacklineItem({
     required this.title,
@@ -1590,7 +1928,6 @@ class _BacklineItem {
     required this.icon,
     required this.total,
     required this.available,
-    required this.usage,
   });
 }
 
@@ -1616,90 +1953,81 @@ class _BacklineItemCard extends StatelessWidget {
           border: Border.all(color: const Color(0xFF202B3A)),
         ),
         child: Row(
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: const Color(0xFF080D15),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFF263244)),
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFF080D15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF263244)),
+              ),
+              child: Icon(item.icon, color: const Color(0xFFD4D9E2), size: 34),
             ),
-            child: Icon(item.icon, color: const Color(0xFFD4D9E2), size: 34),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    _BacklineStatus(label: item.status, color: item.statusColor),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.type,
-                  style: const TextStyle(
-                    color: Color(0xFFB7C0CE),
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    _MiniMeta(label: 'Toplam', value: item.total.toString()),
-                    const SizedBox(width: 6),
-                    _MiniMeta(
-                      label: 'Müsait',
-                      value: item.available.toString(),
-                      dotColor: const Color(0xFF15C46B),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: _MiniMeta(
-                        label: '',
-                        value: item.usage,
-                        dotColor: const Color(0xFF8B2CFF),
+                      const SizedBox(width: 6),
+                      _BacklineStatus(
+                        label: item.status,
+                        color: item.statusColor,
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.type,
+                    style: const TextStyle(
+                      color: Color(0xFFB7C0CE),
+                      fontSize: 11,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 7),
-                Row(
-                  children: const [
-                    _TinyButton(icon: Icons.info_outline, label: 'Detay'),
-                    SizedBox(width: 8),
-                    _TinyButton(
-                      icon: Icons.calendar_month_outlined,
-                      label: 'Takvimi Gör',
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _MiniMeta(label: 'Toplam', value: item.total.toString()),
+                      const SizedBox(width: 6),
+                      _MiniMeta(
+                        label: 'Müsait',
+                        value: item.available.toString(),
+                        dotColor: const Color(0xFF15C46B),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 7),
+                  Row(
+                    children: const [
+                      _TinyButton(icon: Icons.info_outline, label: 'Detay'),
+                      SizedBox(width: 8),
+                      _TinyButton(
+                        icon: Icons.calendar_month_outlined,
+                        label: 'Takvimi Gör',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.chevron_right,
-            color: Color(0xFF7B8493),
-            size: 20,
-          ),
-        ],
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: Color(0xFF7B8493), size: 20),
+          ],
         ),
       ),
     );
@@ -1710,18 +2038,6 @@ class _BacklineItemDetailScreen extends StatelessWidget {
   final _BacklineItem item;
 
   const _BacklineItemDetailScreen({required this.item});
-
-  String get _price {
-    if (item.title.contains('Marshall')) return '\u20BA450 / saat\n\u20BA2.500 / g\u00FCn';
-    if (item.title.contains('Shure')) return '\u20BA150 / saat\n\u20BA700 / g\u00FCn';
-    return item.usage;
-  }
-
-  String get _deposit {
-    if (item.title.contains('Marshall')) return '\u20BA2.000';
-    if (item.title.contains('Shure')) return '\u20BA500';
-    return 'Yok';
-  }
 
   String get _description {
     if (item.title.contains('Marshall')) {
@@ -1787,12 +2103,7 @@ class _BacklineItemDetailScreen extends StatelessWidget {
               const SizedBox(height: 18),
               _BacklineInventorySummary(item: item),
               const SizedBox(height: 12),
-              _BacklineDetailInfoCard(
-                usage: item.usage,
-                price: _price,
-                deposit: _deposit,
-                description: _description,
-              ),
+              _BacklineDetailInfoCard(description: _description),
               const SizedBox(height: 18),
               _BacklineDetailGradientButton(
                 icon: Icons.calendar_month_outlined,
@@ -1811,7 +2122,9 @@ class _BacklineItemDetailScreen extends StatelessWidget {
 
   void _showComingSoon(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Bu aksiyon yak\u0131nda a\u00E7\u0131lacak.')),
+      const SnackBar(
+        content: Text('Bu aksiyon yak\u0131nda a\u00E7\u0131lacak.'),
+      ),
     );
   }
 }
@@ -1874,10 +2187,7 @@ class _BacklineDetailHeroState extends State<_BacklineDetailHero> {
             itemCount: _photoLimit,
             onPageChanged: (index) => setState(() => _activePage = index),
             itemBuilder: (context, index) {
-              return _BacklineDetailHeroImage(
-                item: widget.item,
-                index: index,
-              );
+              return _BacklineDetailHeroImage(item: widget.item, index: index);
             },
           ),
         ),
@@ -2014,7 +2324,10 @@ class _BacklineInventorySummary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _BacklineCountCell(label: 'Toplam Adet', value: item.total.toString()),
+          _BacklineCountCell(
+            label: 'Toplam Adet',
+            value: item.total.toString(),
+          ),
           _BacklineCountDivider(),
           _BacklineCountCell(
             label: 'M\u00FCsait',
@@ -2083,17 +2396,9 @@ class _BacklineCountDivider extends StatelessWidget {
 }
 
 class _BacklineDetailInfoCard extends StatelessWidget {
-  final String usage;
-  final String price;
-  final String deposit;
   final String description;
 
-  const _BacklineDetailInfoCard({
-    required this.usage,
-    required this.price,
-    required this.deposit,
-    required this.description,
-  });
+  const _BacklineDetailInfoCard({required this.description});
 
   @override
   Widget build(BuildContext context) {
@@ -2106,21 +2411,6 @@ class _BacklineDetailInfoCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _BacklineInfoRow(
-            icon: Icons.work_outline,
-            label: 'Kullan\u0131m',
-            value: usage,
-          ),
-          _BacklineInfoRow(
-            icon: Icons.paid_outlined,
-            label: 'Kiralama Fiyat\u0131',
-            value: price,
-          ),
-          _BacklineInfoRow(
-            icon: Icons.lock_outline,
-            label: 'Depozito',
-            value: deposit,
-          ),
           _BacklineInfoRow(
             icon: Icons.notes_outlined,
             label: 'A\u00E7\u0131klama',
@@ -2145,9 +2435,9 @@ class _BacklineAvailabilityCalendar extends StatefulWidget {
 
 class _BacklineAvailabilityCalendarState
     extends State<_BacklineAvailabilityCalendar> {
-  String _selectedMode = 'daily';
-  DateTime _selectedDate = DateTime(2025, 6, 3);
-  static final DateTime _calendarToday = DateTime(2025, 6, 3);
+  DateTime _selectedDate = _dateOnly(DateTime.now());
+
+  static DateTime get _calendarToday => _dateOnly(DateTime.now());
 
   static const _hours = [
     '09:00',
@@ -2243,57 +2533,34 @@ class _BacklineAvailabilityCalendarState
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _CalendarModeSwitch(
-            selectedMode: _selectedMode,
-            onChanged: (mode) {
-              setState(() {
-                _selectedMode = mode;
-              });
-            },
-          ),
           const SizedBox(height: 16),
-          if (_selectedMode == 'weekly')
-            _WeeklyAvailabilityGrid(
-              item: widget.item,
-              startDate: _selectedDate,
-              isDatePast: _isPastDate,
-              onDayTap: (date) {
-                setState(() {
-                  _selectedDate = date;
-                  _selectedMode = 'daily';
-                });
-              },
-            )
-          else ...[
-            const Row(
-              children: [
-                SizedBox(
-                  width: 58,
+          const Row(
+            children: [
+              SizedBox(
+                width: 58,
+                child: Text(
+                  'Saat',
+                  style: TextStyle(color: Color(0xFFCDD3DE), fontSize: 13),
+                ),
+              ),
+              Expanded(
+                child: Center(
                   child: Text(
-                    'Saat',
+                    'Adet M\u00FCsait',
                     style: TextStyle(color: Color(0xFFCDD3DE), fontSize: 13),
                   ),
                 ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'Adet M\u00FCsait',
-                      style: TextStyle(color: Color(0xFFCDD3DE), fontSize: 13),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...List.generate(
-              _hours.length,
-              (index) => _CalendarAvailabilityRow(
-                hour: _hours[index],
-                values: _availabilityValues(index, widget.item.available),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...List.generate(
+            _hours.length,
+            (index) => _CalendarAvailabilityRow(
+              hour: _hours[index],
+              values: _availabilityValues(index, widget.item.available),
             ),
-          ],
+          ),
           const SizedBox(height: 16),
           const _CalendarLegend(),
         ],
@@ -2358,15 +2625,7 @@ class _BacklineAvailabilityCalendarState
         .toList(growable: false);
   }
 
-  String get _calendarTitle {
-    if (_selectedMode == 'weekly') {
-      return _formatDateRange(
-        _selectedDate,
-        _selectedDate.add(const Duration(days: 6)),
-      );
-    }
-    return _formatFullDate(_selectedDate);
-  }
+  String get _calendarTitle => _formatFullDate(_selectedDate);
 
   void _moveCalendar(int direction) {
     setState(() {
@@ -2374,20 +2633,8 @@ class _BacklineAvailabilityCalendarState
     });
   }
 
-  bool get _canMoveBackward {
-    if (_selectedMode == 'weekly') return true;
-    return !_isPastDate(_selectedDate.add(const Duration(days: -1)));
-  }
-
-  static String _formatDateRange(DateTime start, DateTime end) {
-    if (start.year == end.year && start.month == end.month) {
-      return '${start.day}-${end.day} ${_monthLong(start.month)} ${start.year}';
-    }
-    if (start.year == end.year) {
-      return '${start.day} ${_monthShort(start.month)}-${end.day} ${_monthLong(end.month)} ${start.year}';
-    }
-    return '${start.day} ${_monthShort(start.month)} ${start.year}-${end.day} ${_monthShort(end.month)} ${end.year}';
-  }
+  bool get _canMoveBackward =>
+      !_isPastDate(_selectedDate.add(const Duration(days: -1)));
 
   static String _formatFullDate(DateTime date) {
     return '${date.day} ${_monthLong(date.month)} ${date.year} ${_weekdayLong(date.weekday)}';
@@ -2488,30 +2735,27 @@ class _WeeklyAvailabilityGrid extends StatelessWidget {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: List.generate(
-              days.length,
-              (index) {
-                final values =
-                    _BacklineAvailabilityCalendarState._availabilityValues(
-                  index + 1,
-                  item.available,
-                );
-                final disabled = isDatePast(days[index].dateValue);
-                return Padding(
-                  padding: EdgeInsets.only(
-                    right: index == days.length - 1 ? 0 : 8,
-                  ),
-                  child: _WeeklyDateCard(
-                    day: days[index],
-                    status: _WeeklyDayStatus.fromValues(values),
-                    disabled: disabled,
-                    onTap: disabled
-                        ? null
-                        : () => onDayTap(days[index].dateValue),
-                  ),
-                );
-              },
-            ),
+            children: List.generate(days.length, (index) {
+              final values =
+                  _BacklineAvailabilityCalendarState._availabilityValues(
+                    index + 1,
+                    item.available,
+                  );
+              final disabled = isDatePast(days[index].dateValue);
+              return Padding(
+                padding: EdgeInsets.only(
+                  right: index == days.length - 1 ? 0 : 8,
+                ),
+                child: _WeeklyDateCard(
+                  day: days[index],
+                  status: _WeeklyDayStatus.fromValues(values),
+                  disabled: disabled,
+                  onTap: disabled
+                      ? null
+                      : () => onDayTap(days[index].dateValue),
+                ),
+              );
+            }),
           ),
         ),
       ],
@@ -2537,17 +2781,11 @@ class _WeeklyDayStatus {
   final String label;
   final Color color;
 
-  const _WeeklyDayStatus({
-    required this.label,
-    required this.color,
-  });
+  const _WeeklyDayStatus({required this.label, required this.color});
 
   factory _WeeklyDayStatus.fromValues(List<int> values) {
     if (values.every((value) => value == 0)) {
-      return const _WeeklyDayStatus(
-        label: 'Dolu',
-        color: Color(0xFFB8323B),
-      );
+      return const _WeeklyDayStatus(label: 'Dolu', color: Color(0xFFB8323B));
     }
     if (values.any((value) => value == 1)) {
       return _WeeklyDayStatus(
@@ -2767,7 +3005,9 @@ class _CalendarModeOption extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? const Color(0xFFFF8A8A) : const Color(0xFFCDD3DE),
+              color: selected
+                  ? const Color(0xFFFF8A8A)
+                  : const Color(0xFFCDD3DE),
               fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
             ),
           ),
@@ -2781,10 +3021,7 @@ class _CalendarAvailabilityRow extends StatelessWidget {
   final String hour;
   final List<int> values;
 
-  const _CalendarAvailabilityRow({
-    required this.hour,
-    required this.values,
-  });
+  const _CalendarAvailabilityRow({required this.hour, required this.values});
 
   @override
   Widget build(BuildContext context) {
@@ -3376,10 +3613,7 @@ class _StudioProfileTabs extends StatelessWidget {
             return IndexedStack(
               index: controller.index,
               children: const [
-                _StudioTabPlaceholder(
-                  icon: Icons.meeting_room_outlined,
-                  title: 'Odalar yakında',
-                ),
+                _StudioRoomsPanel(),
                 _StudioTabPlaceholder(
                   icon: Icons.graphic_eq,
                   title: 'Kayıtlar yakında',

@@ -121,6 +121,61 @@ void main() {
       });
     });
 
+    test('band applications use the unfiltered band endpoint', () async {
+      final client = RecordingApiClient(
+        (_) => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'incoming',
+            'bandId': 'band-1',
+            'venueId': 'venue-1',
+            'requestByType': 'VENUE',
+          },
+          <String, dynamic>{
+            'id': 'outgoing',
+            'bandId': 'band-1',
+            'venueId': 'venue-2',
+            'requestByType': 'BAND',
+          },
+        ],
+      );
+      final repository = ArtistVenueConnectionRepositoryImpl(client);
+
+      final result = await repository.listBandVenueApplications('band-1');
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.map((item) => item.requestByType), <String>[
+        'VENUE',
+        'BAND',
+      ]);
+      expect(
+        client.lastRequest.path,
+        ArtistVenueConnectionEndpoints.byBand('band-1'),
+      );
+    });
+
+    test('venue can target a band with the venue request contract', () async {
+      final client = RecordingApiClient((_) => null);
+      final repository = ArtistVenueConnectionRepositoryImpl(client);
+
+      final result = await repository.createVenueBandRequest(
+        bandId: 'band-7',
+        venueId: 'venue-3',
+        message: 'Sahnede bulusalim',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        client.lastRequest.path,
+        ArtistVenueConnectionEndpoints.request('VENUE'),
+      );
+      expect(client.lastRequest.method, RecordedHttpMethod.post);
+      expect(client.lastRequest.body, <String, dynamic>{
+        'bandId': 'band-7',
+        'venueId': 'venue-3',
+        'message': 'Sahnede bulusalim',
+      });
+    });
+
     test('cubit emits success and preserves typed API failures', () async {
       final successCubit = ArtistVenueConnectionsCubit(
         ArtistVenueConnectionRepositoryImpl(

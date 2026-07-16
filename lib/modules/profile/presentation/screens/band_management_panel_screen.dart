@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/error/result.dart';
 import '../../../../core/network/network_config.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -14,6 +15,7 @@ import '../../../setlist/presentation/screens/band_setlist_builder_screen.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/entities/band_member_summary.dart';
 import '../../domain/entities/band_profile.dart';
+import '../../domain/entities/artist_venue_application.dart';
 import '../../domain/entities/profile_venue_models.dart';
 import '../../domain/entities/musician_search_option.dart';
 import '../../domain/musician_profile_repository.dart';
@@ -29,6 +31,7 @@ part 'band_management_panel_screen_member_picker.dart';
 part 'band_management_panel_screen_members_workspace.dart';
 part 'band_management_panel_screen_ui_helpers.dart';
 part 'band_management_panel_screen_venue_actions.dart';
+part 'band_management_panel_screen_venue_connections_sheet.dart';
 
 class BandManagementPanelScreen extends StatefulWidget {
   final BandProfile profile;
@@ -148,10 +151,10 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
               SizedBox(height: 14),
               _actionCard(
                 context: context,
-                icon: Icons.perm_media_outlined,
-                title: 'Aktif Mekanları Düzenle',
-                message: 'Mekan bağlantı paneli açılıyor.',
-                onTap: _submitting ? null : _editBandVenues,
+                icon: Icons.hub_outlined,
+                title: 'Mekan Bağlantılarını Yönet',
+                message: 'Mekan bağlantıları ve başvuru akışları burada.',
+                onTap: _submitting ? null : _openVenueConnectionHub,
               ),
               SizedBox(height: 14),
               _actionCard(

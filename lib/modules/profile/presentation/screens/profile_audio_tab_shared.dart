@@ -46,6 +46,9 @@ class ProfileAudioTab extends StatelessWidget {
   final bool showSpotifyCatalogButtonWhenOwnerAndEmpty;
   final String emptyUploadPrompt;
   final String uploadActionLabel;
+  final String spotifyCatalogTitle;
+  final Future<bool> Function(List<SpotifyTrackPreview> tracks)?
+  onSpotifyTracksChanged;
 
   ProfileAudioTab({
     super.key,
@@ -60,7 +63,27 @@ class ProfileAudioTab extends StatelessWidget {
     required this.showSpotifyCatalogButtonWhenOwnerAndEmpty,
     required this.emptyUploadPrompt,
     required this.uploadActionLabel,
+    this.spotifyCatalogTitle =
+        'Sanat\u00e7\u0131n\u0131n Spotify Katalo\u011fu',
+    this.onSpotifyTracksChanged,
   });
+
+  Future<bool> persistSpotifyTracks(
+    BuildContext context,
+    List<SpotifyTrackPreview> tracks,
+  ) async {
+    final callback = onSpotifyTracksChanged;
+    if (callback != null) return callback(tracks);
+
+    final cubit = context.read<MusicianProfileCubit>();
+    await cubit.updateProfile(
+      MusicianProfileSaveRequest(
+        spotifyTrackIds: tracks.map((track) => track.id).toList(),
+        spotifyTracks: tracks.map(_trackToSaveJson).toList(),
+      ),
+    );
+    return cubit.state.status != MusicianProfileStatus.failure;
+  }
 
   Map<String, dynamic> _trackToSaveJson(SpotifyTrackPreview track) {
     return {

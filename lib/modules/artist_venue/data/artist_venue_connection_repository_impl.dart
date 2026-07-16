@@ -176,6 +176,18 @@ class ArtistVenueConnectionRepositoryImpl
     );
   }
 
+  @override
+  Future<Result<void>> createVenueBandRequest({
+    required String bandId,
+    required String venueId,
+    required String message,
+  }) async {
+    return _createRequest(
+      requestByType: 'VENUE',
+      body: {'bandId': bandId, 'venueId': venueId, 'message': message},
+    );
+  }
+
   Future<Result<void>> _createRequest({
     required String requestByType,
     required Map<String, dynamic> body,
@@ -330,6 +342,54 @@ class ArtistVenueConnectionRepositoryImpl
         const AppError(
           code: 'musician_venue_applications_unknown',
           message: 'Mekan basvurulari getirilemedi',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<List<ArtistVenueApplication>>> listBandVenueApplications(
+    String bandId,
+  ) async {
+    try {
+      final response = await _apiClient.get<List<ArtistVenueApplication>>(
+        ArtistVenueConnectionEndpoints.byBand(bandId),
+        decoder: (json) {
+          final list =
+              (json as List<dynamic>? ?? const [])
+                  .whereType<Map<String, dynamic>>()
+                  .map(ArtistVenueConnectionResponse.fromJson)
+                  .map(
+                    (item) => ArtistVenueApplication(
+                      id: item.id,
+                      musicianProfileId: item.musicianProfileId,
+                      bandId: item.bandId,
+                      venueId: item.venueId,
+                      musicianStageName: item.musicianStageName ?? '',
+                      bandName: item.bandName ?? '',
+                      bandProfilePictureUrl: item.bandProfilePictureUrl,
+                      venueProfilePictureUrl: item.venueProfilePictureUrl,
+                      venueName: item.venueName ?? 'Mekan',
+                      message: item.message,
+                      status: item.status ?? 'PENDING',
+                      requestByType: item.requestByType ?? 'BAND',
+                      createdAt: item.createdAt ?? '',
+                    ),
+                  )
+                  .where((item) => item.id.isNotEmpty)
+                  .toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        },
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'band_venue_applications_unknown',
+          message: 'Band mekan basvurulari getirilemedi',
         ),
       );
     }

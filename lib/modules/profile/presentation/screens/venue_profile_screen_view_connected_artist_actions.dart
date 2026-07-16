@@ -14,37 +14,52 @@ extension _VenueProfileViewStateConnectedArtistActions
           false;
       if (!acceptedIntro || !mounted) return;
 
-      final accepted = await _fetchArtistConnectionsByStatus(
-        venueId,
-        status: 'ACCEPTED',
-      );
-      final pending = await _fetchArtistConnectionsByStatus(
-        venueId,
-        status: 'PENDING',
-      );
+      final applicationsResult = await _artistVenueRepository
+          .listVenueApplications(venueId);
+      if (!applicationsResult.isSuccess || applicationsResult.data == null) {
+        throw applicationsResult.error?.message ?? 'Baglanti listesi alinamadi';
+      }
       if (!mounted) return;
 
-      final acceptedIds = accepted
-          .map((item) => item.musicianProfileId)
+      final acceptedIds = applicationsResult.data!
+          .where((item) => item.status.trim().toUpperCase() == 'ACCEPTED')
+          .map(_connectionKeyForApplication)
+          .where((id) => id.isNotEmpty)
           .toSet();
-      final pendingIds = pending.map((item) => item.musicianProfileId).toSet();
+      final pendingIds = applicationsResult.data!
+          .where((item) => item.status.trim().toUpperCase() == 'PENDING')
+          .map(_connectionKeyForApplication)
+          .where((id) => id.isNotEmpty)
+          .toSet();
       final selected = await showConnectedArtistRequestBottomSheet(
         context: context,
         acceptedIds: acceptedIds,
         pendingIds: pendingIds,
-        searchMusicians: (query) async {
-          final result = await _musicianSearchRepository.search(query);
-          return result.data ?? const <MusicianSearchOption>[];
+        searchArtists: (query) async {
+          final result = await _profileSearchRepository.searchProfiles(query);
+          return (result.data ?? const <ProfileSearchResult>[])
+              .where(
+                (item) =>
+                    item.type == ProfileSearchResultType.musician ||
+                    item.type == ProfileSearchResultType.band,
+              )
+              .toList(growable: false);
         },
       );
 
       if (selected == null) return;
 
-      final requestResult = await _artistVenueRepository.createVenueRequest(
-        musicianProfileId: selected.musicianProfileId,
-        venueId: venueId,
-        message: selected.message,
-      );
+      final requestResult = selected.type == ConnectedArtistType.band
+          ? await _artistVenueRepository.createVenueBandRequest(
+              bandId: selected.targetId,
+              venueId: venueId,
+              message: selected.message,
+            )
+          : await _artistVenueRepository.createVenueRequest(
+              musicianProfileId: selected.targetId,
+              venueId: venueId,
+              message: selected.message,
+            );
       if (!requestResult.isSuccess) {
         throw requestResult.error?.message ?? 'Request failed';
       }
@@ -59,5 +74,13 @@ extension _VenueProfileViewStateConnectedArtistActions
         SnackBar(content: Text('Sanatci baglantisi guncellenemedi: $e')),
       );
     }
+  }
+
+  String _connectionKeyForApplication(ArtistVenueApplication application) {
+    final bandId = application.bandId.trim();
+    if (bandId.isNotEmpty) return 'BAND:$bandId';
+    final musicianId = application.musicianProfileId.trim();
+    if (musicianId.isNotEmpty) return 'MUSICIAN:$musicianId';
+    return '';
   }
 }

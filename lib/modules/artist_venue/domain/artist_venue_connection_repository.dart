@@ -27,6 +27,11 @@ abstract class ArtistVenueConnectionRepository {
     required String venueId,
     required String message,
   });
+  Future<Result<void>> createVenueBandRequest({
+    required String bandId,
+    required String venueId,
+    required String message,
+  });
   Future<Result<List<VenueConnection>>> getVenueConnectionsByBandStatus(
     String bandId, {
     required String status,
@@ -36,6 +41,9 @@ abstract class ArtistVenueConnectionRepository {
   );
   Future<Result<List<ArtistVenueApplication>>> listMusicianVenueApplications(
     String musicianProfileId,
+  );
+  Future<Result<List<ArtistVenueApplication>>> listBandVenueApplications(
+    String bandId,
   );
   Future<Result<void>> acceptRequest(String requestId);
   Future<Result<void>> rejectRequest(String requestId);

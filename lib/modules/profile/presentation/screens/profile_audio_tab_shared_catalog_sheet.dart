@@ -30,21 +30,14 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
     List<SpotifyTrackPreview> nextTracks, {
     required String failureMessage,
   }) async {
-    final nextTrackIds = nextTracks.map((e) => e.id).toList();
-    final nextTrackMaps = nextTracks
-        .map((track) => widget.tab._trackToSaveJson(track))
-        .toList();
-    final cubit = widget.hostContext.read<MusicianProfileCubit>();
-    await cubit.updateProfile(
-      MusicianProfileSaveRequest(
-        spotifyTrackIds: nextTrackIds,
-        spotifyTracks: nextTrackMaps,
-      ),
+    final saved = await widget.tab.persistSpotifyTracks(
+      widget.hostContext,
+      nextTracks,
     );
     if (!mounted) return false;
-    if (cubit.state.status == MusicianProfileStatus.failure) {
+    if (!saved) {
       setState(() {
-        _feedbackText = cubit.state.error?.message ?? failureMessage;
+        _feedbackText = failureMessage;
         _feedbackIsError = true;
       });
       return false;
@@ -138,7 +131,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Sanatçının Spotify Kataloğu',
+                      widget.tab.spotifyCatalogTitle,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,

@@ -11,27 +11,12 @@ extension _ProfileAudioTabSpotifyCatalogMethods on ProfileAudioTab {
     final nextTracks = baseTracks.where((e) => e.id != trackId).toList();
     if (nextTracks.length == baseTracks.length) return false;
 
-    final nextTrackIds = nextTracks.map((e) => e.id).toList();
-    final nextTrackMaps = nextTracks
-        .map((track) => _trackToSaveJson(track))
-        .toList();
-
-    final cubit = context.read<MusicianProfileCubit>();
-    await cubit.updateProfile(
-      MusicianProfileSaveRequest(
-        spotifyTrackIds: nextTrackIds,
-        spotifyTracks: nextTrackMaps,
-      ),
-    );
+    final saved = await persistSpotifyTracks(context, nextTracks);
     if (!context.mounted) return false;
-    if (cubit.state.status == MusicianProfileStatus.failure) {
+    if (!saved) {
       if (showSnackbar) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              cubit.state.error?.message ?? 'Spotify parçası silinemedi.',
-            ),
-          ),
+          const SnackBar(content: Text('Spotify parçası silinemedi.')),
         );
       }
       return false;

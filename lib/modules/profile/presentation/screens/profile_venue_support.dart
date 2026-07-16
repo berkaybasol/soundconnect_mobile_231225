@@ -26,12 +26,16 @@ class VenueRequestPayload {
   const VenueRequestPayload({required this.venueId, required this.message});
 }
 
-class MusicianRequestPayload {
-  final String musicianProfileId;
+enum ConnectedArtistType { musician, band }
+
+class ConnectedArtistRequestPayload {
+  final ConnectedArtistType type;
+  final String targetId;
   final String message;
 
-  const MusicianRequestPayload({
-    required this.musicianProfileId,
+  const ConnectedArtistRequestPayload({
+    required this.type,
+    required this.targetId,
     required this.message,
   });
 }

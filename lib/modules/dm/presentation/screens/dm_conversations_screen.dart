@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/app_route_guard.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -22,15 +24,24 @@ import '../../data/dm_auth_support.dart';
 import '../../domain/entities/dm_conversation_preview.dart';
 import '../cubit/dm_conversations_cubit.dart';
 import '../cubit/dm_conversations_state.dart';
+import '../cubit/dm_badge_cubit.dart';
 import 'dm_chat_screen.dart';
+import 'dm_tab_labels.dart';
 
 class DmConversationsScreen extends StatelessWidget {
   DmConversationsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => serviceLocator<DmConversationsCubit>()..load(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => serviceLocator<DmConversationsCubit>()..load(),
+        ),
+        BlocProvider<DmBadgeCubit>.value(
+          value: serviceLocator<DmBadgeCubit>()..ensureStarted(),
+        ),
+      ],
       child: _DmConversationsView(),
     );
   }
@@ -427,12 +438,28 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _exitMessages() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    final session = serviceLocator<AuthSessionManager>().session;
+    final destination = AppRouteGuard.startRouteFor(session);
+    navigator.pushNamedAndRemoveUntil(destination, (_) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            tooltip: 'Mesajlardan cik',
+            onPressed: _exitMessages,
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -457,9 +484,9 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
               icon: Icon(Icons.refresh_rounded),
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'Birincil Mesajlar'),
+              const DmPrimaryMessagesTab(),
               Tab(text: 'Müzik Birleştirir!'),
             ],
           ),
@@ -564,9 +591,7 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
           children: [
-            _SearchInfo(
-              text: 'Müzik Birleştirir! için aktif masa bulunamadı',
-            ),
+            _SearchInfo(text: 'Müzik Birleştirir! için aktif masa bulunamadı'),
           ],
         ),
       );

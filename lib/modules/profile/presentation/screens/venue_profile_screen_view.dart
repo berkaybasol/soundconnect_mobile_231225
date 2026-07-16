@@ -16,7 +16,7 @@ class _MusicianPublicProfileViewState
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   final _artistVenueRepository =
       serviceLocator<ArtistVenueConnectionRepository>();
-  final _musicianSearchRepository = serviceLocator<MusicianSearchRepository>();
+  final _profileSearchRepository = serviceLocator<ProfileSearchRepository>();
   final _venueEventRepository = serviceLocator<VenueEventRepository>();
   String? _viewerUserId;
   String? _currentProfileUserId;

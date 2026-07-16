@@ -41,15 +41,4 @@ extension _VenueProfileViewStateProfileActions
       ),
     );
   }
-
-  Future<List<MusicianConnection>> _fetchArtistConnectionsByStatus(
-    String venueId, {
-    required String status,
-  }) async {
-    final result = await _artistVenueRepository.getMusicianConnectionsByStatus(
-      venueId,
-      status: status,
-    );
-    return result.data ?? const [];
-  }
 }

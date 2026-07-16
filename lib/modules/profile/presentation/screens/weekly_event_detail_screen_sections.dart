@@ -17,10 +17,13 @@ class _HeroHeader extends StatelessWidget {
             onTap: onImageTap,
             child: event.imageAssetPath != null
                 ? _isNetworkLikePath(event.imageAssetPath)
-                      ? Image.network(
-                          event.imageAssetPath!,
+                      ? AppCachedNetworkImage(
+                          imageUrl: event.imageAssetPath,
+                          width: double.infinity,
+                          height: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _imageFallback(context),
+                          cacheProfile: AppImageCacheProfile.original,
+                          errorBuilder: (context) => _imageFallback(context),
                         )
                       : Image.asset(
                           event.imageAssetPath!,

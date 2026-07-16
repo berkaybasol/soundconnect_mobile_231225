@@ -1,13 +1,10 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../domain/track_management_repository.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'profile_audio_file_support.dart';
 import 'profile_screen_support.dart';
@@ -21,6 +18,8 @@ Future<void> showProfileTrackUploadSheet({
   final messenger = ScaffoldMessenger.of(hostContext);
   String? pickedPath;
   Uint8List? pickedBytes;
+  Stream<List<int>>? pickedStream;
+  int? pickedSize;
   String? pickedName;
   final titleController = TextEditingController();
   bool uploading = false;
@@ -40,7 +39,8 @@ Future<void> showProfileTrackUploadSheet({
           Future<void> pickAudio() async {
             final result = await FilePicker.pickFiles(
               type: FileType.custom,
-              withData: true,
+              withData: false,
+              withReadStream: true,
               allowMultiple: false,
               allowedExtensions: [
                 'mp3',
@@ -67,6 +67,8 @@ Future<void> showProfileTrackUploadSheet({
             setSheetState(() {
               pickedPath = file.path;
               pickedBytes = file.bytes;
+              pickedStream = file.readStream;
+              pickedSize = file.size;
               pickedName = name;
               if (titleController.text.trim().isEmpty) {
                 titleController.text = profileAudioTitleFromFileName(name);
@@ -115,41 +117,48 @@ Future<void> showProfileTrackUploadSheet({
             });
 
             try {
-              final bytes = bytesFromPicker ?? await File(path!).readAsBytes();
-              if (bytes.isEmpty) {
-                throw Exception('Dosya okunamadi');
-              }
+              final source = await createProfileUploadSource(
+                filePath: path,
+                bytes: bytesFromPicker,
+                readStream: pickedStream,
+                sizeBytes: pickedSize,
+              );
               final mimeType = profileAudioMimeTypeFromFileName(name);
 
               step = 'init-upload';
               final completed = await uploadProfileMediaAsset(
-                bytes: bytes,
+                source: source,
                 ownerType: ownerType,
                 ownerId: profileId,
                 mediaKind: 'AUDIO',
                 mimeType: mimeType,
                 originalFileName: name,
+                attachmentIntent: ProfileUploadAttachmentIntent.track(
+                  ownerType: ownerType,
+                  title: title,
+                ),
+                onStageChanged: (stage) {
+                  if (!sheetContext.mounted) return;
+                  final label = switch (stage) {
+                    ProfileUploadStage.initializing => 'Yukleme hazirlaniyor',
+                    ProfileUploadStage.uploading => 'Ses dosyasi yukleniyor',
+                    ProfileUploadStage.verifying => 'Ses dosyasi dogrulaniyor',
+                    ProfileUploadStage.attaching => 'Sarki profile ekleniyor',
+                    ProfileUploadStage.backgroundProcessing =>
+                      'Sarki arka planda hazirlaniyor',
+                    ProfileUploadStage.completed => 'Sarki hazir',
+                  };
+                  setSheetState(() {
+                    infoText = label;
+                    infoError = false;
+                  });
+                },
               );
 
               step = 'complete-upload';
               final mediaAssetId = completed.uuid.trim();
               if (mediaAssetId.isEmpty) {
                 throw Exception('Media asset id alinamadi');
-              }
-
-              step = 'track olusturma';
-              final trackManagementRepository =
-                  serviceLocator<TrackManagementRepository>();
-              final trackResult = await trackManagementRepository.createTrack(
-                profileId: profileId,
-                ownerType: ownerType,
-                mediaAssetId: mediaAssetId,
-                title: title,
-              );
-              if (!trackResult.isSuccess) {
-                throw Exception(
-                  trackResult.error?.message ?? 'Track olusturulamadi',
-                );
               }
 
               try {

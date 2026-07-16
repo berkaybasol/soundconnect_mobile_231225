@@ -27,14 +27,21 @@ class NotificationCubit extends Cubit<NotificationState> {
   StreamSubscription<int>? _badgeSubscription;
   String? _startedUserId;
   Future<void>? _startInFlight;
+  int _lifecycleGeneration = 0;
 
   Future<void> ensureStarted() async {
+    final requestGeneration = _lifecycleGeneration;
     final inFlight = _startInFlight;
     if (inFlight != null) {
       await inFlight;
-      return;
+      if (!_isCurrent(requestGeneration) ||
+          _startedUserId != null ||
+          state.initialized) {
+        return;
+      }
     }
-    final startFuture = _ensureStartedInternal();
+    if (!_isCurrent(requestGeneration)) return;
+    final startFuture = _ensureStartedInternal(requestGeneration);
     _startInFlight = startFuture;
     try {
       await startFuture;
@@ -45,8 +52,9 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
   }
 
-  Future<void> _ensureStartedInternal() async {
+  Future<void> _ensureStartedInternal(int generation) async {
     final currentUserId = await resolveNotificationUserId(_tokenStore);
+    if (!_isCurrent(generation)) return;
     if (currentUserId == null || currentUserId.trim().isEmpty) {
       _startedUserId = null;
       emit(state.copyWith(initialized: true));
@@ -57,24 +65,41 @@ class NotificationCubit extends Cubit<NotificationState> {
 
     await _notificationSubscription?.cancel();
     await _badgeSubscription?.cancel();
+    if (!_isCurrent(generation)) return;
     _notificationSubscription = null;
     _badgeSubscription = null;
 
-    _notificationSubscription = _realtimeClient.notificationStream.listen(
-      _onRealtimeNotification,
-    );
+    _notificationSubscription = _realtimeClient.notificationStream.listen((
+      notification,
+    ) {
+      if (_isCurrent(generation)) _onRealtimeNotification(notification);
+    });
     _badgeSubscription = _realtimeClient.badgeStream.listen((count) {
-      emit(state.copyWith(unreadCount: count.clamp(0, 999999)));
+      if (_isCurrent(generation)) {
+        emit(state.copyWith(unreadCount: count.clamp(0, 999999)));
+      }
     });
 
     final token = await readNotificationAuthToken(_tokenStore);
+    if (!_isCurrent(generation)) return;
     if (token != null) {
-      await _realtimeClient.connect(userId: currentUserId, token: token);
+      try {
+        await _realtimeClient.connect(userId: currentUserId, token: token);
+      } catch (_) {
+        // REST notifications remain available when realtime is unavailable.
+      }
     }
-    await refresh();
+    if (!_isCurrent(generation)) {
+      await _realtimeClient.disconnect();
+      return;
+    }
+    await _refresh(generation);
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh() => _refresh(_lifecycleGeneration);
+
+  Future<void> _refresh(int generation) async {
+    if (!_isCurrent(generation)) return;
     emit(
       state.copyWith(
         status: NotificationStatus.loading,
@@ -83,7 +108,9 @@ class NotificationCubit extends Cubit<NotificationState> {
       ),
     );
     final unreadResult = await _repository.getUnreadCount();
+    if (!_isCurrent(generation)) return;
     final pageResult = await _repository.listNotifications();
+    if (!_isCurrent(generation)) return;
 
     if (!pageResult.isSuccess || pageResult.data == null) {
       emit(
@@ -242,6 +269,21 @@ class NotificationCubit extends Cubit<NotificationState> {
     );
   }
 
+  Future<void> stop() async {
+    _lifecycleGeneration += 1;
+    _startedUserId = null;
+    await _notificationSubscription?.cancel();
+    await _badgeSubscription?.cancel();
+    _notificationSubscription = null;
+    _badgeSubscription = null;
+    await _realtimeClient.disconnect();
+    if (!isClosed) emit(const NotificationState.initial());
+  }
+
+  bool _isCurrent(int generation) {
+    return !isClosed && generation == _lifecycleGeneration;
+  }
+
   void _onRealtimeNotification(AppNotification notification) {
     final existingIndex = state.items.indexWhere(
       (item) => item.id == notification.id,
@@ -269,8 +311,7 @@ class NotificationCubit extends Cubit<NotificationState> {
 
   @override
   Future<void> close() async {
-    await _notificationSubscription?.cancel();
-    await _badgeSubscription?.cancel();
+    await stop();
     await _realtimeClient.release();
     return super.close();
   }

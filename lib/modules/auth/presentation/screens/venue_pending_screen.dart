@@ -3,6 +3,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 
 class VenuePendingScreen extends StatelessWidget {
@@ -152,7 +154,9 @@ class VenuePendingScreen extends StatelessWidget {
                 SizedBox(height: 28),
                 _GradientOutlineButton(
                   label: 'Giriş ekranına dön',
-                  onTap: () {
+                  onTap: () async {
+                    await serviceLocator<AuthSessionManager>().logout();
+                    if (!context.mounted) return;
                     Navigator.pushNamedAndRemoveUntil(
                       context,
                       AppRoutes.login,

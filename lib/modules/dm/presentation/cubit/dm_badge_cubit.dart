@@ -25,14 +25,23 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
   StreamSubscription<int>? _badgeSubscription;
   String? _startedUserId;
   Future<void>? _startInFlight;
+  int _lifecycleGeneration = 0;
+  int _badgeRevision = 0;
+  bool _realtimeReady = false;
 
   Future<void> ensureStarted() async {
+    final requestGeneration = _lifecycleGeneration;
     final inFlight = _startInFlight;
     if (inFlight != null) {
       await inFlight;
-      return;
+      if (!_isCurrent(requestGeneration) ||
+          _startedUserId != null ||
+          state.initialized) {
+        return;
+      }
     }
-    final startFuture = _ensureStartedInternal();
+    if (!_isCurrent(requestGeneration)) return;
+    final startFuture = _ensureStartedInternal(requestGeneration);
     _startInFlight = startFuture;
     try {
       await startFuture;
@@ -43,53 +52,100 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
     }
   }
 
-  Future<void> _ensureStartedInternal() async {
+  Future<void> _ensureStartedInternal(int generation) async {
     final currentUserId = await resolveCurrentUserId(_tokenStore);
+    if (!_isCurrent(generation)) return;
     if (currentUserId == null || currentUserId.trim().isEmpty) {
       _startedUserId = null;
       emit(state.copyWith(initialized: true));
       return;
     }
     if (_startedUserId == currentUserId && state.initialized) {
+      if (!_realtimeReady) {
+        await _connectRealtime(currentUserId, generation);
+      }
       return;
     }
     _startedUserId = currentUserId;
+    _realtimeReady = false;
     await _badgeSubscription?.cancel();
-    _badgeSubscription = null;
-
-    final token = await readAuthToken(_tokenStore);
-    if (token != null) {
-      await _realtimeClient.connect(userId: currentUserId, token: token);
-    }
-
+    if (!_isCurrent(generation)) return;
     _badgeSubscription = _realtimeClient.badgeStream.listen((count) {
-      emit(state.copyWith(unreadCount: count, initialized: true));
+      if (_isCurrent(generation)) {
+        _badgeRevision += 1;
+        emit(
+          state.copyWith(
+            unreadCount: count.clamp(0, 999999),
+            initialized: true,
+          ),
+        );
+      }
     });
 
-    final seed = await _seedUnreadFromConversations(currentUserId);
-    emit(state.copyWith(unreadCount: seed, initialized: true));
+    await _connectRealtime(currentUserId, generation);
+    if (!_isCurrent(generation)) {
+      await _realtimeClient.disconnect();
+      return;
+    }
+
+    await _seedUnreadCount(generation);
   }
 
-  Future<int> _seedUnreadFromConversations(String currentUserId) async {
-    final result = await _repository.getMyConversations();
-    if (!result.isSuccess || result.data == null) {
-      return state.unreadCount;
+  Future<void> _connectRealtime(String userId, int generation) async {
+    final token = await readAuthToken(_tokenStore);
+    if (!_isCurrent(generation)) return;
+    if (token == null) {
+      _realtimeReady = false;
+      return;
     }
-    // Backend listesinde sadece son mesaj okundu bilgisi oldugu icin
-    // burada "okunmamis konusma" sayisini seed olarak kullaniyoruz.
-    final count = result.data!
-        .where(
-          (item) =>
-              item.lastMessageRead == false &&
-              (item.lastMessageSenderId?.trim() ?? '') != currentUserId,
-        )
-        .length;
-    return count;
+
+    try {
+      await _realtimeClient.connect(userId: userId, token: token);
+    } catch (_) {
+      if (_isCurrent(generation)) _realtimeReady = false;
+      return;
+    }
+
+    if (!_isCurrent(generation)) {
+      await _realtimeClient.disconnect();
+      return;
+    }
+    _realtimeReady = true;
+  }
+
+  Future<void> _seedUnreadCount(int generation) async {
+    final revisionBeforeRequest = _badgeRevision;
+    final result = await _repository.getUnreadCount();
+    if (!_isCurrent(generation)) return;
+
+    // A realtime update that arrives while REST is in flight is newer and
+    // must not be overwritten by the seed response.
+    if (_badgeRevision != revisionBeforeRequest) return;
+
+    final count = result.isSuccess && result.data != null
+        ? result.data!.clamp(0, 999999)
+        : state.unreadCount;
+    emit(state.copyWith(unreadCount: count, initialized: true));
+  }
+
+  Future<void> stop() async {
+    _lifecycleGeneration += 1;
+    _badgeRevision = 0;
+    _realtimeReady = false;
+    _startedUserId = null;
+    await _badgeSubscription?.cancel();
+    _badgeSubscription = null;
+    await _realtimeClient.disconnect();
+    if (!isClosed) emit(const DmBadgeState.initial());
+  }
+
+  bool _isCurrent(int generation) {
+    return !isClosed && generation == _lifecycleGeneration;
   }
 
   @override
   Future<void> close() async {
-    await _badgeSubscription?.cancel();
+    await stop();
     await _realtimeClient.release();
     return super.close();
   }

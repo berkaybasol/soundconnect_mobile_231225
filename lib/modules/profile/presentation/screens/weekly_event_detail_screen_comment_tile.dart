@@ -39,10 +39,14 @@ class _CommentTile extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               alignment: Alignment.center,
               child: (comment.user.avatarUrl?.trim().isNotEmpty ?? false)
-                  ? Image.network(
-                      comment.user.avatarUrl!.trim(),
+                  ? AppCachedNetworkImage(
+                      imageUrl: comment.user.avatarUrl,
+                      width: 30,
+                      height: 30,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Text(
+                      cacheWidth: 90,
+                      cacheHeight: 90,
+                      errorBuilder: (context) => Text(
                         comment.user.username.isNotEmpty
                             ? comment.user.username[0]
                             : '?',
@@ -154,10 +158,14 @@ class _CommentTile extends StatelessWidget {
                                                 ?.trim()
                                                 .isNotEmpty ??
                                             false)
-                                        ? Image.network(
-                                            reply.user.avatarUrl!.trim(),
+                                        ? AppCachedNetworkImage(
+                                            imageUrl: reply.user.avatarUrl,
+                                            width: 24,
+                                            height: 24,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Text(
+                                            cacheWidth: 72,
+                                            cacheHeight: 72,
+                                            errorBuilder: (context) => Text(
                                               reply.user.username.isNotEmpty
                                                   ? reply.user.username[0]
                                                   : '?',

@@ -557,18 +557,28 @@ class _MusicianVenueApplicationsSheetState
                           backgroundColor: Theme.of(
                             context,
                           ).colorScheme.surfaceContainer,
-                          backgroundImage:
-                              _isValidImageUrl(item.venueProfilePictureUrl)
-                              ? NetworkImage(item.venueProfilePictureUrl!)
-                              : null,
-                          child: !_isValidImageUrl(item.venueProfilePictureUrl)
-                              ? Icon(
-                                  Icons.storefront_outlined,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                )
-                              : null,
+                          child: ClipOval(
+                            child: _isValidImageUrl(item.venueProfilePictureUrl)
+                                ? AppCachedNetworkImage(
+                                    imageUrl: item.venueProfilePictureUrl,
+                                    width: 40,
+                                    height: 40,
+                                    cacheWidth: 120,
+                                    cacheHeight: 120,
+                                    errorBuilder: (context) => Icon(
+                                      Icons.storefront_outlined,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.storefront_outlined,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(

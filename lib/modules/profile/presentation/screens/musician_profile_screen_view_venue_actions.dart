@@ -5,6 +5,7 @@ extension _MusicianProfileViewStateVenueActions
   Future<void> _editVenues(String profileId) async {
     try {
       if (await shouldShowVenueConnectionIntro()) {
+        if (!mounted) return;
         final acceptedIntro =
             await Navigator.of(context).push<bool>(
               MaterialPageRoute(

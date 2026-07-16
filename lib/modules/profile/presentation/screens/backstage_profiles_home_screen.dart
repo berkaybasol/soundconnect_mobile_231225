@@ -1,11 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/auth/token_store.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/session_logout_action.dart';
 import 'backstage_profile_search_sheet.dart';
 import 'musician_profile_screen.dart';
 import 'profile_public_bottom_bar.dart';
@@ -101,6 +100,18 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
                           },
                         ),
                         const Spacer(),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.logout),
+                          title: const Text(
+                            'Oturumu Kapat',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          onTap: () async {
+                            Navigator.of(dialogContext).pop();
+                            await confirmAndLogoutSession(context);
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -130,33 +141,13 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _openBackstageProfile(BuildContext context) async {
-    final token = await serviceLocator<TokenStore>().readToken();
-    if (!context.mounted) return;
-    final roles = _rolesFromToken(
-      token,
-    ).map((role) => role.trim().toUpperCase()).toSet();
-    if (roles.contains('ROLE_VENUE') || roles.contains('VENUE')) {
-      Navigator.of(context).pushNamed(AppRoutes.venueProfile);
-      return;
-    }
-    if (roles.contains('ROLE_LISTENER') || roles.contains('LISTENER')) {
-      Navigator.of(context).pushNamed(AppRoutes.listenerProfile);
-      return;
-    }
-    if (roles.contains('ROLE_STUDIO') || roles.contains('STUDIO')) {
-      Navigator.of(context).pushNamed(AppRoutes.studioProfile);
-      return;
-    }
-    Navigator.of(context).pushNamed(AppRoutes.musicianProfile);
-  }
-
   Future<void> _openBackstageManagementPanel(BuildContext context) async {
-    final token = await serviceLocator<TokenStore>().readToken();
-    if (!context.mounted) return;
-    final roles = _rolesFromToken(
-      token,
-    ).map((role) => role.trim().toUpperCase()).toSet();
+    final session = serviceLocator<AuthSessionManager>().session;
+    final roles = session.normalizedRoles;
+    if (session.isAdmin) {
+      Navigator.of(context).pushNamed(AppRoutes.adminDashboard);
+      return;
+    }
     if (roles.contains('ROLE_MUSICIAN') || roles.contains('MUSICIAN')) {
       Navigator.of(context).pushNamed(
         AppRoutes.musicianProfile,
@@ -176,38 +167,19 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
       Navigator.of(context).pushNamed(AppRoutes.studioProfile);
       return;
     }
-    Navigator.of(context).pushNamed(
-      AppRoutes.musicianProfile,
-      arguments: const MusicianProfileScreenArgs(openManagementPanel: true),
+    final isPlannedRole =
+        roles.contains('ROLE_PRODUCER') ||
+        roles.contains('PRODUCER') ||
+        roles.contains('ROLE_ORGANIZER') ||
+        roles.contains('ORGANIZER');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isPlannedRole
+              ? 'Bu rolun yonetim alani henuz hazir degil.'
+              : 'Bu hesap icin uygun yonetim alani bulunamadi.',
+        ),
+      ),
     );
-  }
-
-  List<String> _rolesFromToken(String? token) {
-    final raw = token?.trim() ?? '';
-    if (raw.isEmpty) return const [];
-    final parts = raw.split('.');
-    if (parts.length < 2) return const [];
-    try {
-      final payload = utf8.decode(
-        base64Url.decode(base64Url.normalize(parts[1])),
-      );
-      final map = jsonDecode(payload);
-      if (map is! Map<String, dynamic>) return const [];
-      final rolesValue = map['roles'] ?? map['authorities'] ?? map['role'];
-      if (rolesValue is List) {
-        return rolesValue
-            .map((role) => role.toString().trim())
-            .where((role) => role.isNotEmpty)
-            .toList();
-      }
-      if (rolesValue is String) {
-        return rolesValue
-            .split(',')
-            .map((role) => role.trim())
-            .where((role) => role.isNotEmpty)
-            .toList();
-      }
-    } catch (_) {}
-    return const [];
   }
 }

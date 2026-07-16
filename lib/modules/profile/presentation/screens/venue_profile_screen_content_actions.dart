@@ -29,9 +29,9 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: const [
-                        SizedBox(height: 8),
-                        Opacity(
+                      children: [
+                        const SizedBox(height: 8),
+                        const Opacity(
                           opacity: 0.72,
                           child: ListTile(
                             enabled: false,
@@ -39,7 +39,7 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
                             title: Text('Ayarlar'),
                           ),
                         ),
-                        Opacity(
+                        const Opacity(
                           opacity: 0.72,
                           child: ListTile(
                             enabled: false,
@@ -47,7 +47,7 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
                             title: Text('Basvurularim'),
                           ),
                         ),
-                        Opacity(
+                        const Opacity(
                           opacity: 0.72,
                           child: ListTile(
                             enabled: false,
@@ -55,7 +55,19 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
                             title: Text('Gruplarim'),
                           ),
                         ),
-                        Spacer(),
+                        const Spacer(),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.logout),
+                          title: const Text(
+                            'Oturumu Kapat',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          onTap: () async {
+                            Navigator.of(dialogContext).pop();
+                            await confirmAndLogoutSession(context);
+                          },
+                        ),
                       ],
                     ),
                   ),

@@ -203,26 +203,34 @@ class _ConnectedArtistRequestSheetState
                                       backgroundColor: Theme.of(
                                         context,
                                       ).colorScheme.surfaceContainer,
-                                      backgroundImage:
-                                          isValidNetworkImageUrl(
-                                            item.profilePictureUrl,
-                                          )
-                                          ? NetworkImage(
-                                              item.profilePictureUrl!,
+                                      child: ClipOval(
+                                        child:
+                                            isValidNetworkImageUrl(
+                                              item.profilePictureUrl,
                                             )
-                                          : null,
-                                      child:
-                                          !isValidNetworkImageUrl(
-                                            item.profilePictureUrl,
-                                          )
-                                          ? Icon(
-                                              Icons.person_outline,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                              size: 18,
-                                            )
-                                          : null,
+                                            ? AppCachedNetworkImage(
+                                                imageUrl:
+                                                    item.profilePictureUrl,
+                                                width: 36,
+                                                height: 36,
+                                                cacheWidth: 108,
+                                                cacheHeight: 108,
+                                                errorBuilder: (context) => Icon(
+                                                  Icons.person_outline,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                  size: 18,
+                                                ),
+                                              )
+                                            : Icon(
+                                                Icons.person_outline,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                                size: 18,
+                                              ),
+                                      ),
                                     ),
                                     SizedBox(width: 12),
                                     Expanded(

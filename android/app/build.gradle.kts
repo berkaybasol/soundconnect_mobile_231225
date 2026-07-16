@@ -18,6 +18,15 @@ val hasReleaseSigning = keystorePropertiesFile.exists() &&
     listOf("storeFile", "storePassword", "keyAlias", "keyPassword").all {
         !keystoreProperties.getProperty(it).isNullOrBlank()
     }
+val requestedReleaseBuild = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+if (requestedReleaseBuild && !hasReleaseSigning) {
+    throw GradleException(
+        "Release signing is not configured. Add android/key.properties with " +
+            "storeFile, storePassword, keyAlias and keyPassword."
+    )
+}
 
 android {
     namespace = "com.berkayb.soundconnect.soundconnect_23_12_25codx"
@@ -53,12 +62,8 @@ android {
 
     buildTypes {
         release {
-            // Prefer release signing when key.properties is present, otherwise
-            // keep debug signing for local development.
-            signingConfig = if (hasReleaseSigning) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }

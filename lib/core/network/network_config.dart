@@ -30,7 +30,7 @@ String resolveNetworkBaseUrl({
 
   if (trimmed.isEmpty) {
     if (isDebugBuild && allowDebugFallback) {
-      return debugFallbackBaseUrl;
+      return _withoutTrailingSlash(debugFallbackBaseUrl.trim());
     }
     throw StateError(
       'Missing SOUNDCONNECT_BASE_URL. Pass '
@@ -49,5 +49,9 @@ String resolveNetworkBaseUrl({
     );
   }
 
-  return trimmed;
+  return _withoutTrailingSlash(trimmed);
+}
+
+String _withoutTrailingSlash(String value) {
+  return value.replaceFirst(RegExp(r'/+$'), '');
 }

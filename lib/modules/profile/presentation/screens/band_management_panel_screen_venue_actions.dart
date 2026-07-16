@@ -7,6 +7,7 @@ extension _BandManagementPanelScreenStateVenueActions
     _updateState(() => _submitting = true);
     try {
       if (await shouldShowVenueConnectionIntro()) {
+        if (!mounted) return;
         final acceptedIntro =
             await Navigator.of(context).push<bool>(
               MaterialPageRoute(

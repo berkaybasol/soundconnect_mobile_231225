@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -14,8 +13,10 @@ import '../../../follow/presentation/cubit/follow_action_state.dart';
 import '../../../follow/presentation/cubit/follow_count_cubit.dart';
 import '../../../follow/presentation/cubit/follow_count_state.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/session_logout_action.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_venue_models.dart';
@@ -24,7 +25,6 @@ import '../../domain/entities/venue_active_band.dart';
 import '../../domain/entities/venue_active_musician.dart';
 import '../../domain/entities/venue_owner_profile.dart';
 import '../../domain/musician_search_repository.dart';
-import '../../domain/profile_media_management_repository.dart';
 import '../../domain/venue_event_repository.dart';
 import '../../data/models/venue_profile_save_request.dart';
 import '../cubit/profile_media_cubit.dart';

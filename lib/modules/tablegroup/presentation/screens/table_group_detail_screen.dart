@@ -77,20 +77,34 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen> {
       _loading = true;
       _error = null;
     });
-    _currentUserId = await resolveCurrentUserId(_tokenStore);
-    await _loadDetail();
-    await _loadMessages(reset: true);
-    final token = await readAuthToken(_tokenStore);
-    if (token != null) {
-      await _realtimeClient.connect(
-        tableGroupId: widget.args.tableGroupId,
-        token: token,
-      );
+    try {
+      _currentUserId = await resolveCurrentUserId(_tokenStore);
+      await _loadDetail();
+      await _loadMessages(reset: true);
+      final token = await readAuthToken(_tokenStore);
+      if (token != null) {
+        try {
+          await _realtimeClient.connect(
+            tableGroupId: widget.args.tableGroupId,
+            token: token,
+          );
+        } catch (_) {
+          // Detail and message history remain usable without realtime.
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error ??= 'Masa detaylari yuklenemedi';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-    });
   }
 
   Future<void> _loadDetail() async {

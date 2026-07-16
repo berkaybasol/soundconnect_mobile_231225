@@ -1,4 +1,5 @@
 class AppRoutes {
+  static const adminDashboard = '/admin';
   static const login = '/login';
   static const register = '/register';
   static const otpVerify = '/otp-verify';

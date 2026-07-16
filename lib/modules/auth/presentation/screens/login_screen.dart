@@ -1,16 +1,15 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../app/router/app_route_guard.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_theme_variant.dart';
 import '../../../../shared/theme/theme_controller.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
-import '../../domain/entities/user_status.dart';
+import '../../domain/password_policy.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
@@ -42,16 +41,8 @@ class _LoginScreenState extends State<LoginScreen> {
       listener: (context, state) {
         if (state.action != AuthAction.login) return;
         if (state.status == AuthStatus.success) {
-          if (state.loginResult?.status == UserStatus.pendingVenueRequest) {
-            Navigator.of(
-              context,
-            ).pushNamedAndRemoveUntil(AppRoutes.venuePending, (route) => false);
-            return;
-          }
-          final stageMode = _stageModeFromToken(state.loginResult?.token);
-          final route = stageMode == StageMode.mainstage
-              ? AppRoutes.listenerProfile
-              : AppRoutes.home;
+          final session = serviceLocator<AuthSessionManager>().session;
+          final route = AppRouteGuard.startRouteFor(session);
           Navigator.of(
             context,
           ).pushNamedAndRemoveUntil(route, (route) => false);
@@ -152,23 +143,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? null
                     : () {
                         final username = _usernameController.text.trim();
-                        final password = _passwordController.text.trim();
+                        final password = _passwordController.text;
                         if (username.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('kullanıcı adı boş olamaz')),
                           );
                           return;
                         }
-                        if (password.isEmpty) {
+                        if (PasswordPolicy.isBlank(password)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('şifre boş olamaz')),
                           );
                           return;
                         }
-                        if (password.length < 3 || password.length > 30) {
+                        if (PasswordPolicy.exceedsBcryptLimit(password)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Şifre 3-30 karakter olmalı'),
+                              content: Text(
+                                'Şifre UTF-8 olarak en fazla 72 bayt olmalı',
+                              ),
                             ),
                           );
                           return;
@@ -231,16 +224,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
               SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: () {},
-                icon: Image.asset('assets/google.png', height: 20),
-                label: Text('Google ile devam et'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.onSurface,
-                  side: BorderSide(color: Theme.of(context).dividerColor),
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+              Tooltip(
+                message: 'Google ile giris yakinda kullanima acilacak',
+                child: OutlinedButton.icon(
+                  key: const Key('google-sign-in-unavailable'),
+                  onPressed: null,
+                  icon: Image.asset('assets/google.png', height: 20),
+                  label: Text('Google ile devam et (yakinda)'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    side: BorderSide(color: Theme.of(context).dividerColor),
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
                 ),
               ),
@@ -264,44 +261,5 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       },
     );
-  }
-
-  StageMode _stageModeFromToken(String? token) {
-    final roles = _rolesFromToken(token);
-    return StageModeResolver.fromRoles(roles);
-  }
-
-  List<String> _rolesFromToken(String? token) {
-    final raw = token?.trim() ?? '';
-    if (raw.isEmpty) return const [];
-
-    final parts = raw.split('.');
-    if (parts.length < 2) return const [];
-
-    try {
-      final payload = utf8.decode(
-        base64Url.decode(base64Url.normalize(parts[1])),
-      );
-      final map = jsonDecode(payload);
-      if (map is! Map<String, dynamic>) return const [];
-
-      final dynamic rolesValue =
-          map['roles'] ?? map['authorities'] ?? map['role'];
-      if (rolesValue is List) {
-        return rolesValue
-            .map((role) => role.toString().trim())
-            .where((role) => role.isNotEmpty)
-            .toList();
-      }
-      if (rolesValue is String) {
-        return rolesValue
-            .split(',')
-            .map((role) => role.trim())
-            .where((role) => role.isNotEmpty)
-            .toList();
-      }
-    } catch (_) {}
-
-    return const [];
   }
 }

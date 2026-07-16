@@ -264,10 +264,13 @@ extension _WeeklyEventDetailScreenStateActions
                   child: Center(
                     child: imagePath != null
                         ? _isNetworkLikePath(imagePath)
-                              ? Image.network(
-                                  imagePath,
+                              ? AppCachedNetworkImage(
+                                  imageUrl: imagePath,
+                                  width: double.infinity,
+                                  height: double.infinity,
                                   fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) =>
+                                  cacheProfile: AppImageCacheProfile.original,
+                                  errorBuilder: (context) =>
                                       _imageFallback(context),
                                 )
                               : Image.asset(

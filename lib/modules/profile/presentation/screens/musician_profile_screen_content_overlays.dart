@@ -66,6 +66,18 @@ extension _MusicianPublicProfileContentOverlays
                           },
                         ),
                         const Spacer(),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.logout),
+                          title: const Text(
+                            'Oturumu Kapat',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          onTap: () async {
+                            Navigator.of(dialogContext).pop();
+                            await confirmAndLogoutSession(context);
+                          },
+                        ),
                       ],
                     ),
                   ),

@@ -21,7 +21,7 @@ class GradientOutlineButton extends StatelessWidget {
     final enabledTextColor = theme.colorScheme.onSurface;
     final disabledTextColor = theme.colorScheme.onSurfaceVariant;
     final borderRadius = BorderRadius.circular(18);
-    final isEnabled = onPressed != null;
+    final isEnabled = onPressed != null && !loading;
 
     return CustomPaint(
       painter: _GradientOutlinePainter(
@@ -36,7 +36,7 @@ class GradientOutlineButton extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onPressed,
+            onTap: isEnabled ? onPressed : null,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
               child: Row(

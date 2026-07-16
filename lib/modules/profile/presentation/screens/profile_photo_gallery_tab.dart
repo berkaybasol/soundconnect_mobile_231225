@@ -2,25 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import 'media_detail_screen.dart';
+import 'profile_image_url_resolver.dart';
 
 class ProfilePhotoGalleryTab extends StatelessWidget {
   final List<MediaAsset> items;
   final bool ownerMode;
   final Future<void> Function()? onAddPhoto;
+  final bool uploading;
+  final double uploadProgress;
+  final String? uploadStatusLabel;
 
   ProfilePhotoGalleryTab({
     super.key,
     required this.items,
     required this.ownerMode,
     this.onAddPhoto,
+    this.uploading = false,
+    this.uploadProgress = 0,
+    this.uploadStatusLabel,
   });
 
   void _openImage(BuildContext context, MediaAsset item) {
-    final imageUrl = _imageUrlOf(item);
+    final imageUrl = resolveMediaDetailImageUrl(item);
     if (imageUrl == null) return;
     const targetType = 'MEDIA';
     final targetId = item.id.trim();
@@ -55,21 +63,12 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
     );
   }
 
-  String? _imageUrlOf(MediaAsset item) {
-    final candidates = [item.sourceUrl, item.playbackUrl, item.thumbnailUrl];
-    for (final candidate in candidates) {
-      final trimmed = candidate?.trim();
-      if (trimmed != null && trimmed.isNotEmpty) return trimmed;
-    }
-    return null;
-  }
-
   Widget _buildUploadCard(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: onAddPhoto,
+        onTap: uploading ? null : onAddPhoto,
         child: Container(
           width: double.infinity,
           padding: EdgeInsets.symmetric(vertical: 24, horizontal: 18),
@@ -92,15 +91,28 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   border: Border.all(color: Theme.of(context).dividerColor),
                 ),
-                child: Icon(
-                  Icons.add_photo_alternate_outlined,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  size: 28,
-                ),
+                child: uploading
+                    ? Padding(
+                        padding: EdgeInsets.all(15),
+                        child: CircularProgressIndicator(
+                          value: uploadProgress > 0 ? uploadProgress : null,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : Icon(
+                        Icons.add_photo_alternate_outlined,
+                        color: Theme.of(context).colorScheme.onSurface,
+                        size: 28,
+                      ),
               ),
               SizedBox(height: 10),
               Text(
-                items.isEmpty ? 'Henuz fotograf eklemediniz' : 'Fotograf ekle',
+                uploading
+                    ? uploadStatusLabel ??
+                          'Fotograf yukleniyor %${(uploadProgress * 100).round()}'
+                    : items.isEmpty
+                    ? 'Henuz fotograf eklemediniz'
+                    : 'Fotograf ekle',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
@@ -108,13 +120,25 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
               ),
               SizedBox(height: 4),
               Text(
-                'SoundConnect uzerinden galeri fotografi yuklemek icin dokun.',
+                uploading
+                    ? 'Dosyayi guvenle hazirlarken bu ekranda kalabilirsin.'
+                    : 'SoundConnect uzerinden galeri fotografi yuklemek icin dokun.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 12,
                 ),
               ),
+              if (uploading) ...[
+                SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: uploadProgress > 0 ? uploadProgress : null,
+                    minHeight: 6,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -125,7 +149,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visibleItems = items
-        .where((item) => _imageUrlOf(item) != null)
+        .where((item) => resolveMediaPreviewImageUrl(item) != null)
         .toList(growable: false);
 
     return Column(
@@ -156,7 +180,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
             itemCount: visibleItems.length,
             itemBuilder: (context, index) {
               final item = visibleItems[index];
-              final imageUrl = _imageUrlOf(item)!;
+              final imageUrl = resolveMediaPreviewImageUrl(item)!;
               return InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () => _openImage(context, item),
@@ -172,18 +196,32 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Center(
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            size: 34,
-                          ),
-                        ),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final pixelRatio = MediaQuery.devicePixelRatioOf(
+                            context,
+                          );
+                          final cacheWidth = (constraints.maxWidth * pixelRatio)
+                              .round()
+                              .clamp(1, 1200)
+                              .toInt();
+                          return AppCachedNetworkImage(
+                            imageUrl: imageUrl,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            cacheWidth: cacheWidth,
+                            errorBuilder: (context) => Center(
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                size: 34,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

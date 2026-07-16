@@ -75,9 +75,7 @@ class _VenueCarousel extends StatelessWidget {
                 ? () {
                     Navigator.of(context).pushNamed(
                       AppRoutes.venuePublicProfile,
-                      arguments: VenuePublicProfileArgs(
-                        venueId: venue.venueId,
-                      ),
+                      arguments: VenuePublicProfileArgs(venueId: venue.venueId),
                     );
                   }
                 : null,
@@ -114,7 +112,19 @@ class _VenueCarousel extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: hasImage
-                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          ? AppCachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.cover,
+                              cacheWidth: 108,
+                              cacheHeight: 108,
+                              errorBuilder: (context) => Icon(
+                                Icons.storefront_outlined,
+                                color: AppColors.coralAlt,
+                                size: 20,
+                              ),
+                            )
                           : Icon(
                               Icons.storefront_outlined,
                               color: AppColors.coralAlt,

@@ -3,8 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/stage_mode.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/session_logout_action.dart';
 import '../cubit/listener_profile_cubit.dart';
 import '../cubit/listener_profile_state.dart';
 import 'profile_common_widgets.dart';
@@ -31,20 +33,16 @@ class _ListenerProfileView extends StatelessWidget {
     return BlocBuilder<ListenerProfileCubit, ListenerProfileState>(
       builder: (context, state) {
         if (state.status == ListenerProfileStatus.loading) {
-          return Scaffold(body: Center(child: CircularProgressIndicator()));
+          return Scaffold(
+            appBar: _listenerAppBar(showBackButton: false),
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         if (state.status == ListenerProfileStatus.failure ||
             state.profile == null) {
           return Scaffold(
-            appBar: AppBar(
-              title: GradientText(
-                text: 'SoundConnect',
-                gradient: LinearGradient(colors: AppColors.brandGradient),
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-              ),
-              centerTitle: true,
-            ),
+            appBar: _listenerAppBar(showBackButton: false),
             body: Center(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -73,15 +71,7 @@ class _ListenerProfileView extends StatelessWidget {
         final hasAvatar = isValidNetworkImageUrl(avatarUrl);
 
         return Scaffold(
-          appBar: AppBar(
-            title: GradientText(
-              text: 'SoundConnect',
-              gradient: LinearGradient(colors: AppColors.brandGradient),
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-            ),
-            centerTitle: true,
-            leading: BackButton(),
-          ),
+          appBar: _listenerAppBar(),
           body: RefreshIndicator(
             onRefresh: () =>
                 context.read<ListenerProfileCubit>().loadMyProfile(),
@@ -116,7 +106,25 @@ class _ListenerProfileView extends StatelessWidget {
                         ),
                         child: ClipOval(
                           child: hasAvatar
-                              ? Image.network(avatarUrl!, fit: BoxFit.cover)
+                              ? AppCachedNetworkImage(
+                                  imageUrl: avatarUrl,
+                                  width: 96,
+                                  height: 96,
+                                  fit: BoxFit.cover,
+                                  cacheWidth:
+                                      (96 *
+                                              MediaQuery.devicePixelRatioOf(
+                                                context,
+                                              ))
+                                          .round(),
+                                  errorBuilder: (context) => Icon(
+                                    Icons.person_outline,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                    size: 40,
+                                  ),
+                                )
                               : Icon(
                                   Icons.person_outline,
                                   color: Theme.of(
@@ -168,6 +176,19 @@ class _ListenerProfileView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  PreferredSizeWidget _listenerAppBar({bool showBackButton = true}) {
+    return AppBar(
+      title: GradientText(
+        text: 'SoundConnect',
+        gradient: LinearGradient(colors: AppColors.brandGradient),
+        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+      ),
+      centerTitle: true,
+      automaticallyImplyLeading: showBackButton,
+      actions: const [SessionLogoutIconButton()],
     );
   }
 }

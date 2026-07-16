@@ -11,6 +11,7 @@ import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 export '../../domain/entities/profile_upload_result.dart';
+export '../../domain/profile_media_upload_repository.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
 import '../../../follow/presentation/cubit/follow_count_cubit.dart';
@@ -84,14 +85,16 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   required ImagePicker imagePicker,
   required String ownerType,
   required String ownerId,
+  String? profilePhotoTargetId,
   String cropTitle = 'Profil fotografini kirp',
   Color cropToolbarColor = const Color(0xFF0B1321),
   Color cropAccentColor = const Color(0xFFF47C7C),
 }) async {
   final picked = await imagePicker.pickImage(
     source: ImageSource.gallery,
-    imageQuality: 92,
-    maxWidth: 2048,
+    imageQuality: 88,
+    maxWidth: 1600,
+    maxHeight: 1600,
   );
   if (picked == null) return null;
 
@@ -100,7 +103,7 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
     cropped = await ImageCropper().cropImage(
       sourcePath: picked.path,
       compressFormat: ImageCompressFormat.jpg,
-      compressQuality: 92,
+      compressQuality: 88,
       aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       uiSettings: [
         AndroidUiSettings(
@@ -123,20 +126,22 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   }
   if (cropped == null) return null;
 
-  final bytes = await File(cropped.path).readAsBytes();
-  if (bytes.isEmpty) return null;
-
   final repository = serviceLocator<ProfileMediaUploadRepository>();
   final fileName = fileNameFromPath(cropped.path, fallback: picked.name);
   final mimeType = inferImageMimeType(fileName);
+  final source = await createProfileUploadSource(filePath: cropped.path);
 
   final result = await repository.uploadAsset(
-    bytes: bytes,
+    source: source,
     ownerType: ownerType,
     ownerId: ownerId,
     mediaKind: 'IMAGE',
     mimeType: mimeType,
     originalFileName: fileName,
+    attachmentIntent: ProfileUploadAttachmentIntent.profilePicture(
+      profileType: ownerType,
+      targetId: profilePhotoTargetId,
+    ),
   );
   if (!result.isSuccess || result.data == null) {
     throw Exception(result.error?.message ?? 'Medya yuklenemedi');
@@ -156,30 +161,73 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
 }
 
 Future<ProfileUploadedMedia> uploadProfileMediaAsset({
-  required List<int> bytes,
+  required ProfileUploadSource source,
   required String ownerType,
   required String ownerId,
   required String mediaKind,
   required String mimeType,
   required String originalFileName,
+  ProfileUploadAttachmentIntent attachmentIntent =
+      const ProfileUploadAttachmentIntent.none(),
+  ProfileUploadProgress? onProgress,
+  ProfileUploadStageChanged? onStageChanged,
+  ProfileUploadCancellation? cancellation,
 }) async {
-  if (bytes.isEmpty) {
+  if (source.sizeBytes <= 0) {
     throw Exception('Yuklenecek dosya bos olamaz');
   }
 
   final repository = serviceLocator<ProfileMediaUploadRepository>();
   final result = await repository.uploadAsset(
-    bytes: bytes,
+    source: source,
     ownerType: ownerType,
     ownerId: ownerId,
     mediaKind: mediaKind,
     mimeType: mimeType,
     originalFileName: originalFileName,
+    attachmentIntent: attachmentIntent,
+    onProgress: onProgress,
+    onStageChanged: onStageChanged,
+    cancellation: cancellation,
   );
   if (!result.isSuccess || result.data == null) {
     throw Exception(result.error?.message ?? 'Medya yuklenemedi');
   }
   return result.data!;
+}
+
+Future<ProfileUploadSource> createProfileUploadSource({
+  String? filePath,
+  List<int>? bytes,
+  Stream<List<int>>? readStream,
+  int? sizeBytes,
+}) async {
+  final normalizedPath = filePath?.trim() ?? '';
+  if (normalizedPath.isNotEmpty) {
+    final file = File(normalizedPath);
+    final length = await file.length();
+    if (length <= 0) throw Exception('Yuklenecek dosya bos olamaz');
+    return ProfileUploadSource(sizeBytes: length, openRead: file.openRead);
+  }
+
+  if (readStream != null && (sizeBytes ?? 0) > 0) {
+    var opened = false;
+    return ProfileUploadSource(
+      sizeBytes: sizeBytes!,
+      openRead: () {
+        if (opened) {
+          throw StateError('Upload stream can only be opened once');
+        }
+        opened = true;
+        return readStream;
+      },
+    );
+  }
+
+  if (bytes != null && bytes.isNotEmpty) {
+    return ProfileUploadSource.bytes(bytes);
+  }
+  throw Exception('Yuklenecek dosya okunamadi');
 }
 
 class ProfileScreenLoadCoordinator {

@@ -13,6 +13,8 @@ class _CommentBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatarUrl = comment.user.avatarUrl?.trim();
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -21,16 +23,26 @@ class _CommentBubble extends StatelessWidget {
           CircleAvatar(
             radius: 18,
             backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-            backgroundImage: comment.user.avatarUrl != null
-                ? NetworkImage(comment.user.avatarUrl!)
-                : null,
-            child: comment.user.avatarUrl == null
-                ? Icon(
-                    Icons.person,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  )
-                : null,
+            child: ClipOval(
+              child: hasAvatar
+                  ? AppCachedNetworkImage(
+                      imageUrl: avatarUrl,
+                      width: 36,
+                      height: 36,
+                      cacheWidth: 108,
+                      cacheHeight: 108,
+                      errorBuilder: (context) => Icon(
+                        Icons.person,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  : Icon(
+                      Icons.person,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+            ),
           ),
           SizedBox(width: 10),
           Expanded(

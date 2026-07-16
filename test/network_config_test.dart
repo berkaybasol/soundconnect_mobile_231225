@@ -56,6 +56,25 @@ void main() {
       expect(baseUrl, 'https://api.example.com');
     });
 
+    test('removes trailing slashes from configured and fallback urls', () {
+      expect(
+        resolveNetworkBaseUrl(
+          configuredBaseUrl: 'https://api.example.com///',
+          isDebugBuild: false,
+          debugFallbackBaseUrl: 'http://localhost:8080/',
+        ),
+        'https://api.example.com',
+      );
+      expect(
+        resolveNetworkBaseUrl(
+          configuredBaseUrl: '',
+          isDebugBuild: true,
+          debugFallbackBaseUrl: 'http://localhost:8080/',
+        ),
+        'http://localhost:8080',
+      );
+    });
+
     test('can enforce explicit base url in debug mode', () {
       expect(
         () => resolveNetworkBaseUrl(

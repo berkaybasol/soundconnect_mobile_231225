@@ -1,6 +1,9 @@
 import 'package:get_it/get_it.dart';
 
 import '../../modules/auth/data/auth_repository_impl.dart';
+import '../../modules/admin/data/admin_repository_impl.dart';
+import '../../modules/admin/domain/admin_repository.dart';
+import '../../modules/admin/presentation/cubit/admin_panel_cubit.dart';
 import '../../modules/auth/domain/auth_repository.dart';
 import '../../modules/auth/domain/usecases/login_usecase.dart';
 import '../../modules/auth/domain/usecases/register_usecase.dart';
@@ -51,6 +54,7 @@ import '../../modules/profile/data/media_gallery_repository_impl.dart';
 import '../../modules/profile/data/profile_media_management_repository_impl.dart';
 import '../../modules/profile/data/profile_media_repository_impl.dart';
 import '../../modules/profile/data/profile_media_upload_repository_impl.dart';
+import '../../modules/profile/data/pending_profile_upload_store.dart';
 import '../../modules/profile/data/profile_search_repository_impl.dart';
 import '../../modules/profile/data/studio_profile_repository_impl.dart';
 import '../../modules/profile/data/track_management_repository_impl.dart';
@@ -89,6 +93,8 @@ import '../../modules/tablegroup/domain/table_group_repository.dart';
 import '../../modules/tablegroup/presentation/cubit/table_group_create_cubit.dart';
 import '../../modules/tablegroup/presentation/cubit/table_group_list_cubit.dart';
 import '../auth/token_store.dart';
+import '../auth/auth_session_manager.dart';
+import '../auth/auth_session_store.dart';
 import '../network/api_client.dart';
 import '../network/dio_api_client.dart';
 
@@ -97,8 +103,27 @@ final GetIt serviceLocator = GetIt.instance;
 void setupDependencies() {
   serviceLocator
     ..registerLazySingleton<TokenStore>(() => const SecureTokenStore())
+    ..registerLazySingleton<AuthSessionStore>(
+      () => const SecureAuthSessionStore(),
+    )
+    ..registerLazySingleton<AuthSessionManager>(
+      () => AuthSessionManager(
+        tokenStore: serviceLocator<TokenStore>(),
+        sessionStore: serviceLocator<AuthSessionStore>(),
+        onSessionEnded: _stopSessionServices,
+      ),
+    )
     ..registerLazySingleton<ApiClient>(
-      () => DioApiClient(tokenStore: serviceLocator<TokenStore>()),
+      () => DioApiClient(
+        tokenStore: serviceLocator<TokenStore>(),
+        sessionManager: serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<AdminRepository>(
+      () => AdminRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<AdminPanelCubit>(
+      () => AdminPanelCubit(serviceLocator<AdminRepository>()),
     )
     ..registerLazySingleton<LocationRepository>(
       () => LocationRepositoryImpl(serviceLocator<ApiClient>()),
@@ -161,7 +186,12 @@ void setupDependencies() {
       () => ProfileMediaManagementRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<ProfileMediaUploadRepository>(
-      () => ProfileMediaUploadRepositoryImpl(serviceLocator<ApiClient>()),
+      () => ProfileMediaUploadRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        pendingStore: SharedPreferencesPendingProfileUploadStore(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+      ),
     )
     ..registerLazySingleton<VenueDirectoryRepository>(
       () => VenueDirectoryRepositoryImpl(serviceLocator<ApiClient>()),
@@ -278,19 +308,14 @@ void setupDependencies() {
         verifyCodeUseCase: serviceLocator<VerifyCodeUseCase>(),
         resendCodeUseCase: serviceLocator<ResendCodeUseCase>(),
         tokenStore: serviceLocator<TokenStore>(),
+        sessionManager: serviceLocator<AuthSessionManager>(),
       ),
     )
     ..registerLazySingleton<DmRepository>(
       () => DmRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<DmUserProfileResolver>(
-      () => DmUserProfileResolverImpl(
-        apiClient: serviceLocator<ApiClient>(),
-        musicianSearchRepository: serviceLocator<MusicianSearchRepository>(),
-        musicianProfileRepository: serviceLocator<MusicianProfileRepository>(),
-        venueDirectoryRepository: serviceLocator<VenueDirectoryRepository>(),
-        venueProfileRepository: serviceLocator<VenueProfileRepository>(),
-      ),
+      () => DmUserProfileResolverImpl(apiClient: serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<DmRealtimeClient>(() => DmRealtimeClient())
     ..registerLazySingleton<DmBadgeCubit>(
@@ -314,4 +339,24 @@ void setupDependencies() {
         realtimeClient: serviceLocator<DmRealtimeClient>(),
       ),
     );
+}
+
+Future<void> _stopSessionServices() async {
+  final operations = <Future<void>>[];
+  if (serviceLocator.isRegistered<NotificationCubit>()) {
+    operations.add(serviceLocator<NotificationCubit>().stop());
+  }
+  if (serviceLocator.isRegistered<DmBadgeCubit>()) {
+    operations.add(serviceLocator<DmBadgeCubit>().stop());
+  }
+  if (serviceLocator.isRegistered<NotificationRealtimeClient>()) {
+    operations.add(serviceLocator<NotificationRealtimeClient>().disconnect());
+  }
+  if (serviceLocator.isRegistered<DmRealtimeClient>()) {
+    operations.add(serviceLocator<DmRealtimeClient>().disconnect());
+  }
+  if (serviceLocator.isRegistered<TableGroupChatRealtimeClient>()) {
+    operations.add(serviceLocator<TableGroupChatRealtimeClient>().disconnect());
+  }
+  await Future.wait(operations);
 }

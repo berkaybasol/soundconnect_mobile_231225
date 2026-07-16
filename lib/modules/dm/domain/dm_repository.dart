@@ -6,6 +6,8 @@ import 'entities/dm_message.dart';
 abstract class DmRepository {
   Future<Result<List<DmConversationPreview>>> getMyConversations();
 
+  Future<Result<int>> getUnreadCount();
+
   Future<Result<String>> getOrCreateConversation({required String otherUserId});
 
   Future<Result<Page<DmMessage>>> getConversationMessages({

@@ -1,0 +1,928 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/di/service_locator.dart';
+import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/session_logout_action.dart';
+import '../../domain/entities/admin_dashboard_summary.dart';
+import '../../domain/entities/admin_venue_application.dart';
+import '../cubit/admin_panel_cubit.dart';
+import '../cubit/admin_panel_state.dart';
+
+enum _AdminModule {
+  venueApplications,
+  users,
+  profiles,
+  promotions,
+  venues,
+  locations,
+  instruments,
+  dmModeration,
+  roles,
+}
+
+class AdminDashboardScreen extends StatelessWidget {
+  const AdminDashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => serviceLocator<AdminPanelCubit>()..initialize(),
+      child: const _AdminDashboardView(),
+    );
+  }
+}
+
+class _AdminDashboardView extends StatefulWidget {
+  const _AdminDashboardView();
+
+  @override
+  State<_AdminDashboardView> createState() => _AdminDashboardViewState();
+}
+
+class _AdminDashboardViewState extends State<_AdminDashboardView> {
+  _AdminModule _selectedModule = _AdminModule.venueApplications;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<AdminPanelCubit, AdminPanelState>(
+      listenWhen: (previous, current) =>
+          current.status == AdminPanelStatus.failure &&
+          !identical(previous.error, current.error),
+      listener: (context, state) {
+        final message = state.error?.message;
+        if (state.status == AdminPanelStatus.failure &&
+            message != null &&
+            message.trim().isNotEmpty) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          backgroundColor: AppColors.pureBlack,
+          body: SafeArea(
+            child: RefreshIndicator(
+              onRefresh: () => context.read<AdminPanelCubit>().refresh(),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _BackstageHero(
+                      summary: state.summary,
+                      onRefresh: () =>
+                          context.read<AdminPanelCubit>().refresh(),
+                    ),
+                  ),
+                  if (state.summaryError != null)
+                    SliverToBoxAdapter(
+                      child: _AdminLoadError(
+                        message: state.summaryError!.message,
+                        onRetry: () =>
+                            context.read<AdminPanelCubit>().refresh(),
+                        compact: true,
+                      ),
+                    ),
+                  SliverToBoxAdapter(
+                    child: _ModuleBoard(
+                      selectedModule: _selectedModule,
+                      onSelected: (module) {
+                        setState(() => _selectedModule = module);
+                      },
+                      summary: state.summary,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: _ModuleHeader(module: _selectedModule),
+                    ),
+                  ),
+                  ..._moduleSlivers(context, state),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _moduleSlivers(BuildContext context, AdminPanelState state) {
+    if (_selectedModule != _AdminModule.venueApplications) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _ComingSoonModule(module: _selectedModule),
+        ),
+      ];
+    }
+
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: _VenueApplicationFilters(state: state),
+        ),
+      ),
+      if (state.status == AdminPanelStatus.loading &&
+          state.venueApplications.isEmpty)
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        )
+      else if (state.applicationsError != null &&
+          state.venueApplications.isEmpty)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _AdminLoadError(
+            message: state.applicationsError!.message,
+            onRetry: () => context
+                .read<AdminPanelCubit>()
+                .loadVenueApplications(state.selectedStatus),
+          ),
+        )
+      else if (state.venueApplications.isEmpty)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _EmptyApplications(status: state.selectedStatus),
+        )
+      else
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              if (index.isOdd) return const SizedBox(height: 10);
+              final application = state.venueApplications[index ~/ 2];
+              return _VenueApplicationTile(
+                application: application,
+                loading: state.actionIds.contains(application.id),
+              );
+            }, childCount: state.venueApplications.length * 2 - 1),
+          ),
+        ),
+    ];
+  }
+}
+
+class _BackstageHero extends StatelessWidget {
+  final AdminDashboardSummary summary;
+  final VoidCallback onRefresh;
+
+  const _BackstageHero({required this.summary, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        color: AppColors.navBlueDeep,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.socialPurple.withValues(alpha: 0.18),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GradientText(
+                      text: 'SoundConnect Backstage',
+                      gradient: LinearGradient(colors: AppColors.brandGradient),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Modul bazli operasyon paneli',
+                      style: TextStyle(color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filledTonal(
+                tooltip: 'Yenile',
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: 'Oturumu Kapat',
+                onPressed: () => confirmAndLogoutSession(context),
+                icon: const Icon(Icons.logout),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _PulseSummary(summary: summary),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulseSummary extends StatelessWidget {
+  final AdminDashboardSummary summary;
+
+  const _PulseSummary({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _MetricItem(
+        'Kullanicilar',
+        summary.totalUsers,
+        Icons.people_alt_outlined,
+      ),
+      _MetricItem(
+        'Bekleyen basvuru',
+        summary.pendingVenueApplications,
+        Icons.pending_actions_outlined,
+      ),
+      _MetricItem(
+        'Onaylanan',
+        summary.approvedVenueApplications,
+        Icons.verified_outlined,
+      ),
+      _MetricItem(
+        'Aktif promo',
+        summary.activePromotions,
+        Icons.campaign_outlined,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 760
+            ? 4
+            : constraints.maxWidth >= 420
+            ? 2
+            : 1;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            mainAxisExtent: 86,
+          ),
+          itemBuilder: (context, index) => _MetricTile(item: items[index]),
+        );
+      },
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  final _MetricItem item;
+
+  const _MetricTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.navBlueSoft.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(item.icon, color: AppColors.coralLight),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.value.toString(),
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                  ),
+                ),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModuleBoard extends StatelessWidget {
+  final _AdminModule selectedModule;
+  final ValueChanged<_AdminModule> onSelected;
+  final AdminDashboardSummary summary;
+
+  const _ModuleBoard({
+    required this.selectedModule,
+    required this.onSelected,
+    required this.summary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final modules = [
+      _ModuleItem(
+        module: _AdminModule.venueApplications,
+        title: 'Mekan Basvurulari',
+        subtitle: '${summary.pendingVenueApplications} bekleyen',
+        icon: Icons.storefront_outlined,
+      ),
+      const _ModuleItem(
+        module: _AdminModule.users,
+        title: 'Kullanicilar',
+        subtitle: 'Hesaplar ve roller',
+        icon: Icons.groups_outlined,
+      ),
+      const _ModuleItem(
+        module: _AdminModule.profiles,
+        title: 'Profiller',
+        subtitle: 'Artist, mekan, studio',
+        icon: Icons.badge_outlined,
+      ),
+      const _ModuleItem(
+        module: _AdminModule.promotions,
+        title: 'Promosyonlar',
+        subtitle: 'Banner ve vitrin',
+        icon: Icons.campaign_outlined,
+      ),
+      const _ModuleItem(
+        module: _AdminModule.venues,
+        title: 'Mekanlar',
+        subtitle: 'Kayitli mekanlar',
+        icon: Icons.location_city_outlined,
+      ),
+      const _ModuleItem(
+        module: _AdminModule.locations,
+        title: 'Lokasyon',
+        subtitle: 'Sehir, ilce, semt',
+        icon: Icons.map_outlined,
+      ),
+      const _ModuleItem(
+        module: _AdminModule.instruments,
+        title: 'Enstrumanlar',
+        subtitle: 'Lookup yonetimi',
+        icon: Icons.music_note_outlined,
+      ),
+      const _ModuleItem(
+        module: _AdminModule.dmModeration,
+        title: 'DM Moderasyon',
+        subtitle: 'Mesaj denetimi',
+        icon: Icons.forum_outlined,
+      ),
+      const _ModuleItem(
+        module: _AdminModule.roles,
+        title: 'Roller & Yetkiler',
+        subtitle: 'Owner alani',
+        icon: Icons.admin_panel_settings_outlined,
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 980
+              ? 3
+              : constraints.maxWidth >= 640
+              ? 2
+              : 1;
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: modules.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              mainAxisExtent: 84,
+            ),
+            itemBuilder: (context, index) {
+              final item = modules[index];
+              return _ModuleButton(
+                item: item,
+                selected: item.module == selectedModule,
+                onTap: () => onSelected(item.module),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ModuleButton extends StatelessWidget {
+  final _ModuleItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ModuleButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          gradient: selected
+              ? LinearGradient(colors: AppColors.brandGradient)
+              : null,
+          border: selected ? null : Border.all(color: AppColors.border),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.navBlueDeep.withValues(alpha: 0.94)
+                : AppColors.navBlueSoft.withValues(alpha: 0.68),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                item.icon,
+                color: selected ? AppColors.coralLight : AppColors.textMuted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.chevron_right,
+                color: selected ? AppColors.coralLight : AppColors.textMuted,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModuleHeader extends StatelessWidget {
+  final _AdminModule module;
+
+  const _ModuleHeader({required this.module});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _moduleTitle(module),
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.white.withValues(alpha: 0.10)),
+          ),
+          child: Text(
+            module == _AdminModule.venueApplications ? 'Canli' : 'Siradaki',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VenueApplicationFilters extends StatelessWidget {
+  final AdminPanelState state;
+
+  const _VenueApplicationFilters({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<AdminVenueApplicationStatus>(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return AppColors.coralAlt.withValues(alpha: 0.20);
+          }
+          return AppColors.navBlueSoft.withValues(alpha: 0.60);
+        }),
+        foregroundColor: WidgetStatePropertyAll(AppColors.textPrimary),
+        side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
+      ),
+      segments: const [
+        ButtonSegment(
+          value: AdminVenueApplicationStatus.pending,
+          icon: Icon(Icons.pending_actions_outlined),
+          label: Text('Bekleyen'),
+        ),
+        ButtonSegment(
+          value: AdminVenueApplicationStatus.approved,
+          icon: Icon(Icons.verified_outlined),
+          label: Text('Onay'),
+        ),
+        ButtonSegment(
+          value: AdminVenueApplicationStatus.rejected,
+          icon: Icon(Icons.block_outlined),
+          label: Text('Red'),
+        ),
+      ],
+      selected: {state.selectedStatus},
+      onSelectionChanged: (selection) {
+        context.read<AdminPanelCubit>().loadVenueApplications(selection.first);
+      },
+    );
+  }
+}
+
+class _ComingSoonModule extends StatelessWidget {
+  final _AdminModule module;
+
+  const _ComingSoonModule({required this.module});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.navBlueSoft.withValues(alpha: 0.68),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.construction_outlined,
+              color: AppColors.coralLight,
+              size: 38,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _moduleTitle(module),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Bu modul icin operasyon ekrani siradaki adimda baglanacak.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VenueApplicationTile extends StatelessWidget {
+  final AdminVenueApplication application;
+  final bool loading;
+
+  const _VenueApplicationTile({
+    required this.application,
+    required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canAct = application.status == AdminVenueApplicationStatus.pending;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.navBlueSoft.withValues(alpha: 0.70),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  application.venueName.isEmpty
+                      ? 'Isimsiz mekan'
+                      : application.venueName,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              _StatusPill(status: application.status),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _InfoLine(
+            icon: Icons.person_outline,
+            text: application.applicantUsername,
+          ),
+          _InfoLine(
+            icon: Icons.location_on_outlined,
+            text: application.venueAddress,
+          ),
+          _InfoLine(icon: Icons.phone_outlined, text: application.phone),
+          if (canAct) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: loading
+                        ? null
+                        : () => _rejectDialog(context, application),
+                    icon: const Icon(Icons.close),
+                    label: const Text('Reddet'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: loading
+                        ? null
+                        : () => context
+                              .read<AdminPanelCubit>()
+                              .approveVenueApplication(application.id),
+                    icon: loading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check),
+                    label: const Text('Onayla'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _rejectDialog(
+    BuildContext context,
+    AdminVenueApplication application,
+  ) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Basvuruyu reddet'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(labelText: 'Red nedeni'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Vazgec'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Reddet'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    final cleanReason = reason?.trim() ?? '';
+    if (!context.mounted || cleanReason.isEmpty) return;
+    await context.read<AdminPanelCubit>().rejectVenueApplication(
+      id: application.id,
+      reason: cleanReason,
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  final AdminVenueApplicationStatus status;
+
+  const _StatusPill({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      AdminVenueApplicationStatus.pending => AppColors.coralAlt,
+      AdminVenueApplicationStatus.approved => AppColors.spotifyGreen,
+      AdminVenueApplicationStatus.rejected => Colors.redAccent,
+      AdminVenueApplicationStatus.unknown => Colors.grey,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        status.label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
+class _InfoLine extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _InfoLine({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanText = text.trim();
+    if (cleanText.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              cleanText,
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyApplications extends StatelessWidget {
+  final AdminVenueApplicationStatus status;
+
+  const _EmptyApplications({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_outlined, size: 42, color: AppColors.textMuted),
+            const SizedBox(height: 10),
+            Text(
+              '${status.label} basvuru yok',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminLoadError extends StatelessWidget {
+  const _AdminLoadError({
+    required this.message,
+    required this.onRetry,
+    this.compact = false,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(compact ? 12 : 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, color: AppColors.coralLight),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 8),
+            TextButton(onPressed: onRetry, child: const Text('Tekrar dene')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricItem {
+  final String label;
+  final int value;
+  final IconData icon;
+
+  const _MetricItem(this.label, this.value, this.icon);
+}
+
+class _ModuleItem {
+  final _AdminModule module;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _ModuleItem({
+    required this.module,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+}
+
+String _moduleTitle(_AdminModule module) {
+  return switch (module) {
+    _AdminModule.venueApplications => 'Mekan Basvurulari',
+    _AdminModule.users => 'Kullanicilar',
+    _AdminModule.profiles => 'Profiller',
+    _AdminModule.promotions => 'Promosyonlar',
+    _AdminModule.venues => 'Mekanlar',
+    _AdminModule.locations => 'Lokasyon',
+    _AdminModule.instruments => 'Enstrumanlar',
+    _AdminModule.dmModeration => 'DM Moderasyon',
+    _AdminModule.roles => 'Roller & Yetkiler',
+  };
+}

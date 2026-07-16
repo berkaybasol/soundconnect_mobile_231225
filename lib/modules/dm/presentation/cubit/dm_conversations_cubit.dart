@@ -35,7 +35,11 @@ class DmConversationsCubit extends Cubit<DmConversationsState> {
     final result = await _repository.getMyConversations();
     if (result.isSuccess) {
       _currentUserId ??= await resolveCurrentUserId(_tokenStore);
-      await _ensureRealtimeConnected();
+      try {
+        await _ensureRealtimeConnected();
+      } catch (_) {
+        // Conversation history remains usable when realtime is unavailable.
+      }
       final sanitized = _sanitizeConversations(result.data ?? const []);
       emit(
         state.copyWith(

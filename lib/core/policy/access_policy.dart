@@ -1,4 +1,4 @@
-﻿class AccessPolicy {
+class AccessPolicy {
   static const Set<String> backstageRoles = {
     'ROLE_OWNER',
     'ROLE_ADMIN',
@@ -14,6 +14,8 @@
   }
 
   static bool canAccessBackstage(List<String> roles) {
-    return roles.any(backstageRoles.contains);
+    return roles
+        .map((role) => role.trim().toUpperCase())
+        .any(backstageRoles.contains);
   }
 }

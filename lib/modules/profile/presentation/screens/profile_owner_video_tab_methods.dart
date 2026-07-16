@@ -89,6 +89,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       withData: false,
+      withReadStream: true,
       allowMultiple: false,
       allowedExtensions: ['mp4', 'mov', 'mkv'],
     );
@@ -111,42 +112,54 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     if (!mounted) return;
     _updateState(() {
       _videoUploading = true;
+      _videoUploadProgress = 0;
+      _videoUploadStatus = 'Video hazirlaniyor';
     });
 
-    var step = 'dosya okuma';
+    var step = 'dosya hazirlama';
     try {
-      final bytes = pickedBytes ?? await File(pickedPath!).readAsBytes();
-      if (bytes.isEmpty) {
-        throw Exception('Dosya okunamadi');
-      }
+      final source = await createProfileUploadSource(
+        filePath: file.readStream == null ? pickedPath : null,
+        bytes: pickedBytes,
+        readStream: file.readStream,
+        sizeBytes: file.size,
+      );
       final mimeType = _mimeFromVideoFileName(pickedName);
 
       step = 'init-upload';
       final completed = await uploadProfileMediaAsset(
-        bytes: bytes,
+        source: source,
         ownerType: widget.uploadOwnerType,
         ownerId: widget.profileId,
         mediaKind: 'VIDEO',
         mimeType: mimeType,
         originalFileName: pickedName,
+        attachmentIntent: ProfileUploadAttachmentIntent.gallery(
+          profileType: widget.profileType,
+        ),
+        onStageChanged: (stage) {
+          final label = switch (stage) {
+            ProfileUploadStage.initializing => 'Yukleme hazirlaniyor',
+            ProfileUploadStage.uploading => 'Video yukleniyor',
+            ProfileUploadStage.verifying => 'Video dogrulaniyor',
+            ProfileUploadStage.attaching => 'Video profile ekleniyor',
+            ProfileUploadStage.backgroundProcessing =>
+              'Video arka planda hazirlaniyor',
+            ProfileUploadStage.completed => 'Video isleme alindi',
+          };
+          _updateState(() => _videoUploadStatus = label);
+        },
+        onProgress: (sent, total) {
+          if (!mounted || total <= 0) return;
+          final next = (sent / total).clamp(0.0, 1.0).toDouble();
+          if ((next - _videoUploadProgress).abs() < 0.01 && next < 1) return;
+          _updateState(() => _videoUploadProgress = next);
+        },
       );
 
-      step = 'profile-media';
-      final profileMediaRepository =
-          serviceLocator<ProfileMediaManagementRepository>();
       final assetId = completed.uuid.trim();
       if (assetId.isEmpty) {
         throw Exception('Yukleme sonrasi assetId alinmadi');
-      }
-      final addResult = await profileMediaRepository.addGalleryMedia(
-        profileType: widget.profileType,
-        profileId: widget.profileId,
-        mediaAssetId: assetId,
-      );
-      if (!addResult.isSuccess) {
-        throw Exception(
-          addResult.error?.message ?? 'Video profile galerisine eklenemedi',
-        );
       }
 
       step = 'refresh';
@@ -176,6 +189,8 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
       if (mounted) {
         _updateState(() {
           _videoUploading = false;
+          _videoUploadProgress = 0;
+          _videoUploadStatus = null;
         });
       }
     }
@@ -219,7 +234,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
   }
 
   Widget _buildVideoCard(BuildContext context, MediaAsset item, int index) {
-    final thumbnailRaw = item.thumbnailUrl ?? item.playbackUrl;
+    final thumbnailRaw = item.thumbnailUrl;
     final thumbnail = isValidNetworkImageUrl(thumbnailRaw)
         ? thumbnailRaw!.trim()
         : null;
@@ -243,10 +258,8 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Theme.of(context).dividerColor),
-        image: thumbnail != null
-            ? DecorationImage(image: NetworkImage(thumbnail), fit: BoxFit.cover)
-            : null,
       ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
@@ -279,6 +292,15 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
         },
         child: Stack(
           children: [
+            if (thumbnail != null)
+              Positioned.fill(
+                child: AppCachedNetworkImage(
+                  imageUrl: thumbnail,
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
             Positioned(
               left: 10,
               bottom: 10,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../domain/entities/venue_active_band.dart';
@@ -67,9 +68,7 @@ class VenueNameCarousel extends StatelessWidget {
                 ? () {
                     Navigator.of(context).pushNamed(
                       AppRoutes.venuePublicProfile,
-                      arguments: VenuePublicProfileArgs(
-                        venueId: venue.venueId,
-                      ),
+                      arguments: VenuePublicProfileArgs(venueId: venue.venueId),
                     );
                   }
                 : null,
@@ -106,7 +105,20 @@ class VenueNameCarousel extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: hasImage
-                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          ? AppCachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.cover,
+                              cacheWidth:
+                                  (36 * MediaQuery.devicePixelRatioOf(context))
+                                      .round(),
+                              errorBuilder: (context) => Icon(
+                                Icons.storefront_outlined,
+                                color: AppColors.coralAlt,
+                                size: 20,
+                              ),
+                            )
                           : Icon(
                               Icons.storefront_outlined,
                               color: AppColors.coralAlt,
@@ -268,7 +280,22 @@ class ActiveMusicianCarousel extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: hasImage
-                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          ? AppCachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.cover,
+                              cacheWidth:
+                                  (36 * MediaQuery.devicePixelRatioOf(context))
+                                      .round(),
+                              errorBuilder: (context) => Icon(
+                                isBand
+                                    ? Icons.groups_2_outlined
+                                    : Icons.person_outline,
+                                color: AppColors.coralAlt,
+                                size: 20,
+                              ),
+                            )
                           : Icon(
                               isBand
                                   ? Icons.groups_2_outlined
@@ -387,7 +414,20 @@ class ActiveBandCarousel extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: hasImage
-                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          ? AppCachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.cover,
+                              cacheWidth:
+                                  (36 * MediaQuery.devicePixelRatioOf(context))
+                                      .round(),
+                              errorBuilder: (context) => Icon(
+                                Icons.groups_2_outlined,
+                                color: AppColors.coralAlt,
+                                size: 20,
+                              ),
+                            )
                           : Icon(
                               Icons.groups_2_outlined,
                               color: AppColors.coralAlt,

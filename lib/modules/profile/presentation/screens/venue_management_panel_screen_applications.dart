@@ -14,11 +14,14 @@ class VenueApplicationsSheet extends StatefulWidget {
   final String venueId;
   final ApplicationListMode mode;
 
-  VenueApplicationsSheet({required this.venueId, required this.mode});
+  const VenueApplicationsSheet({
+    super.key,
+    required this.venueId,
+    required this.mode,
+  });
 
   @override
-  State<VenueApplicationsSheet> createState() =>
-      _VenueApplicationsSheetState();
+  State<VenueApplicationsSheet> createState() => _VenueApplicationsSheetState();
 }
 
 class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {

@@ -13,6 +13,7 @@ import '../../../dm/presentation/cubit/dm_badge_state.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_route_args.dart';
 import 'backstage_profiles_home_screen.dart';
+import 'profile_bottom_navigation.dart';
 import 'profile_bottom_bar_avatar_cache.dart';
 
 class ProfilePublicBottomBar extends StatelessWidget {
@@ -112,7 +113,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
   ) {
     if (index == 0) {
       if (currentIndex == 0) return;
-      Navigator.of(context).pushNamed(
+      replaceProfileBottomNavigationRoute(
+        context,
         AppRoutes.backstageProfilesHome,
         arguments: BackstageProfilesHomeArgs(
           profileImageUrl: resolvedProfileImageUrl,
@@ -122,7 +124,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
     }
     if (index == 3) {
       if (currentIndex == 3) return;
-      Navigator.of(context).pushNamed(AppRoutes.dmConversations);
+      replaceProfileBottomNavigationRoute(context, AppRoutes.dmConversations);
       return;
     }
     if (index == 2) {
@@ -146,18 +148,26 @@ class ProfilePublicBottomBar extends StatelessWidget {
       token,
     ).map((role) => role.trim().toUpperCase()).toSet();
     if (roles.contains('ROLE_STUDIO') || roles.contains('STUDIO')) {
-      Navigator.of(context).pushNamed(AppRoutes.studioProfile);
+      replaceProfileBottomNavigationRoute(context, AppRoutes.studioProfile);
       return;
     }
     if (roles.contains('ROLE_VENUE') || roles.contains('VENUE')) {
-      Navigator.of(context).pushNamed(AppRoutes.venueProfile);
+      replaceProfileBottomNavigationRoute(context, AppRoutes.venueProfile);
       return;
     }
     if (roles.contains('ROLE_LISTENER') || roles.contains('LISTENER')) {
-      Navigator.of(context).pushNamed(AppRoutes.listenerProfile);
+      replaceProfileBottomNavigationRoute(context, AppRoutes.listenerProfile);
       return;
     }
-    Navigator.of(context).pushNamed(AppRoutes.musicianProfile);
+    if (roles.contains('ROLE_MUSICIAN') || roles.contains('MUSICIAN')) {
+      replaceProfileBottomNavigationRoute(context, AppRoutes.musicianProfile);
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bu rol icin profil ekrani henuz hazir degil.'),
+      ),
+    );
   }
 
   List<String> _rolesFromToken(String? token) {
@@ -230,9 +240,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
                   label: 'Müzik Birleştirir!',
                   description: 'Masalara geç',
                   enabled: true,
-                  onTap: () => Navigator.of(
-                    sheetContext,
-                  ).pop(AppRoutes.tableGroupList),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(AppRoutes.tableGroupList),
                 ),
                 const SizedBox(height: 8),
                 _MainstageLauncherTile(
@@ -251,7 +260,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
     if (route == null || !context.mounted) return;
     if (route == AppRoutes.tableGroupList) {
-      Navigator.of(context).pushNamed(
+      replaceProfileBottomNavigationRoute(
+        context,
         route,
         arguments: const TableGroupListArgs(
           bottomBarStageMode: StageMode.backstage,
@@ -259,7 +269,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
       );
       return;
     }
-    Navigator.of(context).pushNamed(
+    replaceProfileBottomNavigationRoute(
+      context,
       route,
       arguments: const OverthinkingFeedArgs(
         bottomBarStageMode: StageMode.backstage,
@@ -270,12 +281,13 @@ class ProfilePublicBottomBar extends StatelessWidget {
   void _handleMainstageTap(BuildContext context, int index) {
     if (index == 1) {
       if (currentIndex == 1) return;
-      Navigator.of(context).pushNamed(AppRoutes.overthinkingFeed);
+      replaceProfileBottomNavigationRoute(context, AppRoutes.overthinkingFeed);
       return;
     }
     if (index == 2) {
       if (currentIndex == 2) return;
-      Navigator.of(context).pushNamed(
+      replaceProfileBottomNavigationRoute(
+        context,
         AppRoutes.tableGroupList,
         arguments: const TableGroupListArgs(
           bottomBarStageMode: StageMode.mainstage,
@@ -285,7 +297,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
     }
     if (index == 3) {
       if (currentIndex == 3) return;
-      Navigator.of(context).pushNamed(AppRoutes.dmConversations);
+      replaceProfileBottomNavigationRoute(context, AppRoutes.dmConversations);
       return;
     }
     if (index == 4) {

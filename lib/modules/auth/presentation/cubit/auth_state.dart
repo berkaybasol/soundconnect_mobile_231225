@@ -6,7 +6,7 @@ import '../../domain/entities/resend_code_result.dart';
 
 enum AuthStatus { idle, loading, success, failure }
 
-enum AuthAction { none, login, register, verify, resend }
+enum AuthAction { none, login, logout, register, verify, resend }
 
 class AuthState {
   final AuthStatus status;

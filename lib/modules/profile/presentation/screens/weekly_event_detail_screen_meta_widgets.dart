@@ -118,10 +118,14 @@ class _MetaLeadingVisual extends StatelessWidget {
           border: Border.all(color: Theme.of(context).dividerColor),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Image.network(
-          imageUrl!,
+        child: AppCachedNetworkImage(
+          imageUrl: imageUrl,
+          width: 20,
+          height: 20,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _gradientMetaIcon(icon: icon),
+          cacheWidth: 60,
+          cacheHeight: 60,
+          errorBuilder: (context) => _gradientMetaIcon(icon: icon),
         ),
       );
     }

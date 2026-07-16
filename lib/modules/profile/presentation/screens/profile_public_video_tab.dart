@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
@@ -41,7 +42,7 @@ class ProfilePublicVideoTab extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        final thumbnail = item.thumbnailUrl ?? item.playbackUrl;
+        final thumbnail = item.thumbnailUrl?.trim();
         final fallbackLikeCount = 210 + (index * 9);
         final fallbackCommentCount = 44 + (index * 4);
         final targetType = 'MEDIA';
@@ -62,13 +63,8 @@ class ProfilePublicVideoTab extends StatelessWidget {
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Theme.of(context).dividerColor),
-            image: thumbnail != null
-                ? DecorationImage(
-                    image: NetworkImage(thumbnail),
-                    fit: BoxFit.cover,
-                  )
-                : null,
           ),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () {
@@ -101,6 +97,15 @@ class ProfilePublicVideoTab extends StatelessWidget {
             },
             child: Stack(
               children: [
+                if (thumbnail != null && thumbnail.isNotEmpty)
+                  Positioned.fill(
+                    child: AppCachedNetworkImage(
+                      imageUrl: thumbnail,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 Positioned(
                   left: 10,
                   bottom: 10,

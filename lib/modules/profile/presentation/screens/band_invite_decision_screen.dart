@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/band_repository.dart';
@@ -266,9 +267,9 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -426,14 +427,26 @@ class _BandInviteHero extends StatelessWidget {
             padding: const EdgeInsets.all(2.5),
             child: CircleAvatar(
               backgroundColor: colors.surfaceContainer,
-              backgroundImage: hasImage ? NetworkImage(imageUrl!.trim()) : null,
-              child: hasImage
-                  ? null
-                  : Icon(
-                      Icons.groups_2_outlined,
-                      color: colors.onSurfaceVariant,
-                      size: 42,
-                    ),
+              child: ClipOval(
+                child: hasImage
+                    ? AppCachedNetworkImage(
+                        imageUrl: imageUrl,
+                        width: 99,
+                        height: 99,
+                        cacheWidth: 297,
+                        cacheHeight: 297,
+                        errorBuilder: (context) => Icon(
+                          Icons.groups_2_outlined,
+                          color: colors.onSurfaceVariant,
+                          size: 42,
+                        ),
+                      )
+                    : Icon(
+                        Icons.groups_2_outlined,
+                        color: colors.onSurfaceVariant,
+                        size: 42,
+                      ),
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -502,13 +515,24 @@ class _BandInviteMemberTile extends StatelessWidget {
         onTap: onTap,
         leading: CircleAvatar(
           backgroundColor: colors.surfaceContainer,
-          backgroundImage: _hasImage(imageUrl) ? NetworkImage(imageUrl) : null,
-          child: _hasImage(imageUrl)
-              ? null
-              : Icon(
-                  Icons.person_outline_rounded,
-                  color: colors.onSurfaceVariant,
-                ),
+          child: ClipOval(
+            child: _hasImage(imageUrl)
+                ? AppCachedNetworkImage(
+                    imageUrl: imageUrl,
+                    width: 40,
+                    height: 40,
+                    cacheWidth: 120,
+                    cacheHeight: 120,
+                    errorBuilder: (context) => Icon(
+                      Icons.person_outline_rounded,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  )
+                : Icon(
+                    Icons.person_outline_rounded,
+                    color: colors.onSurfaceVariant,
+                  ),
+          ),
         ),
         title: Text(
           member.username.trim().isEmpty ? 'Üye' : member.username.trim(),
@@ -555,10 +579,7 @@ class _InlineInfoMessage extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                height: 1.35,
-              ),
+              style: TextStyle(color: colors.onSurfaceVariant, height: 1.35),
             ),
           ),
         ],

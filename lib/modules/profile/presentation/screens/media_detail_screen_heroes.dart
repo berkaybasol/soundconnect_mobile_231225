@@ -25,26 +25,27 @@ class _VideoHero extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Theme.of(context).dividerColor),
-        image: thumbnailUrl != null
-            ? DecorationImage(
-                image: NetworkImage(thumbnailUrl!),
-                fit: BoxFit.cover,
-              )
-            : null,
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
+          if (thumbnailUrl != null)
+            Positioned.fill(
+              child: AppCachedNetworkImage(
+                imageUrl: thumbnailUrl,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
           if (showVideo)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: SizedBox.expand(
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: c.value.size.width,
-                    height: c.value.size.height,
-                    child: VideoPlayer(c),
-                  ),
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: c.value.size.width,
+                  height: c.value.size.height,
+                  child: VideoPlayer(c),
                 ),
               ),
             ),
@@ -123,14 +124,27 @@ class _ImageHero extends StatelessWidget {
               minScale: 1,
               maxScale: 4,
               child: Center(
-                child: Image.network(
-                  url,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Icon(
-                    Icons.broken_image_outlined,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    size: 40,
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+                    final cacheWidth = (constraints.maxWidth * pixelRatio)
+                        .round()
+                        .clamp(1, 1800)
+                        .toInt();
+                    return AppCachedNetworkImage(
+                      imageUrl: url,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.contain,
+                      cacheWidth: cacheWidth,
+                      cacheProfile: AppImageCacheProfile.original,
+                      errorBuilder: (context) => Icon(
+                        Icons.broken_image_outlined,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        size: 40,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

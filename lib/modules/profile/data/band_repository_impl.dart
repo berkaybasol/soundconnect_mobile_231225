@@ -242,7 +242,7 @@ class BandRepositoryImpl implements BandRepository {
   @override
   Future<Result<void>> leaveBand({required String bandId}) async {
     try {
-      await _apiClient.put<Object?>(
+      await _apiClient.patch<Object?>(
         BandEndpoints.leave(bandId),
         decoder: (_) => null,
       );
@@ -271,10 +271,7 @@ class BandRepositoryImpl implements BandRepository {
       return Result.failure(e.error);
     } catch (_) {
       return Result.failure(
-        const AppError(
-          code: 'band_delete_unknown',
-          message: 'Band silinemedi',
-        ),
+        const AppError(code: 'band_delete_unknown', message: 'Band silinemedi'),
       );
     }
   }

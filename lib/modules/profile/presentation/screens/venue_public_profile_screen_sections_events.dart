@@ -86,7 +86,22 @@ class _ActiveMusicianCarousel extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: hasImage
-                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          ? AppCachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.cover,
+                              cacheWidth:
+                                  (36 * MediaQuery.devicePixelRatioOf(context))
+                                      .round(),
+                              errorBuilder: (context) => Icon(
+                                isBand
+                                    ? Icons.groups_2_outlined
+                                    : Icons.person_outline,
+                                color: AppColors.coralAlt,
+                                size: 20,
+                              ),
+                            )
                           : Icon(
                               isBand
                                   ? Icons.groups_2_outlined

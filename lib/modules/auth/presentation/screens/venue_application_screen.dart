@@ -44,6 +44,19 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
   String? _selectedNeighborhoodId;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final cubit = context.read<LocationCubit>();
+      if (cubit.state.cities.isEmpty &&
+          cubit.state.status != LocationStatus.loading) {
+        cubit.loadCities();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _venueNameController.dispose();
     _venueAddressController.dispose();
@@ -68,7 +81,8 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
         _venueAddressController.text.trim().isEmpty ||
         _venuePhoneController.text.trim().isEmpty ||
         (_selectedCityId ?? '').isEmpty ||
-        (_selectedDistrictId ?? '').isEmpty) {
+        (_selectedDistrictId ?? '').isEmpty ||
+        (_selectedNeighborhoodId ?? '').isEmpty) {
       _showError('Mekan bilgilerini eksiksiz doldur.');
       return;
     }
@@ -147,14 +161,29 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
               SizedBox(height: 12),
               BlocBuilder<LocationCubit, LocationState>(
                 builder: (context, locationState) {
-                  if (locationState.cities.isEmpty &&
-                      locationState.status != LocationStatus.loading) {
-                    context.read<LocationCubit>().loadCities();
-                  }
-
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (locationState.status == LocationStatus.failure &&
+                          locationState.cities.isEmpty) ...[
+                        Text(
+                          locationState.error?.message ??
+                              'Sehirler yuklenemedi.',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () =>
+                                context.read<LocationCubit>().loadCities(),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Tekrar dene'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       DropdownButtonFormField<String>(
                         value: _selectedCityId,
                         decoration: InputDecoration(
@@ -268,7 +297,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                             ),
                           ),
                           prefixIcon: Icon(Icons.place_outlined),
-                          hintText: 'Mahalle seç (opsiyonel)',
+                          hintText: 'Mahalle seç',
                         ),
                         dropdownColor: Theme.of(
                           context,

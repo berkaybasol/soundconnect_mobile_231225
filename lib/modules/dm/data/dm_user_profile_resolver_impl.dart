@@ -1,104 +1,111 @@
+import 'dart:collection';
+
 import '../../../core/network/api_client.dart';
 import '../domain/dm_user_profile_resolver.dart';
 import '../domain/entities/dm_profile_target.dart';
-import '../../profile/domain/entities/musician_search_option.dart';
-import '../../profile/domain/entities/profile_venue_models.dart';
-import '../../profile/domain/musician_profile_repository.dart';
-import '../../profile/domain/musician_search_repository.dart';
-import '../../profile/domain/venue_directory_repository.dart';
-import '../../profile/domain/venue_profile_repository.dart';
 
+typedef DmProfileResolverClock = DateTime Function();
+
+/// Resolves a user's public profile targets through the canonical backend
+/// resolver. Results are cached briefly because the same user can appear in
+/// conversations, notifications and table-group messages at the same time.
 class DmUserProfileResolverImpl implements DmUserProfileResolver {
-  final ApiClient _apiClient;
-  final MusicianSearchRepository _musicianSearchRepository;
-  final MusicianProfileRepository _musicianProfileRepository;
-  final VenueDirectoryRepository _venueDirectoryRepository;
-  final VenueProfileRepository _venueProfileRepository;
-
   DmUserProfileResolverImpl({
     required ApiClient apiClient,
-    required MusicianSearchRepository musicianSearchRepository,
-    required MusicianProfileRepository musicianProfileRepository,
-    required VenueDirectoryRepository venueDirectoryRepository,
-    required VenueProfileRepository venueProfileRepository,
-  }) : _apiClient = apiClient,
-       _musicianSearchRepository = musicianSearchRepository,
-       _musicianProfileRepository = musicianProfileRepository,
-       _venueDirectoryRepository = venueDirectoryRepository,
-       _venueProfileRepository = venueProfileRepository;
+    Duration cacheTtl = const Duration(minutes: 5),
+    Duration failureCacheTtl = const Duration(seconds: 15),
+    int maxCacheEntries = 128,
+    DmProfileResolverClock? clock,
+  }) : assert(maxCacheEntries > 0),
+       _apiClient = apiClient,
+       _cacheTtl = cacheTtl,
+       _failureCacheTtl = failureCacheTtl,
+       _maxCacheEntries = maxCacheEntries,
+       _clock = clock ?? DateTime.now;
 
-  final Map<String, List<DmProfileTarget>> _cacheByUserId =
-      <String, List<DmProfileTarget>>{};
+  final ApiClient _apiClient;
+  final Duration _cacheTtl;
+  final Duration _failureCacheTtl;
+  final int _maxCacheEntries;
+  final DmProfileResolverClock _clock;
+
+  final LinkedHashMap<String, _ProfileCacheEntry> _cache =
+      LinkedHashMap<String, _ProfileCacheEntry>();
+  final Map<String, Future<List<DmProfileTarget>>> _inFlight =
+      <String, Future<List<DmProfileTarget>>>{};
 
   @override
   Future<List<DmProfileTarget>> resolveByUserId({
     required String userId,
     String? usernameHint,
-  }) async {
+  }) {
     final normalizedUserId = userId.trim();
-    if (normalizedUserId.isEmpty) return const [];
-    final cached = _cacheByUserId[normalizedUserId];
-    if (cached != null) return cached;
-
-    final List<DmProfileTarget> resolved = <DmProfileTarget>[];
-    final seen = <String>{};
-
-    final profileTargets = await _resolveProfileTargets(normalizedUserId);
-    for (final item in profileTargets) {
-      final key = '${item.type.name}:${item.id}';
-      if (seen.add(key)) {
-        resolved.add(item);
-      }
+    if (normalizedUserId.isEmpty) {
+      return Future<List<DmProfileTarget>>.value(const []);
     }
 
-    final musicianTargets = await _resolveMusicianTargets(
-      userId: normalizedUserId,
-      usernameHint: usernameHint,
-    );
-    for (final item in musicianTargets) {
-      final key = '${item.type.name}:${item.id}';
-      if (seen.add(key)) {
-        resolved.add(item);
-      }
+    final cached = _readCache(normalizedUserId);
+    if (cached != null) {
+      return Future<List<DmProfileTarget>>.value(cached);
     }
 
-    final venueTargets = await _resolveVenueTargets(normalizedUserId);
-    for (final item in venueTargets) {
-      final key = '${item.type.name}:${item.id}';
-      if (seen.add(key)) {
-        resolved.add(item);
-      }
-    }
+    final existingRequest = _inFlight[normalizedUserId];
+    if (existingRequest != null) return existingRequest;
 
-    _cacheByUserId[normalizedUserId] = resolved;
-    return resolved;
+    final request = _resolveAndCache(normalizedUserId);
+    _inFlight[normalizedUserId] = request;
+    request.whenComplete(() {
+      if (identical(_inFlight[normalizedUserId], request)) {
+        _inFlight.remove(normalizedUserId);
+      }
+    });
+    return request;
   }
 
-  Future<List<DmProfileTarget>> _resolveProfileTargets(String userId) async {
+  Future<List<DmProfileTarget>> _resolveAndCache(String userId) async {
     try {
-      return await _apiClient.get<List<DmProfileTarget>>(
-        '/api/v1/public/profiles/by-user/$userId',
-        decoder: (json) {
-          if (json is! Map<String, dynamic>) return const [];
-          final profiles = json['profiles'];
-          if (profiles is! List) return const [];
-          return profiles
-              .whereType<Map<String, dynamic>>()
-              .map(_profileTargetFromJson)
-              .whereType<DmProfileTarget>()
-              .toList();
-        },
+      final targets = await _apiClient.get<List<DmProfileTarget>>(
+        '/api/v1/public/profiles/by-user/${Uri.encodeComponent(userId)}',
+        decoder: _decodeTargets,
       );
+      final immutableTargets = List<DmProfileTarget>.unmodifiable(targets);
+      _writeCache(userId, immutableTargets, _cacheTtl);
+      return immutableTargets;
     } catch (_) {
-      return const [];
+      // The domain contract predates Result<T>. Preserve its safe empty-list
+      // fallback while negative-caching briefly to prevent request storms.
+      const empty = <DmProfileTarget>[];
+      _writeCache(userId, empty, _failureCacheTtl);
+      return empty;
     }
+  }
+
+  List<DmProfileTarget> _decodeTargets(Object? json) {
+    if (json is! Map<String, dynamic>) return const [];
+    final profiles = json['profiles'];
+    if (profiles is! List) return const [];
+
+    final targets = <DmProfileTarget>[];
+    final seen = <String>{};
+    for (final item in profiles.whereType<Map<String, dynamic>>()) {
+      final target = _profileTargetFromJson(item);
+      if (target == null) continue;
+      final key = '${target.type.name}:${target.id}';
+      if (seen.add(key)) targets.add(target);
+    }
+    return targets;
   }
 
   DmProfileTarget? _profileTargetFromJson(Map<String, dynamic> json) {
-    final type = _targetTypeFromApi(json['type']?.toString());
+    final type = switch (json['type']?.toString().trim().toUpperCase()) {
+      'MUSICIAN' => DmProfileTargetType.musician,
+      'VENUE' => DmProfileTargetType.venue,
+      _ => null,
+    };
     final id = json['profileId']?.toString().trim() ?? '';
     final displayName = json['displayName']?.toString().trim() ?? '';
     if (type == null || id.isEmpty || displayName.isEmpty) return null;
+
     final imageUrl = json['profilePictureUrl']?.toString().trim() ?? '';
     return DmProfileTarget(
       type: type,
@@ -108,73 +115,31 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
     );
   }
 
-  DmProfileTargetType? _targetTypeFromApi(String? value) {
-    return switch (value?.trim().toUpperCase()) {
-      'MUSICIAN' => DmProfileTargetType.musician,
-      'VENUE' => DmProfileTargetType.venue,
-      _ => null,
-    };
+  List<DmProfileTarget>? _readCache(String userId) {
+    final entry = _cache.remove(userId);
+    if (entry == null) return null;
+    if (!entry.expiresAt.isAfter(_clock())) return null;
+
+    // Reinsert to keep the map ordered from least to most recently used.
+    _cache[userId] = entry;
+    return entry.targets;
   }
 
-  Future<List<DmProfileTarget>> _resolveMusicianTargets({
-    required String userId,
-    String? usernameHint,
-  }) async {
-    final hint = usernameHint?.trim() ?? '';
-    if (hint.isEmpty) return const [];
-
-    final searchResult = await _musicianSearchRepository.search(hint);
-    if (!searchResult.isSuccess || searchResult.data == null) return const [];
-
-    final List<DmProfileTarget> targets = <DmProfileTarget>[];
-    final Iterable<MusicianSearchOption> candidates = searchResult.data!.take(
-      20,
+  void _writeCache(String userId, List<DmProfileTarget> targets, Duration ttl) {
+    _cache.remove(userId);
+    _cache[userId] = _ProfileCacheEntry(
+      targets: targets,
+      expiresAt: _clock().add(ttl),
     );
-    for (final item in candidates) {
-      final profileResult = await _musicianProfileRepository
-          .getPublicProfileByProfileId(item.profileId);
-      if (!profileResult.isSuccess || profileResult.data == null) continue;
-      final profile = profileResult.data!;
-      if (profile.userId != userId) continue;
-      targets.add(
-        DmProfileTarget(
-          type: DmProfileTargetType.musician,
-          id: item.profileId,
-          displayName: item.displayName,
-          imageUrl: item.profilePictureUrl,
-        ),
-      );
+    while (_cache.length > _maxCacheEntries) {
+      _cache.remove(_cache.keys.first);
     }
-    return targets;
   }
+}
 
-  Future<List<DmProfileTarget>> _resolveVenueTargets(String userId) async {
-    final allVenuesResult = await _venueDirectoryRepository.getAllVenues();
-    if (!allVenuesResult.isSuccess || allVenuesResult.data == null) {
-      return const [];
-    }
-    final List<VenueOption> venues = allVenuesResult.data!;
-    final List<DmProfileTarget> targets = <DmProfileTarget>[];
+class _ProfileCacheEntry {
+  const _ProfileCacheEntry({required this.targets, required this.expiresAt});
 
-    // Network maliyetini sinirli tutmak icin once makul bir aralikta dene.
-    final Iterable<VenueOption> candidates = venues.take(80);
-    for (final venue in candidates) {
-      final detailResult = await _venueProfileRepository.getPublicVenueProfile(
-        venueId: venue.id,
-      );
-      if (!detailResult.isSuccess || detailResult.data == null) continue;
-      final detail = detailResult.data!;
-      if (detail.ownerUserId != userId) continue;
-      targets.add(
-        DmProfileTarget(
-          type: DmProfileTargetType.venue,
-          id: detail.venueId,
-          displayName: detail.venueName,
-          imageUrl: detail.profilePictureUrl,
-        ),
-      );
-    }
-
-    return targets;
-  }
+  final List<DmProfileTarget> targets;
+  final DateTime expiresAt;
 }

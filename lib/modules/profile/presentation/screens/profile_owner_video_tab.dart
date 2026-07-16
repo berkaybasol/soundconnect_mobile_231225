@@ -1,16 +1,15 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../domain/entities/media_asset.dart';
-import '../../domain/profile_media_management_repository.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'profile_count_row.dart';
 import 'profile_screen_support.dart';
@@ -45,6 +44,8 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
   int _pollAttempt = 0;
   static int _maxPollAttempt = 45;
   bool _videoUploading = false;
+  double _videoUploadProgress = 0;
+  String? _videoUploadStatus;
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -135,10 +136,24 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                     ),
                     if (_videoUploading) ...[
                       SizedBox(height: 10),
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                      Text(
+                        _videoUploadStatus ??
+                            'Video yukleniyor %${(_videoUploadProgress * 100).round()}',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: LinearProgressIndicator(
+                          value: _videoUploadProgress > 0
+                              ? _videoUploadProgress
+                              : null,
+                          minHeight: 6,
+                        ),
                       ),
                     ],
                   ],

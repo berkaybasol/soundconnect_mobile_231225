@@ -22,7 +22,12 @@ class _VenueCalendarEventPosterStack extends StatelessWidget {
         children: [
           Positioned.fill(
             child: hasPoster
-                ? Image.network(posterUrl!, fit: BoxFit.cover)
+                ? AppCachedNetworkImage(
+                    imageUrl: posterUrl,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                  )
                 : Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(

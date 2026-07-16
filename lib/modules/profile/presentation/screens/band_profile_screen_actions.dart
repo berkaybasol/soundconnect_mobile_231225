@@ -156,7 +156,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     if (!_canManageBand) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bu işlem için yetkin yok.')),
+          const SnackBar(content: Text('Bu işlem için yetkin yok.')),
         );
       }
       return false;
@@ -206,7 +206,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     if (!result.isSuccess || result.data == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(result.error?.message ?? 'Açıklama kaydedilemedi.'),
+          content: Text(result.error?.message ?? 'Açıklama kaydedilemedi.'),
         ),
       );
       return;
@@ -341,7 +341,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       ),
     );
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (deleted == true) {
       Navigator.of(context).pop(true);
       return;

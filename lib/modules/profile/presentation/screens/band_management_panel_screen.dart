@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/network/network_config.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
@@ -194,10 +195,7 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              'Sil',
-              style: TextStyle(color: Colors.redAccent),
-            ),
+            child: Text('Sil', style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -218,15 +216,15 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
         _submitting = false;
         _errorText = result.error?.message ?? 'Band silinemedi.';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_errorText!)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_errorText!)));
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${_profile.name} silindi.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${_profile.name} silindi.')));
     Navigator.of(context).pop(true);
   }
 }

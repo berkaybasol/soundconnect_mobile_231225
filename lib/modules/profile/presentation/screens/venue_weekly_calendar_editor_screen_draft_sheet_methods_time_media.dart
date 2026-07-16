@@ -224,13 +224,10 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
     });
 
     try {
-      final bytes = await File(picked.path).readAsBytes();
-      if (bytes.isEmpty) {
-        throw Exception('Secilen afis okunamadi');
-      }
       final fileName = fileNameFromPath(picked.path, fallback: picked.name);
+      final source = await createProfileUploadSource(filePath: picked.path);
       final uploaded = await uploadProfileMediaAsset(
-        bytes: bytes,
+        source: source,
         ownerType: 'VENUE_PROFILE',
         ownerId: widget.ownerProfile.venueProfileId,
         mediaKind: 'IMAGE',

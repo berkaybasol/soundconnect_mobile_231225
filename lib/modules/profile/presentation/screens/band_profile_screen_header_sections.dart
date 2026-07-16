@@ -45,10 +45,14 @@ class _BandHeader extends StatelessWidget {
               ),
               child: ClipOval(
                 child: imageUrl != null && imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
+                    ? AppCachedNetworkImage(
+                        imageUrl: imageUrl,
+                        width: 104,
+                        height: 104,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
+                        cacheWidth: 312,
+                        cacheHeight: 312,
+                        errorBuilder: (context) => Icon(
                           Icons.groups_2_outlined,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           size: 42,
@@ -149,15 +153,28 @@ class _BandMembersRow extends StatelessWidget {
                   backgroundColor: Theme.of(
                     context,
                   ).colorScheme.surfaceContainer,
-                  backgroundImage: avatarUrl != null
-                      ? NetworkImage(avatarUrl)
-                      : null,
-                  child: avatarUrl != null
-                      ? null
-                      : Icon(
-                          Icons.person_outline,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                  child: ClipOval(
+                    child: avatarUrl != null
+                        ? AppCachedNetworkImage(
+                            imageUrl: avatarUrl,
+                            width: 36,
+                            height: 36,
+                            cacheWidth: 108,
+                            cacheHeight: 108,
+                            errorBuilder: (context) => Icon(
+                              Icons.person_outline,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        : Icon(
+                            Icons.person_outline,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                  ),
                 ),
                 SizedBox(width: 10),
                 Expanded(
@@ -312,7 +329,19 @@ class _BandVenuesRow extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: hasImage
-                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          ? AppCachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: 36,
+                              height: 36,
+                              fit: BoxFit.cover,
+                              cacheWidth: 108,
+                              cacheHeight: 108,
+                              errorBuilder: (context) => Icon(
+                                Icons.storefront_outlined,
+                                color: AppColors.coralAlt,
+                                size: 20,
+                              ),
+                            )
                           : Icon(
                               Icons.storefront_outlined,
                               color: AppColors.coralAlt,

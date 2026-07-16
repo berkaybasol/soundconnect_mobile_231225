@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../core/auth/auth_session_manager.dart';
+import '../../core/di/service_locator.dart';
 import '../../core/policy/stage_mode.dart';
+import '../../modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../modules/auth/presentation/screens/login_screen.dart';
 import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
@@ -24,10 +27,27 @@ import '../../modules/tablegroup/presentation/screens/table_group_list_screen.da
 import '../../modules/tablegroup/presentation/screens/table_group_route_args.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
 import 'app_routes.dart';
+import 'app_route_guard.dart';
 
 class AppRouter {
+  static T? _arguments<T>(RouteSettings settings) {
+    final value = settings.arguments;
+    return value is T ? value : null;
+  }
+
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    final session = serviceLocator<AuthSessionManager>().session;
+    final redirect = AppRouteGuard.redirectFor(settings.name, session);
+    if (redirect != null && redirect != settings.name) {
+      return onGenerateRoute(RouteSettings(name: redirect));
+    }
+
     switch (settings.name) {
+      case AppRoutes.adminDashboard:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const AdminDashboardScreen(),
+        );
       case AppRoutes.login:
         return MaterialPageRoute(
           settings: settings,
@@ -44,7 +64,7 @@ class AppRouter {
           builder: (_) => const OtpVerifyScreen(),
         );
       case AppRoutes.venueApplication:
-        final args = settings.arguments as VenueApplicationArgs?;
+        final args = _arguments<VenueApplicationArgs>(settings);
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => VenueApplicationScreen(args: args),
@@ -115,7 +135,7 @@ class AppRouter {
           builder: (_) => ListenerProfileScreen(),
         );
       case AppRoutes.overthinkingFeed:
-        final args = settings.arguments as OverthinkingFeedArgs?;
+        final args = _arguments<OverthinkingFeedArgs>(settings);
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => OverthinkingFeedScreen(
@@ -128,12 +148,11 @@ class AppRouter {
           builder: (_) => const NotificationScreen(),
         );
       case AppRoutes.tableGroupList:
-        final args = settings.arguments as TableGroupListArgs?;
+        final args = _arguments<TableGroupListArgs>(settings);
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => TableGroupListScreen(
-            args: args ?? const TableGroupListArgs(),
-          ),
+          builder: (_) =>
+              TableGroupListScreen(args: args ?? const TableGroupListArgs()),
         );
       case AppRoutes.tableGroupCreate:
         return MaterialPageRoute(
@@ -141,7 +160,7 @@ class AppRouter {
           builder: (_) => TableGroupCreateScreen(),
         );
       case AppRoutes.tableGroupDetail:
-        final args = settings.arguments as TableGroupDetailArgs?;
+        final args = _arguments<TableGroupDetailArgs>(settings);
         if (args == null) {
           return MaterialPageRoute(
             settings: settings,
@@ -163,7 +182,7 @@ class AppRouter {
           builder: (_) => DmChatScreen(),
         );
       case AppRoutes.backstageProfilesHome:
-        final args = settings.arguments as BackstageProfilesHomeArgs?;
+        final args = _arguments<BackstageProfilesHomeArgs>(settings);
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => BackstageProfilesHomeScreen(
@@ -176,6 +195,10 @@ class AppRouter {
           builder: (_) => const BackstageProfilesHomeScreen(),
         );
       default:
+        final fallback = AppRouteGuard.startRouteFor(session);
+        if (fallback != settings.name) {
+          return onGenerateRoute(RouteSettings(name: fallback));
+        }
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => LoginScreen(),

@@ -33,7 +33,20 @@ class _ProfileHeader extends StatelessWidget {
               ),
               child: ClipOval(
                 child: profile.profilePicture?.startsWith('http') == true
-                    ? Image.network(profile.profilePicture!, fit: BoxFit.cover)
+                    ? AppCachedNetworkImage(
+                        imageUrl: profile.profilePicture,
+                        width: 96,
+                        height: 96,
+                        fit: BoxFit.cover,
+                        cacheWidth:
+                            (96 * MediaQuery.devicePixelRatioOf(context))
+                                .round(),
+                        errorBuilder: (context) => Icon(
+                          Icons.person_outline,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          size: 40,
+                        ),
+                      )
                     : Icon(
                         Icons.person_outline,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,

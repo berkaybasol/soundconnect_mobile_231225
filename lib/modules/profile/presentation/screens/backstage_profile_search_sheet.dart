@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/entities/profile_search_result.dart';
 import '../../domain/profile_search_repository.dart';
@@ -148,7 +149,9 @@ class _BackstageProfileSearchSheetState
   Widget build(BuildContext context) {
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SafeArea(
         top: false,
         child: FractionallySizedBox(
@@ -172,7 +175,8 @@ class _BackstageProfileSearchSheetState
                   textInputAction: TextInputAction.search,
                   onSubmitted: _runSearch,
                   decoration: InputDecoration(
-                    hintText: 'Muzisyen, dinleyici, band, studio veya mekan ara...',
+                    hintText:
+                        'Muzisyen, dinleyici, band, studio veya mekan ara...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _controller.text.isEmpty
                         ? null
@@ -249,13 +253,21 @@ class _ProfileSearchResultTile extends StatelessWidget {
             CircleAvatar(
               radius: 22,
               backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-              backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
-              child: hasImage
-                  ? null
-                  : Icon(
-                      _iconForType(item.type),
-                      color: AppColors.coralAlt,
-                    ),
+              child: ClipOval(
+                child: hasImage
+                    ? AppCachedNetworkImage(
+                        imageUrl: imageUrl,
+                        width: 44,
+                        height: 44,
+                        cacheWidth: 132,
+                        cacheHeight: 132,
+                        errorBuilder: (context) => Icon(
+                          _iconForType(item.type),
+                          color: AppColors.coralAlt,
+                        ),
+                      )
+                    : Icon(_iconForType(item.type), color: AppColors.coralAlt),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -311,8 +323,7 @@ class _ProfileSearchResultTile extends StatelessWidget {
     if (raw == null || raw.isEmpty || raw == item.title) {
       return item.typeLabel;
     }
-    if (item.type == ProfileSearchResultType.musician &&
-        !raw.startsWith('@')) {
+    if (item.type == ProfileSearchResultType.musician && !raw.startsWith('@')) {
       return '@$raw';
     }
     return '${item.typeLabel} - $raw';

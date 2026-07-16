@@ -10,6 +10,7 @@ extension _VenueProfileViewStateProfileActions
         imagePicker: _imagePicker,
         ownerType: 'VENUE_PROFILE',
         ownerId: profile.venueProfileId,
+        profilePhotoTargetId: profile.venueId,
       );
       if (uploaded == null) return;
       if (!mounted) return;

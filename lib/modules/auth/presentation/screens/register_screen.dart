@@ -7,6 +7,7 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../../location/presentation/cubit/location_cubit.dart';
 import '../../../location/presentation/cubit/location_state.dart';
+import '../../domain/password_policy.dart';
 import 'otp_verify_screen.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
@@ -92,6 +93,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _pageController.addListener(() {
       _pageProgress.value = _pageController.page ?? _stepIndex.toDouble();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final cubit = context.read<LocationCubit>();
+      if (cubit.state.cities.isEmpty &&
+          cubit.state.status != LocationStatus.loading) {
+        cubit.loadCities();
+      }
+    });
   }
 
   @override
@@ -130,12 +139,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final email = _emailController.text.trim();
         return email.isNotEmpty && _isValidEmail(email);
       case 2:
-        final password = _passwordController.text.trim();
-        final rePassword = _rePasswordController.text.trim();
-        return password.isNotEmpty &&
-            password.length >= 8 &&
-            password.length <= 20 &&
-            rePassword.isNotEmpty &&
+        final password = _passwordController.text;
+        final rePassword = _rePasswordController.text;
+        return PasswordPolicy.isValidForRegistration(password) &&
+            !PasswordPolicy.isBlank(rePassword) &&
             password == rePassword;
       case 3:
         return (_selectedRole ?? '').isNotEmpty;
@@ -144,7 +151,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _venueAddressController.text.trim().isNotEmpty &&
             _venuePhoneController.text.trim().isNotEmpty &&
             (_selectedCityId ?? '').isNotEmpty &&
-            (_selectedDistrictId ?? '').isNotEmpty;
+            (_selectedDistrictId ?? '').isNotEmpty &&
+            (_selectedNeighborhoodId ?? '').isNotEmpty;
       default:
         return false;
     }
@@ -167,13 +175,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _showError('Geçerli bir e-posta gir.');
         }
       } else if (_stepIndex == 2) {
-        final password = _passwordController.text.trim();
-        final rePassword = _rePasswordController.text.trim();
-        if (password.isEmpty) {
+        final password = _passwordController.text;
+        final rePassword = _rePasswordController.text;
+        if (PasswordPolicy.isBlank(password)) {
           _showError('Şifre boş olamaz.');
-        } else if (password.length < 8 || password.length > 20) {
-          _showError('Şifren en az 8, en fazla 20 karakterden oluşmalı.');
-        } else if (rePassword.isEmpty) {
+        } else if (password.length < PasswordPolicy.registrationMinimumLength) {
+          _showError('Şifren en az 8 karakterden oluşmalı.');
+        } else if (PasswordPolicy.exceedsBcryptLimit(password)) {
+          _showError('Şifren UTF-8 olarak en fazla 72 bayt olmalı.');
+        } else if (PasswordPolicy.isBlank(rePassword)) {
           _showError('Şifre tekrarı boş olamaz.');
         } else {
           _showError('Şifreler eşleşmeli.');
@@ -198,8 +208,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context.read<AuthCubit>().register(
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        rePassword: _rePasswordController.text.trim(),
+        password: _passwordController.text,
+        rePassword: _rePasswordController.text,
         role: _selectedRole ?? '',
         venueName: _venueNameController.text.trim(),
         venueAddress: _venueAddressController.text.trim(),
@@ -214,8 +224,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     context.read<AuthCubit>().register(
       username: _usernameController.text.trim(),
       email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-      rePassword: _rePasswordController.text.trim(),
+      password: _passwordController.text,
+      rePassword: _rePasswordController.text,
       role: _selectedRole ?? '',
     );
   }
@@ -416,7 +426,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         SizedBox(height: 6),
         Text(
-          'Şifren en az 8, en fazla 20 karakter olmalı.',
+          'Şifren en az 8 karakter, UTF-8 olarak en fazla 72 bayt olmalı.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -545,14 +555,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(height: 12),
                 BlocBuilder<LocationCubit, LocationState>(
                   builder: (context, locationState) {
-                    if (locationState.cities.isEmpty &&
-                        locationState.status != LocationStatus.loading) {
-                      context.read<LocationCubit>().loadCities();
-                    }
-
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (locationState.status == LocationStatus.failure &&
+                            locationState.cities.isEmpty) ...[
+                          Text(
+                            locationState.error?.message ??
+                                'Sehirler yuklenemedi.',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  context.read<LocationCubit>().loadCities(),
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Tekrar dene'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                         DropdownButtonFormField<String>(
                           value: _selectedCityId,
                           decoration: InputDecoration(
@@ -668,7 +693,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             prefixIcon: Icon(Icons.place_outlined),
-                            hintText: 'Mahalle seç (opsiyonel)',
+                            hintText: 'Mahalle seç',
                           ),
                           dropdownColor: Theme.of(
                             context,

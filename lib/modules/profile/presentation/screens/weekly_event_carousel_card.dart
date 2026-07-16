@@ -83,10 +83,12 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                             )._placeholder(context);
                           }
                           if (_isNetworkImage(resolved)) {
-                            return Image.network(
-                              resolved,
+                            return AppCachedNetworkImage(
+                              imageUrl: resolved,
+                              width: double.infinity,
+                              height: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => WeeklyEventCarousel(
+                              errorBuilder: (context) => WeeklyEventCarousel(
                                 items: [],
                               )._placeholder(context),
                             );

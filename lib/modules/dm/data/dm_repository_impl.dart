@@ -36,6 +36,35 @@ class DmRepositoryImpl implements DmRepository {
   }
 
   @override
+  Future<Result<int>> getUnreadCount() async {
+    try {
+      final count = await _apiClient.get<int>(
+        DmEndpoints.unreadCount,
+        decoder: (json) {
+          if (json is! Map) {
+            throw const FormatException('Expected unread count object.');
+          }
+          final rawCount = json['unreadCount'];
+          if (rawCount is! num) {
+            throw const FormatException('Expected numeric unreadCount.');
+          }
+          return rawCount.toInt().clamp(0, 999999);
+        },
+      );
+      return Result.success(count);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'dm_unread_count_unknown',
+          message: 'Okunmamis mesaj sayisi alinamadi',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<String>> getOrCreateConversation({
     required String otherUserId,
   }) async {

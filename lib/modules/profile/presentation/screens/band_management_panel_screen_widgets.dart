@@ -131,10 +131,14 @@ class _MemberAvatar extends StatelessWidget {
               Icons.person_outline,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             )
-          : Image.network(
-              imageUrl!,
+          : AppCachedNetworkImage(
+              imageUrl: imageUrl,
+              width: 44,
+              height: 44,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Icon(
+              cacheWidth: 132,
+              cacheHeight: 132,
+              errorBuilder: (context) => Icon(
                 Icons.person_outline,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

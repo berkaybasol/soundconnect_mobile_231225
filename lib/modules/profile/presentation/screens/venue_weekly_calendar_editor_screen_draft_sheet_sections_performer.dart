@@ -84,22 +84,32 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                       backgroundColor: Theme.of(
                         context,
                       ).colorScheme.surfaceContainer,
-                      backgroundImage:
-                          _selectedMusicianImageUrl != null &&
-                              _selectedMusicianImageUrl!.startsWith('http')
-                          ? NetworkImage(_selectedMusicianImageUrl!)
-                          : null,
-                      child:
-                          _selectedMusicianImageUrl == null ||
-                              !_selectedMusicianImageUrl!.startsWith('http')
-                          ? Icon(
-                              Icons.person_outline,
-                              size: 18,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            )
-                          : null,
+                      child: ClipOval(
+                        child:
+                            _selectedMusicianImageUrl != null &&
+                                _selectedMusicianImageUrl!.startsWith('http')
+                            ? AppCachedNetworkImage(
+                                imageUrl: _selectedMusicianImageUrl,
+                                width: 36,
+                                height: 36,
+                                cacheWidth: 108,
+                                cacheHeight: 108,
+                                errorBuilder: (context) => Icon(
+                                  Icons.person_outline,
+                                  size: 18,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              )
+                            : Icon(
+                                Icons.person_outline,
+                                size: 18,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                      ),
                     ),
                     SizedBox(width: 10),
                     Expanded(
@@ -172,21 +182,30 @@ extension _VenueEventDraftSheetStateSectionsPerformer
                       backgroundColor: Theme.of(
                         context,
                       ).colorScheme.surfaceContainer,
-                      backgroundImage:
-                          item.profilePictureUrl != null &&
-                              item.profilePictureUrl!.startsWith('http')
-                          ? NetworkImage(item.profilePictureUrl!)
-                          : null,
-                      child:
-                          item.profilePictureUrl == null ||
-                              !item.profilePictureUrl!.startsWith('http')
-                          ? Icon(
-                              Icons.person_outline,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            )
-                          : null,
+                      child: ClipOval(
+                        child:
+                            item.profilePictureUrl != null &&
+                                item.profilePictureUrl!.startsWith('http')
+                            ? AppCachedNetworkImage(
+                                imageUrl: item.profilePictureUrl,
+                                width: 36,
+                                height: 36,
+                                cacheWidth: 108,
+                                cacheHeight: 108,
+                                errorBuilder: (context) => Icon(
+                                  Icons.person_outline,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              )
+                            : Icon(
+                                Icons.person_outline,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                      ),
                     ),
                     title: Text(
                       item.displayName,

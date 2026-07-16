@@ -1,6 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
+import '../../../../core/error/app_error.dart';
+import '../../domain/entities/user_status.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../domain/usecases/resend_code_usecase.dart';
@@ -13,6 +16,9 @@ class AuthCubit extends Cubit<AuthState> {
   final VerifyCodeUseCase _verifyCodeUseCase;
   final ResendCodeUseCase _resendCodeUseCase;
   final TokenStore _tokenStore;
+  final AuthSessionManager? _sessionManager;
+  bool _wasSessionAuthenticated;
+  Future<void>? _logoutInFlight;
 
   AuthCubit({
     required LoginUseCase loginUseCase,
@@ -20,12 +26,18 @@ class AuthCubit extends Cubit<AuthState> {
     required VerifyCodeUseCase verifyCodeUseCase,
     required ResendCodeUseCase resendCodeUseCase,
     required TokenStore tokenStore,
+    AuthSessionManager? sessionManager,
   }) : _loginUseCase = loginUseCase,
        _registerUseCase = registerUseCase,
        _verifyCodeUseCase = verifyCodeUseCase,
        _resendCodeUseCase = resendCodeUseCase,
        _tokenStore = tokenStore,
-       super(const AuthState.idle());
+       _sessionManager = sessionManager,
+       _wasSessionAuthenticated =
+           sessionManager?.session.isAuthenticated ?? false,
+       super(const AuthState.idle()) {
+    _sessionManager?.addListener(_handleSessionChanged);
+  }
 
   Future<void> login({
     required String username,
@@ -40,7 +52,31 @@ class AuthCubit extends Cubit<AuthState> {
     );
     final result = await _loginUseCase(username: username, password: password);
     if (result.isSuccess && result.data != null) {
-      await _tokenStore.writeToken(result.data!.token);
+      final loginResult = result.data!;
+      try {
+        final sessionManager = _sessionManager;
+        if (sessionManager != null) {
+          await sessionManager.startSession(
+            token: loginResult.token,
+            username: loginResult.username,
+            accountStatus: loginResult.status.apiValue,
+          );
+        } else {
+          await _tokenStore.writeToken(loginResult.token);
+        }
+      } catch (_) {
+        emit(
+          state.copyWith(
+            status: AuthStatus.failure,
+            action: AuthAction.login,
+            error: const AppError(
+              code: 'auth_session_persist_failed',
+              message: 'Oturum guvenli sekilde baslatilamadi. Tekrar dene.',
+            ),
+          ),
+        );
+        return;
+      }
       emit(
         state.copyWith(
           status: AuthStatus.success,
@@ -57,6 +93,60 @@ class AuthCubit extends Cubit<AuthState> {
         action: AuthAction.login,
         error: result.error,
       ),
+    );
+  }
+
+  Future<void> logout() {
+    final inFlight = _logoutInFlight;
+    if (inFlight != null) return inFlight;
+
+    final sessionManager = _sessionManager;
+    if (_isLoggedOut &&
+        (sessionManager == null || !sessionManager.session.isAuthenticated)) {
+      return Future<void>.value();
+    }
+
+    final operation = _performLogout();
+    _logoutInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_logoutInFlight, operation)) _logoutInFlight = null;
+    });
+  }
+
+  Future<void> _performLogout() async {
+    final sessionManager = _sessionManager;
+    if (sessionManager != null) {
+      await sessionManager.logout();
+    } else {
+      await _tokenStore.clear();
+    }
+    _emitLoggedOut();
+  }
+
+  void _handleSessionChanged() {
+    final sessionManager = _sessionManager;
+    if (sessionManager == null) return;
+
+    final isAuthenticated = sessionManager.session.isAuthenticated;
+    final didEndSession = _wasSessionAuthenticated && !isAuthenticated;
+    _wasSessionAuthenticated = isAuthenticated;
+
+    if (didEndSession) _emitLoggedOut();
+  }
+
+  bool get _isLoggedOut =>
+      state.status == AuthStatus.success &&
+      state.action == AuthAction.logout &&
+      state.message == null &&
+      state.error == null &&
+      state.loginResult == null &&
+      state.registerResult == null &&
+      state.resendResult == null;
+
+  void _emitLoggedOut() {
+    if (isClosed || _isLoggedOut) return;
+    emit(
+      const AuthState(status: AuthStatus.success, action: AuthAction.logout),
     );
   }
 
@@ -168,5 +258,11 @@ class AuthCubit extends Cubit<AuthState> {
         error: result.error,
       ),
     );
+  }
+
+  @override
+  Future<void> close() {
+    _sessionManager?.removeListener(_handleSessionChanged);
+    return super.close();
   }
 }

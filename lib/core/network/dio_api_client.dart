@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../auth/auth_session_manager.dart';
+import '../auth/jwt_claims.dart';
 import '../auth/token_store.dart';
 import '../error/app_error.dart';
 import 'api_client.dart';
@@ -8,32 +10,106 @@ import 'api_exception.dart';
 import 'base_response.dart';
 import 'network_config.dart';
 
+const Set<String> _publicAuthPaths = <String>{
+  '/api/v1/auth/login',
+  '/api/v1/auth/register',
+  '/api/v1/auth/verify-code',
+  '/api/v1/auth/resend-code',
+  '/api/v1/auth/google-sign-in',
+};
+
+@visibleForTesting
+bool isPublicApiRequest(String method, String rawPath) {
+  final normalizedMethod = method.trim().toUpperCase();
+  final path = Uri.tryParse(rawPath)?.path ?? rawPath;
+  if (normalizedMethod == 'POST') {
+    return _publicAuthPaths.contains(path) ||
+        path == '/api/v1/spotify/tracks/by-ids';
+  }
+  if (normalizedMethod != 'GET') return false;
+
+  return path.startsWith('/api/v1/public/') ||
+      path == '/api/v1/public' ||
+      _isPathOrDescendant(path, '/api/v1/cities') ||
+      _isPathOrDescendant(path, '/api/v1/districts') ||
+      _isPathOrDescendant(path, '/api/v1/neighborhoods') ||
+      (path == '/api/v1/venues' || path.startsWith('/api/v1/venues/')) ||
+      (path == '/api/v1/events' || path.startsWith('/api/v1/events/')) ||
+      (path == '/api/v1/promotions/displayable' ||
+          path.startsWith('/api/v1/promotions/displayable/')) ||
+      path == '/api/v1/spotify/search/tracks' ||
+      (path.startsWith('/api/v1/spotify/tracks/') &&
+          path != '/api/v1/spotify/tracks/by-ids') ||
+      RegExp(r'^/api/v1/profiles/[^/]+/[^/]+/media$').hasMatch(path);
+}
+
+bool _isPathOrDescendant(String path, String basePath) {
+  return path == basePath || path.startsWith('$basePath/');
+}
+
 class DioApiClient implements ApiClient {
   final Dio _dio;
   final TokenStore _tokenStore;
+  final AuthSessionManager? _sessionManager;
 
-  DioApiClient({Dio? dio, required TokenStore tokenStore, String? baseUrl})
-    : _dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              baseUrl: _resolveBaseUrl(baseUrl),
-              connectTimeout: const Duration(seconds: 15),
-              receiveTimeout: const Duration(seconds: 15),
-              headers: const {'Content-Type': 'application/json'},
-            ),
-          ),
-      _tokenStore = tokenStore {
+  static const String _requestTokenKey = 'soundconnect.request_token';
+  static const String _expectedSessionKey = 'soundconnect.expected_session_key';
+
+  DioApiClient({
+    Dio? dio,
+    required TokenStore tokenStore,
+    AuthSessionManager? sessionManager,
+    String? baseUrl,
+  }) : _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: _resolveBaseUrl(baseUrl),
+               connectTimeout: const Duration(seconds: 15),
+               receiveTimeout: const Duration(seconds: 15),
+               headers: const {'Content-Type': 'application/json'},
+             ),
+           ),
+       _tokenStore = tokenStore,
+       _sessionManager = sessionManager {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          if (!_isPublicPath(options.path)) {
+          final isPublic = isPublicApiRequest(options.method, options.path);
+          final expectedSession =
+              options.extra[_expectedSessionKey]?.toString().trim() ?? '';
+          if (!isPublic || expectedSession.isNotEmpty) {
             final token = await _tokenStore.readToken();
-            if (token != null && token.isNotEmpty) {
+            if (expectedSession.isNotEmpty) {
+              final tokenSession = JwtClaims.tryParse(token)?.subject?.trim();
+              final activeSession = _sessionManager?.session.userId?.trim();
+              final sessionChanged =
+                  tokenSession != expectedSession ||
+                  (_sessionManager != null && activeSession != expectedSession);
+              if (sessionChanged) {
+                handler.reject(
+                  DioException(
+                    requestOptions: options,
+                    type: DioExceptionType.cancel,
+                    error: const ApiSessionFenceException(),
+                    message: 'Authenticated session changed before dispatch',
+                  ),
+                );
+                return;
+              }
+            }
+            if (!isPublic && token != null && token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
+              options.extra[_requestTokenKey] = token;
             }
           }
           handler.next(options);
+        },
+        onError: (error, handler) async {
+          if (error.response?.statusCode == 401) {
+            await _rejectUnauthorizedRequest(error.requestOptions);
+          }
+          handler.next(error);
         },
       ),
     );
@@ -51,12 +127,8 @@ class DioApiClient implements ApiClient {
     );
   }
 
-  bool _isPublicPath(String path) {
-    return path.startsWith('/api/v1/auth') ||
-        path.startsWith('/api/v1/public') ||
-        path.startsWith('/api/v1/cities') ||
-        path.startsWith('/api/v1/districts') ||
-        path.startsWith('/api/v1/neighborhoods');
+  bool _isPublicRequest(RequestOptions options) {
+    return isPublicApiRequest(options.method, options.path);
   }
 
   @override
@@ -104,19 +176,45 @@ class DioApiClient implements ApiClient {
     return _request<T>('DELETE', path, body: body, decoder: decoder);
   }
 
+  @override
+  Future<T> request<T>(
+    ApiHttpMethod method,
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+    T Function(Object? json)? decoder,
+    ApiRequestContext? requestContext,
+  }) {
+    return _request<T>(
+      method.name.toUpperCase(),
+      path,
+      body: body,
+      query: query,
+      decoder: decoder,
+      requestContext: requestContext,
+    );
+  }
+
   Future<T> _request<T>(
     String method,
     String path, {
     Object? body,
     Map<String, dynamic>? query,
     T Function(Object? json)? decoder,
+    ApiRequestContext? requestContext,
   }) async {
     try {
       final response = await _dio.request<dynamic>(
         path,
         data: body,
         queryParameters: query,
-        options: Options(method: method),
+        options: Options(
+          method: method,
+          extra: <String, Object?>{
+            if (requestContext?.expectedSessionKey case final value?)
+              _expectedSessionKey: value,
+          },
+        ),
       );
 
       final payload = response.data;
@@ -124,6 +222,9 @@ class DioApiClient implements ApiClient {
         final baseResponse = BaseResponse<T>.fromJson(payload, decoder);
         if (baseResponse.success == true) {
           return baseResponse.data as T;
+        }
+        if (baseResponse.code == 401) {
+          await _rejectUnauthorizedRequest(response.requestOptions);
         }
         throw ApiException(
           AppError(
@@ -139,9 +240,17 @@ class DioApiClient implements ApiClient {
 
       return payload as T;
     } on DioException catch (e) {
+      if (e.error is ApiSessionFenceException) {
+        throw ApiException(
+          const AppError(
+            code: 'api_session_fence',
+            message: 'Oturum istek gonderilmeden once degisti',
+          ),
+        );
+      }
       final errorPayload = e.response?.data;
-      final String message = _messageFromErrorPayload(errorPayload) ??
-          _mapDioErrorMessage(e);
+      final String message =
+          _messageFromErrorPayload(errorPayload) ?? _mapDioErrorMessage(e);
       final String code =
           _codeFromErrorPayload(errorPayload) ??
           e.response?.statusCode?.toString() ??
@@ -154,6 +263,12 @@ class DioApiClient implements ApiClient {
         ),
       );
     }
+  }
+
+  Future<void> _rejectUnauthorizedRequest(RequestOptions options) async {
+    if (_isPublicRequest(options)) return;
+    final rejectedToken = options.extra[_requestTokenKey]?.toString();
+    await _sessionManager?.rejectUnauthorizedToken(rejectedToken);
   }
 
   String? _messageFromErrorPayload(Object? payload) {
@@ -213,4 +328,8 @@ class DioApiClient implements ApiClient {
 
     return fallback;
   }
+}
+
+class ApiSessionFenceException implements Exception {
+  const ApiSessionFenceException();
 }

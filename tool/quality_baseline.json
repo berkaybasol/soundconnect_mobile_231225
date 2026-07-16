@@ -1,5 +1,13 @@
 {
   "ignore_for_file_max": 0,
   "max_dart_file_lines": 1200,
-  "min_line_coverage_pct": 5.0
+  "legacy_file_line_limits": {
+    "lib/modules/event/presentation/screens/guest_event_home_screen.dart": 1447,
+    "lib/modules/overthinking/presentation/screens/overthinking_feed_screen.dart": 2117,
+    "lib/modules/profile/presentation/screens/studio_profile_screen.dart": 4070
+  },
+  "legacy_format_exclusions": [
+    "lib/modules/profile/presentation/screens/studio_profile_screen.dart"
+  ],
+  "min_line_coverage_pct": 19.0
 }

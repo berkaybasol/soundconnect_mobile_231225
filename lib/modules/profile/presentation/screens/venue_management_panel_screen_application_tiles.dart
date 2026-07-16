@@ -63,19 +63,32 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                           backgroundColor: Theme.of(
                             context,
                           ).colorScheme.surfaceContainer,
-                          backgroundImage: _isValidImageUrl(applicantImageUrl)
-                              ? NetworkImage(applicantImageUrl!)
-                              : null,
-                          child: !_isValidImageUrl(applicantImageUrl)
-                              ? Icon(
-                                  isBandRequest
-                                      ? Icons.groups_2_outlined
-                                      : Icons.person_outline,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                )
-                              : null,
+                          child: ClipOval(
+                            child: _isValidImageUrl(applicantImageUrl)
+                                ? AppCachedNetworkImage(
+                                    imageUrl: applicantImageUrl,
+                                    width: 40,
+                                    height: 40,
+                                    cacheWidth: 120,
+                                    cacheHeight: 120,
+                                    errorBuilder: (context) => Icon(
+                                      isBandRequest
+                                          ? Icons.groups_2_outlined
+                                          : Icons.person_outline,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : Icon(
+                                    isBandRequest
+                                        ? Icons.groups_2_outlined
+                                        : Icons.person_outline,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                          ),
                         ),
                         SizedBox(width: 12),
                         Expanded(

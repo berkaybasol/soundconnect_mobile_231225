@@ -30,14 +30,15 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
       );
 
       ProfileMedia finalMedia = response;
-      if (profileType.toUpperCase() == 'MUSICIAN' &&
-          response.featuredVideo == null &&
-          response.videos.isEmpty) {
-        final fallbackVideos = await _loadPublicVideos(profileId);
-        if (fallbackVideos.isNotEmpty) {
+      if (response.featuredVideo == null && response.videos.isEmpty) {
+        final fallbackMedia = await _loadPublicMedia(
+          profileType: profileType,
+          profileId: profileId,
+        );
+        if (fallbackMedia != null && fallbackMedia.isNotEmpty) {
           finalMedia = ProfileMedia(
             featuredVideo: null,
-            videos: fallbackVideos,
+            videos: fallbackMedia,
             audios: response.audios,
           );
         }
@@ -45,6 +46,19 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
 
       return Result.success(finalMedia);
     } on ApiException catch (e) {
+      final fallbackMedia = await _loadPublicMedia(
+        profileType: profileType,
+        profileId: profileId,
+      );
+      if (fallbackMedia != null) {
+        return Result.success(
+          ProfileMedia(
+            featuredVideo: null,
+            videos: fallbackMedia,
+            audios: const [],
+          ),
+        );
+      }
       return Result.failure(e.error);
     } catch (_) {
       return Result.failure(
@@ -56,10 +70,13 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
     }
   }
 
-  Future<List<MediaAsset>> _loadPublicVideos(String profileId) async {
+  Future<List<MediaAsset>?> _loadPublicMedia({
+    required String profileType,
+    required String profileId,
+  }) async {
     try {
       return await _apiClient.get<List<MediaAssetModel>>(
-        '/api/v1/public/media/owner/MUSICIAN_PROFILE/$profileId/kind/VIDEO',
+        '/api/v1/public/media/owner/${_mediaOwnerType(profileType)}/$profileId/kind/VIDEO',
         query: const {'page': 0, 'size': 20, 'sort': 'createdAt,desc'},
         decoder: (json) {
           if (json is! Map<String, dynamic>) return const <MediaAssetModel>[];
@@ -68,11 +85,28 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
           return content
               .whereType<Map<String, dynamic>>()
               .map(MediaAssetModel.fromJson)
+              .where(
+                (item) =>
+                    item.id.isNotEmpty &&
+                    (item.kind ?? '').toUpperCase() == 'VIDEO',
+              )
               .toList();
         },
       );
     } catch (_) {
-      return const <MediaAsset>[];
+      return null;
     }
+  }
+
+  String _mediaOwnerType(String profileType) {
+    return switch (profileType.trim().toUpperCase()) {
+      'BAND' => 'BAND',
+      'VENUE' => 'VENUE_PROFILE',
+      'STUDIO' => 'STUDIO_PROFILE',
+      'LISTENER' => 'LISTENER_PROFILE',
+      'PRODUCER' => 'PRODUCER_PROFILE',
+      'ORGANIZER' => 'ORGANIZER_PROFILE',
+      _ => 'MUSICIAN_PROFILE',
+    };
   }
 }

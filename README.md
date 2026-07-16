@@ -48,7 +48,8 @@ flutter pub get
 flutter run --dart-define=SOUNDCONNECT_BASE_URL=http://localhost:8080
 ```
 
-For Android emulator use `http://10.0.2.2:8080`.
+For Android emulator use `http://10.0.2.2:8080`, or keep the debug default
+`http://127.0.0.1:8080` after running `adb reverse tcp:8080 tcp:8080`.
 For physical devices use your computer LAN IP (for example
 `http://192.168.1.50:8080`).
 
@@ -58,8 +59,9 @@ Debug builds can fall back to the local development default in
 
 ## Android Release Signing
 
-Release signing now auto-loads `android/key.properties` when present. If this
-file is missing, local release builds continue with debug signing.
+Release signing auto-loads `android/key.properties`. Release builds fail fast
+when the file or any required value is missing; debug signing is never used for
+a release artifact.
 
 Example `android/key.properties`:
 
@@ -87,19 +89,34 @@ dart run tool/quality_gate.dart
 
 This gate enforces:
 
-- formatted Dart files (`dart format --set-exit-if-changed`)
+- changed Dart files are formatted (`dart format --set-exit-if-changed`)
 - static analysis (`flutter analyze`)
 - tests with coverage (`flutter test --coverage`)
 - no temporary `//eklendi` comments
 - no increase in `ignore_for_file` debt
-- no regression in maximum Dart file size baseline
+- a 1,200-line limit for new Dart files
+- no growth in explicitly recorded legacy oversized files
 - no regression in baseline line coverage
 
-When a baseline increase is intentional, update it explicitly:
+The legacy list is a monotonic ratchet, not a permanent exemption: each
+recorded file may shrink but may not grow. Any reduction must lower the
+recorded baseline in the same change, and the entry is removed after the file
+drops below the global limit. When a baseline improvement is reviewed, update
+it explicitly:
 
 ```bash
 dart run tool/quality_gate.dart --update-baseline
 ```
+
+To run only the incremental format check (without Flutter tooling):
+
+```bash
+dart run tool/quality_gate.dart --format-only
+```
+
+The unfinished Studio screen remains an explicit format/analyzer legacy
+exception. The gate permits no other `lib/` Dart analyzer exclusion; its line
+count is still guarded and it cannot grow.
 
 ## Current Technical Notes
 

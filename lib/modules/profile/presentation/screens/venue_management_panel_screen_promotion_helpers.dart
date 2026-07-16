@@ -183,12 +183,13 @@ Widget _buildManagementPromotionCard(BuildContext context) {
                       ),
                       child: hasImage
                           ? _buildManagementShiftedBannerImage(
-                              Image.network(
-                                imageUrl,
+                              AppCachedNetworkImage(
+                                imageUrl: imageUrl,
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
-                                errorBuilder: (_, __, ___) =>
+                                cacheProfile: AppImageCacheProfile.original,
+                                errorBuilder: (context) =>
                                     _buildManagementPromotionFallback(context),
                               ),
                             )

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,6 +32,13 @@ import 'profile_screen_support.dart';
 import 'profile_section_support.dart';
 
 part 'studio_profile_backline_taxonomy.dart';
+part 'studio_owner_backline_management.dart';
+part 'studio_owner_backline_inventory_item_management.dart';
+part 'studio_owner_backline_availability_management.dart';
+part 'studio_owner_rooms_management.dart';
+part 'studio_owner_room_settings.dart';
+part 'studio_owner_reservations_hub.dart';
+part 'studio_public_profile_content.dart';
 part 'studio_profile_room_detail.dart';
 part 'studio_profile_recordings.dart';
 
@@ -257,33 +266,37 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
               onRefresh: _refresh,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                child: _StudioDashboardContent(
-                  profile: profile,
-                  location: _studioLocationText(profile) ?? '',
-                  followersCount: followersCount,
-                  followingCount: followingCount,
-                  isPublic: widget.isPublic,
-                  photoUploading: _photoUploading,
-                  onBack: () => Navigator.of(context).maybePop(),
-                  onMenu: widget.isPublic
-                      ? null
-                      : () => _showOwnerQuickMenu(context),
-                  onEditPhoto: widget.isPublic
-                      ? null
-                      : () => _pickPhoto(profile),
-                  onPrimaryAction: widget.isPublic
-                      ? () => _openDm(profile)
-                      : () => _openManagementPanel(context),
-                  onReservation: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Rezervasyon oluşturmak için Odalar sekmesinden bir oda seç.',
-                        ),
+                child: widget.isPublic
+                    ? _StudioPublicDashboardContent(
+                        profile: profile,
+                        location: _studioLocationText(profile) ?? '',
+                        followersCount: followersCount,
+                        followingCount: followingCount,
+                        onBack: () => Navigator.of(context).maybePop(),
+                        onMessage: () => _openDm(profile),
+                        onReservation: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Rezervasyon oluşturmak için Odalar sekmesinden bir oda seç.',
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : _StudioOwnerDashboardContent(
+                        profile: profile,
+                        location: _studioLocationText(profile) ?? '',
+                        followersCount: followersCount,
+                        followingCount: followingCount,
+                        photoUploading: _photoUploading,
+                        onBack: () => Navigator.of(context).maybePop(),
+                        onMenu: () => _showOwnerQuickMenu(context),
+                        onEditPhoto: () => _pickPhoto(profile),
+                        onEditDescription: () =>
+                            _showDescriptionEditor(profile.description),
+                        onManagement: () => _openManagementPanel(context),
                       ),
-                    );
-                  },
-                ),
               ),
             ),
             bottomNavigationBar: ProfilePublicBottomBar(
@@ -464,6 +477,101 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
     );
   }
 
+  Future<void> _showDescriptionEditor(String? currentDescription) async {
+    final controller = TextEditingController(text: currentDescription ?? '');
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          decoration: BoxDecoration(
+            color: Theme.of(sheetContext).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(
+              top: BorderSide(color: Theme.of(sheetContext).dividerColor),
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        sheetContext,
+                      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Profil Açıklaması',
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Stüdyonu ve sunduğun hizmetleri kısaca anlat.',
+                  style: TextStyle(
+                    color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  minLines: 4,
+                  maxLines: 7,
+                  maxLength: 500,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Kayıt, prova, ekipman ve atmosferini anlat...',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('Vazgeç'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.of(
+                          sheetContext,
+                        ).pop(controller.text.trim()),
+                        icon: const Icon(Icons.save_outlined, size: 18),
+                        label: const Text('Kaydet'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    if (result == null || !mounted) return;
+    await _saveDescription(result);
+  }
+
   Widget _managementPanelButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -641,38 +749,34 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
   }
 }
 
-class _StudioDashboardContent extends StatelessWidget {
+class _StudioOwnerDashboardContent extends StatelessWidget {
   final StudioProfile profile;
   final String location;
   final int? followersCount;
   final int? followingCount;
-  final bool isPublic;
   final bool photoUploading;
   final VoidCallback onBack;
   final VoidCallback? onMenu;
   final VoidCallback? onEditPhoto;
-  final VoidCallback onPrimaryAction;
-  final VoidCallback onReservation;
+  final VoidCallback onEditDescription;
+  final VoidCallback onManagement;
 
-  const _StudioDashboardContent({
+  const _StudioOwnerDashboardContent({
     required this.profile,
     required this.location,
     required this.followersCount,
     required this.followingCount,
-    required this.isPublic,
     required this.photoUploading,
     required this.onBack,
     required this.onMenu,
     required this.onEditPhoto,
-    required this.onPrimaryAction,
-    required this.onReservation,
+    required this.onEditDescription,
+    required this.onManagement,
   });
 
   @override
   Widget build(BuildContext context) {
-    final description = profile.description?.trim().isNotEmpty == true
-        ? profile.description!.trim()
-        : 'Prova, kayıt, mix & mastering ve backline kiralama hizmeti.';
+    final description = profile.description?.trim();
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 26),
       child: Column(
@@ -736,15 +840,9 @@ class _StudioDashboardContent extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        description,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFFC1C8D2),
-                          fontSize: 12,
-                          height: 1.42,
-                        ),
+                      _StudioOwnerDescription(
+                        description: description,
+                        onEdit: onEditDescription,
                       ),
                     ],
                   ),
@@ -752,23 +850,126 @@ class _StudioDashboardContent extends StatelessWidget {
               ),
             ],
           ),
-          if (false) ...[
-            const SizedBox(height: 12),
-            EditableBioSection(
-              bio: profile.description,
-              editable: true,
-              onSave: null,
-              addLabel: 'Stüdyonu birkaç cümleyle anlat',
-              hintText: 'Kayıt, prova, ekipman ve atmosferini anlat...',
-            ),
-          ],
           const SizedBox(height: 20),
+          _StudioProfileMetrics(
+            followersCount: followersCount,
+            followingCount: followingCount,
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
-              const Expanded(
+              Expanded(
+                child: _StudioActionButton(
+                  icon: Icons.dashboard_customize_outlined,
+                  label: 'Yönetim Paneli',
+                  outlined: true,
+                  onTap: onManagement,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _StudioOwnerTabs(profileId: profile.id),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioOwnerDescription extends StatelessWidget {
+  final String? description;
+  final VoidCallback onEdit;
+
+  const _StudioOwnerDescription({
+    required this.description,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final value = description?.trim() ?? '';
+    if (value.isEmpty) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: onEdit,
+          style: TextButton.styleFrom(
+            foregroundColor: _roomFormIconColor,
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+            minimumSize: const Size(0, 32),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text(
+            'Açıklama ekle',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFC1C8D2),
+              fontSize: 12,
+              height: 1.42,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Tooltip(
+          message: 'Açıklamayı düzenle',
+          child: InkWell(
+            onTap: onEdit,
+            borderRadius: BorderRadius.circular(10),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(
+                Icons.edit_outlined,
+                size: 16,
+                color: Color(0xFF9FA9B8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StudioProfileMetrics extends StatelessWidget {
+  final int? followersCount;
+  final int? followingCount;
+
+  const _StudioProfileMetrics({
+    required this.followersCount,
+    required this.followingCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: _studioRoomInventoryRevision,
+      builder: (context, _, __) => ValueListenableBuilder<int>(
+        valueListenable: _studioBacklineInventoryRevision,
+        builder: (context, _, __) {
+          final backlineCount = _studioBacklineInventoryMockItems.fold<int>(
+            0,
+            (sum, item) => sum + item.total,
+          );
+          return Row(
+            children: [
+              Expanded(
                 child: _StudioMetricCard(
                   icon: Icons.meeting_room_outlined,
-                  value: '4',
+                  value: _studioRoomMockItems.length.toString(),
                   label: 'Oda',
                 ),
               ),
@@ -789,47 +990,16 @@ class _StudioDashboardContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: _StudioMetricCard(
                   icon: Icons.settings_input_component_outlined,
-                  value: '32',
+                  value: backlineCount.toString(),
                   label: 'Backline',
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _StudioActionButton(
-                  icon: isPublic
-                      ? Icons.chat_bubble_outline
-                      : Icons.dashboard_customize_outlined,
-                  label: isPublic ? 'Mesaj Gönder' : 'Yönetim Paneli',
-                  outlined: true,
-                  onTap: onPrimaryAction,
-                ),
-              ),
-              if (isPublic) const SizedBox(width: 10),
-              if (isPublic)
-                Expanded(
-                  child: _StudioActionButton(
-                    icon: Icons.calendar_month_outlined,
-                    label: 'Rezervasyon İste',
-                    outlined: false,
-                    onTap: onReservation,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _StudioDarkTabs(
-            profileId: profile.id,
-            canReserve: isPublic,
-            ownerMode: !isPublic,
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1099,15 +1269,33 @@ class _StudioSocialGradientIcon extends StatelessWidget {
   }
 }
 
-class _StudioDarkTabs extends StatelessWidget {
+class _StudioOwnerTabs extends StatelessWidget {
+  final String profileId;
+
+  const _StudioOwnerTabs({required this.profileId});
+
+  @override
+  Widget build(BuildContext context) {
+    return _StudioTabsFrame(
+      profileId: profileId,
+      canReserve: false,
+      ownerMode: true,
+      phone: null,
+    );
+  }
+}
+
+class _StudioTabsFrame extends StatelessWidget {
   final String profileId;
   final bool canReserve;
   final bool ownerMode;
+  final String? phone;
 
-  const _StudioDarkTabs({
+  const _StudioTabsFrame({
     required this.profileId,
     required this.canReserve,
     required this.ownerMode,
+    required this.phone,
   });
 
   @override
@@ -1134,12 +1322,12 @@ class _StudioDarkTabs extends StatelessWidget {
             return IndexedStack(
               index: controller.index,
               children: [
-                _StudioRoomsPanel(canReserve: canReserve),
+                _StudioRoomsPanel(canReserve: canReserve, ownerMode: ownerMode),
                 _StudioRecordingsPanel(
                   profileId: profileId,
                   ownerMode: ownerMode,
                 ),
-                const _StudioBacklinePanel(),
+                _StudioBacklinePanel(ownerMode: ownerMode, phone: phone),
               ],
             );
           },
@@ -1212,100 +1400,159 @@ class _StudioComingSoonPanel extends StatelessWidget {
   }
 }
 
-class _StudioRoomsPanel extends StatelessWidget {
+const _maximumStudioRoomCount = 10;
+
+const _studioRoomSeedItems = <_StudioRoomItem>[
+  _StudioRoomItem(
+    name: 'Prova Odası A',
+    type: 'Prova',
+    capacity: '4-6 kişi',
+    price: '₺600 / saat',
+    status: 'Müsait',
+    statusColor: Color(0xFF0E8F2F),
+    icon: Icons.groups_2_outlined,
+    gradient: [Color(0xFF1C2B3F), Color(0xFF4B2D52)],
+    features: ['PA sistem', 'Davul seti', '2 gitar amfisi'],
+    reservationCount: 3,
+    reservedHours: 5,
+    reservationApprovalRequired: false,
+  ),
+  _StudioRoomItem(
+    name: 'Kayıt Odası',
+    type: 'Kayıt',
+    capacity: '2-4 kişi',
+    price: '₺1.200 / saat',
+    status: 'Yoğun',
+    statusColor: Color(0xFFB17400),
+    icon: Icons.graphic_eq,
+    gradient: [Color(0xFF172A3A), Color(0xFF3B2747)],
+    features: ['Vokal kabini', 'Control room', '16 kanal kayıt'],
+    reservationCount: 2,
+    reservedHours: 0,
+  ),
+  _StudioRoomItem(
+    name: 'Podcast / Vokal Odası',
+    type: 'Vokal • Podcast',
+    capacity: '2-3 kişi',
+    price: '₺450 / saat',
+    status: 'Müsait',
+    statusColor: Color(0xFF0E8F2F),
+    icon: Icons.mic_none_outlined,
+    gradient: [Color(0xFF1E2538), Color(0xFF563040)],
+    features: ['Akustik izolasyon', 'Masa mikrofonları', 'Kulaklık seti'],
+    reservationCount: 1,
+    reservedHours: 2,
+  ),
+];
+
+final List<_StudioRoomItem> _studioRoomMockItems = List.of(
+  _studioRoomSeedItems,
+);
+final ValueNotifier<int> _studioRoomInventoryRevision = ValueNotifier(0);
+
+void _notifyStudioRoomInventoryChanged() {
+  _studioRoomInventoryRevision.value++;
+}
+
+class _StudioRoomsPanel extends StatefulWidget {
   final bool canReserve;
+  final bool ownerMode;
 
-  const _StudioRoomsPanel({this.canReserve = false});
-
-  static const _rooms = [
-    _StudioRoomItem(
-      name: 'Prova Odası A',
-      type: 'Prova',
-      capacity: '4-6 kişi',
-      price: '₺600 / saat',
-      status: 'Müsait',
-      statusColor: Color(0xFF0E8F2F),
-      icon: Icons.groups_2_outlined,
-      gradient: [Color(0xFF1C2B3F), Color(0xFF4B2D52)],
-      features: ['PA sistem', 'Davul seti', '2 gitar amfisi'],
-    ),
-    _StudioRoomItem(
-      name: 'Kayıt Odası',
-      type: 'Kayıt',
-      capacity: '2-4 kişi',
-      price: '₺1.200 / saat',
-      status: 'Yoğun',
-      statusColor: Color(0xFFB17400),
-      icon: Icons.graphic_eq,
-      gradient: [Color(0xFF172A3A), Color(0xFF3B2747)],
-      features: ['Vokal kabini', 'Control room', '16 kanal kayıt'],
-    ),
-    _StudioRoomItem(
-      name: 'Podcast / Vokal Odası',
-      type: 'Vokal • Podcast',
-      capacity: '2-3 kişi',
-      price: '₺450 / saat',
-      status: 'Müsait',
-      statusColor: Color(0xFF0E8F2F),
-      icon: Icons.mic_none_outlined,
-      gradient: [Color(0xFF1E2538), Color(0xFF563040)],
-      features: ['Akustik izolasyon', 'Masa mikrofonları', 'Kulaklık seti'],
-    ),
-  ];
+  const _StudioRoomsPanel({this.canReserve = false, this.ownerMode = false});
 
   @override
+  State<_StudioRoomsPanel> createState() => _StudioRoomsPanelState();
+}
+
+class _StudioRoomsPanelState extends State<_StudioRoomsPanel> {
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: _StudioPanel(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 2),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Stüdyo Odaları',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
+    return ValueListenableBuilder<int>(
+      valueListenable: _studioRoomInventoryRevision,
+      builder: (context, _, __) {
+        final rooms = _studioRoomMockItems;
+        return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: _StudioPanel(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Stüdyo Odaları',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        _StudioRoomLimitPill(count: rooms.length),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 2),
+                    child: Text(
+                      'Prova, kayıt ve vokal çalışmaları için uygun alanlar',
+                      style: TextStyle(color: Color(0xFF9AA4B2), fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (rooms.isEmpty)
+                    const _StudioRoomsEmptyState()
+                  else
+                    ...rooms.map(
+                      (room) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _StudioRoomCard(
+                          room: room,
+                          canReserve: widget.canReserve,
+                          ownerMode: widget.ownerMode,
+                          onRoomUpdated: (updated) =>
+                              _replaceRoom(room, updated),
+                          onRoomDeleted: () => _removeRoom(room),
                         ),
                       ),
                     ),
-                    _StudioRoomLimitPill(),
-                  ],
-                ),
+                ],
               ),
-              const SizedBox(height: 3),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 2),
-                child: Text(
-                  'Prova, kayıt ve vokal çalışmaları için uygun alanlar',
-                  style: TextStyle(color: Color(0xFF9AA4B2), fontSize: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-              ..._rooms.map(
-                (room) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _StudioRoomCard(room: room, canReserve: canReserve),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  void _replaceRoom(_StudioRoomItem current, _StudioRoomItem updated) {
+    final index = _studioRoomMockItems.indexWhere(
+      (room) => identical(room, current),
+    );
+    if (index < 0) return;
+    _studioRoomMockItems[index] = updated;
+    _notifyStudioRoomInventoryChanged();
+  }
+
+  void _removeRoom(_StudioRoomItem room) {
+    _studioRoomMockItems.removeWhere((item) => identical(item, room));
+    _notifyStudioRoomInventoryChanged();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${room.name} silindi.')));
   }
 }
 
 class _StudioRoomLimitPill extends StatelessWidget {
-  const _StudioRoomLimitPill();
+  final int count;
+
+  const _StudioRoomLimitPill({required this.count});
 
   @override
   Widget build(BuildContext context) {
@@ -1316,9 +1563,9 @@ class _StudioRoomLimitPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: const Color(0xFF263244)),
       ),
-      child: const Text(
-        '3 / 10',
-        style: TextStyle(
+      child: Text(
+        '$count / 10',
+        style: const TextStyle(
           color: Color(0xFFB5BDCA),
           fontSize: 11,
           fontWeight: FontWeight.w800,
@@ -1331,19 +1578,23 @@ class _StudioRoomLimitPill extends StatelessWidget {
 class _StudioRoomCard extends StatelessWidget {
   final _StudioRoomItem room;
   final bool canReserve;
+  final bool ownerMode;
+  final ValueChanged<_StudioRoomItem>? onRoomUpdated;
+  final VoidCallback? onRoomDeleted;
 
-  const _StudioRoomCard({required this.room, required this.canReserve});
+  const _StudioRoomCard({
+    required this.room,
+    required this.canReserve,
+    required this.ownerMode,
+    this.onRoomUpdated,
+    this.onRoomDeleted,
+  });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) =>
-              _StudioRoomDetailScreen(room: room, canReserve: canReserve),
-        ),
-      ),
+      onTap: () => ownerMode ? _openSettings(context) : _openRoom(context),
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -1378,20 +1629,26 @@ class _StudioRoomCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          _StudioRoomStatusPill(room: room),
+                          if (ownerMode)
+                            _StudioRoomReservationSummaryPill(
+                              count: room.reservationCount,
+                            )
+                          else
+                            _StudioRoomStatusPill(room: room),
                         ],
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        room.type,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFFB5BDCA),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                      if (room.type.trim().isNotEmpty)
+                        Text(
+                          room.type,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFB5BDCA),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 9),
                       Row(
                         children: [
@@ -1427,9 +1684,53 @@ class _StudioRoomCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (ownerMode) ...[
+              const SizedBox(height: 10),
+              _StudioRoomSettingsButton(onTap: () => _openSettings(context)),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  void _openRoom(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            _StudioRoomDetailScreen(room: room, canReserve: canReserve),
+      ),
+    );
+  }
+
+  Future<void> _openSettings(BuildContext context) async {
+    final result = await Navigator.of(context).push<_StudioRoomSettingsResult>(
+      MaterialPageRoute<_StudioRoomSettingsResult>(
+        builder: (_) => _StudioRoomSettingsScreen(room: room),
+      ),
+    );
+    if (result == null) return;
+    if (result.deleted) {
+      onRoomDeleted?.call();
+      return;
+    }
+    final updatedRoom = result.updatedRoom;
+    if (updatedRoom != null) onRoomUpdated?.call(updatedRoom);
+  }
+}
+
+class _StudioRoomSettingsButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _StudioRoomSettingsButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return _StudioActionButton(
+      icon: Icons.settings_outlined,
+      label: 'Oda Ayarları',
+      outlined: true,
+      onTap: onTap,
     );
   }
 }
@@ -1508,6 +1809,54 @@ class _StudioRoomStatusPill extends StatelessWidget {
   }
 }
 
+class _StudioRoomReservationSummaryPill extends StatelessWidget {
+  final int count;
+
+  const _StudioRoomReservationSummaryPill({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasReservations = count > 0;
+    final color = hasReservations
+        ? const Color(0xFF67D6A1)
+        : const Color(0xFF9AA4B2);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 142),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasReservations
+                ? Icons.event_available_outlined
+                : Icons.event_busy_outlined,
+            color: color,
+            size: 12,
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              hasReservations ? '$count rezervasyon' : 'Henüz rezervasyon yok',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StudioRoomMeta extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1574,6 +1923,9 @@ class _StudioRoomItem {
   final List<Color> gradient;
   final List<String> features;
   final List<String> photoUrls;
+  final int reservationCount;
+  final int reservedHours;
+  final bool reservationApprovalRequired;
 
   const _StudioRoomItem({
     required this.name,
@@ -1586,50 +1938,126 @@ class _StudioRoomItem {
     required this.gradient,
     required this.features,
     this.photoUrls = const [],
+    this.reservationCount = 0,
+    this.reservedHours = 0,
+    this.reservationApprovalRequired = true,
   });
+
+  _StudioRoomItem copyWith({
+    String? name,
+    String? type,
+    String? capacity,
+    String? price,
+    String? status,
+    Color? statusColor,
+    IconData? icon,
+    List<Color>? gradient,
+    List<String>? features,
+    List<String>? photoUrls,
+    int? reservationCount,
+    int? reservedHours,
+    bool? reservationApprovalRequired,
+  }) {
+    return _StudioRoomItem(
+      name: name ?? this.name,
+      type: type ?? this.type,
+      capacity: capacity ?? this.capacity,
+      price: price ?? this.price,
+      status: status ?? this.status,
+      statusColor: statusColor ?? this.statusColor,
+      icon: icon ?? this.icon,
+      gradient: gradient ?? this.gradient,
+      features: features ?? this.features,
+      photoUrls: photoUrls ?? this.photoUrls,
+      reservationCount: reservationCount ?? this.reservationCount,
+      reservedHours: reservedHours ?? this.reservedHours,
+      reservationApprovalRequired:
+          reservationApprovalRequired ?? this.reservationApprovalRequired,
+    );
+  }
 }
 
-class _StudioBacklinePanel extends StatelessWidget {
-  const _StudioBacklinePanel();
+class _StudioBacklinePanel extends StatefulWidget {
+  final bool ownerMode;
+  final String? phone;
 
-  static const _items = [
-    _BacklineItem(
-      title: 'Marshall DSL40',
-      type: 'Gitar Amfisi',
-      status: 'Kısmen Müsait',
-      statusColor: Color(0xFFB17400),
-      icon: Icons.music_note_outlined,
-      total: 2,
-      available: 1,
-    ),
-    _BacklineItem(
-      title: 'Shure SM58',
-      type: 'Dinamik Mikrofon',
-      status: 'Müsait',
-      statusColor: Color(0xFF0E8F2F),
-      icon: Icons.mic_none_outlined,
-      total: 6,
-      available: 4,
-    ),
-    _BacklineItem(
-      title: 'Yamaha Stage Custom',
-      type: 'Davul Seti',
-      status: 'Dolu',
-      statusColor: Color(0xFF9E1F24),
-      icon: Icons.circle_outlined,
-      total: 1,
-      available: 0,
-    ),
-    _BacklineItem(
-      title: 'Nord Stage 3',
-      type: 'Klavye',
-      status: 'Müsait',
-      statusColor: Color(0xFF0E8F2F),
-      icon: Icons.keyboard_outlined,
-      total: 1,
-      available: 1,
-    ),
-  ];
+  const _StudioBacklinePanel({required this.ownerMode, required this.phone});
+
+  @override
+  State<_StudioBacklinePanel> createState() => _StudioBacklinePanelState();
+}
+
+class _StudioBacklinePanelState extends State<_StudioBacklinePanel> {
+  String _selectedFilter = 'Tümü';
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _studioBacklineInventoryRevision.addListener(_handleInventoryChanged);
+  }
+
+  @override
+  void dispose() {
+    _studioBacklineInventoryRevision.removeListener(_handleInventoryChanged);
+    super.dispose();
+  }
+
+  void _handleInventoryChanged() {
+    if (mounted) setState(() {});
+  }
+
+  List<_BacklineItem> get _items => _studioBacklineInventoryMockItems
+      .where(_matchesFilters)
+      .map((item) {
+        final available = _mockBacklineAvailableToday(item);
+        final maintenance = _mockBacklineMaintenanceToday(item);
+        final status = available <= 0 && maintenance >= item.total
+            ? 'Bakımda'
+            : available <= 0 && maintenance > 0
+            ? 'Müsait Değil'
+            : available <= 0
+            ? 'Dolu'
+            : available >= item.total
+            ? 'Müsait'
+            : 'Kısmen Müsait';
+        final statusColor = available <= 0 && maintenance >= item.total
+            ? const Color(0xFF6B7280)
+            : available <= 0
+            ? const Color(0xFF9E1F24)
+            : available >= item.total
+            ? const Color(0xFF0E8F2F)
+            : _availabilityColor(available, item.total);
+        return _BacklineItem(
+          title: item.name,
+          type: item.category,
+          status: status,
+          statusColor: statusColor,
+          icon: item.icon,
+          total: item.total,
+          available: available,
+          maintenance: maintenance,
+        );
+      })
+      .toList(growable: false);
+
+  bool _matchesFilters(_StudioBacklineInventoryItem item) {
+    final query = _searchQuery.trim().toLowerCase();
+    final matchesQuery =
+        query.isEmpty ||
+        item.name.toLowerCase().contains(query) ||
+        item.model.toLowerCase().contains(query) ||
+        item.category.toLowerCase().contains(query) ||
+        item.subcategory.toLowerCase().contains(query);
+    if (!matchesQuery || _selectedFilter == 'Tümü') return matchesQuery;
+    final selectedCategory = switch (_selectedFilter) {
+      'Bas Amfileri' => 'Bas Gitar Amfileri',
+      'Piyano & Klavye' => 'Piyano, Klavye & Synth',
+      _ => _selectedFilter,
+    };
+    return item.category == selectedCategory ||
+        item.subcategory == _selectedFilter;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1661,44 +2089,70 @@ class _StudioBacklinePanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Row(
+              Row(
                 children: [
                   Expanded(
                     child: _BacklineSummary(
                       icon: Icons.inventory_2_outlined,
-                      value: '28',
+                      value: _studioBacklineInventoryMockItems
+                          .fold<int>(0, (sum, item) => sum + item.total)
+                          .toString(),
                       label: 'Ekipman',
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _BacklineSummary(
                       icon: Icons.check_circle_outline,
-                      value: '17',
+                      value: _studioBacklineInventoryMockItems
+                          .fold<int>(
+                            0,
+                            (sum, item) =>
+                                sum + _mockBacklineAvailableToday(item),
+                          )
+                          .toString(),
                       label: 'Müsait',
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _BacklineSummary(
                       icon: Icons.build_outlined,
-                      value: '3',
+                      value: _studioBacklineInventoryMockItems
+                          .fold<int>(
+                            0,
+                            (sum, item) =>
+                                sum + _mockBacklineMaintenanceToday(item),
+                          )
+                          .toString(),
                       label: 'Bakımda',
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              const _BacklineFilters(),
-              const SizedBox(height: 10),
-              const _BacklineSearch(),
-              const SizedBox(height: 10),
-              ..._items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _BacklineItemCard(item: item),
-                ),
+              _BacklineFilters(
+                selectedFilter: _selectedFilter,
+                onChanged: (value) => setState(() => _selectedFilter = value),
               ),
+              const SizedBox(height: 10),
+              _BacklineSearch(
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ),
+              const SizedBox(height: 10),
+              if (_items.isEmpty)
+                const _BacklineSearchEmptyState()
+              else
+                ..._items.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _BacklineItemCard(
+                      item: item,
+                      ownerMode: widget.ownerMode,
+                      phone: widget.phone,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1773,20 +2227,19 @@ class _BacklineSummary extends StatelessWidget {
   }
 }
 
-class _BacklineFilters extends StatefulWidget {
-  const _BacklineFilters();
+class _BacklineFilters extends StatelessWidget {
+  final String selectedFilter;
+  final ValueChanged<String> onChanged;
 
-  @override
-  State<_BacklineFilters> createState() => _BacklineFiltersState();
-}
-
-class _BacklineFiltersState extends State<_BacklineFilters> {
-  String _selectedFilter = 'Tümü';
+  const _BacklineFilters({
+    required this.selectedFilter,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     const filters = _backlineQuickFilters;
-    final hasCustomSelection = !filters.contains(_selectedFilter);
+    final hasCustomSelection = !filters.contains(selectedFilter);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -1794,15 +2247,13 @@ class _BacklineFiltersState extends State<_BacklineFilters> {
           for (var i = 0; i < filters.length; i++) ...[
             _BacklineFilterChip(
               label: filters[i],
-              selected: _selectedFilter == filters[i],
-              onTap: () {
-                setState(() => _selectedFilter = filters[i]);
-              },
+              selected: selectedFilter == filters[i],
+              onTap: () => onChanged(filters[i]),
             ),
             const SizedBox(width: 8),
           ],
           _BacklineFilterChip(
-            label: hasCustomSelection ? _selectedFilter : 'Tüm Kategoriler',
+            label: hasCustomSelection ? selectedFilter : 'Tüm Kategoriler',
             selected: hasCustomSelection,
             trailingIcon: Icons.chevron_right,
             onTap: () async {
@@ -1811,8 +2262,8 @@ class _BacklineFiltersState extends State<_BacklineFilters> {
                   builder: (_) => const _BacklineCategoriesScreen(),
                 ),
               );
-              if (!mounted || selected == null) return;
-              setState(() => _selectedFilter = selected);
+              if (selected == null) return;
+              onChanged(selected);
             },
           ),
         ],
@@ -1885,25 +2336,51 @@ class _BacklineFilterChip extends StatelessWidget {
 }
 
 class _BacklineSearch extends StatelessWidget {
-  const _BacklineSearch();
+  final ValueChanged<String> onChanged;
+
+  const _BacklineSearch({required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: TextField(
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        decoration: const InputDecoration(
+          hintText: 'Ekipman ara...',
+          prefixIcon: Icon(Icons.search, size: 18),
+          contentPadding: EdgeInsets.symmetric(vertical: 10),
+        ),
+      ),
+    );
+  }
+}
+
+class _BacklineSearchEmptyState extends StatelessWidget {
+  const _BacklineSearchEmptyState();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
       decoration: BoxDecoration(
-        color: const Color(0xFF090F18),
+        color: const Color(0xFF101722),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF273244)),
+        border: Border.all(color: const Color(0xFF202B3A)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: const Row(
+      child: const Column(
         children: [
-          Icon(Icons.search, color: Color(0xFF758092), size: 18),
-          SizedBox(width: 8),
+          Icon(Icons.search_off_rounded, color: Color(0xFF8C95A3), size: 28),
+          SizedBox(height: 8),
           Text(
-            'Ekipman ara...',
-            style: TextStyle(color: Color(0xFF758092), fontSize: 13),
+            'Eşleşen ekipman bulunamadı.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFFB5BDCA),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -1919,6 +2396,7 @@ class _BacklineItem {
   final IconData icon;
   final int total;
   final int available;
+  final int maintenance;
 
   const _BacklineItem({
     required this.title,
@@ -1928,13 +2406,20 @@ class _BacklineItem {
     required this.icon,
     required this.total,
     required this.available,
+    required this.maintenance,
   });
 }
 
 class _BacklineItemCard extends StatelessWidget {
   final _BacklineItem item;
+  final bool ownerMode;
+  final String? phone;
 
-  const _BacklineItemCard({required this.item});
+  const _BacklineItemCard({
+    required this.item,
+    required this.ownerMode,
+    required this.phone,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1942,7 +2427,11 @@ class _BacklineItemCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => _BacklineItemDetailScreen(item: item),
+          builder: (_) => _BacklineItemDetailScreen(
+            item: item,
+            ownerMode: ownerMode,
+            phone: phone,
+          ),
         ),
       ),
       child: Container(
@@ -2036,8 +2525,15 @@ class _BacklineItemCard extends StatelessWidget {
 
 class _BacklineItemDetailScreen extends StatelessWidget {
   final _BacklineItem item;
+  final bool ownerMode;
+  final String? phone;
+  final GlobalKey _calendarKey = GlobalKey();
 
-  const _BacklineItemDetailScreen({required this.item});
+  _BacklineItemDetailScreen({
+    required this.item,
+    required this.ownerMode,
+    required this.phone,
+  });
 
   String get _description {
     if (item.title.contains('Marshall')) {
@@ -2106,13 +2602,22 @@ class _BacklineItemDetailScreen extends StatelessWidget {
               _BacklineDetailInfoCard(description: _description),
               const SizedBox(height: 18),
               _BacklineDetailGradientButton(
-                icon: Icons.calendar_month_outlined,
-                label: 'Talep Et',
+                icon: ownerMode
+                    ? Icons.edit_calendar_outlined
+                    : Icons.phone_outlined,
+                label: ownerMode
+                    ? 'Müsaitlik Takvimini Güncelle'
+                    : 'Stüdyoyu Ara',
                 filled: true,
-                onTap: () => _showComingSoon(context),
+                onTap: ownerMode
+                    ? () => _scrollToCalendar(context)
+                    : () => _callStudio(context),
               ),
               const SizedBox(height: 18),
-              _BacklineAvailabilityCalendar(item: item),
+              KeyedSubtree(
+                key: _calendarKey,
+                child: _BacklineAvailabilityCalendar(item: item),
+              ),
             ],
           ),
         ),
@@ -2120,12 +2625,34 @@ class _BacklineItemDetailScreen extends StatelessWidget {
     );
   }
 
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Bu aksiyon yak\u0131nda a\u00E7\u0131lacak.'),
-      ),
+  Future<void> _scrollToCalendar(BuildContext context) async {
+    final calendarContext = _calendarKey.currentContext;
+    if (calendarContext == null) return;
+    await Scrollable.ensureVisible(
+      calendarContext,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      alignment: 0.04,
     );
+  }
+
+  Future<void> _callStudio(BuildContext context) async {
+    final value = phone?.trim();
+    if (value == null || value.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Stüdyonun telefon bilgisi bulunmuyor.')),
+      );
+      return;
+    }
+    final launched = await launchUrl(
+      Uri(scheme: 'tel', path: value),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Telefon uygulaması açılamadı.')),
+      );
+    }
   }
 }
 
@@ -2336,7 +2863,7 @@ class _BacklineInventorySummary extends StatelessWidget {
           ),
           _BacklineCountDivider(),
           _BacklineCountCell(
-            label: 'Rezerve',
+            label: 'Dolu',
             value: reserved.toString(),
             color: const Color(0xFFFFA000),
           ),
@@ -2435,182 +2962,23 @@ class _BacklineAvailabilityCalendar extends StatefulWidget {
 
 class _BacklineAvailabilityCalendarState
     extends State<_BacklineAvailabilityCalendar> {
-  DateTime _selectedDate = _dateOnly(DateTime.now());
-
-  static DateTime get _calendarToday => _dateOnly(DateTime.now());
-
-  static const _hours = [
-    '09:00',
-    '10:00',
-    '11:00',
-    '12:00',
-    '13:00',
-    '14:00',
-    '15:00',
-    '16:00',
-    '17:00',
-    '18:00',
-    '19:00',
-    '20:00',
-    '21:00',
-    '22:00',
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF101722),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF202B3A)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'M\u00FCsaitlik Takvimi',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            widget.item.title,
-            style: const TextStyle(color: Color(0xFFB5BDCA), fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _CalendarArrowButton(
-                icon: Icons.arrow_back,
-                onTap: _canMoveBackward ? () => _moveCalendar(-1) : null,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: _openCalendarPicker,
-                  child: Container(
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0A101A),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF263244)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.calendar_month_outlined,
-                          color: Color(0xFFF06C86),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            _calendarTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _CalendarArrowButton(
-                icon: Icons.arrow_forward,
-                onTap: () => _moveCalendar(1),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Row(
-            children: [
-              SizedBox(
-                width: 58,
-                child: Text(
-                  'Saat',
-                  style: TextStyle(color: Color(0xFFCDD3DE), fontSize: 13),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'Adet M\u00FCsait',
-                    style: TextStyle(color: Color(0xFFCDD3DE), fontSize: 13),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...List.generate(
-            _hours.length,
-            (index) => _CalendarAvailabilityRow(
-              hour: _hours[index],
-              values: _availabilityValues(index, widget.item.available),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const _CalendarLegend(),
-        ],
+    return _BacklineDateAvailabilityCalendar(
+      equipmentName: widget.item.title,
+      total: widget.item.total,
+      initiallyAvailable: widget.item.available,
+      initiallyMaintenance: widget.item.maintenance,
+      editable: false,
+      values: _studioBacklineAvailabilityMockValues.putIfAbsent(
+        widget.item.title,
+        () => {},
       ),
     );
-  }
-
-  static bool _isPastDate(DateTime date) {
-    return _dateOnly(date).isBefore(_dateOnly(_calendarToday));
-  }
-
-  static DateTime _dateOnly(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
-  }
-
-  Future<void> _openCalendarPicker() async {
-    final initialDate = _isPastDate(_selectedDate)
-        ? _calendarToday
-        : _selectedDate;
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: _calendarToday,
-      lastDate: _calendarToday.add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: AppColors.socialPink,
-              onPrimary: Colors.white,
-              surface: const Color(0xFF101722),
-              onSurface: Colors.white,
-            ),
-            dialogTheme: const DialogThemeData(
-              backgroundColor: Color(0xFF101722),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (pickedDate == null) return;
-    if (!mounted) return;
-    setState(() {
-      _selectedDate = _dateOnly(pickedDate);
-    });
   }
 
   static List<int> _availabilityValues(int rowIndex, int available) {
-    final maxAvailable = available.clamp(0, 2).toInt();
+    final maximum = available.clamp(0, 2).toInt();
     const pattern = [
       [2, 2, 2, 2],
       [2, 2, 1, 1],
@@ -2621,35 +2989,20 @@ class _BacklineAvailabilityCalendarState
       [2, 2, 2, 2],
     ];
     return pattern[rowIndex % pattern.length]
-        .map((value) => value > maxAvailable ? maxAvailable : value)
+        .map((value) => value > maximum ? maximum : value)
         .toList(growable: false);
-  }
-
-  String get _calendarTitle => _formatFullDate(_selectedDate);
-
-  void _moveCalendar(int direction) {
-    setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: direction));
-    });
-  }
-
-  bool get _canMoveBackward =>
-      !_isPastDate(_selectedDate.add(const Duration(days: -1)));
-
-  static String _formatFullDate(DateTime date) {
-    return '${date.day} ${_monthLong(date.month)} ${date.year} ${_weekdayLong(date.weekday)}';
   }
 
   static String _monthShort(int month) {
     const months = [
       'Oca',
-      '\u015Eub',
+      'Şub',
       'Mar',
       'Nis',
       'May',
       'Haz',
       'Tem',
-      'A\u011Fu',
+      'Ağu',
       'Eyl',
       'Eki',
       'Kas',
@@ -2658,39 +3011,8 @@ class _BacklineAvailabilityCalendarState
     return months[month - 1];
   }
 
-  static String _monthLong(int month) {
-    const months = [
-      'Ocak',
-      '\u015Eubat',
-      'Mart',
-      'Nisan',
-      'May\u0131s',
-      'Haziran',
-      'Temmuz',
-      'A\u011Fustos',
-      'Eyl\u00FCl',
-      'Ekim',
-      'Kas\u0131m',
-      'Aral\u0131k',
-    ];
-    return months[month - 1];
-  }
-
   static String _weekdayShort(int weekday) {
-    const days = ['Pzt', 'Sal', '\u00C7ar', 'Per', 'Cum', 'Cmt', 'Paz'];
-    return days[weekday - 1];
-  }
-
-  static String _weekdayLong(int weekday) {
-    const days = [
-      'Pazartesi',
-      'Sal\u0131',
-      '\u00C7ar\u015Famba',
-      'Per\u015Fembe',
-      'Cuma',
-      'Cumartesi',
-      'Pazar',
-    ];
+    const days = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
     return days[weekday - 1];
   }
 }
@@ -3017,67 +3339,6 @@ class _CalendarModeOption extends StatelessWidget {
   }
 }
 
-class _CalendarAvailabilityRow extends StatelessWidget {
-  final String hour;
-  final List<int> values;
-
-  const _CalendarAvailabilityRow({required this.hour, required this.values});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 58,
-            child: Text(
-              hour,
-              style: const TextStyle(color: Color(0xFFE1E6EF), fontSize: 13),
-            ),
-          ),
-          for (final value in values) ...[
-            Expanded(child: _CalendarAvailabilityCell(value: value)),
-            const SizedBox(width: 4),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _CalendarAvailabilityCell extends StatelessWidget {
-  final int value;
-
-  const _CalendarAvailabilityCell({required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (value) {
-      0 => const Color(0xFF9E2730),
-      1 => const Color(0xFFB87505),
-      _ => const Color(0xFF176B31),
-    };
-    return Container(
-      height: 24,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: color.withValues(alpha: 0.58)),
-      ),
-      child: Text(
-        value.toString(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-}
-
 class _CalendarLegend extends StatelessWidget {
   const _CalendarLegend();
 
@@ -3091,10 +3352,7 @@ class _CalendarLegend extends StatelessWidget {
           color: Color(0xFF1EAF4D),
           label: 'M\u00FCsait',
         ),
-        _CalendarLegendItem(
-          color: AppColors.socialOrange,
-          label: 'K\u0131smen M\u00FCsait',
-        ),
+        const _CalendarRatioLegendItem(),
         const _CalendarLegendItem(color: Color(0xFFB8323B), label: 'Dolu'),
         const _CalendarLegendItem(
           color: Color(0xFF6B7280),
@@ -3125,6 +3383,34 @@ class _CalendarLegendItem extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(color: Color(0xFFCDD3DE), fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _CalendarRatioLegendItem extends StatelessWidget {
+  const _CalendarRatioLegendItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 22,
+          height: 12,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFD85B47), Color(0xFFF59E0B), Color(0xFF1EAF4D)],
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        const Text(
+          'Kısmen Müsait',
+          style: TextStyle(color: Color(0xFFCDD3DE), fontSize: 12),
         ),
       ],
     );
@@ -3747,38 +4033,72 @@ class StudioManagementPanelScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               _StudioManagementActionCard(
-                icon: Icons.tune_outlined,
-                title: 'Stüdyo Bilgileri',
-                message: 'Yakında burada açılacak.',
-                trailingLabel: 'Yakında!',
-              ),
-              const SizedBox(height: 14),
-              _StudioManagementActionCard(
-                icon: Icons.photo_library_outlined,
-                title: 'Galeri ve Medya',
-                message: 'Yakında burada açılacak.',
-                trailingLabel: 'Yakında!',
+                icon: Icons.meeting_room_outlined,
+                title: 'Odalar',
+                message: 'Mevcut odaları yönet ve yeni oda oluştur.',
+                trailingLabel: 'Yönet',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const _StudioRoomsManagementScreen(),
+                  ),
+                ),
               ),
               const SizedBox(height: 14),
               _StudioManagementActionCard(
                 icon: Icons.event_available_outlined,
-                title: 'Randevu / Takvim',
-                message: 'Yakında burada açılacak.',
-                trailingLabel: 'Yakında!',
+                title: 'Rezervasyon Yönetimi',
+                message: 'Tüm odaların rezervasyonlarını yönet.',
+                trailingLabel: 'Yönet',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const _StudioReservationsHubScreen(),
+                  ),
+                ),
               ),
               const SizedBox(height: 14),
               _StudioManagementActionCard(
-                icon: Icons.mode_comment_outlined,
-                title: 'Yorumlar ve Geri Bildirimler',
-                message: 'Yakında burada açılacak.',
-                trailingLabel: 'Yakında!',
+                icon: Icons.inventory_2_outlined,
+                title: 'Envanter Yönetimi',
+                message: 'Backline ekipmanlarını ekle, düzenle veya kaldır.',
+                trailingLabel: 'Yönet',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const _StudioBacklineInventoryScreen(),
+                  ),
+                ),
               ),
               const SizedBox(height: 14),
               _StudioManagementActionCard(
-                icon: Icons.insights_outlined,
-                title: 'Profil İstatistikleri',
-                message: 'Yakında burada açılacak.',
-                trailingLabel: 'Yakında!',
+                icon: Icons.event_available_outlined,
+                title: 'Ekipman Takvimi',
+                message: 'Ekipmanların dolu ve bakımda olduğu tarihleri yönet.',
+                trailingLabel: 'Yönet',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        const _BacklineAvailabilityManagementScreen(),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.7),
+                ),
+              ),
+              _StudioManagementActionCard(
+                icon: Icons.add_circle_outline_rounded,
+                title: 'Kategori Talep Et',
+                message: 'Yeni bir backline kategorisi veya alt kategori öner.',
+                trailingLabel: 'Talep Et',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        const _StudioBacklineCategoryManagementScreen(),
+                  ),
+                ),
               ),
             ],
           ),

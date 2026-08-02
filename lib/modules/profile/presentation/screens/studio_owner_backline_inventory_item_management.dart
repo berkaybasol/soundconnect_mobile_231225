@@ -14,8 +14,16 @@ class _BacklineInventoryItemManagementResult {
 
 class _BacklineInventoryItemManagementScreen extends StatefulWidget {
   final _StudioBacklineInventoryItem item;
+  final String studioProfileId;
+  final StudioEquipmentRepository repository;
+  final List<_BacklineCategory> categories;
 
-  const _BacklineInventoryItemManagementScreen({required this.item});
+  const _BacklineInventoryItemManagementScreen({
+    required this.item,
+    required this.studioProfileId,
+    required this.repository,
+    required this.categories,
+  });
 
   @override
   State<_BacklineInventoryItemManagementScreen> createState() =>
@@ -32,34 +40,23 @@ class _BacklineInventoryItemManagementScreenState
   late final TextEditingController _totalController;
   final _featureController = TextEditingController();
   final _imagePicker = ImagePicker();
+  late final DraftMediaCleanupCoordinator _draftMediaCleanup;
   late final List<String> _features;
   late final List<String> _photoPaths;
+  final Map<String, String> _photoMediaIdsByPath = {};
   late _BacklineCategory _selectedCategory;
   late String _selectedSubcategory;
   bool _isDirty = false;
   bool _allowPop = false;
   bool _exitDialogOpen = false;
+  bool _isSubmitting = false;
   String? _featureError;
 
   int get _total => int.tryParse(_totalController.text.trim()) ?? 0;
-  _BacklineDayAvailability? get _todayAvailability =>
-      _studioBacklineAvailabilityMockValues[widget.item.name]?[_dateOnly(
-        DateTime.now(),
-      )];
-  int get _maintenance =>
-      _todayAvailability?.maintenanceCount ?? widget.item.maintenance;
-  int get _busy => _todayAvailability?.busyCount ?? widget.item.reserved;
-  int get _maximumAllocatedCount {
-    var maximum = widget.item.reserved + widget.item.maintenance;
-    final scheduledValues =
-        _studioBacklineAvailabilityMockValues[widget.item.name]?.values;
-    if (scheduledValues == null) return maximum;
-    for (final state in scheduledValues) {
-      final allocated = state.busyCount + state.maintenanceCount;
-      if (allocated > maximum) maximum = allocated;
-    }
-    return maximum;
-  }
+  int get _maintenance => widget.item.maintenance;
+  int get _busy => widget.item.reserved;
+  int get _maximumAllocatedCount =>
+      widget.item.reserved + widget.item.maintenance;
 
   int get _available {
     final value = _total - _busy - _maintenance;
@@ -69,16 +66,14 @@ class _BacklineInventoryItemManagementScreenState
   @override
   void initState() {
     super.initState();
-    final modelParts = widget.item.model == 'Marka/model belirtilmedi'
-        ? const <String>[]
-        : widget.item.model.split(' • ');
+    _draftMediaCleanup = DraftMediaCleanupCoordinator(
+      repository: serviceLocator<ProfileMediaUploadRepository>(),
+      ownerType: 'STUDIO_PROFILE',
+      ownerId: widget.studioProfileId,
+    );
     _nameController = TextEditingController(text: widget.item.name);
-    _brandController = TextEditingController(
-      text: modelParts.isEmpty ? '' : modelParts.first,
-    );
-    _modelController = TextEditingController(
-      text: modelParts.length < 2 ? '' : modelParts.skip(1).join(' • '),
-    );
+    _brandController = TextEditingController(text: widget.item.brand);
+    _modelController = TextEditingController(text: widget.item.modelName);
     _descriptionController = TextEditingController(
       text: widget.item.description,
     );
@@ -87,9 +82,17 @@ class _BacklineInventoryItemManagementScreenState
     _photoPaths = List.of(
       widget.item.photoUrls.take(_maximumBacklineEquipmentPhotoCount),
     );
-    _selectedCategory = _backlineCategories.firstWhere(
-      (category) => category.name == widget.item.category,
-      orElse: () => _backlineCategories.first,
+    for (var index = 0; index < _photoPaths.length; index++) {
+      if (index < widget.item.photoMediaIds.length) {
+        _photoMediaIdsByPath[_photoPaths[index]] =
+            widget.item.photoMediaIds[index];
+      }
+    }
+    _selectedCategory = widget.categories.firstWhere(
+      (category) =>
+          category.id == widget.item.categoryId ||
+          category.name == widget.item.category,
+      orElse: () => widget.categories.first,
     );
     _selectedSubcategory =
         _selectedCategory.children.contains(widget.item.subcategory)
@@ -108,6 +111,7 @@ class _BacklineInventoryItemManagementScreenState
 
   @override
   void dispose() {
+    _draftMediaCleanup.close().ignore();
     _nameController.dispose();
     _brandController.dispose();
     _modelController.dispose();
@@ -234,7 +238,7 @@ class _BacklineInventoryItemManagementScreenState
                     ),
                   ),
                   items: [
-                    for (final category in _backlineCategories)
+                    for (final category in widget.categories)
                       DropdownMenuItem(
                         value: category,
                         child: Text(
@@ -390,13 +394,19 @@ class _BacklineInventoryItemManagementScreenState
                 ],
                 const SizedBox(height: 24),
                 _StudioActionButton(
-                  icon: Icons.save_outlined,
-                  label: 'Değişiklikleri Kaydet',
+                  icon: _isSubmitting
+                      ? Icons.hourglass_top_rounded
+                      : Icons.save_outlined,
+                  label: _isSubmitting
+                      ? 'Değişiklikler Kaydediliyor...'
+                      : 'Değişiklikleri Kaydet',
                   outlined: true,
-                  onTap: _save,
+                  onTap: _isSubmitting ? () {} : _save,
                 ),
                 const SizedBox(height: 12),
-                _BacklineInventoryDeleteButton(onTap: _confirmDelete),
+                _BacklineInventoryDeleteButton(
+                  onTap: _isSubmitting ? () {} : _confirmDelete,
+                ),
               ],
             ),
           ),
@@ -468,18 +478,30 @@ class _BacklineInventoryItemManagementScreenState
       imageQuality: 88,
     );
     if (!mounted || selected == null || index >= _photoPaths.length) return;
+    final replacedMediaId = _photoMediaIdsByPath[_photoPaths[index]];
     setState(() {
+      _photoMediaIdsByPath.remove(_photoPaths[index]);
       _photoPaths[index] = selected.path;
       _isDirty = true;
     });
+    if (replacedMediaId != null &&
+        _draftMediaCleanup.isTracked(replacedMediaId)) {
+      _draftMediaCleanup.discard(replacedMediaId).ignore();
+    }
   }
 
   void _deletePhoto(int index) {
     if (index < 0 || index >= _photoPaths.length) return;
+    final removedMediaId = _photoMediaIdsByPath[_photoPaths[index]];
     setState(() {
+      _photoMediaIdsByPath.remove(_photoPaths[index]);
       _photoPaths.removeAt(index);
       _isDirty = true;
     });
+    if (removedMediaId != null &&
+        _draftMediaCleanup.isTracked(removedMediaId)) {
+      _draftMediaCleanup.discard(removedMediaId).ignore();
+    }
   }
 
   void _movePhoto(int fromIndex, int toIndex) {
@@ -505,27 +527,201 @@ class _BacklineInventoryItemManagementScreenState
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (_formKey.currentState?.validate() != true) return;
     final brand = _capitalizeStudioRoomText(_brandController.text);
     final model = _capitalizeStudioRoomText(_modelController.text);
-    final brandAndModel = [
-      if (brand.isNotEmpty) brand,
-      if (model.isNotEmpty) model,
-    ].join(' • ');
-    final updated = widget.item.copyWith(
-      name: _capitalizeStudioRoomText(_nameController.text),
-      category: _selectedCategory.name,
-      subcategory: _selectedSubcategory,
-      model: brandAndModel.isEmpty ? 'Marka/model belirtilmedi' : brandAndModel,
-      description: _capitalizeStudioRoomText(_descriptionController.text),
-      features: List.unmodifiable(_features),
-      photoUrls: List.unmodifiable(_photoPaths),
-      icon: _selectedCategory.icon,
-      total: _total,
-      available: _available,
+    final leafCategoryId = _selectedCategory.childId(_selectedSubcategory);
+    if (leafCategoryId == null || leafCategoryId.isEmpty) {
+      _showMessage(
+        'Seçilen alt kategori güncel değil. Sayfayı yenileyip tekrar dene.',
+      );
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    final uploaded = await _uploadPendingPhotos();
+    if (!mounted) return;
+    if (!uploaded) {
+      setState(() => _isSubmitting = false);
+      return;
+    }
+    final submittedPhotoIds = _photoPaths
+        .map((path) => _photoMediaIdsByPath[path])
+        .whereType<String>()
+        .toList(growable: false);
+    final submittedPhotoIdSet = submittedPhotoIds.toSet();
+    final potentiallyDetachedIds = widget.item.photoMediaIds.where(
+      (id) => id.trim().isNotEmpty && !submittedPhotoIdSet.contains(id.trim()),
     );
-    _closeWithResult(_BacklineInventoryItemManagementResult.updated(updated));
+    final cleanupPrepared = await _draftMediaCleanup.trackPotentiallyDetached(
+      potentiallyDetachedIds,
+    );
+    if (!mounted) return;
+    if (!cleanupPrepared.isSuccess) {
+      final report = await _draftMediaCleanup.discardAll();
+      _removeMediaMappings(report.deletedOrAbsentAssetIds);
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      _showMessage(
+        cleanupPrepared.error?.message ??
+            'Fotoğraf değişikliği güvenli biçimde hazırlanamadı.',
+      );
+      return;
+    }
+    final result = await widget.repository.updateEquipment(
+      equipmentId: widget.item.id,
+      command: UpdateStudioEquipmentCommand(
+        expectedVersion: widget.item.version,
+        leafCategoryId: leafCategoryId,
+        name: _capitalizeStudioRoomText(_nameController.text),
+        brand: brand,
+        model: model,
+        description: _capitalizeStudioRoomText(_descriptionController.text),
+        totalQuantity: _total,
+        features: List.unmodifiable(_features),
+        photoMediaIds: submittedPhotoIds,
+      ),
+    );
+    if (!mounted) return;
+    if (!result.isSuccess || result.data == null) {
+      final cleanupReport = await _draftMediaCleanup.discardAll();
+      if (!mounted) return;
+      if (cleanupReport.hasProtectedReferences) {
+        final latest = await widget.repository.getOwnerEquipment(
+          widget.item.id,
+        );
+        if (!mounted) return;
+        final latestItem = latest.data;
+        if (latest.isSuccess &&
+            latestItem != null &&
+            _sameEquipmentMediaIds(latestItem, submittedPhotoIds)) {
+          await _finishSuccessfulEquipmentUpdate(latestItem);
+          return;
+        }
+      }
+      _removeMediaMappings(cleanupReport.deletedOrAbsentAssetIds);
+      setState(() => _isSubmitting = false);
+      if (result.error?.code == '9804') {
+        await _handleStaleEquipment();
+        return;
+      }
+      _showMessage(result.error?.message ?? 'Ekipman güncellenemedi.');
+      return;
+    }
+    await _finishSuccessfulEquipmentUpdate(result.data!);
+  }
+
+  Future<void> _finishSuccessfulEquipmentUpdate(
+    StudioEquipment equipment,
+  ) async {
+    final savedPhotoIds = equipment.photos
+        .map((photo) => photo.mediaAssetId?.trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    await _draftMediaCleanup.markCommitted(savedPhotoIds);
+    await _draftMediaCleanup.close();
+    if (!mounted) return;
+    _closeWithResult(
+      _BacklineInventoryItemManagementResult.updated(
+        _StudioBacklineInventoryItem.fromDomain(equipment),
+      ),
+    );
+  }
+
+  bool _sameEquipmentMediaIds(
+    StudioEquipment equipment,
+    List<String> expectedIds,
+  ) {
+    final actualIds = equipment.photos
+        .map((photo) => photo.mediaAssetId?.trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    if (actualIds.length != expectedIds.length) return false;
+    for (var index = 0; index < actualIds.length; index++) {
+      if (actualIds[index] != expectedIds[index]) return false;
+    }
+    return true;
+  }
+
+  Future<bool> _uploadPendingPhotos() async {
+    final uploadedThisAttempt = <String>[];
+    for (final path in List<String>.of(_photoPaths)) {
+      if (_photoMediaIdsByPath.containsKey(path)) continue;
+      try {
+        final fileName = fileNameFromPath(path, fallback: 'equipment.jpg');
+        final uploaded = await uploadProfileMediaAsset(
+          source: await createProfileUploadSource(filePath: path),
+          ownerType: 'STUDIO_PROFILE',
+          ownerId: widget.studioProfileId,
+          mediaKind: 'IMAGE',
+          mimeType: inferImageMimeType(fileName),
+          originalFileName: fileName,
+          attachmentIntent: const ProfileUploadAttachmentIntent.draft(),
+        );
+        final id = uploaded.uuid.trim();
+        if (id.isEmpty) throw StateError('Media asset id is empty');
+        final tracked = await _draftMediaCleanup.trackUploaded(id);
+        if (!tracked.isSuccess) {
+          throw StateError('Draft media cleanup could not be persisted');
+        }
+        uploadedThisAttempt.add(id);
+        if (!mounted) {
+          await _draftMediaCleanup.discard(id);
+          return false;
+        }
+        _photoMediaIdsByPath[path] = id;
+      } catch (_) {
+        for (final assetId in uploadedThisAttempt) {
+          await _draftMediaCleanup.discard(assetId);
+        }
+        _removeMediaMappings(uploadedThisAttempt);
+        if (mounted) _showMessage('Fotoğraf yüklenemedi. Lütfen tekrar dene.');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _removeMediaMappings(Iterable<String> assetIds) {
+    final ids = assetIds.toSet();
+    _photoMediaIdsByPath.removeWhere((_, assetId) => ids.contains(assetId));
+  }
+
+  Future<void> _handleStaleEquipment() async {
+    final refresh = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Ekipman başka bir oturumda değişti'),
+        content: const Text(
+          'Çakışan bir kaydı ezmemek için değişikliklerin gönderilmedi. '
+          'Sunucudaki güncel ekipmanı yüklemek ister misiniz?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Bu Ekranda Kal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Güncel Kaydı Yükle'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || refresh != true) return;
+    await _draftMediaCleanup.discardAll();
+    if (!mounted) return;
+    final latest = await widget.repository.getOwnerEquipment(widget.item.id);
+    if (!mounted) return;
+    if (!latest.isSuccess || latest.data == null) {
+      _showMessage(latest.error?.message ?? 'Güncel ekipman yüklenemedi.');
+      return;
+    }
+    _closeWithResult(
+      _BacklineInventoryItemManagementResult.updated(
+        _StudioBacklineInventoryItem.fromDomain(latest.data!),
+      ),
+    );
   }
 
   Future<void> _confirmDelete() async {
@@ -546,8 +742,8 @@ class _BacklineInventoryItemManagementScreenState
         ),
         content: Text(
           '“${widget.item.name}” ekipmanını kaldırırsanız ekipmana bağlı '
-          'müsaitlik kayıtları ve kiralama talepleri de silinecek. Bu işlem '
-          'geri alınamaz. Yine de devam etmek istiyor musunuz?',
+          'gelecek müsaitlik planı artık kullanılamaz. Geçmiş değişiklik '
+          'kayıtları denetim için korunur. Yine de devam etmek istiyor musunuz?',
           style: const TextStyle(
             color: Color(0xFFB8C0CC),
             fontSize: 14,
@@ -571,6 +767,23 @@ class _BacklineInventoryItemManagementScreenState
       ),
     );
     if (shouldDelete == true && mounted) {
+      setState(() => _isSubmitting = true);
+      final result = await widget.repository.archiveEquipment(
+        equipmentId: widget.item.id,
+        expectedVersion: widget.item.version,
+      );
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      if (!result.isSuccess) {
+        if (result.error?.code == '9804') {
+          await _handleStaleEquipment();
+          return;
+        }
+        _showMessage(result.error?.message ?? 'Ekipman kaldırılamadı.');
+        return;
+      }
+      await _draftMediaCleanup.close();
+      if (!mounted) return;
       _closeWithResult(const _BacklineInventoryItemManagementResult.deleted());
     }
   }
@@ -600,7 +813,10 @@ class _BacklineInventoryItemManagementScreenState
       ),
     );
     _exitDialogOpen = false;
-    if (shouldDiscard == true && mounted) _closeWithResult(null);
+    if (shouldDiscard == true && mounted) {
+      await _draftMediaCleanup.close();
+      if (mounted) _closeWithResult(null);
+    }
   }
 
   void _closeWithResult(_BacklineInventoryItemManagementResult? result) {
@@ -609,6 +825,13 @@ class _BacklineInventoryItemManagementScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.of(context).pop(result);
     });
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

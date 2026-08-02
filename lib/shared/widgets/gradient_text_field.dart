@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 
 class GradientTextField extends StatefulWidget {
@@ -7,6 +8,12 @@ class GradientTextField extends StatefulWidget {
   final IconData prefixIcon;
   final bool obscureText;
   final Widget? suffixIcon;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final Iterable<String>? autofillHints;
+  final List<TextInputFormatter>? inputFormatters;
+  final ValueChanged<String>? onSubmitted;
+  final bool enabled;
 
   const GradientTextField({
     super.key,
@@ -15,6 +22,12 @@ class GradientTextField extends StatefulWidget {
     required this.prefixIcon,
     this.obscureText = false,
     this.suffixIcon,
+    this.keyboardType,
+    this.textInputAction,
+    this.autofillHints,
+    this.inputFormatters,
+    this.onSubmitted,
+    this.enabled = true,
   });
 
   @override
@@ -99,6 +112,12 @@ class _GradientTextFieldState extends State<GradientTextField> {
           focusNode: _focusNode,
           controller: widget.controller,
           obscureText: widget.obscureText,
+          keyboardType: widget.keyboardType,
+          textInputAction: widget.textInputAction,
+          autofillHints: widget.autofillHints,
+          inputFormatters: widget.inputFormatters,
+          onSubmitted: widget.onSubmitted,
+          enabled: widget.enabled,
           decoration: InputDecoration(
             hintText: widget.label,
             prefixIcon: Icon(widget.prefixIcon),

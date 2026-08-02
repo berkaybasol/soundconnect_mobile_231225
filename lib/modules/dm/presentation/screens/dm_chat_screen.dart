@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/dm_user_profile_resolver.dart';
@@ -10,6 +9,7 @@ import '../../domain/entities/dm_profile_target.dart';
 import '../../../notification/presentation/cubit/notification_cubit.dart';
 import '../cubit/dm_chat_cubit.dart';
 import '../cubit/dm_chat_state.dart';
+import '../dm_profile_navigation.dart';
 
 class DmChatScreenArgs {
   final String otherUserId;
@@ -172,7 +172,8 @@ class _DmChatViewState extends State<_DmChatView> {
                         SnackBar(content: Text(state.error!.message)),
                       );
                     }
-                    final conversationId = state.conversationId?.trim() ??
+                    final conversationId =
+                        state.conversationId?.trim() ??
                         args?.conversationId?.trim() ??
                         '';
                     if (conversationId.isNotEmpty &&
@@ -356,20 +357,27 @@ class _DmChatViewState extends State<_DmChatView> {
       usernameHint: args.otherUsername,
     );
     if (!mounted) return;
-    if (resolved.isEmpty) {
+    final navigable = resolved
+        .where((target) => dmProfileRouteFor(target) != null)
+        .toList(growable: false);
+    if (navigable.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bu kullanici icin acik profil bulunamadi')),
+        const SnackBar(
+          content: Text(
+            'Bu kullanıcı için görüntülenebilir profil bulunamadı.',
+          ),
+        ),
       );
       return;
     }
-    if (resolved.length == 1) {
-      _navigateToProfile(resolved.first);
+    if (navigable.length == 1) {
+      _navigateToProfile(navigable.first);
       return;
     }
     final selected = await showModalBottomSheet<DmProfileTarget>(
       context: context,
       showDragHandle: true,
-      builder: (_) => _ProfileTargetSheet(items: resolved),
+      builder: (_) => _ProfileTargetSheet(items: navigable),
     );
     if (!mounted || selected == null) return;
     _navigateToProfile(selected);
@@ -388,20 +396,11 @@ class _DmChatViewState extends State<_DmChatView> {
   }
 
   void _navigateToProfile(DmProfileTarget target) {
-    switch (target.type) {
-      case DmProfileTargetType.musician:
-        Navigator.of(context).pushNamed(
-          AppRoutes.musicianPublicProfile,
-          arguments: {'profileId': target.id},
-        );
-        return;
-      case DmProfileTargetType.venue:
-        Navigator.of(context).pushNamed(
-          AppRoutes.venuePublicProfile,
-          arguments: {'venueId': target.id},
-        );
-        return;
-    }
+    final route = dmProfileRouteFor(target);
+    if (route == null) return;
+    Navigator.of(
+      context,
+    ).pushNamed(route.routeName, arguments: route.arguments);
   }
 }
 
@@ -653,17 +652,15 @@ class _ProfileTargetSheet extends StatelessWidget {
               backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
               child: hasImage
                   ? null
-                  : Icon(
-                      item.type == DmProfileTargetType.musician
-                          ? Icons.person_outline
-                          : Icons.storefront_outlined,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  : Icon(switch (item.type) {
+                      DmProfileTargetType.musician => Icons.person_outline,
+                      DmProfileTargetType.venue => Icons.storefront_outlined,
+                      DmProfileTargetType.listener => Icons.headphones_outlined,
+                      DmProfileTargetType.studio => Icons.graphic_eq_outlined,
+                    }, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             title: Text(item.displayName),
-            subtitle: Text(
-              item.type == DmProfileTargetType.musician ? 'Muzisyen' : 'Mekan',
-            ),
+            subtitle: Text(item.type.displayLabel),
             onTap: () => Navigator.of(context).pop(item),
           );
         },

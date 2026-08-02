@@ -1,14 +1,28 @@
 part of 'studio_profile_screen.dart';
 
+enum _StudioPublicRoomSlotState {
+  available,
+  occupied,
+  reservedByMe,
+  pendingByMe,
+  past,
+}
+
 class _StudioRoomDetailScreen extends StatefulWidget {
   final _StudioRoomItem room;
+  final String studioProfileId;
   final bool canReserve;
   final List<_StudioRoomItem> ownerRooms;
+  final DateTime? initialDate;
+  final String? initialReservationId;
 
   const _StudioRoomDetailScreen({
     required this.room,
+    required this.studioProfileId,
     required this.canReserve,
     this.ownerRooms = const [],
+    this.initialDate,
+    this.initialReservationId,
   });
 
   @override
@@ -17,18 +31,31 @@ class _StudioRoomDetailScreen extends StatefulWidget {
 }
 
 class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
+  final StudioRoomRepository _repository =
+      serviceLocator<StudioRoomRepository>();
   final PageController _pageController = PageController();
   final PageController _ownerRoomPageController = PageController();
-  DateTime _selectedDate = _dateOnly(DateTime.now());
-  DateTime _selectedOwnerOverviewDate = _dateOnly(DateTime.now());
-  DateTime _ownerDateWindowStart = _dateOnly(DateTime.now());
+  late DateTime _selectedDate;
+  late DateTime _selectedOwnerOverviewDate;
+  late DateTime _ownerDateWindowStart;
+  StudioBookingCalendarPolicy? _bookingPolicy;
   int _activePhoto = 0;
   String? _selectedTime;
   int _durationHours = 1;
   late int _selectedRoomIndex;
-  final Map<String, bool> _reservationApprovalOverrides = {};
-  final Set<String> _cancelledReservationIds = {};
-  final Map<String, List<_StudioManualBusyRange>> _manualBusyRanges = {};
+  StudioRoomAvailability? _publicAvailability;
+  List<StudioReservation> _customerReservations = const [];
+  List<StudioReservation> _scheduleReservations = const [];
+  List<StudioOccupancy> _scheduleOccupancies = const [];
+  bool _calendarLoading = true;
+  bool _calendarMutationInFlight = false;
+  String? _calendarError;
+  int _calendarLoadGeneration = 0;
+  String? _pendingReservationRequestId;
+  String? _pendingReservationPayloadKey;
+  bool _reservationSubmitting = false;
+  final Map<String, String> _manualBlockRequestIds = {};
+  bool _initialReservationSheetHandled = false;
 
   static const _times = <String>[
     '09:00',
@@ -56,10 +83,26 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
 
   List<String> get _photos => _room.photoUrls.take(10).toList();
 
+  DateTime get _studioToday =>
+      _bookingPolicy?.todayLocalDate ?? _room.todayLocalDate;
+
+  DateTime get _latestBookableDate =>
+      _bookingPolicy?.latestBookableLocalDate ??
+      _studioToday.add(const Duration(days: 365));
+
   @override
   void initState() {
     super.initState();
     _selectedRoomIndex = 0;
+    final today = _dateOnly(widget.room.todayLocalDate);
+    final requestedDate = widget.initialDate == null
+        ? today
+        : _dateOnly(widget.initialDate!);
+    final initialDate = requestedDate.isBefore(today) ? today : requestedDate;
+    _selectedDate = initialDate;
+    _selectedOwnerOverviewDate = initialDate;
+    _ownerDateWindowStart = initialDate;
+    _loadCalendarData();
   }
 
   @override
@@ -117,7 +160,7 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
     final dates = List.generate(
       5,
       (index) => _ownerDateWindowStart.add(Duration(days: index)),
-    );
+    ).where((date) => !date.isAfter(_latestBookableDate)).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -133,9 +176,14 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
                   final room = _managedRooms[index];
                   return _StudioOwnerRoomSummaryCard(
                     room: room,
-                    reservationCount: room.reservationCount,
-                    occupiedHours:
-                        room.reservedHours + _manualBusyHoursFor(room),
+                    reservationCount: index == _selectedRoomIndex
+                        ? _ownerReservationsForDate(
+                            _selectedOwnerOverviewDate,
+                          ).length
+                        : room.reservationCount,
+                    occupiedHours: index == _selectedRoomIndex
+                        ? _occupiedHoursForDate(_selectedOwnerOverviewDate)
+                        : room.reservedHours,
                   );
                 },
               ),
@@ -195,7 +243,7 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
               ),
             ),
             OutlinedButton.icon(
-              onPressed: _pickDate,
+              onPressed: _calendarLoading ? null : _pickDate,
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFFD7DCE5),
                 minimumSize: const Size(0, 34),
@@ -223,11 +271,7 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final date = dates[index];
-              final count = switch (index) {
-                0 => _room.reservationCount,
-                1 when _room.reservationCount > 0 => 1,
-                _ => 0,
-              };
+              final count = _ownerReservationsForDate(date).length;
               return _StudioOwnerReservationDateCard(
                 date: date,
                 reservationCount: count,
@@ -246,15 +290,19 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
 
   void _selectRoom(int index) {
     if (index == _selectedRoomIndex || index >= _managedRooms.length) return;
-    final today = _dateOnly(DateTime.now());
+    final nextRoom = _managedRooms[index];
+    final today = _dateOnly(nextRoom.todayLocalDate);
     setState(() {
       _selectedRoomIndex = index;
+      _bookingPolicy = null;
       _selectedOwnerOverviewDate = today;
       _ownerDateWindowStart = today;
       _selectedDate = today;
       _selectedTime = null;
       _durationHours = 1;
+      _clearPendingReservationRequest();
     });
+    _loadCalendarData();
   }
 
   void _animateToRoom(int index) {
@@ -399,82 +447,162 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
       subtitle: widget.canReserve
           ? 'Tarih ve başlangıç saati seç'
           : 'Seçili güne ait saatlik rezervasyon durumu',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.canReserve) ...[
-            _StudioRoomDateSelector(
-              date: _selectedDate,
-              canGoBack: _selectedDate.isAfter(_dateOnly(DateTime.now())),
-              onPrevious: () => _changeDate(-1),
-              onNext: () => _changeDate(1),
-              onPick: _pickDate,
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (widget.canReserve)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _times
-                  .map((time) {
-                    final available = _isTimeAvailable(time);
-                    return _StudioRoomTimeChip(
-                      time: time,
-                      available: available,
-                      selected: _selectedTime == time,
-                      onTap: available
-                          ? () => setState(() => _selectedTime = time)
-                          : null,
-                    );
-                  })
-                  .toList(growable: false),
+      child: _calendarLoading
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
             )
-          else
-            _StudioOwnerReservationTimeline(
-              times: _times,
-              reservations: _ownerReservationsForSelection(),
-              manualBusyRanges: _manualBusyRangesForSelection,
-              isTimeAvailable: _isTimeAvailable,
-              onReservationTap: _showOwnerReservationActions,
-              onEmptyTimeTap: _openManualBusyEditor,
-              onManualBusyTap: _removeManualBusyRange,
-            ),
-          if (widget.canReserve) ...[
-            const SizedBox(height: 16),
-            const Text(
-              'Rezervasyon Süresi',
-              style: TextStyle(
-                color: Color(0xFFCDD3DE),
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [1, 2, 3, 4]
-                  .map(
-                    (hours) => Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(right: hours == 4 ? 0 : 8),
-                        child: _StudioRoomDurationChip(
-                          hours: hours,
-                          selected: _durationHours == hours,
-                          onTap: () => _selectDuration(hours),
-                        ),
-                      ),
-                    ),
+          : _calendarError != null
+          ? _StudioRoomsErrorState(
+              message: _calendarError!,
+              onRetry: _loadCalendarData,
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_calendarMutationInFlight) ...[
+                  const LinearProgressIndicator(minHeight: 2),
+                  const SizedBox(height: 12),
+                ],
+                if (widget.canReserve) ...[
+                  _StudioRoomDateSelector(
+                    date: _selectedDate,
+                    canGoBack:
+                        _bookingPolicy?.shiftDate(_selectedDate, -1) != null,
+                    canGoForward:
+                        _bookingPolicy?.shiftDate(_selectedDate, 1) != null,
+                    onPrevious: () => _changeDate(-1),
+                    onNext: () => _changeDate(1),
+                    onPick: _pickDate,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (widget.canReserve)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ..._times.map((time) {
+                        final state = _publicSlotState(time);
+                        final available =
+                            state == _StudioPublicRoomSlotState.available;
+                        final ownReservation =
+                            state == _StudioPublicRoomSlotState.reservedByMe ||
+                                state == _StudioPublicRoomSlotState.pendingByMe
+                            ? _customerReservationAt(
+                                int.parse(time.substring(0, 2)),
+                              )
+                            : null;
+                        final statusLabel = switch (state) {
+                          _StudioPublicRoomSlotState.available => null,
+                          _StudioPublicRoomSlotState.occupied => 'Dolu',
+                          _StudioPublicRoomSlotState.reservedByMe =>
+                            'Rezervasyonun',
+                          _StudioPublicRoomSlotState.pendingByMe =>
+                            'Onay Bekliyor',
+                          _StudioPublicRoomSlotState.past => 'Geçti',
+                        };
+                        final accentColor = switch (state) {
+                          _StudioPublicRoomSlotState.reservedByMe =>
+                            _studioReservationApprovedColor,
+                          _StudioPublicRoomSlotState.pendingByMe =>
+                            _studioReservationPendingColor,
+                          _ => null,
+                        };
+                        final statusColor = switch (state) {
+                          _StudioPublicRoomSlotState.reservedByMe =>
+                            _studioReservationApprovedColor,
+                          _StudioPublicRoomSlotState.pendingByMe =>
+                            _studioReservationPendingColor,
+                          _StudioPublicRoomSlotState.available ||
+                          _StudioPublicRoomSlotState.occupied => null,
+                          _StudioPublicRoomSlotState.past => const Color(
+                            0xFF6F7A8B,
+                          ),
+                        };
+                        return _StudioRoomTimeChip(
+                          time: time,
+                          available: available,
+                          selected: _selectedTime == time,
+                          accentColor: accentColor,
+                          statusLabel: statusLabel,
+                          statusColor: statusColor,
+                          onTap: switch ((available, ownReservation)) {
+                            (true, _) => () => _selectStartTime(time),
+                            (false, final reservation?) =>
+                              () => _confirmCustomerReservationCancellation(
+                                reservation,
+                              ),
+                            _ => null,
+                          },
+                        );
+                      }),
+                      const _StudioRoomBrandTile(width: 152),
+                    ],
                   )
-                  .toList(growable: false),
+                else
+                  _StudioOwnerReservationTimeline(
+                    times: _times,
+                    reservations: _ownerReservationsForSelection(),
+                    manualBusyRanges: _manualBusyRangesForSelection,
+                    isTimeAvailable: _isSlotUnoccupied,
+                    canEditTime: _canEditOwnerTime,
+                    onReservationTap: _showOwnerReservationActions,
+                    onEmptyTimeTap: _openManualBusyEditor,
+                    onManualBusyTap: _removeManualBusyRange,
+                  ),
+                if (widget.canReserve) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Rezervasyon Süresi',
+                    style: TextStyle(
+                      color: Color(0xFFCDD3DE),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _selectedTime == null
+                        ? 'Önce başlangıç saatini seç'
+                        : '$_selectedTime için uygun süreler',
+                    style: const TextStyle(
+                      color: Color(0xFF7F8998),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [1, 2, 3, 4]
+                        .map((hours) {
+                          final enabled = _canUseDuration(hours);
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: hours == 4 ? 0 : 8,
+                              ),
+                              child: _StudioRoomDurationChip(
+                                hours: hours,
+                                selected: enabled && _durationHours == hours,
+                                enabled: enabled,
+                                onTap: enabled
+                                    ? () => _selectDuration(hours)
+                                    : null,
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(growable: false),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ],
-      ),
     );
   }
 
   Widget _buildReservationSummary() {
-    final ready = _selectedTime != null;
+    final ready = _selectedTime != null && _canUseDuration(_durationHours);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -500,147 +628,59 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
             value: '$_durationHours saat',
           ),
           const SizedBox(height: 14),
-          _StudioRoomReserveButton(enabled: ready, onTap: _confirmReservation),
+          _StudioRoomReserveButton(
+            enabled: ready && !_reservationSubmitting,
+            onTap: _confirmReservation,
+          ),
         ],
       ),
     );
   }
 
   List<_StudioOwnerReservation> _ownerReservationsForSelection() {
-    final today = _dateOnly(DateTime.now());
-    final dayOffset = _selectedDate.difference(today).inDays;
-    if (dayOffset < 0 || dayOffset > 1 || _room.reservationCount == 0) {
-      return const [];
-    }
+    return _ownerReservationsForDate(_selectedDate);
+  }
 
-    final dateKey =
-        '${_selectedDate.year}-${_selectedDate.month}-${_selectedDate.day}';
-    late final List<_StudioOwnerReservation> reservations;
-    if (dayOffset == 1) {
-      reservations = [
-        _StudioOwnerReservation(
-          id: '${_room.name}-$dateKey-mert',
-          userId: 'mock-user-mert',
-          userNo: 'SC-10483',
-          profileId: 'mock-profile-mert',
-          userName: 'Mert Yalçın',
-          profileType: 'Müzisyen',
-          avatarUrl: 'https://i.pravatar.cc/160?img=12',
-          startIndex: 5,
-          durationHours: 4,
-          approved: !_room.reservationApprovalRequired,
-        ),
-      ];
-    } else if (!_room.reservationApprovalRequired &&
-        _room.reservationCount > 1) {
-      reservations = [
-        _StudioOwnerReservation(
-          id: '${_room.name}-$dateKey-deniz',
-          userId: 'mock-user-deniz',
-          userNo: 'SC-10247',
-          profileId: 'mock-profile-deniz',
-          userName: 'Deniz Aksoy',
-          profileType: 'Müzisyen',
-          avatarUrl: 'https://i.pravatar.cc/160?img=47',
-          startIndex: 1,
-          durationHours: 2,
-          approved: true,
-        ),
-        _StudioOwnerReservation(
-          id: '${_room.name}-$dateKey-ece',
-          userId: 'mock-user-ece',
-          userNo: 'SC-10931',
-          profileId: 'mock-profile-ece',
-          userName: 'Ece Kaya',
-          profileType: 'Vokalist',
-          avatarUrl: 'https://i.pravatar.cc/160?img=32',
-          startIndex: 3,
-          durationHours: 1,
-          approved: true,
-        ),
-        _StudioOwnerReservation(
-          id: '${_room.name}-$dateKey-mert',
-          userId: 'mock-user-mert',
-          userNo: 'SC-10483',
-          profileId: 'mock-profile-mert',
-          userName: 'Mert Yalçın',
-          profileType: 'Müzisyen',
-          avatarUrl: 'https://i.pravatar.cc/160?img=12',
-          startIndex: 4,
-          durationHours: 2,
-          approved: true,
-        ),
-      ];
-    } else if (_room.reservationCount > 1) {
-      reservations = [
-        _StudioOwnerReservation(
-          id: '${_room.name}-$dateKey-deniz',
-          userId: 'mock-user-deniz',
-          userNo: 'SC-10247',
-          profileId: 'mock-profile-deniz',
-          userName: 'Deniz Aksoy',
-          profileType: 'Müzisyen',
-          avatarUrl: 'https://i.pravatar.cc/160?img=47',
-          startIndex: 1,
-          durationHours: 4,
-          approved: false,
-        ),
-        _StudioOwnerReservation(
-          id: '${_room.name}-$dateKey-ece',
-          userId: 'mock-user-ece',
-          userNo: 'SC-10931',
-          profileId: 'mock-profile-ece',
-          userName: 'Ece Kaya',
-          profileType: 'Vokalist',
-          avatarUrl: 'https://i.pravatar.cc/160?img=32',
-          startIndex: 1,
-          durationHours: 2,
-          approved: false,
-        ),
-      ];
-    } else {
-      reservations = [
-        _StudioOwnerReservation(
-          id: '${_room.name}-$dateKey-selin',
-          userId: 'mock-user-selin',
-          userNo: 'SC-10664',
-          profileId: 'mock-profile-selin',
-          userName: 'Selin Aras',
-          profileType: 'Müzisyen',
-          avatarUrl: 'https://i.pravatar.cc/160?img=25',
-          startIndex: 3,
-          durationHours: 2,
-          approved: true,
-        ),
-      ];
-    }
-
-    return reservations
+  List<_StudioOwnerReservation> _ownerReservationsForDate(DateTime date) {
+    final dateKey = _apiDate(date);
+    return _scheduleReservations
         .where(
-          (reservation) => !_cancelledReservationIds.contains(reservation.id),
+          (reservation) =>
+              (reservation.status.isPending ||
+                  reservation.status.isConfirmed) &&
+              _reservationDateKey(reservation) == dateKey,
         )
-        .map(
-          (reservation) => reservation.copyWith(
-            approved:
-                _reservationApprovalOverrides[reservation.id] ??
-                reservation.approved,
-          ),
+        .map(_StudioOwnerReservation.fromDomain)
+        .where(
+          (reservation) =>
+              reservation.startIndex >= 0 &&
+              reservation.startIndex < _times.length &&
+              reservation.durationHours > 0,
         )
         .toList(growable: false);
   }
 
-  String _manualBusyKey(_StudioRoomItem room) {
-    return '${room.name}|${_selectedDate.year}-${_selectedDate.month}-${_selectedDate.day}';
-  }
-
   List<_StudioManualBusyRange> get _manualBusyRangesForSelection =>
-      _manualBusyRanges[_manualBusyKey(_room)] ?? const [];
+      _scheduleOccupancies
+          .where(
+            (occupancy) =>
+                occupancy.active &&
+                occupancy.type == StudioOccupancyType.manualBlock &&
+                _occupancyDateKey(occupancy) == _apiDate(_selectedDate),
+          )
+          .map(_StudioManualBusyRange.fromDomain)
+          .where((range) => range.durationHours > 0)
+          .toList(growable: false);
 
-  int _manualBusyHoursFor(_StudioRoomItem room) {
-    return (_manualBusyRanges[_manualBusyKey(room)] ?? const []).fold(
-      0,
-      (total, range) => total + range.durationHours,
-    );
+  int _occupiedHoursForDate(DateTime date) {
+    return _scheduleOccupancies
+        .where(
+          (occupancy) =>
+              occupancy.active &&
+              _occupancyDateKey(occupancy) == _apiDate(date),
+        )
+        .map(_StudioManualBusyRange.fromDomain)
+        .fold(0, (total, range) => total + range.durationHours);
   }
 
   bool _isSlotFreeForManualBusy(int index) {
@@ -654,10 +694,16 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
     if (_manualBusyRangesForSelection.any((range) => range.contains(index))) {
       return false;
     }
-    return _isBaseSlotAvailable(_times[index]);
+    return _isSlotUnoccupied(_times[index]);
+  }
+
+  bool _canEditOwnerTime(String time) {
+    final startHour = int.parse(time.substring(0, 2));
+    return _bookingPolicy?.canStartAt(_selectedDate, startHour) == true;
   }
 
   Future<void> _openManualBusyEditor(int startIndex) async {
+    if (_calendarMutationInFlight) return;
     final endOptions = <int>[];
     for (var index = startIndex; index < _times.length; index++) {
       if (!_isSlotFreeForManualBusy(index)) break;
@@ -676,19 +722,34 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
       ),
     );
     if (endIndex == null || !mounted) return;
-    setState(() {
-      final key = _manualBusyKey(_room);
-      final ranges =
-          List<_StudioManualBusyRange>.of(
-            _manualBusyRanges[key] ?? const [],
-          )..add(
-            _StudioManualBusyRange(startIndex: startIndex, endIndex: endIndex),
-          );
-      _manualBusyRanges[key] = ranges;
-    });
+    final requestKey =
+        '${_room.id}|${_apiDate(_selectedDate)}|$startIndex|$endIndex';
+    final requestId = _manualBlockRequestIds.putIfAbsent(
+      requestKey,
+      () => const Uuid().v4(),
+    );
+    setState(() => _calendarMutationInFlight = true);
+    final result = await _repository.createManualBlock(
+      roomId: _room.id,
+      date: _selectedDate,
+      startHour: 9 + startIndex,
+      durationHours: endIndex - startIndex,
+      clientRequestId: requestId,
+    );
+    if (!mounted) return;
+    setState(() => _calendarMutationInFlight = false);
+    if (!result.isSuccess) {
+      _showCalendarError(
+        result.error?.message ?? 'Saat aralığı dolu olarak işaretlenemedi.',
+      );
+      return;
+    }
+    _manualBlockRequestIds.remove(requestKey);
+    await _loadCalendarData(showLoading: false);
   }
 
   Future<void> _removeManualBusyRange(_StudioManualBusyRange range) async {
+    if (_calendarMutationInFlight) return;
     final shouldRemove = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -710,17 +771,30 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
       ),
     );
     if (shouldRemove != true || !mounted) return;
-    setState(() {
-      final key = _manualBusyKey(_room);
-      _manualBusyRanges[key] = List<_StudioManualBusyRange>.of(
-        _manualBusyRanges[key] ?? const [],
-      )..remove(range);
-    });
+    setState(() => _calendarMutationInFlight = true);
+    final result = await _repository.releaseManualBlock(
+      roomId: _room.id,
+      blockId: range.id,
+      expectedVersion: range.version,
+    );
+    if (!mounted) return;
+    setState(() => _calendarMutationInFlight = false);
+    if (!result.isSuccess) {
+      _showCalendarError(
+        result.error?.message ?? 'Manuel doluluk kaldırılamadı.',
+      );
+      if (isStudioStaleError(result.error)) {
+        await _loadCalendarData(showLoading: false);
+      }
+      return;
+    }
+    await _loadCalendarData(showLoading: false);
   }
 
   Future<void> _showOwnerReservationActions(
     _StudioOwnerReservation reservation,
   ) async {
+    final profileTarget = _resolveReservationGuestProfileTarget(reservation);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -729,15 +803,15 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
         reservation: reservation,
         roomName: _room.name,
         date: _selectedDate,
-        startTime: _times[reservation.startIndex],
-        endTime:
-            _times[(reservation.startIndex + reservation.durationHours).clamp(
-              0,
-              _times.length - 1,
-            )],
+        startTime: _manualHourLabel(reservation.startIndex),
+        endTime: _manualHourLabel(
+          reservation.startIndex + reservation.durationHours,
+        ),
         onApprove: () => _approveReservation(reservation),
+        onReject: () => _confirmReservationRejection(reservation),
         onShowDetails: () => _showReservationDetails(reservation),
-        onShowProfile: () => _showReservationGuestProfile(reservation),
+        profileTarget: profileTarget,
+        onShowProfile: _showReservationGuestProfile,
         onSendMessage: () => _messageReservationGuest(reservation),
         onCancel: () => _confirmReservationCancellation(reservation),
       ),
@@ -745,42 +819,27 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
   }
 
   Future<void> _approveReservation(_StudioOwnerReservation reservation) async {
-    if (!mounted) return;
-    _StudioOwnerReservation? conflict;
-    final candidateStart = reservation.startIndex;
-    final candidateEnd = candidateStart + reservation.durationHours;
-    for (final current in _ownerReservationsForSelection()) {
-      if (current.id == reservation.id || !current.approved) continue;
-      final currentStart = current.startIndex;
-      final currentEnd = currentStart + current.durationHours;
-      if (candidateStart < currentEnd && currentStart < candidateEnd) {
-        conflict = current;
-        break;
-      }
-    }
-    if (conflict != null) {
-      final startHour = 9 + conflict.startIndex;
-      final endHour = startHour + conflict.durationHours;
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: const Color(0xFF101722),
-          title: const Text('Rezervasyon çakışması'),
-          content: Text(
-            '${conflict!.userName} için ${startHour.toString().padLeft(2, '0')}:00–${endHour.toString().padLeft(2, '0')}:00 arasında onaylanmış rezervasyon bulunuyor. Önce mevcut rezervasyonu iptal etmelisin.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Anladım'),
-            ),
-          ],
-        ),
-      );
+    if (_calendarMutationInFlight) return;
+    if (!reservation.capabilitiesAt(DateTime.now().toUtc()).canApprove) {
+      _showCalendarError('Bu rezervasyon artık onaylanamaz.');
+      await _loadCalendarData(showLoading: false);
       return;
     }
+    setState(() => _calendarMutationInFlight = true);
+    final result = await _repository.approveReservation(
+      roomId: _room.id,
+      reservationId: reservation.id,
+      expectedVersion: reservation.version,
+    );
     if (!mounted) return;
-    setState(() => _reservationApprovalOverrides[reservation.id] = true);
+    setState(() => _calendarMutationInFlight = false);
+    if (!result.isSuccess) {
+      _showCalendarError(result.error?.message ?? 'Rezervasyon onaylanamadı.');
+      await _loadCalendarData(showLoading: false);
+      return;
+    }
+    await _loadCalendarData(showLoading: false);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${reservation.userName} rezervasyonu onaylandı.'),
@@ -791,6 +850,12 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
   Future<void> _confirmReservationCancellation(
     _StudioOwnerReservation reservation,
   ) async {
+    if (_calendarMutationInFlight) return;
+    if (!reservation.capabilitiesAt(DateTime.now().toUtc()).canCancel) {
+      _showCalendarError('Bu rezervasyon artık iptal edilemez.');
+      await _loadCalendarData(showLoading: false);
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -815,10 +880,82 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _cancelledReservationIds.add(reservation.id));
+    setState(() => _calendarMutationInFlight = true);
+    final result = await _repository.cancelOwnerReservation(
+      roomId: _room.id,
+      reservationId: reservation.id,
+      expectedVersion: reservation.version,
+    );
+    if (!mounted) return;
+    setState(() => _calendarMutationInFlight = false);
+    if (!result.isSuccess) {
+      _showCalendarError(
+        result.error?.message ?? 'Rezervasyon iptal edilemedi.',
+      );
+      await _loadCalendarData(showLoading: false);
+      return;
+    }
+    await _loadCalendarData(showLoading: false);
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Rezervasyon iptal edildi.')));
+  }
+
+  Future<void> _confirmReservationRejection(
+    _StudioOwnerReservation reservation,
+  ) async {
+    if (_calendarMutationInFlight) return;
+    if (!reservation.capabilitiesAt(DateTime.now().toUtc()).canReject) {
+      _showCalendarError('Bu rezervasyon talebi artık reddedilemez.');
+      await _loadCalendarData(showLoading: false);
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF101722),
+        title: const Text('Rezervasyon talebi reddedilsin mi?'),
+        content: Text(
+          '${reservation.userName} tarafından gönderilen rezervasyon talebi '
+          'reddedilecek.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFFF7373),
+            ),
+            child: const Text('Talebi Reddet'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _calendarMutationInFlight = true);
+    final result = await _repository.rejectReservation(
+      roomId: _room.id,
+      reservationId: reservation.id,
+      expectedVersion: reservation.version,
+    );
+    if (!mounted) return;
+    setState(() => _calendarMutationInFlight = false);
+    if (!result.isSuccess) {
+      _showCalendarError(
+        result.error?.message ?? 'Rezervasyon talebi reddedilemedi.',
+      );
+      await _loadCalendarData(showLoading: false);
+      return;
+    }
+    await _loadCalendarData(showLoading: false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Rezervasyon talebi reddedildi.')),
+    );
   }
 
   Future<void> _showReservationDetails(_StudioOwnerReservation reservation) {
@@ -828,46 +965,62 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
         reservation: reservation,
         roomName: _room.name,
         date: _selectedDate,
-        startTime: _times[reservation.startIndex],
-        endTime:
-            _times[(reservation.startIndex + reservation.durationHours).clamp(
-              0,
-              _times.length - 1,
-            )],
+        startTime: _manualHourLabel(reservation.startIndex),
+        endTime: _manualHourLabel(
+          reservation.startIndex + reservation.durationHours,
+        ),
       ),
     );
   }
 
-  Future<void> _showReservationGuestProfile(
+  Future<DmProfileTarget?> _resolveReservationGuestProfileTarget(
     _StudioOwnerReservation reservation,
-  ) async {
-    await Navigator.of(context).pushNamed(
-      AppRoutes.musicianPublicProfile,
-      arguments: PublicProfileArgs(profileId: reservation.profileId),
-    );
+  ) => _resolveStudioReservationGuestTarget(reservation);
+
+  Future<void> _showReservationGuestProfile(DmProfileTarget target) async {
+    final route = dmProfileRouteFor(target);
+    if (route == null || !mounted) return;
+    await Navigator.of(
+      context,
+    ).pushNamed(route.routeName, arguments: route.arguments);
   }
 
   Future<void> _messageReservationGuest(
     _StudioOwnerReservation reservation,
   ) async {
+    if (reservation.userId.trim().isEmpty) {
+      _showCalendarError('Kullanıcı bilgisi alınamadığı için mesaj açılamadı.');
+      return;
+    }
+    final profileTarget = await _resolveReservationGuestProfileTarget(
+      reservation,
+    );
+    if (!mounted) return;
+    final resolvedAvatarUrl = profileTarget?.imageUrl?.trim() ?? '';
+    final reservationAvatarUrl = reservation.avatarUrl.trim();
+    final resolvedDisplayName = profileTarget?.displayName.trim() ?? '';
     await Navigator.of(context).pushNamed(
       AppRoutes.dmChat,
       arguments: DmChatScreenArgs(
         otherUserId: reservation.userId,
-        otherUsername: reservation.userName,
-        otherUserProfilePicture: reservation.avatarUrl,
-        otherMusicianProfileId: reservation.profileId,
+        otherUsername: resolvedDisplayName.isNotEmpty
+            ? resolvedDisplayName
+            : reservation.userName,
+        otherUserProfilePicture: resolvedAvatarUrl.isNotEmpty
+            ? resolvedAvatarUrl
+            : reservationAvatarUrl,
       ),
     );
   }
 
   Future<void> _pickDate() async {
-    final today = _dateOnly(DateTime.now());
+    final today = _studioToday;
+    final lastDate = _latestBookableDate;
     final date = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: today,
-      lastDate: today.add(const Duration(days: 365)),
+      lastDate: lastDate,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: ColorScheme.dark(
@@ -884,79 +1037,473 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
     setState(() {
       _selectedDate = _dateOnly(date);
       _selectedTime = null;
+      _clearPendingReservationRequest();
       if (!widget.canReserve) {
         _selectedOwnerOverviewDate = _selectedDate;
         _ownerDateWindowStart = _selectedDate;
       }
     });
+    await _loadCalendarData();
   }
 
   void _changeDate(int days) {
-    final next = _selectedDate.add(Duration(days: days));
-    if (next.isBefore(_dateOnly(DateTime.now()))) return;
+    final next = _bookingPolicy?.shiftDate(_selectedDate, days);
+    if (next == null) return;
     setState(() {
       _selectedDate = next;
       _selectedTime = null;
+      _clearPendingReservationRequest();
     });
+    _loadCalendarData();
   }
 
-  bool _isTimeAvailable(String time) {
+  _StudioPublicRoomSlotState _publicSlotState(String time) {
     final startIndex = _times.indexOf(time);
-    if (startIndex < 0 || startIndex + _durationHours > _times.length) {
-      return false;
+    if (startIndex < 0) return _StudioPublicRoomSlotState.past;
+    final startHour = int.parse(time.substring(0, 2));
+    final policy = _bookingPolicy;
+    if (policy == null || !policy.canStartAt(_selectedDate, startHour)) {
+      return _StudioPublicRoomSlotState.past;
     }
-    for (var offset = 0; offset < _durationHours; offset++) {
-      if (!_isBaseSlotAvailable(_times[startIndex + offset])) return false;
+    final ownReservation = _customerReservationAt(startHour);
+    if (ownReservation != null) {
+      return ownReservation.status.isPending
+          ? _StudioPublicRoomSlotState.pendingByMe
+          : _StudioPublicRoomSlotState.reservedByMe;
     }
-    return true;
+    if (!_isSlotUnoccupied(time)) {
+      return _StudioPublicRoomSlotState.occupied;
+    }
+    return _StudioPublicRoomSlotState.available;
   }
 
-  bool _isBaseSlotAvailable(String time) {
-    final hour = int.parse(time.substring(0, 2));
-    final now = DateTime.now();
-    final isToday = _selectedDate == _dateOnly(now);
-    if (isToday && hour <= now.hour) return false;
-    return (_selectedDate.day + hour + _room.name.length) % 5 != 0;
-  }
-
-  void _selectDuration(int hours) {
-    setState(() {
-      _durationHours = hours;
-      final time = _selectedTime;
-      if (time != null && !_isTimeAvailable(time)) {
-        _selectedTime = null;
+  StudioReservation? _customerReservationAt(int hour) {
+    final dateKey = _apiDate(_selectedDate);
+    StudioReservation? pendingReservation;
+    for (final reservation in _customerReservations) {
+      if (reservation.roomId != _room.id ||
+          (!reservation.status.isPending && !reservation.status.isConfirmed) ||
+          _reservationDateKey(reservation) != dateKey) {
+        continue;
       }
-    });
+      final startsAt = _localHour(
+        reservation.localStartTime,
+        reservation.startsAt,
+      );
+      final endsAt = _localHour(reservation.localEndTime, reservation.endsAt);
+      if (hour < startsAt || hour >= endsAt) continue;
+      if (reservation.status.isConfirmed) return reservation;
+      pendingReservation ??= reservation;
+    }
+    return pendingReservation;
   }
 
-  Future<void> _confirmReservation() async {
-    final time = _selectedTime;
-    if (time == null) return;
+  Future<void> _confirmCustomerReservationCancellation(
+    StudioReservation reservation,
+  ) async {
+    if (_calendarMutationInFlight) return;
+    if (!reservation.status.isPending && !reservation.status.isConfirmed) {
+      _showCalendarError('Bu rezervasyon artık iptal edilemez.');
+      await _loadCalendarData(showLoading: false);
+      return;
+    }
+    final startHour = _localHour(
+      reservation.localStartTime,
+      reservation.startsAt,
+    );
+    final endHour = _localHour(reservation.localEndTime, reservation.endsAt);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),
-        title: const Text('Rezervasyonu Onayla'),
+        title: const Text('Rezervasyonunu iptal et'),
         content: Text(
-          '${_room.name}\n${_formatDate(_selectedDate)} • $time\n$_durationHours saat',
+          '${_room.name}\n'
+          '${_formatDate(_selectedDate)} • '
+          '${startHour.toString().padLeft(2, '0')}:00–'
+          '${endHour.toString().padLeft(2, '0')}:00\n\n'
+          '${reservation.status.isPending ? 'Onay bekleyen talebin' : 'Onaylı rezervasyonun'} iptal edilecek.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Vazgeç'),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Rezervasyon Oluştur'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFFF7373),
+            ),
+            child: const Text('Rezervasyonu İptal Et'),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
+    setState(() => _calendarMutationInFlight = true);
+    final result = await _repository.cancelCustomerReservation(
+      reservationId: reservation.id,
+      expectedVersion: reservation.version,
+    );
+    if (!mounted) return;
+    setState(() => _calendarMutationInFlight = false);
+    if (!result.isSuccess) {
+      _showCalendarError(
+        result.error?.message ?? 'Rezervasyon iptal edilemedi.',
+      );
+      await _loadCalendarData(showLoading: false);
+      return;
+    }
+    _clearPendingReservationRequest();
+    await _loadCalendarData(showLoading: false);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Rezervasyon talebin oluşturuldu.')),
+      const SnackBar(content: Text('Rezervasyonun iptal edildi.')),
     );
   }
+
+  void _selectStartTime(String time) {
+    final nextDuration = _canUseDurationAt(time, _durationHours)
+        ? _durationHours
+        : 1;
+    setState(() {
+      _selectedTime = time;
+      _durationHours = nextDuration;
+      _clearPendingReservationRequest();
+    });
+  }
+
+  bool _canUseDuration(int hours) {
+    final time = _selectedTime;
+    return time != null && _canUseDurationAt(time, hours);
+  }
+
+  bool _canUseDurationAt(String time, int hours) {
+    if (hours < 1 || hours > 4) return false;
+    final startIndex = _times.indexOf(time);
+    if (startIndex < 0 || startIndex + hours > _times.length) return false;
+    final startHour = int.parse(time.substring(0, 2));
+    if (_bookingPolicy?.canStartAt(_selectedDate, startHour) != true) {
+      return false;
+    }
+    for (var offset = 0; offset < hours; offset++) {
+      if (!_isSlotUnoccupied(_times[startIndex + offset])) return false;
+    }
+    return true;
+  }
+
+  bool _isSlotUnoccupied(String time) {
+    final hour = int.parse(time.substring(0, 2));
+    if (_calendarLoading || _calendarError != null) return false;
+    final dateKey = _apiDate(_selectedDate);
+    if (widget.canReserve) {
+      return !(_publicAvailability?.unavailable ?? const []).any(
+        (interval) =>
+            _intervalDateKey(interval) == dateKey &&
+            hour >= _intervalStartHour(interval) &&
+            hour < _intervalEndHour(interval),
+      );
+    }
+    return !_scheduleOccupancies.any(
+      (occupancy) =>
+          occupancy.active &&
+          _occupancyDateKey(occupancy) == dateKey &&
+          hour >= _occupancyStartHour(occupancy) &&
+          hour < _occupancyEndHour(occupancy),
+    );
+  }
+
+  void _selectDuration(int hours) {
+    if (!_canUseDuration(hours)) return;
+    setState(() {
+      _durationHours = hours;
+      _clearPendingReservationRequest();
+    });
+  }
+
+  Future<void> _confirmReservation() async {
+    final time = _selectedTime;
+    if (time == null || !_canUseDuration(_durationHours)) return;
+    final contactPhone = await showDialog<String>(
+      context: context,
+      builder: (_) => _StudioReservationConfirmDialog(
+        roomName: _room.name,
+        dateLabel: _formatDate(_selectedDate),
+        startTime: time,
+        durationHours: _durationHours,
+      ),
+    );
+    if (contactPhone == null ||
+        contactPhone.isEmpty ||
+        !mounted ||
+        _reservationSubmitting) {
+      return;
+    }
+    final startHour = int.parse(time.substring(0, 2));
+    final payloadKey =
+        '${_room.id}|${_apiDate(_selectedDate)}|$startHour|$_durationHours|${_phonePayloadKey(contactPhone)}';
+    if (_pendingReservationPayloadKey != payloadKey) {
+      _pendingReservationPayloadKey = payloadKey;
+      _pendingReservationRequestId = const Uuid().v4();
+    }
+    setState(() => _reservationSubmitting = true);
+    final result = await _repository.createReservation(
+      roomId: _room.id,
+      date: _selectedDate,
+      startHour: startHour,
+      durationHours: _durationHours,
+      contactPhone: contactPhone,
+      clientRequestId: _pendingReservationRequestId!,
+    );
+    if (!mounted) return;
+    setState(() => _reservationSubmitting = false);
+    final reservation = result.data;
+    if (!result.isSuccess || reservation == null) {
+      _showCalendarError(
+        result.error?.message ?? 'Rezervasyon oluşturulamadı.',
+      );
+      if (isStudioReservationConflict(result.error)) {
+        await _loadCalendarData(showLoading: false);
+      }
+      return;
+    }
+    _clearPendingReservationRequest();
+    await _loadCalendarData(showLoading: false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          reservation.status.isConfirmed
+              ? 'Rezervasyonun onaylandı.'
+              : 'Rezervasyon talebin oluşturuldu.',
+        ),
+      ),
+    );
+  }
+
+  static String? _reservationPhoneError(String? value) {
+    final phone = value?.trim() ?? '';
+    if (phone.isEmpty) return 'Telefon numarası zorunludur.';
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 11 || !digits.startsWith('0')) {
+      return 'Numara 0 ile başlayan 11 rakam olmalıdır.';
+    }
+    return null;
+  }
+
+  static String _phonePayloadKey(String phone) =>
+      phone.replaceAll(RegExp(r'\D'), '');
+
+  Future<void> _loadCalendarData({bool showLoading = true}) async {
+    final generation = ++_calendarLoadGeneration;
+    if (showLoading && mounted) {
+      setState(() {
+        _calendarLoading = true;
+        _calendarError = null;
+      });
+    }
+    if (widget.canReserve) {
+      final availabilityFuture = _repository.getPublicAvailability(
+        studioProfileId: widget.studioProfileId,
+        roomId: _room.id,
+        from: _selectedDate,
+        to: _selectedDate,
+      );
+      final reservationsFuture = _repository
+          .listCustomerReservationsForRoomDate(
+            roomId: _room.id,
+            date: _selectedDate,
+          );
+      final result = await availabilityFuture;
+      final reservationsResult = await reservationsFuture;
+      if (!mounted || generation != _calendarLoadGeneration) return;
+      if (!result.isSuccess ||
+          result.data == null ||
+          !reservationsResult.isSuccess ||
+          reservationsResult.data == null) {
+        setState(() {
+          _calendarLoading = false;
+          _calendarError =
+              result.error?.message ??
+              reservationsResult.error?.message ??
+              'Oda müsaitliği getirilemedi.';
+        });
+        return;
+      }
+      final customerReservations = <StudioReservation>[
+        ...reservationsResult.data!.items,
+      ];
+      var reservationsPage = reservationsResult.data!;
+      const maximumCustomerReservationPages = 20;
+      while (reservationsPage.hasNext &&
+          reservationsPage.pageIndex + 1 < maximumCustomerReservationPages) {
+        final nextResult = await _repository
+            .listCustomerReservationsForRoomDate(
+              roomId: _room.id,
+              date: _selectedDate,
+              page: reservationsPage.pageIndex + 1,
+            );
+        if (!mounted || generation != _calendarLoadGeneration) return;
+        final nextPage = nextResult.data;
+        if (!nextResult.isSuccess || nextPage == null) {
+          setState(() {
+            _calendarLoading = false;
+            _calendarError =
+                nextResult.error?.message ?? 'Rezervasyonların getirilemedi.';
+          });
+          return;
+        }
+        customerReservations.addAll(nextPage.items);
+        reservationsPage = nextPage;
+      }
+      setState(() {
+        final availability = result.data!;
+        _publicAvailability = availability;
+        _customerReservations = List.unmodifiable(customerReservations);
+        _bookingPolicy = StudioBookingCalendarPolicy(
+          todayLocalDate: availability.todayLocalDate,
+          currentLocalTime: availability.currentLocalTime,
+          latestBookableLocalDateTime: availability.latestBookableLocalDateTime,
+        );
+        _calendarLoading = false;
+        _calendarError = null;
+      });
+      return;
+    }
+
+    final from = _ownerDateWindowStart;
+    final candidateTo = from.add(const Duration(days: 4));
+    final to = candidateTo.isAfter(_latestBookableDate)
+        ? _latestBookableDate
+        : candidateTo;
+    final reservations = <StudioReservation>[];
+    List<StudioOccupancy> occupancies = const [];
+    StudioBookingCalendarPolicy? bookingPolicy;
+    var pageIndex = 0;
+    const maximumPagesPerLoad = 20;
+    while (pageIndex < maximumPagesPerLoad) {
+      final result = await _repository.getOwnerSchedule(
+        roomId: _room.id,
+        from: from,
+        to: to,
+        page: pageIndex,
+        size: 100,
+      );
+      if (!mounted || generation != _calendarLoadGeneration) return;
+      final schedule = result.data;
+      if (!result.isSuccess || schedule == null) {
+        setState(() {
+          _calendarLoading = false;
+          _calendarError =
+              result.error?.message ?? 'Rezervasyon takvimi getirilemedi.';
+        });
+        return;
+      }
+      reservations.addAll(schedule.reservations.items);
+      occupancies = schedule.occupancies;
+      bookingPolicy ??= StudioBookingCalendarPolicy(
+        todayLocalDate: schedule.todayLocalDate,
+        currentLocalTime: schedule.currentLocalTime,
+        latestBookableLocalDateTime: schedule.latestBookableLocalDateTime,
+      );
+      if (!schedule.reservations.hasNext) break;
+      pageIndex++;
+    }
+    if (!mounted || generation != _calendarLoadGeneration) return;
+    if (pageIndex >= maximumPagesPerLoad) {
+      setState(() {
+        _calendarLoading = false;
+        _calendarError =
+            'Bu tarih aralığında görüntülenemeyecek kadar çok talep var.';
+      });
+      return;
+    }
+    setState(() {
+      _scheduleReservations = List.unmodifiable(reservations);
+      _scheduleOccupancies = List.unmodifiable(occupancies);
+      _bookingPolicy = bookingPolicy;
+      _calendarLoading = false;
+      _calendarError = null;
+    });
+    _openInitialReservationSheetIfPossible();
+  }
+
+  void _openInitialReservationSheetIfPossible() {
+    if (_initialReservationSheetHandled || !mounted) return;
+    final reservationId = widget.initialReservationId?.trim() ?? '';
+    if (reservationId.isEmpty) {
+      _initialReservationSheetHandled = true;
+      return;
+    }
+    StudioReservation? domainReservation;
+    for (final reservation in _scheduleReservations) {
+      if (reservation.id == reservationId) {
+        domainReservation = reservation;
+        break;
+      }
+    }
+    if (domainReservation == null) return;
+    _initialReservationSheetHandled = true;
+    final reservation = _StudioOwnerReservation.fromDomain(domainReservation);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showOwnerReservationActions(reservation);
+    });
+  }
+
+  void _showCalendarError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _clearPendingReservationRequest() {
+    _pendingReservationPayloadKey = null;
+    _pendingReservationRequestId = null;
+  }
+
+  static String _apiDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  static int _localHour(String? value, DateTime fallback) {
+    final normalized = value?.trim() ?? '';
+    if (normalized.length >= 2) {
+      final parsed = int.tryParse(normalized.substring(0, 2));
+      if (parsed != null) return parsed;
+    }
+    return fallback.toLocal().hour;
+  }
+
+  static String _localDateKey(String? value, DateTime fallback) {
+    final normalized = value?.trim() ?? '';
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(normalized)) {
+      return normalized;
+    }
+    return _apiDate(fallback.toLocal());
+  }
+
+  static String _reservationDateKey(StudioReservation reservation) =>
+      _localDateKey(reservation.localDate, reservation.startsAt);
+
+  static String _occupancyDateKey(StudioOccupancy occupancy) =>
+      _localDateKey(occupancy.localDate, occupancy.startsAt);
+
+  static String _intervalDateKey(StudioUnavailableInterval interval) =>
+      _localDateKey(interval.localDate, interval.startsAt);
+
+  static int _occupancyStartHour(StudioOccupancy occupancy) =>
+      _localHour(occupancy.localStartTime, occupancy.startsAt);
+
+  static int _occupancyEndHour(StudioOccupancy occupancy) =>
+      _localHour(occupancy.localEndTime, occupancy.endsAt);
+
+  static int _intervalStartHour(StudioUnavailableInterval interval) =>
+      _localHour(interval.localStartTime, interval.startsAt);
+
+  static int _intervalEndHour(StudioUnavailableInterval interval) =>
+      _localHour(interval.localEndTime, interval.endsAt);
 
   static DateTime _dateOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
@@ -978,6 +1525,248 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
+}
+
+class _StudioReservationConfirmDialog extends StatefulWidget {
+  const _StudioReservationConfirmDialog({
+    required this.roomName,
+    required this.dateLabel,
+    required this.startTime,
+    required this.durationHours,
+  });
+
+  final String roomName;
+  final String dateLabel;
+  final String startTime;
+  final int durationHours;
+
+  @override
+  State<_StudioReservationConfirmDialog> createState() =>
+      _StudioReservationConfirmDialogState();
+}
+
+class _StudioReservationConfirmDialogState
+    extends State<_StudioReservationConfirmDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _phoneController;
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneController = TextEditingController(text: '0')
+      ..selection = const TextSelection.collapsed(offset: 1);
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() != true) return;
+    Navigator.of(context).pop(_phoneController.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: AlertDialog(
+        backgroundColor: const Color(0xFF101722),
+        title: const Text('Rezervasyonu Onayla'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${widget.roomName}\n${widget.dateLabel} • '
+                '${widget.startTime}\n${widget.durationHours} saat',
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                autofillHints: const [AutofillHints.telephoneNumber],
+                textInputAction: TextInputAction.done,
+                inputFormatters: const [_TurkishMobilePhoneFormatter()],
+                decoration: const InputDecoration(
+                  labelText: 'Telefon numarası',
+                  hintText: '0 534 576 27 72',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
+                validator: _StudioRoomDetailScreenState._reservationPhoneError,
+                onFieldSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Stüdyo bu numarayı yalnızca rezervasyonunuz için görebilir.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Ödeme yöntemi',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 9),
+              const _StudioReservationPaymentOption(
+                icon: Icons.payments_outlined,
+                title: 'Elden ödeme yapacağım',
+                subtitle: 'Ödeme stüdyo ile doğrudan gerçekleştirilir.',
+                selected: true,
+              ),
+              const SizedBox(height: 8),
+              const _StudioReservationPaymentOption(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Online ödeme yapacağım',
+                subtitle: 'Ödeme uygulama üzerinden gerçekleştirilir.',
+                comingSoon: true,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: _submit,
+            child: const Text('Rezervasyon Oluştur'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioReservationPaymentOption extends StatelessWidget {
+  const _StudioReservationPaymentOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.selected = false,
+    this.comingSoon = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final bool comingSoon;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? const Color(0xFFFF7F87)
+        : const Color(0xFF2A3547);
+    return Opacity(
+      opacity: comingSoon ? 0.68 : 1,
+      child: Container(
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D1520),
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: _roomFormIconColor, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (comingSoon) ...[
+                        const SizedBox(width: 7),
+                        const _StudioComingSoonBadge(),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF98A2B1),
+                      fontSize: 9.5,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: selected
+                  ? const Color(0xFFFF7F87)
+                  : const Color(0xFF667184),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TurkishMobilePhoneFormatter extends TextInputFormatter {
+  const _TurkishMobilePhoneFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (newValue.text.trimLeft().startsWith('+90') && digits.startsWith('90')) {
+      digits = '0${digits.substring(2)}';
+    } else if (digits.isEmpty) {
+      digits = '0';
+    } else if (!digits.startsWith('0')) {
+      digits = '0$digits';
+    }
+    if (digits.length > 11) digits = digits.substring(0, 11);
+    final formatted = _formatReservationPhone(digits);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+String _formatReservationPhone(String value) {
+  var digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.length == 12 && digits.startsWith('90')) {
+    digits = '0${digits.substring(2)}';
+  }
+  if (digits.length != 11 || !digits.startsWith('0')) {
+    return value.trim();
+  }
+  return '${digits.substring(0, 1)} '
+      '${digits.substring(1, 4)} '
+      '${digits.substring(4, 7)} '
+      '${digits.substring(7, 9)} '
+      '${digits.substring(9, 11)}';
 }
 
 class _StudioRoomDetailHeader extends StatelessWidget {
@@ -1146,6 +1935,7 @@ class _StudioRoomDetailMeta extends StatelessWidget {
 class _StudioRoomDateSelector extends StatelessWidget {
   final DateTime date;
   final bool canGoBack;
+  final bool canGoForward;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onPick;
@@ -1153,6 +1943,7 @@ class _StudioRoomDateSelector extends StatelessWidget {
   const _StudioRoomDateSelector({
     required this.date,
     required this.canGoBack,
+    required this.canGoForward,
     required this.onPrevious,
     required this.onNext,
     required this.onPick,
@@ -1205,20 +1996,37 @@ class _StudioRoomDateSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        _CalendarArrowButton(icon: Icons.arrow_forward, onTap: onNext),
+        _CalendarArrowButton(
+          icon: Icons.arrow_forward,
+          onTap: canGoForward ? onNext : null,
+        ),
       ],
     );
   }
 }
 
 class _StudioManualBusyRange {
+  final String id;
   final int startIndex;
   final int endIndex;
+  final int version;
 
   const _StudioManualBusyRange({
+    required this.id,
     required this.startIndex,
     required this.endIndex,
+    required this.version,
   });
+
+  factory _StudioManualBusyRange.fromDomain(StudioOccupancy occupancy) {
+    return _StudioManualBusyRange(
+      id: occupancy.id,
+      startIndex:
+          _StudioRoomDetailScreenState._occupancyStartHour(occupancy) - 9,
+      endIndex: _StudioRoomDetailScreenState._occupancyEndHour(occupancy) - 9,
+      version: occupancy.version,
+    );
+  }
 
   int get durationHours => endIndex - startIndex;
 
@@ -1232,40 +2040,94 @@ class _StudioOwnerReservation {
   final String id;
   final String userId;
   final String userNo;
-  final String profileId;
   final String userName;
-  final String profileType;
   final String avatarUrl;
   final int startIndex;
   final int durationHours;
-  final bool approved;
+  final StudioReservationStatus status;
+  final DateTime startsAt;
+  final bool completed;
+  final int version;
+  final int? totalPriceMinor;
+  final String? currency;
 
   const _StudioOwnerReservation({
     required this.id,
     required this.userId,
     required this.userNo,
-    required this.profileId,
     required this.userName,
-    required this.profileType,
     required this.avatarUrl,
     required this.startIndex,
     required this.durationHours,
-    required this.approved,
+    required this.status,
+    required this.startsAt,
+    required this.completed,
+    required this.version,
+    required this.totalPriceMinor,
+    required this.currency,
   });
 
-  _StudioOwnerReservation copyWith({bool? approved}) {
-    return _StudioOwnerReservation(
-      id: id,
-      userId: userId,
-      userNo: userNo,
-      profileId: profileId,
-      userName: userName,
-      profileType: profileType,
-      avatarUrl: avatarUrl,
-      startIndex: startIndex,
-      durationHours: durationHours,
-      approved: approved ?? this.approved,
+  factory _StudioOwnerReservation.fromDomain(StudioReservation reservation) {
+    final startHour = _StudioRoomDetailScreenState._localHour(
+      reservation.localStartTime,
+      reservation.startsAt,
     );
+    final endHour = _StudioRoomDetailScreenState._localHour(
+      reservation.localEndTime,
+      reservation.endsAt,
+    );
+    return _StudioOwnerReservation(
+      id: reservation.id,
+      userId: reservation.requesterId ?? '',
+      userNo: reservation.requesterPhone == null
+          ? reservation.requesterPublicCode ?? '—'
+          : _formatReservationPhone(reservation.requesterPhone!),
+      userName: reservation.requesterUsername ?? 'SoundConnect Kullanıcısı',
+      avatarUrl: reservation.requesterAvatarUrl ?? '',
+      startIndex: startHour - 9,
+      durationHours: endHour - startHour,
+      status: reservation.status,
+      startsAt: reservation.startsAt,
+      completed: reservation.completed,
+      version: reservation.version,
+      totalPriceMinor: reservation.totalPriceMinor,
+      currency: reservation.currency,
+    );
+  }
+
+  bool get approved => status.isConfirmed;
+
+  StudioReservationOwnerCapabilities capabilitiesAt(DateTime now) =>
+      StudioReservationOwnerCapabilities.evaluate(
+        status: status,
+        startsAt: startsAt,
+        completed: completed,
+        now: now,
+      );
+
+  String statusLabelAt(DateTime now) {
+    if (completed) return 'Tamamlandı';
+    if (!startsAt.toUtc().isAfter(now.toUtc())) {
+      return status.isConfirmed ? 'Devam Ediyor' : 'Süresi Geçti';
+    }
+    return status.isConfirmed ? 'Onaylı' : 'Onay Bekliyor';
+  }
+
+  String? get totalPriceLabel {
+    final minor = totalPriceMinor;
+    if (minor == null) return null;
+    final whole = minor ~/ 100;
+    final fraction = minor.remainder(100);
+    final grouped = whole.toString().replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (_) => '.',
+    );
+    final amount = fraction == 0
+        ? grouped
+        : '$grouped,${fraction.toString().padLeft(2, '0')}';
+    return currency == 'TRY' || currency == null
+        ? '₺$amount'
+        : '$amount $currency';
   }
 }
 
@@ -1278,6 +2140,7 @@ class _StudioOwnerReservationTimeline extends StatelessWidget {
   final List<_StudioOwnerReservation> reservations;
   final List<_StudioManualBusyRange> manualBusyRanges;
   final bool Function(String time) isTimeAvailable;
+  final bool Function(String time) canEditTime;
   final ValueChanged<_StudioOwnerReservation> onReservationTap;
   final ValueChanged<int> onEmptyTimeTap;
   final ValueChanged<_StudioManualBusyRange> onManualBusyTap;
@@ -1287,6 +2150,7 @@ class _StudioOwnerReservationTimeline extends StatelessWidget {
     required this.reservations,
     required this.manualBusyRanges,
     required this.isTimeAvailable,
+    required this.canEditTime,
     required this.onReservationTap,
     required this.onEmptyTimeTap,
     required this.onManualBusyTap,
@@ -1342,13 +2206,15 @@ class _StudioOwnerReservationTimeline extends StatelessWidget {
                       final available =
                           matchingReservations.isEmpty &&
                           isTimeAvailable(times[index]);
+                      final editable = available && canEditTime(times[index]);
                       return _StudioOwnerReservationTimeTile(
                         time: times[index],
                         available: available,
+                        editable: editable,
                         width: tileWidth,
                         reservations: matchingReservations,
                         onTap: matchingReservations.isEmpty
-                            ? available
+                            ? editable
                                   ? () => onEmptyTimeTap(index)
                                   : null
                             : () => _openReservationsForTime(
@@ -1414,6 +2280,7 @@ class _StudioOwnerReservationTimeline extends StatelessWidget {
 class _StudioOwnerReservationTimeTile extends StatelessWidget {
   final String time;
   final bool available;
+  final bool editable;
   final double width;
   final List<_StudioOwnerReservation> reservations;
   final VoidCallback? onTap;
@@ -1421,6 +2288,7 @@ class _StudioOwnerReservationTimeTile extends StatelessWidget {
   const _StudioOwnerReservationTimeTile({
     required this.time,
     required this.available,
+    required this.editable,
     required this.width,
     required this.reservations,
     required this.onTap,
@@ -1428,6 +2296,18 @@ class _StudioOwnerReservationTimeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (reservations.isEmpty && available && !editable) {
+      return _StudioRoomTimeChip(
+        time: time,
+        available: false,
+        selected: false,
+        width: width,
+        verticalPadding: 0,
+        statusLabel: 'Geçti',
+        statusColor: const Color(0xFF6F7A8B),
+        onTap: null,
+      );
+    }
     final accentColor = reservations.isEmpty
         ? null
         : reservations.every((reservation) => reservation.approved)
@@ -1523,6 +2403,21 @@ class _StudioOwnerReservationTimeTile extends StatelessWidget {
   }
 }
 
+Future<DmProfileTarget?> _resolveStudioReservationGuestTarget(
+  _StudioOwnerReservation reservation,
+) async {
+  final userId = reservation.userId.trim();
+  if (userId.isEmpty) return null;
+  final targets = await serviceLocator<DmUserProfileResolver>().resolveByUserId(
+    userId: userId,
+    usernameHint: reservation.userName,
+  );
+  for (final target in targets) {
+    if (dmProfileRouteFor(target) != null) return target;
+  }
+  return null;
+}
+
 class _StudioReservationsAtTimeSheet extends StatelessWidget {
   final String time;
   final List<_StudioOwnerReservation> reservations;
@@ -1586,7 +2481,7 @@ class _StudioReservationsAtTimeSheet extends StatelessWidget {
   }
 }
 
-class _StudioReservationPickerTile extends StatelessWidget {
+class _StudioReservationPickerTile extends StatefulWidget {
   final _StudioOwnerReservation reservation;
   final VoidCallback onTap;
 
@@ -1596,7 +2491,34 @@ class _StudioReservationPickerTile extends StatelessWidget {
   });
 
   @override
+  State<_StudioReservationPickerTile> createState() =>
+      _StudioReservationPickerTileState();
+}
+
+class _StudioReservationPickerTileState
+    extends State<_StudioReservationPickerTile> {
+  late Future<DmProfileTarget?> _profileTarget;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileTarget = _resolveProfileTarget();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StudioReservationPickerTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reservation.userId != widget.reservation.userId) {
+      _profileTarget = _resolveProfileTarget();
+    }
+  }
+
+  Future<DmProfileTarget?> _resolveProfileTarget() =>
+      _resolveStudioReservationGuestTarget(widget.reservation);
+
+  @override
   Widget build(BuildContext context) {
+    final reservation = widget.reservation;
     final color = reservation.approved
         ? _studioReservationApprovedColor
         : _studioReservationPendingColor;
@@ -1606,7 +2528,7 @@ class _StudioReservationPickerTile extends StatelessWidget {
       color: const Color(0xFF101A28),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(12),
@@ -1619,9 +2541,13 @@ class _StudioReservationPickerTile extends StatelessWidget {
               SizedBox(
                 width: 40,
                 height: 40,
-                child: _StudioReservationAvatar(
-                  reservation: reservation,
-                  onTap: onTap,
+                child: FutureBuilder<DmProfileTarget?>(
+                  future: _profileTarget,
+                  builder: (context, snapshot) => _StudioReservationAvatar(
+                    reservation: reservation,
+                    onTap: widget.onTap,
+                    avatarUrlOverride: snapshot.data?.imageUrl,
+                  ),
                 ),
               ),
               const SizedBox(width: 11),
@@ -1673,18 +2599,27 @@ class _StudioReservationPickerTile extends StatelessWidget {
 
 class _StudioReservationAvatar extends StatelessWidget {
   final _StudioOwnerReservation reservation;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final String? avatarUrlOverride;
 
   const _StudioReservationAvatar({
     required this.reservation,
     required this.onTap,
+    this.avatarUrlOverride,
   });
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = reservation.approved
-        ? _studioReservationApprovedColor
-        : _studioReservationPendingColor;
+    final resolvedAvatarUrl = avatarUrlOverride?.trim().isNotEmpty == true
+        ? avatarUrlOverride!.trim()
+        : reservation.avatarUrl.trim();
+    final now = DateTime.now().toUtc();
+    final capabilities = reservation.capabilitiesAt(now);
+    final statusColor = capabilities.hasMutation
+        ? reservation.approved
+              ? _studioReservationApprovedColor
+              : _studioReservationPendingColor
+        : const Color(0xFF9EA8B7);
     return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -1707,23 +2642,42 @@ class _StudioReservationAvatar extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(2),
             child: ClipOval(
-              child: Image.network(
-                reservation.avatarUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => ColoredBox(
-                  color: const Color(0xFF252E3D),
-                  child: Center(
-                    child: Text(
-                      reservation.userName.substring(0, 1),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
+              child: resolvedAvatarUrl.isEmpty
+                  ? _StudioReservationAvatarFallback(
+                      userName: reservation.userName,
+                    )
+                  : Image.network(
+                      resolvedAvatarUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          _StudioReservationAvatarFallback(
+                            userName: reservation.userName,
+                          ),
                     ),
-                  ),
-                ),
-              ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioReservationAvatarFallback extends StatelessWidget {
+  const _StudioReservationAvatarFallback({required this.userName});
+
+  final String userName;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = userName.trim();
+    return ColoredBox(
+      color: const Color(0xFF252E3D),
+      child: Center(
+        child: Text(
+          normalized.isEmpty ? '?' : normalized.substring(0, 1).toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
           ),
         ),
       ),
@@ -2051,8 +3005,10 @@ class _StudioReservationActionSheet extends StatelessWidget {
   final String startTime;
   final String endTime;
   final VoidCallback onApprove;
+  final VoidCallback onReject;
   final VoidCallback onShowDetails;
-  final VoidCallback onShowProfile;
+  final Future<DmProfileTarget?> profileTarget;
+  final ValueChanged<DmProfileTarget> onShowProfile;
   final VoidCallback onSendMessage;
   final VoidCallback onCancel;
 
@@ -2063,7 +3019,9 @@ class _StudioReservationActionSheet extends StatelessWidget {
     required this.startTime,
     required this.endTime,
     required this.onApprove,
+    required this.onReject,
     required this.onShowDetails,
+    required this.profileTarget,
     required this.onShowProfile,
     required this.onSendMessage,
     required this.onCancel,
@@ -2071,9 +3029,13 @@ class _StudioReservationActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = reservation.approved
-        ? _studioReservationApprovedColor
-        : _studioReservationPendingColor;
+    final now = DateTime.now().toUtc();
+    final capabilities = reservation.capabilitiesAt(now);
+    final statusColor = capabilities.hasMutation
+        ? reservation.approved
+              ? _studioReservationApprovedColor
+              : _studioReservationPendingColor
+        : const Color(0xFF9EA8B7);
     return SafeArea(
       top: false,
       child: Container(
@@ -2098,78 +3060,19 @@ class _StudioReservationActionSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            Row(
-              children: [
-                SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: _StudioReservationAvatar(
-                    reservation: reservation,
-                    onTap: () => _closeThen(context, onShowProfile),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _closeThen(context, onShowProfile),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              reservation.userName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '$roomName • $startTime–$endTime',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFFA2ACBA),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: statusColor.withValues(alpha: 0.45),
-                    ),
-                  ),
-                  child: Text(
-                    reservation.approved ? 'Onaylı' : 'Onay Bekliyor',
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
+            _StudioReservationGuestHeader(
+              reservation: reservation,
+              roomName: roomName,
+              startTime: startTime,
+              endTime: endTime,
+              statusLabel: reservation.statusLabelAt(now),
+              statusColor: statusColor,
+              profileTarget: profileTarget,
+              onShowProfile: (target) =>
+                  _closeThen(context, () => onShowProfile(target)),
             ),
             const SizedBox(height: 18),
-            if (!reservation.approved) ...[
+            if (capabilities.canApprove) ...[
               _StudioReservationSheetAction(
                 icon: Icons.check_circle_outline_rounded,
                 label: 'Rezervasyonu Onayla',
@@ -2190,16 +3093,25 @@ class _StudioReservationActionSheet extends StatelessWidget {
               label: 'Kullanıcıya Mesaj Gönder',
               onTap: () => _closeThen(context, onSendMessage),
             ),
-            if (reservation.approved) ...[
+            if (capabilities.canReject ||
+                (reservation.approved && capabilities.canCancel)) ...[
               const SizedBox(height: 14),
               const Divider(color: Color(0xFF263244), height: 1),
               const SizedBox(height: 14),
-              _StudioReservationSheetAction(
-                icon: Icons.event_busy_outlined,
-                label: 'Rezervasyonu İptal Et',
-                color: const Color(0xFFFF7373),
-                onTap: () => _closeThen(context, onCancel),
-              ),
+              if (capabilities.canReject)
+                _StudioReservationSheetAction(
+                  icon: Icons.cancel_outlined,
+                  label: 'Talebi Reddet',
+                  color: const Color(0xFFFF7373),
+                  onTap: () => _closeThen(context, onReject),
+                )
+              else
+                _StudioReservationSheetAction(
+                  icon: Icons.event_busy_outlined,
+                  label: 'Rezervasyonu İptal Et',
+                  color: const Color(0xFFFF7373),
+                  onTap: () => _closeThen(context, onCancel),
+                ),
             ],
           ],
         ),
@@ -2210,6 +3122,107 @@ class _StudioReservationActionSheet extends StatelessWidget {
   void _closeThen(BuildContext context, VoidCallback callback) {
     Navigator.of(context).pop();
     Future<void>.delayed(Duration.zero, callback);
+  }
+}
+
+class _StudioReservationGuestHeader extends StatelessWidget {
+  const _StudioReservationGuestHeader({
+    required this.reservation,
+    required this.roomName,
+    required this.startTime,
+    required this.endTime,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.profileTarget,
+    required this.onShowProfile,
+  });
+
+  final _StudioOwnerReservation reservation;
+  final String roomName;
+  final String startTime;
+  final String endTime;
+  final String statusLabel;
+  final Color statusColor;
+  final Future<DmProfileTarget?> profileTarget;
+  final ValueChanged<DmProfileTarget> onShowProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DmProfileTarget?>(
+      future: profileTarget,
+      builder: (context, snapshot) {
+        final target = snapshot.data;
+        final onProfileTap = target == null
+            ? null
+            : () => onShowProfile(target);
+        return Row(
+          children: [
+            SizedBox(
+              width: 52,
+              height: 52,
+              child: _StudioReservationAvatar(
+                reservation: reservation,
+                onTap: onProfileTap,
+                avatarUrlOverride: target?.imageUrl,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onProfileTap,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          reservation.userName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$roomName • $startTime–$endTime',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFA2ACBA),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: statusColor.withValues(alpha: 0.45)),
+              ),
+              child: Text(
+                statusLabel,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -2299,7 +3312,7 @@ class _StudioReservationDetailsDialog extends StatelessWidget {
             value: reservation.userName,
           ),
           _StudioReservationDetailRow(
-            label: 'Kullanıcı No',
+            label: 'Telefon Numarası',
             value: reservation.userNo,
           ),
           _StudioReservationDetailRow(label: 'Oda', value: roomName),
@@ -2315,9 +3328,14 @@ class _StudioReservationDetailsDialog extends StatelessWidget {
             label: 'Süre',
             value: '${reservation.durationHours} saat',
           ),
+          if (reservation.totalPriceLabel != null)
+            _StudioReservationDetailRow(
+              label: 'Toplam',
+              value: reservation.totalPriceLabel!,
+            ),
           _StudioReservationDetailRow(
             label: 'Durum',
-            value: reservation.approved ? 'Onaylı' : 'Onay bekliyor',
+            value: reservation.statusLabelAt(DateTime.now().toUtc()),
           ),
         ],
       ),
@@ -2389,11 +3407,13 @@ String _studioReservationDateLabel(DateTime date) {
 class _StudioRoomDurationChip extends StatelessWidget {
   final int hours;
   final bool selected;
-  final VoidCallback onTap;
+  final bool enabled;
+  final VoidCallback? onTap;
 
   const _StudioRoomDurationChip({
     required this.hours,
     required this.selected,
+    required this.enabled,
     required this.onTap,
   });
 
@@ -2406,16 +3426,28 @@ class _StudioRoomDurationChip extends StatelessWidget {
         height: 38,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF2A172A) : const Color(0xFF0A101A),
+          color: selected
+              ? const Color(0xFF2A172A)
+              : enabled
+              ? const Color(0xFF0A101A)
+              : const Color(0xFF090D14),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? AppColors.socialPink : const Color(0xFF263244),
+            color: selected
+                ? AppColors.socialPink
+                : enabled
+                ? const Color(0xFF263244)
+                : const Color(0xFF1A2230),
           ),
         ),
         child: Text(
           '$hours sa',
           style: TextStyle(
-            color: selected ? const Color(0xFFFF9AAE) : Colors.white,
+            color: selected
+                ? const Color(0xFFFF9AAE)
+                : enabled
+                ? Colors.white
+                : const Color(0xFF596271),
             fontSize: 12,
             fontWeight: FontWeight.w800,
           ),

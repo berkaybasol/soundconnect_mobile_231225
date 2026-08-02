@@ -55,8 +55,14 @@ void main() {
   group('public API classification', () {
     test('allows only exact POST auth operations', () {
       expect(isPublicApiRequest('POST', '/api/v1/auth/login'), isTrue);
+      expect(
+        isPublicApiRequest('POST', '/api/v1/auth/forgot-password'),
+        isTrue,
+      );
+      expect(isPublicApiRequest('POST', '/api/v1/auth/reset-password'), isTrue);
       expect(isPublicApiRequest('GET', '/api/v1/auth/login'), isFalse);
       expect(isPublicApiRequest('PUT', '/api/v1/auth/register'), isFalse);
+      expect(isPublicApiRequest('PATCH', '/api/v1/users/me/username'), isFalse);
       expect(
         isPublicApiRequest('POST', '/api/v1/auth/complete-google-profile'),
         isFalse,

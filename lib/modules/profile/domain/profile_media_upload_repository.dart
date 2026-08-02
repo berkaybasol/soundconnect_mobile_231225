@@ -16,7 +16,7 @@ enum ProfileUploadStage {
   completed,
 }
 
-enum ProfileUploadAttachmentType { none, gallery, profilePicture, track }
+enum ProfileUploadAttachmentType { none, draft, gallery, profilePicture, track }
 
 /// Durable operation that follows object upload verification.
 class ProfileUploadAttachmentIntent {
@@ -34,6 +34,13 @@ class ProfileUploadAttachmentIntent {
 
   const ProfileUploadAttachmentIntent.none()
     : this._(type: ProfileUploadAttachmentType.none);
+
+  /// Marks a verified upload as belonging to a transient form draft.
+  ///
+  /// The upload pipeline durably hands this asset to the guarded cleanup queue
+  /// before reporting completion to the caller.
+  const ProfileUploadAttachmentIntent.draft()
+    : this._(type: ProfileUploadAttachmentType.draft);
 
   const ProfileUploadAttachmentIntent.gallery({required String profileType})
     : this._(
@@ -145,4 +152,26 @@ abstract class ProfileMediaUploadRepository {
   });
 
   Future<void> resumePendingUploads();
+
+  /// Requests deletion through the server-side ownership and reference guard.
+  ///
+  /// Callers must still limit this to assets they own. The backend rejects an
+  /// asset that is referenced by first-party content, which makes this safe for
+  /// compensating an upload after an ambiguous create/update response.
+  Future<Result<void>> deleteOwnedAsset({
+    required String assetId,
+    required String ownerType,
+    required String ownerId,
+  });
+
+  Future<Result<void>> persistDraftCleanupIntent({
+    required String assetId,
+    required String ownerType,
+    required String ownerId,
+  });
+
+  Future<Result<void>> clearDraftCleanupIntents(Iterable<String> assetIds);
+
+  /// Releases only the in-memory form lease; the durable cleanup intent stays.
+  void releaseDraftCleanupLeases(Iterable<String> assetIds);
 }

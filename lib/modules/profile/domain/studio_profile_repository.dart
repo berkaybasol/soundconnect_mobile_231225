@@ -6,7 +6,9 @@ abstract class StudioProfileRepository {
 
   Future<Result<StudioProfile>> getPublicProfile(String profileId);
 
-  Future<Result<StudioProfile>> updateMyProfile(StudioProfileSaveRequest request);
+  Future<Result<StudioProfile>> updateMyProfile(
+    StudioProfileSaveRequest request,
+  );
 }
 
 class StudioProfileSaveRequest {
@@ -19,6 +21,10 @@ class StudioProfileSaveRequest {
   final List<String>? facilities;
   final String? instagramUrl;
   final String? youtubeUrl;
+  final String? timeZone;
+  final int? version;
+  final List<String>? spotifyTrackIds;
+  final List<Map<String, dynamic>>? spotifyTracks;
 
   const StudioProfileSaveRequest({
     this.name,
@@ -30,7 +36,29 @@ class StudioProfileSaveRequest {
     this.facilities,
     this.instagramUrl,
     this.youtubeUrl,
+    this.timeZone,
+    this.version,
+    this.spotifyTrackIds,
+    this.spotifyTracks,
   });
+
+  StudioProfileSaveRequest copyWithVersion(int? nextVersion) {
+    return StudioProfileSaveRequest(
+      name: name,
+      description: description,
+      profilePictureMediaId: profilePictureMediaId,
+      address: address,
+      phone: phone,
+      website: website,
+      facilities: facilities,
+      instagramUrl: instagramUrl,
+      youtubeUrl: youtubeUrl,
+      timeZone: timeZone,
+      version: nextVersion,
+      spotifyTrackIds: spotifyTrackIds,
+      spotifyTracks: spotifyTracks,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -43,6 +71,10 @@ class StudioProfileSaveRequest {
       'facilities': facilities,
       'instagramUrl': instagramUrl,
       'youtubeUrl': youtubeUrl,
+      'timeZone': timeZone,
+      'version': version,
+      'spotifyTrackIds': spotifyTrackIds,
+      'spotifyTracks': spotifyTracks,
     }..removeWhere((_, value) => value == null);
   }
 }

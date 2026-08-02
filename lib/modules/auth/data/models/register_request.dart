@@ -10,6 +10,9 @@ class RegisterRequest {
   final String? cityId;
   final String? districtId;
   final String? neighborhoodId;
+  final String? studioName;
+  final String? studioAddress;
+  final String? studioPhone;
 
   const RegisterRequest({
     required this.username,
@@ -23,6 +26,9 @@ class RegisterRequest {
     this.cityId,
     this.districtId,
     this.neighborhoodId,
+    this.studioName,
+    this.studioAddress,
+    this.studioPhone,
   });
 
   Map<String, dynamic> toJson() {
@@ -39,6 +45,9 @@ class RegisterRequest {
     if (cityId != null) data['cityId'] = cityId;
     if (districtId != null) data['districtId'] = districtId;
     if (neighborhoodId != null) data['neighborhoodId'] = neighborhoodId;
+    if (studioName != null) data['studioName'] = studioName;
+    if (studioAddress != null) data['studioAddress'] = studioAddress;
+    if (studioPhone != null) data['studioPhone'] = studioPhone;
     return data;
   }
 }

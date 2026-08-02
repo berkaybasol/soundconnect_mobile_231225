@@ -32,4 +32,28 @@ class ListenerProfileRepositoryImpl implements ListenerProfileRepository {
       );
     }
   }
+
+  @override
+  Future<Result<ListenerProfile>> updateMyProfile(
+    ListenerProfileSaveRequest request,
+  ) async {
+    try {
+      final response = await _apiClient.put<ListenerProfile>(
+        ListenerProfileEndpoints.update,
+        body: request.toJson(),
+        decoder: (json) =>
+            ListenerProfileModel.fromJson(json as Map<String, dynamic>),
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'listener_profile_update_unknown',
+          message: 'Listener profili güncellenemedi',
+        ),
+      );
+    }
+  }
 }

@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/session_logout_action.dart';
 import '../../domain/entities/admin_dashboard_summary.dart';
 import '../../domain/entities/admin_venue_application.dart';
+import '../../domain/entities/admin_studio_application.dart';
 import '../cubit/admin_panel_cubit.dart';
 import '../cubit/admin_panel_state.dart';
 
 enum _AdminModule {
   venueApplications,
+  studioApplications,
   users,
   profiles,
   promotions,
@@ -65,15 +68,19 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
           backgroundColor: AppColors.pureBlack,
           body: SafeArea(
             child: RefreshIndicator(
-              onRefresh: () => context.read<AdminPanelCubit>().refresh(),
+              onRefresh: () => context.read<AdminPanelCubit>().refresh(
+                loadStudio: _selectedModule == _AdminModule.studioApplications,
+              ),
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
                     child: _BackstageHero(
                       summary: state.summary,
-                      onRefresh: () =>
-                          context.read<AdminPanelCubit>().refresh(),
+                      onRefresh: () => context.read<AdminPanelCubit>().refresh(
+                        loadStudio:
+                            _selectedModule == _AdminModule.studioApplications,
+                      ),
                     ),
                   ),
                   if (state.summaryError != null)
@@ -90,6 +97,15 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                       selectedModule: _selectedModule,
                       onSelected: (module) {
                         setState(() => _selectedModule = module);
+                        if (module == _AdminModule.studioApplications) {
+                          context
+                              .read<AdminPanelCubit>()
+                              .loadStudioApplications(state.selectedStatus);
+                        } else if (module == _AdminModule.venueApplications) {
+                          context.read<AdminPanelCubit>().loadVenueApplications(
+                            state.selectedStatus,
+                          );
+                        }
                       },
                       summary: state.summary,
                     ),
@@ -111,6 +127,9 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
   }
 
   List<Widget> _moduleSlivers(BuildContext context, AdminPanelState state) {
+    if (_selectedModule == _AdminModule.studioApplications) {
+      return _studioApplicationSlivers(context, state);
+    }
     if (_selectedModule != _AdminModule.venueApplications) {
       return [
         SliverFillRemaining(
@@ -161,6 +180,56 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                 loading: state.actionIds.contains(application.id),
               );
             }, childCount: state.venueApplications.length * 2 - 1),
+          ),
+        ),
+    ];
+  }
+
+  List<Widget> _studioApplicationSlivers(
+    BuildContext context,
+    AdminPanelState state,
+  ) {
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: _StudioApplicationFilters(state: state),
+        ),
+      ),
+      if (state.status == AdminPanelStatus.loading &&
+          state.studioApplications.isEmpty)
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        )
+      else if (state.applicationsError != null &&
+          state.studioApplications.isEmpty)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _AdminLoadError(
+            message: state.applicationsError!.message,
+            onRetry: () => context
+                .read<AdminPanelCubit>()
+                .loadStudioApplications(state.selectedStatus),
+          ),
+        )
+      else if (state.studioApplications.isEmpty)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _EmptyApplications(status: state.selectedStatus),
+        )
+      else
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              if (index.isOdd) return const SizedBox(height: 10);
+              final application = state.studioApplications[index ~/ 2];
+              return _StudioApplicationTile(
+                application: application,
+                loading: state.actionIds.contains(application.id),
+              );
+            }, childCount: state.studioApplications.length * 2 - 1),
           ),
         ),
     ];
@@ -216,6 +285,14 @@ class _BackstageHero extends StatelessWidget {
                 ),
               ),
               IconButton.filledTonal(
+                key: const Key('admin-account-settings'),
+                tooltip: 'Ayarlar',
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.settings),
+                icon: const Icon(Icons.settings_outlined),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
                 tooltip: 'Yenile',
                 onPressed: onRefresh,
                 icon: const Icon(Icons.refresh),
@@ -251,7 +328,7 @@ class _PulseSummary extends StatelessWidget {
       ),
       _MetricItem(
         'Bekleyen basvuru',
-        summary.pendingVenueApplications,
+        summary.pendingVenueApplications + summary.pendingStudioApplications,
         Icons.pending_actions_outlined,
       ),
       _MetricItem(
@@ -355,6 +432,12 @@ class _ModuleBoard extends StatelessWidget {
         title: 'Mekan Basvurulari',
         subtitle: '${summary.pendingVenueApplications} bekleyen',
         icon: Icons.storefront_outlined,
+      ),
+      _ModuleItem(
+        module: _AdminModule.studioApplications,
+        title: 'Stüdyo Başvuruları',
+        subtitle: '${summary.pendingStudioApplications} bekleyen',
+        icon: Icons.mic_external_on_outlined,
       ),
       const _ModuleItem(
         module: _AdminModule.users,
@@ -600,6 +683,36 @@ class _VenueApplicationFilters extends StatelessWidget {
   }
 }
 
+class _StudioApplicationFilters extends StatelessWidget {
+  final AdminPanelState state;
+
+  const _StudioApplicationFilters({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<AdminVenueApplicationStatus>(
+      segments: const [
+        ButtonSegment(
+          value: AdminVenueApplicationStatus.pending,
+          label: Text('Bekleyen'),
+        ),
+        ButtonSegment(
+          value: AdminVenueApplicationStatus.approved,
+          label: Text('Onaylanan'),
+        ),
+        ButtonSegment(
+          value: AdminVenueApplicationStatus.rejected,
+          label: Text('Reddedilen'),
+        ),
+      ],
+      selected: {state.selectedStatus},
+      onSelectionChanged: (selection) => context
+          .read<AdminPanelCubit>()
+          .loadStudioApplications(selection.first),
+    );
+  }
+}
+
 class _ComingSoonModule extends StatelessWidget {
   final _AdminModule module;
 
@@ -773,6 +886,142 @@ class _VenueApplicationTile extends StatelessWidget {
   }
 }
 
+class _StudioApplicationTile extends StatelessWidget {
+  final AdminStudioApplication application;
+  final bool loading;
+
+  const _StudioApplicationTile({
+    required this.application,
+    required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canAct = application.status == AdminVenueApplicationStatus.pending;
+    final location = [
+      application.neighborhoodName,
+      application.districtName,
+      application.cityName,
+    ].where((value) => value.trim().isNotEmpty).join(', ');
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.navBlueSoft.withValues(alpha: 0.70),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  application.studioName.isEmpty
+                      ? 'İsimsiz stüdyo'
+                      : application.studioName,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              _StatusPill(status: application.status),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _InfoLine(
+            icon: Icons.person_outline,
+            text: application.applicantUsername,
+          ),
+          if (location.isNotEmpty)
+            _InfoLine(icon: Icons.place_outlined, text: location),
+          _InfoLine(
+            icon: Icons.location_on_outlined,
+            text: application.studioAddress,
+          ),
+          _InfoLine(icon: Icons.phone_outlined, text: application.phone),
+          if ((application.rejectionReason ?? '').isNotEmpty)
+            _InfoLine(
+              icon: Icons.info_outline,
+              text: application.rejectionReason!,
+            ),
+          if (canAct) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: loading
+                        ? null
+                        : () => _rejectStudioDialog(context),
+                    icon: const Icon(Icons.close),
+                    label: const Text('Reddet'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: loading
+                        ? null
+                        : () => context
+                              .read<AdminPanelCubit>()
+                              .approveStudioApplication(application.id),
+                    icon: loading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check),
+                    label: const Text('Onayla'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _rejectStudioDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Stüdyo başvurusunu reddet'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 500,
+          maxLines: 3,
+          decoration: const InputDecoration(labelText: 'Red nedeni'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Reddet'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    final cleanReason = reason?.trim() ?? '';
+    if (!context.mounted || cleanReason.isEmpty) return;
+    await context.read<AdminPanelCubit>().rejectStudioApplication(
+      id: application.id,
+      reason: cleanReason,
+    );
+  }
+}
+
 class _StatusPill extends StatelessWidget {
   final AdminVenueApplicationStatus status;
 
@@ -916,6 +1165,7 @@ class _ModuleItem {
 String _moduleTitle(_AdminModule module) {
   return switch (module) {
     _AdminModule.venueApplications => 'Mekan Basvurulari',
+    _AdminModule.studioApplications => 'Stüdyo Başvuruları',
     _AdminModule.users => 'Kullanicilar',
     _AdminModule.profiles => 'Profiller',
     _AdminModule.promotions => 'Promosyonlar',

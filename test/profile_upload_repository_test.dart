@@ -7,6 +7,7 @@ import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/profile_media_management_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/profile_media_upload_repository_impl.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/data/pending_draft_media_cleanup_store.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/pending_profile_upload_store.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_media_upload_repository.dart';
 
@@ -60,6 +61,218 @@ void main() {
   });
 
   group('ProfileMediaUploadRepositoryImpl', () {
+    test(
+      'recovers a completed unattached draft after process restart',
+      () async {
+        final cleanupStore = MemoryPendingDraftMediaCleanupStore();
+        final api = RecordingApiClient((request) {
+          if (request.path == '/api/v1/user/media/init-upload') {
+            return <String, dynamic>{
+              'assetId': 'asset-draft',
+              'uploadUrl': 'https://upload.example.test/assets/asset-draft',
+            };
+          }
+          if (request.path == '/api/v1/user/media/complete-upload') {
+            return <String, dynamic>{
+              'uuid': 'asset-draft',
+              'sourceUrl': 'https://cdn.example.test/asset-draft.jpg',
+            };
+          }
+          if (request.path == '/api/v1/user/media/asset-draft') return null;
+          throw StateError('Unexpected path: ${request.path}');
+        });
+        final adapter = _UploadAdapter(statusCode: 200);
+        final dio = Dio()..httpClientAdapter = adapter;
+        addTearDown(() => dio.close(force: true));
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          uploadClient: dio,
+          sessionKeyProvider: () => 'account-A',
+          pendingDraftCleanupStore: cleanupStore,
+        );
+
+        final uploaded = await repository.uploadAsset(
+          source: ProfileUploadSource.bytes(<int>[1, 2, 3]),
+          ownerType: 'STUDIO_PROFILE',
+          ownerId: 'studio-1',
+          mediaKind: 'IMAGE',
+          mimeType: 'image/jpeg',
+          originalFileName: 'room.jpg',
+          attachmentIntent: const ProfileUploadAttachmentIntent.draft(),
+        );
+
+        expect(uploaded.isSuccess, isTrue);
+        expect((await cleanupStore.readAll()).single.assetId, 'asset-draft');
+
+        final restartedRepository = ProfileMediaUploadRepositoryImpl(
+          api,
+          sessionKeyProvider: () => 'account-A',
+          pendingDraftCleanupStore: cleanupStore,
+        );
+        await restartedRepository.resumePendingUploads();
+
+        expect(await cleanupStore.readAll(), isEmpty);
+        final deleteRequest = api.requests.last;
+        expect(deleteRequest.method, RecordedHttpMethod.delete);
+        expect(deleteRequest.path, '/api/v1/user/media/asset-draft');
+        expect(deleteRequest.query, <String, dynamic>{
+          'actingAsType': 'STUDIO_PROFILE',
+          'actingAsId': 'studio-1',
+        });
+        expect(deleteRequest.requestContext?.expectedSessionKey, 'account-A');
+      },
+    );
+
+    test(
+      'startup recovery clears referenced intents without deleting media',
+      () async {
+        final pending = PendingDraftMediaCleanup(
+          sessionKey: 'account-A',
+          assetId: 'asset-referenced',
+          ownerType: 'STUDIO_PROFILE',
+          ownerId: 'studio-1',
+          createdAt: DateTime.utc(2026, 7, 21),
+        );
+        final cleanupStore = MemoryPendingDraftMediaCleanupStore(
+          <PendingDraftMediaCleanup>[pending],
+        );
+        final api = RecordingApiClient(
+          (_) => throw ApiException(
+            const AppError(code: '1823', message: 'Media is referenced'),
+          ),
+        );
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          sessionKeyProvider: () => 'account-A',
+          pendingDraftCleanupStore: cleanupStore,
+        );
+
+        await repository.resumePendingUploads();
+
+        expect(await cleanupStore.readAll(), isEmpty);
+        expect(api.requests, hasLength(1));
+      },
+    );
+
+    test(
+      'startup recovery retains transient cleanup failures for retry',
+      () async {
+        final pending = PendingDraftMediaCleanup(
+          sessionKey: 'account-A',
+          assetId: 'asset-offline',
+          ownerType: 'STUDIO_PROFILE',
+          ownerId: 'studio-1',
+          createdAt: DateTime.utc(2026, 7, 21),
+        );
+        final cleanupStore = MemoryPendingDraftMediaCleanupStore(
+          <PendingDraftMediaCleanup>[pending],
+        );
+        final api = RecordingApiClient(
+          (_) => throw ApiException(
+            const AppError(code: 'network', message: 'Offline'),
+          ),
+        );
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          sessionKeyProvider: () => 'account-A',
+          pendingDraftCleanupStore: cleanupStore,
+        );
+
+        await repository.resumePendingUploads();
+
+        expect((await cleanupStore.readAll()).single.assetId, 'asset-offline');
+        expect(api.requests, hasLength(1));
+      },
+    );
+
+    test('recovery skips a draft leased by an active form', () async {
+      final cleanupStore = MemoryPendingDraftMediaCleanupStore();
+      final api = RecordingApiClient((_) => null);
+      final repository = ProfileMediaUploadRepositoryImpl(
+        api,
+        sessionKeyProvider: () => 'account-A',
+        pendingDraftCleanupStore: cleanupStore,
+      );
+      await repository.persistDraftCleanupIntent(
+        assetId: 'asset-active',
+        ownerType: 'STUDIO_PROFILE',
+        ownerId: 'studio-1',
+      );
+
+      await repository.resumePendingUploads();
+      expect(api.requests, isEmpty);
+      expect(await cleanupStore.readAll(), hasLength(1));
+
+      repository.releaseDraftCleanupLeases(const <String>['asset-active']);
+      await repository.resumePendingUploads();
+      expect(api.requests, hasLength(1));
+      expect(await cleanupStore.readAll(), isEmpty);
+    });
+
+    test('deletes an owned asset with owner guard and session fence', () async {
+      final api = RecordingApiClient((request) {
+        expect(request.method, RecordedHttpMethod.delete);
+        expect(request.path, '/api/v1/user/media/asset-1');
+        expect(request.query, <String, dynamic>{
+          'actingAsType': 'STUDIO_PROFILE',
+          'actingAsId': 'studio-1',
+        });
+        expect(request.requestContext?.expectedSessionKey, 'account-A');
+        return null;
+      });
+      final repository = ProfileMediaUploadRepositoryImpl(
+        api,
+        sessionKeyProvider: () => 'account-A',
+      );
+
+      final result = await repository.deleteOwnedAsset(
+        assetId: ' asset-1 ',
+        ownerType: 'studio_profile',
+        ownerId: ' studio-1 ',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(api.requests, hasLength(1));
+    });
+
+    test(
+      'rejects invalid delete input without dispatching a request',
+      () async {
+        final api = RecordingApiClient((_) => throw StateError('unexpected'));
+        final repository = ProfileMediaUploadRepositoryImpl(api);
+
+        final result = await repository.deleteOwnedAsset(
+          assetId: ' ',
+          ownerType: 'STUDIO_PROFILE',
+          ownerId: 'studio-1',
+        );
+
+        expect(result.error?.code, 'profile_media_delete_invalid');
+        expect(api.requests, isEmpty);
+      },
+    );
+
+    test(
+      'preserves guarded delete conflicts for lifecycle reconciliation',
+      () async {
+        final api = RecordingApiClient(
+          (_) => throw ApiException(
+            const AppError(code: '1823', message: 'Media is referenced'),
+          ),
+        );
+        final repository = ProfileMediaUploadRepositoryImpl(api);
+
+        final result = await repository.deleteOwnedAsset(
+          assetId: 'asset-1',
+          ownerType: 'STUDIO_PROFILE',
+          ownerId: 'studio-1',
+        );
+
+        expect(result.error?.code, '1823');
+        expect(api.requests, hasLength(1));
+      },
+    );
+
     test(
       'rejects empty and pre-cancelled uploads before any network call',
       () async {
@@ -386,6 +599,95 @@ void main() {
         await restartedRepository.resumePendingUploads();
 
         expect(attachmentPosts, 0);
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
+      'Studio profile picture recovery uses the Studio update contract',
+      () async {
+        final store = MemoryPendingProfileUploadStore(<PendingProfileUpload>[
+          PendingProfileUpload(
+            sessionKey: 'account-1',
+            assetId: 'studio-photo',
+            ownerType: 'STUDIO_PROFILE',
+            ownerId: 'studio-1',
+            mediaKind: 'IMAGE',
+            deadline: DateTime.utc(2030),
+            retryIndex: 0,
+            phase: PendingProfileUploadPhase.attaching,
+            attachmentIntent:
+                const ProfileUploadAttachmentIntent.profilePicture(
+                  profileType: 'STUDIO',
+                ),
+            completedMediaId: 'studio-photo',
+          ),
+        ]);
+        final api = RecordingApiClient((request) {
+          expect(request.path, '/api/v1/user/studio-profiles/update');
+          expect(request.body, <String, dynamic>{
+            'profilePicture': 'studio-photo',
+          });
+          return <String, dynamic>{};
+        });
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          pendingStore: store,
+          sessionKeyProvider: () => 'account-1',
+        );
+
+        await repository.resumePendingUploads();
+
+        expect(api.requests, hasLength(1));
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
+      'Studio audio recovery checks and attaches to Studio tracks',
+      () async {
+        final store = MemoryPendingProfileUploadStore(<PendingProfileUpload>[
+          PendingProfileUpload(
+            sessionKey: 'account-1',
+            assetId: 'studio-audio',
+            ownerType: 'STUDIO_PROFILE',
+            ownerId: 'studio-1',
+            mediaKind: 'AUDIO',
+            deadline: DateTime.utc(2030),
+            retryIndex: 0,
+            phase: PendingProfileUploadPhase.attaching,
+            attachmentIntent: const ProfileUploadAttachmentIntent.track(
+              ownerType: 'STUDIO_PROFILE',
+              title: 'Studio take',
+            ),
+            completedMediaId: 'studio-audio',
+          ),
+        ]);
+        final api = RecordingApiClient((request) {
+          if (request.path == '/api/v1/profiles/STUDIO/studio-1/media') {
+            return <String, dynamic>{
+              'videos': <Object?>[],
+              'audios': <Object?>[],
+            };
+          }
+          expect(request.path, '/api/v1/studio-profiles/studio-1/tracks');
+          expect(request.body, <String, dynamic>{
+            'mediaAssetId': 'studio-audio',
+            'title': 'Studio take',
+            'durationSeconds': null,
+            'bpm': null,
+          });
+          return null;
+        });
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          pendingStore: store,
+          sessionKeyProvider: () => 'account-1',
+        );
+
+        await repository.resumePendingUploads();
+
+        expect(api.requests, hasLength(2));
         expect(await store.readAll(), isEmpty);
       },
     );

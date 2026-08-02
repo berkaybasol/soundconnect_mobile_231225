@@ -8,7 +8,7 @@ extension AppThemeVariantX on AppThemeVariant {
   };
 
   String get label => switch (this) {
-    AppThemeVariant.light => 'Acik',
+    AppThemeVariant.light => 'Açık',
     AppThemeVariant.dark => 'Koyu',
     AppThemeVariant.black => 'Siyah',
   };

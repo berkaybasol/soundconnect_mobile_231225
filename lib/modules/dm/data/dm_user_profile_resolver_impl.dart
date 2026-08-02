@@ -100,6 +100,8 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
     final type = switch (json['type']?.toString().trim().toUpperCase()) {
       'MUSICIAN' => DmProfileTargetType.musician,
       'VENUE' => DmProfileTargetType.venue,
+      'LISTENER' => DmProfileTargetType.listener,
+      'STUDIO' => DmProfileTargetType.studio,
       _ => null,
     };
     final id = json['profileId']?.toString().trim() ?? '';

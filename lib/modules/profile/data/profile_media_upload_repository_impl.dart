@@ -9,6 +9,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/entities/profile_upload_result.dart';
 import '../domain/profile_media_upload_repository.dart';
+import 'pending_draft_media_cleanup_store.dart';
 import 'pending_profile_upload_store.dart';
 
 class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
@@ -32,10 +33,12 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
   final DateTime Function() _clock;
   final String? Function() _sessionKeyProvider;
   final PendingProfileUploadStore _pendingStore;
+  final PendingDraftMediaCleanupStore _pendingDraftCleanupStore;
   final StreamController<ProfileUploadRecoveryEvent> _recoveryEvents =
       StreamController<ProfileUploadRecoveryEvent>.broadcast();
   final Map<String, Future<ProfileUploadedMedia>> _inFlight =
       <String, Future<ProfileUploadedMedia>>{};
+  final Set<String> _activeDraftCleanupLeases = <String>{};
 
   ProfileMediaUploadRepositoryImpl(
     this._apiClient, {
@@ -46,6 +49,7 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
     DateTime Function()? clock,
     String? Function()? sessionKeyProvider,
     PendingProfileUploadStore? pendingStore,
+    PendingDraftMediaCleanupStore? pendingDraftCleanupStore,
   }) : assert(!completionDeadline.isNegative),
        _uploadClient =
            uploadClient ??
@@ -63,7 +67,9 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
        _delay = delay ?? _wait,
        _clock = clock ?? DateTime.now,
        _sessionKeyProvider = sessionKeyProvider ?? _localSession,
-       _pendingStore = pendingStore ?? MemoryPendingProfileUploadStore();
+       _pendingStore = pendingStore ?? MemoryPendingProfileUploadStore(),
+       _pendingDraftCleanupStore =
+           pendingDraftCleanupStore ?? MemoryPendingDraftMediaCleanupStore();
 
   @override
   Stream<ProfileUploadRecoveryEvent> get recoveryEvents =>
@@ -238,6 +244,175 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
           }
         });
     await Future.wait(operations);
+    await _resumePendingDraftCleanup(sessionKey);
+  }
+
+  @override
+  Future<Result<void>> persistDraftCleanupIntent({
+    required String assetId,
+    required String ownerType,
+    required String ownerId,
+  }) async {
+    final normalizedAssetId = assetId.trim();
+    final normalizedOwnerType = ownerType.trim().toUpperCase();
+    final normalizedOwnerId = ownerId.trim();
+    if (normalizedAssetId.isEmpty ||
+        normalizedOwnerType.isEmpty ||
+        normalizedOwnerId.isEmpty) {
+      return const Result<void>.failure(
+        AppError(
+          code: 'profile_draft_cleanup_invalid',
+          message: 'Taslak medya bilgisi geçersiz',
+        ),
+      );
+    }
+    final sessionKey = _normalizedSessionKey();
+    if (sessionKey == null) {
+      return const Result<void>.failure(
+        AppError(
+          code: 'profile_upload_session_missing',
+          message: 'Taslak medya için aktif oturum bulunamadı',
+        ),
+      );
+    }
+    try {
+      await _pendingDraftCleanupStore.upsert(
+        PendingDraftMediaCleanup(
+          sessionKey: sessionKey,
+          assetId: normalizedAssetId,
+          ownerType: normalizedOwnerType,
+          ownerId: normalizedOwnerId,
+          createdAt: _clock().toUtc(),
+        ),
+      );
+      _activeDraftCleanupLeases.add('$sessionKey:$normalizedAssetId');
+      return const Result<void>.success(null);
+    } catch (_) {
+      return const Result<void>.failure(
+        AppError(
+          code: 'profile_draft_cleanup_persist_failed',
+          message: 'Taslak medya güvenli temizleme sırasına alınamadı',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> clearDraftCleanupIntents(
+    Iterable<String> assetIds,
+  ) async {
+    final sessionKey = _normalizedSessionKey();
+    if (sessionKey == null) {
+      return const Result<void>.failure(
+        AppError(
+          code: 'profile_upload_session_missing',
+          message: 'Taslak medya için aktif oturum bulunamadı',
+        ),
+      );
+    }
+    final normalizedIds = assetIds
+        .map((assetId) => assetId.trim())
+        .where((assetId) => assetId.isNotEmpty)
+        .toSet();
+    try {
+      for (final assetId in normalizedIds) {
+        final key = '$sessionKey:$assetId';
+        await _pendingDraftCleanupStore.remove(key);
+        _activeDraftCleanupLeases.remove(key);
+      }
+      return const Result<void>.success(null);
+    } catch (_) {
+      return const Result<void>.failure(
+        AppError(
+          code: 'profile_draft_cleanup_clear_failed',
+          message: 'Taslak medya temizleme kaydı güncellenemedi',
+        ),
+      );
+    }
+  }
+
+  @override
+  void releaseDraftCleanupLeases(Iterable<String> assetIds) {
+    final normalizedIds = assetIds
+        .map((assetId) => assetId.trim())
+        .where((assetId) => assetId.isNotEmpty)
+        .toSet();
+    _activeDraftCleanupLeases.removeWhere((key) {
+      final separator = key.indexOf(':');
+      if (separator < 0 || separator == key.length - 1) return false;
+      return normalizedIds.contains(key.substring(separator + 1));
+    });
+  }
+
+  Future<void> _resumePendingDraftCleanup(String sessionKey) async {
+    final pendingItems = await _pendingDraftCleanupStore.readAll();
+    for (final pending in pendingItems) {
+      if (pending.sessionKey != sessionKey) continue;
+      if (_activeDraftCleanupLeases.contains(pending.key)) continue;
+      final result = await deleteOwnedAsset(
+        assetId: pending.assetId,
+        ownerType: pending.ownerType,
+        ownerId: pending.ownerId,
+      );
+      final code = result.error?.code.trim() ?? '';
+      if (result.isSuccess || code == '1800' || code == '1823') {
+        await _pendingDraftCleanupStore.remove(pending.key);
+      }
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteOwnedAsset({
+    required String assetId,
+    required String ownerType,
+    required String ownerId,
+  }) async {
+    final normalizedAssetId = assetId.trim();
+    final normalizedOwnerType = ownerType.trim().toUpperCase();
+    final normalizedOwnerId = ownerId.trim();
+    if (normalizedAssetId.isEmpty ||
+        normalizedOwnerType.isEmpty ||
+        normalizedOwnerId.isEmpty) {
+      return const Result<void>.failure(
+        AppError(
+          code: 'profile_media_delete_invalid',
+          message: 'Silinecek medya bilgisi geçersiz',
+        ),
+      );
+    }
+
+    final sessionKey = _normalizedSessionKey();
+    if (sessionKey == null) {
+      return const Result<void>.failure(
+        AppError(
+          code: 'profile_upload_session_missing',
+          message: 'Medya işlemi için aktif oturum bulunamadı',
+        ),
+      );
+    }
+
+    try {
+      await _apiClient.request<Object?>(
+        ApiHttpMethod.delete,
+        '/api/v1/user/media/$normalizedAssetId',
+        query: <String, dynamic>{
+          'actingAsType': normalizedOwnerType,
+          'actingAsId': normalizedOwnerId,
+        },
+        requestContext: ApiRequestContext(expectedSessionKey: sessionKey),
+        decoder: (_) => null,
+      );
+      return const Result<void>.success(null);
+    } on ApiException catch (error) {
+      return Result<void>.failure(error.error);
+    } catch (_) {
+      return const Result<void>.failure(
+        AppError(
+          code: 'profile_media_delete_unknown',
+          message: 'Medya güvenli biçimde kaldırılamadı',
+        ),
+      );
+    }
   }
 
   Future<ProfileUploadedMedia> _awaitProcessing(
@@ -424,6 +599,17 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
     switch (intent.type) {
       case ProfileUploadAttachmentType.none:
         return;
+      case ProfileUploadAttachmentType.draft:
+        await _pendingDraftCleanupStore.upsert(
+          PendingDraftMediaCleanup(
+            sessionKey: pending.sessionKey,
+            assetId: mediaId,
+            ownerType: pending.ownerType.trim().toUpperCase(),
+            ownerId: pending.ownerId,
+            createdAt: _clock().toUtc(),
+          ),
+        );
+        return;
       case ProfileUploadAttachmentType.gallery:
         final profileType = intent.profileType!.trim().toUpperCase();
         if (await _profileMediaAlreadyReferences(
@@ -457,6 +643,7 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
           'BAND' => '/api/v1/user/bands/${pending.ownerId}',
           'VENUE' || 'VENUE_PROFILE' =>
             '/api/v1/user/venue-profiles/me/${intent.targetId}/detail',
+          'STUDIO' || 'STUDIO_PROFILE' => '/api/v1/user/studio-profiles/update',
           _ => throw StateError('Unsupported profile picture owner'),
         };
         _assertActiveSession(pending);
@@ -472,15 +659,22 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
         final ownerType = intent.profileType!.trim().toUpperCase();
         if (await _profileMediaAlreadyReferences(
           pending: pending,
-          profileType: ownerType == 'BAND' ? 'BAND' : 'MUSICIAN',
+          profileType: switch (ownerType) {
+            'BAND' => 'BAND',
+            'STUDIO' || 'STUDIO_PROFILE' => 'STUDIO',
+            _ => 'MUSICIAN',
+          },
           profileId: pending.ownerId,
           mediaId: mediaId,
         )) {
           return;
         }
-        final endpoint = ownerType == 'BAND'
-            ? '/api/v1/bands/${pending.ownerId}/tracks'
-            : '/api/v1/musician-profiles/${pending.ownerId}/tracks';
+        final endpoint = switch (ownerType) {
+          'BAND' => '/api/v1/bands/${pending.ownerId}/tracks',
+          'STUDIO' || 'STUDIO_PROFILE' =>
+            '/api/v1/studio-profiles/${pending.ownerId}/tracks',
+          _ => '/api/v1/musician-profiles/${pending.ownerId}/tracks',
+        };
         _assertActiveSession(pending);
         await _apiClient.request<Object?>(
           ApiHttpMethod.post,
@@ -537,6 +731,7 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
     final profileType = intent.profileType?.trim() ?? '';
     return switch (intent.type) {
       ProfileUploadAttachmentType.none => null,
+      ProfileUploadAttachmentType.draft => null,
       ProfileUploadAttachmentType.gallery when profileType.isNotEmpty => null,
       ProfileUploadAttachmentType.profilePicture
           when profileType.isNotEmpty &&

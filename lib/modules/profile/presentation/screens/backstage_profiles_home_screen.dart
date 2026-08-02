@@ -4,6 +4,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../../../shared/widgets/session_logout_action.dart';
 import 'backstage_profile_search_sheet.dart';
 import 'musician_profile_screen.dart';
@@ -73,21 +74,14 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: 8),
-                        const Opacity(
-                          opacity: 0.72,
-                          child: ListTile(
-                            enabled: false,
-                            leading: Icon(Icons.settings_outlined),
-                            title: Text('Ayarlar'),
-                          ),
-                        ),
-                        const Opacity(
-                          opacity: 0.72,
-                          child: ListTile(
-                            enabled: false,
-                            leading: Icon(Icons.assignment_outlined),
-                            title: Text('Başvurularım'),
-                          ),
+                        ListTile(
+                          key: const Key('backstage-account-settings'),
+                          leading: const Icon(Icons.settings_outlined),
+                          title: const Text('Ayarlar'),
+                          onTap: () {
+                            Navigator.of(dialogContext).pop();
+                            Navigator.of(context).pushNamed(AppRoutes.settings);
+                          },
                         ),
                         ListTile(
                           leading: const Icon(
@@ -99,14 +93,26 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
                             _openBackstageManagementPanel(context);
                           },
                         ),
-                        const Spacer(),
-                        const Divider(),
                         ListTile(
-                          leading: const Icon(Icons.logout),
-                          title: const Text(
-                            'Oturumu Kapat',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
+                          key: profileMenuThemeTileKey,
+                          leading: const Icon(Icons.palette_outlined),
+                          title: const Text('Tema'),
+                          onTap: () {
+                            Navigator.of(dialogContext).pop();
+                            showProfileMenuThemePicker(context);
+                          },
+                        ),
+                        ListTile(
+                          key: profileMenuSupportTileKey,
+                          leading: const Icon(Icons.support_agent_rounded),
+                          title: const Text('Destek'),
+                          onTap: () {
+                            Navigator.of(dialogContext).pop();
+                            showProfileMenuSupport(context);
+                          },
+                        ),
+                        const Spacer(),
+                        SessionLogoutMenuTile(
                           onTap: () async {
                             Navigator.of(dialogContext).pop();
                             await confirmAndLogoutSession(context);

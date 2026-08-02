@@ -32,7 +32,12 @@ void main() {
               <String, dynamic>{
                 'type': 'LISTENER',
                 'profileId': 'listener-1',
-                'displayName': 'Ignored unsupported target',
+                'displayName': 'Dinleyici',
+              },
+              <String, dynamic>{
+                'type': 'STUDIO',
+                'profileId': 'studio-1',
+                'displayName': 'Stüdyo',
               },
             ],
           };
@@ -44,9 +49,14 @@ void main() {
         expect(apiClient.paths, <String>[
           '/api/v1/public/profiles/by-user/user%2F42',
         ]);
-        expect(result, hasLength(2));
+        expect(result, hasLength(4));
         expect(result.first.type, DmProfileTargetType.musician);
-        expect(result.last.type, DmProfileTargetType.venue);
+        expect(result.map((target) => target.type), <DmProfileTargetType>[
+          DmProfileTargetType.musician,
+          DmProfileTargetType.venue,
+          DmProfileTargetType.listener,
+          DmProfileTargetType.studio,
+        ]);
       },
     );
 

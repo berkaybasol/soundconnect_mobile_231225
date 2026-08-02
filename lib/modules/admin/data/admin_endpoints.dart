@@ -14,4 +14,16 @@ class AdminEndpoints {
 
   static String rejectVenueApplication(String id) =>
       '$venueApplicationsBase/reject/$id';
+
+  static const String studioApplicationsBase =
+      '/api/v1/admin/studio-applications';
+
+  static const String studioApplicationsByStatus =
+      '$studioApplicationsBase/by-status';
+
+  static String approveStudioApplication(String id) =>
+      '$studioApplicationsBase/approve/$id';
+
+  static String rejectStudioApplication(String id) =>
+      '$studioApplicationsBase/reject/$id';
 }

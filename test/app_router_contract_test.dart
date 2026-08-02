@@ -66,6 +66,57 @@ void main() {
       AppRoutes.listenerProfile,
     );
   });
+
+  test('password reset is anonymous and settings routes are protected', () {
+    const guest = AuthSession.guest();
+    expect(AppRouteGuard.redirectFor(AppRoutes.forgotPassword, guest), isNull);
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.settings, guest),
+      AppRoutes.login,
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.accountSettings, guest),
+      AppRoutes.login,
+    );
+
+    final activeSession = AuthSession.authenticated(
+      token: 'test-token',
+      userId: 'listener-id',
+      username: 'listener',
+      accountStatus: 'ACTIVE',
+      roles: const <String>['ROLE_LISTENER'],
+      permissions: const <String>[],
+      expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+      isAdmin: false,
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.settings, activeSession),
+      isNull,
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.accountSettings, activeSession),
+      isNull,
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.forgotPassword, activeSession),
+      AppRoutes.listenerProfile,
+    );
+
+    final adminSession = AuthSession.authenticated(
+      token: 'admin-token',
+      userId: 'admin-id',
+      username: 'owner',
+      accountStatus: 'ACTIVE',
+      roles: const <String>['ROLE_OWNER'],
+      permissions: const <String>['ADMIN_PANEL_ACCESS'],
+      expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+      isAdmin: true,
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.accountSettings, adminSession),
+      isNull,
+    );
+  });
 }
 
 void _registerSession(AuthSession session) {

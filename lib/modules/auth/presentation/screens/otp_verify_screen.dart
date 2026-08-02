@@ -105,11 +105,21 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
           final isVenuePending =
               _role == 'ROLE_VENUE' ||
               state.registerResult?.status == UserStatus.pendingVenueRequest;
+          final isStudioPending =
+              _role == 'ROLE_STUDIO' ||
+              state.registerResult?.status == UserStatus.pendingStudioRequest;
           Future<void>.delayed(const Duration(milliseconds: 450), () {
             if (!mounted) return;
             if (isVenuePending) {
               navigator.pushNamedAndRemoveUntil(
                 AppRoutes.venuePending,
+                (route) => false,
+              );
+              return;
+            }
+            if (isStudioPending) {
+              navigator.pushNamedAndRemoveUntil(
+                AppRoutes.studioPending,
                 (route) => false,
               );
               return;
@@ -190,7 +200,9 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                     : () {
                         if (effectiveEmail.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('E-posta boş olamaz.')),
+                            const SnackBar(
+                              content: Text('E-posta boş olamaz.'),
+                            ),
                           );
                           return;
                         }
@@ -242,7 +254,9 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                     : () {
                         if (effectiveEmail.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('E-posta boş olamaz.')),
+                            const SnackBar(
+                              content: Text('E-posta boş olamaz.'),
+                            ),
                           );
                           return;
                         }

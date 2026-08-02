@@ -10,7 +10,10 @@ class _StudioPublicDashboardContent extends StatelessWidget {
   final int? followingCount;
   final VoidCallback onBack;
   final VoidCallback onMessage;
-  final VoidCallback onReservation;
+  final bool isFollowing;
+  final bool followLoading;
+  final VoidCallback? onFollow;
+  final int contentRevision;
 
   const _StudioPublicDashboardContent({
     required this.profile,
@@ -19,7 +22,10 @@ class _StudioPublicDashboardContent extends StatelessWidget {
     required this.followingCount,
     required this.onBack,
     required this.onMessage,
-    required this.onReservation,
+    required this.isFollowing,
+    required this.followLoading,
+    required this.onFollow,
+    required this.contentRevision,
   });
 
   @override
@@ -104,6 +110,8 @@ class _StudioPublicDashboardContent extends StatelessWidget {
           _StudioProfileMetrics(
             followersCount: followersCount,
             followingCount: followingCount,
+            roomCount: profile.activeRoomCount,
+            backlineCount: profile.backlineUnitCount,
           ),
           const SizedBox(height: 14),
           Row(
@@ -119,16 +127,37 @@ class _StudioPublicDashboardContent extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _StudioActionButton(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Rezervasyon İste',
+                  icon: isFollowing
+                      ? Icons.check_rounded
+                      : Icons.person_add_alt_1_rounded,
+                  label: followLoading
+                      ? 'İşleniyor...'
+                      : (isFollowing ? 'Takiptesin' : 'Takip Et'),
                   outlined: false,
-                  onTap: onReservation,
+                  onTap: followLoading ? null : onFollow,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 18),
-          _StudioPublicTabs(profileId: profile.id, phone: profile.phone),
+          _StudioPublicTabs(
+            profileId: profile.id,
+            phone: profile.phone,
+            timeZone: profile.timeZone,
+            contentRevision: contentRevision,
+          ),
+          const SizedBox(height: 18),
+          ProfileSocialLinksRow(
+            pillWidth: 74,
+            items: studioSocialPlatforms
+                .map(
+                  (platform) => ProfileSocialLinkItem(
+                    platform: platform,
+                    url: socialUrlForStudioProfile(profile, platform),
+                  ),
+                )
+                .toList(),
+          ),
         ],
       ),
     );
@@ -138,8 +167,15 @@ class _StudioPublicDashboardContent extends StatelessWidget {
 class _StudioPublicTabs extends StatelessWidget {
   final String profileId;
   final String? phone;
+  final String timeZone;
+  final int contentRevision;
 
-  const _StudioPublicTabs({required this.profileId, required this.phone});
+  const _StudioPublicTabs({
+    required this.profileId,
+    required this.phone,
+    required this.timeZone,
+    required this.contentRevision,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +184,8 @@ class _StudioPublicTabs extends StatelessWidget {
       canReserve: true,
       ownerMode: false,
       phone: phone,
+      timeZone: timeZone,
+      contentRevision: contentRevision,
     );
   }
 }

@@ -46,7 +46,10 @@ class StudioProfileCubit extends Cubit<StudioProfileState> {
 
   Future<void> updateMyProfile(StudioProfileSaveRequest request) async {
     emit(state.copyWith(status: StudioProfileStatus.saving, error: null));
-    final result = await _repository.updateMyProfile(request);
+    final versionedRequest = request.version == null
+        ? request.copyWithVersion(state.profile?.version)
+        : request;
+    final result = await _repository.updateMyProfile(versionedRequest);
     if (result.isSuccess && result.data != null) {
       emit(
         state.copyWith(

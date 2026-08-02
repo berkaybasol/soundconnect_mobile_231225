@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
@@ -7,7 +9,9 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../../location/presentation/cubit/location_cubit.dart';
 import '../../../location/presentation/cubit/location_state.dart';
+import '../../domain/business_name_policy.dart';
 import '../../domain/password_policy.dart';
+import '../../domain/username_policy.dart';
 import 'otp_verify_screen.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
@@ -36,8 +40,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     'ROLE_MUSICIAN',
     'ROLE_VENUE',
     'ROLE_STUDIO',
-    'ROLE_PRODUCER',
-    'ROLE_ORGANIZER',
   ];
   final List<_RoleOption> _roleOptions = [
     _RoleOption(
@@ -60,16 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       id: 'ROLE_STUDIO',
       title: 'Stüdyo temsilcisiyim',
       icon: Icons.mic_none,
-    ),
-    _RoleOption(
-      id: 'ROLE_PRODUCER',
-      title: 'Prodüktörüm',
-      icon: Icons.graphic_eq,
-    ),
-    _RoleOption(
-      id: 'ROLE_ORGANIZER',
-      title: 'Organizatörüm',
-      icon: Icons.event,
+      badge: 'Başvuru',
     ),
   ];
 
@@ -81,13 +74,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   int _stepIndex = 0;
   late final PageController _pageController;
   late final ValueNotifier<double> _pageProgress;
+  Timer? _usernameAvailabilityDebounce;
+  String? _lastUsernameCheckRequested;
+  bool _usernameTouched = false;
 
-  int get _totalSteps => _selectedRole == 'ROLE_VENUE' ? 5 : 4;
+  bool get _isBusinessRole =>
+      _selectedRole == 'ROLE_VENUE' || _selectedRole == 'ROLE_STUDIO';
+
+  bool get _isStudioRole => _selectedRole == 'ROLE_STUDIO';
+
+  int get _totalSteps => _isBusinessRole ? 5 : 4;
 
   @override
   void initState() {
     super.initState();
     _selectedRole = _roles.first;
+    _usernameController.addListener(_handleUsernameChanged);
     _pageController = PageController(initialPage: 0);
     _pageProgress = ValueNotifier<double>(0.0);
     _pageController.addListener(() {
@@ -105,6 +107,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _usernameAvailabilityDebounce?.cancel();
+    _usernameController.removeListener(_handleUsernameChanged);
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -128,13 +132,68 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return regex.hasMatch(value);
   }
 
+  String _canonicalizeUsername() {
+    final username = UsernamePolicy.normalize(_usernameController.text);
+    if (_usernameController.text != username) {
+      _usernameController.value = TextEditingValue(
+        text: username,
+        selection: TextSelection.collapsed(offset: username.length),
+      );
+    }
+    return username;
+  }
+
+  void _handleUsernameChanged() {
+    _usernameAvailabilityDebounce?.cancel();
+    final username = UsernamePolicy.normalize(_usernameController.text);
+    if (mounted) {
+      setState(() {
+        _usernameTouched = true;
+      });
+    }
+    if (!UsernamePolicy.isValid(username)) return;
+
+    _usernameAvailabilityDebounce = Timer(
+      const Duration(milliseconds: 450),
+      () {
+        if (!mounted) return;
+        _lastUsernameCheckRequested = username;
+        context.read<AuthCubit>().checkUsernameAvailability(username: username);
+      },
+    );
+  }
+
+  void _canonicalizeBusinessName() {
+    final normalized = BusinessNamePolicy.normalize(_venueNameController.text);
+    if (_venueNameController.text == normalized) return;
+    _venueNameController.value = TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+
+  Future<bool> _ensureUsernameAvailable() async {
+    final username = _canonicalizeUsername();
+    final state = context.read<AuthCubit>().state;
+    final cached = state.usernameAvailability;
+    if (state.action == AuthAction.usernameAvailability &&
+        state.status == AuthStatus.success &&
+        cached?.username == username) {
+      return cached!.available;
+    }
+
+    _usernameAvailabilityDebounce?.cancel();
+    _lastUsernameCheckRequested = username;
+    final result = await context.read<AuthCubit>().checkUsernameAvailability(
+      username: username,
+    );
+    return mounted && result?.username == username && result!.available;
+  }
+
   bool _validateStep(int index) {
     switch (index) {
       case 0:
-        final username = _usernameController.text.trim();
-        return username.isNotEmpty &&
-            username.length >= 3 &&
-            username.length <= 30;
+        return UsernamePolicy.isValid(_usernameController.text);
       case 1:
         final email = _emailController.text.trim();
         return email.isNotEmpty && _isValidEmail(email);
@@ -158,10 +217,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void _next() {
+  Future<void> _next() async {
+    if (_stepIndex == 0) {
+      _canonicalizeUsername();
+    } else if (_stepIndex == 4) {
+      _canonicalizeBusinessName();
+    }
     if (!_validateStep(_stepIndex)) {
       if (_stepIndex == 0) {
-        final username = _usernameController.text.trim();
+        final username = UsernamePolicy.normalize(_usernameController.text);
         if (username.isEmpty) {
           _showError('Kullanıcı adı boş olamaz.');
         } else {
@@ -182,7 +246,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         } else if (password.length < PasswordPolicy.registrationMinimumLength) {
           _showError('Şifren en az 8 karakterden oluşmalı.');
         } else if (PasswordPolicy.exceedsBcryptLimit(password)) {
-          _showError('Şifren UTF-8 olarak en fazla 72 bayt olmalı.');
+          _showError('Şifren çok uzun. Biraz kısaltıp tekrar dene.');
         } else if (PasswordPolicy.isBlank(rePassword)) {
           _showError('Şifre tekrarı boş olamaz.');
         } else {
@@ -191,9 +255,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else if (_stepIndex == 3) {
         _showError('Rol seçilmelidir.');
       } else {
-        _showError('Mekan bilgilerini eksiksiz doldur.');
+        _showError(
+          _isStudioRole
+              ? 'Şehir, ilçe, mahalle ve Açık Adres dahil stüdyo bilgilerini eksiksiz doldur.'
+              : 'Şehir, ilçe, mahalle ve Açık Adres dahil mekan bilgilerini eksiksiz doldur.',
+        );
       }
       return;
+    }
+
+    if (_stepIndex == 0) {
+      final available = await _ensureUsernameAvailable();
+      if (!mounted || !available) return;
     }
 
     if (_stepIndex < _totalSteps - 1) {
@@ -204,16 +277,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (_selectedRole == 'ROLE_VENUE') {
+    final username = _canonicalizeUsername();
+    if (_isBusinessRole) {
       context.read<AuthCubit>().register(
-        username: _usernameController.text.trim(),
+        username: username,
         email: _emailController.text.trim(),
         password: _passwordController.text,
         rePassword: _rePasswordController.text,
         role: _selectedRole ?? '',
-        venueName: _venueNameController.text.trim(),
-        venueAddress: _venueAddressController.text.trim(),
-        phone: _venuePhoneController.text.trim(),
+        venueName: _isStudioRole ? null : _venueNameController.text.trim(),
+        venueAddress: _isStudioRole
+            ? null
+            : _venueAddressController.text.trim(),
+        phone: _isStudioRole ? null : _venuePhoneController.text.trim(),
+        studioName: _isStudioRole ? _venueNameController.text.trim() : null,
+        studioAddress: _isStudioRole
+            ? _venueAddressController.text.trim()
+            : null,
+        studioPhone: _isStudioRole ? _venuePhoneController.text.trim() : null,
         cityId: _selectedCityId,
         districtId: _selectedDistrictId,
         neighborhoodId: _selectedNeighborhoodId,
@@ -222,7 +303,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     context.read<AuthCubit>().register(
-      username: _usernameController.text.trim(),
+      username: username,
       email: _emailController.text.trim(),
       password: _passwordController.text,
       rePassword: _rePasswordController.text,
@@ -245,14 +326,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       _selectedRole = roleId;
     });
-    if (roleId == 'ROLE_VENUE' && _stepIndex == 3) {
-      if (_totalSteps == 5) {
-        _pageController.nextPage(
-          duration: Duration(milliseconds: 260),
-          curve: Curves.easeOut,
-        );
-      }
-    }
   }
 
   Widget _buildProgressIndicator(double progressValue) {
@@ -261,7 +334,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Icons.headphones,
             Icons.favorite_border,
             Icons.link,
-            Icons.storefront_outlined,
+            _isStudioRole ? Icons.mic_none : Icons.storefront_outlined,
             Icons.check_circle,
           ]
         : [
@@ -366,7 +439,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildUsernameStep() {
+  Widget _buildUsernameStep(AuthState state) {
+    final username = UsernamePolicy.normalize(_usernameController.text);
+    final availability = state.usernameAvailability;
+    final isCurrentCheck = _lastUsernameCheckRequested == username;
+    final isChecking =
+        isCurrentCheck &&
+        state.action == AuthAction.usernameAvailability &&
+        state.status == AuthStatus.loading;
+    final hasResult =
+        isCurrentCheck &&
+        state.action == AuthAction.usernameAvailability &&
+        state.status == AuthStatus.success &&
+        availability?.username == username;
+    final hasCheckFailure =
+        isCurrentCheck &&
+        state.action == AuthAction.usernameAvailability &&
+        state.status == AuthStatus.failure;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -383,9 +473,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         SizedBox(height: 12),
         GradientTextField(
+          key: const Key('register-username-field'),
           controller: _usernameController,
           label: 'Kullanıcı adı',
           prefixIcon: Icons.person_outline,
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: isChecking
+              ? const Padding(
+                  key: Key('register-username-checking'),
+                  padding: EdgeInsets.only(top: 10),
+                  child: _UsernameAvailabilityMessage(
+                    icon: Icons.hourglass_top_rounded,
+                    message: 'Kullanıcı adı kontrol ediliyor...',
+                  ),
+                )
+              : hasResult
+              ? Padding(
+                  key: Key(
+                    availability!.available
+                        ? 'register-username-available'
+                        : 'register-username-taken',
+                  ),
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _UsernameAvailabilityMessage(
+                    icon: availability.available
+                        ? Icons.check_circle_outline
+                        : Icons.error_outline,
+                    message: availability.available
+                        ? '@${availability.username} kullanılabilir.'
+                        : 'Bu kullanıcı adı zaten kullanılıyor.',
+                    positive: availability.available,
+                    negative: !availability.available,
+                  ),
+                )
+              : hasCheckFailure
+              ? Padding(
+                  key: const Key('register-username-check-failed'),
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _UsernameAvailabilityMessage(
+                    icon: Icons.info_outline,
+                    message:
+                        state.error?.message ??
+                        'Kullanıcı adı şu anda kontrol edilemiyor.',
+                    negative: true,
+                  ),
+                )
+              : _usernameTouched && username.isNotEmpty && username.length < 3
+              ? const Padding(
+                  key: Key('register-username-length-hint'),
+                  padding: EdgeInsets.only(top: 10),
+                  child: _UsernameAvailabilityMessage(
+                    icon: Icons.info_outline,
+                    message: 'Kullanıcı adı en az 3 karakter olmalı.',
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
       ],
     );
@@ -426,7 +570,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         SizedBox(height: 6),
         Text(
-          'Şifren en az 8 karakter, UTF-8 olarak en fazla 72 bayt olmalı.',
+          'Şifren en az 8 karakter olmalı.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -474,11 +618,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildRoleStep() {
-    final venueOption = _roleOptions.firstWhere(
-      (option) => option.id == 'ROLE_VENUE',
-    );
+    final applicationOptions = _roleOptions
+        .where(
+          (option) => option.id == 'ROLE_VENUE' || option.id == 'ROLE_STUDIO',
+        )
+        .toList(growable: false);
     final otherOptions = _roleOptions
-        .where((option) => option.id != 'ROLE_VENUE')
+        .where(
+          (option) => option.id != 'ROLE_VENUE' && option.id != 'ROLE_STUDIO',
+        )
         .toList();
 
     return Column(
@@ -505,7 +653,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(height: 16),
                 Divider(color: Theme.of(context).dividerColor),
                 SizedBox(height: 16),
-                _buildRoleOption(venueOption),
+                ...applicationOptions.map(_buildRoleOption),
               ],
             ),
           ),
@@ -514,12 +662,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildVenueStep() {
+  Widget _buildBusinessStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Mekan bilgilerini paylaş',
+          _isStudioRole
+              ? 'Stüdyo bilgilerini paylaş'
+              : 'Mekan bilgilerini paylaş',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 6),
@@ -536,18 +686,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 GradientTextField(
+                  key: const Key('business-name-field'),
                   controller: _venueNameController,
-                  label: 'Mekan adı',
-                  prefixIcon: Icons.storefront_outlined,
+                  label: _isStudioRole ? 'Stüdyo adı' : 'Mekan adı',
+                  prefixIcon: _isStudioRole
+                      ? Icons.mic_none
+                      : Icons.storefront_outlined,
                 ),
                 SizedBox(height: 12),
                 GradientTextField(
-                  controller: _venueAddressController,
-                  label: 'Adres',
-                  prefixIcon: Icons.location_on_outlined,
-                ),
-                SizedBox(height: 12),
-                GradientTextField(
+                  key: const Key('business-phone-field'),
                   controller: _venuePhoneController,
                   label: 'Telefon',
                   prefixIcon: Icons.phone_outlined,
@@ -579,6 +727,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 8),
                         ],
                         DropdownButtonFormField<String>(
+                          key: const Key('business-city-dropdown'),
                           value: _selectedCityId,
                           decoration: InputDecoration(
                             filled: true,
@@ -628,6 +777,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         SizedBox(height: 12),
                         DropdownButtonFormField<String>(
+                          key: const Key('business-district-dropdown'),
                           value: _selectedDistrictId,
                           decoration: InputDecoration(
                             filled: true,
@@ -674,6 +824,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         SizedBox(height: 12),
                         DropdownButtonFormField<String>(
+                          key: const Key('business-neighborhood-dropdown'),
                           value: _selectedNeighborhoodId,
                           decoration: InputDecoration(
                             filled: true,
@@ -716,6 +867,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     );
                   },
                 ),
+                SizedBox(height: 12),
+                GradientTextField(
+                  key: const Key('business-address-field'),
+                  controller: _venueAddressController,
+                  label: 'Açık Adres',
+                  prefixIcon: Icons.location_on_outlined,
+                ),
               ],
             ),
           ),
@@ -745,13 +903,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final isLoading =
             state.status == AuthStatus.loading &&
             state.action == AuthAction.register;
+        final isUsernameChecking =
+            state.status == AuthStatus.loading &&
+            state.action == AuthAction.usernameAvailability &&
+            _lastUsernameCheckRequested ==
+                UsernamePolicy.normalize(_usernameController.text);
 
         final pages = <Widget>[
-          _buildUsernameStep(),
+          _buildUsernameStep(state),
           _buildEmailStep(),
           _buildPasswordStep(),
           _buildRoleStep(),
-          if (_selectedRole == 'ROLE_VENUE') _buildVenueStep(),
+          if (_isBusinessRole) _buildBusinessStep(),
         ];
 
         return AppScaffold(
@@ -816,12 +979,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Row(
                     children: [
                       TextButton(
-                        onPressed: isLoading ? null : _back,
+                        onPressed: isLoading || isUsernameChecking
+                            ? null
+                            : _back,
                         child: Text('Geri'),
                       ),
                       Spacer(),
                       GradientOutlineButton(
-                        onPressed: isLoading ? null : _next,
+                        onPressed: isLoading || isUsernameChecking
+                            ? null
+                            : _next,
                         label: _stepIndex == _totalSteps - 1
                             ? (isLoading ? 'Kaydediliyor...' : 'Tamamla')
                             : 'Devam et',
@@ -979,6 +1146,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _UsernameAvailabilityMessage extends StatelessWidget {
+  const _UsernameAvailabilityMessage({
+    required this.icon,
+    required this.message,
+    this.positive = false,
+    this.negative = false,
+  });
+
+  final IconData icon;
+  final String message;
+  final bool positive;
+  final bool negative;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final color = positive
+        ? AppColors.spotifyGreen
+        : negative
+        ? colors.error
+        : colors.onSurfaceVariant;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: color),
+          ),
+        ),
+      ],
     );
   }
 }

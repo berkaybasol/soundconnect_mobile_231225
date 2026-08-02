@@ -242,6 +242,11 @@ class _ListenerRepositoryFake implements ListenerProfileRepository {
     calls += 1;
     return result;
   }
+
+  @override
+  Future<Result<ListenerProfile>> updateMyProfile(
+    ListenerProfileSaveRequest request,
+  ) async => result;
 }
 
 class _MusicianRepositoryFake implements MusicianProfileRepository {

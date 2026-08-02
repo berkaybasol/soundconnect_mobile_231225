@@ -15,6 +15,8 @@ const Set<String> _publicAuthPaths = <String>{
   '/api/v1/auth/register',
   '/api/v1/auth/verify-code',
   '/api/v1/auth/resend-code',
+  '/api/v1/auth/forgot-password',
+  '/api/v1/auth/reset-password',
   '/api/v1/auth/google-sign-in',
 };
 

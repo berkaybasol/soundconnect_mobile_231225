@@ -9,165 +9,181 @@ const _backlineQuickFilters = <String>[
   'Perküsyon',
 ];
 
-const _backlineCategories = <_BacklineCategory>[
-  _BacklineCategory(
-    name: 'Davul, Bateri & Zil',
-    icon: Icons.album_outlined,
-    assetPath: 'assets/backline_icons/drum-kit.png',
-    children: [
-      'Davul / Bateri - Akustik Setler',
-      'Davul / Bateri - Elektronik Setler',
-      'Trampetler (Snare)',
-      'Ziller',
-      'Davul Aksesuarları - Pedallar',
-      'Davul Aksesuarları - Elektronik Padler & Modüller',
-      'Davul Aksesuarları - Hardware & Standlar',
-      'Davul Aksesuarları - Yedekler & Sarf Malzemeleri',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'Gitar Amfileri',
-    icon: Icons.speaker_outlined,
-    children: [
-      'Elektrik Gitar Amfileri - Combo',
-      'Elektrik Gitar Amfileri - Kafa',
-      'Kabinler - Elektrik Gitar',
-      'Akustik Gitar Amfileri',
-      'Modelleyiciler & Multi-Efektler',
-      'Gitar Pedalları & Footswitchler',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'Bas Gitar Amfileri',
-    icon: Icons.speaker_group_outlined,
-    assetPath: 'assets/backline_icons/bassamps.png',
-    children: [
-      'Bas Combo Amfileri',
-      'Bas Amfi Kafaları',
-      'Bas Kabinleri',
-      'Bas Preamp, DI & Efektler',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'Piyano, Klavye & Synth',
-    icon: Icons.keyboard_outlined,
-    assetPath: 'assets/backline_icons/pianokeyboardsynth.png',
-    children: [
-      'Akustik Piyanolar',
-      'Dijital & Sahne Piyanoları',
-      'Keyboard & Workstationlar',
-      'Synthesizerlar',
-      'Orglar',
-      'Elektromekanik Piyanolar (Rhodes vb.)',
-      'MIDI Klavyeler & Controllerlar',
-      'Klavye Amfileri',
-      'Klavye Standları, Pedallar & Tabureler',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'Perküsyon',
-    icon: Icons.blur_circular_outlined,
-    assetPath: 'assets/backline_icons/percussion.png',
-    children: [
-      'Conga, Tumba & Quinto',
-      'Bongo',
-      'Timbales',
-      'Djembe',
-      'Cajon',
-      'Darbuka, Bendir, Tef & Asma Davul',
-      'Udu, Shekere & Dünya Perküsyonları',
-      'Shaker, Marakas, Cabasa & Küçük Perküsyonlar',
-      'Jam Block, Cowbell, Chimes & Efekt Perküsyonları',
-      'Perküsyon Masaları, Standları & Aksesuarları',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'Gitarlar & Baslar',
-    icon: Icons.music_note_outlined,
-    assetPath: 'assets/backline_icons/guitarsandbasses.png',
-    children: [
-      'Elektro Gitarlar',
-      'Akustik & Klasik Gitarlar',
-      'Elektro Bas Gitarlar',
-      'Akustik Bas Gitarlar',
-      'Kontrbaslar',
-      'Gitar & Bas Aksesuarları',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'Yaylılar & Orkestra Enstrümanları',
-    icon: Icons.queue_music_outlined,
-    assetPath: 'assets/backline_icons/stringinstruments.png',
-    children: [
-      'Yaylı Enstrümanlar',
-      'Nefesli Enstrümanlar',
-      'Bakır Üflemeli Enstrümanlar',
-      'Halk & Dünya Enstrümanları',
-      'Orkestra Aksesuarları',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'DJ Ekipmanları',
-    icon: Icons.graphic_eq_outlined,
-    assetPath: 'assets/backline_icons/dj-turntable.png',
-    children: [
-      'CDJ & Medya Oynatıcılar',
-      'Turntablelar',
-      'DJ Mikserleri',
-      'DJ Controllerlar',
-      'Sampler & Drum Machine',
-      'DJ Monitörleri & Aksesuarları',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'Pro Audio & Stüdyo',
-    icon: Icons.mic_none_outlined,
-    children: [
-      'Dinamik Mikrofonlar',
-      'Kondansatör & Ribbon Mikrofonlar',
-      'Kablosuz Mikrofon Sistemleri',
-      'Analog & Dijital Mikserler',
-      'PA Hoparlörleri & Subwooferlar',
-      'Sahne Monitörleri',
-      'In-Ear Monitor Sistemleri',
-      'DI Box & Reamp Kutuları',
-      'Ses Kartları & Kayıt Cihazları',
-      'Stüdyo Monitörleri',
-      'Outboard, Preamp & Sinyal İşlemciler',
-    ],
-  ),
-  _BacklineCategory(
-    name: 'Sahne & Backline Aksesuarları',
-    icon: Icons.handyman_outlined,
-    children: [
-      'Enstrüman, Mikrofon & Hoparlör Standları',
-      'Nota Sehpaları',
-      'Davul Tabureleri & Piyano Bankları',
-      'Kablolar, Multicorelar & Adaptörler',
-      'Güç Dağıtımı, Regülatörler & Trafolar',
-      'Rack, Case & Taşıma Çözümleri',
-      'Riser & Sahne Platformları',
-      'Sarf Malzemeleri & Yedek Parçalar',
-    ],
-  ),
-];
-
 class _BacklineCategory {
+  final String id;
+  final String code;
+  final String? iconKey;
   final String name;
   final IconData icon;
   final String? assetPath;
   final List<String> children;
+  final Map<String, String> childIdsByName;
 
   const _BacklineCategory({
+    this.id = '',
+    this.code = '',
+    this.iconKey,
     required this.name,
     required this.icon,
     this.assetPath,
     required this.children,
+    this.childIdsByName = const {},
   });
+
+  factory _BacklineCategory.fromDomain(BacklineCatalogCategory category) {
+    final visual = _backlineCategoryVisual(
+      code: category.code,
+      iconKey: category.iconKey,
+      name: category.name,
+    );
+    return _BacklineCategory(
+      id: category.id,
+      code: category.code,
+      iconKey: category.iconKey,
+      name: category.name,
+      icon: visual.icon,
+      assetPath: visual.assetPath,
+      children: category.children.map((child) => child.name).toList(),
+      childIdsByName: {
+        for (final child in category.children) child.name: child.id,
+      },
+    );
+  }
+
+  String? childId(String name) => childIdsByName[name];
 }
 
-class _BacklineCategoriesScreen extends StatelessWidget {
+class _BacklineCategoryVisual {
+  final IconData icon;
+  final String? assetPath;
+
+  const _BacklineCategoryVisual(this.icon, [this.assetPath]);
+}
+
+_BacklineCategoryVisual _backlineCategoryVisual({
+  required String code,
+  required String? iconKey,
+  required String name,
+}) {
+  final key = '${code.trim()} ${iconKey?.trim() ?? ''} ${name.trim()}'
+      .toLowerCase();
+  if (key.contains('drum') || key.contains('davul') || key.contains('zil')) {
+    return const _BacklineCategoryVisual(
+      Icons.album_outlined,
+      'assets/backline_icons/drum-kit.png',
+    );
+  }
+  if (key.contains('bass') || key.contains('bas gitar amfi')) {
+    return const _BacklineCategoryVisual(
+      Icons.speaker_group_outlined,
+      'assets/backline_icons/bassamps.png',
+    );
+  }
+  if (key.contains('guitar_amp') || key.contains('gitar amfi')) {
+    return const _BacklineCategoryVisual(Icons.speaker_outlined);
+  }
+  if (key.contains('keyboard') ||
+      key.contains('piyano') ||
+      key.contains('synth')) {
+    return const _BacklineCategoryVisual(
+      Icons.keyboard_outlined,
+      'assets/backline_icons/pianokeyboardsynth.png',
+    );
+  }
+  if (key.contains('percussion') || key.contains('perk')) {
+    return const _BacklineCategoryVisual(
+      Icons.blur_circular_outlined,
+      'assets/backline_icons/percussion.png',
+    );
+  }
+  if (key.contains('guitar') ||
+      key.contains('gitar') ||
+      key.contains('baslar')) {
+    return const _BacklineCategoryVisual(
+      Icons.music_note_outlined,
+      'assets/backline_icons/guitarsandbasses.png',
+    );
+  }
+  if (key.contains('orchestra') ||
+      key.contains('yaylı') ||
+      key.contains('orkestra')) {
+    return const _BacklineCategoryVisual(
+      Icons.queue_music_outlined,
+      'assets/backline_icons/stringinstruments.png',
+    );
+  }
+  if (key.contains('dj')) {
+    return const _BacklineCategoryVisual(
+      Icons.graphic_eq_outlined,
+      'assets/backline_icons/dj-turntable.png',
+    );
+  }
+  if (key.contains('audio') || key.contains('stüdyo')) {
+    return const _BacklineCategoryVisual(Icons.mic_none_outlined);
+  }
+  if (key.contains('accessor') || key.contains('aksesuar')) {
+    return const _BacklineCategoryVisual(Icons.handyman_outlined);
+  }
+  return const _BacklineCategoryVisual(Icons.inventory_2_outlined);
+}
+
+IconData _backlineIconFor({
+  required String code,
+  required String? iconKey,
+  required String name,
+}) => _backlineCategoryVisual(code: code, iconKey: iconKey, name: name).icon;
+
+Future<(List<_BacklineCategory>?, String?)> _loadCompleteBacklineCatalog(
+  BacklineCatalogRepository repository,
+) async {
+  const pageSize = 100;
+  const maximumPages = 100;
+  final categories = <_BacklineCategory>[];
+  final seenIds = <String>{};
+  for (var page = 0; page < maximumPages; page++) {
+    final result = await repository.listCatalog(page: page, size: pageSize);
+    if (!result.isSuccess || result.data == null) {
+      return (null, result.error?.message ?? 'Kategoriler yüklenemedi.');
+    }
+    final response = result.data!;
+    for (final category in response.items) {
+      if (seenIds.add(category.id)) {
+        categories.add(_BacklineCategory.fromDomain(category));
+      }
+    }
+    if (!response.hasNext) {
+      return (List<_BacklineCategory>.unmodifiable(categories), null);
+    }
+  }
+  return (
+    null,
+    'Kategori listesi güvenli sayfalama sınırını aştı. Lütfen tekrar dene.',
+  );
+}
+
+class _BacklineCategoriesScreen extends StatefulWidget {
   const _BacklineCategoriesScreen();
+
+  @override
+  State<_BacklineCategoriesScreen> createState() =>
+      _BacklineCategoriesScreenState();
+}
+
+class _BacklineCategoriesScreenState extends State<_BacklineCategoriesScreen> {
+  static const _pageSize = 20;
+  late final BacklineCatalogRepository _repository;
+  List<_BacklineCategory> _categories = const [];
+  int _pageIndex = 0;
+  int _totalPages = 0;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = serviceLocator<BacklineCatalogRepository>();
+    _load(0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,14 +206,84 @@ class _BacklineCategoriesScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-        itemCount: _backlineCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, index) =>
-            _BacklineCategoryTile(category: _backlineCategories[index]),
+      body: RefreshIndicator(
+        onRefresh: () => _load(_pageIndex),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          children: [
+            if (_isLoading && _categories.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_error != null && _categories.isEmpty)
+              _StudioOwnerBacklineErrorState(
+                message: _error!,
+                onRetry: () => _load(_pageIndex),
+              )
+            else if (_categories.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: Text(
+                    'Yayınlanmış backline kategorisi bulunmuyor.',
+                    style: TextStyle(color: Color(0xFF9AA4B2)),
+                  ),
+                ),
+              )
+            else
+              for (var index = 0; index < _categories.length; index++) ...[
+                _BacklineCategoryTile(category: _categories[index]),
+                if (index != _categories.length - 1) const SizedBox(height: 10),
+              ],
+            if (_isLoading && _categories.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(minHeight: 2),
+            ],
+            if (_totalPages > 1) ...[
+              const SizedBox(height: 14),
+              _StudioOwnerBacklinePagination(
+                pageIndex: _pageIndex,
+                totalPages: _totalPages,
+                enabled: !_isLoading,
+                onPrevious: _pageIndex > 0 ? () => _load(_pageIndex - 1) : null,
+                onNext: _pageIndex + 1 < _totalPages
+                    ? () => _load(_pageIndex + 1)
+                    : null,
+              ),
+            ],
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _load(int page) async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
+    final result = await _repository.listCatalog(page: page, size: _pageSize);
+    if (!mounted) return;
+    if (!result.isSuccess || result.data == null) {
+      setState(() {
+        _isLoading = false;
+        _error = result.error?.message ?? 'Kategoriler yüklenemedi.';
+      });
+      return;
+    }
+    setState(() {
+      _categories = result.data!.items
+          .map(_BacklineCategory.fromDomain)
+          .toList(growable: false);
+      _pageIndex = result.data!.pageIndex;
+      _totalPages = result.data!.totalPages;
+      _isLoading = false;
+      _error = null;
+    });
   }
 }
 
@@ -229,6 +315,29 @@ class _BacklineCategoryTile extends StatelessWidget {
         ),
         children: [
           const Divider(height: 1, color: Color(0xFF202B3A)),
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.only(left: 54, right: 12),
+            leading: const Icon(
+              Icons.select_all_rounded,
+              color: Color(0xFF758092),
+              size: 18,
+            ),
+            title: Text(
+              '${category.name} içindeki tüm ekipmanlar',
+              style: const TextStyle(
+                color: Color(0xFFD4D9E2),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: Color(0xFF758092),
+              size: 18,
+            ),
+            onTap: () => Navigator.of(context).pop(category.name),
+          ),
           for (final subcategory in category.children)
             ListTile(
               dense: true,

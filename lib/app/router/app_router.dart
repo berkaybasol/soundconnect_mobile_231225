@@ -3,6 +3,8 @@ import '../../core/auth/auth_session_manager.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/policy/stage_mode.dart';
 import '../../modules/admin/presentation/screens/admin_dashboard_screen.dart';
+import '../../modules/auth/presentation/screens/account_settings_screen.dart';
+import '../../modules/auth/presentation/screens/forgot_password_screen.dart';
 import '../../modules/auth/presentation/screens/login_screen.dart';
 import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
@@ -58,6 +60,21 @@ class AppRouter {
           settings: settings,
           builder: (_) => RegisterScreen(),
         );
+      case AppRoutes.forgotPassword:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ForgotPasswordScreen(),
+        );
+      case AppRoutes.settings:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const AccountSettingsScreen(),
+        );
+      case AppRoutes.accountSettings:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const AccountSettingsScreen(),
+        );
       case AppRoutes.otpVerify:
         return MaterialPageRoute(
           settings: settings,
@@ -73,6 +90,12 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => VenuePendingScreen(),
+        );
+      case AppRoutes.studioPending:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) =>
+              VenuePendingScreen(membershipType: PendingMembershipType.studio),
         );
       case AppRoutes.musicianProfile:
         return MaterialPageRoute(
@@ -128,6 +151,18 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const StudioPublicProfileScreen(),
+        );
+      case AppRoutes.studioReservationCalendar:
+        final args = _arguments<StudioReservationCalendarArgs>(settings);
+        if (args == null) {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const StudioProfileScreen(),
+          );
+        }
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => StudioReservationCalendarScreen(args: args),
         );
       case AppRoutes.listenerProfile:
         return MaterialPageRoute(

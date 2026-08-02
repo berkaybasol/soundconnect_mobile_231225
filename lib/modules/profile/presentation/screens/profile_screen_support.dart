@@ -11,6 +11,7 @@ import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 export '../../domain/entities/profile_upload_result.dart';
+export '../../domain/draft_media_cleanup_coordinator.dart';
 export '../../domain/profile_media_upload_repository.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
@@ -90,44 +91,23 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   Color cropToolbarColor = const Color(0xFF0B1321),
   Color cropAccentColor = const Color(0xFFF47C7C),
 }) async {
-  final picked = await imagePicker.pickImage(
-    source: ImageSource.gallery,
+  final cropped = await pickAndCropProfileImage(
+    imagePicker: imagePicker,
+    cropTitle: cropTitle,
+    aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
     imageQuality: 88,
     maxWidth: 1600,
     maxHeight: 1600,
+    cropToolbarColor: cropToolbarColor,
+    cropAccentColor: cropAccentColor,
   );
-  if (picked == null) return null;
-
-  CroppedFile? cropped;
-  try {
-    cropped = await ImageCropper().cropImage(
-      sourcePath: picked.path,
-      compressFormat: ImageCompressFormat.jpg,
-      compressQuality: 88,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: cropTitle,
-          toolbarColor: cropToolbarColor,
-          toolbarWidgetColor: AppColors.white,
-          activeControlsWidgetColor: cropAccentColor,
-          lockAspectRatio: true,
-          hideBottomControls: false,
-        ),
-        IOSUiSettings(
-          title: cropTitle,
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-        ),
-      ],
-    );
-  } on PlatformException catch (error) {
-    throw Exception('Kirpma acilamadi: ${error.message ?? error.code}');
-  }
   if (cropped == null) return null;
 
   final repository = serviceLocator<ProfileMediaUploadRepository>();
-  final fileName = fileNameFromPath(cropped.path, fallback: picked.name);
+  final fileName = fileNameFromPath(
+    cropped.path,
+    fallback: 'profile-photo.jpg',
+  );
   final mimeType = inferImageMimeType(fileName);
   final source = await createProfileUploadSource(filePath: cropped.path);
 
@@ -158,6 +138,53 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
     sourceUrl: completed.sourceUrl,
     playbackUrl: completed.playbackUrl,
   );
+}
+
+Future<CroppedFile?> pickAndCropProfileImage({
+  required ImagePicker imagePicker,
+  required String cropTitle,
+  required CropAspectRatio aspectRatio,
+  int imageQuality = 92,
+  double maxWidth = 2048,
+  double maxHeight = 2048,
+  Color cropToolbarColor = const Color(0xFF0B1321),
+  Color cropAccentColor = const Color(0xFFF47C7C),
+}) async {
+  final picked = await imagePicker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: imageQuality,
+    maxWidth: maxWidth,
+    maxHeight: maxHeight,
+  );
+  if (picked == null) return null;
+
+  CroppedFile? cropped;
+  try {
+    cropped = await ImageCropper().cropImage(
+      sourcePath: picked.path,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: imageQuality,
+      aspectRatio: aspectRatio,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: cropTitle,
+          toolbarColor: cropToolbarColor,
+          toolbarWidgetColor: AppColors.white,
+          activeControlsWidgetColor: cropAccentColor,
+          lockAspectRatio: true,
+          hideBottomControls: false,
+        ),
+        IOSUiSettings(
+          title: cropTitle,
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
+  } on PlatformException catch (error) {
+    throw Exception('Kirpma acilamadi: ${error.message ?? error.code}');
+  }
+  return cropped;
 }
 
 Future<ProfileUploadedMedia> uploadProfileMediaAsset({

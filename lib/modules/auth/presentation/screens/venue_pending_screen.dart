@@ -7,14 +7,24 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 
+enum PendingMembershipType { venue, studio }
+
 class VenuePendingScreen extends StatelessWidget {
-  VenuePendingScreen({super.key});
+  VenuePendingScreen({
+    super.key,
+    this.membershipType = PendingMembershipType.venue,
+  });
+
+  final PendingMembershipType membershipType;
+
+  bool get _isStudio => membershipType == PendingMembershipType.studio;
 
   static const Color _whatsAppGreen = Color(0xFF25D366);
 
-  static final Uri _whatsAppSupportUri = Uri.https('wa.me', '/905378581093', {
-    'text':
-        'Merhaba, SoundConnect mekan başvurum hakkında bilgi almak istiyorum.',
+  Uri get _whatsAppSupportUri => Uri.https('wa.me', '/905378581093', {
+    'text': _isStudio
+        ? 'Merhaba, SoundConnect stüdyo başvurum hakkında bilgi almak istiyorum.'
+        : 'Merhaba, SoundConnect mekan başvurum hakkında bilgi almak istiyorum.',
   });
 
   Future<void> _openWhatsAppSupport(BuildContext context) async {
@@ -79,8 +89,9 @@ class VenuePendingScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 12),
                 Text(
-                  'Mekan üyeliğini incelemeye aldık. '
-                  'Gün içinde ekibimiz seninle iletişime geçecek.',
+                  _isStudio
+                      ? 'Stüdyo üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.'
+                      : 'Mekan üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,

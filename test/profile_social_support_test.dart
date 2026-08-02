@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/models/musician_profile_save_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/studio_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_social_support.dart';
 
 void main() {
@@ -68,6 +69,53 @@ void main() {
       expect(instagram.instagramUrl, url);
       expect(youtube.youtubeUrl, url);
       expect(spotify.spotifyEmbedUrl, url);
+    });
+
+    test('reads and updates supported studio social links', () {
+      const studio = StudioProfile(
+        id: 'studio-1',
+        userId: 'user-1',
+        name: 'test studio',
+        description: null,
+        profilePictureMediaId: null,
+        profilePictureUrl: null,
+        address: null,
+        phone: null,
+        website: null,
+        facilities: [],
+        instagramUrl: 'https://instagram.com/studio',
+        youtubeUrl: 'https://youtube.com/@studio',
+        timeZone: 'Europe/Istanbul',
+        version: 0,
+        spotifyTrackIds: [],
+        spotifyTracks: [],
+        activeRoomCount: 0,
+        backlineUnitCount: 0,
+      );
+      const url = 'https://example.com/studio';
+
+      expect(
+        socialUrlForStudioProfile(studio, ProfileSocialPlatform.instagram),
+        studio.instagramUrl,
+      );
+      expect(
+        socialUrlForStudioProfile(studio, ProfileSocialPlatform.youtube),
+        studio.youtubeUrl,
+      );
+      expect(
+        buildStudioSocialLinkRequest(
+          ProfileSocialPlatform.instagram,
+          url,
+        ).instagramUrl,
+        url,
+      );
+      expect(
+        buildStudioSocialLinkRequest(
+          ProfileSocialPlatform.youtube,
+          url,
+        ).youtubeUrl,
+        url,
+      );
     });
   });
 }

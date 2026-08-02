@@ -31,21 +31,53 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: 8),
-                        const Opacity(
-                          opacity: 0.72,
-                          child: ListTile(
-                            enabled: false,
-                            leading: Icon(Icons.settings_outlined),
-                            title: Text('Ayarlar'),
-                          ),
+                        ListTile(
+                          key: const Key('venue-account-settings'),
+                          leading: const Icon(Icons.settings_outlined),
+                          title: const Text('Ayarlar'),
+                          onTap: () async {
+                            final venueId = context
+                                .read<VenueProfileCubit>()
+                                .state
+                                .ownerProfile
+                                ?.venueId;
+                            Navigator.of(dialogContext).pop();
+                            await Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.settings);
+                            if (!context.mounted) return;
+                            await context.read<VenueProfileCubit>().loadOwner(
+                              venueId: venueId,
+                            );
+                          },
                         ),
-                        const Opacity(
-                          opacity: 0.72,
-                          child: ListTile(
-                            enabled: false,
-                            leading: Icon(Icons.assignment_outlined),
-                            title: Text('Basvurularim'),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.dashboard_customize_outlined,
                           ),
+                          title: const Text('Yönetim Paneli'),
+                          onTap: () {
+                            Navigator.of(dialogContext).pop();
+                            _openVenueManagementPanel(context);
+                          },
+                        ),
+                        ListTile(
+                          key: profileMenuThemeTileKey,
+                          leading: const Icon(Icons.palette_outlined),
+                          title: const Text('Tema'),
+                          onTap: () {
+                            Navigator.of(dialogContext).pop();
+                            showProfileMenuThemePicker(context);
+                          },
+                        ),
+                        ListTile(
+                          key: profileMenuSupportTileKey,
+                          leading: const Icon(Icons.support_agent_rounded),
+                          title: const Text('Destek'),
+                          onTap: () {
+                            Navigator.of(dialogContext).pop();
+                            showProfileMenuSupport(context);
+                          },
                         ),
                         const Opacity(
                           opacity: 0.72,
@@ -56,13 +88,7 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
                           ),
                         ),
                         const Spacer(),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.logout),
-                          title: const Text(
-                            'Oturumu Kapat',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
+                        SessionLogoutMenuTile(
                           onTap: () async {
                             Navigator.of(dialogContext).pop();
                             await confirmAndLogoutSession(context);

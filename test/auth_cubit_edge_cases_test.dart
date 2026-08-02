@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -14,7 +15,10 @@ import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_co
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/login_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/register_usecase.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/request_password_reset_usecase.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/reset_password_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/resend_code_usecase.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/update_username_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/verify_code_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_state.dart';
@@ -239,7 +243,7 @@ void main() {
         expect(repository.lastRegister?['password'], 'password');
         expect(repository.lastRegister?['rePassword'], 'password');
         expect(repository.lastRegister?['role'], 'ROLE_VENUE');
-        expect(repository.lastRegister?['venueName'], 'Venue');
+        expect(repository.lastRegister?['venueName'], 'venue');
         expect(repository.lastRegister?['venueAddress'], 'Address');
         expect(repository.lastRegister?['phone'], '5551112233');
         expect(repository.lastRegister?['cityId'], 'city-1');
@@ -343,6 +347,58 @@ void main() {
         expect(fallbackTokenStore.clearCount, 0);
       },
     );
+
+    test(
+      'a late username response cannot overwrite a newly logged-in session',
+      () async {
+        final repository = _ScriptedAuthRepository();
+        final updateCompleter = Completer<Result<String>>();
+        repository.updateUsernameCompleter = updateCompleter;
+        final tokenStore = _MemoryTokenStore();
+        final metadataStore = _MemorySessionStore();
+        final sessionManager = AuthSessionManager(
+          tokenStore: tokenStore,
+          sessionStore: metadataStore,
+        );
+        addTearDown(sessionManager.dispose);
+        await sessionManager.startSession(
+          token: _jwt(
+            subject: 'account-A',
+            roles: const <String>['ROLE_LISTENER'],
+          ),
+          username: 'account-a',
+          accountStatus: 'ACTIVE',
+        );
+        final cubit = _cubit(
+          repository,
+          tokenStore,
+          sessionManager: sessionManager,
+        );
+        addTearDown(cubit.close);
+
+        final pendingUpdate = cubit.updateUsername(username: 'renamed-a');
+        await Future<void>.delayed(Duration.zero);
+        expect(cubit.state.action, AuthAction.updateUsername);
+        expect(cubit.state.status, AuthStatus.loading);
+
+        await sessionManager.logout();
+        await sessionManager.startSession(
+          token: _jwt(
+            subject: 'account-B',
+            roles: const <String>['ROLE_LISTENER'],
+          ),
+          username: 'account-b',
+          accountStatus: 'ACTIVE',
+        );
+        updateCompleter.complete(const Result.success('renamed-a'));
+        await pendingUpdate;
+
+        expect(sessionManager.session.userId, 'account-B');
+        expect(sessionManager.session.username, 'account-b');
+        expect(metadataStore.value?.username, 'account-b');
+        expect(cubit.state.action, isNot(AuthAction.updateUsername));
+      },
+    );
   });
 
   group('AuthState copyWith boundaries', () {
@@ -407,17 +463,23 @@ AuthCubit _cubit(
     registerUseCase: RegisterUseCase(repository),
     verifyCodeUseCase: VerifyCodeUseCase(repository),
     resendCodeUseCase: ResendCodeUseCase(repository),
+    requestPasswordResetUseCase: RequestPasswordResetUseCase(repository),
+    resetPasswordUseCase: ResetPasswordUseCase(repository),
+    updateUsernameUseCase: UpdateUsernameUseCase(repository),
     tokenStore: tokenStore,
     sessionManager: sessionManager,
   );
 }
 
-class _ScriptedAuthRepository implements AuthRepository {
+class _ScriptedAuthRepository extends AuthRepository {
   _ScriptedAuthRepository({
     Result<LoginResult>? loginResult,
     Result<RegisterResult>? registerResult,
     Result<void>? verifyResult,
     Result<ResendCodeResult>? resendResult,
+    Result<void>? requestPasswordResetResult,
+    Result<void>? resetPasswordResult,
+    Result<String>? updateUsernameResult,
   }) : _loginResult =
            loginResult ??
            const Result<LoginResult>.failure(
@@ -437,12 +499,31 @@ class _ScriptedAuthRepository implements AuthRepository {
            resendResult ??
            const Result<ResendCodeResult>.failure(
              AppError(code: 'unused', message: 'Unused resend'),
+           ),
+       _requestPasswordResetResult =
+           requestPasswordResetResult ??
+           const Result<void>.failure(
+             AppError(code: 'unused', message: 'Unused password reset request'),
+           ),
+       _resetPasswordResult =
+           resetPasswordResult ??
+           const Result<void>.failure(
+             AppError(code: 'unused', message: 'Unused password reset'),
+           ),
+       _updateUsernameResult =
+           updateUsernameResult ??
+           const Result<String>.failure(
+             AppError(code: 'unused', message: 'Unused username update'),
            );
 
   final Result<LoginResult> _loginResult;
   final Result<RegisterResult> _registerResult;
   final Result<void> _verifyResult;
   final Result<ResendCodeResult> _resendResult;
+  final Result<void> _requestPasswordResetResult;
+  final Result<void> _resetPasswordResult;
+  final Result<String> _updateUsernameResult;
+  Completer<Result<String>>? updateUsernameCompleter;
   Map<String, Object?>? lastRegister;
 
   @override
@@ -464,6 +545,9 @@ class _ScriptedAuthRepository implements AuthRepository {
     String? cityId,
     String? districtId,
     String? neighborhoodId,
+    String? studioName,
+    String? studioAddress,
+    String? studioPhone,
   }) async {
     lastRegister = <String, Object?>{
       'username': username,
@@ -490,6 +574,23 @@ class _ScriptedAuthRepository implements AuthRepository {
     required String email,
     required String code,
   }) async => _verifyResult;
+
+  @override
+  Future<Result<void>> requestPasswordReset({
+    required String identifier,
+  }) async => _requestPasswordResetResult;
+
+  @override
+  Future<Result<void>> resetPassword({
+    required String identifier,
+    required String code,
+    required String password,
+    required String rePassword,
+  }) async => _resetPasswordResult;
+
+  @override
+  Future<Result<String>> updateUsername({required String username}) async =>
+      updateUsernameCompleter?.future ?? _updateUsernameResult;
 }
 
 class _MemoryTokenStore implements TokenStore {

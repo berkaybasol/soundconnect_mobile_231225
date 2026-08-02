@@ -6,6 +6,9 @@ class GradientOutlineButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Widget? leading;
   final bool loading;
+  final Color? backgroundColor;
+  final double horizontalPadding;
+  final double strokeWidth;
 
   const GradientOutlineButton({
     super.key,
@@ -13,6 +16,9 @@ class GradientOutlineButton extends StatelessWidget {
     required this.onPressed,
     this.leading,
     this.loading = false,
+    this.backgroundColor,
+    this.horizontalPadding = 28,
+    this.strokeWidth = 1.4,
   });
 
   @override
@@ -24,9 +30,9 @@ class GradientOutlineButton extends StatelessWidget {
     final isEnabled = onPressed != null && !loading;
 
     return CustomPaint(
-      painter: _GradientOutlinePainter(
+      foregroundPainter: _GradientOutlinePainter(
         radius: 18,
-        strokeWidth: 1.4,
+        strokeWidth: strokeWidth,
         colors: isEnabled
             ? AppColors.brandGradient
             : [theme.dividerColor, theme.dividerColor],
@@ -34,11 +40,14 @@ class GradientOutlineButton extends StatelessWidget {
       child: ClipRRect(
         borderRadius: borderRadius,
         child: Material(
-          color: Colors.transparent,
+          color: backgroundColor ?? Colors.transparent,
           child: InkWell(
             onTap: isEnabled ? onPressed : null,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 14,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
@@ -59,11 +68,15 @@ class GradientOutlineButton extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                   ],
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: isEnabled ? enabledTextColor : disabledTextColor,
-                      fontWeight: FontWeight.w800,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isEnabled ? enabledTextColor : disabledTextColor,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ],

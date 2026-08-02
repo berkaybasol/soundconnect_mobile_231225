@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
@@ -34,7 +35,7 @@ class _ListenerProfileView extends StatelessWidget {
       builder: (context, state) {
         if (state.status == ListenerProfileStatus.loading) {
           return Scaffold(
-            appBar: _listenerAppBar(showBackButton: false),
+            appBar: _listenerAppBar(context, showBackButton: false),
             body: Center(child: CircularProgressIndicator()),
           );
         }
@@ -42,7 +43,7 @@ class _ListenerProfileView extends StatelessWidget {
         if (state.status == ListenerProfileStatus.failure ||
             state.profile == null) {
           return Scaffold(
-            appBar: _listenerAppBar(showBackButton: false),
+            appBar: _listenerAppBar(context, showBackButton: false),
             body: Center(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -71,7 +72,7 @@ class _ListenerProfileView extends StatelessWidget {
         final hasAvatar = isValidNetworkImageUrl(avatarUrl);
 
         return Scaffold(
-          appBar: _listenerAppBar(),
+          appBar: _listenerAppBar(context),
           body: RefreshIndicator(
             onRefresh: () =>
                 context.read<ListenerProfileCubit>().loadMyProfile(),
@@ -179,7 +180,10 @@ class _ListenerProfileView extends StatelessWidget {
     );
   }
 
-  PreferredSizeWidget _listenerAppBar({bool showBackButton = true}) {
+  PreferredSizeWidget _listenerAppBar(
+    BuildContext context, {
+    bool showBackButton = true,
+  }) {
     return AppBar(
       title: GradientText(
         text: 'SoundConnect',
@@ -188,7 +192,19 @@ class _ListenerProfileView extends StatelessWidget {
       ),
       centerTitle: true,
       automaticallyImplyLeading: showBackButton,
-      actions: const [SessionLogoutIconButton()],
+      actions: [
+        IconButton(
+          key: const Key('listener-account-settings'),
+          tooltip: 'Ayarlar',
+          onPressed: () async {
+            await Navigator.of(context).pushNamed(AppRoutes.settings);
+            if (!context.mounted) return;
+            await context.read<ListenerProfileCubit>().loadMyProfile();
+          },
+          icon: const Icon(Icons.settings_outlined),
+        ),
+        const SessionLogoutIconButton(),
+      ],
     );
   }
 }

@@ -7,6 +7,9 @@ class AdminDashboardSummaryModel extends AdminDashboardSummary {
     required super.approvedVenueApplications,
     required super.rejectedVenueApplications,
     required super.activePromotions,
+    required super.pendingStudioApplications,
+    required super.approvedStudioApplications,
+    required super.rejectedStudioApplications,
   });
 
   factory AdminDashboardSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -15,6 +18,9 @@ class AdminDashboardSummaryModel extends AdminDashboardSummary {
       pendingVenueApplications: _intValue(json['pendingVenueApplications']),
       approvedVenueApplications: _intValue(json['approvedVenueApplications']),
       rejectedVenueApplications: _intValue(json['rejectedVenueApplications']),
+      pendingStudioApplications: _intValue(json['pendingStudioApplications']),
+      approvedStudioApplications: _intValue(json['approvedStudioApplications']),
+      rejectedStudioApplications: _intValue(json['rejectedStudioApplications']),
       activePromotions: _intValue(json['activePromotions']),
     );
   }

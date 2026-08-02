@@ -42,6 +42,8 @@ void main() {
         AppRoutes.login: (_) => const Scaffold(body: Text('login-target')),
         AppRoutes.venuePending: (_) =>
             const Scaffold(body: Text('venue-pending-target')),
+        AppRoutes.studioPending: (_) =>
+            const Scaffold(body: Text('studio-pending-target')),
       },
     );
   }
@@ -144,6 +146,7 @@ void main() {
 
   for (final scenario in <({String role, String target})>[
     (role: 'ROLE_VENUE', target: 'venue-pending-target'),
+    (role: 'ROLE_STUDIO', target: 'studio-pending-target'),
     (role: 'ROLE_LISTENER', target: 'login-target'),
   ]) {
     testWidgets(

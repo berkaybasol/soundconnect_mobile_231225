@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/stage_mode.dart';
@@ -10,6 +9,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../dm/data/dm_auth_support.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
+import '../../../dm/presentation/dm_profile_navigation.dart';
 import '../../data/table_group_chat_realtime_client.dart';
 import '../../domain/entities/table_group.dart';
 import '../../domain/entities/table_group_message.dart';
@@ -681,11 +681,14 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen> {
   ) async {
     if (!mounted) return;
     final resolver = serviceLocator<DmUserProfileResolver>();
-    final targets = await resolver.resolveByUserId(
+    final resolvedTargets = await resolver.resolveByUserId(
       userId: participant.userId,
       usernameHint: participant.username,
     );
     if (!mounted) return;
+    final targets = resolvedTargets
+        .where((target) => dmProfileRouteFor(target) != null)
+        .toList(growable: false);
     if (targets.isEmpty) {
       _showSnack('Bu kullanici icin acik profil bulunamadi');
       return;
@@ -704,20 +707,11 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen> {
   }
 
   void _navigateToProfileTarget(DmProfileTarget target) {
-    switch (target.type) {
-      case DmProfileTargetType.musician:
-        Navigator.of(context).pushNamed(
-          AppRoutes.musicianPublicProfile,
-          arguments: <String, dynamic>{'profileId': target.id},
-        );
-        return;
-      case DmProfileTargetType.venue:
-        Navigator.of(context).pushNamed(
-          AppRoutes.venuePublicProfile,
-          arguments: <String, dynamic>{'venueId': target.id},
-        );
-        return;
-    }
+    final route = dmProfileRouteFor(target);
+    if (route == null) return;
+    Navigator.of(
+      context,
+    ).pushNamed(route.routeName, arguments: route.arguments);
   }
 
   Future<void> _approvePendingRequest(TableGroupParticipant participant) async {
@@ -1001,17 +995,15 @@ class _TableGroupProfileTargetSheet extends StatelessWidget {
               backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
               child: hasImage
                   ? null
-                  : Icon(
-                      item.type == DmProfileTargetType.musician
-                          ? Icons.person_outline
-                          : Icons.storefront_outlined,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  : Icon(switch (item.type) {
+                      DmProfileTargetType.musician => Icons.person_outline,
+                      DmProfileTargetType.venue => Icons.storefront_outlined,
+                      DmProfileTargetType.studio => Icons.graphic_eq_outlined,
+                      DmProfileTargetType.listener => Icons.headphones_outlined,
+                    }, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             title: Text(item.displayName),
-            subtitle: Text(
-              item.type == DmProfileTargetType.musician ? 'Muzisyen' : 'Mekan',
-            ),
+            subtitle: Text(item.type.displayLabel),
             onTap: () => Navigator.of(context).pop(item),
           );
         },

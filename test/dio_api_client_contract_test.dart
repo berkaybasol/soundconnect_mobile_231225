@@ -92,6 +92,48 @@ void main() {
       },
     );
 
+    test('unwraps scalar and null auth response data', () async {
+      final adapter = _RecordingHttpClientAdapter(
+        (options) => _jsonResponse(
+          statusCode: 200,
+          payload: <String, dynamic>{
+            'success': true,
+            'message': 'ok',
+            'code': 200,
+            'data': options.path == '/api/v1/users/me/username'
+                ? 'new-name'
+                : null,
+          },
+        ),
+      );
+      final dio = _dio(adapter);
+      addTearDown(() => _closeDio(dio, adapter));
+      final client = DioApiClient(
+        dio: dio,
+        tokenStore: _MemoryTokenStore(null),
+      );
+
+      final username = await client.request<String>(
+        ApiHttpMethod.patch,
+        '/api/v1/users/me/username',
+        body: const <String, String>{'username': 'new-name'},
+        decoder: (json) => json?.toString() ?? '',
+      );
+      final resetRequest = await client.request<Object?>(
+        ApiHttpMethod.post,
+        '/api/v1/auth/forgot-password',
+        body: const <String, String>{'email': 'user@example.com'},
+        decoder: (_) => null,
+      );
+
+      expect(username, 'new-name');
+      expect(resetRequest, isNull);
+      expect(adapter.requests.map((request) => request.method), <String>[
+        'PATCH',
+        'POST',
+      ]);
+    });
+
     test('maps a rejected success-status envelope to ApiException', () async {
       final _RecordingHttpClientAdapter adapter = _RecordingHttpClientAdapter(
         (_) => _jsonResponse(

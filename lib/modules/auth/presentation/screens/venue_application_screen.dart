@@ -6,6 +6,7 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../../location/presentation/cubit/location_cubit.dart';
 import '../../../location/presentation/cubit/location_state.dart';
+import '../../domain/business_name_policy.dart';
 import 'otp_verify_screen.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
@@ -77,13 +78,23 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
       return;
     }
 
-    if (_venueNameController.text.trim().isEmpty ||
+    final venueName = BusinessNamePolicy.normalize(_venueNameController.text);
+    if (_venueNameController.text != venueName) {
+      _venueNameController.value = TextEditingValue(
+        text: venueName,
+        selection: TextSelection.collapsed(offset: venueName.length),
+      );
+    }
+
+    if (venueName.isEmpty ||
         _venueAddressController.text.trim().isEmpty ||
         _venuePhoneController.text.trim().isEmpty ||
         (_selectedCityId ?? '').isEmpty ||
         (_selectedDistrictId ?? '').isEmpty ||
         (_selectedNeighborhoodId ?? '').isEmpty) {
-      _showError('Mekan bilgilerini eksiksiz doldur.');
+      _showError(
+        'Şehir, ilçe, mahalle ve Açık Adres dahil mekan bilgilerini eksiksiz doldur.',
+      );
       return;
     }
 
@@ -93,7 +104,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
       password: args.password,
       rePassword: args.rePassword,
       role: args.role,
-      venueName: _venueNameController.text.trim(),
+      venueName: venueName,
       venueAddress: _venueAddressController.text.trim(),
       phone: _venuePhoneController.text.trim(),
       cityId: _selectedCityId,
@@ -142,18 +153,14 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
               ),
               SizedBox(height: 16),
               GradientTextField(
+                key: const Key('venue-application-name-field'),
                 controller: _venueNameController,
                 label: 'Mekan adı',
                 prefixIcon: Icons.storefront_outlined,
               ),
               SizedBox(height: 12),
               GradientTextField(
-                controller: _venueAddressController,
-                label: 'Adres',
-                prefixIcon: Icons.location_on_outlined,
-              ),
-              SizedBox(height: 12),
-              GradientTextField(
+                key: const Key('venue-application-phone-field'),
                 controller: _venuePhoneController,
                 label: 'Telefon',
                 prefixIcon: Icons.phone_outlined,
@@ -319,6 +326,13 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
                     ],
                   );
                 },
+              ),
+              SizedBox(height: 12),
+              GradientTextField(
+                key: const Key('venue-application-address-field'),
+                controller: _venueAddressController,
+                label: 'Açık Adres',
+                prefixIcon: Icons.location_on_outlined,
               ),
               SizedBox(height: 20),
               Row(

@@ -117,6 +117,8 @@ class PendingProfileUpload {
     final intent = switch (attachmentType) {
       ProfileUploadAttachmentType.none =>
         const ProfileUploadAttachmentIntent.none(),
+      ProfileUploadAttachmentType.draft =>
+        const ProfileUploadAttachmentIntent.draft(),
       ProfileUploadAttachmentType.gallery =>
         ProfileUploadAttachmentIntent.gallery(profileType: profileType ?? ''),
       ProfileUploadAttachmentType.profilePicture =>

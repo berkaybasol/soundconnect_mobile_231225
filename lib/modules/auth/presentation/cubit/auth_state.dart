@@ -1,12 +1,26 @@
 import '../../../../core/error/app_error.dart';
 import '../../../../core/state/copy_with.dart';
 import '../../domain/entities/login_result.dart';
+import '../../domain/entities/password_reset_account.dart';
 import '../../domain/entities/register_result.dart';
 import '../../domain/entities/resend_code_result.dart';
+import '../../domain/entities/username_availability.dart';
 
 enum AuthStatus { idle, loading, success, failure }
 
-enum AuthAction { none, login, logout, register, verify, resend }
+enum AuthAction {
+  none,
+  login,
+  logout,
+  register,
+  verify,
+  resend,
+  usernameAvailability,
+  passwordResetAccount,
+  forgotPassword,
+  resetPassword,
+  updateUsername,
+}
 
 class AuthState {
   final AuthStatus status;
@@ -16,6 +30,8 @@ class AuthState {
   final LoginResult? loginResult;
   final RegisterResult? registerResult;
   final ResendCodeResult? resendResult;
+  final UsernameAvailability? usernameAvailability;
+  final PasswordResetAccount? passwordResetAccount;
 
   const AuthState({
     required this.status,
@@ -25,6 +41,8 @@ class AuthState {
     this.loginResult,
     this.registerResult,
     this.resendResult,
+    this.usernameAvailability,
+    this.passwordResetAccount,
   });
 
   const AuthState.idle()
@@ -34,7 +52,9 @@ class AuthState {
       error = null,
       loginResult = null,
       registerResult = null,
-      resendResult = null;
+      resendResult = null,
+      usernameAvailability = null,
+      passwordResetAccount = null;
 
   AuthState copyWith({
     AuthStatus? status,
@@ -44,6 +64,8 @@ class AuthState {
     Object? loginResult = copyWithUnset,
     Object? registerResult = copyWithUnset,
     Object? resendResult = copyWithUnset,
+    Object? usernameAvailability = copyWithUnset,
+    Object? passwordResetAccount = copyWithUnset,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -61,6 +83,12 @@ class AuthState {
       resendResult: identical(resendResult, copyWithUnset)
           ? this.resendResult
           : resendResult as ResendCodeResult?,
+      usernameAvailability: identical(usernameAvailability, copyWithUnset)
+          ? this.usernameAvailability
+          : usernameAvailability as UsernameAvailability?,
+      passwordResetAccount: identical(passwordResetAccount, copyWithUnset)
+          ? this.passwordResetAccount
+          : passwordResetAccount as PasswordResetAccount?,
     );
   }
 }

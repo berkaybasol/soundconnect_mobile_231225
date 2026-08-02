@@ -6,9 +6,11 @@ class AppRouteGuard {
   static const Set<String> _anonymousRoutes = <String>{
     AppRoutes.login,
     AppRoutes.register,
+    AppRoutes.forgotPassword,
     AppRoutes.otpVerify,
     AppRoutes.venueApplication,
     AppRoutes.venuePending,
+    AppRoutes.studioPending,
   };
 
   static const Set<String> _publicProfileRoutes = <String>{
@@ -36,12 +38,21 @@ class AppRouteGuard {
       return AppRoutes.venuePending;
     }
 
+    if (session.isPendingStudio) {
+      if (requested == AppRoutes.studioPending ||
+          _publicProfileRoutes.contains(requested)) {
+        return null;
+      }
+      return AppRoutes.studioPending;
+    }
+
     if (!session.isActive) {
       return requested == AppRoutes.login ? null : AppRoutes.login;
     }
 
     if (_anonymousRoutes.contains(requested) ||
-        requested == AppRoutes.venuePending) {
+        requested == AppRoutes.venuePending ||
+        requested == AppRoutes.studioPending) {
       return startRouteFor(session);
     }
 
@@ -76,6 +87,7 @@ class AppRouteGuard {
   static String startRouteFor(AuthSession session) {
     if (!session.isAuthenticated) return AppRoutes.login;
     if (session.isPendingVenue) return AppRoutes.venuePending;
+    if (session.isPendingStudio) return AppRoutes.studioPending;
     if (session.isAdmin) return AppRoutes.adminDashboard;
     if (AccessPolicy.canAccessBackstage(session.roles)) {
       return AppRoutes.home;

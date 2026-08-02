@@ -7,12 +7,19 @@ import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/auth_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_result.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/password_reset_account.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/username_availability.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/check_username_availability_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/login_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/register_usecase.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/request_password_reset_usecase.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/resolve_password_reset_account_usecase.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/reset_password_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/resend_code_usecase.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/update_username_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/verify_code_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/city.dart';
@@ -20,13 +27,27 @@ import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/distr
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/neighborhood.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/location_repository.dart';
 
-AuthCubit createAuthCubit(RecordingAuthRepository repository) {
+AuthCubit createAuthCubit(
+  RecordingAuthRepository repository, {
+  TokenStore? tokenStore,
+  AuthSessionManager? sessionManager,
+}) {
   return AuthCubit(
     loginUseCase: LoginUseCase(repository),
     registerUseCase: RegisterUseCase(repository),
     verifyCodeUseCase: VerifyCodeUseCase(repository),
     resendCodeUseCase: ResendCodeUseCase(repository),
-    tokenStore: MemoryTokenStore(),
+    requestPasswordResetUseCase: RequestPasswordResetUseCase(repository),
+    resetPasswordUseCase: ResetPasswordUseCase(repository),
+    updateUsernameUseCase: UpdateUsernameUseCase(repository),
+    checkUsernameAvailabilityUseCase: CheckUsernameAvailabilityUseCase(
+      repository,
+    ),
+    resolvePasswordResetAccountUseCase: ResolvePasswordResetAccountUseCase(
+      repository,
+    ),
+    tokenStore: tokenStore ?? MemoryTokenStore(),
+    sessionManager: sessionManager,
   );
 }
 
@@ -43,6 +64,9 @@ class RecordedRegistration {
     this.cityId,
     this.districtId,
     this.neighborhoodId,
+    this.studioName,
+    this.studioAddress,
+    this.studioPhone,
   });
 
   final String username;
@@ -56,9 +80,12 @@ class RecordedRegistration {
   final String? cityId;
   final String? districtId;
   final String? neighborhoodId;
+  final String? studioName;
+  final String? studioAddress;
+  final String? studioPhone;
 }
 
-class RecordingAuthRepository implements AuthRepository {
+class RecordingAuthRepository extends AuthRepository {
   Result<RegisterResult> registerResult = const Result.success(
     RegisterResult(
       email: 'registered@example.com',
@@ -71,18 +98,42 @@ class RecordingAuthRepository implements AuthRepository {
   Result<ResendCodeResult> resendResult = const Result.success(
     ResendCodeResult(otpTtlSeconds: 180, mailQueued: true, cooldownSeconds: 30),
   );
+  Result<void> requestPasswordResetResult = const Result.success(null);
+  Result<UsernameAvailability>? usernameAvailabilityResult;
+  Result<PasswordResetAccount> passwordResetAccountResult =
+      const Result.success(PasswordResetAccount(username: 'resolved-user'));
+  Result<void> resetPasswordResult = const Result.success(null);
+  Result<String> updateUsernameResult = const Result.success('updated-user');
 
   Completer<Result<RegisterResult>>? registerCompleter;
   Completer<Result<void>>? verifyCompleter;
   Completer<Result<ResendCodeResult>>? resendCompleter;
+  Completer<Result<void>>? requestPasswordResetCompleter;
+  Completer<Result<UsernameAvailability>>? usernameAvailabilityCompleter;
+  Completer<Result<PasswordResetAccount>>? passwordResetAccountCompleter;
+  Completer<Result<void>>? resetPasswordCompleter;
+  Completer<Result<String>>? updateUsernameCompleter;
 
   int registerCalls = 0;
   int verifyCalls = 0;
   int resendCalls = 0;
+  int requestPasswordResetCalls = 0;
+  int usernameAvailabilityCalls = 0;
+  int passwordResetAccountCalls = 0;
+  int resetPasswordCalls = 0;
+  int updateUsernameCalls = 0;
   RecordedRegistration? lastRegistration;
   String? lastVerifyEmail;
   String? lastVerifyCode;
   String? lastResendEmail;
+  String? lastPasswordResetIdentifier;
+  String? lastUsernameAvailability;
+  String? lastPasswordResetAccountIdentifier;
+  String? lastResetIdentifier;
+  String? lastResetCode;
+  String? lastResetPassword;
+  String? lastResetRePassword;
+  String? lastUpdatedUsername;
 
   @override
   Future<Result<LoginResult>> login({
@@ -107,6 +158,9 @@ class RecordingAuthRepository implements AuthRepository {
     String? cityId,
     String? districtId,
     String? neighborhoodId,
+    String? studioName,
+    String? studioAddress,
+    String? studioPhone,
   }) async {
     registerCalls += 1;
     lastRegistration = RecordedRegistration(
@@ -121,6 +175,9 @@ class RecordingAuthRepository implements AuthRepository {
       cityId: cityId,
       districtId: districtId,
       neighborhoodId: neighborhoodId,
+      studioName: studioName,
+      studioAddress: studioAddress,
+      studioPhone: studioPhone,
     );
     return registerCompleter?.future ?? registerResult;
   }
@@ -141,6 +198,59 @@ class RecordingAuthRepository implements AuthRepository {
     resendCalls += 1;
     lastResendEmail = email;
     return resendCompleter?.future ?? resendResult;
+  }
+
+  @override
+  Future<Result<UsernameAvailability>> checkUsernameAvailability({
+    required String username,
+  }) async {
+    usernameAvailabilityCalls += 1;
+    lastUsernameAvailability = username;
+    return usernameAvailabilityCompleter?.future ??
+        usernameAvailabilityResult ??
+        Result.success(
+          UsernameAvailability(username: username, available: true),
+        );
+  }
+
+  @override
+  Future<Result<PasswordResetAccount>> resolvePasswordResetAccount({
+    required String identifier,
+  }) async {
+    passwordResetAccountCalls += 1;
+    lastPasswordResetAccountIdentifier = identifier;
+    return passwordResetAccountCompleter?.future ?? passwordResetAccountResult;
+  }
+
+  @override
+  Future<Result<void>> requestPasswordReset({
+    required String identifier,
+  }) async {
+    requestPasswordResetCalls += 1;
+    lastPasswordResetIdentifier = identifier;
+    return requestPasswordResetCompleter?.future ?? requestPasswordResetResult;
+  }
+
+  @override
+  Future<Result<void>> resetPassword({
+    required String identifier,
+    required String code,
+    required String password,
+    required String rePassword,
+  }) async {
+    resetPasswordCalls += 1;
+    lastResetIdentifier = identifier;
+    lastResetCode = code;
+    lastResetPassword = password;
+    lastResetRePassword = rePassword;
+    return resetPasswordCompleter?.future ?? resetPasswordResult;
+  }
+
+  @override
+  Future<Result<String>> updateUsername({required String username}) async {
+    updateUsernameCalls += 1;
+    lastUpdatedUsername = username;
+    return updateUsernameCompleter?.future ?? updateUsernameResult;
   }
 }
 

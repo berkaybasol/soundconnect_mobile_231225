@@ -208,17 +208,15 @@ class _ActionButtons extends StatelessWidget {
           ),
           SizedBox(width: 12),
           Expanded(
-            child: ElevatedButton(
+            child: GradientOutlineButton(
+              label: 'Mesaj Gönder',
               onPressed: onMessageTap,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.coralAlt,
-                foregroundColor: AppColors.white,
-                padding: EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              child: Text('Mesaj gönder'),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              horizontalPadding: 12,
+              strokeWidth: 0.7,
+              leading: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
             ),
           ),
         ],

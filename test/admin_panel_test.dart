@@ -9,6 +9,7 @@ import 'package:soundconnect_23_12_25codx/modules/admin/data/admin_endpoints.dar
 import 'package:soundconnect_23_12_25codx/modules/admin/data/admin_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/admin_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_dashboard_summary.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_studio_application.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_venue_application.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/cubit/admin_panel_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/cubit/admin_panel_state.dart';
@@ -23,6 +24,9 @@ void main() {
             'pendingVenueApplications': 2,
             'approvedVenueApplications': 3,
             'rejectedVenueApplications': 1,
+            'pendingStudioApplications': 5,
+            'approvedStudioApplications': 6,
+            'rejectedStudioApplications': 7,
             'activePromotions': 4,
           };
         }
@@ -46,10 +50,38 @@ void main() {
 
       expect(summary.data?.totalUsers, 12);
       expect(summary.data?.activePromotions, 4);
+      expect(summary.data?.pendingStudioApplications, 5);
       expect(applications.data?.single.id, 'application-1');
       expect(apiClient.lastMethod, 'GET');
       expect(apiClient.lastPath, AdminEndpoints.venueApplicationsByStatus);
       expect(apiClient.lastQuery, <String, dynamic>{'status': 'APPROVED'});
+    });
+
+    test('decodes studio applications with authoritative location', () async {
+      final apiClient = _AdminApiClientFake((path, query) async {
+        expect(path, AdminEndpoints.studioApplicationsByStatus);
+        return <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'studio-application-1',
+            'applicantUsername': 'faruk',
+            'studioName': 'Devo Studio',
+            'studioAddress': 'Moda Caddesi',
+            'phone': '05551234567',
+            'cityName': 'İstanbul',
+            'districtName': 'Kadıköy',
+            'neighborhoodName': 'Moda',
+            'status': 'PENDING',
+          },
+        ];
+      });
+
+      final result = await AdminRepositoryImpl(
+        apiClient,
+      ).getStudioApplicationsByStatus(AdminVenueApplicationStatus.pending);
+
+      expect(result.data?.single.studioName, 'Devo Studio');
+      expect(result.data?.single.neighborhoodName, 'Moda');
+      expect(apiClient.lastQuery, <String, dynamic>{'status': 'PENDING'});
     });
 
     test('preserves typed API errors', () async {
@@ -190,6 +222,21 @@ class _AdminRepositoryFake implements AdminRepository {
       _application(id, AdminVenueApplicationStatus.rejected),
     );
   }
+
+  @override
+  Future<Result<List<AdminStudioApplication>>> getStudioApplicationsByStatus(
+    AdminVenueApplicationStatus status,
+  ) async => const Result.success(<AdminStudioApplication>[]);
+
+  @override
+  Future<Result<AdminStudioApplication>> approveStudioApplication(String id) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<AdminStudioApplication>> rejectStudioApplication({
+    required String id,
+    required String reason,
+  }) => throw UnimplementedError();
 }
 
 class _AdminApiClientFake extends ApiClient {

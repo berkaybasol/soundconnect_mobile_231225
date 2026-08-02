@@ -10,6 +10,7 @@ import '../../../../shared/theme/theme_controller.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../domain/password_policy.dart';
+import '../../domain/username_policy.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
@@ -32,6 +33,17 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  String _canonicalizeUsername() {
+    final username = UsernamePolicy.normalize(_usernameController.text);
+    if (_usernameController.text != username) {
+      _usernameController.value = TextEditingValue(
+        text: username,
+        selection: TextSelection.collapsed(offset: username.length),
+      );
+    }
+    return username;
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeController = serviceLocator.isRegistered<ThemeController>()
@@ -47,6 +59,17 @@ class _LoginScreenState extends State<LoginScreen> {
             context,
           ).pushNamedAndRemoveUntil(route, (route) => false);
         } else if (state.status == AuthStatus.failure) {
+          final pendingRoute = switch (state.error?.code) {
+            'auth_pending_venue_approval' => AppRoutes.venuePending,
+            'auth_pending_studio_approval' => AppRoutes.studioPending,
+            _ => null,
+          };
+          if (pendingRoute != null) {
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(pendingRoute, (route) => false);
+            return;
+          }
           final message =
               state.error?.message ??
               'Giriş yapılamadı. Bilgilerini kontrol edip tekrar deneyebilirsin.';
@@ -121,7 +144,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   SizedBox(width: 4),
                   TextButton(
-                    onPressed: () {},
+                    key: const Key('forgot-password-button'),
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.forgotPassword),
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.symmetric(horizontal: 6),
                       minimumSize: Size.zero,
@@ -142,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onTap: isLoading
                     ? null
                     : () {
-                        final username = _usernameController.text.trim();
+                        final username = _canonicalizeUsername();
                         final password = _passwordController.text;
                         if (username.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(

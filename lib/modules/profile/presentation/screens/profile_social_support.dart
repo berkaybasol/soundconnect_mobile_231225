@@ -5,8 +5,15 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../../domain/entities/musician_profile.dart';
+import '../../domain/entities/studio_profile.dart';
+import '../../domain/studio_profile_repository.dart';
 
 enum ProfileSocialPlatform { soundcloud, instagram, youtube, spotify }
+
+const studioSocialPlatforms = <ProfileSocialPlatform>[
+  ProfileSocialPlatform.instagram,
+  ProfileSocialPlatform.youtube,
+];
 
 extension ProfileSocialPlatformUi on ProfileSocialPlatform {
   String get label {
@@ -85,6 +92,37 @@ MusicianProfileSaveRequest buildMusicianSocialLinkRequest(
   };
 }
 
+String? socialUrlForStudioProfile(
+  StudioProfile profile,
+  ProfileSocialPlatform platform,
+) {
+  return switch (platform) {
+    ProfileSocialPlatform.instagram => profile.instagramUrl,
+    ProfileSocialPlatform.youtube => profile.youtubeUrl,
+    ProfileSocialPlatform.soundcloud || ProfileSocialPlatform.spotify => null,
+  };
+}
+
+StudioProfileSaveRequest buildStudioSocialLinkRequest(
+  ProfileSocialPlatform platform,
+  String normalizedUrl,
+) {
+  return switch (platform) {
+    ProfileSocialPlatform.instagram => StudioProfileSaveRequest(
+      instagramUrl: normalizedUrl,
+    ),
+    ProfileSocialPlatform.youtube => StudioProfileSaveRequest(
+      youtubeUrl: normalizedUrl,
+    ),
+    ProfileSocialPlatform.soundcloud ||
+    ProfileSocialPlatform.spotify => throw ArgumentError.value(
+      platform,
+      'platform',
+      'Studio profiles do not support this social platform.',
+    ),
+  };
+}
+
 Future<String?> promptForSocialLink(
   BuildContext context, {
   required ProfileSocialPlatform platform,
@@ -124,6 +162,27 @@ Future<String?> promptForSocialLink(
   return trimmed.contains('://') ? trimmed : 'https://$trimmed';
 }
 
+Future<void> _launchProfileSocialUrl(BuildContext context, String? url) async {
+  final trimmed = url?.trim();
+  if (trimmed == null || trimmed.isEmpty) return;
+
+  final normalized = trimmed.contains('://') ? trimmed : 'https://$trimmed';
+  final uri = Uri.tryParse(normalized);
+  if (uri == null) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Gecersiz link')));
+    return;
+  }
+
+  final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!success && context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Link acilamadi')));
+  }
+}
+
 class ProfileSocialButtonRow extends StatelessWidget {
   final MusicianProfile profile;
   final bool editable;
@@ -138,42 +197,52 @@ class ProfileSocialButtonRow extends StatelessWidget {
     this.pillWidth = 64,
   });
 
-  Future<void> _launchExternalUrl(BuildContext context, String? url) async {
-    final trimmed = url?.trim();
-    if (trimmed == null || trimmed.isEmpty) return;
-
-    final normalized = trimmed.contains('://') ? trimmed : 'https://$trimmed';
-    final uri = Uri.tryParse(normalized);
-    if (uri == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gecersiz link')));
-      return;
-    }
-
-    final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!success && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Link acilamadi')));
-    }
+  @override
+  Widget build(BuildContext context) {
+    return ProfileSocialLinksRow(
+      items: ProfileSocialPlatform.values
+          .map(
+            (platform) => ProfileSocialLinkItem(
+              platform: platform,
+              url: socialUrlForMusicianProfile(profile, platform),
+            ),
+          )
+          .toList(),
+      editable: editable,
+      onAddLink: onAddLink,
+      pillWidth: pillWidth,
+    );
   }
+}
+
+class ProfileSocialLinkItem {
+  final ProfileSocialPlatform platform;
+  final String? url;
+
+  const ProfileSocialLinkItem({required this.platform, required this.url});
+
+  bool get active => _isSocialUrlUsable(url);
+}
+
+class ProfileSocialLinksRow extends StatelessWidget {
+  final List<ProfileSocialLinkItem> items;
+  final bool editable;
+  final ValueChanged<ProfileSocialPlatform>? onAddLink;
+  final double pillWidth;
+
+  const ProfileSocialLinksRow({
+    super.key,
+    required this.items,
+    this.editable = false,
+    this.onAddLink,
+    this.pillWidth = 64,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final allItems = ProfileSocialPlatform.values
-        .map(
-          (platform) => _ProfileSocialItem(
-            platform: platform,
-            icon: platform.icon,
-            url: socialUrlForMusicianProfile(profile, platform),
-          ),
-        )
-        .toList();
-
     final visibleItems = editable
-        ? allItems
-        : allItems.where((item) => item.active).toList();
+        ? items
+        : items.where((item) => item.active).toList();
 
     if (visibleItems.isEmpty) return SizedBox.shrink();
 
@@ -183,33 +252,19 @@ class ProfileSocialButtonRow extends StatelessWidget {
       runSpacing: 8,
       children: visibleItems.map((item) {
         return _ProfileSocialPill(
-          icon: item.icon,
+          icon: item.platform.icon,
           active: item.active,
           showAddBadge: editable && !item.active,
           width: pillWidth,
           onTap: editable
               ? () => onAddLink?.call(item.platform)
               : (item.active
-                    ? () => _launchExternalUrl(context, item.url)
+                    ? () => _launchProfileSocialUrl(context, item.url)
                     : null),
         );
       }).toList(),
     );
   }
-}
-
-class _ProfileSocialItem {
-  final ProfileSocialPlatform platform;
-  final FaIconData icon;
-  final String? url;
-
-  _ProfileSocialItem({
-    required this.platform,
-    required this.icon,
-    required this.url,
-  });
-
-  bool get active => _isSocialUrlUsable(url);
 }
 
 bool _isSocialUrlUsable(String? raw) {

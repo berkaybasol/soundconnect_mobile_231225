@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
@@ -49,10 +50,11 @@ void main() {
 
     await tester.tap(find.byKey(sessionLogoutButtonKey));
     await _openLogoutDialog(tester);
-    expect(find.text('Oturumu Kapat'), findsNWidgets(2));
+    expect(find.text('Çıkış yapılsın mı?'), findsOneWidget);
+    expect(find.text('Çıkış yap'), findsOneWidget);
     expect(
       find.text(
-        'SoundConnect hesabından çıkış yapmak üzeresin. Daha sonra tekrar giriş yapabilirsin.',
+        'Bu cihazdaki SoundConnect oturumun sonlandırılacak. İstediğin zaman tekrar giriş yapabilirsin.',
       ),
       findsOneWidget,
     );
@@ -138,6 +140,64 @@ void main() {
     expect(find.text('listener'), findsWidgets);
     expect(find.byKey(sessionLogoutButtonKey), findsOneWidget);
   });
+
+  testWidgets('listener reloads its username after returning from settings', (
+    tester,
+  ) async {
+    GetIt.instance.registerSingleton<DmBadgeCubit>(
+      DmBadgeCubit(_NoopDmRepository(), tokenStore),
+      dispose: (value) => value.close(),
+    );
+    final repository = _SequenceListenerProfileRepository(
+      const ListenerProfile(
+        id: 'listener-profile-1',
+        userId: 'listener-user-1',
+        username: 'old-name',
+        bio: null,
+        profilePictureUrl: null,
+        followerCount: 0,
+        followingCount: 0,
+      ),
+      const ListenerProfile(
+        id: 'listener-profile-1',
+        userId: 'listener-user-1',
+        username: 'new-name',
+        bio: null,
+        profilePictureUrl: null,
+        followerCount: 0,
+        followingCount: 0,
+      ),
+    );
+    _registerListenerRepository(repository);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        routes: <String, WidgetBuilder>{
+          AppRoutes.settings: (settingsContext) => Scaffold(
+            body: Center(
+              child: TextButton(
+                key: const Key('return-from-settings'),
+                onPressed: () => Navigator.of(settingsContext).pop(),
+                child: const Text('Ayarları kapat'),
+              ),
+            ),
+          ),
+        },
+        home: ListenerProfileScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('old-name'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('listener-account-settings')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('return-from-settings')));
+    await tester.pumpAndSettle();
+
+    expect(repository.calls, 2);
+    expect(find.text('new-name'), findsWidgets);
+    expect(find.text('old-name'), findsNothing);
+  });
 }
 
 Widget _logoutButtonApp() {
@@ -162,6 +222,11 @@ class _PendingListenerProfileRepository implements ListenerProfileRepository {
 
   @override
   Future<Result<ListenerProfile>> getMyProfile() => _completer.future;
+
+  @override
+  Future<Result<ListenerProfile>> updateMyProfile(
+    ListenerProfileSaveRequest request,
+  ) => _completer.future;
 }
 
 class _FixedListenerProfileRepository implements ListenerProfileRepository {
@@ -171,6 +236,30 @@ class _FixedListenerProfileRepository implements ListenerProfileRepository {
 
   @override
   Future<Result<ListenerProfile>> getMyProfile() async => result;
+
+  @override
+  Future<Result<ListenerProfile>> updateMyProfile(
+    ListenerProfileSaveRequest request,
+  ) async => result;
+}
+
+class _SequenceListenerProfileRepository implements ListenerProfileRepository {
+  _SequenceListenerProfileRepository(this.first, this.next);
+
+  final ListenerProfile first;
+  final ListenerProfile next;
+  int calls = 0;
+
+  @override
+  Future<Result<ListenerProfile>> getMyProfile() async {
+    calls += 1;
+    return Result.success(calls == 1 ? first : next);
+  }
+
+  @override
+  Future<Result<ListenerProfile>> updateMyProfile(
+    ListenerProfileSaveRequest request,
+  ) async => Result.success(next);
 }
 
 class _NoopDmRepository implements DmRepository {

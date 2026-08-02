@@ -13,8 +13,12 @@ class _StudioRoomSettingsResult {
 
 class _StudioRoomSettingsScreen extends StatefulWidget {
   final _StudioRoomItem room;
+  final String studioProfileId;
 
-  const _StudioRoomSettingsScreen({required this.room});
+  const _StudioRoomSettingsScreen({
+    required this.room,
+    required this.studioProfileId,
+  });
 
   @override
   State<_StudioRoomSettingsScreen> createState() =>
@@ -23,35 +27,57 @@ class _StudioRoomSettingsScreen extends StatefulWidget {
 
 class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
+  final StudioRoomRepository _repository =
+      serviceLocator<StudioRoomRepository>();
+  final ImagePicker _imagePicker = ImagePicker();
+  late final DraftMediaCleanupCoordinator _draftMediaCleanup;
+  late _StudioRoomItem _currentRoom;
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _capacityController;
   late final TextEditingController _hourlyPriceController;
   final _featureController = TextEditingController();
   late final List<String> _features;
-  late final List<String> _photos;
+  late final List<StudioRoomPhoto> _photos;
   late bool _approvalRequired;
+  late bool _initialApprovalSelection;
   bool _isDirty = false;
   bool _allowPop = false;
   bool _isExitDialogOpen = false;
   String? _featureError;
+  bool _saving = false;
+  bool _deleting = false;
+  bool _photoUploading = false;
+  bool _synchronizing = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.room.name);
-    _descriptionController = TextEditingController(text: widget.room.type);
+    _draftMediaCleanup = DraftMediaCleanupCoordinator(
+      repository: serviceLocator<ProfileMediaUploadRepository>(),
+      ownerType: 'STUDIO_PROFILE',
+      ownerId: widget.studioProfileId,
+    );
+    _currentRoom = widget.room;
+    _nameController = TextEditingController(text: _currentRoom.name);
+    _descriptionController = TextEditingController(text: _currentRoom.type);
     _capacityController = TextEditingController(
-      text: _firstNumber(widget.room.capacity),
+      text: _StudioRoomCapacityRange(
+        minimum: _currentRoom.minimumCapacityCount,
+        maximum: _currentRoom.capacityCount,
+      ).label,
     );
     _hourlyPriceController = TextEditingController(
-      text: widget.room.price == 'Fiyat belirtilmedi'
+      text: _currentRoom.hourlyPriceMinor == null
           ? ''
-          : _digitsOnly(widget.room.price),
+          : (_currentRoom.hourlyPriceMinor! ~/ 100).toString(),
     );
-    _features = List.of(widget.room.features);
-    _photos = widget.room.photoUrls.take(10).toList();
-    _approvalRequired = widget.room.reservationApprovalRequired;
+    _features = List.of(_currentRoom.features);
+    _photos = _currentRoom.photos.take(10).toList();
+    _approvalRequired =
+        _currentRoom.pendingReservationApprovalRequired ??
+        _currentRoom.reservationApprovalRequired;
+    _initialApprovalSelection = _approvalRequired;
     for (final controller in [
       _nameController,
       _descriptionController,
@@ -65,6 +91,7 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
 
   @override
   void dispose() {
+    _draftMediaCleanup.close().ignore();
     _nameController.dispose();
     _descriptionController.dispose();
     _capacityController.dispose();
@@ -89,20 +116,21 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
               children: [
                 _StudioRoomSettingsPhotoSection(
-                  room: widget.room,
+                  room: _currentRoom,
                   photos: _photos,
-                  onAddPhoto: _showPhotoInfo,
+                  uploading: _photoUploading,
+                  onPickPhoto: _pickPhoto,
                   onDeletePhoto: _deletePhoto,
-                  onMovePhoto: _movePhoto,
                 ),
                 const SizedBox(height: 16),
                 _StudioRoomApprovalPolicyCard(
                   value: _approvalRequired,
-                  onChanged: (value) => setState(() {
-                    _approvalRequired = value;
-                    _isDirty = true;
-                  }),
+                  effectiveAt:
+                      _currentRoom.reservationApprovalPolicyEffectiveAt,
+                  onChanged: _requestApprovalPolicyChange,
                 ),
+                const SizedBox(height: 12),
+                const _StudioRoomOnlinePaymentCard(),
                 const SizedBox(height: 20),
                 const _RoomFormSectionLabel(
                   icon: Icons.tune_outlined,
@@ -113,6 +141,7 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                   controller: _nameController,
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
+                  maxLength: 100,
                   decoration: const InputDecoration(
                     labelText: 'Oda adı',
                     prefixIcon: Icon(
@@ -142,10 +171,14 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _capacityController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.text,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9\-–— ]')),
+                  ],
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
                     labelText: 'Kapasite',
+                    hintText: 'Örn. 4-6',
                     prefixIcon: Icon(
                       Icons.people_outline,
                       color: _roomFormIconColor,
@@ -153,9 +186,9 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                     suffixText: 'kişi',
                   ),
                   validator: (value) {
-                    final capacity = int.tryParse(value?.trim() ?? '');
-                    if (capacity == null || capacity < 1) {
-                      return 'Geçerli bir kapasite gir.';
+                    if (_StudioRoomCapacityRange.tryParse(value ?? '') ==
+                        null) {
+                      return '1-100 arasında tek sayı veya 4-6 gibi bir aralık gir.';
                     }
                     return null;
                   },
@@ -247,12 +280,14 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                 const SizedBox(height: 24),
                 _StudioActionButton(
                   icon: Icons.save_outlined,
-                  label: 'Değişiklikleri Kaydet',
+                  label: _saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet',
                   outlined: true,
-                  onTap: _save,
+                  onTap: _saving || _deleting ? () {} : _save,
                 ),
                 const SizedBox(height: 12),
-                _StudioRoomDeleteButton(onTap: _confirmDelete),
+                _StudioRoomDeleteButton(
+                  onTap: _saving || _deleting ? () {} : _confirmDelete,
+                ),
               ],
             ),
           ),
@@ -275,6 +310,10 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
       setState(() => _featureError = 'En fazla 8 özellik ekleyebilirsin.');
       return;
     }
+    if (feature.length > 60) {
+      setState(() => _featureError = 'Özellik en fazla 60 karakter olabilir.');
+      return;
+    }
     setState(() {
       _features.add(feature);
       _featureController.clear();
@@ -283,30 +322,211 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     final formIsValid = _formKey.currentState?.validate() == true;
-    if (_features.isEmpty) {
-      setState(() => _featureError = 'En az bir oda özelliği ekle.');
-    }
-    if (!formIsValid || _features.isEmpty) return;
+    if (!formIsValid || _saving || _deleting) return;
 
-    final capacity = int.parse(_capacityController.text.trim());
+    final capacityRange = _StudioRoomCapacityRange.tryParse(
+      _capacityController.text,
+    )!;
     final hourlyPrice = int.tryParse(_hourlyPriceController.text.trim());
-    _closeWithResult(
-      _StudioRoomSettingsResult.updated(
-        widget.room.copyWith(
-          name: _capitalizeStudioRoomText(_nameController.text),
-          type: _capitalizeStudioRoomText(_descriptionController.text),
-          capacity: '$capacity kişi',
-          price: hourlyPrice == null
-              ? 'Fiyat belirtilmedi'
-              : '₺$hourlyPrice / saat',
-          features: List.unmodifiable(_features),
-          photoUrls: List.unmodifiable(_photos),
-          reservationApprovalRequired: _approvalRequired,
-        ),
-      ),
+    final photoIds = _photos
+        .map((photo) => photo.mediaAssetId?.trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    if (photoIds.length != _photos.length) {
+      _showError('Fotoğraflardan biri henüz yüklenmeye hazır değil.');
+      return;
+    }
+    final submittedPhotoIdSet = photoIds.toSet();
+    final potentiallyDetachedIds = _currentRoom.photos
+        .map((photo) => photo.mediaAssetId?.trim() ?? '')
+        .where((id) => id.isNotEmpty && !submittedPhotoIdSet.contains(id));
+    final cleanupPrepared = await _draftMediaCleanup.trackPotentiallyDetached(
+      potentiallyDetachedIds,
     );
+    if (!mounted) return;
+    if (!cleanupPrepared.isSuccess) {
+      await _draftMediaCleanup.discardAll();
+      if (!mounted) return;
+      setState(() {
+        _photos
+          ..clear()
+          ..addAll(_currentRoom.photos.take(10));
+      });
+      _showError(
+        cleanupPrepared.error?.message ??
+            'Fotoğraf değişikliği güvenli biçimde hazırlanamadı.',
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final result = await _repository.updateRoom(
+      _currentRoom.id,
+      StudioRoomDraft(
+        name: _capitalizeStudioRoomText(_nameController.text),
+        shortDescription: _capitalizeStudioRoomText(
+          _descriptionController.text,
+        ),
+        capacity: capacityRange.maximum,
+        minimumCapacity: capacityRange.minimum,
+        hourlyPriceMinor: hourlyPrice == null ? null : hourlyPrice * 100,
+        currency: hourlyPrice == null ? null : 'TRY',
+        reservationApprovalRequired: _approvalRequired,
+        features: List.unmodifiable(_features),
+        photoMediaIds: photoIds,
+      ),
+      expectedVersion: _currentRoom.version,
+    );
+    if (!mounted) return;
+    final room = result.data;
+    if (!result.isSuccess || room == null) {
+      final cleanupReport = await _draftMediaCleanup.discardAll();
+      if (!mounted) return;
+      if (cleanupReport.hasProtectedReferences) {
+        final latest = await _repository.getOwnerRoom(_currentRoom.id);
+        if (!mounted) return;
+        final latestRoom = latest.data;
+        if (latest.isSuccess &&
+            latestRoom != null &&
+            _sameMediaIds(latestRoom.photos, photoIds)) {
+          await _finishSuccessfulRoomUpdate(latestRoom);
+          return;
+        }
+      }
+      if (cleanupReport.deletedOrAbsentAssetIds.isNotEmpty) {
+        setState(() {
+          _photos
+            ..clear()
+            ..addAll(_currentRoom.photos.take(10));
+          _isDirty = true;
+        });
+        _showError(
+          'Kaydedilemeyen yeni fotoğraflar güvenle kaldırıldı. Tekrar ekleyebilirsin.',
+        );
+      }
+      setState(() => _saving = false);
+      if (isStudioStaleError(result.error)) {
+        await _refreshAfterConflict();
+      } else {
+        _showError(result.error?.message ?? 'Oda güncellenemedi.');
+      }
+      return;
+    }
+    await _finishSuccessfulRoomUpdate(room);
+  }
+
+  Future<void> _finishSuccessfulRoomUpdate(StudioRoom room) async {
+    final savedPhotoIds = room.photos
+        .map((photo) => photo.mediaAssetId?.trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    await _draftMediaCleanup.markCommitted(savedPhotoIds);
+    await _draftMediaCleanup.close();
+    if (!mounted) return;
+    _closeWithResult(
+      _StudioRoomSettingsResult.updated(_StudioRoomItem.fromDomain(room)),
+    );
+  }
+
+  Future<void> _requestApprovalPolicyChange(bool value) async {
+    if (value == _approvalRequired) return;
+    if (value == _initialApprovalSelection) {
+      setState(() {
+        _approvalRequired = value;
+        _isDirty = true;
+      });
+      return;
+    }
+    final confirmed = await _confirmApprovalPolicyChange(value);
+    if (!mounted || !confirmed) return;
+    setState(() {
+      _approvalRequired = value;
+      _isDirty = true;
+    });
+  }
+
+  Future<bool> _confirmApprovalPolicyChange(bool requestedValue) async {
+    final cancellingScheduledChange =
+        _currentRoom.pendingReservationApprovalRequired != null &&
+        requestedValue == _currentRoom.reservationApprovalRequired;
+    final deviceNow = DateTime.now();
+    final deviceToday = DateTime(
+      deviceNow.year,
+      deviceNow.month,
+      deviceNow.day,
+    );
+    final studioToday = _currentRoom.todayLocalDate;
+    final policyBaseDate = deviceToday.isAfter(studioToday)
+        ? deviceToday
+        : studioToday;
+    final effectiveDate = policyBaseDate.add(const Duration(days: 1));
+    final effectiveDateLabel =
+        '${effectiveDate.day.toString().padLeft(2, '0')}.'
+        '${effectiveDate.month.toString().padLeft(2, '0')}.'
+        '${effectiveDate.year}';
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: const Color(0xFF101722),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: Color(0xFF2B3546)),
+            ),
+            title: Row(
+              children: [
+                const Icon(Icons.schedule_rounded, color: _roomFormIconColor),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    cancellingScheduledChange
+                        ? 'Planlanan değişikliği iptal et'
+                        : 'Değişikliğin geçerlilik tarihi',
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              cancellingScheduledChange
+                  ? 'Değişiklikleri Kaydet butonuna bastığınızda daha önce '
+                        'planlanan onay politikası değişikliği iptal edilecek.'
+                  : 'Bu ayar Değişiklikleri Kaydet butonuna bastığınızda '
+                        '$effectiveDateLabel saat 00:00’dan itibaren geçerli '
+                        'olacak. Mevcut rezervasyon ve talepler oluşturuldukları '
+                        'andaki onay kuralını koruyacak.',
+              style: const TextStyle(
+                color: Color(0xFFB8C0CC),
+                fontSize: 14,
+                height: 1.45,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Vazgeç'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(
+                  cancellingScheduledChange ? 'Planı İptal Et' : 'Anladım',
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  bool _sameMediaIds(List<StudioRoomPhoto> photos, List<String> expectedIds) {
+    final actualIds = photos
+        .map((photo) => photo.mediaAssetId?.trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    if (actualIds.length != expectedIds.length) return false;
+    for (var index = 0; index < actualIds.length; index++) {
+      if (actualIds[index] != expectedIds[index]) return false;
+    }
+    return true;
   }
 
   Future<void> _confirmDelete() async {
@@ -326,10 +546,11 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
           ],
         ),
         content: Text(
-          '“${widget.room.name}” odasını silerseniz bu odaya bağlı '
-          'rezervasyonlar, müsaitlik ayarları ve fotoğraflar da kalıcı '
-          'olarak silinecek. Bu işlem geri alınamaz. Yine de devam etmek '
-          'istiyor musunuz?',
+          '“${_currentRoom.name}” odasını silerseniz oda erişime kapanır; '
+          'gelecek rezervasyonlar iptal edilir, müsaitlik kayıtları kaldırılır '
+          've fotoğraf bağlantıları çözülür. Geçmiş işlem kayıtları güvenlik '
+          've denetim amacıyla korunur. Bu işlem geri alınamaz. Yine de devam '
+          'etmek istiyor musunuz?',
           style: const TextStyle(
             color: Color(0xFFB8C0CC),
             fontSize: 14,
@@ -355,11 +576,28 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
       ),
     );
     if (shouldDelete != true || !mounted) return;
+    setState(() => _deleting = true);
+    final result = await _repository.archiveRoom(
+      _currentRoom.id,
+      expectedVersion: _currentRoom.version,
+    );
+    if (!mounted) return;
+    setState(() => _deleting = false);
+    if (!result.isSuccess) {
+      if (isStudioStaleError(result.error)) {
+        await _refreshAfterConflict();
+      } else {
+        _showError(result.error?.message ?? 'Oda silinemedi.');
+      }
+      return;
+    }
+    await _draftMediaCleanup.close();
+    if (!mounted) return;
     _closeWithResult(const _StudioRoomSettingsResult.deleted());
   }
 
   void _markDirty() {
-    if (_isDirty || !mounted) return;
+    if (_synchronizing || _isDirty || !mounted) return;
     setState(() => _isDirty = true);
   }
 
@@ -398,7 +636,10 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
       ),
     );
     _isExitDialogOpen = false;
-    if (shouldDiscard == true && mounted) _closeWithResult(null);
+    if (shouldDiscard == true && mounted) {
+      await _draftMediaCleanup.close();
+      if (mounted) _closeWithResult(null);
+    }
   }
 
   void _closeWithResult(_StudioRoomSettingsResult? result) {
@@ -412,55 +653,194 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
   void _deletePhoto(int index) {
     if (index < 0 || index >= _photos.length) return;
     final removedPhoto = _photos[index];
+    var restored = false;
     setState(() {
       _photos.removeAt(index);
       _isDirty = true;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Fotoğraf kaldırıldı.'),
-        action: SnackBarAction(
-          label: 'Geri Al',
-          onPressed: () {
-            if (!mounted) return;
-            final restoreIndex = index > _photos.length
-                ? _photos.length
-                : index;
-            setState(() => _photos.insert(restoreIndex, removedPhoto));
-          },
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+          SnackBar(
+            content: const Text('Fotoğraf kaldırıldı.'),
+            action: SnackBarAction(
+              label: 'Geri Al',
+              onPressed: () {
+                if (!mounted) return;
+                restored = true;
+                final restoreIndex = index > _photos.length
+                    ? _photos.length
+                    : index;
+                setState(() => _photos.insert(restoreIndex, removedPhoto));
+              },
+            ),
+          ),
+        )
+        .closed
+        .then((_) {
+          final mediaId = removedPhoto.mediaAssetId?.trim() ?? '';
+          if (!restored && _draftMediaCleanup.isTracked(mediaId)) {
+            _draftMediaCleanup.discard(mediaId).ignore();
+          }
+        });
   }
 
-  void _movePhoto(int fromIndex, int toIndex) {
-    if (fromIndex < 0 ||
-        fromIndex >= _photos.length ||
-        toIndex < 0 ||
-        toIndex >= _photos.length ||
-        fromIndex == toIndex) {
+  Future<void> _pickPhoto(int? replaceIndex) async {
+    if (_photoUploading || (replaceIndex == null && _photos.length >= 10)) {
       return;
     }
+    CroppedFile? cropped;
+    try {
+      cropped = await pickAndCropProfileImage(
+        imagePicker: _imagePicker,
+        cropTitle: 'Oda fotoğrafını kırp',
+        aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 10),
+      );
+    } catch (error) {
+      if (mounted) {
+        _showError(error.toString().replaceFirst('Exception: ', ''));
+      }
+      return;
+    }
+    if (cropped == null || !mounted) return;
+    setState(() => _photoUploading = true);
+    String? uploadedMediaId;
+    try {
+      final fileName = fileNameFromPath(
+        cropped.path,
+        fallback: 'room-photo.jpg',
+      );
+      final source = await createProfileUploadSource(filePath: cropped.path);
+      final uploaded = await uploadProfileMediaAsset(
+        source: source,
+        ownerType: 'STUDIO_PROFILE',
+        ownerId: widget.studioProfileId,
+        mediaKind: 'IMAGE',
+        mimeType: inferImageMimeType(fileName),
+        originalFileName: fileName,
+        attachmentIntent: const ProfileUploadAttachmentIntent.draft(),
+      );
+      final mediaId = uploaded.uuid.trim();
+      uploadedMediaId = mediaId;
+      final url = (uploaded.sourceUrl ?? uploaded.playbackUrl)?.trim() ?? '';
+      if (mediaId.isNotEmpty) {
+        final tracked = await _draftMediaCleanup.trackUploaded(mediaId);
+        if (!tracked.isSuccess) {
+          throw Exception(
+            tracked.error?.message ??
+                'Fotoğraf güvenli temizleme sırasına alınamadı.',
+          );
+        }
+      }
+      if (mediaId.isEmpty || url.isEmpty) {
+        throw Exception('Yüklenen fotoğrafın medya bilgisi alınamadı.');
+      }
+      if (!mounted) {
+        await _draftMediaCleanup.discard(mediaId);
+        return;
+      }
+      final replacedMediaId =
+          replaceIndex != null && replaceIndex < _photos.length
+          ? _photos[replaceIndex].mediaAssetId?.trim() ?? ''
+          : '';
+      setState(() {
+        final photo = StudioRoomPhoto(
+          mediaAssetId: mediaId,
+          url: url,
+          orderIndex: replaceIndex ?? _photos.length,
+        );
+        if (replaceIndex != null && replaceIndex < _photos.length) {
+          _photos[replaceIndex] = photo;
+        } else {
+          _photos.add(photo);
+        }
+        _isDirty = true;
+      });
+      if (_draftMediaCleanup.isTracked(replacedMediaId)) {
+        _draftMediaCleanup.discard(replacedMediaId).ignore();
+      }
+    } catch (error) {
+      final mediaId = uploadedMediaId?.trim() ?? '';
+      if (_draftMediaCleanup.isTracked(mediaId)) {
+        await _draftMediaCleanup.discard(mediaId);
+      }
+      if (mounted) {
+        _showError(error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _photoUploading = false);
+    }
+  }
+
+  Future<void> _refreshAfterConflict() async {
+    final result = await _repository.getOwnerRoom(_currentRoom.id);
+    if (!mounted) return;
+    final refreshed = result.data;
+    if (!result.isSuccess || refreshed == null) {
+      _showError(
+        result.error?.message ??
+            'Oda başka bir oturumda değişti. Güncel kayıt alınamadı.',
+      );
+      return;
+    }
+    final shouldReload = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF101722),
+        title: const Text('Oda bilgileri değişti'),
+        content: const Text(
+          'Bu oda başka bir oturumda güncellendi. Güncel bilgileri yükleyip '
+          'düzenlemeye devam edebilirsin.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Şimdi Değil'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Güncel Bilgileri Yükle'),
+          ),
+        ],
+      ),
+    );
+    if (shouldReload == true && mounted) {
+      _applyRefreshedRoom(_StudioRoomItem.fromDomain(refreshed));
+    }
+  }
+
+  void _applyRefreshedRoom(_StudioRoomItem room) {
+    _synchronizing = true;
+    _nameController.text = room.name;
+    _descriptionController.text = room.type;
+    _capacityController.text = _StudioRoomCapacityRange(
+      minimum: room.minimumCapacityCount,
+      maximum: room.capacityCount,
+    ).label;
+    _hourlyPriceController.text = room.hourlyPriceMinor == null
+        ? ''
+        : (room.hourlyPriceMinor! ~/ 100).toString();
+    _synchronizing = false;
     setState(() {
-      final photo = _photos.removeAt(fromIndex);
-      _photos.insert(toIndex, photo);
-      _isDirty = true;
+      _currentRoom = room;
+      _features
+        ..clear()
+        ..addAll(room.features);
+      _photos
+        ..clear()
+        ..addAll(room.photos);
+      _approvalRequired =
+          room.pendingReservationApprovalRequired ??
+          room.reservationApprovalRequired;
+      _initialApprovalSelection = _approvalRequired;
+      _isDirty = false;
     });
   }
 
-  void _showPhotoInfo() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Oda fotoğrafı yükleme backend bağlantısında açılacak.'),
-      ),
-    );
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
-
-  static String _firstNumber(String value) =>
-      RegExp(r'\d+').firstMatch(value)?.group(0) ?? '';
-
-  static String _digitsOnly(String value) =>
-      value.replaceAll(RegExp(r'[^0-9]'), '');
 }
 
 class _StudioRoomDeleteButton extends StatelessWidget {
@@ -490,18 +870,18 @@ class _StudioRoomDeleteButton extends StatelessWidget {
 }
 
 class _StudioRoomSettingsPhotoSection extends StatefulWidget {
-  final _StudioRoomItem room;
-  final List<String> photos;
-  final VoidCallback onAddPhoto;
+  final _StudioRoomItem? room;
+  final List<StudioRoomPhoto> photos;
+  final bool uploading;
+  final Future<void> Function(int? replaceIndex) onPickPhoto;
   final ValueChanged<int> onDeletePhoto;
-  final void Function(int fromIndex, int toIndex) onMovePhoto;
 
   const _StudioRoomSettingsPhotoSection({
-    required this.room,
+    this.room,
     required this.photos,
-    required this.onAddPhoto,
+    required this.uploading,
+    required this.onPickPhoto,
     required this.onDeletePhoto,
-    required this.onMovePhoto,
   });
 
   @override
@@ -561,33 +941,37 @@ class _StudioRoomSettingsPhotoSectionState
             aspectRatio: 16 / 8,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(13),
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: _maximumPhotoCount,
-                onPageChanged: (index) =>
-                    setState(() => _activePhotoIndex = index),
-                itemBuilder: (_, index) => index < photos.length
-                    ? _StudioRoomPhotoSlot(
-                        imageUrl: photos[index],
-                        room: widget.room,
-                        onChangePhoto: widget.onAddPhoto,
-                        onDeletePhoto: () => _deletePhoto(index, photos.length),
-                        onMoveLeft: index > 0
-                            ? () => _movePhoto(index, index - 1)
-                            : null,
-                        onMoveRight: index < photos.length - 1
-                            ? () => _movePhoto(index, index + 1)
-                            : null,
-                        onOpenPhoto: () => _openFullScreenGallery(
-                          context,
-                          photos: List.of(photos),
-                          initialIndex: index,
-                        ),
-                      )
-                    : _EmptyStudioRoomPhotoSlot(
-                        slotNumber: index + 1,
-                        onAddPhoto: widget.onAddPhoto,
-                      ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: _maximumPhotoCount,
+                    onPageChanged: (index) =>
+                        setState(() => _activePhotoIndex = index),
+                    itemBuilder: (_, index) => index < photos.length
+                        ? _StudioRoomPhotoSlot(
+                            imageUrl: photos[index].url,
+                            room: widget.room,
+                            onChangePhoto: () => widget.onPickPhoto(index),
+                            onDeletePhoto: () =>
+                                _deletePhoto(index, photos.length),
+                            onOpenPhoto: () => _openFullScreenGallery(
+                              context,
+                              photos: photos
+                                  .map((photo) => photo.url)
+                                  .toList(growable: false),
+                              initialIndex: index,
+                            ),
+                          )
+                        : _EmptyStudioRoomPhotoSlot(
+                            slotNumber: index + 1,
+                            uploading: widget.uploading,
+                            onAddPhoto: () => widget.onPickPhoto(null),
+                          ),
+                  ),
+                  if (widget.uploading) const _StudioRoomPhotoUploadOverlay(),
+                ],
               ),
             ),
           ),
@@ -656,24 +1040,13 @@ class _StudioRoomSettingsPhotoSectionState
       curve: Curves.easeOut,
     );
   }
-
-  void _movePhoto(int fromIndex, int toIndex) {
-    widget.onMovePhoto(fromIndex, toIndex);
-    _pageController.animateToPage(
-      toIndex,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
-  }
 }
 
 class _StudioRoomPhotoSlot extends StatelessWidget {
   final String imageUrl;
-  final _StudioRoomItem room;
+  final _StudioRoomItem? room;
   final VoidCallback onChangePhoto;
   final VoidCallback onDeletePhoto;
-  final VoidCallback? onMoveLeft;
-  final VoidCallback? onMoveRight;
   final VoidCallback onOpenPhoto;
 
   const _StudioRoomPhotoSlot({
@@ -681,8 +1054,6 @@ class _StudioRoomPhotoSlot extends StatelessWidget {
     required this.room,
     required this.onChangePhoto,
     required this.onDeletePhoto,
-    required this.onMoveLeft,
-    required this.onMoveRight,
     required this.onOpenPhoto,
   });
 
@@ -697,8 +1068,9 @@ class _StudioRoomPhotoSlot extends StatelessWidget {
           child: Image.network(
             imageUrl,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) =>
-                _StudioRoomPhotoPlaceholder(room: room),
+            errorBuilder: (_, __, ___) => room == null
+                ? const _StudioRoomGenericPhotoPlaceholder()
+                : _StudioRoomPhotoPlaceholder(room: room!),
           ),
         ),
         Positioned(
@@ -718,32 +1090,6 @@ class _StudioRoomPhotoSlot extends StatelessWidget {
             icon: Icons.edit_outlined,
             tooltip: 'Fotoğrafı değiştir',
             onPressed: onChangePhoto,
-          ),
-        ),
-        Positioned(
-          left: 10,
-          bottom: 10,
-          child: Material(
-            color: const Color(0xD90A111B),
-            borderRadius: BorderRadius.circular(999),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  onPressed: onMoveLeft,
-                  tooltip: 'Sola taşı',
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                ),
-                Container(width: 1, height: 20, color: const Color(0x667E8CA2)),
-                IconButton(
-                  onPressed: onMoveRight,
-                  tooltip: 'Sağa taşı',
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                ),
-              ],
-            ),
           ),
         ),
       ],
@@ -781,7 +1127,7 @@ class _StudioPhotoOverlayIconButton extends StatelessWidget {
 
 class _StudioRoomFullScreenGallery extends StatefulWidget {
   final List<String> photos;
-  final _StudioRoomItem room;
+  final _StudioRoomItem? room;
   final int initialIndex;
 
   const _StudioRoomFullScreenGallery({
@@ -829,8 +1175,9 @@ class _StudioRoomFullScreenGalleryState
                   widget.photos[index],
                   width: double.infinity,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) =>
-                      _StudioRoomPhotoPlaceholder(room: widget.room),
+                  errorBuilder: (_, __, ___) => widget.room == null
+                      ? const _StudioRoomGenericPhotoPlaceholder()
+                      : _StudioRoomPhotoPlaceholder(room: widget.room!),
                 ),
               ),
             ),
@@ -900,10 +1247,12 @@ class _StudioGalleryOverlayButton extends StatelessWidget {
 
 class _EmptyStudioRoomPhotoSlot extends StatelessWidget {
   final int slotNumber;
+  final bool uploading;
   final VoidCallback onAddPhoto;
 
   const _EmptyStudioRoomPhotoSlot({
     required this.slotNumber,
+    this.uploading = false,
     required this.onAddPhoto,
   });
 
@@ -912,7 +1261,7 @@ class _EmptyStudioRoomPhotoSlot extends StatelessWidget {
     return Material(
       color: const Color(0xFF111B29),
       child: InkWell(
-        onTap: onAddPhoto,
+        onTap: uploading ? null : onAddPhoto,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -948,13 +1297,68 @@ class _EmptyStudioRoomPhotoSlot extends StatelessWidget {
   }
 }
 
+class _StudioRoomPhotoUploadOverlay extends StatelessWidget {
+  const _StudioRoomPhotoUploadOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xD90A111B),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 34,
+              height: 34,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: Color(0xFFE87587),
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Fotoğraf yükleniyor...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioRoomGenericPhotoPlaceholder extends StatelessWidget {
+  const _StudioRoomGenericPhotoPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFF111B29),
+      child: Center(
+        child: Icon(
+          Icons.meeting_room_outlined,
+          color: Color(0xFF9EA8B7),
+          size: 48,
+        ),
+      ),
+    );
+  }
+}
+
 class _StudioRoomApprovalPolicyCard extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
+  final DateTime? effectiveAt;
 
   const _StudioRoomApprovalPolicyCard({
     required this.value,
     required this.onChanged,
+    this.effectiveAt,
   });
 
   @override
@@ -988,9 +1392,12 @@ class _StudioRoomApprovalPolicyCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  value
-                      ? 'Yeni talepler onayına düşer.'
-                      : 'Müsait saatler otomatik onaylanır.',
+                  effectiveAt == null
+                      ? value
+                            ? 'Yeni talepler onayına düşer.'
+                            : 'Müsait saatler otomatik onaylanır.'
+                      : 'Planlanan değişiklik ${_effectiveDateLabel(effectiveAt!)} '
+                            '00:00’da devreye girer.',
                   style: const TextStyle(
                     color: Color(0xFF98A2B1),
                     fontSize: 10,
@@ -1000,12 +1407,108 @@ class _StudioRoomApprovalPolicyCard extends StatelessWidget {
             ),
           ),
           Switch(
+            key: const Key('studio-room-approval-policy-switch'),
             value: value,
             onChanged: onChanged,
             activeThumbColor: Colors.white,
             activeTrackColor: const Color(0xFFFF7F87),
           ),
         ],
+      ),
+    );
+  }
+
+  static String _effectiveDateLabel(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}.'
+        '${local.month.toString().padLeft(2, '0')}.${local.year}';
+  }
+}
+
+class _StudioRoomOnlinePaymentCard extends StatelessWidget {
+  const _StudioRoomOnlinePaymentCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1622),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF263244)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.account_balance_wallet_outlined,
+            color: _roomFormIconColor,
+            size: 21,
+          ),
+          const SizedBox(width: 11),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Online ödemeleri kabul et',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 7),
+                    _StudioComingSoonBadge(),
+                  ],
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Online ödemelerde %15 platform hizmet bedeli uygulanır.',
+                  style: TextStyle(
+                    color: Color(0xFF98A2B1),
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Switch(
+            key: Key('studio-room-online-payment-switch'),
+            value: false,
+            onChanged: null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioComingSoonBadge extends StatelessWidget {
+  const _StudioComingSoonBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF7F87).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: const Color(0xFFFF7F87).withValues(alpha: 0.55),
+        ),
+      ),
+      child: const Text(
+        'Yakında',
+        style: TextStyle(
+          color: Color(0xFFFFA0A6),
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

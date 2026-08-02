@@ -11,6 +11,7 @@ import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/otp_
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_application_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/presentation/cubit/location_cubit.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_text_field.dart';
 
 import 'support/auth_widget_test_support.dart';
 
@@ -107,10 +108,39 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    final fields = find.byType(TextField).hitTestable();
-    await tester.enterText(fields.at(0), '  Sound Hall  ');
-    await tester.enterText(fields.at(1), '  Main Street  ');
-    await tester.enterText(fields.at(2), '  555  ');
+    expect(
+      tester
+          .widget<GradientTextField>(
+            find.byKey(const Key('venue-application-address-field')),
+          )
+          .label,
+      'Açık Adres',
+    );
+    expect(
+      tester
+          .getTopLeft(find.byKey(const Key('venue-application-address-field')))
+          .dy,
+      greaterThan(
+        tester
+            .getTopLeft(find.byType(DropdownButtonFormField<String>).at(2))
+            .dy,
+      ),
+    );
+    await _enterField(
+      tester,
+      const Key('venue-application-name-field'),
+      '  Sound Hall  ',
+    );
+    await _enterField(
+      tester,
+      const Key('venue-application-address-field'),
+      '  Main Street  ',
+    );
+    await _enterField(
+      tester,
+      const Key('venue-application-phone-field'),
+      '  555  ',
+    );
     await _chooseDropdown(tester, 0, 'Istanbul');
     await _chooseDropdown(tester, 1, 'Kadikoy');
 
@@ -118,6 +148,12 @@ void main() {
     await tester.pump();
     expect(authRepository.registerCalls, 0);
     expect(find.byType(SnackBar), findsOneWidget);
+    expect(
+      find.text(
+        'Şehir, ilçe, mahalle ve Açık Adres dahil mekan bilgilerini eksiksiz doldur.',
+      ),
+      findsOneWidget,
+    );
 
     await _chooseDropdown(tester, 2, 'Moda');
     await tester.tap(find.byType(GradientOutlineButton).hitTestable());
@@ -128,7 +164,7 @@ void main() {
     expect(registration?.username, 'venue_owner');
     expect(registration?.email, 'venue@example.com');
     expect(registration?.role, 'ROLE_VENUE');
-    expect(registration?.venueName, 'Sound Hall');
+    expect(registration?.venueName, 'sound hall');
     expect(registration?.venueAddress, 'Main Street');
     expect(registration?.phone, '555');
     expect(registration?.cityId, 'city-1');
@@ -166,4 +202,13 @@ Future<void> _chooseDropdown(
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
+}
+
+Future<void> _enterField(WidgetTester tester, Key key, String value) async {
+  final field = find.descendant(
+    of: find.byKey(key),
+    matching: find.byType(TextField),
+  );
+  expect(field, findsOneWidget);
+  await tester.enterText(field, value);
 }

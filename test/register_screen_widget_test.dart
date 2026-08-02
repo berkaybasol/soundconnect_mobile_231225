@@ -7,11 +7,13 @@ import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/username_availability.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/otp_verify_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/register_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/presentation/cubit/location_cubit.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_text_field.dart';
 
 import 'support/auth_widget_test_support.dart';
 
@@ -78,6 +80,33 @@ void main() {
     expect(authRepository.registerCalls, 0);
   });
 
+  testWidgets('shows a taken username inline and blocks the next step', (
+    tester,
+  ) async {
+    _useLargeSurface(tester);
+    authRepository.usernameAvailabilityResult = const Result.success(
+      UsernameAvailability(username: 'taken-user', available: false),
+    );
+    await tester.pumpWidget(app());
+    await tester.pump();
+
+    await tester.enterText(
+      find.byType(TextField).hitTestable(),
+      '  Taken-User  ',
+    );
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('register-username-taken')), findsOneWidget);
+    expect(find.text('Bu kullanıcı adı zaten kullanılıyor.'), findsOneWidget);
+
+    await _tapPrimary(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kullanıcı adı oluştur'), findsOneWidget);
+    expect(authRepository.registerCalls, 0);
+  });
+
   testWidgets('requires eight characters when registering', (tester) async {
     _useLargeSurface(tester);
     await tester.pumpWidget(app());
@@ -108,7 +137,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text('Şifren UTF-8 olarak en fazla 72 bayt olmalı.'),
+      find.text('Şifren çok uzun. Biraz kısaltıp tekrar dene.'),
       findsOneWidget,
     );
   });
@@ -148,7 +177,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text('Şifren UTF-8 olarak en fazla 72 bayt olmalı.'),
+      find.text('Şifren çok uzun. Biraz kısaltıp tekrar dene.'),
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 5));
@@ -227,12 +256,41 @@ void main() {
     await tester.ensureVisible(venueRole);
     await tester.tap(venueRole);
     await tester.pumpAndSettle();
+    await _tapPrimary(tester);
+    await tester.pumpAndSettle();
 
     expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(3));
-    final fields = find.byType(TextField).hitTestable();
-    await tester.enterText(fields.at(0), '  Sound Hall  ');
-    await tester.enterText(fields.at(1), '  Main Street  ');
-    await tester.enterText(fields.at(2), '  555  ');
+    expect(
+      tester
+          .widget<GradientTextField>(
+            find.byKey(const Key('business-address-field')),
+          )
+          .label,
+      'Açık Adres',
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const Key('business-address-field'))).dy,
+      greaterThan(
+        tester
+            .getTopLeft(find.byKey(const Key('business-neighborhood-dropdown')))
+            .dy,
+      ),
+    );
+    await _enterBusinessField(
+      tester,
+      const Key('business-name-field'),
+      '  Sound Hall  ',
+    );
+    await _enterBusinessField(
+      tester,
+      const Key('business-address-field'),
+      '  Main Street  ',
+    );
+    await _enterBusinessField(
+      tester,
+      const Key('business-phone-field'),
+      '  555  ',
+    );
 
     await _chooseDropdown(tester, 0, 'Istanbul');
     await _chooseDropdown(tester, 1, 'Kadikoy');
@@ -240,6 +298,12 @@ void main() {
     await tester.pump();
     expect(authRepository.registerCalls, 0);
     expect(find.byType(SnackBar), findsOneWidget);
+    expect(
+      find.text(
+        'Şehir, ilçe, mahalle ve Açık Adres dahil mekan bilgilerini eksiksiz doldur.',
+      ),
+      findsOneWidget,
+    );
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
 
@@ -250,13 +314,91 @@ void main() {
 
     final registration = authRepository.lastRegistration;
     expect(registration?.role, 'ROLE_VENUE');
-    expect(registration?.venueName, 'Sound Hall');
+    expect(registration?.venueName, 'sound hall');
     expect(registration?.venueAddress, 'Main Street');
     expect(registration?.phone, '555');
     expect(registration?.cityId, 'city-1');
     expect(registration?.districtId, 'district-1');
     expect(registration?.neighborhoodId, 'neighborhood-1');
     expect(find.text('otp:venue@example.com:ROLE_VENUE'), findsOneWidget);
+  });
+
+  testWidgets('studio role submits studio identity and location for approval', (
+    tester,
+  ) async {
+    _useLargeSurface(tester);
+    authRepository.registerResult = const Result.success(
+      RegisterResult(
+        email: 'studio@example.com',
+        status: UserStatus.pendingStudioRequest,
+        otpTtlSeconds: 180,
+        mailQueued: true,
+      ),
+    );
+    await tester.pumpWidget(app());
+    await tester.pump();
+    await _completeSharedRegistrationSteps(tester);
+
+    expect(find.text('Prodüktörüm'), findsNothing);
+    expect(find.text('Organizatörüm'), findsNothing);
+
+    final studioRole = find.text('Stüdyo temsilcisiyim');
+    await tester.ensureVisible(studioRole);
+    await tester.tap(studioRole);
+    await tester.pumpAndSettle();
+    await _tapPrimary(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Stüdyo bilgilerini paylaş'), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(3));
+    expect(
+      tester
+          .widget<GradientTextField>(
+            find.byKey(const Key('business-address-field')),
+          )
+          .label,
+      'Açık Adres',
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const Key('business-address-field'))).dy,
+      greaterThan(
+        tester
+            .getTopLeft(find.byKey(const Key('business-neighborhood-dropdown')))
+            .dy,
+      ),
+    );
+    await _enterBusinessField(
+      tester,
+      const Key('business-name-field'),
+      '  Devo Studio  ',
+    );
+    await _enterBusinessField(
+      tester,
+      const Key('business-address-field'),
+      '  Moda Caddesi  ',
+    );
+    await _enterBusinessField(
+      tester,
+      const Key('business-phone-field'),
+      '  05551234567  ',
+    );
+    await _chooseDropdown(tester, 0, 'Istanbul');
+    await _chooseDropdown(tester, 1, 'Kadikoy');
+    await _chooseDropdown(tester, 2, 'Moda');
+    await _tapPrimary(tester);
+    await tester.pumpAndSettle();
+
+    final registration = authRepository.lastRegistration;
+    expect(registration?.role, 'ROLE_STUDIO');
+    expect(registration?.studioName, 'devo studio');
+    expect(registration?.studioAddress, 'Moda Caddesi');
+    expect(registration?.studioPhone, '05551234567');
+    expect(registration?.venueName, isNull);
+    expect(registration?.phone, isNull);
+    expect(registration?.cityId, 'city-1');
+    expect(registration?.districtId, 'district-1');
+    expect(registration?.neighborhoodId, 'neighborhood-1');
+    expect(find.text('otp:studio@example.com:ROLE_STUDIO'), findsOneWidget);
   });
 }
 
@@ -282,7 +424,7 @@ Future<void> _completeSharedRegistrationSteps(WidgetTester tester) async {
 Future<void> _reachPasswordStep(WidgetTester tester) async {
   await tester.enterText(
     find.byType(TextField).hitTestable(),
-    '  listener_name  ',
+    '  Listener_Name  ',
   );
   await _tapPrimary(tester);
   await tester.pumpAndSettle();
@@ -293,6 +435,19 @@ Future<void> _reachPasswordStep(WidgetTester tester) async {
   );
   await _tapPrimary(tester);
   await tester.pumpAndSettle();
+}
+
+Future<void> _enterBusinessField(
+  WidgetTester tester,
+  Key key,
+  String value,
+) async {
+  final field = find.descendant(
+    of: find.byKey(key),
+    matching: find.byType(TextField),
+  );
+  expect(field, findsOneWidget);
+  await tester.enterText(field, value);
 }
 
 GradientOutlineButton _primaryButton(WidgetTester tester) {

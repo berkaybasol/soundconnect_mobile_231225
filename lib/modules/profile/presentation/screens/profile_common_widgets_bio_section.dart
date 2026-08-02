@@ -155,15 +155,10 @@ class _EditableBioSectionState extends State<EditableBioSection> {
               child: Text('İptal'),
             ),
             SizedBox(width: 10),
-            FilledButton(
+            GradientOutlineButton(
               onPressed: _saving ? null : _handleSave,
-              child: _saving
-                  ? SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text('Kaydet'),
+              loading: _saving,
+              label: _saving ? 'Kaydediliyor...' : 'Kaydet',
             ),
           ],
         ),

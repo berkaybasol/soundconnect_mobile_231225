@@ -58,6 +58,11 @@ class AuthSession {
   bool get isPendingVenue =>
       accountStatus?.trim().toUpperCase() == 'PENDING_VENUE_REQUEST';
 
+  bool get isPendingStudio =>
+      accountStatus?.trim().toUpperCase() == 'PENDING_STUDIO_REQUEST';
+
+  bool get isPendingBusiness => isPendingVenue || isPendingStudio;
+
   bool get isActive => accountStatus?.trim().toUpperCase() == 'ACTIVE';
 
   Set<String> get normalizedRoles => roles

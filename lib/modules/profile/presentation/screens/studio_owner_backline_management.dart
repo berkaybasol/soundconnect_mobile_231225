@@ -9,128 +9,154 @@ const _maximumBacklineEquipmentPhotoCount = 5;
 enum _BacklineInventoryStatusFilter { all, available, busy, maintenance }
 
 class _StudioBacklineInventoryItem {
+  final String id;
+  final String categoryId;
+  final String subcategoryId;
+  final String categoryCode;
+  final String subcategoryCode;
+  final String categoryIconKey;
   final String name;
   final String category;
   final String subcategory;
+  final String brand;
+  final String modelName;
   final String model;
   final String description;
   final List<String> features;
   final List<String> photoUrls;
+  final List<String> photoMediaIds;
   final IconData icon;
   final int total;
   final int available;
   final int reserved;
   final int maintenance;
+  final int version;
+  final DateTime? todayLocalDate;
 
   const _StudioBacklineInventoryItem({
+    this.id = '',
+    this.categoryId = '',
+    this.subcategoryId = '',
+    this.categoryCode = '',
+    this.subcategoryCode = '',
+    this.categoryIconKey = '',
     required this.name,
     required this.category,
     this.subcategory = '',
+    this.brand = '',
+    this.modelName = '',
     required this.model,
     this.description = '',
     this.features = const [],
     this.photoUrls = const [],
+    this.photoMediaIds = const [],
     required this.icon,
     required this.total,
     required this.available,
     required this.reserved,
     required this.maintenance,
+    this.version = 0,
+    this.todayLocalDate,
   });
 
+  factory _StudioBacklineInventoryItem.fromDomain(StudioEquipment equipment) {
+    final brand = equipment.brand?.trim() ?? '';
+    final modelName = equipment.model?.trim() ?? '';
+    final model = [
+      if (brand.isNotEmpty) brand,
+      if (modelName.isNotEmpty) modelName,
+    ].join(' • ');
+    return _StudioBacklineInventoryItem(
+      id: equipment.id,
+      categoryId: equipment.categoryId,
+      subcategoryId: equipment.subcategoryId,
+      categoryCode: equipment.categoryCode,
+      subcategoryCode: equipment.subcategoryCode,
+      categoryIconKey: equipment.categoryIconKey,
+      name: equipment.name,
+      category: equipment.categoryName,
+      subcategory: equipment.subcategoryName,
+      brand: brand,
+      modelName: modelName,
+      model: model.isEmpty ? 'Marka/model belirtilmedi' : model,
+      description: equipment.description ?? '',
+      features: equipment.features,
+      photoUrls: equipment.photos.map((photo) => photo.url).toList(),
+      photoMediaIds: equipment.photos
+          .map((photo) => photo.mediaAssetId)
+          .whereType<String>()
+          .toList(),
+      icon: _backlineIconFor(
+        code: equipment.categoryCode,
+        iconKey: equipment.categoryIconKey,
+        name: equipment.categoryName,
+      ),
+      total: equipment.totalQuantity,
+      available: equipment.todayAvailability.availableQuantity,
+      reserved: equipment.todayAvailability.busyQuantity,
+      maintenance: equipment.todayAvailability.maintenanceQuantity,
+      version: equipment.version ?? 0,
+      todayLocalDate: equipment.todayAvailability.date,
+    );
+  }
+
   _StudioBacklineInventoryItem copyWith({
+    String? id,
+    String? categoryId,
+    String? subcategoryId,
+    String? categoryCode,
+    String? subcategoryCode,
+    String? categoryIconKey,
     String? name,
     String? category,
     String? subcategory,
+    String? brand,
+    String? modelName,
     String? model,
     String? description,
     List<String>? features,
     List<String>? photoUrls,
+    List<String>? photoMediaIds,
     IconData? icon,
     int? total,
     int? available,
     int? reserved,
     int? maintenance,
+    int? version,
+    DateTime? todayLocalDate,
   }) {
     return _StudioBacklineInventoryItem(
+      id: id ?? this.id,
+      categoryId: categoryId ?? this.categoryId,
+      subcategoryId: subcategoryId ?? this.subcategoryId,
+      categoryCode: categoryCode ?? this.categoryCode,
+      subcategoryCode: subcategoryCode ?? this.subcategoryCode,
+      categoryIconKey: categoryIconKey ?? this.categoryIconKey,
       name: name ?? this.name,
       category: category ?? this.category,
       subcategory: subcategory ?? this.subcategory,
+      brand: brand ?? this.brand,
+      modelName: modelName ?? this.modelName,
       model: model ?? this.model,
       description: description ?? this.description,
       features: features ?? this.features,
       photoUrls: photoUrls ?? this.photoUrls,
+      photoMediaIds: photoMediaIds ?? this.photoMediaIds,
       icon: icon ?? this.icon,
       total: total ?? this.total,
       available: available ?? this.available,
       reserved: reserved ?? this.reserved,
       maintenance: maintenance ?? this.maintenance,
+      version: version ?? this.version,
+      todayLocalDate: todayLocalDate ?? this.todayLocalDate,
     );
   }
 }
 
-const _backlineInventorySeedItems = [
-  _StudioBacklineInventoryItem(
-    name: 'Marshall DSL40',
-    category: 'Gitar Amfileri',
-    model: 'Marshall • DSL40CR',
-    icon: Icons.speaker_outlined,
-    total: 2,
-    available: 1,
-    reserved: 1,
-    maintenance: 0,
-  ),
-  _StudioBacklineInventoryItem(
-    name: 'Shure SM58',
-    category: 'Pro Audio & Stüdyo',
-    model: 'Shure • SM58-LCE',
-    icon: Icons.mic_none_outlined,
-    total: 6,
-    available: 4,
-    reserved: 1,
-    maintenance: 1,
-  ),
-  _StudioBacklineInventoryItem(
-    name: 'Yamaha Stage Custom',
-    category: 'Davul, Bateri & Zil',
-    model: 'Yamaha • Stage Custom Birch',
-    icon: Icons.album_outlined,
-    total: 1,
-    available: 0,
-    reserved: 0,
-    maintenance: 1,
-  ),
-  _StudioBacklineInventoryItem(
-    name: 'Nord Stage 3',
-    category: 'Piyano, Klavye & Synth',
-    model: 'Nord • Stage 3 Compact',
-    icon: Icons.keyboard_outlined,
-    total: 1,
-    available: 1,
-    reserved: 0,
-    maintenance: 0,
-  ),
-  _StudioBacklineInventoryItem(
-    name: 'Fender Hot Rod Deluxe IV',
-    category: 'Gitar Amfileri',
-    model: 'Fender • Hot Rod Deluxe IV',
-    icon: Icons.speaker_group_outlined,
-    total: 2,
-    available: 0,
-    reserved: 2,
-    maintenance: 0,
-  ),
-];
-
-final List<_StudioBacklineInventoryItem> _studioBacklineInventoryMockItems =
-    List.of(_backlineInventorySeedItems);
-final ValueNotifier<int> _studioBacklineInventoryRevision = ValueNotifier(0);
-
-void _notifyStudioBacklineInventoryChanged() {
-  _studioBacklineInventoryRevision.value++;
-}
-
 class _StudioBacklineInventoryScreen extends StatefulWidget {
-  const _StudioBacklineInventoryScreen();
+  final String studioProfileId;
+
+  const _StudioBacklineInventoryScreen({required this.studioProfileId});
 
   @override
   State<_StudioBacklineInventoryScreen> createState() =>
@@ -140,213 +166,342 @@ class _StudioBacklineInventoryScreen extends StatefulWidget {
 class _StudioBacklineInventoryScreenState
     extends State<_StudioBacklineInventoryScreen> {
   static const _allCategoriesFilterValue = '__all_categories__';
-  late final List<_StudioBacklineInventoryItem> _items;
+  static const _pageSize = 20;
+  late final StudioEquipmentRepository _equipmentRepository;
+  late final BacklineCatalogRepository _catalogRepository;
+
+  List<_StudioBacklineInventoryItem> _items = const [];
+  List<_BacklineCategory> _categories = const [];
+  int _pageIndex = 0;
+  int _totalItems = 0;
+  int _totalPages = 0;
+  bool _isLoading = true;
+  bool _isCatalogLoading = true;
+  String? _loadError;
+  String? _catalogError;
+  int _searchGeneration = 0;
+  int _loadGeneration = 0;
 
   String _searchQuery = '';
-  String? _selectedCategory;
+  _BacklineCategory? _selectedCategory;
   _BacklineInventoryStatusFilter _statusFilter =
       _BacklineInventoryStatusFilter.all;
 
   @override
   void initState() {
     super.initState();
-    _items = _studioBacklineInventoryMockItems;
-  }
-
-  List<String> get _categories =>
-      _items.map((item) => item.category).toSet().toList()..sort();
-
-  List<_StudioBacklineInventoryItem> get _filteredItems {
-    final normalizedQuery = _searchQuery.trim().toLowerCase();
-    return _items
-        .where((item) {
-          final matchesSearch =
-              normalizedQuery.isEmpty ||
-              item.name.toLowerCase().contains(normalizedQuery) ||
-              item.model.toLowerCase().contains(normalizedQuery) ||
-              item.category.toLowerCase().contains(normalizedQuery) ||
-              item.subcategory.toLowerCase().contains(normalizedQuery);
-          final matchesCategory =
-              _selectedCategory == null || item.category == _selectedCategory;
-          final matchesStatus = switch (_statusFilter) {
-            _BacklineInventoryStatusFilter.all => true,
-            _BacklineInventoryStatusFilter.available =>
-              _mockBacklineAvailableToday(item) > 0,
-            _BacklineInventoryStatusFilter.busy =>
-              _mockBacklineBusyToday(item) > 0,
-            _BacklineInventoryStatusFilter.maintenance =>
-              _mockBacklineMaintenanceToday(item) > 0,
-          };
-          return matchesSearch && matchesCategory && matchesStatus;
-        })
-        .toList(growable: false);
+    _equipmentRepository = serviceLocator<StudioEquipmentRepository>();
+    _catalogRepository = serviceLocator<BacklineCatalogRepository>();
+    _loadInitialData();
   }
 
   int get _totalCount => _items.fold(0, (total, item) => total + item.total);
-  int get _availableCount => _items.fold(
-    0,
-    (total, item) => total + _mockBacklineAvailableToday(item),
-  );
-  int get _busyCount =>
-      _items.fold(0, (total, item) => total + _mockBacklineBusyToday(item));
-  int get _maintenanceCount => _items.fold(
-    0,
-    (total, item) => total + _mockBacklineMaintenanceToday(item),
-  );
+  int get _availableCount =>
+      _items.fold(0, (total, item) => total + item.available);
+  int get _busyCount => _items.fold(0, (total, item) => total + item.reserved);
+  int get _maintenanceCount =>
+      _items.fold(0, (total, item) => total + item.maintenance);
+  List<_BacklineCategory> get _assignableCategories => _categories
+      .where((category) => category.children.isNotEmpty)
+      .toList(growable: false);
 
   @override
   Widget build(BuildContext context) {
-    final items = _filteredItems;
+    final items = _items;
     return Scaffold(
       appBar: AppBar(title: const Text('Envanter Yönetimi'), centerTitle: true),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-          children: [
-            const Text(
-              'Envanter Özeti',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w900,
+        child: RefreshIndicator(
+          onRefresh: () => _loadPage(_pageIndex, preserveItems: true),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+            children: [
+              const Text(
+                'Envanter Özeti',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Ekipman adetlerini ve mevcut durumlarını tek yerden takip et.',
-              style: TextStyle(color: Color(0xFF969FAA), fontSize: 12),
-            ),
-            const SizedBox(height: 14),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 2.15,
-              children: [
-                _BacklineInventorySummaryCard(
-                  label: 'Toplam Ekipman',
-                  value: _totalCount,
-                  icon: Icons.inventory_2_outlined,
-                ),
-                _BacklineInventorySummaryCard(
-                  label: 'Müsait',
-                  value: _availableCount,
-                  icon: Icons.check_circle_outline_rounded,
-                  accent: const Color(0xFF62C98B),
-                ),
-                _BacklineInventorySummaryCard(
-                  label: 'Dolu',
-                  value: _busyCount,
-                  icon: Icons.event_busy_outlined,
-                  accent: const Color(0xFFF0C75E),
-                ),
-                _BacklineInventorySummaryCard(
-                  label: 'Bakımda',
-                  value: _maintenanceCount,
-                  icon: Icons.build_outlined,
-                  accent: const Color(0xFFE47B86),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _StudioActionButton(
-              icon: Icons.add_business_outlined,
-              label: 'Yeni Ekipman Ekle',
-              outlined: true,
-              onTap: _showAddEquipmentInfo,
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(
-                hintText: 'Ekipman, marka veya kategori ara...',
-                prefixIcon: Icon(Icons.search_rounded),
+              const SizedBox(height: 4),
+              const Text(
+                'Ekipman adetlerini ve mevcut durumlarını tek yerden takip et.',
+                style: TextStyle(color: Color(0xFF969FAA), fontSize: 12),
               ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _BacklineInventoryFilterButton(
-                    icon: Icons.category_outlined,
-                    label: _selectedCategory ?? 'Tüm Kategoriler',
-                    active: _selectedCategory != null,
-                    onTap: _selectCategory,
+              const SizedBox(height: 14),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 2.15,
+                children: [
+                  _BacklineInventorySummaryCard(
+                    label: 'Bu Sayfa • Toplam',
+                    value: _totalCount,
+                    icon: Icons.inventory_2_outlined,
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _BacklineInventoryFilterButton(
-                    icon: Icons.tune_rounded,
-                    label: _statusFilterLabel(_statusFilter),
-                    active: _statusFilter != _BacklineInventoryStatusFilter.all,
-                    onTap: _selectStatus,
+                  _BacklineInventorySummaryCard(
+                    label: 'Bu Sayfa • Müsait',
+                    value: _availableCount,
+                    icon: Icons.check_circle_outline_rounded,
+                    accent: const Color(0xFF62C98B),
                   ),
+                  _BacklineInventorySummaryCard(
+                    label: 'Bu Sayfa • Dolu',
+                    value: _busyCount,
+                    icon: Icons.event_busy_outlined,
+                    accent: const Color(0xFFF0C75E),
+                  ),
+                  _BacklineInventorySummaryCard(
+                    label: 'Bu Sayfa • Bakımda',
+                    value: _maintenanceCount,
+                    icon: Icons.build_outlined,
+                    accent: const Color(0xFFE47B86),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _StudioActionButton(
+                icon: Icons.add_business_outlined,
+                label: _isCatalogLoading
+                    ? 'Kategoriler Yükleniyor...'
+                    : 'Yeni Ekipman Ekle',
+                outlined: true,
+                onTap: _isCatalogLoading || _assignableCategories.isEmpty
+                    ? () => _showMessage(
+                        _catalogError ?? 'Kategori listesi henüz hazır değil.',
+                      )
+                    : _showAddEquipmentInfo,
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                onChanged: _onSearchChanged,
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  hintText: 'Ekipman, marka veya kategori ara...',
+                  prefixIcon: Icon(Icons.search_rounded),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Ekipmanlar',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _BacklineInventoryFilterButton(
+                      icon: Icons.category_outlined,
+                      label: _selectedCategory?.name ?? 'Tüm Kategoriler',
+                      active: _selectedCategory != null,
+                      onTap: _selectCategory,
                     ),
                   ),
-                ),
-                Text(
-                  '${items.length} kayıt',
-                  style: const TextStyle(
-                    color: Color(0xFF9099A7),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _BacklineInventoryFilterButton(
+                      icon: Icons.tune_rounded,
+                      label: _statusFilterLabel(_statusFilter),
+                      active:
+                          _statusFilter != _BacklineInventoryStatusFilter.all,
+                      onTap: _selectStatus,
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Ekipmanlar',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '$_totalItems kayıt',
+                    style: const TextStyle(
+                      color: Color(0xFF9099A7),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (_isLoading && items.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 42),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_loadError != null && items.isEmpty)
+                _StudioOwnerBacklineErrorState(
+                  message: _loadError!,
+                  onRetry: () => _loadPage(_pageIndex),
+                )
+              else if (items.isEmpty)
+                const _BacklineInventoryEmptyState()
+              else
+                for (final item in items)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _BacklineInventoryManagementCard(
+                      key: ObjectKey(item),
+                      item: item,
+                      onManage: () => _manageEquipment(item),
+                    ),
+                  ),
+              if (_isLoading && items.isNotEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+              if (_totalPages > 1) ...[
+                const SizedBox(height: 8),
+                _StudioOwnerBacklinePagination(
+                  pageIndex: _pageIndex,
+                  totalPages: _totalPages,
+                  enabled: !_isLoading,
+                  onPrevious: _pageIndex > 0
+                      ? () => _loadPage(_pageIndex - 1)
+                      : null,
+                  onNext: _pageIndex + 1 < _totalPages
+                      ? () => _loadPage(_pageIndex + 1)
+                      : null,
                 ),
               ],
-            ),
-            const SizedBox(height: 10),
-            if (items.isEmpty)
-              const _BacklineInventoryEmptyState()
-            else
-              for (final item in items)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _BacklineInventoryManagementCard(
-                    key: ObjectKey(item),
-                    item: item,
-                    onManage: () => _manageEquipment(item),
-                  ),
-                ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
+  Future<void> _loadInitialData() async {
+    await Future.wait<void>([_loadCatalog(), _loadPage(0)]);
+  }
+
+  Future<void> _loadCatalog() async {
+    if (mounted) {
+      setState(() {
+        _isCatalogLoading = true;
+        _catalogError = null;
+      });
+    }
+    final result = await _loadCompleteBacklineCatalog(_catalogRepository);
+    if (!mounted) return;
+    if (result.$1 == null) {
+      setState(() {
+        _isCatalogLoading = false;
+        _catalogError = result.$2 ?? 'Kategoriler yüklenemedi.';
+      });
+      return;
+    }
+    setState(() {
+      _categories = result.$1!;
+      _isCatalogLoading = false;
+      _catalogError = null;
+    });
+  }
+
+  Future<void> _loadPage(int page, {bool preserveItems = false}) async {
+    final generation = ++_loadGeneration;
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+        if (!preserveItems) _items = const [];
+      });
+    }
+    final result = await _equipmentRepository.listOwnerEquipment(
+      query: _searchQuery,
+      categoryId: _selectedCategory?.id,
+      availabilityBucket: _availabilityBucketForFilter(_statusFilter),
+      page: page,
+      size: _pageSize,
+    );
+    if (!mounted || generation != _loadGeneration) return;
+    if (!result.isSuccess || result.data == null) {
+      setState(() {
+        _isLoading = false;
+        _loadError = result.error?.message ?? 'Ekipmanlar yüklenemedi.';
+      });
+      return;
+    }
+    final response = result.data!;
+    setState(() {
+      _items = response.items
+          .map(_StudioBacklineInventoryItem.fromDomain)
+          .toList(growable: false);
+      _pageIndex = response.pageIndex;
+      _totalItems = response.totalItems;
+      _totalPages = response.totalPages;
+      _isLoading = false;
+      _loadError = null;
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    _searchQuery = value;
+    final generation = ++_searchGeneration;
+    Future<void>.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted || generation != _searchGeneration) return;
+      _loadPage(0);
+    });
+  }
+
+  StudioEquipmentAvailabilityBucket? _availabilityBucketForFilter(
+    _BacklineInventoryStatusFilter filter,
+  ) => switch (filter) {
+    _BacklineInventoryStatusFilter.all => null,
+    _BacklineInventoryStatusFilter.available =>
+      StudioEquipmentAvailabilityBucket.available,
+    _BacklineInventoryStatusFilter.busy =>
+      StudioEquipmentAvailabilityBucket.busy,
+    _BacklineInventoryStatusFilter.maintenance =>
+      StudioEquipmentAvailabilityBucket.maintenance,
+  };
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _selectCategory() async {
     final selected = await _showInventoryFilterSheet<String>(
       title: 'Kategori Seç',
-      currentValue: _selectedCategory ?? _allCategoriesFilterValue,
+      currentValue: _selectedCategory?.id ?? _allCategoriesFilterValue,
       options: [
         const _BacklineInventoryFilterOption(
           value: _allCategoriesFilterValue,
           label: 'Tüm Kategoriler',
         ),
         for (final category in _categories)
-          _BacklineInventoryFilterOption(value: category, label: category),
+          _BacklineInventoryFilterOption(
+            value: category.id,
+            label: category.name,
+          ),
       ],
     );
     if (!mounted || selected == null) return;
-    final category = selected == _allCategoriesFilterValue ? null : selected;
-    if (category == _selectedCategory) return;
+    _BacklineCategory? category;
+    if (selected != _allCategoriesFilterValue) {
+      for (final item in _categories) {
+        if (item.id == selected) {
+          category = item;
+          break;
+        }
+      }
+    }
+    if (category?.id == _selectedCategory?.id) return;
     setState(() => _selectedCategory = category);
+    await _loadPage(0);
   }
 
   Future<void> _selectStatus() async {
@@ -364,6 +519,7 @@ class _StudioBacklineInventoryScreenState
         );
     if (!mounted || selected == null || selected == _statusFilter) return;
     setState(() => _statusFilter = selected);
+    await _loadPage(0);
   }
 
   Future<T?> _showInventoryFilterSheet<T>({
@@ -422,11 +578,15 @@ class _StudioBacklineInventoryScreenState
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _NewBacklineInventoryItemSheet(),
+      builder: (_) => _NewBacklineInventoryItemSheet(
+        studioProfileId: widget.studioProfileId,
+        repository: _equipmentRepository,
+        categories: _assignableCategories,
+      ),
     );
     if (!mounted || item == null) return;
-    setState(() => _items.insert(0, item));
-    _notifyStudioBacklineInventoryChanged();
+    await _loadPage(0, preserveItems: true);
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('${item.name} envantere eklendi.')));
@@ -436,18 +596,21 @@ class _StudioBacklineInventoryScreenState
     final result = await Navigator.of(context)
         .push<_BacklineInventoryItemManagementResult>(
           MaterialPageRoute<_BacklineInventoryItemManagementResult>(
-            builder: (_) => _BacklineInventoryItemManagementScreen(item: item),
+            builder: (_) => _BacklineInventoryItemManagementScreen(
+              item: item,
+              studioProfileId: widget.studioProfileId,
+              repository: _equipmentRepository,
+              categories: _assignableCategories,
+            ),
           ),
         );
     if (!mounted || result == null) return;
-    final index = _items.indexWhere((candidate) => identical(candidate, item));
-    if (index < 0) return;
     if (result.deleted) {
-      setState(() {
-        _items.removeAt(index);
-        _studioBacklineAvailabilityMockValues.remove(item.name);
-      });
-      _notifyStudioBacklineInventoryChanged();
+      final targetPage = _items.length == 1 && _pageIndex > 0
+          ? _pageIndex - 1
+          : _pageIndex;
+      await _loadPage(targetPage, preserveItems: true);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${item.name} envanterden kaldırıldı.')),
       );
@@ -455,19 +618,8 @@ class _StudioBacklineInventoryScreenState
     }
     final updatedItem = result.updatedItem;
     if (updatedItem == null) return;
-    setState(() {
-      if (updatedItem.name != item.name) {
-        final availability = _studioBacklineAvailabilityMockValues.remove(
-          item.name,
-        );
-        if (availability != null) {
-          _studioBacklineAvailabilityMockValues[updatedItem.name] =
-              availability;
-        }
-      }
-      _items[index] = updatedItem;
-    });
-    _notifyStudioBacklineInventoryChanged();
+    await _loadPage(_pageIndex, preserveItems: true);
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('${updatedItem.name} güncellendi.')));
@@ -493,8 +645,112 @@ class _BacklineInventoryFilterOption<T> {
   });
 }
 
+class _StudioOwnerBacklineErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _StudioOwnerBacklineErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _ownerManagementCardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _ownerManagementCardBorderColor),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.cloud_off_outlined,
+            color: Color(0xFFE47B86),
+            size: 30,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFFB8C0CC), height: 1.35),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Tekrar Dene'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioOwnerBacklinePagination extends StatelessWidget {
+  final int pageIndex;
+  final int totalPages;
+  final bool enabled;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  const _StudioOwnerBacklinePagination({
+    required this.pageIndex,
+    required this.totalPages,
+    required this.enabled,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 46,
+      decoration: BoxDecoration(
+        color: _ownerManagementCardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _ownerManagementCardBorderColor),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Önceki sayfa',
+            onPressed: enabled ? onPrevious : null,
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          Expanded(
+            child: Text(
+              '${pageIndex + 1} / $totalPages',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFB8C0CC),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Sonraki sayfa',
+            onPressed: enabled ? onNext : null,
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NewBacklineInventoryItemSheet extends StatefulWidget {
-  const _NewBacklineInventoryItemSheet();
+  final String studioProfileId;
+  final StudioEquipmentRepository repository;
+  final List<_BacklineCategory> categories;
+
+  const _NewBacklineInventoryItemSheet({
+    required this.studioProfileId,
+    required this.repository,
+    required this.categories,
+  });
 
   @override
   State<_NewBacklineInventoryItemSheet> createState() =>
@@ -512,13 +768,28 @@ class _NewBacklineInventoryItemSheetState
   final _featureController = TextEditingController();
   final List<String> _features = [];
   final List<String> _photoPaths = [];
+  final Map<String, String> _photoMediaIdsByPath = {};
   final ImagePicker _imagePicker = ImagePicker();
+  late final DraftMediaCleanupCoordinator _draftMediaCleanup;
+  String _clientRequestId = const Uuid().v4();
   _BacklineCategory? _selectedCategory;
   String? _selectedSubcategory;
   String? _featureError;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _draftMediaCleanup = DraftMediaCleanupCoordinator(
+      repository: serviceLocator<ProfileMediaUploadRepository>(),
+      ownerType: 'STUDIO_PROFILE',
+      ownerId: widget.studioProfileId,
+    );
+  }
 
   @override
   void dispose() {
+    _draftMediaCleanup.close().ignore();
     _nameController.dispose();
     _brandController.dispose();
     _modelController.dispose();
@@ -598,7 +869,7 @@ class _NewBacklineInventoryItemSheetState
                       ),
                     ),
                     IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _isSubmitting ? null : _discardAndClose,
                       tooltip: 'Kapat',
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -656,7 +927,7 @@ class _NewBacklineInventoryItemSheetState
                           ),
                         ),
                         items: [
-                          for (final category in _backlineCategories)
+                          for (final category in widget.categories)
                             DropdownMenuItem(
                               value: category,
                               child: Text(
@@ -846,10 +1117,14 @@ class _NewBacklineInventoryItemSheetState
                       ],
                       const SizedBox(height: 24),
                       _StudioActionButton(
-                        icon: Icons.add_business_outlined,
-                        label: 'Ekipmanı Envantere Ekle',
+                        icon: _isSubmitting
+                            ? Icons.hourglass_top_rounded
+                            : Icons.add_business_outlined,
+                        label: _isSubmitting
+                            ? 'Ekipman Ekleniyor...'
+                            : 'Ekipmanı Envantere Ekle',
                         outlined: true,
-                        onTap: _submit,
+                        onTap: _isSubmitting ? () {} : _submit,
                       ),
                     ],
                   ),
@@ -883,35 +1158,98 @@ class _NewBacklineInventoryItemSheetState
     });
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState?.validate() != true) return;
     final category = _selectedCategory!;
+    final subcategory = _selectedSubcategory!;
+    final leafCategoryId = category.childId(subcategory);
+    if (leafCategoryId == null || leafCategoryId.isEmpty) {
+      _showMessage(
+        'Seçilen alt kategori güncel değil. Kategorileri yenileyip tekrar dene.',
+      );
+      return;
+    }
     final quantity = int.parse(_quantityController.text.trim());
     final brand = _capitalizeStudioRoomText(_brandController.text);
     final model = _capitalizeStudioRoomText(_modelController.text);
-    final brandAndModel = [
-      if (brand.isNotEmpty) brand,
-      if (model.isNotEmpty) model,
-    ].join(' • ');
-
-    Navigator.of(context).pop(
-      _StudioBacklineInventoryItem(
-        name: _capitalizeStudioRoomText(_nameController.text),
-        category: category.name,
-        subcategory: _selectedSubcategory!,
-        model: brandAndModel.isEmpty
-            ? 'Marka/model belirtilmedi'
-            : brandAndModel,
-        description: _capitalizeStudioRoomText(_descriptionController.text),
-        features: List.unmodifiable(_features),
-        photoUrls: List.unmodifiable(_photoPaths),
-        icon: category.icon,
-        total: quantity,
-        available: quantity,
-        reserved: 0,
-        maintenance: 0,
-      ),
+    setState(() => _isSubmitting = true);
+    final uploaded = await _uploadPendingPhotos();
+    if (!mounted) return;
+    if (!uploaded) {
+      setState(() => _isSubmitting = false);
+      return;
+    }
+    final submittedPhotoIds = _photoPaths
+        .map((path) => _photoMediaIdsByPath[path])
+        .whereType<String>()
+        .toList(growable: false);
+    final command = CreateStudioEquipmentCommand(
+      clientRequestId: _clientRequestId,
+      leafCategoryId: leafCategoryId,
+      name: _capitalizeStudioRoomText(_nameController.text),
+      brand: brand,
+      model: model,
+      description: _capitalizeStudioRoomText(_descriptionController.text),
+      totalQuantity: quantity,
+      features: List.unmodifiable(_features),
+      photoMediaIds: submittedPhotoIds,
     );
+    final result = await widget.repository.createEquipment(command);
+    if (!mounted) return;
+    if (!result.isSuccess || result.data == null) {
+      if (!studioMutationOutcomeMayBeAmbiguous(result.error)) {
+        await _cleanupDeterministicCreateFailure();
+        if (!mounted) return;
+      }
+      setState(() => _isSubmitting = false);
+      _showMessage(result.error?.message ?? 'Ekipman eklenemedi.');
+      return;
+    }
+    await _draftMediaCleanup.markCommitted(submittedPhotoIds);
+    await _draftMediaCleanup.close();
+    if (!mounted) return;
+    Navigator.of(
+      context,
+    ).pop(_StudioBacklineInventoryItem.fromDomain(result.data!));
+  }
+
+  Future<bool> _uploadPendingPhotos() async {
+    final uploadedThisAttempt = <String>[];
+    for (final path in List<String>.of(_photoPaths)) {
+      if (_photoMediaIdsByPath.containsKey(path)) continue;
+      try {
+        final fileName = fileNameFromPath(path, fallback: 'equipment.jpg');
+        final uploaded = await uploadProfileMediaAsset(
+          source: await createProfileUploadSource(filePath: path),
+          ownerType: 'STUDIO_PROFILE',
+          ownerId: widget.studioProfileId,
+          mediaKind: 'IMAGE',
+          mimeType: inferImageMimeType(fileName),
+          originalFileName: fileName,
+          attachmentIntent: const ProfileUploadAttachmentIntent.draft(),
+        );
+        final id = uploaded.uuid.trim();
+        if (id.isEmpty) throw StateError('Media asset id is empty');
+        final tracked = await _draftMediaCleanup.trackUploaded(id);
+        if (!tracked.isSuccess) {
+          throw StateError('Draft media cleanup could not be persisted');
+        }
+        uploadedThisAttempt.add(id);
+        if (!mounted) {
+          await _draftMediaCleanup.discard(id);
+          return false;
+        }
+        _photoMediaIdsByPath[path] = id;
+      } catch (error) {
+        for (final assetId in uploadedThisAttempt) {
+          await _draftMediaCleanup.discard(assetId);
+        }
+        _removeMediaMappings(uploadedThisAttempt);
+        if (mounted) _showMessage('Fotoğraf yüklenemedi. Lütfen tekrar dene.');
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _pickPhotos() async {
@@ -933,12 +1271,46 @@ class _NewBacklineInventoryItemSheetState
       imageQuality: 88,
     );
     if (!mounted || selected == null || index >= _photoPaths.length) return;
-    setState(() => _photoPaths[index] = selected.path);
+    final replacedMediaId = _photoMediaIdsByPath[_photoPaths[index]];
+    setState(() {
+      _photoMediaIdsByPath.remove(_photoPaths[index]);
+      _photoPaths[index] = selected.path;
+    });
+    if (replacedMediaId != null &&
+        _draftMediaCleanup.isTracked(replacedMediaId)) {
+      _draftMediaCleanup.discard(replacedMediaId).ignore();
+    }
   }
 
   void _deletePhoto(int index) {
     if (index < 0 || index >= _photoPaths.length) return;
-    setState(() => _photoPaths.removeAt(index));
+    final removedMediaId = _photoMediaIdsByPath[_photoPaths[index]];
+    setState(() {
+      _photoMediaIdsByPath.remove(_photoPaths[index]);
+      _photoPaths.removeAt(index);
+    });
+    if (removedMediaId != null &&
+        _draftMediaCleanup.isTracked(removedMediaId)) {
+      _draftMediaCleanup.discard(removedMediaId).ignore();
+    }
+  }
+
+  Future<void> _cleanupDeterministicCreateFailure() async {
+    final pendingIds = _draftMediaCleanup.pendingAssetIds;
+    final report = await _draftMediaCleanup.discardAll();
+    if (report.hasFailures || report.hasProtectedReferences) return;
+    _removeMediaMappings(pendingIds);
+    _clientRequestId = const Uuid().v4();
+  }
+
+  void _removeMediaMappings(Iterable<String> assetIds) {
+    final ids = assetIds.toSet();
+    _photoMediaIdsByPath.removeWhere((_, assetId) => ids.contains(assetId));
+  }
+
+  Future<void> _discardAndClose() async {
+    await _draftMediaCleanup.close();
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _movePhoto(int fromIndex, int toIndex) {
@@ -961,6 +1333,13 @@ class _NewBacklineInventoryItemSheetState
         content: Text('En fazla 5 ekipman fotoğrafı ekleyebilirsin.'),
       ),
     );
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -1128,23 +1507,22 @@ class _BacklineInventoryPhotoSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isNetworkImage = isValidNetworkImageUrl(path);
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.file(
-          File(path),
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const ColoredBox(
-            color: _ownerManagementInsetColor,
-            child: Center(
-              child: Icon(
-                Icons.broken_image_outlined,
-                color: Color(0xFF929BA8),
-                size: 38,
-              ),
-            ),
+        if (isNetworkImage)
+          Image.network(
+            path,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const _BacklineBrokenPhoto(),
+          )
+        else
+          Image.file(
+            File(path),
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const _BacklineBrokenPhoto(),
           ),
-        ),
         Positioned(
           top: 10,
           left: 10,
@@ -1191,6 +1569,24 @@ class _BacklineInventoryPhotoSlot extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _BacklineBrokenPhoto extends StatelessWidget {
+  const _BacklineBrokenPhoto();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: _ownerManagementInsetColor,
+      child: Center(
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: Color(0xFF929BA8),
+          size: 38,
+        ),
+      ),
     );
   }
 }
@@ -1299,9 +1695,9 @@ class _BacklineInventoryManagementCardState
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final available = _mockBacklineAvailableToday(item);
-    final busy = _mockBacklineBusyToday(item);
-    final maintenance = _mockBacklineMaintenanceToday(item);
+    final available = item.available;
+    final busy = item.reserved;
+    final maintenance = item.maintenance;
     final status = _statusFor(
       item,
       available: available,
@@ -1611,80 +2007,141 @@ class _StudioBacklineCategoryManagementScreen extends StatefulWidget {
 
 class _StudioBacklineCategoryManagementScreenState
     extends State<_StudioBacklineCategoryManagementScreen> {
-  final List<_BacklineCategoryRequest> _submittedRequests = [];
+  static const _requestPageSize = 20;
+  late final BacklineCatalogRepository _repository;
+  List<BacklineCategoryRequest> _submittedRequests = const [];
+  List<_BacklineCategory> _catalog = const [];
+  int _requestPageIndex = 0;
+  int _requestTotalPages = 0;
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = serviceLocator<BacklineCatalogRepository>();
+    _loadInitialData();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Kategori Talep Et'), centerTitle: true),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-          children: [
-            const _BacklineCategoryRequestInfoCard(),
-            const SizedBox(height: 14),
-            _StudioActionButton(
-              icon: Icons.add_rounded,
-              label: 'Yeni Kategori / Alt Kategori Talep Et',
-              outlined: true,
-              onTap: _openRequestSheet,
-            ),
-            if (_submittedRequests.isNotEmpty) ...[
+        child: RefreshIndicator(
+          onRefresh: _loadInitialData,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+            children: [
+              const _BacklineCategoryRequestInfoCard(),
+              const SizedBox(height: 14),
+              _StudioActionButton(
+                icon: _isSubmitting
+                    ? Icons.hourglass_top_rounded
+                    : Icons.add_rounded,
+                label: _isSubmitting
+                    ? 'Talep Gönderiliyor...'
+                    : 'Yeni Kategori / Alt Kategori Talep Et',
+                outlined: true,
+                onTap: _isSubmitting || _catalog.isEmpty
+                    ? () => _showMessage(
+                        _loadError ?? 'Kategori listesi henüz hazır değil.',
+                      )
+                    : _openRequestSheet,
+              ),
+              if (_isLoading) ...[
+                const SizedBox(height: 14),
+                const LinearProgressIndicator(minHeight: 2),
+              ],
+              if (_loadError != null &&
+                  _submittedRequests.isEmpty &&
+                  _catalog.isEmpty) ...[
+                const SizedBox(height: 14),
+                _StudioOwnerBacklineErrorState(
+                  message: _loadError!,
+                  onRetry: _loadInitialData,
+                ),
+              ],
+              if (_submittedRequests.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text(
+                  'Talepleriniz',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (final request in _submittedRequests)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _BacklineSubmittedCategoryRequestCard(
+                      request: request,
+                      onWithdraw:
+                          request.status ==
+                              BacklineCategoryRequestStatus.pending
+                          ? () => _withdrawRequest(request)
+                          : null,
+                    ),
+                  ),
+                if (_requestTotalPages > 1)
+                  _StudioOwnerBacklinePagination(
+                    pageIndex: _requestPageIndex,
+                    totalPages: _requestTotalPages,
+                    enabled: !_isLoading,
+                    onPrevious: _requestPageIndex > 0
+                        ? () => _loadRequests(_requestPageIndex - 1)
+                        : null,
+                    onNext: _requestPageIndex + 1 < _requestTotalPages
+                        ? () => _loadRequests(_requestPageIndex + 1)
+                        : null,
+                  ),
+              ],
               const SizedBox(height: 20),
               const Text(
-                'Talepleriniz',
+                'SoundConnect Kategorileri',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                '${_catalog.length} ana kategori • '
+                '${_catalog.fold<int>(0, (sum, item) => sum + item.children.length)} alt kategori',
+                style: const TextStyle(color: Color(0xFF929DAC), fontSize: 12),
+              ),
               const SizedBox(height: 10),
-              for (final request in _submittedRequests)
+              for (final category in _catalog)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: _BacklineSubmittedCategoryRequestCard(
-                    request: request,
-                  ),
+                  child: _BacklineManagementCategoryTile(category: category),
                 ),
             ],
-            const SizedBox(height: 20),
-            const Text(
-              'SoundConnect Kategorileri',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_backlineCategories.length} ana kategori • '
-              '${_backlineCategories.fold<int>(0, (sum, item) => sum + item.children.length)} alt kategori',
-              style: const TextStyle(color: Color(0xFF929DAC), fontSize: 12),
-            ),
-            const SizedBox(height: 10),
-            for (final category in _backlineCategories)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _BacklineManagementCategoryTile(category: category),
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Future<void> _openRequestSheet() async {
-    final request = await showModalBottomSheet<_BacklineCategoryRequest>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _BacklineCategoryRequestSheet(),
-    );
-    if (request == null || !mounted) return;
-    setState(() => _submittedRequests.insert(0, request));
+    final command =
+        await showModalBottomSheet<CreateBacklineCategoryRequestCommand>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _BacklineCategoryRequestSheet(categories: _catalog),
+        );
+    if (command == null || !mounted) return;
+    final submitted = await _submitCategoryRequest(command);
+    if (!mounted || submitted == null) return;
+    await _loadRequests(0, preserveItems: true);
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1724,6 +2181,129 @@ class _StudioBacklineCategoryManagementScreenState
         ],
       ),
     );
+  }
+
+  Future<BacklineCategoryRequest?> _submitCategoryRequest(
+    CreateBacklineCategoryRequestCommand command,
+  ) async {
+    while (mounted) {
+      setState(() => _isSubmitting = true);
+      final result = await _repository.submitRequest(command);
+      if (!mounted) return null;
+      setState(() => _isSubmitting = false);
+      if (result.isSuccess && result.data != null) return result.data;
+      final retry = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Talep gönderilemedi'),
+          content: Text(
+            result.error?.message ?? 'Bağlantıyı kontrol edip tekrar deneyin.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Tekrar Dene'),
+            ),
+          ],
+        ),
+      );
+      if (retry != true) return null;
+      // The same command instance intentionally keeps clientRequestId stable.
+    }
+    return null;
+  }
+
+  Future<void> _loadInitialData() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    }
+    await Future.wait<void>([_loadCatalog(), _loadRequests(0)]);
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadCatalog() async {
+    final result = await _loadCompleteBacklineCatalog(_repository);
+    if (!mounted) return;
+    if (result.$1 == null) {
+      setState(() {
+        _loadError ??= result.$2 ?? 'Kategoriler yüklenemedi.';
+      });
+      return;
+    }
+    setState(() => _catalog = result.$1!);
+  }
+
+  Future<void> _loadRequests(int page, {bool preserveItems = false}) async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        if (!preserveItems) _submittedRequests = const [];
+      });
+    }
+    final result = await _repository.listOwnerRequests(
+      page: page,
+      size: _requestPageSize,
+    );
+    if (!mounted) return;
+    if (!result.isSuccess || result.data == null) {
+      setState(() {
+        _isLoading = false;
+        _loadError = result.error?.message ?? 'Kategori talepleri yüklenemedi.';
+      });
+      return;
+    }
+    setState(() {
+      _submittedRequests = result.data!.items;
+      _requestPageIndex = result.data!.pageIndex;
+      _requestTotalPages = result.data!.totalPages;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _withdrawRequest(BacklineCategoryRequest request) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Talep geri çekilsin mi?'),
+        content: Text(
+          '“${request.requestedName}” talebi incelemeden kaldırılacak.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Geri Çek'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    setState(() => _isSubmitting = true);
+    final result = await _repository.withdrawRequest(request.id);
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+    if (!result.isSuccess) {
+      _showMessage(result.error?.message ?? 'Talep geri çekilemedi.');
+      return;
+    }
+    await _loadRequests(_requestPageIndex, preserveItems: true);
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -1909,24 +2489,10 @@ class _BacklineOutlineChoice extends StatelessWidget {
   }
 }
 
-class _BacklineCategoryRequest {
-  final _BacklineCategoryRequestType type;
-  final String name;
-  final String? parentCategory;
-  final List<String> proposedSubcategories;
-  final String note;
-
-  const _BacklineCategoryRequest({
-    required this.type,
-    required this.name,
-    required this.parentCategory,
-    required this.proposedSubcategories,
-    required this.note,
-  });
-}
-
 class _BacklineCategoryRequestSheet extends StatefulWidget {
-  const _BacklineCategoryRequestSheet();
+  final List<_BacklineCategory> categories;
+
+  const _BacklineCategoryRequestSheet({required this.categories});
 
   @override
   State<_BacklineCategoryRequestSheet> createState() =>
@@ -1940,8 +2506,9 @@ class _BacklineCategoryRequestSheetState
   final _noteController = TextEditingController();
   final _subcategoryController = TextEditingController();
   final List<String> _proposedSubcategories = [];
+  final String _clientRequestId = const Uuid().v4();
   _BacklineCategoryRequestType _type = _BacklineCategoryRequestType.category;
-  String? _parentCategory;
+  _BacklineCategory? _parentCategory;
   bool _includeSubcategories = false;
   String? _subcategoryError;
 
@@ -2022,7 +2589,7 @@ class _BacklineCategoryRequestSheetState
                 ),
                 if (_type == _BacklineCategoryRequestType.subcategory) ...[
                   const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
+                  DropdownButtonFormField<_BacklineCategory>(
                     initialValue: _parentCategory,
                     isExpanded: true,
                     decoration: const InputDecoration(
@@ -2033,9 +2600,9 @@ class _BacklineCategoryRequestSheetState
                       ),
                     ),
                     items: [
-                      for (final category in _backlineCategories)
+                      for (final category in widget.categories)
                         DropdownMenuItem(
-                          value: category.name,
+                          value: category,
                           child: Text(
                             category.name,
                             overflow: TextOverflow.ellipsis,
@@ -2179,12 +2746,15 @@ class _BacklineCategoryRequestSheetState
       return;
     }
     Navigator.of(context).pop(
-      _BacklineCategoryRequest(
-        type: _type,
+      CreateBacklineCategoryRequestCommand(
+        clientRequestId: _clientRequestId,
+        type: _type == _BacklineCategoryRequestType.category
+            ? BacklineCategoryRequestType.rootCategory
+            : BacklineCategoryRequestType.subcategory,
         name: _capitalizeStudioRoomText(_nameController.text),
-        parentCategory: _parentCategory,
-        proposedSubcategories: List.unmodifiable(_proposedSubcategories),
-        note: _capitalizeStudioRoomText(_noteController.text),
+        parentCategoryId: _parentCategory?.id,
+        proposedChildren: List.unmodifiable(_proposedSubcategories),
+        requesterNote: _capitalizeStudioRoomText(_noteController.text),
       ),
     );
   }
@@ -2242,14 +2812,25 @@ class _BacklineCategoryRequestSheetState
 }
 
 class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
-  final _BacklineCategoryRequest request;
+  final BacklineCategoryRequest request;
+  final VoidCallback? onWithdraw;
 
-  const _BacklineSubmittedCategoryRequestCard({required this.request});
+  const _BacklineSubmittedCategoryRequestCard({
+    required this.request,
+    required this.onWithdraw,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isSubcategory =
-        request.type == _BacklineCategoryRequestType.subcategory;
+        request.type == BacklineCategoryRequestType.subcategory;
+    final statusColor = switch (request.status) {
+      BacklineCategoryRequestStatus.pending => const Color(0xFFF09BC7),
+      BacklineCategoryRequestStatus.approved => const Color(0xFF75D7A3),
+      BacklineCategoryRequestStatus.rejected => const Color(0xFFFF8792),
+      BacklineCategoryRequestStatus.withdrawn => const Color(0xFF9EA8B7),
+      BacklineCategoryRequestStatus.unknown => const Color(0xFF9EA8B7),
+    };
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
@@ -2270,27 +2851,27 @@ class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  request.name,
+                  request.requestedName,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                if (request.parentCategory != null) ...[
+                if (request.parentCategoryName != null) ...[
                   const SizedBox(height: 3),
                   Text(
-                    request.parentCategory!,
+                    request.parentCategoryName!,
                     style: const TextStyle(
                       color: Color(0xFF8F9AAA),
                       fontSize: 11,
                     ),
                   ),
                 ],
-                if (request.proposedSubcategories.isNotEmpty) ...[
+                if (request.proposedChildren.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(
-                    '${request.proposedSubcategories.length} alt kategori önerisi',
+                    '${request.proposedChildren.length} alt kategori önerisi',
                     style: const TextStyle(
                       color: Color(0xFFB5BAC4),
                       fontSize: 11,
@@ -2301,24 +2882,46 @@ class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0x33E062A9),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0x66E062A9)),
-            ),
-            child: const Text(
-              'İncelemede',
-              style: TextStyle(
-                color: Color(0xFFF09BC7),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  _categoryRequestStatusLabel(request.status),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-            ),
+              if (onWithdraw != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Talebi geri çek',
+                  onPressed: onWithdraw,
+                  icon: const Icon(Icons.undo_rounded, size: 18),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
+
+  static String _categoryRequestStatusLabel(
+    BacklineCategoryRequestStatus status,
+  ) => switch (status) {
+    BacklineCategoryRequestStatus.pending => 'İncelemede',
+    BacklineCategoryRequestStatus.approved => 'Onaylandı',
+    BacklineCategoryRequestStatus.rejected => 'Reddedildi',
+    BacklineCategoryRequestStatus.withdrawn => 'Geri Çekildi',
+    BacklineCategoryRequestStatus.unknown => 'Bilinmiyor',
+  };
 }

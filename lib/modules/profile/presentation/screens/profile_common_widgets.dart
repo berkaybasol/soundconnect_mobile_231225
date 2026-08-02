@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import 'profile_section_support.dart';

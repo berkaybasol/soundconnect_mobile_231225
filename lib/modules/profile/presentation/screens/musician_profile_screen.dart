@@ -20,6 +20,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../../../shared/widgets/session_logout_action.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/artist_venue_application.dart';

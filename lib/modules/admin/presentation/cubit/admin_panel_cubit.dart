@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/result.dart';
 import '../../domain/admin_repository.dart';
 import '../../domain/entities/admin_venue_application.dart';
+import '../../domain/entities/admin_studio_application.dart';
 import 'admin_panel_state.dart';
 
 class AdminPanelCubit extends Cubit<AdminPanelState> {
@@ -13,11 +14,12 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
   int _reloadGeneration = 0;
   int _applicationsGeneration = 0;
 
-  Future<void> initialize() => _reloadAll();
+  Future<void> initialize() => _reloadAll(loadStudio: false);
 
-  Future<void> refresh() => _reloadAll();
+  Future<void> refresh({bool loadStudio = false}) =>
+      _reloadAll(loadStudio: loadStudio);
 
-  Future<void> _reloadAll() async {
+  Future<void> _reloadAll({required bool loadStudio}) async {
     final generation = ++_reloadGeneration;
     _applicationsGeneration += 1;
     emit(
@@ -30,7 +32,11 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
     );
     await _loadSummary(generation);
     if (generation != _reloadGeneration || isClosed) return;
-    await loadVenueApplications(state.selectedStatus);
+    if (loadStudio) {
+      await loadStudioApplications(state.selectedStatus);
+    } else {
+      await loadVenueApplications(state.selectedStatus);
+    }
   }
 
   Future<void> loadVenueApplications(AdminVenueApplicationStatus status) async {
@@ -80,6 +86,57 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
     await _runApplicationAction(
       id,
       () => _adminRepository.rejectVenueApplication(id: id, reason: reason),
+    );
+  }
+
+  Future<void> loadStudioApplications(
+    AdminVenueApplicationStatus status,
+  ) async {
+    final generation = ++_applicationsGeneration;
+    emit(
+      state.copyWith(
+        status: AdminPanelStatus.loading,
+        selectedStatus: status,
+        applicationsError: null,
+        actionError: null,
+      ),
+    );
+    final result = await _adminRepository.getStudioApplicationsByStatus(status);
+    if (generation != _applicationsGeneration || isClosed) return;
+    if (!result.isSuccess) {
+      emit(
+        state.copyWith(
+          status: AdminPanelStatus.failure,
+          applicationsError: result.error,
+        ),
+      );
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: state.summaryError == null
+            ? AdminPanelStatus.idle
+            : AdminPanelStatus.failure,
+        studioApplications: result.data ?? const [],
+        applicationsError: null,
+      ),
+    );
+  }
+
+  Future<void> approveStudioApplication(String id) async {
+    await _runStudioApplicationAction(
+      id,
+      () => _adminRepository.approveStudioApplication(id),
+    );
+  }
+
+  Future<void> rejectStudioApplication({
+    required String id,
+    required String reason,
+  }) async {
+    await _runStudioApplicationAction(
+      id,
+      () => _adminRepository.rejectStudioApplication(id: id, reason: reason),
     );
   }
 
@@ -137,5 +194,42 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
       ),
     );
     await refresh();
+  }
+
+  Future<void> _runStudioApplicationAction(
+    String id,
+    Future<Result<AdminStudioApplication>> Function() action,
+  ) async {
+    final nextActionIds = Set<String>.from(state.actionIds)..add(id);
+    emit(
+      state.copyWith(
+        status: AdminPanelStatus.actionLoading,
+        actionIds: nextActionIds,
+        actionError: null,
+      ),
+    );
+    final result = await action();
+    if (isClosed) return;
+    final updatedActionIds = Set<String>.from(state.actionIds)..remove(id);
+    if (!result.isSuccess) {
+      emit(
+        state.copyWith(
+          status: AdminPanelStatus.failure,
+          actionIds: updatedActionIds,
+          actionError: result.error,
+        ),
+      );
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: updatedActionIds.isEmpty
+            ? AdminPanelStatus.idle
+            : AdminPanelStatus.actionLoading,
+        actionIds: updatedActionIds,
+        actionError: null,
+      ),
+    );
+    await refresh(loadStudio: true);
   }
 }

@@ -2,12 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/entities/profile_search_result.dart';
 import '../../domain/profile_search_repository.dart';
+import '../navigation/profile_search_navigation.dart';
 import 'band_profile_screen.dart';
 import 'profile_route_args.dart';
 
@@ -102,11 +103,21 @@ class _BackstageProfileSearchSheetState
   void _openResult(ProfileSearchResult item) {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final destination = resolveProfileSearchDestination(
+      result: item,
+      currentUserId: serviceLocator<AuthSessionManager>().session.userId,
+    );
     navigator.pop();
+
+    if (destination?.opensOwnerProfile == true) {
+      navigator.pushNamed(destination!.route);
+      return;
+    }
+
     switch (item.type) {
       case ProfileSearchResultType.musician:
         navigator.pushNamed(
-          AppRoutes.musicianPublicProfile,
+          destination!.route,
           arguments: PublicProfileArgs(profileId: item.targetId),
         );
         return;
@@ -115,7 +126,7 @@ class _BackstageProfileSearchSheetState
         return;
       case ProfileSearchResultType.band:
         navigator.pushNamed(
-          AppRoutes.bandPublicProfile,
+          destination!.route,
           arguments: BandProfileScreenArgs(
             bandId: item.targetId,
             viewMode: BandProfileViewMode.public,
@@ -124,13 +135,13 @@ class _BackstageProfileSearchSheetState
         return;
       case ProfileSearchResultType.studio:
         navigator.pushNamed(
-          AppRoutes.studioPublicProfile,
+          destination!.route,
           arguments: PublicProfileArgs(profileId: item.targetId),
         );
         return;
       case ProfileSearchResultType.venue:
         navigator.pushNamed(
-          AppRoutes.venuePublicProfile,
+          destination!.route,
           arguments: VenuePublicProfileArgs(venueId: item.targetId),
         );
         return;

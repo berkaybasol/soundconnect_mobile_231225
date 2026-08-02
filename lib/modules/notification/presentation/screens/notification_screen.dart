@@ -6,6 +6,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
+import '../../../dm/presentation/dm_profile_navigation.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../overthinking/domain/overthinking_repository.dart';
@@ -16,6 +17,7 @@ import '../../../profile/presentation/screens/band_invite_decision_screen.dart';
 import '../../../profile/presentation/screens/band_profile_screen.dart';
 import '../../../profile/presentation/screens/musician_profile_screen.dart';
 import '../../../profile/presentation/screens/profile_route_args.dart';
+import '../../../profile/presentation/screens/studio_profile_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_detail_screen.dart';
 import '../../domain/entities/app_notification.dart';
 import '../cubit/notification_cubit.dart';
@@ -284,6 +286,10 @@ class _NotificationTile extends StatelessWidget {
       Navigator.of(context).pushNamed(AppRoutes.dmChat, arguments: args);
       return;
     }
+    if (_isStudioNotification(notification)) {
+      _openStudioReservationTarget(context, notification);
+      return;
+    }
     if (_isArtistVenueNotification(notification)) {
       _openArtistVenueTarget(context, notification.payload);
       return;
@@ -308,6 +314,44 @@ class _NotificationTile extends StatelessWidget {
   bool _isDmNotification(AppNotification notification) {
     final module = notification.payload['module']?.toString().trim() ?? '';
     return module == 'DM' || notification.type.startsWith('DM');
+  }
+
+  bool _isStudioNotification(AppNotification notification) {
+    final module = notification.payload['module']?.toString().trim() ?? '';
+    return module == 'STUDIO' ||
+        notification.type.startsWith('STUDIO_RESERVATION');
+  }
+
+  void _openStudioReservationTarget(
+    BuildContext context,
+    AppNotification notification,
+  ) {
+    final roomId = notification.payload['roomId']?.toString().trim() ?? '';
+    final studioProfileId =
+        notification.payload['studioProfileId']?.toString().trim() ?? '';
+    if (roomId.isEmpty || studioProfileId.isEmpty) return;
+    final ownerMode =
+        notification.type == 'STUDIO_RESERVATION_CREATED' ||
+        notification.type == 'STUDIO_RESERVATION_CONFLICTING_REQUESTS';
+    final zoneId =
+        notification.payload['zoneId']?.toString().trim() ?? 'Europe/Istanbul';
+    final reservationDate = DateTime.tryParse(
+      notification.payload['localDate']?.toString().trim() ?? '',
+    );
+    final reservationId = notification.payload['reservationId']
+        ?.toString()
+        .trim();
+    Navigator.of(context).pushNamed(
+      AppRoutes.studioReservationCalendar,
+      arguments: StudioReservationCalendarArgs(
+        roomId: roomId,
+        studioProfileId: studioProfileId,
+        ownerMode: ownerMode,
+        timeZone: zoneId.isEmpty ? 'Europe/Istanbul' : zoneId,
+        reservationDate: reservationDate,
+        reservationId: reservationId?.isEmpty == true ? null : reservationId,
+      ),
+    );
   }
 
   Future<DmChatScreenArgs> _resolveDmChatArgs(
@@ -550,11 +594,15 @@ class _NotificationTile extends StatelessWidget {
     final followerUsername =
         payload['followerUsername']?.toString().trim() ?? '';
     final resolver = serviceLocator<DmUserProfileResolver>();
-    final targets = await resolver.resolveByUserId(
+    final resolvedTargets = await resolver.resolveByUserId(
       userId: followerId,
       usernameHint: followerUsername,
     );
-    if (!context.mounted || targets.isEmpty) return;
+    if (!context.mounted) return;
+    final targets = resolvedTargets
+        .where((target) => dmProfileRouteFor(target) != null)
+        .toList(growable: false);
+    if (targets.isEmpty) return;
     if (targets.length == 1) {
       _navigateToProfileTarget(context, targets.first);
       return;
@@ -569,20 +617,11 @@ class _NotificationTile extends StatelessWidget {
   }
 
   void _navigateToProfileTarget(BuildContext context, DmProfileTarget target) {
-    switch (target.type) {
-      case DmProfileTargetType.musician:
-        Navigator.of(context).pushNamed(
-          AppRoutes.musicianPublicProfile,
-          arguments: {'profileId': target.id},
-        );
-        return;
-      case DmProfileTargetType.venue:
-        Navigator.of(context).pushNamed(
-          AppRoutes.venuePublicProfile,
-          arguments: {'venueId': target.id},
-        );
-        return;
-    }
+    final route = dmProfileRouteFor(target);
+    if (route == null) return;
+    Navigator.of(
+      context,
+    ).pushNamed(route.routeName, arguments: route.arguments);
   }
 
   void _openBandTarget(BuildContext context, AppNotification notification) {
@@ -832,6 +871,8 @@ class _NotificationTypeIcon extends StatelessWidget {
       final value when value.startsWith('TABLE') => Icons.groups_2_outlined,
       final value when value.startsWith('MEDIA') => Icons.play_circle_outline,
       final value when value.startsWith('DM') => Icons.forum_outlined,
+      final value when value.startsWith('STUDIO') =>
+        Icons.calendar_month_outlined,
       final value when value.startsWith('ARTIST_VENUE') =>
         Icons.handshake_outlined,
       final value when value.startsWith('SOCIAL') =>
@@ -885,12 +926,16 @@ class _SocialProfileTargetSheet extends StatelessWidget {
                   : null,
               child: _hasImage(item.imageUrl)
                   ? null
-                  : const Icon(Icons.person_outline_rounded),
+                  : Icon(switch (item.type) {
+                      DmProfileTargetType.musician =>
+                        Icons.person_outline_rounded,
+                      DmProfileTargetType.venue => Icons.storefront_outlined,
+                      DmProfileTargetType.studio => Icons.graphic_eq_outlined,
+                      DmProfileTargetType.listener => Icons.headphones_outlined,
+                    }),
             ),
             title: Text(item.displayName),
-            subtitle: Text(
-              item.type == DmProfileTargetType.musician ? 'Müzisyen' : 'Mekân',
-            ),
+            subtitle: Text(item.type.displayLabel),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).pop(item),
           );

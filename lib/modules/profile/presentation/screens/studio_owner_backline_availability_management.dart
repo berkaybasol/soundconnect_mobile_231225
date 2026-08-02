@@ -11,10 +11,14 @@ class _BacklineDayAvailability {
 
   int availableCount(int total) =>
       (total - busyCount - maintenanceCount).clamp(0, total).toInt();
-}
 
-final Map<String, Map<DateTime, _BacklineDayAvailability>>
-_studioBacklineAvailabilityMockValues = {};
+  factory _BacklineDayAvailability.fromDomain(
+    StudioEquipmentAvailabilityDay day,
+  ) => _BacklineDayAvailability(
+    busyCount: day.busyQuantity,
+    maintenanceCount: day.maintenanceQuantity,
+  );
+}
 
 class _BacklineAvailabilityManagementScreen extends StatefulWidget {
   const _BacklineAvailabilityManagementScreen();
@@ -26,7 +30,14 @@ class _BacklineAvailabilityManagementScreen extends StatefulWidget {
 
 class _BacklineAvailabilityManagementScreenState
     extends State<_BacklineAvailabilityManagementScreen> {
+  late final StudioEquipmentRepository _repository;
   _StudioBacklineInventoryItem? _selectedEquipment;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = serviceLocator<StudioEquipmentRepository>();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,15 +53,14 @@ class _BacklineAvailabilityManagementScreenState
               const _BacklineAvailabilityEmptyState()
             else
               _BacklineDateAvailabilityCalendar(
-                key: ValueKey(_selectedEquipment!.name),
+                key: ValueKey(_selectedEquipment!.id),
+                repository: _repository,
+                equipmentId: _selectedEquipment!.id,
                 equipmentName: _selectedEquipment!.name,
                 total: _selectedEquipment!.total,
+                referenceDate: _selectedEquipment!.todayLocalDate,
                 initiallyAvailable: _selectedEquipment!.total,
                 editable: true,
-                values: _studioBacklineAvailabilityMockValues.putIfAbsent(
-                  _selectedEquipment!.name,
-                  () => {},
-                ),
               ),
           ],
         ),
@@ -146,7 +156,7 @@ class _BacklineAvailabilityManagementScreenState
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => _BacklineAvailabilityEquipmentPicker(
-        items: _studioBacklineInventoryMockItems,
+        repository: _repository,
         selected: _selectedEquipment,
       ),
     );
@@ -192,21 +202,27 @@ class _BacklineAvailabilityEmptyState extends StatelessWidget {
 }
 
 class _BacklineDateAvailabilityCalendar extends StatefulWidget {
+  final StudioEquipmentRepository? repository;
+  final String? equipmentId;
+  final String? studioProfileId;
+  final DateTime? referenceDate;
   final String equipmentName;
   final int total;
   final int initiallyAvailable;
   final int initiallyMaintenance;
   final bool editable;
-  final Map<DateTime, _BacklineDayAvailability>? values;
 
   const _BacklineDateAvailabilityCalendar({
     super.key,
+    this.repository,
+    this.equipmentId,
+    this.studioProfileId,
+    this.referenceDate,
     required this.equipmentName,
     required this.total,
     required this.initiallyAvailable,
     this.initiallyMaintenance = 0,
     required this.editable,
-    this.values,
   });
 
   @override
@@ -221,23 +237,35 @@ class _BacklineDateAvailabilityCalendarState
   late Map<DateTime, _BacklineDayAvailability> _values;
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
+  bool _isLoading = false;
+  String? _loadError;
+  int _loadGeneration = 0;
+
+  DateTime get _today => _dateOnly(widget.referenceDate ?? DateTime.now());
 
   @override
   void initState() {
     super.initState();
-    final today = _dateOnly(DateTime.now());
+    final today = _today;
     _selectedDate = today;
     _visibleMonth = DateTime(today.year, today.month);
-    _values = widget.values ?? <DateTime, _BacklineDayAvailability>{};
+    _values = <DateTime, _BacklineDayAvailability>{};
+    if (_hasRemoteSource) _loadVisibleMonth();
   }
 
   @override
   void didUpdateWidget(covariant _BacklineDateAvailabilityCalendar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(widget.values, oldWidget.values)) {
-      _values = widget.values ?? <DateTime, _BacklineDayAvailability>{};
+    if (widget.equipmentId != oldWidget.equipmentId && _hasRemoteSource) {
+      _values = <DateTime, _BacklineDayAvailability>{};
+      _loadVisibleMonth();
     }
   }
+
+  bool get _hasRemoteSource =>
+      widget.repository != null &&
+      (widget.equipmentId?.trim().isNotEmpty ?? false) &&
+      (widget.editable || (widget.studioProfileId?.trim().isNotEmpty ?? false));
 
   @override
   Widget build(BuildContext context) {
@@ -272,6 +300,17 @@ class _BacklineDateAvailabilityCalendarState
             style: const TextStyle(color: Color(0xFF7F8998), fontSize: 11),
           ),
           const SizedBox(height: 16),
+          if (_isLoading) ...[
+            const LinearProgressIndicator(minHeight: 2),
+            const SizedBox(height: 12),
+          ],
+          if (_loadError != null) ...[
+            _StudioOwnerBacklineErrorState(
+              message: _loadError!,
+              onRetry: _loadVisibleMonth,
+            ),
+            const SizedBox(height: 12),
+          ],
           _buildMonthSelector(),
           const SizedBox(height: 14),
           Row(
@@ -381,7 +420,7 @@ class _BacklineDateAvailabilityCalendarState
         final day = index - leadingDays + 1;
         if (day < 1 || day > daysInMonth) return const SizedBox.shrink();
         final date = DateTime(_visibleMonth.year, _visibleMonth.month, day);
-        final today = _dateOnly(DateTime.now());
+        final today = _today;
         final outsideRange =
             date.isBefore(today) ||
             date.isAfter(today.add(const Duration(days: 730)));
@@ -478,15 +517,6 @@ class _BacklineDateAvailabilityCalendarState
     final initialMaintenance = widget.initiallyMaintenance
         .clamp(0, widget.total - initial)
         .toInt();
-    if (normalized.day % 11 == 0) {
-      return _BacklineDayAvailability(busyCount: widget.total);
-    }
-    if (normalized.day % 7 == 0 && initial > 0) {
-      return _BacklineDayAvailability(
-        busyCount: widget.total - (initial - 1) - initialMaintenance,
-        maintenanceCount: initialMaintenance,
-      );
-    }
     return _BacklineDayAvailability(
       busyCount: widget.total - initial - initialMaintenance,
       maintenanceCount: initialMaintenance,
@@ -581,57 +611,87 @@ class _BacklineDateAvailabilityCalendarState
         return;
       }
     }
-    setState(() {
-      var date = _dateOnly(startDate);
-      final normalizedEnd = _dateOnly(endDate);
-      while (!date.isAfter(normalizedEnd)) {
-        if (result.resetAll) {
-          _values.remove(date);
-          date = date.add(const Duration(days: 1));
-          continue;
-        }
-        final current = _availabilityFor(date);
-        var busyCount = current.busyCount;
-        var maintenanceCount = current.maintenanceCount;
-        switch (result.source) {
-          case _BacklineAvailabilityBucket.available:
-            break;
-          case _BacklineAvailabilityBucket.busy:
-            busyCount -= result.quantity;
-            break;
-          case _BacklineAvailabilityBucket.maintenance:
-            maintenanceCount -= result.quantity;
-            break;
-        }
-        switch (result.target) {
-          case _BacklineAvailabilityBucket.available:
-            break;
-          case _BacklineAvailabilityBucket.busy:
-            busyCount += result.quantity;
-            break;
-          case _BacklineAvailabilityBucket.maintenance:
-            maintenanceCount += result.quantity;
-            break;
-        }
-        if (busyCount == 0 && maintenanceCount == 0) {
-          _values.remove(date);
-        } else {
-          _values[date] = _BacklineDayAvailability(
-            busyCount: busyCount,
-            maintenanceCount: maintenanceCount,
-          );
-        }
-        date = date.add(const Duration(days: 1));
+    if (!_hasRemoteSource) return;
+    await _applyAvailabilityUpdate(startDate, endDate, result);
+  }
+
+  Future<void> _applyAvailabilityUpdate(
+    DateTime startDate,
+    DateTime endDate,
+    _BacklineAvailabilityRangeUpdate update,
+  ) async {
+    setState(() => _isLoading = true);
+    final result = await widget.repository!.moveAvailability(
+      equipmentId: widget.equipmentId!,
+      command: MoveStudioEquipmentAvailabilityCommand(
+        clientRequestId: update.clientRequestId,
+        startDate: startDate,
+        endDate: endDate,
+        sourceBucket: _domainBucket(update.source),
+        targetBucket: _domainBucket(update.target),
+        quantity: update.quantity,
+      ),
+    );
+    if (!mounted) return;
+    if (!result.isSuccess) {
+      setState(() => _isLoading = false);
+      if (result.error?.code == '9821' || result.error?.code == '9804') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.error?.message ??
+                  'Takvim başka bir işlemde değişti. Güncel veriler yüklendi.',
+            ),
+          ),
+        );
+        await _loadVisibleMonth();
+        return;
       }
+      final retry = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Takvim güncellenemedi'),
+          content: Text(
+            result.error?.message ?? 'Bağlantıyı kontrol edip tekrar deneyin.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Tekrar Dene'),
+            ),
+          ],
+        ),
+      );
+      if (mounted && retry == true) {
+        await _applyAvailabilityUpdate(startDate, endDate, update);
+      }
+      return;
+    }
+    setState(() {
       _selectedDate = _dateOnly(startDate);
       _rangeStart = null;
       _rangeEnd = null;
     });
-    _notifyStudioBacklineInventoryChanged();
+    await _loadVisibleMonth();
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Müsaitlik takvimi güncellendi.')),
     );
   }
+
+  StudioEquipmentAvailabilityBucket _domainBucket(
+    _BacklineAvailabilityBucket bucket,
+  ) => switch (bucket) {
+    _BacklineAvailabilityBucket.available =>
+      StudioEquipmentAvailabilityBucket.available,
+    _BacklineAvailabilityBucket.busy => StudioEquipmentAvailabilityBucket.busy,
+    _BacklineAvailabilityBucket.maintenance =>
+      StudioEquipmentAvailabilityBucket.maintenance,
+  };
 
   _BacklineAvailabilityRangeStats _rangeStats(
     DateTime startDate,
@@ -670,8 +730,60 @@ class _BacklineDateAvailabilityCalendarState
     );
   }
 
+  Future<void> _loadVisibleMonth() async {
+    if (!_hasRemoteSource) return;
+    final generation = ++_loadGeneration;
+    final today = _today;
+    final monthStart = DateTime(_visibleMonth.year, _visibleMonth.month);
+    final monthEnd = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0);
+    final allowedEnd = today.add(const Duration(days: 730));
+    final startDate = monthStart.isBefore(today) ? today : monthStart;
+    final endDate = monthEnd.isAfter(allowedEnd) ? allowedEnd : monthEnd;
+    if (endDate.isBefore(startDate)) return;
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    final repository = widget.repository!;
+    final result = widget.editable
+        ? await repository.getOwnerAvailability(
+            equipmentId: widget.equipmentId!,
+            startDate: startDate,
+            endDate: endDate,
+          )
+        : await repository.getPublicAvailability(
+            studioProfileId: widget.studioProfileId!,
+            equipmentId: widget.equipmentId!,
+            startDate: startDate,
+            endDate: endDate,
+          );
+    if (!mounted || generation != _loadGeneration) return;
+    if (!result.isSuccess || result.data == null) {
+      setState(() {
+        _isLoading = false;
+        _loadError = result.error?.message ?? 'Uygunluk takvimi yüklenemedi.';
+      });
+      return;
+    }
+    setState(() {
+      var date = startDate;
+      while (!date.isAfter(endDate)) {
+        _values.remove(_dateOnly(date));
+        date = date.add(const Duration(days: 1));
+      }
+      for (final day in result.data!.days) {
+        final availability = _BacklineDayAvailability.fromDomain(day);
+        if (availability.busyCount > 0 || availability.maintenanceCount > 0) {
+          _values[_dateOnly(day.date)] = availability;
+        }
+      }
+      _isLoading = false;
+      _loadError = null;
+    });
+  }
+
   Future<void> _openCalendarPicker() async {
-    final today = _dateOnly(DateTime.now());
+    final today = _today;
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
@@ -697,6 +809,7 @@ class _BacklineDateAvailabilityCalendarState
       _selectedDate = _dateOnly(picked);
       _visibleMonth = DateTime(picked.year, picked.month);
     });
+    await _loadVisibleMonth();
   }
 
   void _moveMonth(int offset) {
@@ -704,19 +817,20 @@ class _BacklineDateAvailabilityCalendarState
     setState(() {
       _visibleMonth = month;
       _selectedDate = DateTime(month.year, month.month, 1);
-      if (_selectedDate.isBefore(_dateOnly(DateTime.now()))) {
-        _selectedDate = _dateOnly(DateTime.now());
+      if (_selectedDate.isBefore(_today)) {
+        _selectedDate = _today;
       }
     });
+    _loadVisibleMonth();
   }
 
   bool get _canMoveBackward {
-    final today = DateTime(DateTime.now().year, DateTime.now().month);
+    final today = DateTime(_today.year, _today.month);
     return _visibleMonth.isAfter(today);
   }
 
   bool get _canMoveForward {
-    final lastDate = _dateOnly(DateTime.now()).add(const Duration(days: 730));
+    final lastDate = _today.add(const Duration(days: 730));
     final lastMonth = DateTime(lastDate.year, lastDate.month);
     return _visibleMonth.isBefore(lastMonth);
   }
@@ -863,16 +977,16 @@ class _BacklineAvailabilityDayCell extends StatelessWidget {
 }
 
 class _BacklineAvailabilityRangeUpdate {
+  final String clientRequestId;
   final _BacklineAvailabilityBucket source;
   final _BacklineAvailabilityBucket target;
   final int quantity;
-  final bool resetAll;
 
   const _BacklineAvailabilityRangeUpdate({
+    required this.clientRequestId,
     required this.source,
     required this.target,
     required this.quantity,
-    this.resetAll = false,
   });
 }
 
@@ -930,6 +1044,7 @@ class _BacklineAvailabilityRangeSheet extends StatefulWidget {
 
 class _BacklineAvailabilityRangeSheetState
     extends State<_BacklineAvailabilityRangeSheet> {
+  final String _clientRequestId = const Uuid().v4();
   late _BacklineAvailabilityBucket _source;
   late _BacklineAvailabilityBucket _target;
   int _quantity = 1;
@@ -1023,12 +1138,6 @@ class _BacklineAvailabilityRangeSheetState
                 outlined: true,
                 onTap: _submit,
               ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: _resetAll,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Seçili Aralığın Tamamını Müsait Yap'),
-              ),
             ],
           ),
         ),
@@ -1049,20 +1158,10 @@ class _BacklineAvailabilityRangeSheetState
     }
     Navigator.of(context).pop(
       _BacklineAvailabilityRangeUpdate(
+        clientRequestId: _clientRequestId,
         source: _source,
         target: _target,
         quantity: _quantity,
-      ),
-    );
-  }
-
-  void _resetAll() {
-    Navigator.of(context).pop(
-      const _BacklineAvailabilityRangeUpdate(
-        source: _BacklineAvailabilityBucket.available,
-        target: _BacklineAvailabilityBucket.available,
-        quantity: 0,
-        resetAll: true,
       ),
     );
   }
@@ -1211,11 +1310,11 @@ class _BacklineAvailabilityFormLabel extends StatelessWidget {
 }
 
 class _BacklineAvailabilityEquipmentPicker extends StatefulWidget {
-  final List<_StudioBacklineInventoryItem> items;
+  final StudioEquipmentRepository repository;
   final _StudioBacklineInventoryItem? selected;
 
   const _BacklineAvailabilityEquipmentPicker({
-    required this.items,
+    required this.repository,
     required this.selected,
   });
 
@@ -1227,29 +1326,24 @@ class _BacklineAvailabilityEquipmentPicker extends StatefulWidget {
 class _BacklineAvailabilityEquipmentPickerState
     extends State<_BacklineAvailabilityEquipmentPicker> {
   static const _pageSize = 10;
+  List<_StudioBacklineInventoryItem> _items = const [];
   String _query = '';
   int _pageIndex = 0;
+  int _totalPages = 0;
+  int _totalItems = 0;
+  int _searchGeneration = 0;
+  int _loadGeneration = 0;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load(0);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final query = _query.trim().toLowerCase();
-    final filtered = widget.items
-        .where(
-          (item) =>
-              query.isEmpty ||
-              item.name.toLowerCase().contains(query) ||
-              item.category.toLowerCase().contains(query) ||
-              item.model.toLowerCase().contains(query),
-        )
-        .toList(growable: false);
-    final pageCount = filtered.isEmpty
-        ? 1
-        : (filtered.length + _pageSize - 1) ~/ _pageSize;
-    final safePageIndex = _pageIndex.clamp(0, pageCount - 1);
-    final pageItems = filtered
-        .skip(safePageIndex * _pageSize)
-        .take(_pageSize)
-        .toList(growable: false);
     return FractionallySizedBox(
       heightFactor: 0.76,
       child: Padding(
@@ -1278,10 +1372,7 @@ class _BacklineAvailabilityEquipmentPickerState
             ),
             const SizedBox(height: 12),
             TextField(
-              onChanged: (value) => setState(() {
-                _query = value;
-                _pageIndex = 0;
-              }),
+              onChanged: _onSearchChanged,
               decoration: const InputDecoration(
                 hintText: 'Ekipman, marka veya kategori ara...',
                 prefixIcon: Icon(Icons.search_rounded),
@@ -1289,7 +1380,14 @@ class _BacklineAvailabilityEquipmentPickerState
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: pageItems.isEmpty
+              child: _isLoading && _items.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null && _items.isEmpty
+                  ? _StudioOwnerBacklineErrorState(
+                      message: _error!,
+                      onRetry: () => _load(_pageIndex),
+                    )
+                  : _items.isEmpty
                   ? const Center(
                       child: Text(
                         'Aramanızla eşleşen ekipman bulunamadı.',
@@ -1301,11 +1399,11 @@ class _BacklineAvailabilityEquipmentPickerState
                       ),
                     )
                   : ListView.separated(
-                      itemCount: pageItems.length,
+                      itemCount: _items.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 7),
                       itemBuilder: (context, index) {
-                        final item = pageItems[index];
-                        final selected = item == widget.selected;
+                        final item = _items[index];
+                        final selected = item.id == widget.selected?.id;
                         return ListTile(
                           onTap: () => Navigator.of(context).pop(item),
                           tileColor: _ownerManagementCardColor,
@@ -1352,14 +1450,16 @@ class _BacklineAvailabilityEquipmentPickerState
                 children: [
                   IconButton(
                     tooltip: 'Önceki sayfa',
-                    onPressed: safePageIndex > 0
-                        ? () => setState(() => _pageIndex = safePageIndex - 1)
+                    onPressed: !_isLoading && _pageIndex > 0
+                        ? () => _load(_pageIndex - 1)
                         : null,
                     icon: const Icon(Icons.chevron_left_rounded),
                   ),
                   Expanded(
                     child: Text(
-                      '${safePageIndex + 1} / $pageCount • ${filtered.length} ekipman',
+                      '${_totalPages == 0 ? 0 : _pageIndex + 1} / '
+                      '${_totalPages == 0 ? 1 : _totalPages} • '
+                      '$_totalItems ekipman',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Color(0xFFB8C0CC),
@@ -1370,8 +1470,8 @@ class _BacklineAvailabilityEquipmentPickerState
                   ),
                   IconButton(
                     tooltip: 'Sonraki sayfa',
-                    onPressed: safePageIndex < pageCount - 1
-                        ? () => setState(() => _pageIndex = safePageIndex + 1)
+                    onPressed: !_isLoading && _pageIndex + 1 < _totalPages
+                        ? () => _load(_pageIndex + 1)
                         : null,
                     icon: const Icon(Icons.chevron_right_rounded),
                   ),
@@ -1382,6 +1482,47 @@ class _BacklineAvailabilityEquipmentPickerState
         ),
       ),
     );
+  }
+
+  void _onSearchChanged(String value) {
+    _query = value;
+    final generation = ++_searchGeneration;
+    Future<void>.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted || generation != _searchGeneration) return;
+      _load(0);
+    });
+  }
+
+  Future<void> _load(int page) async {
+    final generation = ++_loadGeneration;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _items = const [];
+    });
+    final result = await widget.repository.listOwnerEquipment(
+      query: _query,
+      page: page,
+      size: _pageSize,
+    );
+    if (!mounted || generation != _loadGeneration) return;
+    if (!result.isSuccess || result.data == null) {
+      setState(() {
+        _isLoading = false;
+        _error = result.error?.message ?? 'Ekipmanlar yüklenemedi.';
+      });
+      return;
+    }
+    setState(() {
+      _items = result.data!.items
+          .map(_StudioBacklineInventoryItem.fromDomain)
+          .toList(growable: false);
+      _pageIndex = result.data!.pageIndex;
+      _totalPages = result.data!.totalPages;
+      _totalItems = result.data!.totalItems;
+      _isLoading = false;
+      _error = null;
+    });
   }
 }
 
@@ -1424,30 +1565,6 @@ String _availabilityLabel(
   if (busyCount > 0) details.add('$busyCount dolu');
   if (maintenanceCount > 0) details.add('$maintenanceCount bakımda');
   return 'Kısmen Müsait • ${details.join(' • ')}';
-}
-
-int _mockBacklineAvailableToday(_StudioBacklineInventoryItem item) {
-  final state =
-      _studioBacklineAvailabilityMockValues[item.name]?[_dateOnly(
-        DateTime.now(),
-      )];
-  return state?.availableCount(item.total) ?? item.available;
-}
-
-int _mockBacklineBusyToday(_StudioBacklineInventoryItem item) {
-  final state =
-      _studioBacklineAvailabilityMockValues[item.name]?[_dateOnly(
-        DateTime.now(),
-      )];
-  return state?.busyCount ?? item.reserved;
-}
-
-int _mockBacklineMaintenanceToday(_StudioBacklineInventoryItem item) {
-  final state =
-      _studioBacklineAvailabilityMockValues[item.name]?[_dateOnly(
-        DateTime.now(),
-      )];
-  return state?.maintenanceCount ?? item.maintenance;
 }
 
 DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);

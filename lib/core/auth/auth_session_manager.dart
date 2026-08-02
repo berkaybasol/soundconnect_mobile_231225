@@ -96,6 +96,79 @@ class AuthSessionManager extends ChangeNotifier {
     _setSession(next);
   }
 
+  Future<bool> updateUsername(
+    String username, {
+    String? expectedUserId,
+    String? expectedToken,
+  }) async {
+    if (username.isEmpty) {
+      throw const FormatException('Username cannot be blank');
+    }
+
+    final current = _session;
+    final currentToken = current.token?.trim();
+    final expiresAt = current.expiresAt;
+    if (!current.isAuthenticated ||
+        currentToken == null ||
+        currentToken.isEmpty ||
+        expiresAt == null) {
+      throw StateError('An authenticated session is required');
+    }
+    final currentUserId = current.userId?.trim();
+    final requestedUserId = expectedUserId?.trim();
+    final requestedToken = expectedToken?.trim();
+    if ((requestedUserId != null &&
+            requestedUserId.isNotEmpty &&
+            requestedUserId != currentUserId) ||
+        (requestedToken != null &&
+            requestedToken.isNotEmpty &&
+            requestedToken != currentToken)) {
+      return false;
+    }
+
+    final metadata = AuthSessionMetadata(
+      username: username,
+      accountStatus: current.accountStatus,
+    );
+    await _sessionStore.write(metadata);
+
+    // A logout or a different login may complete while secure storage is
+    // writing. Never revive or mutate a session that is no longer current.
+    if (_session.token?.trim() != currentToken ||
+        _session.userId?.trim() != currentUserId) {
+      await _restoreCurrentSessionMetadata();
+      return false;
+    }
+
+    _setSession(
+      AuthSession.authenticated(
+        token: currentToken,
+        userId: current.userId,
+        username: username,
+        accountStatus: current.accountStatus,
+        roles: current.roles,
+        permissions: current.permissions,
+        expiresAt: expiresAt,
+        isAdmin: current.isAdmin,
+      ),
+    );
+    return true;
+  }
+
+  Future<void> _restoreCurrentSessionMetadata() async {
+    final current = _session;
+    if (!current.isAuthenticated) {
+      await _sessionStore.clear();
+      return;
+    }
+    await _sessionStore.write(
+      AuthSessionMetadata(
+        username: current.username,
+        accountStatus: current.accountStatus,
+      ),
+    );
+  }
+
   Future<void> logout() => _terminateSession();
 
   Future<void> rejectUnauthorizedToken(String? rejectedToken) async {

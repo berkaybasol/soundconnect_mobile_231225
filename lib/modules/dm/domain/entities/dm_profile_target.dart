@@ -1,4 +1,13 @@
-enum DmProfileTargetType { musician, venue }
+enum DmProfileTargetType { musician, venue, listener, studio }
+
+extension DmProfileTargetTypePresentation on DmProfileTargetType {
+  String get displayLabel => switch (this) {
+    DmProfileTargetType.musician => 'Müzisyen',
+    DmProfileTargetType.venue => 'Mekan',
+    DmProfileTargetType.listener => 'Dinleyici',
+    DmProfileTargetType.studio => 'Stüdyo',
+  };
+}
 
 class DmProfileTarget {
   final DmProfileTargetType type;

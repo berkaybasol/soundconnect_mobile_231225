@@ -2,9 +2,13 @@ class AppRoutes {
   static const adminDashboard = '/admin';
   static const login = '/login';
   static const register = '/register';
+  static const forgotPassword = '/forgot-password';
+  static const settings = '/settings';
+  static const accountSettings = '/account-settings';
   static const otpVerify = '/otp-verify';
   static const venueApplication = '/venue-application';
   static const venuePending = '/venue-pending';
+  static const studioPending = '/studio-pending';
   static const musicianProfile = '/musician-profile';
   static const myBands = '/my-bands';
   static const createBand = '/create-band';
@@ -16,6 +20,7 @@ class AppRoutes {
   static const venuePublicProfile = '/venue-public-profile';
   static const studioProfile = '/studio-profile';
   static const studioPublicProfile = '/studio-public-profile';
+  static const studioReservationCalendar = '/studio-reservation-calendar';
   static const listenerProfile = '/listener-profile';
   static const overthinkingFeed = '/overthinking-feed';
   static const notifications = '/notifications';

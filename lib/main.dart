@@ -35,3 +35,4 @@ void main() {
     runApp(const SoundConnectApp());
   }, AppDiagnostics.reportUnhandled);
 }
+

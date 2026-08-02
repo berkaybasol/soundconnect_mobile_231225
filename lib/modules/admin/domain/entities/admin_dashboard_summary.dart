@@ -3,6 +3,9 @@ class AdminDashboardSummary {
   final int pendingVenueApplications;
   final int approvedVenueApplications;
   final int rejectedVenueApplications;
+  final int pendingStudioApplications;
+  final int approvedStudioApplications;
+  final int rejectedStudioApplications;
   final int activePromotions;
 
   const AdminDashboardSummary({
@@ -11,6 +14,9 @@ class AdminDashboardSummary {
     required this.approvedVenueApplications,
     required this.rejectedVenueApplications,
     required this.activePromotions,
+    this.pendingStudioApplications = 0,
+    this.approvedStudioApplications = 0,
+    this.rejectedStudioApplications = 0,
   });
 
   const AdminDashboardSummary.empty()
@@ -18,5 +24,8 @@ class AdminDashboardSummary {
       pendingVenueApplications = 0,
       approvedVenueApplications = 0,
       rejectedVenueApplications = 0,
+      pendingStudioApplications = 0,
+      approvedStudioApplications = 0,
+      rejectedStudioApplications = 0,
       activePromotions = 0;
 }

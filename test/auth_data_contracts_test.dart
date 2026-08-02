@@ -4,12 +4,15 @@ import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/auth_endpoints.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/auth_repository_impl.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/data/models/forgot_password_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/models/login_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/models/login_response.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/models/register_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/models/register_response.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/data/models/reset_password_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/models/resend_code_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/models/resend_code_response.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/data/models/update_username_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/models/verify_code_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
 
@@ -30,6 +33,31 @@ void main() {
       expect(
         const ResendCodeRequest(email: 'user@example.com').toJson(),
         <String, dynamic>{'email': 'user@example.com'},
+      );
+    });
+
+    test('password reset and username update use backend field names', () {
+      expect(
+        const ForgotPasswordRequest(identifier: 'user@example.com').toJson(),
+        <String, dynamic>{'identifier': 'user@example.com'},
+      );
+      expect(
+        const ResetPasswordRequest(
+          identifier: 'user@example.com',
+          code: '012345',
+          password: 'new-password',
+          rePassword: 'new-password',
+        ).toJson(),
+        <String, dynamic>{
+          'identifier': 'user@example.com',
+          'code': '012345',
+          'password': 'new-password',
+          'rePassword': 'new-password',
+        },
+      );
+      expect(
+        const UpdateUsernameRequest(username: 'new-name').toJson(),
+        <String, dynamic>{'username': 'new-name'},
       );
     });
 
@@ -76,6 +104,31 @@ void main() {
       expect(json['neighborhoodId'], 'neighborhood-1');
     });
 
+    test(
+      'register preserves studio application fields without venue aliases',
+      () {
+        final json = const RegisterRequest(
+          username: 'studio',
+          email: 'studio@example.com',
+          password: 'password',
+          rePassword: 'password',
+          role: 'ROLE_STUDIO',
+          studioName: 'Devo Studio',
+          studioAddress: 'Moda Caddesi',
+          studioPhone: '05551234567',
+          cityId: 'city-1',
+          districtId: 'district-1',
+          neighborhoodId: 'neighborhood-1',
+        ).toJson();
+
+        expect(json['studioName'], 'Devo Studio');
+        expect(json['studioAddress'], 'Moda Caddesi');
+        expect(json['studioPhone'], '05551234567');
+        expect(json.containsKey('venueName'), isFalse);
+        expect(json.containsKey('phone'), isFalse);
+      },
+    );
+
     test('non-null empty optional values are not silently discarded', () {
       final Map<String, dynamic> json = const RegisterRequest(
         username: 'venue',
@@ -92,6 +145,19 @@ void main() {
   });
 
   group('auth response parsing', () {
+    test('parses pending studio membership status', () {
+      final response = RegisterResponse.fromJson(<String, dynamic>{
+        'email': 'studio@example.com',
+        'status': 'PENDING_STUDIO_REQUEST',
+        'otpTtlSeconds': 180,
+        'mailQueued': true,
+        'applicationId': 'application-123',
+      });
+
+      expect(response.toEntity().status, UserStatus.pendingStudioRequest);
+      expect(response.toEntity().applicationId, 'application-123');
+    });
+
     test('login parses mixed list and CSV authorization representations', () {
       final LoginResponse response = LoginResponse.fromJson(<String, dynamic>{
         'token': 'jwt-token',
@@ -202,7 +268,18 @@ void main() {
       expect(AuthEndpoints.register, '/api/v1/auth/register');
       expect(AuthEndpoints.verifyCode, '/api/v1/auth/verify-code');
       expect(AuthEndpoints.resendCode, '/api/v1/auth/resend-code');
+      expect(
+        AuthEndpoints.usernameAvailability,
+        '/api/v1/auth/username-availability',
+      );
+      expect(
+        AuthEndpoints.passwordResetAccount,
+        '/api/v1/auth/password-reset/account',
+      );
+      expect(AuthEndpoints.forgotPassword, '/api/v1/auth/forgot-password');
+      expect(AuthEndpoints.resetPassword, '/api/v1/auth/reset-password');
       expect(AuthEndpoints.googleSignIn, '/api/v1/auth/google-sign-in');
+      expect(AuthEndpoints.updateUsername, '/api/v1/users/me/username');
     });
   });
 
@@ -259,6 +336,27 @@ void main() {
         expect(result.error?.message, isNot(contains('Internal')));
       },
     );
+
+    for (final pendingCase in <({String apiCode, String normalizedCode})>[
+      (apiCode: '1105', normalizedCode: 'auth_pending_venue_approval'),
+      (apiCode: '1106', normalizedCode: 'auth_pending_studio_approval'),
+    ]) {
+      test(
+        'login preserves pending membership state for ${pendingCase.apiCode}',
+        () async {
+          final result = await AuthRepositoryImpl(
+            _RecordingApiClient(
+              error: ApiException(
+                AppError(code: pendingCase.apiCode, message: 'Forbidden'),
+              ),
+            ),
+          ).login(username: 'pending-user', password: 'secret');
+
+          expect(result.isSuccess, isFalse);
+          expect(result.error?.code, pendingCase.normalizedCode);
+        },
+      );
+    }
 
     test('login maps an empty backend message to a stable fallback', () async {
       final _RecordingApiClient client = _RecordingApiClient(
@@ -411,6 +509,111 @@ void main() {
       expect(verify.error?.code, 'auth_verify_unknown');
       expect(resend.error?.code, 'auth_resend_unknown');
     });
+
+    test(
+      'password reset requests preserve their public API contracts',
+      () async {
+        final client = _RecordingApiClient();
+        final repository = AuthRepositoryImpl(client);
+
+        final requestResult = await repository.requestPasswordReset(
+          identifier: 'user@example.com',
+        );
+        expect(requestResult.isSuccess, isTrue);
+        expect(client.path, AuthEndpoints.forgotPassword);
+        expect(client.body, <String, dynamic>{
+          'identifier': 'user@example.com',
+        });
+
+        final resetResult = await repository.resetPassword(
+          identifier: 'user@example.com',
+          code: '012345',
+          password: 'new-password',
+          rePassword: 'new-password',
+        );
+        expect(resetResult.isSuccess, isTrue);
+        expect(client.path, AuthEndpoints.resetPassword);
+        expect(client.body, <String, dynamic>{
+          'identifier': 'user@example.com',
+          'code': '012345',
+          'password': 'new-password',
+          'rePassword': 'new-password',
+        });
+      },
+    );
+
+    test(
+      'public account preflight contracts decode canonical identity',
+      () async {
+        final availabilityClient = _RecordingApiClient(
+          response: <String, dynamic>{'username': 'berkay', 'available': false},
+        );
+        final availability = await AuthRepositoryImpl(
+          availabilityClient,
+        ).checkUsernameAvailability(username: 'berkay');
+
+        expect(availabilityClient.path, AuthEndpoints.usernameAvailability);
+        expect(availabilityClient.body, <String, dynamic>{
+          'username': 'berkay',
+        });
+        expect(availability.data?.username, 'berkay');
+        expect(availability.data?.available, isFalse);
+
+        final accountClient = _RecordingApiClient(
+          response: <String, dynamic>{
+            'username': 'berkay',
+            'profilePictureUrl': 'https://cdn.example/avatar.jpg',
+          },
+        );
+        final account = await AuthRepositoryImpl(
+          accountClient,
+        ).resolvePasswordResetAccount(identifier: 'user@example.com');
+
+        expect(accountClient.path, AuthEndpoints.passwordResetAccount);
+        expect(accountClient.body, <String, dynamic>{
+          'identifier': 'user@example.com',
+        });
+        expect(account.data?.username, 'berkay');
+        expect(
+          account.data?.profilePictureUrl,
+          'https://cdn.example/avatar.jpg',
+        );
+      },
+    );
+
+    for (final response in <Object?>[
+      'new-name',
+      <String, dynamic>{'username': 'new-name'},
+    ]) {
+      test(
+        'username update accepts ${response.runtimeType} response',
+        () async {
+          final client = _RecordingApiClient(response: response);
+
+          final result = await AuthRepositoryImpl(
+            client,
+          ).updateUsername(username: 'new-name');
+
+          expect(result.data, 'new-name');
+          expect(client.path, AuthEndpoints.updateUsername);
+          expect(client.body, <String, dynamic>{'username': 'new-name'});
+        },
+      );
+    }
+
+    test('username update fences dispatch to the initiating session', () async {
+      final client = _RecordingApiClient(response: 'new-name');
+      final repository = AuthRepositoryImpl(
+        client,
+        sessionKeyProvider: () => 'account-A',
+      );
+
+      final result = await repository.updateUsername(username: 'new-name');
+
+      expect(result.data, 'new-name');
+      expect(client.method, ApiHttpMethod.patch);
+      expect(client.requestContext?.expectedSessionKey, 'account-A');
+    });
   });
 }
 
@@ -421,6 +624,27 @@ class _RecordingApiClient extends ApiClient {
   final Object? error;
   String? path;
   Object? body;
+  ApiHttpMethod? method;
+  ApiRequestContext? requestContext;
+
+  @override
+  Future<T> request<T>(
+    ApiHttpMethod method,
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+    T Function(Object? json)? decoder,
+    ApiRequestContext? requestContext,
+  }) async {
+    this.method = method;
+    this.path = path;
+    this.body = body;
+    this.requestContext = requestContext;
+    final pendingError = error;
+    if (pendingError != null) throw pendingError;
+    if (decoder != null) return decoder(response);
+    return response as T;
+  }
 
   @override
   Future<T> post<T>(
@@ -455,7 +679,14 @@ class _RecordingApiClient extends ApiClient {
     String path, {
     Object? body,
     T Function(Object? json)? decoder,
-  }) => _unsupported<T>();
+  }) async {
+    this.path = path;
+    this.body = body;
+    final pendingError = error;
+    if (pendingError != null) throw pendingError;
+    if (decoder != null) return decoder(response);
+    return response as T;
+  }
 
   @override
   Future<T> put<T>(
@@ -465,6 +696,6 @@ class _RecordingApiClient extends ApiClient {
   }) => _unsupported<T>();
 
   Future<T> _unsupported<T>() async {
-    throw UnsupportedError('Only POST is expected by the auth repository');
+    throw UnsupportedError('Unexpected auth repository method');
   }
 }

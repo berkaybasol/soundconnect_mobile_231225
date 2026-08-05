@@ -51,9 +51,10 @@ class AppRouter {
           builder: (_) => const AdminDashboardScreen(),
         );
       case AppRoutes.login:
+        final args = _arguments<LoginRouteArgs>(settings);
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => LoginScreen(),
+          builder: (_) => LoginScreen(initialNotice: args?.initialNotice),
         );
       case AppRoutes.register:
         return MaterialPageRoute(
@@ -96,6 +97,13 @@ class AppRouter {
           settings: settings,
           builder: (_) =>
               VenuePendingScreen(membershipType: PendingMembershipType.studio),
+        );
+      case AppRoutes.studioRejected:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => VenuePendingScreen(
+            membershipType: PendingMembershipType.studioRejected,
+          ),
         );
       case AppRoutes.musicianProfile:
         return MaterialPageRoute(
@@ -143,9 +151,13 @@ class AppRouter {
           builder: (_) => VenuePublicProfileScreen(),
         );
       case AppRoutes.studioProfile:
+        final args = settings.arguments is StudioProfileScreenArgs
+            ? settings.arguments! as StudioProfileScreenArgs
+            : const StudioProfileScreenArgs();
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const StudioProfileScreen(),
+          builder: (_) =>
+              StudioProfileScreen(openContactEditor: args.openContactEditor),
         );
       case AppRoutes.studioPublicProfile:
         return MaterialPageRoute(
@@ -154,10 +166,16 @@ class AppRouter {
         );
       case AppRoutes.studioReservationCalendar:
         final args = _arguments<StudioReservationCalendarArgs>(settings);
-        if (args == null) {
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const StudioProfileScreen(),
+        final hasValidArguments =
+            args != null &&
+            args.roomId.trim().isNotEmpty &&
+            args.studioProfileId.trim().isNotEmpty;
+        final canOpenOwnerCalendar =
+            args?.ownerMode != true ||
+            AppRouteGuard.canOpenStudioOwnerReservationCalendar(session);
+        if (!hasValidArguments || !canOpenOwnerCalendar) {
+          return onGenerateRoute(
+            RouteSettings(name: AppRouteGuard.startRouteFor(session)),
           );
         }
         return MaterialPageRoute(

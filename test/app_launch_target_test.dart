@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/app.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 
 void main() {
   group('resolveLaunchTarget', () {
@@ -34,7 +35,39 @@ void main() {
       );
     });
   });
+
+  group('resolveSessionLaunchTarget', () {
+    test(
+      'restores pending and rejected Studio sessions to their own screens',
+      () {
+        expect(
+          resolveSessionLaunchTarget(
+            _session(accountStatus: 'PENDING_STUDIO_REQUEST'),
+          ),
+          AppLaunchTarget.studioPending,
+        );
+        expect(
+          resolveSessionLaunchTarget(
+            _session(accountStatus: 'REJECTED_STUDIO_REQUEST'),
+          ),
+          AppLaunchTarget.studioRejected,
+        );
+      },
+    );
+  });
 }
+
+AuthSession _session({required String accountStatus}) =>
+    AuthSession.authenticated(
+      token: 'token',
+      userId: 'studio-user',
+      username: 'studio',
+      accountStatus: accountStatus,
+      roles: const [],
+      permissions: const [],
+      expiresAt: DateTime.utc(2030),
+      isAdmin: false,
+    );
 
 String _token(DateTime expiresAt) {
   String encode(Map<String, dynamic> value) =>

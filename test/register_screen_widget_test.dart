@@ -380,7 +380,7 @@ void main() {
     await _enterBusinessField(
       tester,
       const Key('business-phone-field'),
-      '  05551234567  ',
+      '  555 123 45 67  ',
     );
     await _chooseDropdown(tester, 0, 'Istanbul');
     await _chooseDropdown(tester, 1, 'Kadikoy');

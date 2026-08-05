@@ -5,6 +5,7 @@ import '../../../core/network/api_exception.dart';
 import '../domain/entities/studio_equipment.dart';
 import '../domain/entities/studio_page.dart';
 import '../domain/studio_equipment_repository.dart';
+import '../domain/studio_civil_date.dart';
 import 'models/studio_equipment_models.dart';
 import 'models/studio_json.dart';
 import 'studio_equipment_endpoints.dart';
@@ -13,6 +14,34 @@ class StudioEquipmentRepositoryImpl implements StudioEquipmentRepository {
   StudioEquipmentRepositoryImpl(this._apiClient);
 
   final ApiClient _apiClient;
+
+  @override
+  Future<Result<StudioEquipmentInventorySummary>>
+  getOwnerInventorySummary() async {
+    try {
+      final result = await _apiClient.get<StudioEquipmentInventorySummary>(
+        StudioEquipmentEndpoints.ownerInventorySummary,
+        decoder: studioEquipmentInventorySummaryFromJson,
+      );
+      return Result.success(result);
+    } on ApiException catch (error) {
+      return Result.failure(error.error);
+    } on FormatException {
+      return const Result.failure(
+        AppError(
+          code: 'studio_equipment_invalid_response',
+          message: 'Envanter özeti beklenen biçimde alınamadı.',
+        ),
+      );
+    } catch (_) {
+      return const Result.failure(
+        AppError(
+          code: 'studio_equipment_summary_unknown',
+          message: 'Envanter özeti yüklenemedi. Lütfen tekrar dene.',
+        ),
+      );
+    }
+  }
 
   @override
   Future<Result<StudioPage<StudioEquipment>>> listOwnerEquipment({
@@ -389,9 +418,7 @@ class StudioEquipmentRepositoryImpl implements StudioEquipmentRepository {
   };
 
   static AppError? _validateDateRange(DateTime start, DateTime end) {
-    final normalizedStart = DateTime(start.year, start.month, start.day);
-    final normalizedEnd = DateTime(end.year, end.month, end.day);
-    final days = normalizedEnd.difference(normalizedStart).inDays + 1;
+    final days = studioCivilRangeLength(start, end);
     if (days < 1 || days > 730) {
       return const AppError(
         code: 'studio_equipment_date_range_invalid',

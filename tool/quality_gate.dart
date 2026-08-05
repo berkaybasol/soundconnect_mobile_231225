@@ -7,12 +7,8 @@ const List<String> _scanRoots = <String>['lib', 'test', 'tool'];
 const int _absoluteIgnoreForFileMax = 0;
 const int _absoluteDartFileLineMax = 1200;
 const double _absoluteCoverageFloor = 19;
-const Set<String> _allowedLegacyFormatExclusions = <String>{
-  'lib/modules/profile/presentation/screens/studio_profile_screen.dart',
-};
-const Set<String> _allowedLegacyAnalyzerExclusions = <String>{
-  'lib/modules/profile/presentation/screens/studio_profile_screen.dart',
-};
+const Set<String> _allowedLegacyFormatExclusions = <String>{};
+const Set<String> _allowedLegacyAnalyzerExclusions = <String>{};
 
 Future<void> main(List<String> args) async {
   final bool skipPubGet = args.contains('--skip-pub-get');

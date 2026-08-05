@@ -11,10 +11,13 @@ import '../../../location/presentation/cubit/location_cubit.dart';
 import '../../../location/presentation/cubit/location_state.dart';
 import '../../domain/business_name_policy.dart';
 import '../../domain/password_policy.dart';
+import '../../domain/studio_registration_policy.dart';
 import '../../domain/username_policy.dart';
 import 'otp_verify_screen.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
+
+part 'register_screen_support.dart';
 
 class RegisterScreen extends StatefulWidget {
   RegisterScreen({super.key});
@@ -206,12 +209,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 3:
         return (_selectedRole ?? '').isNotEmpty;
       case 4:
-        return _venueNameController.text.trim().isNotEmpty &&
+        final businessFieldsComplete =
+            _venueNameController.text.trim().isNotEmpty &&
             _venueAddressController.text.trim().isNotEmpty &&
             _venuePhoneController.text.trim().isNotEmpty &&
             (_selectedCityId ?? '').isNotEmpty &&
             (_selectedDistrictId ?? '').isNotEmpty &&
             (_selectedNeighborhoodId ?? '').isNotEmpty;
+        return businessFieldsComplete &&
+            (!_isStudioRole ||
+                StudioRegistrationPolicy.isValid(
+                  studioName: _venueNameController.text,
+                  studioAddress: _venueAddressController.text,
+                  phone: _venuePhoneController.text,
+                ));
       default:
         return false;
     }
@@ -254,11 +265,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       } else if (_stepIndex == 3) {
         _showError('Rol seçilmelidir.');
+      } else if (_isStudioRole) {
+        _showError(
+          StudioRegistrationPolicy.validationMessage(
+                studioName: _venueNameController.text,
+                studioAddress: _venueAddressController.text,
+                phone: _venuePhoneController.text,
+              ) ??
+              'Şehir, ilçe ve mahalle seçimini tamamla.',
+        );
       } else {
         _showError(
-          _isStudioRole
-              ? 'Şehir, ilçe, mahalle ve Açık Adres dahil stüdyo bilgilerini eksiksiz doldur.'
-              : 'Şehir, ilçe, mahalle ve Açık Adres dahil mekan bilgilerini eksiksiz doldur.',
+          'Şehir, ilçe, mahalle ve Açık Adres dahil mekan bilgilerini eksiksiz doldur.',
         );
       }
       return;
@@ -294,7 +312,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         studioAddress: _isStudioRole
             ? _venueAddressController.text.trim()
             : null,
-        studioPhone: _isStudioRole ? _venuePhoneController.text.trim() : null,
+        studioPhone: _isStudioRole
+            ? StudioRegistrationPolicy.normalizePhone(
+                _venuePhoneController.text,
+              )
+            : null,
         cityId: _selectedCityId,
         districtId: _selectedDistrictId,
         neighborhoodId: _selectedNeighborhoodId,
@@ -1148,57 +1170,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
   }
-}
-
-class _UsernameAvailabilityMessage extends StatelessWidget {
-  const _UsernameAvailabilityMessage({
-    required this.icon,
-    required this.message,
-    this.positive = false,
-    this.negative = false,
-  });
-
-  final IconData icon;
-  final String message;
-  final bool positive;
-  final bool negative;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final color = positive
-        ? AppColors.spotifyGreen
-        : negative
-        ? colors.error
-        : colors.onSurfaceVariant;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            message,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: color),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RoleOption {
-  final String id;
-  final String title;
-  final IconData icon;
-  final String? badge;
-
-  _RoleOption({
-    required this.id,
-    required this.title,
-    required this.icon,
-    this.badge,
-  });
 }

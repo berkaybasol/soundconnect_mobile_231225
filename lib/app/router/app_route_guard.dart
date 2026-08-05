@@ -11,6 +11,7 @@ class AppRouteGuard {
     AppRoutes.venueApplication,
     AppRoutes.venuePending,
     AppRoutes.studioPending,
+    AppRoutes.studioRejected,
   };
 
   static const Set<String> _publicProfileRoutes = <String>{
@@ -46,13 +47,22 @@ class AppRouteGuard {
       return AppRoutes.studioPending;
     }
 
+    if (session.isRejectedStudio) {
+      if (requested == AppRoutes.studioRejected ||
+          _publicProfileRoutes.contains(requested)) {
+        return null;
+      }
+      return AppRoutes.studioRejected;
+    }
+
     if (!session.isActive) {
       return requested == AppRoutes.login ? null : AppRoutes.login;
     }
 
     if (_anonymousRoutes.contains(requested) ||
         requested == AppRoutes.venuePending ||
-        requested == AppRoutes.studioPending) {
+        requested == AppRoutes.studioPending ||
+        requested == AppRoutes.studioRejected) {
       return startRouteFor(session);
     }
 
@@ -88,6 +98,7 @@ class AppRouteGuard {
     if (!session.isAuthenticated) return AppRoutes.login;
     if (session.isPendingVenue) return AppRoutes.venuePending;
     if (session.isPendingStudio) return AppRoutes.studioPending;
+    if (session.isRejectedStudio) return AppRoutes.studioRejected;
     if (session.isAdmin) return AppRoutes.adminDashboard;
     if (AccessPolicy.canAccessBackstage(session.roles)) {
       return AppRoutes.home;
@@ -97,6 +108,11 @@ class AppRouteGuard {
     }
     return AppRoutes.login;
   }
+
+  static bool canOpenStudioOwnerReservationCalendar(AuthSession session) =>
+      session.isAuthenticated &&
+      session.isActive &&
+      session.hasAnyRole(const ['ROLE_STUDIO', 'STUDIO']);
 
   static const Set<String> _musicianOwnerRoutes = <String>{
     AppRoutes.musicianProfile,

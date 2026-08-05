@@ -154,10 +154,17 @@ class NotificationCubit extends Cubit<NotificationState> {
       );
       return;
     }
+    // Offset pages can shift when a realtime notification is inserted between
+    // page requests. Preserve the server order while suppressing an ID that
+    // was already loaded (or repeated inside the response).
+    final seenIds = state.items.map((item) => item.id).toSet();
+    final uniqueNextItems = result.data!.items
+        .where((item) => seenIds.add(item.id))
+        .toList(growable: false);
     emit(
       state.copyWith(
         status: NotificationStatus.success,
-        items: [...state.items, ...result.data!.items],
+        items: [...state.items, ...uniqueNextItems],
         page: nextPage,
         hasNext: result.data!.hasNext,
         clearError: true,

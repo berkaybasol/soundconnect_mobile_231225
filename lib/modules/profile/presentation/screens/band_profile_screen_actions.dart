@@ -1,12 +1,12 @@
 part of 'band_profile_screen.dart';
 
 extension _BandProfileViewStateActions on _BandProfileViewState {
-  Future<void> _loadBandProfile() async {
+  Future<void> _loadBandProfile({bool showLoading = true}) async {
     final bandId = _bandId;
     if (bandId == null || bandId.isEmpty) return;
 
     _updateState(() {
-      _loading = true;
+      if (showLoading) _loading = true;
       _errorText = null;
     });
 

@@ -5,5 +5,6 @@ class StudioProfileEndpoints {
   static const String me = '$userBase/me';
   static const String update = '$userBase/update';
 
-  static String publicDetail(String profileId) => '$publicBase/$profileId';
+  static String publicDetail(String profileId) =>
+      '$publicBase/${Uri.encodeComponent(profileId)}';
 }

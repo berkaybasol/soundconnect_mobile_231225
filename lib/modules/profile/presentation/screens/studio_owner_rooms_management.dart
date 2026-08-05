@@ -477,6 +477,7 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                     uploading: _photoUploading,
                     onPickPhoto: _pickPhoto,
                     onDeletePhoto: _deletePhoto,
+                    onMovePhoto: _movePhoto,
                   ),
                   const SizedBox(height: 20),
                   const _RoomFormSectionLabel(
@@ -562,6 +563,9 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                       final price = int.tryParse(raw);
                       if (price == null || price < 1) {
                         return 'Geçerli bir saatlik ücret gir.';
+                      }
+                      if (price > 1000000) {
+                        return 'Saatlik ücret en fazla 1.000.000 ₺ olabilir.';
                       }
                       return null;
                     },
@@ -807,6 +811,21 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
     if (_draftMediaCleanup.isTracked(mediaId)) {
       _draftMediaCleanup.discard(mediaId).ignore();
     }
+  }
+
+  void _movePhoto(int fromIndex, int toIndex) {
+    if (_photoUploading ||
+        fromIndex < 0 ||
+        fromIndex >= _photos.length ||
+        toIndex < 0 ||
+        toIndex >= _photos.length ||
+        fromIndex == toIndex) {
+      return;
+    }
+    setState(() {
+      final photo = _photos.removeAt(fromIndex);
+      _photos.insert(toIndex, photo);
+    });
   }
 
   Future<void> _submit() async {

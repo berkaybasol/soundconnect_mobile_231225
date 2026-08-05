@@ -123,6 +123,35 @@ class _MusicianPublicProfileViewState
     setState(() => _viewerUserId = value);
   }
 
+  Future<void> _refreshProfile() async {
+    final targetProfileId = _targetProfileId?.trim() ?? '';
+    if (targetProfileId.isEmpty) return;
+    await context.read<MusicianProfileCubit>().loadPublicProfile(
+      targetProfileId,
+    );
+    if (!mounted) return;
+
+    final profile = context.read<MusicianProfileCubit>().state.profile;
+    if (profile == null) return;
+    final refreshes = <Future<void>>[
+      context.read<ProfileMediaCubit>().loadMedia(
+        profileType: ProfileMediaOwnerType.musician.apiValue,
+        profileId: profile.id,
+      ),
+      context.read<FollowCountCubit>().loadCounts(profile.userId),
+    ];
+    final viewerUserId = _viewerUserId?.trim() ?? '';
+    if (viewerUserId.isNotEmpty && viewerUserId != profile.userId) {
+      refreshes.add(
+        context.read<FollowActionCubit>().loadStatus(
+          followerId: viewerUserId,
+          followingId: profile.userId,
+        ),
+      );
+    }
+    await Future.wait<void>(refreshes);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
@@ -140,7 +169,8 @@ class _MusicianPublicProfileViewState
       ],
       child: BlocBuilder<MusicianProfileCubit, MusicianProfileState>(
         builder: (context, state) {
-          if (state.status == MusicianProfileStatus.loading) {
+          if (state.status == MusicianProfileStatus.loading &&
+              state.profile == null) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
@@ -208,6 +238,7 @@ class _MusicianPublicProfileViewState
             followLoading: actionState.status == FollowActionStatus.loading,
             spotifyTracks: profile.spotifyTracks,
             spotifyLoading: false,
+            onRefresh: _refreshProfile,
           );
         },
       ),

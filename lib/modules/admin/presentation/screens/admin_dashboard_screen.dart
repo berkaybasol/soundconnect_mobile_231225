@@ -11,10 +11,13 @@ import '../../domain/entities/admin_venue_application.dart';
 import '../../domain/entities/admin_studio_application.dart';
 import '../cubit/admin_panel_cubit.dart';
 import '../cubit/admin_panel_state.dart';
+import 'admin_application_filters.dart';
+import 'admin_backline_category_requests.dart';
 
 enum _AdminModule {
   venueApplications,
   studioApplications,
+  backlineCategoryRequests,
   users,
   profiles,
   promotions,
@@ -70,6 +73,8 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
             child: RefreshIndicator(
               onRefresh: () => context.read<AdminPanelCubit>().refresh(
                 loadStudio: _selectedModule == _AdminModule.studioApplications,
+                loadBacklineCategoryRequests:
+                    _selectedModule == _AdminModule.backlineCategoryRequests,
               ),
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -80,6 +85,9 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                       onRefresh: () => context.read<AdminPanelCubit>().refresh(
                         loadStudio:
                             _selectedModule == _AdminModule.studioApplications,
+                        loadBacklineCategoryRequests:
+                            _selectedModule ==
+                            _AdminModule.backlineCategoryRequests,
                       ),
                     ),
                   ),
@@ -87,8 +95,14 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                     SliverToBoxAdapter(
                       child: _AdminLoadError(
                         message: state.summaryError!.message,
-                        onRetry: () =>
-                            context.read<AdminPanelCubit>().refresh(),
+                        onRetry: () => context.read<AdminPanelCubit>().refresh(
+                          loadStudio:
+                              _selectedModule ==
+                              _AdminModule.studioApplications,
+                          loadBacklineCategoryRequests:
+                              _selectedModule ==
+                              _AdminModule.backlineCategoryRequests,
+                        ),
                         compact: true,
                       ),
                     ),
@@ -101,6 +115,13 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                           context
                               .read<AdminPanelCubit>()
                               .loadStudioApplications(state.selectedStatus);
+                        } else if (module ==
+                            _AdminModule.backlineCategoryRequests) {
+                          context
+                              .read<AdminPanelCubit>()
+                              .loadBacklineCategoryRequestsList(
+                                state.selectedBacklineCategoryRequestStatus,
+                              );
                         } else if (module == _AdminModule.venueApplications) {
                           context.read<AdminPanelCubit>().loadVenueApplications(
                             state.selectedStatus,
@@ -130,6 +151,9 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
     if (_selectedModule == _AdminModule.studioApplications) {
       return _studioApplicationSlivers(context, state);
     }
+    if (_selectedModule == _AdminModule.backlineCategoryRequests) {
+      return AdminBacklineCategoryRequestsSection.buildSlivers(context, state);
+    }
     if (_selectedModule != _AdminModule.venueApplications) {
       return [
         SliverFillRemaining(
@@ -143,7 +167,7 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: _VenueApplicationFilters(state: state),
+          child: AdminVenueApplicationFilters(state: state),
         ),
       ),
       if (state.status == AdminPanelStatus.loading &&
@@ -193,7 +217,7 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: _StudioApplicationFilters(state: state),
+          child: AdminStudioApplicationFilters(state: state),
         ),
       ),
       if (state.status == AdminPanelStatus.loading &&
@@ -230,6 +254,25 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                 loading: state.actionIds.contains(application.id),
               );
             }, childCount: state.studioApplications.length * 2 - 1),
+          ),
+        ),
+      if (state.studioApplicationsHasNext ||
+          state.studioApplicationsLoadingMore)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+            child: OutlinedButton.icon(
+              onPressed: state.studioApplicationsLoadingMore
+                  ? null
+                  : context.read<AdminPanelCubit>().loadMoreStudioApplications,
+              icon: state.studioApplicationsLoadingMore
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.expand_more),
+              label: const Text('Daha fazla yükle'),
+            ),
           ),
         ),
     ];
@@ -278,7 +321,7 @@ class _BackstageHero extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Modul bazli operasyon paneli',
+                      'Modül bazlı operasyon paneli',
                       style: TextStyle(color: AppColors.textMuted),
                     ),
                   ],
@@ -322,22 +365,22 @@ class _PulseSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [
       _MetricItem(
-        'Kullanicilar',
+        'Kullanıcılar',
         summary.totalUsers,
         Icons.people_alt_outlined,
       ),
       _MetricItem(
-        'Bekleyen basvuru',
+        'Bekleyen başvuru',
         summary.pendingVenueApplications + summary.pendingStudioApplications,
         Icons.pending_actions_outlined,
       ),
       _MetricItem(
         'Onaylanan',
-        summary.approvedVenueApplications,
+        summary.approvedVenueApplications + summary.approvedStudioApplications,
         Icons.verified_outlined,
       ),
       _MetricItem(
-        'Aktif promo',
+        'Aktif promosyon',
         summary.activePromotions,
         Icons.campaign_outlined,
       ),
@@ -429,7 +472,7 @@ class _ModuleBoard extends StatelessWidget {
     final modules = [
       _ModuleItem(
         module: _AdminModule.venueApplications,
-        title: 'Mekan Basvurulari',
+        title: 'Mekân Başvuruları',
         subtitle: '${summary.pendingVenueApplications} bekleyen',
         icon: Icons.storefront_outlined,
       ),
@@ -440,15 +483,21 @@ class _ModuleBoard extends StatelessWidget {
         icon: Icons.mic_external_on_outlined,
       ),
       const _ModuleItem(
+        module: _AdminModule.backlineCategoryRequests,
+        title: 'Backline Kategori Talepleri',
+        subtitle: 'Onay ve red kuyruğu',
+        icon: Icons.account_tree_outlined,
+      ),
+      const _ModuleItem(
         module: _AdminModule.users,
-        title: 'Kullanicilar',
+        title: 'Kullanıcılar',
         subtitle: 'Hesaplar ve roller',
         icon: Icons.groups_outlined,
       ),
       const _ModuleItem(
         module: _AdminModule.profiles,
         title: 'Profiller',
-        subtitle: 'Artist, mekan, studio',
+        subtitle: 'Sanatçı, mekân, stüdyo',
         icon: Icons.badge_outlined,
       ),
       const _ModuleItem(
@@ -459,20 +508,20 @@ class _ModuleBoard extends StatelessWidget {
       ),
       const _ModuleItem(
         module: _AdminModule.venues,
-        title: 'Mekanlar',
-        subtitle: 'Kayitli mekanlar',
+        title: 'Mekânlar',
+        subtitle: 'Kayıtlı mekânlar',
         icon: Icons.location_city_outlined,
       ),
       const _ModuleItem(
         module: _AdminModule.locations,
         title: 'Lokasyon',
-        subtitle: 'Sehir, ilce, semt',
+        subtitle: 'Şehir, ilçe, semt',
         icon: Icons.map_outlined,
       ),
       const _ModuleItem(
         module: _AdminModule.instruments,
-        title: 'Enstrumanlar',
-        subtitle: 'Lookup yonetimi',
+        title: 'Enstrümanlar',
+        subtitle: 'Katalog yönetimi',
         icon: Icons.music_note_outlined,
       ),
       const _ModuleItem(
@@ -484,7 +533,7 @@ class _ModuleBoard extends StatelessWidget {
       const _ModuleItem(
         module: _AdminModule.roles,
         title: 'Roller & Yetkiler',
-        subtitle: 'Owner alani',
+        subtitle: 'Platform sahibi alanı',
         icon: Icons.admin_panel_settings_outlined,
       ),
     ];
@@ -631,84 +680,17 @@ class _ModuleHeader extends StatelessWidget {
             border: Border.all(color: AppColors.white.withValues(alpha: 0.10)),
           ),
           child: Text(
-            module == _AdminModule.venueApplications ? 'Canli' : 'Siradaki',
+            const <_AdminModule>{
+                  _AdminModule.venueApplications,
+                  _AdminModule.studioApplications,
+                  _AdminModule.backlineCategoryRequests,
+                }.contains(module)
+                ? 'Canlı'
+                : 'Sıradaki',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _VenueApplicationFilters extends StatelessWidget {
-  final AdminPanelState state;
-
-  const _VenueApplicationFilters({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return SegmentedButton<AdminVenueApplicationStatus>(
-      style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return AppColors.coralAlt.withValues(alpha: 0.20);
-          }
-          return AppColors.navBlueSoft.withValues(alpha: 0.60);
-        }),
-        foregroundColor: WidgetStatePropertyAll(AppColors.textPrimary),
-        side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
-      ),
-      segments: const [
-        ButtonSegment(
-          value: AdminVenueApplicationStatus.pending,
-          icon: Icon(Icons.pending_actions_outlined),
-          label: Text('Bekleyen'),
-        ),
-        ButtonSegment(
-          value: AdminVenueApplicationStatus.approved,
-          icon: Icon(Icons.verified_outlined),
-          label: Text('Onay'),
-        ),
-        ButtonSegment(
-          value: AdminVenueApplicationStatus.rejected,
-          icon: Icon(Icons.block_outlined),
-          label: Text('Red'),
-        ),
-      ],
-      selected: {state.selectedStatus},
-      onSelectionChanged: (selection) {
-        context.read<AdminPanelCubit>().loadVenueApplications(selection.first);
-      },
-    );
-  }
-}
-
-class _StudioApplicationFilters extends StatelessWidget {
-  final AdminPanelState state;
-
-  const _StudioApplicationFilters({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return SegmentedButton<AdminVenueApplicationStatus>(
-      segments: const [
-        ButtonSegment(
-          value: AdminVenueApplicationStatus.pending,
-          label: Text('Bekleyen'),
-        ),
-        ButtonSegment(
-          value: AdminVenueApplicationStatus.approved,
-          label: Text('Onaylanan'),
-        ),
-        ButtonSegment(
-          value: AdminVenueApplicationStatus.rejected,
-          label: Text('Reddedilen'),
-        ),
-      ],
-      selected: {state.selectedStatus},
-      onSelectionChanged: (selection) => context
-          .read<AdminPanelCubit>()
-          .loadStudioApplications(selection.first),
     );
   }
 }
@@ -749,7 +731,7 @@ class _ComingSoonModule extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Bu modul icin operasyon ekrani siradaki adimda baglanacak.',
+              'Bu modülün operasyon ekranı sonraki adımda bağlanacak.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textMuted),
             ),
@@ -787,7 +769,7 @@ class _VenueApplicationTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   application.venueName.isEmpty
-                      ? 'Isimsiz mekan'
+                      ? 'İsimsiz mekân'
                       : application.venueName,
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -856,7 +838,7 @@ class _VenueApplicationTile extends StatelessWidget {
     final reason = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Basvuruyu reddet'),
+        title: const Text('Başvuruyu reddet'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -866,7 +848,7 @@ class _VenueApplicationTile extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Vazgec'),
+            child: const Text('Vazgeç'),
           ),
           FilledButton(
             onPressed: () =>
@@ -1095,7 +1077,7 @@ class _EmptyApplications extends StatelessWidget {
             Icon(Icons.inbox_outlined, size: 42, color: AppColors.textMuted),
             const SizedBox(height: 10),
             Text(
-              '${status.label} basvuru yok',
+              '${status.label} başvuru yok',
               style: TextStyle(color: AppColors.textMuted),
             ),
           ],
@@ -1164,14 +1146,15 @@ class _ModuleItem {
 
 String _moduleTitle(_AdminModule module) {
   return switch (module) {
-    _AdminModule.venueApplications => 'Mekan Basvurulari',
+    _AdminModule.venueApplications => 'Mekân Başvuruları',
     _AdminModule.studioApplications => 'Stüdyo Başvuruları',
-    _AdminModule.users => 'Kullanicilar',
+    _AdminModule.backlineCategoryRequests => 'Backline Kategori Talepleri',
+    _AdminModule.users => 'Kullanıcılar',
     _AdminModule.profiles => 'Profiller',
     _AdminModule.promotions => 'Promosyonlar',
-    _AdminModule.venues => 'Mekanlar',
+    _AdminModule.venues => 'Mekânlar',
     _AdminModule.locations => 'Lokasyon',
-    _AdminModule.instruments => 'Enstrumanlar',
+    _AdminModule.instruments => 'Enstrümanlar',
     _AdminModule.dmModeration => 'DM Moderasyon',
     _AdminModule.roles => 'Roller & Yetkiler',
   };

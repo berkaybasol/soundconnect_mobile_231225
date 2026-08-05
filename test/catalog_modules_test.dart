@@ -185,6 +185,19 @@ void main() {
       expect(track.toJson()['durationMs'], 246000);
     });
 
+    test('distinguishes millisecond and second duration fields exactly', () {
+      final fromMilliseconds = SpotifyTrackPreviewModel.fromJson(
+        <String, dynamic>{'id': 'track-ms', 'durationMs': 1000},
+      );
+      final fromSeconds = SpotifyTrackPreviewModel.fromJson(<String, dynamic>{
+        'id': 'track-seconds',
+        'durationSeconds': 1000,
+      });
+
+      expect(fromMilliseconds.durationSeconds, 1);
+      expect(fromSeconds.durationSeconds, 1000);
+    });
+
     test(
       'search accepts nested items and by-ids sends an explicit ID body',
       () async {

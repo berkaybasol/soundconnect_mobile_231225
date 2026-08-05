@@ -10,6 +10,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_pending_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
 
 void main() {
   tearDown(() async {
@@ -37,6 +38,34 @@ void main() {
     expect(
       AppRouteGuard.redirectFor(
         AppRoutes.venuePending,
+        const AuthSession.guest(),
+      ),
+      isNull,
+    );
+  });
+
+  testWidgets('real router exposes the rejected Studio support screen', (
+    tester,
+  ) async {
+    _registerSession(const AuthSession.guest());
+    final navigatorKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const SizedBox.shrink(),
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ),
+    );
+    navigatorKey.currentState!.pushNamed<void>(AppRoutes.studioRejected);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VenuePendingScreen), findsOneWidget);
+    expect(find.text('Stüdyo başvurun sonuçlandı'), findsOneWidget);
+    expect(find.textContaining('karara itiraz etmek'), findsOneWidget);
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.studioRejected,
         const AuthSession.guest(),
       ),
       isNull,
@@ -115,6 +144,52 @@ void main() {
     expect(
       AppRouteGuard.redirectFor(AppRoutes.accountSettings, adminSession),
       isNull,
+    );
+  });
+
+  test('Studio owner calendar rejects invalid args and non-Studio roles', () {
+    final listener = AuthSession.authenticated(
+      token: 'test-token',
+      userId: 'listener-id',
+      username: 'listener',
+      accountStatus: 'ACTIVE',
+      roles: const <String>['ROLE_LISTENER'],
+      permissions: const <String>[],
+      expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+      isAdmin: false,
+    );
+    _registerSession(listener);
+
+    final invalidArgsRoute = AppRouter.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.studioReservationCalendar),
+    );
+    final unauthorizedOwnerRoute = AppRouter.onGenerateRoute(
+      const RouteSettings(
+        name: AppRoutes.studioReservationCalendar,
+        arguments: StudioReservationCalendarArgs(
+          roomId: 'room-1',
+          studioProfileId: 'studio-1',
+          ownerMode: true,
+        ),
+      ),
+    );
+    final customerRoute = AppRouter.onGenerateRoute(
+      const RouteSettings(
+        name: AppRoutes.studioReservationCalendar,
+        arguments: StudioReservationCalendarArgs(
+          roomId: 'room-1',
+          studioProfileId: 'studio-1',
+          ownerMode: false,
+        ),
+      ),
+    );
+
+    expect(invalidArgsRoute.settings.name, AppRoutes.listenerProfile);
+    expect(unauthorizedOwnerRoute.settings.name, AppRoutes.listenerProfile);
+    expect(customerRoute.settings.name, AppRoutes.studioReservationCalendar);
+    expect(
+      AppRouteGuard.canOpenStudioOwnerReservationCalendar(listener),
+      isFalse,
     );
   });
 }

@@ -61,6 +61,9 @@ class AuthSession {
   bool get isPendingStudio =>
       accountStatus?.trim().toUpperCase() == 'PENDING_STUDIO_REQUEST';
 
+  bool get isRejectedStudio =>
+      accountStatus?.trim().toUpperCase() == 'REJECTED_STUDIO_REQUEST';
+
   bool get isPendingBusiness => isPendingVenue || isPendingStudio;
 
   bool get isActive => accountStatus?.trim().toUpperCase() == 'ACTIVE';

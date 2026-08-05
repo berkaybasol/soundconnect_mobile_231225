@@ -23,4 +23,27 @@ void main() {
     expect(AppRouteGuard.redirectFor(AppRoutes.studioPending, session), isNull);
     expect(AppRouteGuard.startRouteFor(session), AppRoutes.studioPending);
   });
+
+  test('rejected studio account is confined to its decision screen', () {
+    final session = AuthSession.authenticated(
+      token: 'token',
+      userId: 'user-1',
+      username: 'studio-owner',
+      accountStatus: 'REJECTED_STUDIO_REQUEST',
+      roles: const [],
+      permissions: const [],
+      expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      isAdmin: false,
+    );
+
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.studioProfile, session),
+      AppRoutes.studioRejected,
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.studioRejected, session),
+      isNull,
+    );
+    expect(AppRouteGuard.startRouteFor(session), AppRoutes.studioRejected);
+  });
 }

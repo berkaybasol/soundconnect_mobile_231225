@@ -10,6 +10,7 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/entities/user_status.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
+import 'login_screen.dart';
 
 class OtpVerifyArgs {
   final String? email;
@@ -98,18 +99,22 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
       listener: (context, state) {
         if (state.action == AuthAction.verify &&
             state.status == AuthStatus.success) {
-          final navigator = Navigator.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("SoundConnect'e hoş geldin!")),
-          );
+          final registrationStatus = state.registerResult?.status;
+          final hasServerRegistrationStatus = registrationStatus != null;
           final isVenuePending =
-              _role == 'ROLE_VENUE' ||
-              state.registerResult?.status == UserStatus.pendingVenueRequest;
-          final isStudioPending =
-              _role == 'ROLE_STUDIO' ||
-              state.registerResult?.status == UserStatus.pendingStudioRequest;
-          Future<void>.delayed(const Duration(milliseconds: 450), () {
+              registrationStatus == UserStatus.pendingVenueRequest ||
+              (!hasServerRegistrationStatus && _role == 'ROLE_VENUE');
+          final isStudioRegistration =
+              registrationStatus == UserStatus.pendingStudioRequest ||
+              (!hasServerRegistrationStatus && _role == 'ROLE_STUDIO');
+          final successMessage = isStudioRegistration
+              ? 'E-posta doğrulandı. Başvuru durumunu görmek için '
+                    'kullanıcı adın ve şifrenle giriş yap.'
+              : "SoundConnect'e hoş geldin!";
+          FocusManager.instance.primaryFocus?.unfocus();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
+            final navigator = Navigator.of(context);
             if (isVenuePending) {
               navigator.pushNamedAndRemoveUntil(
                 AppRoutes.venuePending,
@@ -117,16 +122,14 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               );
               return;
             }
-            if (isStudioPending) {
-              navigator.pushNamedAndRemoveUntil(
-                AppRoutes.studioPending,
-                (route) => false,
-              );
-              return;
-            }
+            // OTP verification does not create an authenticated session. A Studio
+            // application may also be approved or rejected while the OTP screen is
+            // open, so only the subsequent password-authenticated login response is
+            // allowed to select pending, approved, or rejected navigation.
             navigator.pushNamedAndRemoveUntil(
               AppRoutes.login,
               (route) => false,
+              arguments: LoginRouteArgs(initialNotice: successMessage),
             );
           });
         } else if (state.action == AuthAction.resend &&

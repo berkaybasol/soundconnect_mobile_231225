@@ -6,6 +6,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/studio_profile.dart';
+import '../../domain/profile_contact_uri.dart';
 import '../../domain/studio_profile_repository.dart';
 
 enum ProfileSocialPlatform { soundcloud, instagram, youtube, spotify }
@@ -127,6 +128,7 @@ Future<String?> promptForSocialLink(
   BuildContext context, {
   required ProfileSocialPlatform platform,
   required String initialValue,
+  bool allowRemoval = false,
 }) async {
   var draftValue = initialValue;
   final isEditing = draftValue.trim().isNotEmpty;
@@ -135,7 +137,7 @@ Future<String?> promptForSocialLink(
     context: context,
     builder: (dialogContext) {
       return AlertDialog(
-        title: Text('${platform.label} ${isEditing ? 'duzenle' : 'ekle'}'),
+        title: Text('${platform.label} ${isEditing ? 'düzenle' : 'ekle'}'),
         content: TextFormField(
           initialValue: draftValue,
           autofocus: true,
@@ -144,13 +146,19 @@ Future<String?> promptForSocialLink(
           onChanged: (value) => draftValue = value,
         ),
         actions: [
+          if (allowRemoval && isEditing)
+            TextButton(
+              key: const Key('profile-social-remove'),
+              onPressed: () => Navigator.of(dialogContext).pop(''),
+              child: const Text('Bağlantıyı kaldır'),
+            ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Vazgec'),
+            child: const Text('Vazgeç'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(draftValue),
-            child: Text('Kaydet'),
+            child: const Text('Kaydet'),
           ),
         ],
       );
@@ -158,16 +166,18 @@ Future<String?> promptForSocialLink(
   );
   if (submitted == null) return null;
   final trimmed = submitted.trim();
-  if (trimmed.isEmpty) return null;
-  return trimmed.contains('://') ? trimmed : 'https://$trimmed';
+  if (trimmed.isEmpty) return allowRemoval && isEditing ? '' : null;
+  final normalized = normalizeProfileHttpUrl(trimmed, assumeHttps: true);
+  if (normalized == null && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Geçerli bir HTTP(S) bağlantısı gir.')),
+    );
+  }
+  return normalized;
 }
 
 Future<void> _launchProfileSocialUrl(BuildContext context, String? url) async {
-  final trimmed = url?.trim();
-  if (trimmed == null || trimmed.isEmpty) return;
-
-  final normalized = trimmed.contains('://') ? trimmed : 'https://$trimmed';
-  final uri = Uri.tryParse(normalized);
+  final uri = profileHttpUri(url);
   if (uri == null) {
     ScaffoldMessenger.of(
       context,
@@ -268,11 +278,7 @@ class ProfileSocialLinksRow extends StatelessWidget {
 }
 
 bool _isSocialUrlUsable(String? raw) {
-  final value = raw?.trim().toLowerCase();
-  if (value == null || value.isEmpty) return false;
-  return value.startsWith('http://') ||
-      value.startsWith('https://') ||
-      value.startsWith('www.');
+  return profileHttpUri(raw) != null;
 }
 
 class _ProfileSocialPill extends StatefulWidget {

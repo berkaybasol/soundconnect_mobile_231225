@@ -2,12 +2,15 @@ import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/pagination/page.dart';
 import '../domain/admin_repository.dart';
+import '../domain/entities/admin_backline_category_request.dart';
 import '../domain/entities/admin_dashboard_summary.dart';
 import '../domain/entities/admin_venue_application.dart';
 import '../domain/entities/admin_studio_application.dart';
 import 'admin_endpoints.dart';
 import 'models/admin_dashboard_summary_model.dart';
+import 'models/admin_backline_category_request_model.dart';
 import 'models/admin_venue_application_model.dart';
 import 'models/admin_studio_application_model.dart';
 
@@ -31,7 +34,7 @@ class AdminRepositoryImpl implements AdminRepository {
       return Result.failure(
         const AppError(
           code: 'admin_summary_unknown',
-          message: 'Admin ozeti getirilemedi',
+          message: 'Admin özeti getirilemedi.',
         ),
       );
     }
@@ -60,7 +63,7 @@ class AdminRepositoryImpl implements AdminRepository {
       return Result.failure(
         const AppError(
           code: 'admin_venue_applications_unknown',
-          message: 'Mekan basvurulari getirilemedi',
+          message: 'Mekân başvuruları getirilemedi.',
         ),
       );
     }
@@ -73,7 +76,7 @@ class AdminRepositoryImpl implements AdminRepository {
     return _applicationAction(
       path: AdminEndpoints.approveVenueApplication(id),
       fallbackCode: 'admin_venue_approve_unknown',
-      fallbackMessage: 'Basvuru onaylanamadi',
+      fallbackMessage: 'Başvuru onaylanamadı.',
     );
   }
 
@@ -87,7 +90,7 @@ class AdminRepositoryImpl implements AdminRepository {
       path:
           '${AdminEndpoints.rejectVenueApplication(id)}?reason=$encodedReason',
       fallbackCode: 'admin_venue_reject_unknown',
-      fallbackMessage: 'Basvuru reddedilemedi',
+      fallbackMessage: 'Başvuru reddedilemedi.',
     );
   }
 
@@ -114,17 +117,76 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
-  Future<Result<List<AdminStudioApplication>>> getStudioApplicationsByStatus(
-    AdminVenueApplicationStatus status,
-  ) async {
+  Future<Result<Page<AdminStudioApplication>>> getStudioApplicationsByStatus(
+    AdminVenueApplicationStatus status, {
+    int page = 0,
+    int size = 50,
+  }) async {
     try {
-      final response = await _apiClient.get<List<AdminStudioApplication>>(
+      final response = await _apiClient.get<Page<AdminStudioApplication>>(
         AdminEndpoints.studioApplicationsByStatus,
-        query: {'status': status.apiValue},
-        decoder: (json) => (json as List? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(AdminStudioApplicationModel.fromJson)
-            .toList(growable: false),
+        query: {'status': status.apiValue, 'page': page, 'size': size},
+        decoder: (json) {
+          if (json is! Map<String, dynamic>) {
+            throw const FormatException(
+              'Studio application page must be an object',
+            );
+          }
+          final rawContent = json['content'];
+          final serverPage = json.containsKey('page')
+              ? json['page']
+              : json['number'];
+          final serverSize = json['size'];
+          final totalElements = json['totalElements'];
+          final totalPages = json['totalPages'];
+          final first = json['first'];
+          final last = json['last'];
+          if (rawContent is! List ||
+              serverPage is! int ||
+              serverSize is! int ||
+              totalElements is! int ||
+              totalPages is! int ||
+              first is! bool ||
+              last is! bool ||
+              serverPage < 0 ||
+              serverSize < 1 ||
+              serverPage != page ||
+              serverSize != size ||
+              totalElements < 0 ||
+              totalPages < 0) {
+            throw const FormatException('Malformed Studio application page');
+          }
+          final items = rawContent
+              .map((item) {
+                if (item is! Map<String, dynamic>) {
+                  throw const FormatException(
+                    'Malformed Studio application item',
+                  );
+                }
+                return AdminStudioApplicationModel.fromJson(item);
+              })
+              .toList(growable: false);
+          final expectedTotalPages = totalElements == 0
+              ? 0
+              : (totalElements + serverSize - 1) ~/ serverSize;
+          if ((totalPages == 0 && totalElements != 0) ||
+              totalPages != expectedTotalPages ||
+              (totalPages > 0 &&
+                  serverPage >= totalPages &&
+                  items.isNotEmpty) ||
+              items.length > serverSize ||
+              items.length > totalElements ||
+              first != (serverPage == 0) ||
+              last != (totalPages == 0 || serverPage >= totalPages - 1)) {
+            throw const FormatException('Inconsistent Studio application page');
+          }
+          final hasNext = !last;
+          return Page<AdminStudioApplication>(
+            items: items,
+            hasNext: hasNext,
+            nextCursor: hasNext ? '${serverPage + 1}' : null,
+          );
+        },
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -152,21 +214,22 @@ class AdminRepositoryImpl implements AdminRepository {
     required String id,
     required String reason,
   }) => _studioApplicationAction(
-    path:
-        '${AdminEndpoints.rejectStudioApplication(id)}?reason=${Uri.encodeQueryComponent(reason.trim())}',
+    path: AdminEndpoints.rejectStudioApplication(id),
+    body: <String, dynamic>{'reason': reason.trim()},
     fallbackCode: 'admin_studio_reject_unknown',
     fallbackMessage: 'Stüdyo başvurusu reddedilemedi',
   );
 
   Future<Result<AdminStudioApplication>> _studioApplicationAction({
     required String path,
+    Object? body,
     required String fallbackCode,
     required String fallbackMessage,
   }) async {
     try {
       final response = await _apiClient.post<AdminStudioApplication>(
         path,
-        body: null,
+        body: body,
         decoder: (json) =>
             AdminStudioApplicationModel.fromJson(json as Map<String, dynamic>),
       );
@@ -178,5 +241,161 @@ class AdminRepositoryImpl implements AdminRepository {
         AppError(code: fallbackCode, message: fallbackMessage),
       );
     }
+  }
+
+  @override
+  Future<Result<Page<AdminBacklineCategoryRequest>>>
+  getBacklineCategoryRequests({
+    AdminBacklineCategoryRequestStatus? status,
+    int page = 0,
+    int size = 20,
+  }) async {
+    if (page < 0 || page > 1000 || size < 1 || size > 50) {
+      return const Result.failure(
+        AppError(
+          code: 'admin_backline_category_request_validation',
+          message: 'Geçersiz sayfalama isteği.',
+        ),
+      );
+    }
+    try {
+      final response = await _apiClient.get<Page<AdminBacklineCategoryRequest>>(
+        AdminEndpoints.backlineCategoryRequests,
+        query: <String, dynamic>{
+          if (status != null) 'status': status.apiValue,
+          'page': page,
+          'size': size,
+        },
+        decoder: (json) => _decodeBacklineCategoryRequestPage(
+          json,
+          requestedPage: page,
+          requestedSize: size,
+        ),
+      );
+      return Result.success(response);
+    } on ApiException catch (error) {
+      return Result.failure(error.error);
+    } on FormatException {
+      return const Result.failure(
+        AppError(
+          code: 'admin_backline_category_requests_invalid_response',
+          message: 'Kategori talepleri beklenen biçimde alınamadı.',
+        ),
+      );
+    } catch (_) {
+      return const Result.failure(
+        AppError(
+          code: 'admin_backline_category_requests_unknown',
+          message: 'Kategori talepleri yüklenemedi. Lütfen tekrar dene.',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<AdminBacklineCategoryRequest>> reviewBacklineCategoryRequest({
+    required String id,
+    required AdminBacklineCategoryReviewDecision decision,
+    String? note,
+  }) async {
+    final normalizedId = id.trim();
+    final normalizedNote = note?.trim() ?? '';
+    if (normalizedId.isEmpty ||
+        normalizedNote.length > 500 ||
+        (decision == AdminBacklineCategoryReviewDecision.reject &&
+            normalizedNote.isEmpty)) {
+      return Result.failure(
+        AppError(
+          code: 'admin_backline_category_request_validation',
+          message:
+              decision == AdminBacklineCategoryReviewDecision.reject &&
+                  normalizedNote.isEmpty
+              ? 'Red gerekçesi zorunludur.'
+              : normalizedId.isEmpty
+              ? 'Kategori talebi kimliği eksik.'
+              : 'İnceleme notu 500 karakteri aşamaz.',
+        ),
+      );
+    }
+    try {
+      final response = await _apiClient.post<AdminBacklineCategoryRequest>(
+        AdminEndpoints.reviewBacklineCategoryRequest(normalizedId),
+        body: <String, dynamic>{
+          'decision': decision.apiValue,
+          if (normalizedNote.isNotEmpty) 'note': normalizedNote,
+        },
+        decoder: AdminBacklineCategoryRequestModel.fromJson,
+      );
+      return Result.success(response);
+    } on ApiException catch (error) {
+      return Result.failure(error.error);
+    } on FormatException {
+      return const Result.failure(
+        AppError(
+          code: 'admin_backline_category_request_invalid_response',
+          message: 'Güncellenen kategori talebi doğrulanamadı.',
+        ),
+      );
+    } catch (_) {
+      return Result.failure(
+        AppError(
+          code: 'admin_backline_category_request_review_unknown',
+          message: decision == AdminBacklineCategoryReviewDecision.approve
+              ? 'Kategori talebi onaylanamadı.'
+              : 'Kategori talebi reddedilemedi.',
+        ),
+      );
+    }
+  }
+
+  Page<AdminBacklineCategoryRequest> _decodeBacklineCategoryRequestPage(
+    Object? value, {
+    required int requestedPage,
+    required int requestedSize,
+  }) {
+    if (value is! Map<String, dynamic>) {
+      throw const FormatException('Kategori talebi sayfası nesne olmalıdır');
+    }
+    final content = value['content'];
+    final page = value.containsKey('page') ? value['page'] : value['number'];
+    final size = value['size'];
+    final totalElements = value['totalElements'];
+    final totalPages = value['totalPages'];
+    final first = value['first'];
+    final last = value['last'];
+    if (content is! List ||
+        page is! int ||
+        size is! int ||
+        totalElements is! int ||
+        totalPages is! int ||
+        first is! bool ||
+        last is! bool ||
+        page != requestedPage ||
+        size != requestedSize ||
+        totalElements < 0 ||
+        totalPages < 0) {
+      throw const FormatException('Kategori talebi sayfası geçersiz');
+    }
+    final items = content
+        .map(AdminBacklineCategoryRequestModel.fromJson)
+        .toList(growable: false);
+    final expectedPages = totalElements == 0
+        ? 0
+        : (totalElements + size - 1) ~/ size;
+    final expectedFirst = page == 0;
+    final expectedLast = totalPages == 0 || page >= totalPages - 1;
+    if (totalPages != expectedPages ||
+        (totalPages > 0 && page >= totalPages && items.isNotEmpty) ||
+        items.length > size ||
+        items.length > totalElements ||
+        first != expectedFirst ||
+        last != expectedLast) {
+      throw const FormatException('Kategori talebi sayfa sınırları tutarsız');
+    }
+    return Page<AdminBacklineCategoryRequest>(
+      items: items,
+      hasNext: !last,
+      nextCursor: last ? null : '${page + 1}',
+    );
   }
 }

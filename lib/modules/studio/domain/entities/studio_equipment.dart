@@ -17,6 +17,20 @@ enum StudioEquipmentAvailabilityStatus {
   unknown,
 }
 
+class StudioEquipmentInventorySummary {
+  final int totalQuantity;
+  final int availableQuantity;
+  final int busyQuantity;
+  final int maintenanceQuantity;
+
+  const StudioEquipmentInventorySummary({
+    required this.totalQuantity,
+    required this.availableQuantity,
+    required this.busyQuantity,
+    required this.maintenanceQuantity,
+  });
+}
+
 class StudioEquipmentPhoto {
   final String? mediaAssetId;
   final String url;

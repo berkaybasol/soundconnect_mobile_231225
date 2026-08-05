@@ -5,9 +5,12 @@ enum StudioRoomAvailabilityStatus {
 
   static StudioRoomAvailabilityStatus fromApi(Object? value) {
     return switch (value?.toString().trim().toUpperCase()) {
+      'AVAILABLE' => StudioRoomAvailabilityStatus.available,
       'FULLY_BOOKED' => StudioRoomAvailabilityStatus.fullyBooked,
       'PARTIALLY_AVAILABLE' => StudioRoomAvailabilityStatus.partiallyAvailable,
-      _ => StudioRoomAvailabilityStatus.available,
+      final unknown => throw FormatException(
+        'Unknown room availability status: $unknown',
+      ),
     };
   }
 }

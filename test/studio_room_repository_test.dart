@@ -32,6 +32,111 @@ void main() {
       expect(api.lastRequest.query, {'page': 0, 'size': 10});
     });
 
+    test('accepts the backend default currency for an unpriced room', () async {
+      final response = _roomJson(owner: true)
+        ..['hourlyPriceMinor'] = null
+        ..['currency'] = 'TRY';
+      final api = RecordingApiClient((_) => response);
+      final repository = StudioRoomRepositoryImpl(api);
+      const draft = StudioRoomDraft(
+        name: 'Ücretsiz Prova Odası',
+        shortDescription: 'Fiyatsız oda',
+        capacity: 2,
+        hourlyPriceMinor: null,
+        currency: null,
+        reservationApprovalRequired: false,
+        features: [],
+        photoMediaIds: [],
+      );
+
+      final result = await repository.createRoom(
+        draft,
+        clientRequestId: 'unpriced-room-request',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.hourlyPriceMinor, isNull);
+      expect(result.data?.currency, 'TRY');
+      final body = api.lastRequest.body as Map<String, Object?>;
+      expect(body['hourlyPriceMinor'], isNull);
+      expect(body['currency'], isNull);
+    });
+
+    test('accepts Spring empty room pages past the last page', () async {
+      final api = RecordingApiClient(
+        (_) => {
+          'content': const <Object?>[],
+          'page': 5,
+          'size': 10,
+          'totalElements': 12,
+          'totalPages': 2,
+          'first': false,
+          'last': true,
+        },
+      );
+      final repository = StudioRoomRepositoryImpl(api);
+
+      final result = await repository.listOwnerRooms(page: 5, size: 10);
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data!.items, isEmpty);
+      expect(result.data!.pageIndex, 5);
+      expect(result.data!.isLast, isTrue);
+      expect(result.data!.hasNext, isFalse);
+    });
+
+    test(
+      'rejects unknown room availability status instead of failing open',
+      () async {
+        final response = _roomJson(owner: true)
+          ..['todayAvailabilityStatus'] = 'NEW_SERVER_STATUS';
+        final api = RecordingApiClient(
+          (_) => {
+            'content': [response],
+            'page': 0,
+            'size': 10,
+            'totalElements': 1,
+            'totalPages': 1,
+            'first': true,
+            'last': true,
+          },
+        );
+        final repository = StudioRoomRepositoryImpl(api);
+
+        final result = await repository.listOwnerRooms(page: 0, size: 10);
+
+        expect(result.isSuccess, isFalse);
+        expect(result.error?.code, 'studio_room_invalid_response');
+      },
+    );
+
+    test('rejects coerced room scalar and collection values', () async {
+      for (final response in <Map<String, Object?>>[
+        _roomJson(owner: true)..['id'] = 42,
+        _roomJson(owner: true)..['capacity'] = '6',
+        _roomJson(owner: true)..['shortDescription'] = false,
+        _roomJson(owner: true)..['features'] = <Object?>['Davul', 42],
+      ]) {
+        final api = RecordingApiClient(
+          (_) => {
+            'content': [response],
+            'page': 0,
+            'size': 10,
+            'totalElements': 1,
+            'totalPages': 1,
+            'first': true,
+            'last': true,
+          },
+        );
+        final result = await StudioRoomRepositoryImpl(
+          api,
+        ).listOwnerRooms(page: 0, size: 10);
+
+        expect(result.isSuccess, isFalse);
+        expect(result.error?.code, 'studio_room_invalid_response');
+      }
+    });
+
     test(
       'create retries preserve caller idempotency key and exact payload',
       () async {

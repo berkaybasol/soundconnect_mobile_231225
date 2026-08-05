@@ -21,6 +21,7 @@ class _StudioReservationsHubScreenState
   List<_StudioRoomItem> _rooms = const [];
   bool _loading = true;
   String? _errorMessage;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -66,6 +67,7 @@ class _StudioReservationsHubScreenState
   }
 
   Future<void> _loadRooms() async {
+    final generation = ++_loadGeneration;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -75,7 +77,7 @@ class _StudioReservationsHubScreenState
     final result = await _repository.listOwnerRooms(
       size: _maximumStudioRoomCount,
     );
-    if (!mounted) return;
+    if (!mounted || generation != _loadGeneration) return;
     final page = result.data;
     if (!result.isSuccess || page == null) {
       setState(() {

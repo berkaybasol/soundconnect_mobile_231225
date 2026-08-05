@@ -14,8 +14,16 @@ import '../../domain/username_policy.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
+class LoginRouteArgs {
+  const LoginRouteArgs({this.initialNotice});
+
+  final String? initialNotice;
+}
+
 class LoginScreen extends StatefulWidget {
-  LoginScreen({super.key});
+  const LoginScreen({super.key, this.initialNotice});
+
+  final String? initialNotice;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -25,6 +33,19 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordObscured = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final notice = widget.initialNotice?.trim();
+    if (notice == null || notice.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.removeCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text(notice)));
+    });
+  }
 
   @override
   void dispose() {
@@ -62,6 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
           final pendingRoute = switch (state.error?.code) {
             'auth_pending_venue_approval' => AppRoutes.venuePending,
             'auth_pending_studio_approval' => AppRoutes.studioPending,
+            'auth_studio_application_rejected' => AppRoutes.studioRejected,
             _ => null,
           };
           if (pendingRoute != null) {

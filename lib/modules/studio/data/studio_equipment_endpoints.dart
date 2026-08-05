@@ -2,6 +2,7 @@ class StudioEquipmentEndpoints {
   const StudioEquipmentEndpoints._();
 
   static const ownerEquipment = '/api/v1/user/studio-profiles/me/equipment';
+  static const ownerInventorySummary = '$ownerEquipment/summary';
 
   static String ownerEquipmentItem(String equipmentId) =>
       '$ownerEquipment/$equipmentId';

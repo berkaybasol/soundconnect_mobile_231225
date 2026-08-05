@@ -5,14 +5,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/profile_upload_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/studio_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_media_upload_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/entities/studio_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/entities/studio_room.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/studio_room_repository.dart';
 
 void main() {
-  setUp(() async => serviceLocator.reset());
+  setUp(() async {
+    await serviceLocator.reset();
+    serviceLocator.registerSingleton<ProfileMediaUploadRepository>(
+      _ProfileMediaUploadRepositoryFake(),
+    );
+  });
   tearDown(() async => serviceLocator.reset());
 
   testWidgets('owner room management renders loading then empty state', (
@@ -141,6 +148,37 @@ void main() {
     expect(submittedDraft, isNotNull);
     expect(submittedDraft!.reservationApprovalRequired, isFalse);
   });
+
+  testWidgets('scheduled approval policy label uses the Studio civil date', (
+    tester,
+  ) async {
+    serviceLocator.registerSingleton<StudioRoomRepository>(
+      _RoomRepositoryFake(
+        () async => Result.success(
+          StudioPage<StudioRoom>(
+            items: [_scheduledPolicyRoom],
+            pageIndex: 0,
+            pageSize: 10,
+            totalItems: 1,
+            totalPages: 1,
+            isFirst: true,
+            isLast: true,
+          ),
+        ),
+      ),
+    );
+    await _openRooms(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Oda Ayarları'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Planlanan değişiklik 25.07.2026 00:00’da devreye girer.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('01.01.2035'), findsNothing);
+  });
 }
 
 Future<void> _openRooms(WidgetTester tester) async {
@@ -206,6 +244,30 @@ final _createdRoom = StudioRoom(
   version: 0,
 );
 
+final _scheduledPolicyRoom = StudioRoom(
+  id: 'room-scheduled-policy',
+  studioProfileId: 'studio-1',
+  slotIndex: 1,
+  name: 'Planlı Politika Odası',
+  shortDescription: '',
+  capacity: 4,
+  hourlyPriceMinor: null,
+  currency: null,
+  reservationApprovalRequired: true,
+  pendingReservationApprovalRequired: false,
+  // Deliberately unrelated to the Studio civil date: presentation must not
+  // derive its calendar label from the device-local projection of this instant.
+  reservationApprovalPolicyEffectiveAt: DateTime.utc(2035),
+  features: const [],
+  photos: const [],
+  todayLocalDate: DateTime(2026, 7, 24),
+  todayReservationCount: 0,
+  todayOccupiedHours: 0,
+  todayAvailableHours: 14,
+  todayAvailabilityStatus: StudioRoomAvailabilityStatus.available,
+  version: 1,
+);
+
 class _RoomRepositoryFake implements StudioRoomRepository {
   _RoomRepositoryFake(this._listOwnerRooms, {this.createRoomCallback});
 
@@ -236,4 +298,52 @@ class _RoomRepositoryFake implements StudioRoomRepository {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ProfileMediaUploadRepositoryFake
+    implements ProfileMediaUploadRepository {
+  @override
+  Stream<ProfileUploadRecoveryEvent> get recoveryEvents => const Stream.empty();
+
+  @override
+  Future<Result<ProfileUploadedMedia>> uploadAsset({
+    required ProfileUploadSource source,
+    required String ownerType,
+    required String ownerId,
+    required String mediaKind,
+    required String mimeType,
+    required String originalFileName,
+    ProfileUploadAttachmentIntent attachmentIntent =
+        const ProfileUploadAttachmentIntent.none(),
+    ProfileUploadProgress? onProgress,
+    ProfileUploadStageChanged? onStageChanged,
+    ProfileUploadCancellation? cancellation,
+  }) async => const Result.failure(
+    AppError(code: 'test_upload_disabled', message: 'Upload is disabled.'),
+  );
+
+  @override
+  Future<Result<void>> deleteOwnedAsset({
+    required String assetId,
+    required String ownerType,
+    required String ownerId,
+  }) async => const Result.success(null);
+
+  @override
+  Future<Result<void>> persistDraftCleanupIntent({
+    required String assetId,
+    required String ownerType,
+    required String ownerId,
+  }) async => const Result.success(null);
+
+  @override
+  Future<Result<void>> clearDraftCleanupIntents(
+    Iterable<String> assetIds,
+  ) async => const Result.success(null);
+
+  @override
+  void releaseDraftCleanupLeases(Iterable<String> assetIds) {}
+
+  @override
+  Future<void> resumePendingUploads() async {}
 }

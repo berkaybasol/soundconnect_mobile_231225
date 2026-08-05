@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../../notification/presentation/cubit/notification_cubit.dart';
 import '../../../notification/presentation/cubit/notification_state.dart';
 
@@ -44,7 +45,7 @@ class StageHomeTopBar extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Müzisyen, dinleyici veya mekan ara',
+                        'Müzisyen, dinleyici, grup, stüdyo veya mekân ara',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -77,17 +78,9 @@ class StageHomeTopBar extends StatelessWidget {
           ),
           IconButton(
             onPressed: onMenuTap,
-            icon: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.asset(
-                'assets/logo.png',
-                width: 34,
-                height: 34,
-                fit: BoxFit.cover,
-              ),
-            ),
+            icon: const ProfileMenuLogo(),
             splashRadius: 24,
-            tooltip: 'Menu',
+            tooltip: 'Menü',
           ),
         ],
       ),

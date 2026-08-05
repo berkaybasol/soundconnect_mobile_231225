@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/result.dart';
 import '../../domain/admin_repository.dart';
+import '../../domain/entities/admin_backline_category_request.dart';
 import '../../domain/entities/admin_venue_application.dart';
 import '../../domain/entities/admin_studio_application.dart';
 import 'admin_panel_state.dart';
@@ -14,12 +15,22 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
   int _reloadGeneration = 0;
   int _applicationsGeneration = 0;
 
-  Future<void> initialize() => _reloadAll(loadStudio: false);
+  Future<void> initialize() =>
+      _reloadAll(loadStudio: false, loadBacklineCategoryRequests: false);
 
-  Future<void> refresh({bool loadStudio = false}) =>
-      _reloadAll(loadStudio: loadStudio);
+  Future<void> refresh({
+    bool loadStudio = false,
+    bool loadBacklineCategoryRequests = false,
+  }) => _reloadAll(
+    loadStudio: loadStudio,
+    loadBacklineCategoryRequests: loadBacklineCategoryRequests,
+  );
 
-  Future<void> _reloadAll({required bool loadStudio}) async {
+  Future<void> _reloadAll({
+    required bool loadStudio,
+    required bool loadBacklineCategoryRequests,
+  }) async {
+    assert(!(loadStudio && loadBacklineCategoryRequests));
     final generation = ++_reloadGeneration;
     _applicationsGeneration += 1;
     emit(
@@ -32,7 +43,11 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
     );
     await _loadSummary(generation);
     if (generation != _reloadGeneration || isClosed) return;
-    if (loadStudio) {
+    if (loadBacklineCategoryRequests) {
+      await loadBacklineCategoryRequestsList(
+        state.selectedBacklineCategoryRequestStatus,
+      );
+    } else if (loadStudio) {
       await loadStudioApplications(state.selectedStatus);
     } else {
       await loadVenueApplications(state.selectedStatus);
@@ -90,24 +105,36 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
   }
 
   Future<void> loadStudioApplications(
-    AdminVenueApplicationStatus status,
-  ) async {
+    AdminVenueApplicationStatus status, {
+    bool loadMore = false,
+  }) async {
+    if (loadMore &&
+        (state.studioApplicationsLoadingMore ||
+            !state.studioApplicationsHasNext)) {
+      return;
+    }
     final generation = ++_applicationsGeneration;
+    final requestedPage = loadMore ? state.studioApplicationsPage + 1 : 0;
     emit(
       state.copyWith(
-        status: AdminPanelStatus.loading,
+        status: loadMore ? state.status : AdminPanelStatus.loading,
         selectedStatus: status,
         applicationsError: null,
         actionError: null,
+        studioApplicationsLoadingMore: loadMore,
       ),
     );
-    final result = await _adminRepository.getStudioApplicationsByStatus(status);
+    final result = await _adminRepository.getStudioApplicationsByStatus(
+      status,
+      page: requestedPage,
+    );
     if (generation != _applicationsGeneration || isClosed) return;
     if (!result.isSuccess) {
       emit(
         state.copyWith(
           status: AdminPanelStatus.failure,
           applicationsError: result.error,
+          studioApplicationsLoadingMore: false,
         ),
       );
       return;
@@ -117,10 +144,32 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
         status: state.summaryError == null
             ? AdminPanelStatus.idle
             : AdminPanelStatus.failure,
-        studioApplications: result.data ?? const [],
+        studioApplications: loadMore
+            ? _mergeStudioApplications(
+                state.studioApplications,
+                result.data?.items ?? const <AdminStudioApplication>[],
+              )
+            : result.data?.items ?? const <AdminStudioApplication>[],
+        studioApplicationsPage: requestedPage,
+        studioApplicationsHasNext: result.data?.hasNext ?? false,
+        studioApplicationsLoadingMore: false,
         applicationsError: null,
       ),
     );
+  }
+
+  Future<void> loadMoreStudioApplications() =>
+      loadStudioApplications(state.selectedStatus, loadMore: true);
+
+  List<AdminStudioApplication> _mergeStudioApplications(
+    List<AdminStudioApplication> current,
+    List<AdminStudioApplication> next,
+  ) {
+    final byId = <String, AdminStudioApplication>{
+      for (final application in current) application.id: application,
+      for (final application in next) application.id: application,
+    };
+    return List<AdminStudioApplication>.unmodifiable(byId.values);
   }
 
   Future<void> approveStudioApplication(String id) async {
@@ -139,6 +188,101 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
       () => _adminRepository.rejectStudioApplication(id: id, reason: reason),
     );
   }
+
+  Future<void> loadBacklineCategoryRequestsList(
+    AdminBacklineCategoryRequestStatus? status, {
+    bool loadMore = false,
+  }) async {
+    if (loadMore &&
+        (state.backlineCategoryRequestsLoadingMore ||
+            !state.backlineCategoryRequestsHasNext)) {
+      return;
+    }
+    final generation = ++_applicationsGeneration;
+    final requestedPage = loadMore ? state.backlineCategoryRequestsPage + 1 : 0;
+    emit(
+      state.copyWith(
+        status: loadMore ? state.status : AdminPanelStatus.loading,
+        selectedBacklineCategoryRequestStatus: status,
+        applicationsError: null,
+        actionError: null,
+        backlineCategoryRequestsLoadingMore: loadMore,
+      ),
+    );
+    final result = await _adminRepository.getBacklineCategoryRequests(
+      status: status,
+      page: requestedPage,
+    );
+    if (generation != _applicationsGeneration || isClosed) return;
+    if (!result.isSuccess) {
+      emit(
+        state.copyWith(
+          status: AdminPanelStatus.failure,
+          applicationsError: result.error,
+          backlineCategoryRequestsLoadingMore: false,
+        ),
+      );
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: state.summaryError == null
+            ? AdminPanelStatus.idle
+            : AdminPanelStatus.failure,
+        backlineCategoryRequests: loadMore
+            ? _mergeBacklineCategoryRequests(
+                state.backlineCategoryRequests,
+                result.data?.items ?? const <AdminBacklineCategoryRequest>[],
+              )
+            : result.data?.items ?? const <AdminBacklineCategoryRequest>[],
+        backlineCategoryRequestsPage: requestedPage,
+        backlineCategoryRequestsHasNext: result.data?.hasNext ?? false,
+        backlineCategoryRequestsLoadingMore: false,
+        applicationsError: null,
+      ),
+    );
+  }
+
+  Future<void> loadMoreBacklineCategoryRequests() =>
+      loadBacklineCategoryRequestsList(
+        state.selectedBacklineCategoryRequestStatus,
+        loadMore: true,
+      );
+
+  List<AdminBacklineCategoryRequest> _mergeBacklineCategoryRequests(
+    List<AdminBacklineCategoryRequest> current,
+    List<AdminBacklineCategoryRequest> next,
+  ) {
+    final byId = <String, AdminBacklineCategoryRequest>{
+      for (final request in current) request.id: request,
+      for (final request in next) request.id: request,
+    };
+    return List<AdminBacklineCategoryRequest>.unmodifiable(byId.values);
+  }
+
+  Future<void> approveBacklineCategoryRequest({
+    required String id,
+    String? note,
+  }) => _runBacklineCategoryRequestAction(
+    id,
+    () => _adminRepository.reviewBacklineCategoryRequest(
+      id: id,
+      decision: AdminBacklineCategoryReviewDecision.approve,
+      note: note,
+    ),
+  );
+
+  Future<void> rejectBacklineCategoryRequest({
+    required String id,
+    required String reason,
+  }) => _runBacklineCategoryRequestAction(
+    id,
+    () => _adminRepository.reviewBacklineCategoryRequest(
+      id: id,
+      decision: AdminBacklineCategoryReviewDecision.reject,
+      note: reason,
+    ),
+  );
 
   Future<void> _loadSummary(int generation) async {
     final result = await _adminRepository.getDashboardSummary();
@@ -231,5 +375,49 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
       ),
     );
     await refresh(loadStudio: true);
+  }
+
+  Future<void> _runBacklineCategoryRequestAction(
+    String id,
+    Future<Result<AdminBacklineCategoryRequest>> Function() action,
+  ) async {
+    final nextActionIds = Set<String>.from(state.actionIds)..add(id);
+    emit(
+      state.copyWith(
+        status: AdminPanelStatus.actionLoading,
+        actionIds: nextActionIds,
+        actionError: null,
+      ),
+    );
+    final result = await action();
+    if (isClosed) return;
+    final updatedActionIds = Set<String>.from(state.actionIds)..remove(id);
+    if (!result.isSuccess) {
+      emit(
+        state.copyWith(
+          status: AdminPanelStatus.failure,
+          actionIds: updatedActionIds,
+          actionError: result.error,
+        ),
+      );
+      if (const <String>{'409', '9834'}.contains(result.error?.code)) {
+        await loadBacklineCategoryRequestsList(
+          state.selectedBacklineCategoryRequestStatus,
+        );
+      }
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: updatedActionIds.isEmpty
+            ? AdminPanelStatus.idle
+            : AdminPanelStatus.actionLoading,
+        actionIds: updatedActionIds,
+        actionError: null,
+      ),
+    );
+    await loadBacklineCategoryRequestsList(
+      state.selectedBacklineCategoryRequestStatus,
+    );
   }
 }

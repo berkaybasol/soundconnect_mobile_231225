@@ -7,7 +7,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 
-enum PendingMembershipType { venue, studio }
+enum PendingMembershipType { venue, studio, studioRejected }
 
 class VenuePendingScreen extends StatelessWidget {
   VenuePendingScreen({
@@ -17,13 +17,18 @@ class VenuePendingScreen extends StatelessWidget {
 
   final PendingMembershipType membershipType;
 
-  bool get _isStudio => membershipType == PendingMembershipType.studio;
+  bool get _isStudio => membershipType != PendingMembershipType.venue;
+
+  bool get _isRejectedStudio =>
+      membershipType == PendingMembershipType.studioRejected;
 
   static const Color _whatsAppGreen = Color(0xFF25D366);
 
   Uri get _whatsAppSupportUri => Uri.https('wa.me', '/905378581093', {
     'text': _isStudio
-        ? 'Merhaba, SoundConnect stüdyo başvurum hakkında bilgi almak istiyorum.'
+        ? _isRejectedStudio
+              ? 'Merhaba, SoundConnect stüdyo başvurumun reddedilmesi hakkında bilgi almak veya itiraz etmek istiyorum.'
+              : 'Merhaba, SoundConnect stüdyo başvurum hakkında bilgi almak istiyorum.'
         : 'Merhaba, SoundConnect mekan başvurum hakkında bilgi almak istiyorum.',
   });
 
@@ -75,11 +80,18 @@ class VenuePendingScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: _GradientIcon(icon: Icons.verified_outlined, size: 44),
+                  child: _GradientIcon(
+                    icon: _isRejectedStudio
+                        ? Icons.info_outline_rounded
+                        : Icons.verified_outlined,
+                    size: 44,
+                  ),
                 ),
                 SizedBox(height: 24),
                 Text(
-                  'Hesabın inceleniyor...',
+                  _isRejectedStudio
+                      ? 'Stüdyo başvurun sonuçlandı'
+                      : 'Hesabın inceleniyor...',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
@@ -89,7 +101,9 @@ class VenuePendingScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 12),
                 Text(
-                  _isStudio
+                  _isRejectedStudio
+                      ? 'Stüdyo üyelik başvurun onaylanmadı. Hesabın kapalı kalacak; bilgi almak veya karara itiraz etmek için destek ekibimize ulaşabilirsin.'
+                      : _isStudio
                       ? 'Stüdyo üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.'
                       : 'Mekan üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.',
                   textAlign: TextAlign.center,

@@ -329,10 +329,20 @@ class _NotificationTile extends StatelessWidget {
     final roomId = notification.payload['roomId']?.toString().trim() ?? '';
     final studioProfileId =
         notification.payload['studioProfileId']?.toString().trim() ?? '';
-    if (roomId.isEmpty || studioProfileId.isEmpty) return;
+    if (studioProfileId.isEmpty) return;
+    final action = notification.payload['action']?.toString().trim() ?? '';
+    if (action == 'CANCELLED_BY_STUDIO_ROOM_ARCHIVED') {
+      Navigator.of(context).pushNamed(
+        AppRoutes.studioPublicProfile,
+        arguments: PublicProfileArgs(profileId: studioProfileId),
+      );
+      return;
+    }
+    if (roomId.isEmpty) return;
     final ownerMode =
         notification.type == 'STUDIO_RESERVATION_CREATED' ||
-        notification.type == 'STUDIO_RESERVATION_CONFLICTING_REQUESTS';
+        notification.type == 'STUDIO_RESERVATION_CONFLICTING_REQUESTS' ||
+        notification.type == 'STUDIO_RESERVATION_CANCELLED_BY_CUSTOMER';
     final zoneId =
         notification.payload['zoneId']?.toString().trim() ?? 'Europe/Istanbul';
     final reservationDate = DateTime.tryParse(

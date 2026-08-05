@@ -24,7 +24,10 @@ enum StudioReservationStatus {
       'CANCELLED_BY_CUSTOMER' => StudioReservationStatus.cancelledByCustomer,
       'CANCELLED_BY_STUDIO' => StudioReservationStatus.cancelledByStudio,
       'EXPIRED' => StudioReservationStatus.expired,
-      _ => StudioReservationStatus.pendingApproval,
+      'PENDING_APPROVAL' => StudioReservationStatus.pendingApproval,
+      final unknown => throw FormatException(
+        'Unknown reservation status: $unknown',
+      ),
     };
   }
 }
@@ -33,10 +36,14 @@ enum StudioOccupancyType {
   reservation,
   manualBlock;
 
-  static StudioOccupancyType fromApi(Object? value) =>
-      value?.toString().trim().toUpperCase() == 'MANUAL_BLOCK'
-      ? StudioOccupancyType.manualBlock
-      : StudioOccupancyType.reservation;
+  static StudioOccupancyType fromApi(Object? value) => switch (value
+      ?.toString()
+      .trim()
+      .toUpperCase()) {
+    'MANUAL_BLOCK' => StudioOccupancyType.manualBlock,
+    'RESERVATION' => StudioOccupancyType.reservation,
+    final unknown => throw FormatException('Unknown occupancy type: $unknown'),
+  };
 }
 
 class StudioReservation {

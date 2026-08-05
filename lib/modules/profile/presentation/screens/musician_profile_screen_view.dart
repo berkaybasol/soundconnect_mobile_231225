@@ -30,6 +30,24 @@ class _MusicianPublicProfileViewState
     setState(updater);
   }
 
+  Future<void> _refreshProfile() async {
+    await context.read<MusicianProfileCubit>().loadMyProfile();
+    if (!mounted) return;
+
+    final profile = context.read<MusicianProfileCubit>().state.profile;
+    if (profile == null) return;
+    await Future.wait<void>([
+      context.read<ProfileMediaCubit>().loadMedia(
+        profileType: ProfileMediaOwnerType.musician.apiValue,
+        profileId: profile.id,
+      ),
+      context.read<FollowCountCubit>().loadCounts(profile.userId),
+      context.read<ArtistVenueConnectionsCubit>().loadAcceptedVenues(
+        profile.id,
+      ),
+    ]);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -37,8 +55,7 @@ class _MusicianPublicProfileViewState
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is MusicianProfileScreenArgs) {
       _openManagementPanelOnLoad = args.openManagementPanel;
-      _openIncomingVenueApplicationsOnLoad =
-          args.openIncomingVenueApplications;
+      _openIncomingVenueApplicationsOnLoad = args.openIncomingVenueApplications;
     } else if (args is PublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is Map<String, dynamic>) {
@@ -148,6 +165,7 @@ class _MusicianPublicProfileViewState
             onEditProfilePressed: _onEditProfilePressed,
             venueEditable: true,
             onEditVenues: () => _editVenues(profile.id),
+            onRefresh: _refreshProfile,
           );
         },
       ),

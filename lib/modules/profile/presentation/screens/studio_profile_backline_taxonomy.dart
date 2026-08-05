@@ -162,7 +162,9 @@ Future<(List<_BacklineCategory>?, String?)> _loadCompleteBacklineCatalog(
 }
 
 class _BacklineCategoriesScreen extends StatefulWidget {
-  const _BacklineCategoriesScreen();
+  final String? allSelectionValue;
+
+  const _BacklineCategoriesScreen({this.allSelectionValue});
 
   @override
   State<_BacklineCategoriesScreen> createState() =>
@@ -212,6 +214,13 @@ class _BacklineCategoriesScreenState extends State<_BacklineCategoriesScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: [
+            if (widget.allSelectionValue != null) ...[
+              _BacklineAllCategoriesTile(
+                onTap: () =>
+                    Navigator.of(context).pop(widget.allSelectionValue),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (_isLoading && _categories.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),
@@ -284,6 +293,48 @@ class _BacklineCategoriesScreenState extends State<_BacklineCategoriesScreen> {
       _isLoading = false;
       _error = null;
     });
+  }
+}
+
+class _BacklineAllCategoriesTile extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _BacklineAllCategoriesTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF101722),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF202B3A)),
+          ),
+          child: const Row(
+            children: [
+              _StudioSocialGradientIcon(Icons.apps_rounded, size: 22),
+              SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  'Tüm Kategoriler',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Color(0xFF758092), size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

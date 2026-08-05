@@ -26,6 +26,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final Future<void> Function()? onEditEvents;
   final List<WeeklyCalendarEvent> weeklyEvents;
   final String galleryOwnerId;
+  final Future<void> Function() onRefresh;
 
   _MusicianPublicProfileContent({
     required this.profile,
@@ -53,6 +54,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.onEditEvents,
     required this.weeklyEvents,
     required this.galleryOwnerId,
+    required this.onRefresh,
   });
 
   List<VenueActiveMusician> _resolveVenues() {
@@ -129,148 +131,154 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 ]
               : null,
         ),
-        body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ProfileTopSection(
-                header: _ProfileHeader(
-                  profile: profile,
-                  onEditPhoto: onEditPhoto,
-                  uploading: photoUploading,
-                  uploadedPhotoUrl: uploadedProfilePhotoUrl,
-                ),
-                identity: ProfileIdentityHeader(
-                  username: profile.username,
-                  secondaryText: profile.bands.isNotEmpty
-                      ? profile.bands.first
-                      : null,
-                  fallbackName: 'Kullanıcı',
-                ),
-                followerSummary: ProfileFollowerSummary(
-                  followersCount: followersCount,
-                  followingCount: followingCount,
-                ),
-                actionButtons: ProfileActionButtons(
-                  isFollowing: isFollowing,
-                  isEnabled: canFollow,
-                  isLoading: followLoading,
-                  ownerMode: ownerMode,
-                  onEditProfilePressed: onEditProfilePressed,
-                  onFollowToggle: () {
-                    if (!canFollow) return;
-                    context.read<FollowActionCubit>().toggleFollow(
-                      followerId: viewerUserId,
-                      followingId: profile.userId,
-                    );
-                  },
-                ),
-                bioSection: EditableBioSection(
-                  bio: profile.bio,
-                  editable: descriptionEditable,
-                  onSave: onSaveDescription,
-                ),
-                afterBio: ownerMode
-                    ? Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 28),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(18),
-                            gradient: LinearGradient(
-                              colors: AppColors.brandGradient,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(0.7),
-                            child: ClipRRect(
+        body: RefreshIndicator(
+          onRefresh: onRefresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ProfileTopSection(
+                  header: _ProfileHeader(
+                    profile: profile,
+                    onEditPhoto: onEditPhoto,
+                    uploading: photoUploading,
+                    uploadedPhotoUrl: uploadedProfilePhotoUrl,
+                  ),
+                  identity: ProfileIdentityHeader(
+                    username: profile.username,
+                    secondaryText: profile.bands.isNotEmpty
+                        ? profile.bands.first
+                        : null,
+                    fallbackName: 'Kullanıcı',
+                  ),
+                  followerSummary: ProfileFollowerSummary(
+                    followersCount: followersCount,
+                    followingCount: followingCount,
+                  ),
+                  actionButtons: ProfileActionButtons(
+                    isFollowing: isFollowing,
+                    isEnabled: canFollow,
+                    isLoading: followLoading,
+                    ownerMode: ownerMode,
+                    onEditProfilePressed: onEditProfilePressed,
+                    onFollowToggle: () {
+                      if (!canFollow) return;
+                      context.read<FollowActionCubit>().toggleFollow(
+                        followerId: viewerUserId,
+                        followingId: profile.userId,
+                      );
+                    },
+                  ),
+                  bioSection: EditableBioSection(
+                    bio: profile.bio,
+                    editable: descriptionEditable,
+                    onSave: onSaveDescription,
+                  ),
+                  afterBio: ownerMode
+                      ? Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 28),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(18),
-                              child: Container(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                child: TextButton.icon(
-                                  onPressed: () =>
-                                      _openVenueManagementPanel(context),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppColors.white,
-                                    backgroundColor: Colors.transparent,
-                                    padding: EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(18),
+                              gradient: LinearGradient(
+                                colors: AppColors.brandGradient,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(0.7),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(18),
+                                child: Container(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  child: TextButton.icon(
+                                    onPressed: () =>
+                                        _openVenueManagementPanel(context),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.white,
+                                      backgroundColor: Colors.transparent,
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
                                     ),
-                                  ),
-                                  icon: Icon(
-                                    Icons.dashboard_customize_outlined,
-                                    color: AppColors.white,
-                                  ),
-                                  label: Text(
-                                    'Yonetim Paneli',
-                                    style: TextStyle(color: AppColors.white),
+                                    icon: Icon(
+                                      Icons.dashboard_customize_outlined,
+                                      color: AppColors.white,
+                                    ),
+                                    label: Text(
+                                      'Yonetim Paneli',
+                                      style: TextStyle(color: AppColors.white),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      )
-                    : null,
-              ),
-              SizedBox(height: 18),
-              ProfileSectionHeader(title: 'Haftalik Takvim'),
-              WeeklyEventCarousel(items: weeklyEvents),
-              SizedBox(height: 12),
-              ProfileSectionHeader(
-                title: 'Aktif Sanatcilar',
-                actionLabel: venueEditable ? 'Duzenle' : 'Tumu',
-                actionOnTap: venueEditable ? onEditVenues : null,
-              ),
-              ActiveMusicianCarousel(
-                items: _resolveVenues(),
-                editable: venueEditable,
-                onAddTap: onEditVenues,
-              ),
-              SizedBox(height: 12),
-              ProfileMediaTabs(
-                tabs: [
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.photo_library_outlined, size: 18),
-                        SizedBox(width: 6),
-                        Text('Fotograflar'),
-                      ],
+                        )
+                      : null,
+                ),
+                SizedBox(height: 18),
+                ProfileSectionHeader(title: 'Haftalik Takvim'),
+                WeeklyEventCarousel(items: weeklyEvents),
+                SizedBox(height: 12),
+                ProfileSectionHeader(
+                  title: 'Aktif Sanatcilar',
+                  actionLabel: venueEditable ? 'Duzenle' : 'Tumu',
+                  actionOnTap: venueEditable ? onEditVenues : null,
+                ),
+                ActiveMusicianCarousel(
+                  items: _resolveVenues(),
+                  editable: venueEditable,
+                  onAddTap: onEditVenues,
+                ),
+                SizedBox(height: 12),
+                ProfileMediaTabs(
+                  tabs: [
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.photo_library_outlined, size: 18),
+                          SizedBox(width: 6),
+                          Text('Fotograflar'),
+                        ],
+                      ),
                     ),
-                  ),
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.play_circle_outline, size: 18),
-                        SizedBox(width: 6),
-                        Text('Video'),
-                      ],
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.play_circle_outline, size: 18),
+                          SizedBox(width: 6),
+                          Text('Video'),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              _MediaContent(
-                media: resolvedMedia,
-                profileId: profile.id,
-                galleryOwnerId: galleryOwnerId,
-                spotifyTracks: [],
-                spotifyLoading: spotifyLoading,
-                ownerMode: ownerMode,
-              ),
-              SizedBox(height: 18),
-              ProfileSocialButtonRow(
-                pillWidth: 74,
-                profile: profile,
-                editable: socialEditable,
-                onAddLink: onAddSocialLink,
-              ),
-              SizedBox(height: 24),
-            ],
+                  ],
+                ),
+                _MediaContent(
+                  media: resolvedMedia,
+                  profileId: profile.id,
+                  galleryOwnerId: galleryOwnerId,
+                  spotifyTracks: [],
+                  spotifyLoading: spotifyLoading,
+                  ownerMode: ownerMode,
+                ),
+                SizedBox(height: 18),
+                ProfileSocialButtonRow(
+                  pillWidth: 74,
+                  profile: profile,
+                  editable: socialEditable,
+                  onAddLink: onAddSocialLink,
+                ),
+                SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
         bottomNavigationBar: ProfileBottomBar(

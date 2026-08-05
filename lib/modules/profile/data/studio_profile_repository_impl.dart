@@ -17,12 +17,18 @@ class StudioProfileRepositoryImpl implements StudioProfileRepository {
     try {
       final response = await _apiClient.get<StudioProfile>(
         StudioProfileEndpoints.me,
-        decoder: (json) =>
-            StudioProfileModel.fromJson(json as Map<String, dynamic>),
+        decoder: StudioProfileModel.fromJson,
       );
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
+    } on FormatException {
+      return Result.failure(
+        const AppError(
+          code: 'studio_profile_invalid_response',
+          message: 'Stüdyo profili beklenen biçimde alınamadı.',
+        ),
+      );
     } catch (_) {
       return Result.failure(
         const AppError(
@@ -35,15 +41,30 @@ class StudioProfileRepositoryImpl implements StudioProfileRepository {
 
   @override
   Future<Result<StudioProfile>> getPublicProfile(String profileId) async {
+    final id = profileId.trim();
+    if (id.isEmpty) {
+      return const Result.failure(
+        AppError(
+          code: 'studio_profile_validation',
+          message: 'Stüdyo kimliği eksik.',
+        ),
+      );
+    }
     try {
       final response = await _apiClient.get<StudioProfile>(
-        StudioProfileEndpoints.publicDetail(profileId),
-        decoder: (json) =>
-            StudioProfileModel.fromJson(json as Map<String, dynamic>),
+        StudioProfileEndpoints.publicDetail(id),
+        decoder: StudioProfileModel.fromJson,
       );
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
+    } on FormatException {
+      return Result.failure(
+        const AppError(
+          code: 'studio_profile_invalid_response',
+          message: 'Stüdyo profili beklenen biçimde alınamadı.',
+        ),
+      );
     } catch (_) {
       return Result.failure(
         const AppError(
@@ -58,16 +79,30 @@ class StudioProfileRepositoryImpl implements StudioProfileRepository {
   Future<Result<StudioProfile>> updateMyProfile(
     StudioProfileSaveRequest request,
   ) async {
+    if (request.version == null || request.version! < 0) {
+      return const Result.failure(
+        AppError(
+          code: 'studio_profile_validation',
+          message: 'Profil sürüm bilgisi eksik. Lütfen profili yenileyin.',
+        ),
+      );
+    }
     try {
       final response = await _apiClient.put<StudioProfile>(
         StudioProfileEndpoints.update,
         body: request.toJson(),
-        decoder: (json) =>
-            StudioProfileModel.fromJson(json as Map<String, dynamic>),
+        decoder: StudioProfileModel.fromJson,
       );
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
+    } on FormatException {
+      return Result.failure(
+        const AppError(
+          code: 'studio_profile_invalid_response',
+          message: 'Güncellenen stüdyo profili doğrulanamadı.',
+        ),
+      );
     } catch (_) {
       return Result.failure(
         const AppError(

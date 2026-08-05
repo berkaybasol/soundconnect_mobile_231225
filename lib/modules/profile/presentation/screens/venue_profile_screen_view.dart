@@ -31,6 +31,27 @@ class _MusicianPublicProfileViewState
     setState(updater);
   }
 
+  Future<void> _refreshProfile() async {
+    await context.read<VenueProfileCubit>().loadOwner(venueId: _ownerVenueId);
+    if (!mounted) return;
+
+    final profile = context.read<VenueProfileCubit>().state.ownerProfile;
+    if (profile == null) return;
+    _fallbackWeeklyEventsVenueId = null;
+    _fallbackWeeklyEvents = const [];
+    final refreshes = <Future<void>>[
+      context.read<ProfileMediaCubit>().loadMedia(
+        profileType: ProfileMediaOwnerType.venue.apiValue,
+        profileId: profile.venueProfileId,
+      ),
+      context.read<FollowCountCubit>().loadCounts(profile.ownerUserId),
+    ];
+    if (profile.weeklyEvents.isEmpty) {
+      refreshes.add(_ensureFallbackWeeklyEvents(profile));
+    }
+    await Future.wait<void>(refreshes);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -164,6 +185,7 @@ class _MusicianPublicProfileViewState
                 onEditEvents: () => _editConnectedArtists(ownerProfile.venueId),
                 weeklyEvents: weeklyEvents,
                 galleryOwnerId: ownerProfile.venueProfileId,
+                onRefresh: _refreshProfile,
               );
             },
           ),

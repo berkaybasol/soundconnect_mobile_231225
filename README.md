@@ -25,8 +25,10 @@ lib/
 
 ## Main Feature Areas
 
-- `auth`: login, register, OTP verify, venue application
-- `profile`: musician and venue owner/public profile experiences
+- `auth`: login, register, OTP verify, venue and Studio applications
+- `profile`: musician, venue, and Studio owner/public profile experiences
+- `studio`: rooms, reservations, schedules, backline inventory, availability,
+  and catalog-review requests
 - `artist_venue`: venue-musician connection flows
 - `follow`: follow state and follow/unfollow actions
 - `engagement`: likes and comments
@@ -63,6 +65,10 @@ Release signing auto-loads `android/key.properties`. Release builds fail fast
 when the file or any required value is missing; debug signing is never used for
 a release artifact.
 
+Before the first Play Store upload, replace the temporary Android
+`applicationId` in `android/app/build.gradle.kts` with the reviewed permanent
+package identifier. Treat that identifier as immutable after publication.
+
 Example `android/key.properties`:
 
 ```properties
@@ -71,6 +77,18 @@ storePassword=your_store_password
 keyAlias=your_key_alias
 keyPassword=your_key_password
 ```
+
+Build the production artifacts only with the real HTTPS API origin:
+
+```bash
+flutter build appbundle --release \
+  --dart-define=SOUNDCONNECT_BASE_URL=https://api.soundconnect.example
+flutter build apk --release \
+  --dart-define=SOUNDCONNECT_BASE_URL=https://api.soundconnect.example
+```
+
+Keep `key.properties` and the keystore outside version control; back up the
+upload key through the organization's controlled secret-management process.
 
 ## Quality Checks
 
@@ -114,9 +132,10 @@ To run only the incremental format check (without Flutter tooling):
 dart run tool/quality_gate.dart --format-only
 ```
 
-The unfinished Studio screen remains an explicit format/analyzer legacy
-exception. The gate permits no other `lib/` Dart analyzer exclusion; its line
-count is still guarded and it cannot grow.
+The Studio screens have been split below the enforced size limit and no longer
+need a format/analyzer legacy exception. The gate permits no `lib/` Dart
+analyzer exclusions; future Studio changes must pass the same rules as the rest
+of the application.
 
 ## Current Technical Notes
 

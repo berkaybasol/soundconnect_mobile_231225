@@ -340,9 +340,10 @@ void main() {
     for (final pendingCase in <({String apiCode, String normalizedCode})>[
       (apiCode: '1105', normalizedCode: 'auth_pending_venue_approval'),
       (apiCode: '1106', normalizedCode: 'auth_pending_studio_approval'),
+      (apiCode: '1112', normalizedCode: 'auth_studio_application_rejected'),
     ]) {
       test(
-        'login preserves pending membership state for ${pendingCase.apiCode}',
+        'login preserves membership decision state for ${pendingCase.apiCode}',
         () async {
           final result = await AuthRepositoryImpl(
             _RecordingApiClient(

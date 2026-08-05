@@ -8,6 +8,42 @@ import 'support/recording_api_client.dart';
 
 void main() {
   group('Studio equipment repository', () {
+    test('loads and validates the unpaged owner inventory summary', () async {
+      final api = RecordingApiClient((request) {
+        expect(
+          request.path,
+          '/api/v1/user/studio-profiles/me/equipment/summary',
+        );
+        return {
+          'totalQuantity': 27,
+          'availableQuantity': 20,
+          'busyQuantity': 5,
+          'maintenanceQuantity': 2,
+        };
+      });
+      final repository = StudioEquipmentRepositoryImpl(api);
+
+      final result = await repository.getOwnerInventorySummary();
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data!.totalQuantity, 27);
+      expect(result.data!.availableQuantity, 20);
+
+      final invalidApi = RecordingApiClient(
+        (_) => {
+          'totalQuantity': 27,
+          'availableQuantity': 20,
+          'busyQuantity': 5,
+          'maintenanceQuantity': 3,
+        },
+      );
+      final invalid = await StudioEquipmentRepositoryImpl(
+        invalidApi,
+      ).getOwnerInventorySummary();
+      expect(invalid.isSuccess, isFalse);
+      expect(invalid.error?.code, 'studio_equipment_invalid_response');
+    });
+
     test(
       'sends server pagination and filters and decodes owner page',
       () async {
@@ -40,6 +76,46 @@ void main() {
         expect(result.data!.items.single.todayAvailability.busyQuantity, 1);
       },
     );
+
+    test('accepts Spring empty pages requested past the last page', () async {
+      final api = RecordingApiClient(
+        (_) => _page(const [], page: 5, totalPages: 2),
+      );
+      final repository = StudioEquipmentRepositoryImpl(api);
+
+      final result = await repository.listOwnerEquipment(page: 5, size: 20);
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data!.items, isEmpty);
+      expect(result.data!.pageIndex, 5);
+      expect(result.data!.isLast, isTrue);
+      expect(result.data!.hasNext, isFalse);
+    });
+
+    test('rejects coerced equipment fields and page metadata', () async {
+      for (final response in <Map<String, Object?>>[
+        _equipmentJson(version: 7)..['id'] = 42,
+        _equipmentJson(version: 7)..['totalQuantity'] = '6',
+        _equipmentJson(version: 7)..['features'] = <Object?>['Kardioid', 42],
+      ]) {
+        final api = RecordingApiClient((_) => _page([response]));
+        final result = await StudioEquipmentRepositoryImpl(
+          api,
+        ).listOwnerEquipment(page: 0, size: 20);
+
+        expect(result.isSuccess, isFalse);
+        expect(result.error?.code, 'studio_equipment_invalid_response');
+      }
+
+      final pageApi = RecordingApiClient(
+        (_) => _page(const <Object?>[])..['number'] = '0',
+      );
+      final pageResult = await StudioEquipmentRepositoryImpl(
+        pageApi,
+      ).listOwnerEquipment(page: 0, size: 20);
+      expect(pageResult.isSuccess, isFalse);
+      expect(pageResult.error?.code, 'studio_equipment_invalid_response');
+    });
 
     test('create, update and archive preserve command contracts', () async {
       final api = RecordingApiClient((request) {

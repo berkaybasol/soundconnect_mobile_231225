@@ -45,14 +45,44 @@ String? profileAudioUploadValidationError({
 }) {
   final extension = _audioExtensionOf(fileName, filePath: filePath);
   if (extension == null || !_allowedAudioExtensions.contains(extension)) {
-    return 'Sadece ses dosyasi secilebilir: ${_allowedAudioExtensions.join(', ')}';
+    return 'Sadece ses dosyası seçilebilir: ${_allowedAudioExtensions.join(', ')}';
   }
 
   if (bytes != null && _looksLikeImage(bytes)) {
-    return 'Secilen dosya bir gorsel gibi gorunuyor. Lutfen ses dosyasi sec.';
+    return 'Seçilen dosya bir görsel gibi görünüyor. Lütfen ses dosyası seç.';
   }
 
   return null;
+}
+
+String profileAudioUploadFailureMessage(Object error) {
+  final normalized = error.toString().toLowerCase();
+  final invalidAudio =
+      normalized.contains('içerik türü') ||
+      normalized.contains('icerik turu') ||
+      normalized.contains('content type') ||
+      normalized.contains('mime') ||
+      normalized.contains('dosyanın boyutu') ||
+      normalized.contains('dosyanin boyutu') ||
+      normalized.contains('unsupported media');
+  if (invalidAudio) {
+    return 'Bu dosya geçerli bir ses dosyası değil veya desteklenmiyor. '
+        'Lütfen başka bir MP3, WAV, M4A, AAC, OGG ya da FLAC dosyası seç.';
+  }
+
+  final connectionFailure =
+      normalized.contains('network') ||
+      normalized.contains('connection') ||
+      normalized.contains('bağlantı') ||
+      normalized.contains('baglanti') ||
+      normalized.contains('timeout') ||
+      normalized.contains('zaman aşımı') ||
+      normalized.contains('zaman asimi');
+  if (connectionFailure) {
+    return 'Ses dosyası yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.';
+  }
+
+  return 'Ses dosyası yüklenemedi. Lütfen tekrar dene.';
 }
 
 String? _audioExtensionOf(String fileName, {String? filePath}) {

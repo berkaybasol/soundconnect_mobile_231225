@@ -22,7 +22,16 @@ import 'router/app_route_guard.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
 
-enum AppLaunchTarget { guest, login, home, listener, admin, venuePending }
+enum AppLaunchTarget {
+  guest,
+  login,
+  home,
+  listener,
+  admin,
+  venuePending,
+  studioPending,
+  studioRejected,
+}
 
 AppLaunchTarget resolveLaunchTarget(String? token, {DateTime? now}) {
   return JwtClaims.tryParse(token, now: now) == null
@@ -34,6 +43,8 @@ AppLaunchTarget resolveSessionLaunchTarget(AuthSession session) {
   if (!session.isAuthenticated) return AppLaunchTarget.guest;
   return switch (AppRouteGuard.startRouteFor(session)) {
     AppRoutes.venuePending => AppLaunchTarget.venuePending,
+    AppRoutes.studioPending => AppLaunchTarget.studioPending,
+    AppRoutes.studioRejected => AppLaunchTarget.studioRejected,
     AppRoutes.adminDashboard => AppLaunchTarget.admin,
     AppRoutes.listenerProfile => AppLaunchTarget.listener,
     AppRoutes.home => AppLaunchTarget.home,
@@ -134,6 +145,12 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
                         AppLaunchTarget.listener => ListenerProfileScreen(),
                         AppLaunchTarget.admin => const AdminDashboardScreen(),
                         AppLaunchTarget.venuePending => VenuePendingScreen(),
+                        AppLaunchTarget.studioPending => VenuePendingScreen(
+                          membershipType: PendingMembershipType.studio,
+                        ),
+                        AppLaunchTarget.studioRejected => VenuePendingScreen(
+                          membershipType: PendingMembershipType.studioRejected,
+                        ),
                         AppLaunchTarget.login => LoginScreen(),
                         AppLaunchTarget.guest => GuestEventHomeScreen(),
                       },

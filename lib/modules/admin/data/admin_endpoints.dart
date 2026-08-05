@@ -26,4 +26,10 @@ class AdminEndpoints {
 
   static String rejectStudioApplication(String id) =>
       '$studioApplicationsBase/reject/$id';
+
+  static const String backlineCategoryRequests =
+      '/api/v1/admin/backline/category-requests';
+
+  static String reviewBacklineCategoryRequest(String id) =>
+      '$backlineCategoryRequests/${Uri.encodeComponent(id)}/review';
 }

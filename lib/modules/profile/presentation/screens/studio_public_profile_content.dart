@@ -87,6 +87,7 @@ class _StudioPublicDashboardContent extends StatelessWidget {
                           ),
                         ],
                       ),
+                      StudioProfileWebsiteLink(website: profile.website),
                       if (description.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Text(
@@ -145,6 +146,7 @@ class _StudioPublicDashboardContent extends StatelessWidget {
             phone: profile.phone,
             timeZone: profile.timeZone,
             contentRevision: contentRevision,
+            onMessage: onMessage,
           ),
           const SizedBox(height: 18),
           ProfileSocialLinksRow(
@@ -169,12 +171,14 @@ class _StudioPublicTabs extends StatelessWidget {
   final String? phone;
   final String timeZone;
   final int contentRevision;
+  final VoidCallback onMessage;
 
   const _StudioPublicTabs({
     required this.profileId,
     required this.phone,
     required this.timeZone,
     required this.contentRevision,
+    required this.onMessage,
   });
 
   @override
@@ -186,6 +190,7 @@ class _StudioPublicTabs extends StatelessWidget {
       phone: phone,
       timeZone: timeZone,
       contentRevision: contentRevision,
+      onMessage: onMessage,
     );
   }
 }

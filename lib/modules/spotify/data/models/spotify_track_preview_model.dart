@@ -15,13 +15,14 @@ class SpotifyTrackPreviewModel extends SpotifyTrackPreview {
   factory SpotifyTrackPreviewModel.fromJson(Map<String, dynamic> json) {
     final artistsNode = json['artistNames'] ?? json['artists'];
     final artistIdsNode = json['artistIds'] ?? json['artists'];
+    final durationMs = json['durationMs'];
     return SpotifyTrackPreviewModel(
       id: json['spotifyTrackId']?.toString() ?? json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       previewUrl: json['previewUrl']?.toString(),
-      durationSeconds: _durationSeconds(
-        json['durationMs'] ?? json['durationSeconds'],
-      ),
+      durationSeconds: durationMs == null
+          ? _durationSeconds(json['durationSeconds'])
+          : _durationMilliseconds(durationMs),
       spotifyUrl: json['spotifyUrl']?.toString(),
       albumImageUrl: json['albumImageUrl']?.toString(),
       artistNames: _stringList(artistsNode),
@@ -45,12 +46,15 @@ class SpotifyTrackPreviewModel extends SpotifyTrackPreview {
   }
 
   static int? _durationSeconds(Object? value) {
-    if (value is num) {
-      // if value already in seconds (small number), keep it
-      final seconds = value > 1000 ? (value / 1000).round() : value.round();
-      return seconds > 0 ? seconds : null;
-    }
-    return null;
+    if (value is! num || !value.isFinite) return null;
+    final seconds = value.round();
+    return seconds > 0 ? seconds : null;
+  }
+
+  static int? _durationMilliseconds(Object? value) {
+    if (value is! num || !value.isFinite || value <= 0) return null;
+    final seconds = (value / 1000).round();
+    return seconds > 0 ? seconds : null;
   }
 
   static List<String> _stringList(Object? value) {

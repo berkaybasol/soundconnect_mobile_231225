@@ -15,10 +15,6 @@ analyzer:
     - .dart_tool/**
     - "**/*.g.dart"
     - "**/*.freezed.dart"
-    # Temporary quarantine: this unfinished screen will be refactored with the
-    # product owner. The quality gate pins this as the only allowed lib/ Dart
-    # analyzer exclusion and still enforces its line-count ratchet.
-    - lib/modules/profile/presentation/screens/studio_profile_screen.dart
   errors:
     deprecated_member_use: ignore
 

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/entities/studio_reservation.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/studio_booking_policy.dart';
+import 'package:soundconnect_23_12_25codx/modules/studio/domain/studio_civil_date.dart';
 
 void main() {
   group('StudioBookingCalendarPolicy', () {
@@ -67,6 +68,56 @@ void main() {
         );
         expect(capabilities.hasMutation, isFalse);
       }
+    });
+
+    test('fails closed when the authoritative Studio clock is unavailable', () {
+      final capabilities = StudioReservationOwnerCapabilities.evaluate(
+        status: StudioReservationStatus.pendingApproval,
+        startsAt: DateTime.utc(2035, 1, 1),
+        completed: false,
+        now: null,
+      );
+
+      expect(capabilities.hasMutation, isFalse);
+    });
+  });
+
+  group('Studio calendar reference date', () {
+    test('requires a server date for remote or editable calendars', () {
+      final fallback = DateTime(2035, 5, 6);
+
+      expect(
+        studioCalendarReferenceDate(
+          serverDate: null,
+          editable: true,
+          hasRemoteRepository: false,
+          presentationFallback: fallback,
+        ),
+        isNull,
+      );
+      expect(
+        studioCalendarReferenceDate(
+          serverDate: null,
+          editable: false,
+          hasRemoteRepository: true,
+          presentationFallback: fallback,
+        ),
+        isNull,
+      );
+    });
+
+    test('allows device fallback only for a local read-only fixture', () {
+      final fallback = DateTime(2035, 5, 6, 22, 15);
+
+      expect(
+        studioCalendarReferenceDate(
+          serverDate: null,
+          editable: false,
+          hasRemoteRepository: false,
+          presentationFallback: fallback,
+        ),
+        DateTime(2035, 5, 6),
+      );
     });
   });
 }

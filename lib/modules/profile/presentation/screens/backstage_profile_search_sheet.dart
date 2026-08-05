@@ -71,7 +71,7 @@ class _BackstageProfileSearchSheetState
       setState(() {
         _loading = false;
         _results = const [];
-        _message = query.isEmpty ? null : 'Arama icin en az 2 karakter yaz.';
+        _message = query.isEmpty ? null : 'Arama için en az 2 karakter yaz.';
       });
       return;
     }
@@ -87,7 +87,7 @@ class _BackstageProfileSearchSheetState
       setState(() {
         _loading = false;
         _results = const [];
-        _message = result.error?.message ?? 'Arama su anda yapilamiyor.';
+        _message = result.error?.message ?? 'Arama şu anda yapılamıyor.';
       });
       return;
     }
@@ -96,7 +96,7 @@ class _BackstageProfileSearchSheetState
     setState(() {
       _loading = false;
       _results = results;
-      _message = results.isEmpty ? 'Sonuc bulunamadi.' : null;
+      _message = results.isEmpty ? 'Sonuç bulunamadı.' : null;
     });
   }
 
@@ -122,7 +122,7 @@ class _BackstageProfileSearchSheetState
         );
         return;
       case ProfileSearchResultType.listener:
-        _showComingSoon(messenger, 'Dinleyici profili yakinda acilacak.');
+        _showComingSoon(messenger, 'Dinleyici profili yakında açılacak.');
         return;
       case ProfileSearchResultType.band:
         navigator.pushNamed(
@@ -187,7 +187,7 @@ class _BackstageProfileSearchSheetState
                   onSubmitted: _runSearch,
                   decoration: InputDecoration(
                     hintText:
-                        'Muzisyen, dinleyici, band, studio veya mekan ara...',
+                        'Müzisyen, dinleyici, grup, stüdyo veya mekân ara...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _controller.text.isEmpty
                         ? null

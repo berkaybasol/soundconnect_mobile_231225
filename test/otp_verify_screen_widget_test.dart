@@ -8,6 +8,7 @@ import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/otp_verify_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
 
@@ -39,7 +40,7 @@ void main() {
         ),
       ],
       routes: <String, WidgetBuilder>{
-        AppRoutes.login: (_) => const Scaffold(body: Text('login-target')),
+        AppRoutes.login: (_) => const _LoginTarget(),
         AppRoutes.venuePending: (_) =>
             const Scaffold(body: Text('venue-pending-target')),
         AppRoutes.studioPending: (_) =>
@@ -146,7 +147,7 @@ void main() {
 
   for (final scenario in <({String role, String target})>[
     (role: 'ROLE_VENUE', target: 'venue-pending-target'),
-    (role: 'ROLE_STUDIO', target: 'studio-pending-target'),
+    (role: 'ROLE_STUDIO', target: 'login-target'),
     (role: 'ROLE_LISTENER', target: 'login-target'),
   ]) {
     testWidgets(
@@ -171,6 +172,57 @@ void main() {
 
         expect(find.text(scenario.target), findsOneWidget);
       },
+    );
+  }
+
+  testWidgets(
+    'Studio verify success explains login and never assumes pending status',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      await tester.pumpWidget(
+        app(
+          args: const OtpVerifyArgs(
+            email: 'studio@example.com',
+            role: 'ROLE_STUDIO',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '123456');
+
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.pump();
+      expect(find.byType(SnackBar), findsNothing);
+      await tester.pumpAndSettle();
+
+      expect(find.text('login-target'), findsOneWidget);
+      expect(
+        find.text(
+          'E-posta doğrulandı. Başvuru durumunu görmek için '
+          'kullanıcı adın ve şifrenle giriş yap.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('studio-pending-target'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+class _LoginTarget extends StatelessWidget {
+  const _LoginTarget();
+
+  @override
+  Widget build(BuildContext context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final notice = args is LoginRouteArgs ? args.initialNotice : null;
+    return Scaffold(
+      body: Column(
+        children: [
+          const Text('login-target'),
+          if (notice != null) Text(notice),
+        ],
+      ),
     );
   }
 }

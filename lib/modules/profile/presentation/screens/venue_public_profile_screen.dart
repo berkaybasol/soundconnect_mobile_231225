@@ -143,6 +143,38 @@ class _MusicianPublicProfileViewState
     setState(() => _viewerUserId = value);
   }
 
+  Future<void> _refreshProfile() async {
+    final venueId = _publicVenueId?.trim() ?? '';
+    if (venueId.isEmpty) return;
+    await context.read<VenueProfileCubit>().loadPublic(venueId: venueId);
+    if (!mounted) return;
+
+    final profile = context.read<VenueProfileCubit>().state.publicProfile;
+    if (profile == null) return;
+    _fallbackWeeklyEventsVenueId = null;
+    _fallbackWeeklyEvents = const [];
+    final refreshes = <Future<void>>[
+      context.read<ProfileMediaCubit>().loadMedia(
+        profileType: ProfileMediaOwnerType.venue.apiValue,
+        profileId: profile.venueProfileId,
+      ),
+      context.read<FollowCountCubit>().loadCounts(profile.ownerUserId),
+    ];
+    final viewerUserId = _viewerUserId?.trim() ?? '';
+    if (viewerUserId.isNotEmpty && viewerUserId != profile.ownerUserId) {
+      refreshes.add(
+        context.read<FollowActionCubit>().loadStatus(
+          followerId: viewerUserId,
+          followingId: profile.ownerUserId,
+        ),
+      );
+    }
+    if (profile.weeklyEvents.isEmpty) {
+      refreshes.add(_ensureFallbackWeeklyEvents(profile));
+    }
+    await Future.wait<void>(refreshes);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<VenueProfileCubit, VenueProfileState>(
@@ -233,6 +265,7 @@ class _MusicianPublicProfileViewState
                 spotifyTracks: const [],
                 spotifyLoading: false,
                 weeklyEvents: weeklyEvents,
+                onRefresh: _refreshProfile,
               );
             },
           ),

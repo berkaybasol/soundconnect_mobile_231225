@@ -11,6 +11,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final bool followLoading;
   final List<SpotifyTrackPreview> spotifyTracks;
   final bool spotifyLoading;
+  final Future<void> Function() onRefresh;
 
   _MusicianPublicProfileContent({
     required this.profile,
@@ -23,6 +24,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.followLoading,
     required this.spotifyTracks,
     required this.spotifyLoading,
+    required this.onRefresh,
   });
 
   List<VenueConnection> _resolveVenues() {
@@ -35,11 +37,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     if (profile.activeVenues.isNotEmpty) {
       return profile.activeVenues
           .map(
-            (name) => VenueConnection(
-              requestId: '',
-              venueId: '',
-              venueName: name,
-            ),
+            (name) =>
+                VenueConnection(requestId: '', venueId: '', venueName: name),
           )
           .toList(growable: false);
     }
@@ -76,76 +75,80 @@ class _MusicianPublicProfileContent extends StatelessWidget {
           leading: BackButton(),
           centerTitle: true,
         ),
-        body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(height: 12),
-              Align(
-                alignment: Alignment.center,
-                child: _ProfileHeader(profile: profile),
-              ),
-              SizedBox(height: 16),
-              _ProfileIdentity(profile: profile),
-              SizedBox(height: 14),
-              _FollowerRow(
-                followersCount: followersCount,
-                followingCount: followingCount,
-              ),
-              SizedBox(height: 12),
-              _ActionButtons(
-                isFollowing: isFollowing,
-                isEnabled: canFollow,
-                isLoading: followLoading,
-                onMessageTap: () {
-                  if (profile.userId.trim().isEmpty) return;
-                  final username = (profile.username ?? '').trim();
-                  Navigator.of(context).pushNamed(
-                    AppRoutes.dmChat,
-                    arguments: DmChatScreenArgs(
-                      otherUserId: profile.userId,
-                      otherUsername: username.isNotEmpty ? username : null,
-                      otherUserProfilePicture: profile.profilePicture,
-                      currentUserId: viewerUserId,
+        body: RefreshIndicator(
+          onRefresh: onRefresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.center,
+                  child: _ProfileHeader(profile: profile),
+                ),
+                SizedBox(height: 16),
+                _ProfileIdentity(profile: profile),
+                SizedBox(height: 14),
+                _FollowerRow(
+                  followersCount: followersCount,
+                  followingCount: followingCount,
+                ),
+                SizedBox(height: 12),
+                _ActionButtons(
+                  isFollowing: isFollowing,
+                  isEnabled: canFollow,
+                  isLoading: followLoading,
+                  onMessageTap: () {
+                    if (profile.userId.trim().isEmpty) return;
+                    final username = (profile.username ?? '').trim();
+                    Navigator.of(context).pushNamed(
+                      AppRoutes.dmChat,
+                      arguments: DmChatScreenArgs(
+                        otherUserId: profile.userId,
+                        otherUsername: username.isNotEmpty ? username : null,
+                        otherUserProfilePicture: profile.profilePicture,
+                        currentUserId: viewerUserId,
+                      ),
+                    );
+                  },
+                  onFollowToggle: () {
+                    if (!canFollow) return;
+                    context.read<FollowActionCubit>().toggleFollow(
+                      followerId: viewerUserId,
+                      followingId: profile.userId,
+                    );
+                  },
+                ),
+                SizedBox(height: 16),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 28),
+                  child: Text(
+                    profile.bio?.trim().isNotEmpty == true
+                        ? profile.bio!
+                        : 'Henüz bir açıklama eklenmedi.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.6,
                     ),
-                  );
-                },
-                onFollowToggle: () {
-                  if (!canFollow) return;
-                  context.read<FollowActionCubit>().toggleFollow(
-                    followerId: viewerUserId,
-                    followingId: profile.userId,
-                  );
-                },
-              ),
-              SizedBox(height: 16),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 28),
-                child: Text(
-                  profile.bio?.trim().isNotEmpty == true
-                      ? profile.bio!
-                      : 'Henüz bir açıklama eklenmedi.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.6,
                   ),
                 ),
-              ),
-              SizedBox(height: 18),
-              _SectionHeader(title: 'Çaldığı Mekanlar', actionLabel: 'Tümü'),
-              _VenueCarousel(items: _resolveVenues()),
-              SizedBox(height: 12),
-              _MediaTabs(),
-              _MediaContent(
-                media: resolvedMedia,
-                spotifyTracks: spotifyTracks,
-                spotifyLoading: spotifyLoading,
-              ),
-              SizedBox(height: 18),
-              _SocialButtonRow(profile: profile),
-              SizedBox(height: 24),
-            ],
+                SizedBox(height: 18),
+                _SectionHeader(title: 'Çaldığı Mekanlar', actionLabel: 'Tümü'),
+                _VenueCarousel(items: _resolveVenues()),
+                SizedBox(height: 12),
+                _MediaTabs(),
+                _MediaContent(
+                  media: resolvedMedia,
+                  spotifyTracks: spotifyTracks,
+                  spotifyLoading: spotifyLoading,
+                ),
+                SizedBox(height: 18),
+                _SocialButtonRow(profile: profile),
+                SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
         bottomNavigationBar: ProfilePublicBottomBar(

@@ -233,9 +233,10 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
                                     else
                                       IconButton(
                                         onPressed: () => selectTrack(track),
-                                        icon: Icon(
+                                        icon: const BrandGradientIcon(
                                           Icons.add_circle_outline,
-                                          color: AppColors.coralAlt,
+                                          semanticLabel:
+                                              'Spotify parçasını ekle',
                                         ),
                                       ),
                                   ],

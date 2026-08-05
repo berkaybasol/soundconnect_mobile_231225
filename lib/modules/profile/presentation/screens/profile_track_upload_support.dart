@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_border_action_button.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'profile_audio_file_support.dart';
 import 'profile_screen_support.dart';
@@ -78,14 +79,13 @@ Future<void> showProfileTrackUploadSheet({
 
           Future<void> uploadTrack() async {
             final mediaCubit = hostContext.read<ProfileMediaCubit>();
-            var step = 'dosya okuma';
             final path = pickedPath;
             final bytesFromPicker = pickedBytes;
             final name = pickedName;
             final title = titleController.text.trim();
             if ((path == null && bytesFromPicker == null) || name == null) {
               setSheetState(() {
-                infoText = 'Once bir ses dosyasi sec.';
+                infoText = 'Önce bir ses dosyası seç.';
                 infoError = true;
               });
               return;
@@ -104,7 +104,7 @@ Future<void> showProfileTrackUploadSheet({
             }
             if (title.isEmpty) {
               setSheetState(() {
-                infoText = 'Sarki adi zorunlu.';
+                infoText = 'Şarkı adı zorunlu.';
                 infoError = true;
               });
               return;
@@ -125,7 +125,6 @@ Future<void> showProfileTrackUploadSheet({
               );
               final mimeType = profileAudioMimeTypeFromFileName(name);
 
-              step = 'init-upload';
               final completed = await uploadProfileMediaAsset(
                 source: source,
                 ownerType: ownerType,
@@ -140,13 +139,13 @@ Future<void> showProfileTrackUploadSheet({
                 onStageChanged: (stage) {
                   if (!sheetContext.mounted) return;
                   final label = switch (stage) {
-                    ProfileUploadStage.initializing => 'Yukleme hazirlaniyor',
-                    ProfileUploadStage.uploading => 'Ses dosyasi yukleniyor',
-                    ProfileUploadStage.verifying => 'Ses dosyasi dogrulaniyor',
-                    ProfileUploadStage.attaching => 'Sarki profile ekleniyor',
+                    ProfileUploadStage.initializing => 'Yükleme hazırlanıyor',
+                    ProfileUploadStage.uploading => 'Ses dosyası yükleniyor',
+                    ProfileUploadStage.verifying => 'Ses dosyası doğrulanıyor',
+                    ProfileUploadStage.attaching => 'Şarkı profile ekleniyor',
                     ProfileUploadStage.backgroundProcessing =>
-                      'Sarki arka planda hazirlaniyor',
-                    ProfileUploadStage.completed => 'Sarki hazir',
+                      'Şarkı arka planda hazırlanıyor',
+                    ProfileUploadStage.completed => 'Şarkı hazır',
                   };
                   setSheetState(() {
                     infoText = label;
@@ -155,10 +154,9 @@ Future<void> showProfileTrackUploadSheet({
                 },
               );
 
-              step = 'complete-upload';
               final mediaAssetId = completed.uuid.trim();
               if (mediaAssetId.isEmpty) {
-                throw Exception('Media asset id alinamadi');
+                throw Exception('Medya kimliği alınamadı');
               }
 
               try {
@@ -167,22 +165,21 @@ Future<void> showProfileTrackUploadSheet({
                   profileId: profileId,
                 );
               } catch (_) {
-                // Liste yenileme hatasi non-fatal.
+                // Liste yenileme hatası kritik değildir.
               }
               if (!sheetContext.mounted) return;
               Navigator.of(sheetContext).pop();
               messenger.showSnackBar(
-                SnackBar(content: Text('Sarki basariyla eklendi.')),
+                SnackBar(content: Text('Şarkı başarıyla eklendi.')),
               );
             } catch (e) {
               if (!sheetContext.mounted) return;
+              final message = profileAudioUploadFailureMessage(e);
               setSheetState(() {
-                infoText = 'Yukleme basarisiz ($step): $e';
+                infoText = message;
                 infoError = true;
               });
-              messenger.showSnackBar(
-                SnackBar(content: Text('Yukleme basarisiz ($step): $e')),
-              );
+              messenger.showSnackBar(SnackBar(content: Text(message)));
             } finally {
               if (sheetContext.mounted) {
                 setSheetState(() => uploading = false);
@@ -204,7 +201,7 @@ Future<void> showProfileTrackUploadSheet({
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'SoundConnect uzerinden sarki ekle',
+                      'SoundConnect üzerinden şarkı ekle',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
@@ -225,7 +222,7 @@ Future<void> showProfileTrackUploadSheet({
                       ),
                       icon: Icon(Icons.library_music_outlined),
                       label: Text(
-                        pickedName == null ? 'Ses dosyasi sec' : pickedName!,
+                        pickedName == null ? 'Ses dosyası seç' : pickedName!,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -235,7 +232,7 @@ Future<void> showProfileTrackUploadSheet({
                       controller: titleController,
                       cursorColor: Theme.of(context).colorScheme.onSurface,
                       decoration: InputDecoration(
-                        hintText: 'Sarki adi',
+                        hintText: 'Şarkı adı',
                         filled: true,
                         fillColor: Theme.of(
                           context,
@@ -274,14 +271,12 @@ Future<void> showProfileTrackUploadSheet({
                       ),
                     ],
                     SizedBox(height: 14),
-                    FilledButton(
+                    GradientBorderActionButton(
+                      key: const Key('profile-track-upload-submit'),
+                      icon: Icons.cloud_upload_outlined,
+                      label: uploading ? 'Yükleniyor...' : 'Yükle',
+                      loading: uploading,
                       onPressed: uploading ? null : uploadTrack,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.coralAlt,
-                        foregroundColor: AppColors.white,
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(uploading ? 'Yukleniyor...' : 'Yukle'),
                     ),
                   ],
                 ),

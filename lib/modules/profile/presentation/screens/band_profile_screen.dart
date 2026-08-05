@@ -299,161 +299,167 @@ class _BandProfileViewState extends State<_BandProfileView> {
           ),
           centerTitle: true,
         ),
-        body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ProfileTopSection(
-                header: _BandHeader(
-                  profile: profile,
-                  uploadedPhotoUrl: _uploadedProfilePhotoUrl,
-                  uploading: _photoUploading,
-                  onEditPhoto: _canManageBand ? _editProfilePhoto : null,
-                ),
-                identity: ProfileIdentityHeader(
-                  username: profile.name,
-                  secondaryText: _memberHeadline(profile.members),
-                  fallbackName: 'Band',
-                ),
-                followerSummary: ProfileFollowerSummary(
-                  followersCount: _followersCount,
-                  followingCount: null,
-                  followersLabel: 'Takipçi',
-                  followingLabel: 'Takip',
-                  showFollowing: false,
-                ),
-                actionButtons: _buildBandActionButtons(profile),
-                bioSection: EditableBioSection(
-                  bio: profile.description,
-                  editable: _canManageBand,
-                  onSave: _saveDescription,
-                  emptyText: 'Henüz bir açıklama eklenmedi.',
-                  addLabel: 'Profiline birkaç cümle ekle',
-                  hintText: 'Bandinden bahset...',
-                ),
-                afterBio: _canManageBand
-                    ? Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 28),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(18),
-                            gradient: LinearGradient(
-                              colors: AppColors.brandGradient,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(0.7),
-                            child: ClipRRect(
+        body: RefreshIndicator(
+          onRefresh: () => _loadBandProfile(showLoading: false),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ProfileTopSection(
+                  header: _BandHeader(
+                    profile: profile,
+                    uploadedPhotoUrl: _uploadedProfilePhotoUrl,
+                    uploading: _photoUploading,
+                    onEditPhoto: _canManageBand ? _editProfilePhoto : null,
+                  ),
+                  identity: ProfileIdentityHeader(
+                    username: profile.name,
+                    secondaryText: _memberHeadline(profile.members),
+                    fallbackName: 'Band',
+                  ),
+                  followerSummary: ProfileFollowerSummary(
+                    followersCount: _followersCount,
+                    followingCount: null,
+                    followersLabel: 'Takipçi',
+                    followingLabel: 'Takip',
+                    showFollowing: false,
+                  ),
+                  actionButtons: _buildBandActionButtons(profile),
+                  bioSection: EditableBioSection(
+                    bio: profile.description,
+                    editable: _canManageBand,
+                    onSave: _saveDescription,
+                    emptyText: 'Henüz bir açıklama eklenmedi.',
+                    addLabel: 'Profiline birkaç cümle ekle',
+                    hintText: 'Bandinden bahset...',
+                  ),
+                  afterBio: _canManageBand
+                      ? Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 28),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(18),
-                              child: Container(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                child: TextButton.icon(
-                                  onPressed: () =>
-                                      _openBandManagementPanel(context),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppColors.white,
-                                    backgroundColor: Colors.transparent,
-                                    padding: EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(18),
+                              gradient: LinearGradient(
+                                colors: AppColors.brandGradient,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(0.7),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(18),
+                                child: Container(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  child: TextButton.icon(
+                                    onPressed: () =>
+                                        _openBandManagementPanel(context),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.white,
+                                      backgroundColor: Colors.transparent,
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
                                     ),
-                                  ),
-                                  icon: Icon(
-                                    Icons.dashboard_customize_outlined,
-                                    color: AppColors.white,
-                                  ),
-                                  label: Text(
-                                    'Yonetim Paneli',
-                                    style: TextStyle(color: AppColors.white),
+                                    icon: Icon(
+                                      Icons.dashboard_customize_outlined,
+                                      color: AppColors.white,
+                                    ),
+                                    label: Text(
+                                      'Yonetim Paneli',
+                                      style: TextStyle(color: AppColors.white),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      )
-                    : SizedBox.shrink(),
-              ),
-              SizedBox(height: 18),
-              ProfileSectionHeader(
-                title: 'Uyeler',
-                actionLabel: profile.members.isEmpty ? null : 'Tumu',
-              ),
-              _BandMembersRow(
-                items: profile.members,
-                avatarUrlOf: _effectiveMemberAvatar,
-                onOpenMember: _openMemberProfile,
-              ),
-              SizedBox(height: 12),
-              ProfileSectionHeader(
-                title: 'Caldigi Mekanlar',
-                actionLabel: 'Tumu',
-              ),
-              _BandVenuesRow(items: _activeVenues),
-              SizedBox(height: 12),
-              ProfileMediaTabs(
-                tabs: [
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.graphic_eq, size: 18),
-                        SizedBox(width: 6),
-                        Text('Sesler'),
-                      ],
+                        )
+                      : SizedBox.shrink(),
+                ),
+                SizedBox(height: 18),
+                ProfileSectionHeader(
+                  title: 'Uyeler',
+                  actionLabel: profile.members.isEmpty ? null : 'Tumu',
+                ),
+                _BandMembersRow(
+                  items: profile.members,
+                  avatarUrlOf: _effectiveMemberAvatar,
+                  onOpenMember: _openMemberProfile,
+                ),
+                SizedBox(height: 12),
+                ProfileSectionHeader(
+                  title: 'Caldigi Mekanlar',
+                  actionLabel: 'Tumu',
+                ),
+                _BandVenuesRow(items: _activeVenues),
+                SizedBox(height: 12),
+                ProfileMediaTabs(
+                  tabs: [
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.graphic_eq, size: 18),
+                          SizedBox(width: 6),
+                          Text('Sesler'),
+                        ],
+                      ),
                     ),
-                  ),
-                  Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.play_circle_outline, size: 18),
-                        SizedBox(width: 6),
-                        Text('Video'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(
-                height: 460,
-                child: TabBarView(
-                  children: [
-                    _BandAudioTab(
-                      profile: profile,
-                      items: media.audios,
-                      spotifyTracks: _spotifyTracks,
-                      spotifyLoading: _spotifyLoading,
-                      editable: _canManageBand,
-                      onSaveSpotifyTracks: _saveSpotifyTracks,
-                    ),
-                    ProfileOwnerVideoTab(
-                      items: [
-                        if (media.featuredVideo != null) media.featuredVideo!,
-                        ...media.videos.where(
-                          (item) =>
-                              media.featuredVideo == null ||
-                              item.id != media.featuredVideo!.id,
-                        ),
-                      ],
-                      profileId: profile.id,
-                      ownerMode: _canManageBand,
-                      profileType: 'BAND',
-                      uploadOwnerType: 'BAND',
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.play_circle_outline, size: 18),
+                          SizedBox(width: 6),
+                          Text('Video'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              SizedBox(height: 18),
-              _BandSocialButtonRow(
-                profile: profile,
-                editable: _canManageBand,
-                onAddLink: _canManageBand ? _addSocialLink : null,
-              ),
-              SizedBox(height: 24),
-            ],
+                SizedBox(
+                  height: 460,
+                  child: TabBarView(
+                    children: [
+                      _BandAudioTab(
+                        profile: profile,
+                        items: media.audios,
+                        spotifyTracks: _spotifyTracks,
+                        spotifyLoading: _spotifyLoading,
+                        editable: _canManageBand,
+                        onSaveSpotifyTracks: _saveSpotifyTracks,
+                      ),
+                      ProfileOwnerVideoTab(
+                        items: [
+                          if (media.featuredVideo != null) media.featuredVideo!,
+                          ...media.videos.where(
+                            (item) =>
+                                media.featuredVideo == null ||
+                                item.id != media.featuredVideo!.id,
+                          ),
+                        ],
+                        profileId: profile.id,
+                        ownerMode: _canManageBand,
+                        profileType: 'BAND',
+                        uploadOwnerType: 'BAND',
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 18),
+                _BandSocialButtonRow(
+                  profile: profile,
+                  editable: _canManageBand,
+                  onAddLink: _canManageBand ? _addSocialLink : null,
+                ),
+                SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),

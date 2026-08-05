@@ -232,9 +232,14 @@ void main() {
           route: AppRoutes.studioPending,
           destination: 'Studio pending destination',
         ),
+        (
+          errorCode: 'auth_studio_application_rejected',
+          route: AppRoutes.studioRejected,
+          destination: 'Studio rejected destination',
+        ),
       ]) {
     testWidgets(
-      'redirects ${pendingCase.errorCode} login failures to the pending screen',
+      'redirects ${pendingCase.errorCode} login failures to the decision screen',
       (tester) async {
         repository.loginResult = Result<LoginResult>.failure(
           AppError(code: pendingCase.errorCode, message: 'Pending'),

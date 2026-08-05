@@ -32,7 +32,7 @@ extension AdminVenueApplicationStatusApi on AdminVenueApplicationStatus {
 
   String get label => switch (this) {
     AdminVenueApplicationStatus.pending => 'Beklemede',
-    AdminVenueApplicationStatus.approved => 'Onaylandi',
+    AdminVenueApplicationStatus.approved => 'Onaylandı',
     AdminVenueApplicationStatus.rejected => 'Reddedildi',
     AdminVenueApplicationStatus.unknown => 'Bilinmiyor',
   };

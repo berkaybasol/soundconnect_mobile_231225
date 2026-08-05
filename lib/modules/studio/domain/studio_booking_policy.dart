@@ -1,4 +1,5 @@
 import 'entities/studio_reservation.dart';
+import 'studio_civil_date.dart';
 
 /// Server-authored booking window expressed in the studio's local wall clock.
 ///
@@ -38,7 +39,7 @@ class StudioBookingCalendarPolicy {
   }
 
   DateTime? shiftDate(DateTime date, int days) {
-    final shifted = _dateOnly(date).add(Duration(days: days));
+    final shifted = studioAddCivilDays(_dateOnly(date), days);
     return containsDate(shifted) ? shifted : null;
   }
 
@@ -57,8 +58,9 @@ class StudioBookingCalendarPolicy {
 
   static DateTime _combine(DateTime date, String localTime) {
     final normalized = localTime.trim();
-    if (normalized.isEmpty ||
-        RegExp(r'(?:Z|[+-]\d{2}:\d{2})$').hasMatch(normalized)) {
+    if (!RegExp(
+      r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,9})?)?$',
+    ).hasMatch(normalized)) {
       throw FormatException('Invalid studio local time: $localTime');
     }
     final parsed = DateTime.tryParse('1970-01-01T$normalized');
@@ -77,8 +79,7 @@ class StudioBookingCalendarPolicy {
     );
   }
 
-  static DateTime _dateOnly(DateTime value) =>
-      DateTime(value.year, value.month, value.day);
+  static DateTime _dateOnly(DateTime value) => studioCivilDate(value);
 
   static DateTime _localDateTime(DateTime value) => DateTime(
     value.year,
@@ -103,15 +104,12 @@ class StudioReservationOwnerCapabilities {
     required StudioReservationStatus status,
     required DateTime startsAt,
     required bool completed,
-    required DateTime now,
+    required DateTime? now,
   }) {
+    if (now == null) return none;
     final hasNotStarted = startsAt.toUtc().isAfter(now.toUtc());
     if (completed || !hasNotStarted) {
-      return const StudioReservationOwnerCapabilities(
-        canApprove: false,
-        canReject: false,
-        canCancel: false,
-      );
+      return none;
     }
     return StudioReservationOwnerCapabilities(
       canApprove: status.isPending,
@@ -123,6 +121,12 @@ class StudioReservationOwnerCapabilities {
   final bool canApprove;
   final bool canReject;
   final bool canCancel;
+
+  static const none = StudioReservationOwnerCapabilities(
+    canApprove: false,
+    canReject: false,
+    canCancel: false,
+  );
 
   bool get hasMutation => canApprove || canReject || canCancel;
 }

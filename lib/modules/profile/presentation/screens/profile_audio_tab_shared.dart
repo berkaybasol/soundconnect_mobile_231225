@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
@@ -27,7 +28,6 @@ import 'profile_track_upload_support.dart';
 
 part 'profile_audio_tab_shared_interaction_methods.dart';
 part 'profile_audio_tab_shared_interaction_spotify_picker.dart';
-part 'profile_audio_tab_shared_interaction_spotify_catalog.dart';
 part 'profile_audio_tab_shared_catalog_methods.dart';
 part 'profile_audio_tab_shared_catalog_sheet.dart';
 part 'profile_audio_tab_shared_catalog_sheet_track_tile.dart';

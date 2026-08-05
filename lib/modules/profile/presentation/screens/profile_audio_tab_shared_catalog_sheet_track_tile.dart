@@ -6,6 +6,8 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
   final Future<bool> Function() onConfirmDismiss;
   final VoidCallback onOpenOnSpotify;
   final VoidCallback onRemove;
+  final bool actionsEnabled;
+  final int? reorderIndex;
 
   _SpotifyCatalogTrackTile({
     required this.track,
@@ -13,6 +15,8 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
     required this.onConfirmDismiss,
     required this.onOpenOnSpotify,
     required this.onRemove,
+    this.actionsEnabled = true,
+    this.reorderIndex,
   });
 
   @override
@@ -23,7 +27,7 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
 
     return Dismissible(
       key: ValueKey('spotify-track-${track.id}'),
-      direction: ownerMode
+      direction: ownerMode && actionsEnabled
           ? DismissDirection.endToStart
           : DismissDirection.none,
       background: Container(
@@ -35,7 +39,9 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
         ),
         child: Icon(Icons.delete_outline, color: AppColors.white),
       ),
-      confirmDismiss: ownerMode ? (_) => onConfirmDismiss() : null,
+      confirmDismiss: ownerMode && actionsEnabled
+          ? (_) => onConfirmDismiss()
+          : null,
       child: Container(
         padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -103,10 +109,23 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
             if (ownerMode)
               IconButton(
                 tooltip: 'Katalogdan kaldir',
-                onPressed: onRemove,
+                onPressed: actionsEnabled ? onRemove : null,
                 icon: Icon(
                   Icons.delete_outline,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            if (ownerMode && reorderIndex != null)
+              ReorderableDragStartListener(
+                key: ValueKey('spotify-reorder-handle-${track.id}'),
+                index: reorderIndex!,
+                enabled: actionsEnabled,
+                child: Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.drag_handle_rounded,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
           ],

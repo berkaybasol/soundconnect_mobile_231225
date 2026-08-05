@@ -1,10 +1,14 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
-import 'package:soundconnect_23_12_25codx/core/pagination/page.dart';
+import 'package:soundconnect_23_12_25codx/core/pagination/page.dart'
+    as pagination;
 import 'package:soundconnect_23_12_25codx/modules/notification/data/models/app_notification_model.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_endpoints.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_realtime_client.dart';
@@ -13,6 +17,9 @@ import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/a
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/notification_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_state.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/notification_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
 
 void main() {
   group('AppNotificationModel', () {
@@ -115,15 +122,15 @@ void main() {
   group('NotificationCubit', () {
     test('refreshes and paginates while preserving server order', () async {
       final repository = _NotificationRepositoryFake(
-        pages: <int, Result<Page<AppNotification>>>{
+        pages: <int, Result<pagination.Page<AppNotification>>>{
           0: Result.success(
-            Page<AppNotification>(
+            pagination.Page<AppNotification>(
               items: <AppNotification>[_notification('n-1')],
               hasNext: true,
             ),
           ),
           1: Result.success(
-            Page<AppNotification>(
+            pagination.Page<AppNotification>(
               items: <AppNotification>[_notification('n-2')],
               hasNext: false,
             ),
@@ -153,12 +160,59 @@ void main() {
       expect(repository.requestedPages, <int>[0, 1]);
     });
 
+    test('deduplicates shifted offset pages by notification id', () async {
+      final repository = _NotificationRepositoryFake(
+        pages: <int, Result<pagination.Page<AppNotification>>>{
+          0: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[
+                _notification('n-1'),
+                _notification('n-2'),
+              ],
+              hasNext: true,
+            ),
+          ),
+          1: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[
+                _notification('n-2'),
+                _notification('n-3'),
+                _notification('n-3'),
+              ],
+              hasNext: false,
+            ),
+          ),
+        },
+      );
+      final realtime = NotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.dispose();
+      });
+
+      await cubit.refresh();
+      await cubit.loadMore();
+
+      expect(cubit.state.items.map((item) => item.id), <String>[
+        'n-1',
+        'n-2',
+        'n-3',
+      ]);
+      expect(cubit.state.page, 1);
+      expect(cubit.state.hasNext, isFalse);
+    });
+
     test('keeps loaded data when a later page fails', () async {
       const error = AppError(code: 'offline', message: 'Offline');
       final repository = _NotificationRepositoryFake(
-        pages: <int, Result<Page<AppNotification>>>{
+        pages: <int, Result<pagination.Page<AppNotification>>>{
           0: Result.success(
-            Page<AppNotification>(
+            pagination.Page<AppNotification>(
               items: <AppNotification>[_notification('n-1')],
               hasNext: true,
             ),
@@ -190,9 +244,9 @@ void main() {
       'marks only matching DM notifications locally and clamps badge',
       () async {
         final repository = _NotificationRepositoryFake(
-          pages: <int, Result<Page<AppNotification>>>{
+          pages: <int, Result<pagination.Page<AppNotification>>>{
             0: Result.success(
-              Page<AppNotification>(
+              pagination.Page<AppNotification>(
                 items: <AppNotification>[
                   _notification(
                     'dm-1',
@@ -246,9 +300,9 @@ void main() {
         final first = _notification('n-1');
         final second = _notification('n-2');
         final repository = _NotificationRepositoryFake(
-          pages: <int, Result<Page<AppNotification>>>{
+          pages: <int, Result<pagination.Page<AppNotification>>>{
             0: Result.success(
-              Page<AppNotification>(
+              pagination.Page<AppNotification>(
                 items: <AppNotification>[first, second],
                 hasNext: false,
               ),
@@ -278,6 +332,134 @@ void main() {
       },
     );
   });
+
+  testWidgets(
+    'customer cancellation notification opens the Studio owner calendar',
+    (tester) async {
+      final notification = _notification(
+        'cancelled-by-customer',
+        type: 'STUDIO_RESERVATION_CANCELLED_BY_CUSTOMER',
+        payload: <String, dynamic>{
+          'module': 'STUDIO',
+          'action': 'CANCELLED_BY_CUSTOMER',
+          'roomId': 'room-1',
+          'studioProfileId': 'studio-1',
+          'reservationId': 'reservation-1',
+          'localDate': '2026-08-03',
+          'zoneId': 'Europe/Istanbul',
+        },
+      );
+      final repository = _NotificationRepositoryFake(
+        pages: <int, Result<pagination.Page<AppNotification>>>{
+          0: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[notification],
+              hasNext: false,
+            ),
+          ),
+        },
+      );
+      final realtime = NotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.dispose();
+      });
+      RouteSettings? pushedSettings;
+
+      await tester.pumpWidget(
+        BlocProvider<NotificationCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            home: const NotificationScreen(),
+            onGenerateRoute: (settings) {
+              pushedSettings = settings;
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (_) => const SizedBox.shrink(),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('cancelled-by-customer'));
+      await tester.pumpAndSettle();
+
+      expect(pushedSettings?.name, AppRoutes.studioReservationCalendar);
+      final args = pushedSettings?.arguments as StudioReservationCalendarArgs;
+      expect(args.ownerMode, isTrue);
+      expect(args.roomId, 'room-1');
+      expect(args.studioProfileId, 'studio-1');
+      expect(args.reservationId, 'reservation-1');
+      expect(args.reservationDate, DateTime(2026, 8, 3));
+    },
+  );
+
+  testWidgets(
+    'archived-room cancellation opens the Studio profile instead of a dead room',
+    (tester) async {
+      final notification = _notification(
+        'archived-room',
+        type: 'STUDIO_RESERVATION_CANCELLED_BY_STUDIO',
+        payload: <String, dynamic>{
+          'module': 'STUDIO',
+          'action': 'CANCELLED_BY_STUDIO_ROOM_ARCHIVED',
+          'roomId': 'archived-room-1',
+          'studioProfileId': 'studio-1',
+          'reservationId': 'reservation-1',
+        },
+      );
+      final repository = _NotificationRepositoryFake(
+        pages: <int, Result<pagination.Page<AppNotification>>>{
+          0: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[notification],
+              hasNext: false,
+            ),
+          ),
+        },
+      );
+      final realtime = NotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.dispose();
+      });
+      RouteSettings? pushedSettings;
+
+      await tester.pumpWidget(
+        BlocProvider<NotificationCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            home: const NotificationScreen(),
+            onGenerateRoute: (settings) {
+              pushedSettings = settings;
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (_) => const SizedBox.shrink(),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('archived-room'));
+      await tester.pumpAndSettle();
+
+      expect(pushedSettings?.name, AppRoutes.studioPublicProfile);
+      final args = pushedSettings?.arguments as PublicProfileArgs;
+      expect(args.profileId, 'studio-1');
+    },
+  );
 }
 
 AppNotification _notification(
@@ -351,19 +533,21 @@ class _NotificationRepositoryFake implements NotificationRepository {
     this.unread = const Result.success(0),
   });
 
-  final Map<int, Result<Page<AppNotification>>> pages;
+  final Map<int, Result<pagination.Page<AppNotification>>> pages;
   final Result<int> unread;
   final List<int> requestedPages = <int>[];
   Result<void> deleteResult = const Result.success(null);
 
   @override
-  Future<Result<Page<AppNotification>>> listNotifications({
+  Future<Result<pagination.Page<AppNotification>>> listNotifications({
     int page = 0,
     int size = 20,
   }) async {
     requestedPages.add(page);
     return pages[page] ??
-        const Result.success(Page<AppNotification>(items: [], hasNext: false));
+        const Result.success(
+          pagination.Page<AppNotification>(items: [], hasNext: false),
+        );
   }
 
   @override

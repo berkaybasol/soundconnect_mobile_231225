@@ -9,6 +9,7 @@ class AppRoutes {
   static const venueApplication = '/venue-application';
   static const venuePending = '/venue-pending';
   static const studioPending = '/studio-pending';
+  static const studioRejected = '/studio-rejected';
   static const musicianProfile = '/musician-profile';
   static const myBands = '/my-bands';
   static const createBand = '/create-band';

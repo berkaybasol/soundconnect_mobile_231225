@@ -73,6 +73,13 @@ class AuthRepositoryImpl implements AuthRepository {
         message: 'Stüdyo başvurun inceleniyor.',
       );
     }
+    if (error.code == '1112') {
+      return const AppError(
+        code: 'auth_studio_application_rejected',
+        message:
+            'Stüdyo başvurun onaylanmadı. İtiraz veya bilgi için destek ekibimizle iletişime geçebilirsin.',
+      );
+    }
     final isCredentialError =
         error.code == '1001' ||
         error.code == '1100' ||

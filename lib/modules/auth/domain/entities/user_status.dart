@@ -1,4 +1,10 @@
-enum UserStatus { inactive, active, pendingVenueRequest, pendingStudioRequest }
+enum UserStatus {
+  inactive,
+  active,
+  pendingVenueRequest,
+  pendingStudioRequest,
+  rejectedStudioRequest,
+}
 
 extension UserStatusParser on UserStatus {
   String get apiValue => switch (this) {
@@ -6,6 +12,7 @@ extension UserStatusParser on UserStatus {
     UserStatus.active => 'ACTIVE',
     UserStatus.pendingVenueRequest => 'PENDING_VENUE_REQUEST',
     UserStatus.pendingStudioRequest => 'PENDING_STUDIO_REQUEST',
+    UserStatus.rejectedStudioRequest => 'REJECTED_STUDIO_REQUEST',
   };
 
   static UserStatus fromApi(String? value) {
@@ -16,6 +23,8 @@ extension UserStatusParser on UserStatus {
         return UserStatus.pendingVenueRequest;
       case 'PENDING_STUDIO_REQUEST':
         return UserStatus.pendingStudioRequest;
+      case 'REJECTED_STUDIO_REQUEST':
+        return UserStatus.rejectedStudioRequest;
       case 'INACTIVE':
       default:
         return UserStatus.inactive;

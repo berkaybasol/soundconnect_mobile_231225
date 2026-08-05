@@ -66,11 +66,11 @@ BacklineCategoryRequest backlineCategoryRequestFromJson(Object? value) {
     ),
     resolvedCategoryId: studioJsonNullableString(json, 'resolvedCategoryId'),
     reviewedByUserId: studioJsonNullableString(json, 'reviewedByUserId'),
-    reviewedAt: studioJsonNullableDateTime(json, 'reviewedAt'),
+    reviewedAt: studioJsonNullableInstant(json, 'reviewedAt'),
     decisionNote: studioJsonNullableString(json, 'decisionNote'),
-    createdAt:
-        studioJsonNullableDateTime(json, 'createdAtUtc') ??
-        studioJsonDateTime(json, 'createdAt'),
+    createdAt: json['createdAtUtc'] == null
+        ? studioJsonDateTime(json, 'createdAt')
+        : studioJsonInstant(json, 'createdAtUtc'),
   );
 }
 
@@ -85,5 +85,5 @@ BacklineCategoryRequestStatus _requestStatus(String value) => switch (value) {
   'APPROVED' => BacklineCategoryRequestStatus.approved,
   'REJECTED' => BacklineCategoryRequestStatus.rejected,
   'WITHDRAWN' => BacklineCategoryRequestStatus.withdrawn,
-  _ => BacklineCategoryRequestStatus.unknown,
+  _ => throw FormatException('Unknown category request status: $value'),
 };

@@ -3,6 +3,8 @@ import 'entities/studio_equipment.dart';
 import 'entities/studio_page.dart';
 
 abstract class StudioEquipmentRepository {
+  Future<Result<StudioEquipmentInventorySummary>> getOwnerInventorySummary();
+
   Future<Result<StudioPage<StudioEquipment>>> listOwnerEquipment({
     String? query,
     String? categoryId,

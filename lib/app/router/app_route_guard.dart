@@ -86,7 +86,7 @@ class AppRouteGuard {
         !session.hasAnyRole(const ['ROLE_LISTENER', 'LISTENER'])) {
       return startRouteFor(session);
     }
-    if (_backstageHomeRoutes.contains(requested) &&
+    if (_backstageRoutes.contains(requested) &&
         !AccessPolicy.canAccessBackstage(session.roles)) {
       return startRouteFor(session);
     }
@@ -121,8 +121,9 @@ class AppRouteGuard {
     AppRoutes.bandProfile,
   };
 
-  static const Set<String> _backstageHomeRoutes = <String>{
+  static const Set<String> _backstageRoutes = <String>{
     AppRoutes.home,
     AppRoutes.backstageProfilesHome,
+    AppRoutes.collabDiscovery,
   };
 }

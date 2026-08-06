@@ -14,8 +14,14 @@ class AccessPolicy {
   }
 
   static bool canAccessBackstage(List<String> roles) {
-    return roles
-        .map((role) => role.trim().toUpperCase())
-        .any(backstageRoles.contains);
+    return roles.map(_normalizeRole).any(backstageRoles.contains);
+  }
+
+  static String _normalizeRole(String role) {
+    final normalized = role.trim().toUpperCase();
+    if (normalized.isEmpty || normalized.startsWith('ROLE_')) {
+      return normalized;
+    }
+    return 'ROLE_$normalized';
   }
 }

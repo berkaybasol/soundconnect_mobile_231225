@@ -10,6 +10,8 @@ import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
 import '../../modules/auth/presentation/screens/venue_application_screen.dart';
 import '../../modules/auth/presentation/screens/venue_pending_screen.dart';
+import '../../modules/collab/presentation/screens/collab_discovery_screen.dart';
+import '../../modules/collab/presentation/theme/collab_visual_theme.dart';
 import '../../modules/dm/presentation/screens/dm_chat_screen.dart';
 import '../../modules/dm/presentation/screens/dm_conversations_screen.dart';
 import '../../modules/notification/presentation/screens/notification_screen.dart';
@@ -241,6 +243,11 @@ class AppRouter {
           builder: (_) => BackstageProfilesHomeScreen(
             profileImageUrl: args?.profileImageUrl,
           ),
+        );
+      case AppRoutes.collabDiscovery:
+        return collabPageRoute(
+          settings: settings,
+          builder: (_) => const CollabDiscoveryScreen(),
         );
       case AppRoutes.home:
         return MaterialPageRoute(

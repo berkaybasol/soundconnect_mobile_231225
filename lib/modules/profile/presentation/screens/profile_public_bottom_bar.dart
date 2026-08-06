@@ -122,6 +122,11 @@ class ProfilePublicBottomBar extends StatelessWidget {
       );
       return;
     }
+    if (index == 1) {
+      if (currentIndex == 1) return;
+      replaceProfileBottomNavigationRoute(context, AppRoutes.collabDiscovery);
+      return;
+    }
     if (index == 3) {
       if (currentIndex == 3) return;
       replaceProfileBottomNavigationRoute(context, AppRoutes.dmConversations);

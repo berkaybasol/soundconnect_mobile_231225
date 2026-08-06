@@ -31,5 +31,6 @@ class AppRoutes {
   static const dmConversations = '/dm-conversations';
   static const dmChat = '/dm-chat';
   static const backstageProfilesHome = '/backstage-profiles-home';
+  static const collabDiscovery = '/collab';
   static const home = '/home';
 }

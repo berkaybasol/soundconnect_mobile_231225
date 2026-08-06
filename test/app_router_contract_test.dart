@@ -192,6 +192,76 @@ void main() {
       isFalse,
     );
   });
+
+  test('Collab is available only to Backstage roles', () {
+    final listener = AuthSession.authenticated(
+      token: 'listener-token',
+      userId: 'listener-id',
+      username: 'listener',
+      accountStatus: 'ACTIVE',
+      roles: const <String>['ROLE_LISTENER'],
+      permissions: const <String>[],
+      expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+      isAdmin: false,
+    );
+    final musician = AuthSession.authenticated(
+      token: 'musician-token',
+      userId: 'musician-id',
+      username: 'musician',
+      accountStatus: 'ACTIVE',
+      roles: const <String>['ROLE_MUSICIAN'],
+      permissions: const <String>[],
+      expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+      isAdmin: false,
+    );
+    final bareBackstageSessions = <AuthSession>[
+      AuthSession.authenticated(
+        token: 'bare-musician-token',
+        userId: 'bare-musician-id',
+        username: 'bare-musician',
+        accountStatus: 'ACTIVE',
+        roles: const <String>['MUSICIAN'],
+        permissions: const <String>[],
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        isAdmin: false,
+      ),
+      AuthSession.authenticated(
+        token: 'bare-venue-token',
+        userId: 'bare-venue-id',
+        username: 'bare-venue',
+        accountStatus: 'ACTIVE',
+        roles: const <String>['VENUE'],
+        permissions: const <String>[],
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        isAdmin: false,
+      ),
+      AuthSession.authenticated(
+        token: 'bare-studio-token',
+        userId: 'bare-studio-id',
+        username: 'bare-studio',
+        accountStatus: 'ACTIVE',
+        roles: const <String>['STUDIO'],
+        permissions: const <String>[],
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        isAdmin: false,
+      ),
+    ];
+
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.collabDiscovery, listener),
+      AppRoutes.listenerProfile,
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.collabDiscovery, musician),
+      isNull,
+    );
+    for (final session in bareBackstageSessions) {
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.collabDiscovery, session),
+        isNull,
+      );
+    }
+  });
 }
 
 void _registerSession(AuthSession session) {

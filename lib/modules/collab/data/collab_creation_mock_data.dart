@@ -24,6 +24,16 @@ const collabPublisherMockProfiles = <CollabPublisherProfile>[
     completedJobs: 32,
   ),
   CollabPublisherProfile(
+    id: 'publisher-acoustic-route',
+    name: 'Acoustic Route',
+    initials: 'AR',
+    profileKind: CollabProfileKind.band,
+    subtitle: 'Grup · Akustik',
+    rating: 4.7,
+    reviewCount: 11,
+    completedJobs: 15,
+  ),
+  CollabPublisherProfile(
     id: 'publisher-northline-studio',
     name: 'Northline Studio',
     initials: 'NS',

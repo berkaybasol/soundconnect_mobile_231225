@@ -82,7 +82,7 @@ void main() {
     expect(find.text('Başvurun mock olarak gönderildi.'), findsOneWidget);
   });
 
-  testWidgets('available listing reuses the flow as a job offer', (
+  testWidgets('musician listing uses the standard application flow', (
     tester,
   ) async {
     final controller = CollabMockController();
@@ -97,17 +97,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await scrollTo(tester, find.text('İş Teklifi Gönder'));
-    await tester.tap(find.text('İş Teklifi Gönder'));
+    await scrollTo(tester, find.text('Başvuru Yap'));
+    await tester.tap(find.text('Başvuru Yap'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Devam Et'));
     await tester.pumpAndSettle();
 
     expect(find.byType(CollabApplicationComposeScreen), findsOneWidget);
-    expect(find.text('İş Teklifi Gönder'), findsOneWidget);
-    await scrollTo(tester, find.text('Teklifi Gönder'));
-    expect(find.text('Teklifi Gönder'), findsOneWidget);
-    expect(find.text('Başvuruyu Gönder'), findsNothing);
+    expect(find.text('Başvuru Yap'), findsOneWidget);
+    await scrollTo(tester, find.text('Başvuruyu Gönder'));
+    expect(find.text('Başvuruyu Gönder'), findsOneWidget);
+    expect(find.text('Teklifi Gönder'), findsNothing);
   });
 
   testWidgets('application form validates phone and a non-empty message', (

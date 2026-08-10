@@ -55,7 +55,15 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
       _feeController = TextEditingController(
         text: initialDraft.feeAmount?.toString() ?? '',
       );
-      _draft = initialDraft;
+      _draft = initialDraft.copyWith(direction: CollabDirection.seeking);
+      if (_draft.cadence == CollabCadence.regular &&
+          _draft.publisher?.profileKind != CollabProfileKind.venue) {
+        _feeController.clear();
+        _draft = _draft.copyWith(
+          feeMode: CollabFeeMode.unspecified,
+          clearFeeAmount: true,
+        );
+      }
       return;
     }
     final now = DateTime.now();
@@ -82,7 +90,6 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
       occurrenceTime: const CollabClockTime(hour: 21, minute: 0),
       feeMode: CollabFeeMode.paid,
       feeAmount: 1500,
-      capacity: 1,
       publisher: collabPublisherMockProfiles.first,
     );
   }
@@ -125,11 +132,10 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 220),
                   child: switch (_step) {
-                    0 => _TypeAndDirectionStep(
+                    0 => _ListingTypeStep(
                       key: const ValueKey('create-step-type'),
                       draft: _draft,
                       onCadenceChanged: _changeCadence,
-                      onDirectionChanged: _changeDirection,
                       onComingSoonTap: () => _showMessage(
                         'Param Güvende yakında kullanıma açılacak.',
                       ),
@@ -156,8 +162,6 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
                         onTimeTap: _pickTime,
                         onFeeModeChanged: _changeFeeMode,
                         onFeeChanged: _changeFee,
-                        onCapacityChanged: (value) =>
-                            _updateDraft(_draft.copyWith(capacity: value)),
                         onPublisherTap: _pickPublisher,
                       ),
                     ),
@@ -209,9 +213,7 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
       description: _descriptionController.text,
     );
     final formValid = _formKey.currentState?.validate() ?? false;
-    final needsDate =
-        _draft.cadence == CollabCadence.extra &&
-        _draft.direction == CollabDirection.seeking;
+    final needsDate = _draft.cadence == CollabCadence.extra;
     setState(() {
       _dateError = needsDate && _draft.occurrenceDate == null;
       _timeError = needsDate && _draft.occurrenceTime == null;
@@ -229,7 +231,6 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
 
   bool _isOccurrenceInPast() {
     if (_draft.cadence != CollabCadence.extra ||
-        _draft.direction != CollabDirection.seeking ||
         _draft.occurrenceDate == null ||
         _draft.occurrenceTime == null) {
       return false;
@@ -253,20 +254,13 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
         clearOccurrenceDate: true,
         clearOccurrenceTime: true,
       );
-    }
-    _updateDraft(next);
-  }
-
-  void _changeDirection(CollabDirection direction) {
-    var next = _draft.copyWith(direction: direction);
-    if (direction == CollabDirection.available) {
-      next = next.copyWith(
-        clearCapacity: true,
-        clearOccurrenceDate: _draft.cadence == CollabCadence.extra,
-        clearOccurrenceTime: _draft.cadence == CollabCadence.extra,
-      );
-    } else if (next.capacity == null) {
-      next = next.copyWith(capacity: 1);
+      if (next.publisher?.profileKind != CollabProfileKind.venue) {
+        _feeController.clear();
+        next = next.copyWith(
+          feeMode: CollabFeeMode.unspecified,
+          clearFeeAmount: true,
+        );
+      }
     }
     _updateDraft(next);
   }
@@ -357,7 +351,16 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
       builder: (_) => _PublisherPicker(selected: _draft.publisher),
     );
     if (!mounted || profile == null) return;
-    _updateDraft(_draft.copyWith(publisher: profile));
+    var next = _draft.copyWith(publisher: profile);
+    if (_draft.cadence == CollabCadence.regular &&
+        profile.profileKind != CollabProfileKind.venue) {
+      _feeController.clear();
+      next = next.copyWith(
+        feeMode: CollabFeeMode.unspecified,
+        clearFeeAmount: true,
+      );
+    }
+    _updateDraft(next);
   }
 
   Future<void> _publish() async {
@@ -482,18 +485,16 @@ class _CreateStepIndicator extends StatelessWidget {
   }
 }
 
-class _TypeAndDirectionStep extends StatelessWidget {
-  const _TypeAndDirectionStep({
+class _ListingTypeStep extends StatelessWidget {
+  const _ListingTypeStep({
     required this.draft,
     required this.onCadenceChanged,
-    required this.onDirectionChanged,
     required this.onComingSoonTap,
     super.key,
   });
 
   final CollabListingDraft draft;
   final ValueChanged<CollabCadence> onCadenceChanged;
-  final ValueChanged<CollabDirection> onDirectionChanged;
   final VoidCallback onComingSoonTap;
 
   @override
@@ -504,12 +505,12 @@ class _TypeAndDirectionStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'İlan Türü ve Yönü',
+            'İlan Türü',
             style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 5),
           Text(
-            'İlanının süresini ve ne aradığını seçerek başla.',
+            'İlanının çalışma biçimini seçerek başla.',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 12.5,
@@ -532,24 +533,6 @@ class _TypeAndDirectionStep extends StatelessWidget {
             icon: Icons.event_repeat_rounded,
             selected: draft.cadence == CollabCadence.regular,
             onTap: () => onCadenceChanged(CollabCadence.regular),
-          ),
-          const SizedBox(height: 20),
-          const CollabSectionTitle('İlan Yönü'),
-          const SizedBox(height: 9),
-          _CreateChoiceCard(
-            title: 'Arıyorum',
-            description: 'Müzisyen, ekip, mekan veya stüdyo ihtiyacın için.',
-            icon: Icons.search_rounded,
-            selected: draft.direction == CollabDirection.seeking,
-            onTap: () => onDirectionChanged(CollabDirection.seeking),
-          ),
-          const SizedBox(height: 9),
-          _CreateChoiceCard(
-            title: 'Müsaitim / İş Arıyorum',
-            description: 'Yeteneğini, mekanını veya stüdyonu duyur.',
-            icon: Icons.person_outline_rounded,
-            selected: draft.direction == CollabDirection.available,
-            onTap: () => onDirectionChanged(CollabDirection.available),
           ),
           const SizedBox(height: 17),
           _ComingSoonCard(
@@ -685,7 +668,6 @@ class _ListingInformationStep extends StatelessWidget {
     required this.onTimeTap,
     required this.onFeeModeChanged,
     required this.onFeeChanged,
-    required this.onCapacityChanged,
     required this.onPublisherTap,
     super.key,
   });
@@ -705,7 +687,6 @@ class _ListingInformationStep extends StatelessWidget {
   final VoidCallback onTimeTap;
   final ValueChanged<CollabFeeMode> onFeeModeChanged;
   final ValueChanged<String> onFeeChanged;
-  final ValueChanged<int> onCapacityChanged;
   final VoidCallback onPublisherTap;
 
   @override
@@ -780,11 +761,9 @@ class _ListingInformationStep extends StatelessWidget {
             key: const ValueKey('collab-create-role'),
             isExpanded: true,
             initialValue: draft.role,
-            decoration: InputDecoration(
-              labelText: draft.direction == CollabDirection.seeking
-                  ? 'Aranan kişi, ekip veya yer'
-                  : 'Sunduğun rol veya imkan',
-              prefixIcon: const Icon(Icons.music_note_outlined),
+            decoration: const InputDecoration(
+              labelText: 'Aranan kişi, ekip veya yer',
+              prefixIcon: Icon(Icons.music_note_outlined),
             ),
             items: collabCreationRoles
                 .map((role) => DropdownMenuItem(value: role, child: Text(role)))
@@ -817,8 +796,7 @@ class _ListingInformationStep extends StatelessWidget {
                 )
                 .toList(growable: false),
           ),
-          if (draft.cadence == CollabCadence.extra &&
-              draft.direction == CollabDirection.seeking) ...[
+          if (draft.cadence == CollabCadence.extra) ...[
             const SizedBox(height: 20),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -847,42 +825,36 @@ class _ListingInformationStep extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 20),
-          const CollabSectionTitle('Ücret'),
-          const SizedBox(height: 9),
-          _FeeModeSelector(
-            selected: draft.feeMode,
-            onSelected: onFeeModeChanged,
-          ),
-          if (draft.feeMode == CollabFeeMode.paid) ...[
-            const SizedBox(height: 10),
-            TextFormField(
-              key: const ValueKey('collab-create-fee'),
-              controller: feeController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Ücret',
-                prefixText: '₺ ',
-              ),
-              onChanged: onFeeChanged,
-              validator: (value) {
-                final amount = int.tryParse(value ?? '');
-                if (amount == null || amount <= 0) {
-                  return 'Sıfırdan büyük tek bir ücret gir.';
-                }
-                return null;
-              },
-            ),
-          ],
-          if (draft.direction == CollabDirection.seeking) ...[
+          if (draft.cadence == CollabCadence.extra ||
+              draft.publisher?.profileKind == CollabProfileKind.venue) ...[
             const SizedBox(height: 20),
-            const CollabSectionTitle('Kontenjan'),
-            const SizedBox(height: 9),
-            _CapacityStepper(
-              value: draft.capacity ?? 1,
-              onChanged: onCapacityChanged,
+            const CollabSectionTitle('Ücret'),
+            const SizedBox(height: 10),
+            _FeeModeSelector(
+              selected: draft.feeMode,
+              onSelected: onFeeModeChanged,
             ),
+            if (draft.feeMode == CollabFeeMode.paid) ...[
+              const SizedBox(height: 10),
+              TextFormField(
+                key: const ValueKey('collab-create-fee'),
+                controller: feeController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Ücret',
+                  prefixText: '₺ ',
+                ),
+                onChanged: onFeeChanged,
+                validator: (value) {
+                  final amount = int.tryParse(value ?? '');
+                  if (amount == null || amount <= 0) {
+                    return 'Sıfırdan büyük tek bir ücret gir.';
+                  }
+                  return null;
+                },
+              ),
+            ],
           ],
           const SizedBox(height: 20),
           const CollabSectionTitle('İlan Veren Profil'),
@@ -1050,47 +1022,6 @@ class _FeeLabel extends StatelessWidget {
             : Theme.of(context).colorScheme.onSurfaceVariant,
         fontSize: 11.5,
         fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
-      ),
-    );
-  }
-}
-
-class _CapacityStepper extends StatelessWidget {
-  const _CapacityStepper({required this.value, required this.onChanged});
-
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return CollabGradientFrame(
-      highlighted: true,
-      radius: 15,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: value > 1 ? () => onChanged(value - 1) : null,
-            tooltip: 'Kontenjanı azalt',
-            icon: const Icon(Icons.remove_rounded),
-          ),
-          Expanded(
-            child: Text(
-              '$value',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: value < 10 ? () => onChanged(value + 1) : null,
-            tooltip: 'Kontenjanı artır',
-            icon: const Icon(Icons.add_rounded),
-          ),
-        ],
       ),
     );
   }

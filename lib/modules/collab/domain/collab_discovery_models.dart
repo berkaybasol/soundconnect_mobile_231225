@@ -11,8 +11,8 @@ enum CollabDirection { seeking, available }
 
 extension CollabDirectionLabel on CollabDirection {
   String get label => switch (this) {
-    CollabDirection.seeking => 'Arıyorum',
-    CollabDirection.available => 'Müsaitim',
+    CollabDirection.seeking => 'İhtiyaç ilanı',
+    CollabDirection.available => 'İş / proje ilanı',
   };
 }
 
@@ -25,6 +25,55 @@ extension CollabProfileKindLabel on CollabProfileKind {
     CollabProfileKind.venue => 'Mekan',
     CollabProfileKind.studio => 'Stüdyo',
   };
+
+  String get publisherLabel => switch (this) {
+    CollabProfileKind.musician => 'Müzisyenden',
+    CollabProfileKind.band => 'Gruptan',
+    CollabProfileKind.venue => 'Mekandan',
+    CollabProfileKind.studio => 'Stüdyodan',
+  };
+
+  String get wantedLabel => '$label arayan';
+}
+
+enum CollabPublishedWithin {
+  all,
+  last24Hours,
+  last3Days,
+  last7Days,
+  last30Days,
+  olderThan30Days,
+}
+
+extension CollabPublishedWithinLabel on CollabPublishedWithin {
+  String get label => switch (this) {
+    CollabPublishedWithin.all => 'Tümü',
+    CollabPublishedWithin.last24Hours => 'Son 24 saat',
+    CollabPublishedWithin.last3Days => 'Son 3 gün',
+    CollabPublishedWithin.last7Days => 'Son 7 gün',
+    CollabPublishedWithin.last30Days => 'Son 30 gün',
+    CollabPublishedWithin.olderThan30Days => '30 günden eski',
+  };
+
+  bool includes(DateTime? publishedAt, {DateTime? now}) {
+    if (this == CollabPublishedWithin.all) return true;
+    if (publishedAt == null) return false;
+
+    final age = (now ?? DateTime.now()).difference(publishedAt);
+    if (age.isNegative) return false;
+    if (this == CollabPublishedWithin.olderThan30Days) {
+      return age > const Duration(days: 30);
+    }
+    final limit = switch (this) {
+      CollabPublishedWithin.last24Hours => const Duration(hours: 24),
+      CollabPublishedWithin.last3Days => const Duration(days: 3),
+      CollabPublishedWithin.last7Days => const Duration(days: 7),
+      CollabPublishedWithin.last30Days => const Duration(days: 30),
+      CollabPublishedWithin.all ||
+      CollabPublishedWithin.olderThan30Days => Duration.zero,
+    };
+    return age <= limit;
+  }
 }
 
 enum CollabTimeWindow { daytime, evening, flexible }
@@ -57,8 +106,10 @@ class CollabDateRange {
 class CollabDiscoveryFilter {
   const CollabDiscoveryFilter({
     this.city,
+    this.wantedKind,
     this.profileKinds = const <CollabProfileKind>{},
-    this.role,
+    this.specialties = const <String>{},
+    this.publishedWithin = CollabPublishedWithin.all,
     this.genres = const <String>{},
     this.dateRange,
     this.timeWindows = const <CollabTimeWindow>{},
@@ -66,8 +117,10 @@ class CollabDiscoveryFilter {
   });
 
   final String? city;
+  final CollabProfileKind? wantedKind;
   final Set<CollabProfileKind> profileKinds;
-  final String? role;
+  final Set<String> specialties;
+  final CollabPublishedWithin publishedWithin;
   final Set<String> genres;
   final CollabDateRange? dateRange;
   final Set<CollabTimeWindow> timeWindows;
@@ -75,8 +128,10 @@ class CollabDiscoveryFilter {
 
   bool get isEmpty =>
       city == null &&
+      wantedKind == null &&
       profileKinds.isEmpty &&
-      role == null &&
+      specialties.isEmpty &&
+      publishedWithin == CollabPublishedWithin.all &&
       genres.isEmpty &&
       dateRange == null &&
       timeWindows.isEmpty &&
@@ -84,8 +139,10 @@ class CollabDiscoveryFilter {
 
   int get activeCount => <bool>[
     city != null,
+    wantedKind != null,
     profileKinds.isNotEmpty,
-    role != null,
+    specialties.isNotEmpty,
+    publishedWithin != CollabPublishedWithin.all,
     genres.isNotEmpty,
     dateRange != null,
     timeWindows.isNotEmpty,
@@ -95,19 +152,28 @@ class CollabDiscoveryFilter {
   CollabDiscoveryFilter copyWith({
     String? city,
     bool clearCity = false,
+    CollabProfileKind? wantedKind,
+    bool clearWantedKind = false,
     Set<CollabProfileKind>? profileKinds,
-    String? role,
-    bool clearRole = false,
+    Set<String>? specialties,
+    CollabPublishedWithin? publishedWithin,
     Set<String>? genres,
     CollabDateRange? dateRange,
     bool clearDateRange = false,
     Set<CollabTimeWindow>? timeWindows,
     CollabFeeFilter? fee,
   }) {
+    final nextWantedKind = clearWantedKind
+        ? null
+        : wantedKind ?? this.wantedKind;
     return CollabDiscoveryFilter(
       city: clearCity ? null : city ?? this.city,
+      wantedKind: nextWantedKind,
       profileKinds: profileKinds ?? this.profileKinds,
-      role: clearRole ? null : role ?? this.role,
+      specialties: nextWantedKind == CollabProfileKind.musician
+          ? specialties ?? this.specialties
+          : const <String>{},
+      publishedWithin: publishedWithin ?? this.publishedWithin,
       genres: genres ?? this.genres,
       dateRange: clearDateRange ? null : dateRange ?? this.dateRange,
       timeWindows: timeWindows ?? this.timeWindows,
@@ -117,13 +183,18 @@ class CollabDiscoveryFilter {
 
   bool matches(CollabDiscoveryListing listing) {
     if (city != null && listing.city != city) return false;
+    if (wantedKind != null && listing.wantedKind != wantedKind) return false;
     if (profileKinds.isNotEmpty &&
         !profileKinds.contains(listing.profileKind)) {
       return false;
     }
-    if (role != null && listing.role.toLowerCase() != role!.toLowerCase()) {
+    if (specialties.isNotEmpty &&
+        !specialties.any(
+          (specialty) => listing.role.toLowerCase() == specialty.toLowerCase(),
+        )) {
       return false;
     }
+    if (!publishedWithin.includes(listing.publishedAt)) return false;
     if (genres.isNotEmpty && !genres.any(listing.genres.contains)) return false;
     if (dateRange != null) {
       final date = listing.occurrenceDate;
@@ -146,6 +217,7 @@ class CollabDiscoveryListing {
     required this.ownerName,
     required this.ownerInitials,
     required this.profileKind,
+    required this.wantedKind,
     required this.title,
     required this.cadence,
     required this.direction,
@@ -159,13 +231,12 @@ class CollabDiscoveryListing {
     required this.rating,
     required this.reviewCount,
     required this.completedJobs,
+    this.publishedAt,
     this.genres = const <String>{},
     this.occurrenceDate,
     this.ownerSpecialty,
     this.avatarAsset,
     this.timeLabel,
-    this.remainingPositions,
-    this.totalPositions,
     this.isHighlighted = false,
   });
 
@@ -173,6 +244,7 @@ class CollabDiscoveryListing {
   final String ownerName;
   final String ownerInitials;
   final CollabProfileKind profileKind;
+  final CollabProfileKind wantedKind;
   final String? ownerSpecialty;
   final String? avatarAsset;
   final String title;
@@ -189,17 +261,14 @@ class CollabDiscoveryListing {
   final double rating;
   final int reviewCount;
   final int completedJobs;
+  final DateTime? publishedAt;
   final Set<String> genres;
   final DateTime? occurrenceDate;
-  final int? remainingPositions;
-  final int? totalPositions;
   final bool isHighlighted;
 
   CollabDiscoveryListing copyWith({
-    int? remainingPositions,
-    bool clearRemainingPositions = false,
-    int? totalPositions,
-    bool clearTotalPositions = false,
+    int? feeAmount,
+    bool clearFeeAmount = false,
     bool? isHighlighted,
   }) {
     return CollabDiscoveryListing(
@@ -207,6 +276,7 @@ class CollabDiscoveryListing {
       ownerName: ownerName,
       ownerInitials: ownerInitials,
       profileKind: profileKind,
+      wantedKind: wantedKind,
       ownerSpecialty: ownerSpecialty,
       avatarAsset: avatarAsset,
       title: title,
@@ -217,20 +287,15 @@ class CollabDiscoveryListing {
       scheduleLabel: scheduleLabel,
       timeLabel: timeLabel,
       timeWindow: timeWindow,
-      feeAmount: feeAmount,
+      feeAmount: clearFeeAmount ? null : feeAmount ?? this.feeAmount,
       role: role,
       description: description,
       rating: rating,
       reviewCount: reviewCount,
       completedJobs: completedJobs,
+      publishedAt: publishedAt,
       genres: genres,
       occurrenceDate: occurrenceDate,
-      remainingPositions: clearRemainingPositions
-          ? null
-          : remainingPositions ?? this.remainingPositions,
-      totalPositions: clearTotalPositions
-          ? null
-          : totalPositions ?? this.totalPositions,
       isHighlighted: isHighlighted ?? this.isHighlighted,
     );
   }
@@ -239,6 +304,15 @@ class CollabDiscoveryListing {
     final specialty = ownerSpecialty?.trim();
     if (specialty == null || specialty.isEmpty) return profileKind.label;
     return '${profileKind.label} · $specialty';
+  }
+
+  String get wantedSummary {
+    final label = wantedKind.wantedLabel;
+    final specialty = role.trim();
+    if (wantedKind != CollabProfileKind.musician || specialty.isEmpty) {
+      return label;
+    }
+    return '$label: $specialty';
   }
 
   bool matches(String query) {

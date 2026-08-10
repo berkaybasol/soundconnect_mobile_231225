@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../data/collab_discovery_mock_data.dart';
@@ -10,7 +9,6 @@ import '../../domain/collab_discovery_models.dart';
 import '../theme/collab_visual_theme.dart';
 import '../widgets/collab_discovery_widgets.dart';
 import 'collab_create_listing_screen.dart';
-import 'collab_filters_screen.dart';
 import 'collab_listing_detail_screen.dart';
 import 'collab_my_applications_screen.dart';
 import 'collab_my_listings_screen.dart';
@@ -31,8 +29,7 @@ class CollabDiscoveryScreen extends StatefulWidget {
 
 class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   final TextEditingController _searchController = TextEditingController();
-  CollabCadence _cadence = CollabCadence.extra;
-  CollabDirection? _direction;
+  CollabCadence _cadence = CollabCadence.regular;
   CollabDiscoveryFilter _filter = const CollabDiscoveryFilter();
 
   CollabMockController get _controller =>
@@ -65,7 +62,9 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     return _allListings
         .where((listing) => listing.cadence == _cadence)
         .where(
-          (listing) => _direction == null || listing.direction == _direction,
+          (listing) =>
+              listing.cadence == CollabCadence.regular ||
+              CollabPublishedWithin.last7Days.includes(listing.publishedAt),
         )
         .where(_filter.matches)
         .where((listing) => listing.matches(query))
@@ -92,8 +91,6 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _DiscoveryHeader(
-                          activeFilterCount: _filter.activeCount,
-                          onFilterTap: _openFilters,
                           onApplicationsTap: _openMyApplications,
                           onListingsTap: _openMyListings,
                         ),
@@ -156,10 +153,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
                     child: _EmptyDiscoveryState(
                       onClear: () {
                         _searchController.clear();
-                        setState(() {
-                          _direction = null;
-                          _filter = const CollabDiscoveryFilter();
-                        });
+                        setState(() => _filter = const CollabDiscoveryFilter());
                       },
                     ),
                   )
@@ -175,6 +169,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
                           key: ValueKey(listing.id),
                           listing: listing,
                           saved: _controller.isListingSaved(listing.id),
+                          showCadence: false,
                           onSave: () => _toggleSaved(listing.id),
                           onTap: () => _openListing(listing),
                         );
@@ -202,57 +197,210 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           CollabChoiceChip(
-            label: 'Tümü',
-            selected: _direction == null,
-            onTap: () => setState(() => _direction = null),
-          ),
-          const SizedBox(width: 8),
-          CollabChoiceChip(
-            label: 'Arıyorum',
-            selected: _direction == CollabDirection.seeking,
-            onTap: () => setState(() => _direction = CollabDirection.seeking),
-          ),
-          const SizedBox(width: 8),
-          CollabChoiceChip(
-            label: 'Müsaitim',
-            selected: _direction == CollabDirection.available,
-            onTap: () => setState(() => _direction = CollabDirection.available),
-          ),
-          const SizedBox(width: 8),
-          CollabChoiceChip(
+            key: const ValueKey<String>('collab-quick-city'),
             label: _filter.city ?? 'Şehir',
             icon: Icons.location_on_outlined,
             selected: _filter.city != null,
-            onTap: _openFilters,
+            onTap: _pickCity,
           ),
           const SizedBox(width: 8),
           CollabChoiceChip(
-            label: _filter.role ?? 'Rol',
-            icon: Icons.music_note_outlined,
-            selected: _filter.role != null,
-            onTap: _openFilters,
+            key: const ValueKey<String>('collab-quick-wanted'),
+            label: _filter.wantedKind?.wantedLabel ?? 'Aranan',
+            icon: Icons.manage_search_rounded,
+            selected: _filter.wantedKind != null,
+            onTap: _pickWantedKind,
           ),
-          if (_cadence == CollabCadence.extra) ...[
+          if (_filter.wantedKind == CollabProfileKind.musician) ...[
             const SizedBox(width: 8),
             CollabChoiceChip(
-              label: 'Tarih',
-              icon: Icons.calendar_month_outlined,
-              selected: _filter.dateRange != null,
-              onTap: _openFilters,
+              key: const ValueKey<String>('collab-quick-specialty'),
+              label: _specialtyChipLabel,
+              icon: Icons.music_note_outlined,
+              selected: _filter.specialties.isNotEmpty,
+              onTap: _pickSpecialties,
             ),
           ],
           const SizedBox(width: 8),
           CollabChoiceChip(
-            label: switch (_filter.fee) {
-              CollabFeeFilter.all => 'Ücret',
-              CollabFeeFilter.paid => 'Ücretli',
-              CollabFeeFilter.unspecified => 'Belirtilmemiş',
-            },
-            icon: Icons.payments_outlined,
-            selected: _filter.fee != CollabFeeFilter.all,
-            onTap: _openFilters,
+            key: const ValueKey<String>('collab-quick-publisher'),
+            label: _publisherChipLabel,
+            icon: Icons.person_search_outlined,
+            selected: _filter.profileKinds.isNotEmpty,
+            onTap: _pickPublisherKinds,
+          ),
+          const SizedBox(width: 8),
+          CollabChoiceChip(
+            key: const ValueKey<String>('collab-quick-published'),
+            label: _filter.publishedWithin == CollabPublishedWithin.all
+                ? 'Yayınlanma'
+                : _filter.publishedWithin.label,
+            icon: Icons.schedule_rounded,
+            selected: _filter.publishedWithin != CollabPublishedWithin.all,
+            onTap: _pickPublishedWithin,
           ),
         ],
+      ),
+    );
+  }
+
+  String get _specialtyChipLabel {
+    if (_filter.specialties.isEmpty) return 'Enstrüman / Branş';
+    if (_filter.specialties.length == 1) return _filter.specialties.first;
+    return '${_filter.specialties.length} branş';
+  }
+
+  String get _publisherChipLabel {
+    if (_filter.profileKinds.isEmpty) return 'Kimden';
+    if (_filter.profileKinds.length == 1) {
+      return _filter.profileKinds.first.publisherLabel;
+    }
+    return '${_filter.profileKinds.length} profil türü';
+  }
+
+  List<String> get _availableCities {
+    final values = _allListings.map((listing) => listing.city).toSet().toList();
+    values.sort();
+    return values;
+  }
+
+  List<String> get _availableSpecialties {
+    final values = _allListings
+        .where((listing) => listing.wantedKind == CollabProfileKind.musician)
+        .map((listing) => listing.role)
+        .toSet()
+        .toList();
+    values.sort();
+    return values;
+  }
+
+  Future<void> _pickCity() async {
+    final result = await _showQuickSingleSelect<String>(
+      title: 'Şehir seç',
+      options: _availableCities,
+      selected: _filter.city,
+      labelFor: (value) => value,
+    );
+    if (!mounted || !result.didChoose) return;
+    setState(() {
+      _filter = result.value == null
+          ? _filter.copyWith(clearCity: true)
+          : _filter.copyWith(city: result.value);
+    });
+  }
+
+  Future<void> _pickWantedKind() async {
+    final result = await _showQuickSingleSelect<CollabProfileKind>(
+      title: 'Ne aranıyor?',
+      options: CollabProfileKind.values,
+      selected: _filter.wantedKind,
+      labelFor: (value) => value.wantedLabel,
+    );
+    if (!mounted || !result.didChoose) return;
+    setState(() {
+      if (result.value == null) {
+        _filter = _filter.copyWith(
+          clearWantedKind: true,
+          specialties: const <String>{},
+        );
+      } else {
+        _filter = _filter.copyWith(
+          wantedKind: result.value,
+          specialties: result.value == CollabProfileKind.musician
+              ? _filter.specialties
+              : const <String>{},
+        );
+      }
+    });
+  }
+
+  Future<void> _pickSpecialties() async {
+    final result = await _showQuickMultiSelect<String>(
+      title: 'Enstrüman / Branş',
+      options: _availableSpecialties,
+      selected: _filter.specialties,
+      labelFor: (value) => value,
+    );
+    if (!mounted || result == null) return;
+    setState(() => _filter = _filter.copyWith(specialties: result));
+  }
+
+  Future<void> _pickPublisherKinds() async {
+    final result = await _showQuickMultiSelect<CollabProfileKind>(
+      title: 'İlan kimden?',
+      options: CollabProfileKind.values,
+      selected: _filter.profileKinds,
+      labelFor: (value) => value.publisherLabel,
+    );
+    if (!mounted || result == null) return;
+    setState(() => _filter = _filter.copyWith(profileKinds: result));
+  }
+
+  Future<void> _pickPublishedWithin() async {
+    final result = await _showQuickSingleSelect<CollabPublishedWithin>(
+      title: 'Ne zaman yayınlandı?',
+      options: _publishedWithinOptions,
+      selected: _filter.publishedWithin == CollabPublishedWithin.all
+          ? null
+          : _filter.publishedWithin,
+      labelFor: (value) => value.label,
+    );
+    if (!mounted || !result.didChoose) return;
+    setState(() {
+      _filter = _filter.copyWith(
+        publishedWithin: result.value ?? CollabPublishedWithin.all,
+      );
+    });
+  }
+
+  List<CollabPublishedWithin> get _publishedWithinOptions =>
+      CollabPublishedWithin.values
+          .where((value) => value != CollabPublishedWithin.all)
+          .where(
+            (value) =>
+                _cadence == CollabCadence.regular ||
+                value == CollabPublishedWithin.last24Hours ||
+                value == CollabPublishedWithin.last3Days ||
+                value == CollabPublishedWithin.last7Days,
+          )
+          .toList(growable: false);
+
+  Future<_QuickSelection<T>> _showQuickSingleSelect<T>({
+    required String title,
+    required List<T> options,
+    required T? selected,
+    required String Function(T value) labelFor,
+  }) async {
+    final result = await showModalBottomSheet<_QuickSelection<T>>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _QuickSingleSelectSheet<T>(
+        title: title,
+        options: options,
+        selected: selected,
+        labelFor: labelFor,
+      ),
+    );
+    return result ?? const _QuickSelection.cancelled();
+  }
+
+  Future<Set<T>?> _showQuickMultiSelect<T>({
+    required String title,
+    required List<T> options,
+    required Set<T> selected,
+    required String Function(T value) labelFor,
+  }) {
+    return showModalBottomSheet<Set<T>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _QuickMultiSelectSheet<T>(
+        title: title,
+        options: options,
+        selected: selected,
+        labelFor: labelFor,
       ),
     );
   }
@@ -266,6 +414,12 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
       _cadence = cadence;
       if (cadence == CollabCadence.regular && _filter.dateRange != null) {
         _filter = _filter.copyWith(clearDateRange: true);
+      }
+      if (cadence == CollabCadence.extra &&
+          (_filter.publishedWithin == CollabPublishedWithin.last30Days ||
+              _filter.publishedWithin ==
+                  CollabPublishedWithin.olderThan30Days)) {
+        _filter = _filter.copyWith(publishedWithin: CollabPublishedWithin.all);
       }
     });
   }
@@ -285,23 +439,6 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _openFilters() async {
-    final result = await Navigator.of(context).push<CollabDiscoveryFilter>(
-      collabPageRoute(
-        builder: (_) => CollabFiltersScreen(
-          cadence: _cadence,
-          direction: _direction,
-          initialFilter: _filter,
-          searchQuery: _searchController.text,
-          sourceListings: _allListings,
-          controller: _controller,
-        ),
-      ),
-    );
-    if (!mounted || result == null) return;
-    setState(() => _filter = result);
   }
 
   void _openMyApplications() {
@@ -354,14 +491,10 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
 
 class _DiscoveryHeader extends StatelessWidget {
   const _DiscoveryHeader({
-    required this.activeFilterCount,
-    required this.onFilterTap,
     required this.onApplicationsTap,
     required this.onListingsTap,
   });
 
-  final int activeFilterCount;
-  final VoidCallback onFilterTap;
   final VoidCallback onApplicationsTap;
   final VoidCallback onListingsTap;
 
@@ -372,28 +505,24 @@ class _DiscoveryHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GradientText(
-                text: 'Collab',
-                gradient: LinearGradient(colors: AppColors.brandGradient),
-                style: const TextStyle(
-                  fontSize: 26,
-                  height: 1,
-                  fontWeight: FontWeight.w900,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: 178,
+              height: 52,
+              child: ClipRect(
+                child: Transform.scale(
+                  scale: 3.1,
+                  child: Image.asset(
+                    'assets/logotransparent.png',
+                    key: const ValueKey<String>('collab-brand-logo'),
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                    semanticLabel: 'SoundConnect',
+                  ),
                 ),
               ),
-              const SizedBox(height: 7),
-              Text(
-                'Backstage iş ve ekip bulma',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
         PopupMenuButton<String>(
@@ -433,49 +562,6 @@ class _DiscoveryHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            InkWell(
-              onTap: onFilterTap,
-              borderRadius: BorderRadius.circular(999),
-              child: CollabGradientFrame(
-                highlighted: true,
-                radius: 999,
-                strokeWidth: 1.2,
-                padding: const EdgeInsets.all(11),
-                child: Icon(
-                  Icons.tune_rounded,
-                  color: theme.colorScheme.onSurface,
-                  size: 22,
-                ),
-              ),
-            ),
-            if (activeFilterCount > 0)
-              Positioned(
-                right: -4,
-                top: -5,
-                child: Container(
-                  width: 19,
-                  height: 19,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.coral,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    '$activeFilterCount',
-                    style: const TextStyle(
-                      color: AppColors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
       ],
     );
   }
@@ -495,41 +581,44 @@ class _CadenceSelector extends StatelessWidget {
       child: SizedBox(
         height: 51,
         child: Row(
-          children: CollabCadence.values
-              .map((cadence) {
-                final isSelected = cadence == selected;
-                return Expanded(
-                  child: Semantics(
-                    button: true,
-                    selected: isSelected,
-                    label: cadence.label,
-                    child: InkWell(
-                      key: ValueKey<String>('collab-cadence-${cadence.name}'),
-                      onTap: () => onSelected(cadence),
-                      borderRadius: BorderRadius.circular(16),
-                      child: isSelected
-                          ? CollabGradientFrame(
-                              highlighted: true,
-                              radius: 16,
-                              strokeWidth: 1.4,
-                              child: Center(
-                                child: _CadenceLabel(
-                                  label: cadence.label,
-                                  selected: true,
+          children:
+              const <CollabCadence>[CollabCadence.regular, CollabCadence.extra]
+                  .map((cadence) {
+                    final isSelected = cadence == selected;
+                    return Expanded(
+                      child: Semantics(
+                        button: true,
+                        selected: isSelected,
+                        label: cadence.label,
+                        child: InkWell(
+                          key: ValueKey<String>(
+                            'collab-cadence-${cadence.name}',
+                          ),
+                          onTap: () => onSelected(cadence),
+                          borderRadius: BorderRadius.circular(16),
+                          child: isSelected
+                              ? CollabGradientFrame(
+                                  highlighted: true,
+                                  radius: 16,
+                                  strokeWidth: 1.4,
+                                  child: Center(
+                                    child: _CadenceLabel(
+                                      label: cadence.label,
+                                      selected: true,
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: _CadenceLabel(
+                                    label: cadence.label,
+                                    selected: false,
+                                  ),
                                 ),
-                              ),
-                            )
-                          : Center(
-                              child: _CadenceLabel(
-                                label: cadence.label,
-                                selected: false,
-                              ),
-                            ),
-                    ),
-                  ),
-                );
-              })
-              .toList(growable: false),
+                        ),
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
         ),
       ),
     );
@@ -599,6 +688,170 @@ class _CreateListingButton extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickSelection<T> {
+  const _QuickSelection(this.value) : didChoose = true;
+  const _QuickSelection.cancelled() : value = null, didChoose = false;
+
+  final T? value;
+  final bool didChoose;
+}
+
+class _QuickSingleSelectSheet<T> extends StatelessWidget {
+  const _QuickSingleSelectSheet({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.labelFor,
+  });
+
+  final String title;
+  final List<T> options;
+  final T? selected;
+  final String Function(T value) labelFor;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 9),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  RadioListTile<T?>(
+                    value: null,
+                    groupValue: selected,
+                    title: const Text('Tümü'),
+                    onChanged: (_) =>
+                        Navigator.of(context).pop(_QuickSelection<T>(null)),
+                  ),
+                  ...options.map(
+                    (option) => RadioListTile<T?>(
+                      value: option,
+                      groupValue: selected,
+                      title: Text(labelFor(option)),
+                      onChanged: (_) =>
+                          Navigator.of(context).pop(_QuickSelection<T>(option)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickMultiSelectSheet<T> extends StatefulWidget {
+  const _QuickMultiSelectSheet({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.labelFor,
+  });
+
+  final String title;
+  final List<T> options;
+  final Set<T> selected;
+  final String Function(T value) labelFor;
+
+  @override
+  State<_QuickMultiSelectSheet<T>> createState() =>
+      _QuickMultiSelectSheetState<T>();
+}
+
+class _QuickMultiSelectSheetState<T> extends State<_QuickMultiSelectSheet<T>> {
+  late Set<T> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<T>.of(widget.selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _selected.clear()),
+                  child: const Text('Temizle'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: widget.options
+                    .map(
+                      (option) => CheckboxListTile(
+                        value: _selected.contains(option),
+                        title: Text(widget.labelFor(option)),
+                        onChanged: (checked) {
+                          setState(() {
+                            if (checked == true) {
+                              _selected.add(option);
+                            } else {
+                              _selected.remove(option);
+                            }
+                          });
+                        },
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ),
+            const SizedBox(height: 10),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(_selected),
+              child: const Text('Uygula'),
+            ),
+          ],
         ),
       ),
     );

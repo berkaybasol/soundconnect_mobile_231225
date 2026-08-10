@@ -20,7 +20,7 @@ void main() {
     expect(find.text('Önizleme'), findsWidgets);
   }
 
-  testWidgets('creation starts with approved type and direction choices', (
+  testWidgets('creation starts with only the approved listing types', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -33,19 +33,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('İlan Türü ve Yönü'), findsOneWidget);
+    expect(find.text('İlan Türü'), findsWidgets);
     expect(find.text('Ekstra'), findsOneWidget);
     expect(find.text('Düzenli'), findsOneWidget);
-    expect(find.text('Arıyorum'), findsOneWidget);
-    expect(find.text('Müsaitim / İş Arıyorum'), findsOneWidget);
+    expect(find.text('İlan Amacı'), findsNothing);
+    expect(find.text('Birini veya Bir Yeri Bul'), findsNothing);
+    expect(find.text('İş veya Proje Bul'), findsNothing);
     expect(find.text('Param Güvende'), findsOneWidget);
     expect(find.text('Yakında'), findsOneWidget);
     expect(find.textContaining('₺49'), findsNothing);
   });
 
-  testWidgets('regular and available keep the information form simple', (
-    tester,
-  ) async {
+  testWidgets('regular venue listing keeps an optional fee', (tester) async {
     await tester.pumpWidget(
       app(
         CollabCreateListingScreen(
@@ -57,17 +56,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Düzenli'));
-    await tester.scrollUntilVisible(
-      find.text('Müsaitim / İş Arıyorum'),
-      300,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.tap(find.text('Müsaitim / İş Arıyorum'));
     await goToInformation(tester);
 
     expect(find.text('Sahne Tarihi'), findsNothing);
     expect(find.text('Saat'), findsNothing);
     expect(find.text('Kontenjan'), findsNothing);
+    expect(find.text('Ücret'), findsWidgets);
     expect(find.text('Tarz'), findsOneWidget);
     expect(find.text('Performans Süresi'), findsNothing);
     expect(find.text('Ekipman'), findsNothing);
@@ -75,40 +69,24 @@ void main() {
     expect(find.text('Ulaşım'), findsNothing);
   });
 
-  testWidgets('extra available listing stays flexible without stage fields', (
+  testWidgets('extra includes stage date and time without capacity', (
     tester,
   ) async {
-    final controller = CollabMockController();
-    await tester.pumpWidget(app(_CreateListingHost(controller: controller)));
-    await tester.tap(find.text('Oluşturmayı Aç'));
-    await tester.pumpAndSettle();
-
-    await tester.scrollUntilVisible(
-      find.text('Müsaitim / İş Arıyorum'),
-      300,
-      scrollable: find.byType(Scrollable).last,
+    await tester.pumpWidget(
+      app(
+        CollabCreateListingScreen(
+          controller: CollabMockController(),
+          showBottomNavigation: false,
+        ),
+      ),
     );
-    await tester.tap(find.text('Müsaitim / İş Arıyorum'));
+    await tester.pumpAndSettle();
     await goToInformation(tester);
 
-    expect(find.text('Sahne Tarihi'), findsNothing);
-    expect(find.text('Saat'), findsNothing);
+    expect(find.text('Sahne Tarihi'), findsOneWidget);
+    expect(find.text('Saat'), findsOneWidget);
     expect(find.text('Kontenjan'), findsNothing);
-
-    await goToPreview(tester);
-    await tester.scrollUntilVisible(
-      find.text('Yayınla'),
-      600,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.tap(find.text('Yayınla'));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
-
-    final listing = controller.createdListings.single;
-    expect(listing.scheduleLabel, 'Esnek');
-    expect(listing.timeLabel, isNull);
-    expect(listing.occurrenceDate, isNull);
+    expect(find.text('Ücret'), findsWidgets);
   });
 
   testWidgets('studio publisher reaches preview with a single fee', (
@@ -133,7 +111,7 @@ void main() {
     await tester.tap(find.text('SoundConnect Kadıköy'));
     await tester.pumpAndSettle();
     expect(find.text('Northline Studio'), findsOneWidget);
-    expect(find.text('Acoustic Route'), findsNothing);
+    expect(find.text('Acoustic Route'), findsOneWidget);
     await tester.tap(find.text('Northline Studio'));
     await tester.pumpAndSettle();
 

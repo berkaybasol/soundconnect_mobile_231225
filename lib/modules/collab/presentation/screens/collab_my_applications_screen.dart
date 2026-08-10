@@ -413,7 +413,7 @@ class _OutgoingApplicationCard extends StatelessWidget {
                 color: AppColors.socialPink,
               ),
               CollabStatusPill(
-                label: listing.direction.label,
+                label: listing.wantedSummary,
                 color: listing.direction == CollabDirection.seeking
                     ? AppColors.socialOrange
                     : AppColors.spotifyGreen,

@@ -76,7 +76,6 @@ class CollabOwnedStatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (status) {
       CollabOwnedListingStatus.open => AppColors.spotifyGreen,
-      CollabOwnedListingStatus.full => const Color(0xFFFFA000),
       CollabOwnedListingStatus.closed => Theme.of(
         context,
       ).colorScheme.onSurfaceVariant,

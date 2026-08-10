@@ -102,7 +102,6 @@ class CollabMockController extends ChangeNotifier {
         listing: listing,
         status: CollabOwnedListingStatus.open,
         applicationCount: 0,
-        filledPositions: 0,
         createdAt: DateTime.now(),
       ),
     );
@@ -150,33 +149,25 @@ class CollabMockController extends ChangeNotifier {
     );
     if (listingIndex < 0) return false;
     final owned = _ownedListings[listingIndex];
-    final usesCapacity = owned.listing.direction == CollabDirection.seeking;
-    if (owned.status != CollabOwnedListingStatus.open ||
-        (usesCapacity && owned.remainingPositions <= 0)) {
-      return false;
-    }
+    if (owned.status != CollabOwnedListingStatus.open) return false;
 
     _incomingApplications[applicationIndex] =
         _incomingApplications[applicationIndex].copyWith(
           status: CollabApplicationStatus.accepted,
         );
-    if (usesCapacity) {
-      final nextFilled = owned.filledPositions + 1;
-      final nextRemaining = (owned.capacity - nextFilled).clamp(
-        0,
-        owned.capacity,
-      );
-      final nextListing = owned.listing.copyWith(
-        remainingPositions: nextRemaining,
-      );
-      _ownedListings[listingIndex] = owned.copyWith(
-        listing: nextListing,
-        filledPositions: nextFilled,
-        status: nextFilled >= owned.capacity
-            ? CollabOwnedListingStatus.full
-            : CollabOwnedListingStatus.open,
-      );
-      _replaceCreatedListing(nextListing);
+    _ownedListings[listingIndex] = owned.copyWith(
+      status: CollabOwnedListingStatus.closed,
+    );
+    _createdListings.removeWhere((listing) => listing.id == listingId);
+    for (var index = 0; index < _incomingApplications.length; index++) {
+      if (index == applicationIndex) continue;
+      final application = _incomingApplications[index];
+      if (application.listing.id == listingId &&
+          application.status == CollabApplicationStatus.pending) {
+        _incomingApplications[index] = application.copyWith(
+          status: CollabApplicationStatus.invalidatedByListingClosure,
+        );
+      }
     }
     if (!_jobs.any((job) => job.application.id == applicationId)) {
       _jobs.add(
@@ -243,11 +234,6 @@ class CollabMockController extends ChangeNotifier {
     _jobs[index] = _jobs[index].copyWith(status: CollabJobStatus.completed);
     notifyListeners();
     return true;
-  }
-
-  void _replaceCreatedListing(CollabDiscoveryListing listing) {
-    final index = _createdListings.indexWhere((item) => item.id == listing.id);
-    if (index >= 0) _createdListings[index] = listing;
   }
 }
 

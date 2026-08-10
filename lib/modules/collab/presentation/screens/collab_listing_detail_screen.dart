@@ -47,11 +47,6 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
       widget.controller ?? collabMockController;
   bool get _isOwner =>
       widget.isOwnListing || _controller.ownsListing(listing.id);
-  bool get _isFull =>
-      listing.direction == CollabDirection.seeking &&
-      listing.remainingPositions != null &&
-      listing.remainingPositions! <= 0;
-
   @override
   void initState() {
     super.initState();
@@ -124,6 +119,15 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
                         ? 'Belirtilmemiş'
                         : listing.genres.join(', '),
                   ),
+                  if (listing.cadence == CollabCadence.extra ||
+                      listing.profileKind == CollabProfileKind.venue) ...[
+                    Divider(height: 1, color: Theme.of(context).dividerColor),
+                    _DetailRow(
+                      icon: Icons.payments_outlined,
+                      label: 'Ücret',
+                      value: _feeText(listing.feeAmount),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -195,13 +199,11 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
     widget.onSavedChanged?.call(_saved);
   }
 
-  bool get _primaryActionEnabled =>
-      !widget.isListingClosed && !_actionSent && (_isOwner || !_isFull);
+  bool get _primaryActionEnabled => !widget.isListingClosed && !_actionSent;
 
   String get _primaryActionLabel {
     if (widget.isListingClosed) return 'İlan Kapandı';
     if (_isOwner) return 'İlanı Düzenle';
-    if (_isFull) return 'Kontenjan Doldu';
     if (_actionSent) {
       return listing.direction == CollabDirection.seeking
           ? 'Başvuru Gönderildi'
@@ -213,7 +215,7 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
   }
 
   IconData get _primaryActionIcon {
-    if (widget.isListingClosed || _isFull) return Icons.lock_outline_rounded;
+    if (widget.isListingClosed) return Icons.lock_outline_rounded;
     if (_isOwner) return Icons.edit_outlined;
     if (_actionSent) return Icons.check_rounded;
     return listing.direction == CollabDirection.seeking
@@ -341,10 +343,8 @@ class _ListingHero extends StatelessWidget {
                 color: AppColors.socialPink,
               ),
               CollabStatusPill(
-                label: listing.direction.label,
-                color: listing.direction == CollabDirection.seeking
-                    ? AppColors.socialOrange
-                    : AppColors.spotifyGreen,
+                label: listing.wantedSummary,
+                color: AppColors.socialOrange,
               ),
             ],
           ),
@@ -375,35 +375,23 @@ class _HeroMetaGrid extends StatelessWidget {
               icon: Icons.location_on_outlined,
               value: listing.location,
             ),
-            _HeroMeta(
-              width: width,
-              icon: Icons.calendar_month_outlined,
-              value: listing.timeLabel == null
-                  ? listing.scheduleLabel
-                  : '${listing.scheduleLabel} · ${listing.timeLabel}',
-            ),
-            _HeroMeta(
-              width: width,
-              icon: Icons.payments_outlined,
-              value: _feeText(listing.feeAmount),
-            ),
+            if (listing.cadence == CollabCadence.extra)
+              _HeroMeta(
+                width: width,
+                icon: Icons.calendar_month_outlined,
+                value: listing.timeLabel == null
+                    ? listing.scheduleLabel
+                    : '${listing.scheduleLabel} · ${listing.timeLabel}',
+              ),
             _HeroMeta(
               width: width,
               icon: Icons.music_note_rounded,
               value: listing.role,
-              trailing: _capacityText(listing),
             ),
           ],
         );
       },
     );
-  }
-
-  String? _capacityText(CollabDiscoveryListing listing) {
-    final remaining = listing.remainingPositions;
-    final total = listing.totalPositions;
-    if (remaining == null || total == null) return null;
-    return '$remaining/$total kalan';
   }
 }
 
@@ -412,13 +400,11 @@ class _HeroMeta extends StatelessWidget {
     required this.width,
     required this.icon,
     required this.value,
-    this.trailing,
   });
 
   final double width;
   final IconData icon;
   final String value;
-  final String? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -437,17 +423,6 @@ class _HeroMeta extends StatelessWidget {
               style: TextStyle(color: muted, fontSize: 12),
             ),
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: 5),
-            Text(
-              trailing!,
-              style: TextStyle(
-                color: AppColors.coralLight,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
         ],
       ),
     );

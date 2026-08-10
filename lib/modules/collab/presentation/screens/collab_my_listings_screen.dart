@@ -393,9 +393,7 @@ class _DraftsSheet extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              subtitle: Text(
-                '${draft.cadence.label} · ${draft.direction.label}',
-              ),
+              subtitle: Text('${draft.cadence.label} · ${draft.wantedSummary}'),
               trailing: const Icon(Icons.chevron_right_rounded),
             ),
           ),
@@ -571,7 +569,7 @@ class _OwnedListingCard extends StatelessWidget {
                             color: AppColors.socialPink,
                           ),
                           CollabStatusPill(
-                            label: listing.direction.label,
+                            label: listing.wantedSummary,
                             color: listing.direction == CollabDirection.seeking
                                 ? AppColors.socialOrange
                                 : AppColors.spotifyGreen,
@@ -618,14 +616,6 @@ class _OwnedListingCard extends StatelessWidget {
                     value: '${owned.applicationCount}',
                   ),
                 ),
-                if (listing.direction == CollabDirection.seeking)
-                  Expanded(
-                    child: _OwnedMetric(
-                      icon: Icons.people_outline_rounded,
-                      label: 'Kalan Kontenjan',
-                      value: '${owned.remainingPositions}/${owned.capacity}',
-                    ),
-                  ),
               ],
             ),
             const SizedBox(height: 13),
@@ -661,12 +651,8 @@ class _OwnedListingCard extends StatelessWidget {
                   ),
                 if (!isClosed)
                   CollabCardAction(
-                    label: owned.status == CollabOwnedListingStatus.full
-                        ? 'Arşive Taşı'
-                        : 'Kapat',
-                    icon: owned.status == CollabOwnedListingStatus.full
-                        ? Icons.archive_outlined
-                        : Icons.close_rounded,
+                    label: 'Kapat',
+                    icon: Icons.close_rounded,
                     tone: CollabCardActionTone.danger,
                     onPressed: onClose,
                   ),

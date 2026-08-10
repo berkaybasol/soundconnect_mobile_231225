@@ -50,7 +50,6 @@ class CollabListingDraft {
     required this.occurrenceTime,
     required this.feeMode,
     required this.feeAmount,
-    required this.capacity,
     required this.publisher,
   });
 
@@ -66,8 +65,18 @@ class CollabListingDraft {
   final CollabClockTime? occurrenceTime;
   final CollabFeeMode feeMode;
   final int? feeAmount;
-  final int? capacity;
   final CollabPublisherProfile? publisher;
+
+  CollabProfileKind get wantedKind => _wantedKindForRole(role ?? '');
+
+  String get wantedSummary {
+    final label = wantedKind.wantedLabel;
+    final specialty = role?.trim() ?? '';
+    if (wantedKind != CollabProfileKind.musician || specialty.isEmpty) {
+      return label;
+    }
+    return '$label: $specialty';
+  }
 
   CollabListingDraft copyWith({
     CollabCadence? cadence,
@@ -85,8 +94,6 @@ class CollabListingDraft {
     CollabFeeMode? feeMode,
     int? feeAmount,
     bool clearFeeAmount = false,
-    int? capacity,
-    bool clearCapacity = false,
     CollabPublisherProfile? publisher,
   }) {
     return CollabListingDraft(
@@ -106,7 +113,6 @@ class CollabListingDraft {
           : occurrenceTime ?? this.occurrenceTime,
       feeMode: feeMode ?? this.feeMode,
       feeAmount: clearFeeAmount ? null : feeAmount ?? this.feeAmount,
-      capacity: clearCapacity ? null : capacity ?? this.capacity,
       publisher: publisher ?? this.publisher,
     );
   }
@@ -119,26 +125,27 @@ class CollabListingDraft {
         role == null) {
       throw StateError('Eksik Collab ilan taslağı yayınlanamaz.');
     }
-    final isScheduledExtra =
-        cadence == CollabCadence.extra && direction == CollabDirection.seeking;
+    final isScheduledExtra = cadence == CollabCadence.extra;
     if (isScheduledExtra &&
         (occurrenceDate == null || occurrenceTime == null)) {
       throw StateError('Ekstra sahne ilanı için tarih ve saat zorunludur.');
     }
-    if (feeMode == CollabFeeMode.paid &&
+    final supportsFee =
+        cadence == CollabCadence.extra ||
+        selectedPublisher.profileKind == CollabProfileKind.venue;
+    if (supportsFee &&
+        feeMode == CollabFeeMode.paid &&
         (feeAmount == null || feeAmount! <= 0)) {
       throw StateError('Ücretli Collab ilanı için geçerli ücret zorunludur.');
     }
     final date = isScheduledExtra ? occurrenceDate : null;
     final time = isScheduledExtra ? occurrenceTime : null;
-    final selectedCapacity = direction == CollabDirection.seeking
-        ? capacity ?? 1
-        : null;
     return CollabDiscoveryListing(
       id: id,
       ownerName: selectedPublisher.name,
       ownerInitials: selectedPublisher.initials,
       profileKind: selectedPublisher.profileKind,
+      wantedKind: wantedKind,
       ownerSpecialty: _publisherSpecialty(selectedPublisher),
       avatarAsset: selectedPublisher.avatarAsset,
       title: title.trim(),
@@ -157,19 +164,30 @@ class CollabListingDraft {
           : time.hour < 18
           ? CollabTimeWindow.daytime
           : CollabTimeWindow.evening,
-      feeAmount: feeMode == CollabFeeMode.paid ? feeAmount : null,
+      feeAmount: supportsFee && feeMode == CollabFeeMode.paid
+          ? feeAmount
+          : null,
       role: role!,
       description: description.trim(),
       rating: selectedPublisher.rating,
       reviewCount: selectedPublisher.reviewCount,
       completedJobs: selectedPublisher.completedJobs,
+      publishedAt: DateTime.now(),
       genres: Set.unmodifiable(genres),
       occurrenceDate: date,
-      remainingPositions: selectedCapacity,
-      totalPositions: selectedCapacity,
       isHighlighted: false,
     );
   }
+}
+
+CollabProfileKind _wantedKindForRole(String role) {
+  final normalized = role.trim().toLowerCase();
+  if (normalized.contains('stüdyo')) return CollabProfileKind.studio;
+  if (normalized.contains('mekan')) return CollabProfileKind.venue;
+  if (normalized.contains('grup') || normalized.contains('ekip')) {
+    return CollabProfileKind.band;
+  }
+  return CollabProfileKind.musician;
 }
 
 String? _publisherSpecialty(CollabPublisherProfile profile) {

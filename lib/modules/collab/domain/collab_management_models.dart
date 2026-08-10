@@ -1,12 +1,11 @@
 import 'collab_application_models.dart';
 import 'collab_discovery_models.dart';
 
-enum CollabOwnedListingStatus { open, full, closed }
+enum CollabOwnedListingStatus { open, closed }
 
 extension CollabOwnedListingStatusLabel on CollabOwnedListingStatus {
   String get label => switch (this) {
     CollabOwnedListingStatus.open => 'Açık',
-    CollabOwnedListingStatus.full => 'Dolu',
     CollabOwnedListingStatus.closed => 'Kapalı',
   };
 }
@@ -50,30 +49,23 @@ class CollabOwnedListingRecord {
     required this.listing,
     required this.status,
     required this.applicationCount,
-    required this.filledPositions,
     required this.createdAt,
   });
 
   final CollabDiscoveryListing listing;
   final CollabOwnedListingStatus status;
   final int applicationCount;
-  final int filledPositions;
   final DateTime createdAt;
-
-  int get capacity => listing.totalPositions ?? 0;
-  int get remainingPositions => (capacity - filledPositions).clamp(0, capacity);
 
   CollabOwnedListingRecord copyWith({
     CollabDiscoveryListing? listing,
     CollabOwnedListingStatus? status,
     int? applicationCount,
-    int? filledPositions,
   }) {
     return CollabOwnedListingRecord(
       listing: listing ?? this.listing,
       status: status ?? this.status,
       applicationCount: applicationCount ?? this.applicationCount,
-      filledPositions: filledPositions ?? this.filledPositions,
       createdAt: createdAt,
     );
   }

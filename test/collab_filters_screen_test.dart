@@ -10,6 +10,45 @@ import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/co
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 void main() {
+  test('publication windows are gap-free at their boundaries', () {
+    final now = DateTime(2026, 8, 10, 12);
+    final exactlyThirtyDaysOld = now.subtract(const Duration(days: 30));
+
+    expect(
+      CollabPublishedWithin.last30Days.includes(exactlyThirtyDaysOld, now: now),
+      isTrue,
+    );
+    expect(
+      CollabPublishedWithin.olderThan30Days.includes(
+        exactlyThirtyDaysOld,
+        now: now,
+      ),
+      isFalse,
+    );
+    expect(
+      CollabPublishedWithin.olderThan30Days.includes(
+        exactlyThirtyDaysOld.subtract(const Duration(microseconds: 1)),
+        now: now,
+      ),
+      isTrue,
+    );
+  });
+
+  test('specialty selections use OR and stay scoped to musician listings', () {
+    const filter = CollabDiscoveryFilter(
+      wantedKind: CollabProfileKind.musician,
+      specialties: <String>{'Bas Gitar', 'Vokal'},
+    );
+
+    expect(filter.matches(collabDiscoveryMockListings[0]), isTrue);
+    expect(filter.matches(collabDiscoveryMockListings[1]), isTrue);
+    expect(filter.matches(collabDiscoveryMockListings[2]), isFalse);
+    expect(
+      filter.copyWith(wantedKind: CollabProfileKind.band).specialties,
+      isEmpty,
+    );
+  });
+
   Widget filtersApp() => MaterialApp(
     theme: AppTheme.navy,
     home: const CollabFiltersScreen(
@@ -18,6 +57,53 @@ void main() {
       initialFilter: CollabDiscoveryFilter(),
     ),
   );
+
+  testWidgets('extra publication filter stops at seven days', (tester) async {
+    await tester.pumpWidget(filtersApp());
+    await tester.pumpAndSettle();
+
+    final publishedWithin = find.byKey(
+      const ValueKey<String>('collab-filter-published-within'),
+    );
+    await tester.ensureVisible(publishedWithin);
+    await tester.tap(publishedWithin);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Son 24 saat'), findsOneWidget);
+    expect(find.text('Son 3 gün'), findsOneWidget);
+    expect(find.text('Son 7 gün'), findsOneWidget);
+    expect(find.text('Son 30 gün'), findsNothing);
+    expect(find.text('30 günden eski'), findsNothing);
+  });
+
+  testWidgets('regular publication filter keeps long ranges', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.navy,
+        home: const CollabFiltersScreen(
+          cadence: CollabCadence.regular,
+          direction: null,
+          initialFilter: CollabDiscoveryFilter(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final publishedWithin = find.byKey(
+      const ValueKey<String>('collab-filter-published-within'),
+    );
+    await tester.ensureVisible(publishedWithin);
+    await tester.tap(publishedWithin);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Son 30 gün'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('30 günden eski'),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('30 günden eski'), findsOneWidget);
+  });
 
   testWidgets('filter screen includes Studio and shows live result count', (
     tester,
@@ -35,7 +121,7 @@ void main() {
     await tester.tap(profileKinds);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tümünü temizle'));
-    await tester.tap(find.text('Stüdyo'));
+    await tester.tap(find.text('Stüdyodan'));
     await tester.tap(find.text('Seçimleri Uygula'));
     await tester.pumpAndSettle();
 
@@ -67,7 +153,27 @@ void main() {
     expect(find.text('melisvocal'), findsOneWidget);
   });
 
-  testWidgets('applied city filter returns to discovery and updates results', (
+  testWidgets('quick city filter updates discovery results', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.navy,
+        home: const CollabDiscoveryScreen(showBottomNavigation: false),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final city = find.byKey(const ValueKey<String>('collab-quick-city'));
+    await tester.tap(city);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('İstanbul'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('İstanbul'), findsOneWidget);
+    expect(find.text('3 ilan'), findsOneWidget);
+    expect(find.text('bugrasahin'), findsNothing);
+  });
+
+  testWidgets('dismissing quick city picker keeps filters unchanged', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -78,42 +184,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
-    await tester.pumpAndSettle();
-    final city = find.byKey(const ValueKey<String>('collab-filter-city'));
-    await tester.ensureVisible(city);
+    final city = find.byKey(const ValueKey<String>('collab-quick-city'));
     await tester.tap(city);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('İstanbul'));
-    await tester.pumpAndSettle();
-    final apply = find.text('Sonuçları Göster (3)');
-    await tester.ensureVisible(apply);
-    await tester.tap(apply);
-    await tester.pumpAndSettle();
-
-    expect(find.text('İstanbul'), findsOneWidget);
-    expect(find.text('3 ilan'), findsOneWidget);
-    expect(find.text('bugrasahin'), findsNothing);
-  });
-
-  testWidgets('back discards an un-applied filter change', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.navy,
-        home: const CollabDiscoveryScreen(showBottomNavigation: false),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.tune_rounded));
-    await tester.pumpAndSettle();
-    final city = find.byKey(const ValueKey<String>('collab-filter-city'));
-    await tester.ensureVisible(city);
-    await tester.tap(city);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Ankara'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Geri'));
+    await tester.tapAt(const Offset(5, 5));
     await tester.pumpAndSettle();
 
     expect(find.text('4 ilan'), findsOneWidget);
@@ -147,7 +221,7 @@ void main() {
     expect(find.text('Sonuçları Göster (3)'), findsOneWidget);
   });
 
-  testWidgets('filters include a listing published while discovery is open', (
+  testWidgets('discovery includes a listing published while it is open', (
     tester,
   ) async {
     final controller = CollabMockController();
@@ -164,10 +238,7 @@ void main() {
     controller.publish(_listingDraft('Filtrede görünen yeni ilan'));
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Sonuçları Göster (5)'), findsOneWidget);
+    expect(find.text('5 ilan'), findsOneWidget);
   });
 
   testWidgets('filter cards use the shared bookmark state', (tester) async {
@@ -218,7 +289,6 @@ CollabListingDraft _listingDraft(String title) {
     occurrenceTime: const CollabClockTime(hour: 20, minute: 30),
     feeMode: CollabFeeMode.paid,
     feeAmount: 1750,
-    capacity: 1,
     publisher: collabPublisherMockProfiles.first,
   );
 }

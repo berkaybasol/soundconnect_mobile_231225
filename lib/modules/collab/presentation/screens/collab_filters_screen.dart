@@ -53,14 +53,22 @@ class _CollabFiltersScreenState extends State<CollabFiltersScreen> {
   List<String> get _cities =>
       _uniqueSorted(_sourceListings.map((listing) => listing.city));
 
-  List<String> get _roles =>
-      _uniqueSorted(_baseListings.map((listing) => listing.role));
+  List<String> get _specialties => _uniqueSorted(
+    _baseListings
+        .where((listing) => listing.wantedKind == CollabProfileKind.musician)
+        .map((listing) => listing.role),
+  );
 
   List<String> get _genres =>
       _uniqueSorted(_baseListings.expand((listing) => listing.genres));
 
   List<CollabDiscoveryListing> get _baseListings => _sourceListings
       .where((listing) => listing.cadence == widget.cadence)
+      .where(
+        (listing) =>
+            listing.cadence == CollabCadence.regular ||
+            CollabPublishedWithin.last7Days.includes(listing.publishedAt),
+      )
       .where(
         (listing) =>
             widget.direction == null || listing.direction == widget.direction,
@@ -72,6 +80,14 @@ class _CollabFiltersScreenState extends State<CollabFiltersScreen> {
     final filtered = _baseListings.where(_draft.matches).toList();
     switch (_sort) {
       case _CollabResultSort.newest:
+        filtered.sort((a, b) {
+          final left = a.publishedAt;
+          final right = b.publishedAt;
+          if (left == null && right == null) return 0;
+          if (left == null) return 1;
+          if (right == null) return -1;
+          return right.compareTo(left);
+        });
         return filtered;
       case _CollabResultSort.soonest:
         filtered.sort((a, b) {
@@ -97,6 +113,11 @@ class _CollabFiltersScreenState extends State<CollabFiltersScreen> {
     _draft = widget.cadence == CollabCadence.regular
         ? widget.initialFilter.copyWith(clearDateRange: true)
         : widget.initialFilter;
+    if (widget.cadence == CollabCadence.extra &&
+        (_draft.publishedWithin == CollabPublishedWithin.last30Days ||
+            _draft.publishedWithin == CollabPublishedWithin.olderThan30Days)) {
+      _draft = _draft.copyWith(publishedWithin: CollabPublishedWithin.all);
+    }
   }
 
   @override
@@ -154,10 +175,7 @@ class _CollabFiltersScreenState extends State<CollabFiltersScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _ScopeSummary(
-                      cadence: widget.cadence,
-                      direction: widget.direction,
-                    ),
+                    _ScopeSummary(cadence: widget.cadence),
                     const SizedBox(height: 16),
                     LayoutBuilder(
                       builder: (context, constraints) {
@@ -166,12 +184,13 @@ class _CollabFiltersScreenState extends State<CollabFiltersScreen> {
                           filter: _draft,
                           showDate: widget.cadence == CollabCadence.extra,
                           cities: _cities,
-                          roles: _roles,
                           genres: _genres,
                           useColumns: useColumns,
                           onCityTap: _pickCity,
+                          onWantedKindTap: _pickWantedKind,
                           onProfileKindsTap: _pickProfileKinds,
-                          onRoleTap: _pickRole,
+                          onSpecialtiesTap: _pickSpecialties,
+                          onPublishedWithinTap: _pickPublishedWithin,
                           onGenresTap: _pickGenres,
                           onDateTap: _pickDateRange,
                           onTimesTap: _pickTimeWindows,
@@ -264,6 +283,7 @@ class _CollabFiltersScreenState extends State<CollabFiltersScreen> {
                   return CollabListingCard(
                     listing: listing,
                     saved: _controller.isListingSaved(listing.id),
+                    showCadence: false,
                     onSave: () => _toggleSaved(listing.id),
                     onTap: () => _openListing(listing),
                   );
@@ -300,31 +320,79 @@ class _CollabFiltersScreenState extends State<CollabFiltersScreen> {
     });
   }
 
-  Future<void> _pickRole() async {
-    final selected = await _showSingleSelect<String>(
-      title: 'Rol veya enstrüman seç',
-      options: _roles,
-      selected: _draft.role,
-      labelFor: (value) => value,
+  Future<void> _pickWantedKind() async {
+    final selected = await _showSingleSelect<CollabProfileKind>(
+      title: 'Ne aranıyor?',
+      options: CollabProfileKind.values,
+      selected: _draft.wantedKind,
+      labelFor: (value) => value.wantedLabel,
       allowAll: true,
     );
     if (!mounted || !selected.didChoose) return;
     setState(() {
-      _draft = selected.value == null
-          ? _draft.copyWith(clearRole: true)
-          : _draft.copyWith(role: selected.value);
+      if (selected.value == null) {
+        _draft = _draft.copyWith(
+          clearWantedKind: true,
+          specialties: const <String>{},
+        );
+      } else {
+        _draft = _draft.copyWith(
+          wantedKind: selected.value,
+          specialties: selected.value == CollabProfileKind.musician
+              ? _draft.specialties
+              : const <String>{},
+        );
+      }
     });
+  }
+
+  Future<void> _pickSpecialties() async {
+    final selected = await _showMultiSelect<String>(
+      title: 'Enstrüman / Branş',
+      options: _specialties,
+      selected: _draft.specialties,
+      labelFor: (value) => value,
+    );
+    if (!mounted || selected == null) return;
+    setState(() => _draft = _draft.copyWith(specialties: selected));
   }
 
   Future<void> _pickProfileKinds() async {
     final selected = await _showMultiSelect<CollabProfileKind>(
-      title: 'Profil türleri',
+      title: 'İlan kimden?',
       options: CollabProfileKind.values,
       selected: _draft.profileKinds,
-      labelFor: (value) => value.label,
+      labelFor: (value) => value.publisherLabel,
     );
     if (!mounted || selected == null) return;
     setState(() => _draft = _draft.copyWith(profileKinds: selected));
+  }
+
+  Future<void> _pickPublishedWithin() async {
+    final selected = await _showSingleSelect<CollabPublishedWithin>(
+      title: 'Ne zaman yayınlandı?',
+      options: CollabPublishedWithin.values
+          .where((value) => value != CollabPublishedWithin.all)
+          .where(
+            (value) =>
+                widget.cadence == CollabCadence.regular ||
+                value == CollabPublishedWithin.last24Hours ||
+                value == CollabPublishedWithin.last3Days ||
+                value == CollabPublishedWithin.last7Days,
+          )
+          .toList(growable: false),
+      selected: _draft.publishedWithin == CollabPublishedWithin.all
+          ? null
+          : _draft.publishedWithin,
+      labelFor: (value) => value.label,
+      allowAll: true,
+    );
+    if (!mounted || !selected.didChoose) return;
+    setState(() {
+      _draft = _draft.copyWith(
+        publishedWithin: selected.value ?? CollabPublishedWithin.all,
+      );
+    });
   }
 
   Future<void> _pickGenres() async {
@@ -439,10 +507,9 @@ class _CollabFiltersScreenState extends State<CollabFiltersScreen> {
 }
 
 class _ScopeSummary extends StatelessWidget {
-  const _ScopeSummary({required this.cadence, required this.direction});
+  const _ScopeSummary({required this.cadence});
 
   final CollabCadence cadence;
-  final CollabDirection? direction;
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +519,7 @@ class _ScopeSummary extends StatelessWidget {
         const SizedBox(width: 7),
         Expanded(
           child: Text(
-            '${cadence.label} · ${direction?.label ?? 'Tüm ilan yönleri'}',
+            '${cadence.label} · Tüm ilanlar',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
               fontSize: 12.5,
@@ -477,12 +544,13 @@ class _FilterFields extends StatelessWidget {
     required this.filter,
     required this.showDate,
     required this.cities,
-    required this.roles,
     required this.genres,
     required this.useColumns,
     required this.onCityTap,
+    required this.onWantedKindTap,
     required this.onProfileKindsTap,
-    required this.onRoleTap,
+    required this.onSpecialtiesTap,
+    required this.onPublishedWithinTap,
     required this.onGenresTap,
     required this.onDateTap,
     required this.onTimesTap,
@@ -492,12 +560,13 @@ class _FilterFields extends StatelessWidget {
   final CollabDiscoveryFilter filter;
   final bool showDate;
   final List<String> cities;
-  final List<String> roles;
   final List<String> genres;
   final bool useColumns;
   final VoidCallback onCityTap;
+  final VoidCallback onWantedKindTap;
   final VoidCallback onProfileKindsTap;
-  final VoidCallback onRoleTap;
+  final VoidCallback onSpecialtiesTap;
+  final VoidCallback onPublishedWithinTap;
   final VoidCallback onGenresTap;
   final VoidCallback onDateTap;
   final VoidCallback onTimesTap;
@@ -514,20 +583,37 @@ class _FilterFields extends StatelessWidget {
         onTap: onCityTap,
       ),
       _FilterSelectionField(
+        key: const ValueKey<String>('collab-filter-wanted'),
+        label: 'Aranan',
+        value: filter.wantedKind?.wantedLabel ?? 'Tümü',
+        icon: Icons.manage_search_rounded,
+        onTap: onWantedKindTap,
+      ),
+      if (filter.wantedKind == CollabProfileKind.musician)
+        _FilterSelectionField(
+          key: const ValueKey<String>('collab-filter-specialties'),
+          label: 'Enstrüman / Branş',
+          value: filter.specialties.isEmpty
+              ? 'Tümü'
+              : filter.specialties.join(', '),
+          icon: Icons.music_note_outlined,
+          onTap: onSpecialtiesTap,
+        ),
+      _FilterSelectionField(
         key: const ValueKey<String>('collab-filter-profile-kinds'),
-        label: 'Profil Türü',
+        label: 'Kimden?',
         value: filter.profileKinds.isEmpty
             ? 'Müzisyen, Grup, Mekan, Stüdyo'
-            : filter.profileKinds.map((kind) => kind.label).join(', '),
+            : filter.profileKinds.map((kind) => kind.publisherLabel).join(', '),
         icon: Icons.people_outline_rounded,
         onTap: onProfileKindsTap,
       ),
       _FilterSelectionField(
-        key: const ValueKey<String>('collab-filter-role'),
-        label: 'Rol / Enstrüman',
-        value: filter.role ?? 'Tümü',
-        icon: Icons.music_note_outlined,
-        onTap: onRoleTap,
+        key: const ValueKey<String>('collab-filter-published-within'),
+        label: 'Yayınlanma',
+        value: filter.publishedWithin.label,
+        icon: Icons.schedule_rounded,
+        onTap: onPublishedWithinTap,
       ),
       _FilterSelectionField(
         key: const ValueKey<String>('collab-filter-genres'),
@@ -546,7 +632,7 @@ class _FilterFields extends StatelessWidget {
         ),
       _FilterSelectionField(
         key: const ValueKey<String>('collab-filter-time'),
-        label: 'Zaman',
+        label: 'Günün zamanı',
         value: filter.timeWindows.isEmpty
             ? 'Tümü'
             : filter.timeWindows.map((window) => window.label).join(', '),
@@ -779,18 +865,44 @@ class _ActiveFilters extends StatelessWidget {
     if (filter.profileKinds.isNotEmpty) {
       chips.add(
         _ActiveFilterChip(
-          label: filter.profileKinds.map((kind) => kind.label).join(', '),
+          label: filter.profileKinds
+              .map((kind) => kind.publisherLabel)
+              .join(', '),
           onDeleted: () => onChanged(
             filter.copyWith(profileKinds: const <CollabProfileKind>{}),
           ),
         ),
       );
     }
-    if (filter.role != null) {
+    if (filter.wantedKind != null) {
       chips.add(
         _ActiveFilterChip(
-          label: filter.role!,
-          onDeleted: () => onChanged(filter.copyWith(clearRole: true)),
+          label: filter.wantedKind!.wantedLabel,
+          onDeleted: () => onChanged(
+            filter.copyWith(
+              clearWantedKind: true,
+              specialties: const <String>{},
+            ),
+          ),
+        ),
+      );
+    }
+    if (filter.specialties.isNotEmpty) {
+      chips.add(
+        _ActiveFilterChip(
+          label: filter.specialties.join(', '),
+          onDeleted: () =>
+              onChanged(filter.copyWith(specialties: const <String>{})),
+        ),
+      );
+    }
+    if (filter.publishedWithin != CollabPublishedWithin.all) {
+      chips.add(
+        _ActiveFilterChip(
+          label: filter.publishedWithin.label,
+          onDeleted: () => onChanged(
+            filter.copyWith(publishedWithin: CollabPublishedWithin.all),
+          ),
         ),
       );
     }
@@ -879,39 +991,52 @@ class _SingleSelectSheet<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-          const SizedBox(height: 9),
-          if (allowAll)
-            RadioListTile<T?>(
-              value: null,
-              groupValue: selected,
-              title: const Text('Tümü'),
-              onChanged: (_) =>
-                  Navigator.of(context).pop(_SingleSelection<T>(null)),
+            const SizedBox(height: 9),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  if (allowAll)
+                    RadioListTile<T?>(
+                      value: null,
+                      groupValue: selected,
+                      title: const Text('Tümü'),
+                      onChanged: (_) =>
+                          Navigator.of(context).pop(_SingleSelection<T>(null)),
+                    ),
+                  ...options.map(
+                    (option) => RadioListTile<T?>(
+                      value: option,
+                      groupValue: selected,
+                      title: Text(labelFor(option)),
+                      onChanged: (_) => Navigator.of(
+                        context,
+                      ).pop(_SingleSelection<T>(option)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ...options.map(
-            (option) => RadioListTile<T?>(
-              value: option,
-              groupValue: selected,
-              title: Text(labelFor(option)),
-              onChanged: (_) =>
-                  Navigator.of(context).pop(_SingleSelection<T>(option)),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

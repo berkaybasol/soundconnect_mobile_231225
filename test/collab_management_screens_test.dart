@@ -42,7 +42,7 @@ void main() {
     );
   });
 
-  test('accepting the final applicant fills the listing', () {
+  test('accepting an applicant closes the single-need listing', () {
     final controller = CollabMockController();
     final accepted = controller.accept('incoming-melis');
 
@@ -56,8 +56,7 @@ void main() {
     final owned = controller.ownedListings.firstWhere(
       (item) => item.listing.id == 'owned-studio-guitar',
     );
-    expect(owned.remainingPositions, 0);
-    expect(owned.status, CollabOwnedListingStatus.full);
+    expect(owned.status, CollabOwnedListingStatus.closed);
   });
 
   test('closing a listing invalidates only pending applications', () {
@@ -93,9 +92,8 @@ void main() {
     expect(controller.accept(application.id), isTrue);
 
     final updatedOwned = controller.ownedListings.single;
-    expect(updatedOwned.status, CollabOwnedListingStatus.open);
-    expect(updatedOwned.filledPositions, owned.filledPositions);
-    expect(updatedOwned.capacity, owned.capacity);
+    expect(updatedOwned.status, CollabOwnedListingStatus.closed);
+    expect(controller.createdListings, isEmpty);
     expect(
       controller.incomingApplications.single.status,
       CollabApplicationStatus.accepted,
@@ -158,12 +156,8 @@ void main() {
     );
   });
 
-  test('accepting a created seeking listing updates feed capacity', () {
-    final listing = _testListing(
-      id: 'created-seeking-listing',
-      remainingPositions: 2,
-      totalPositions: 2,
-    );
+  test('accepting a created listing removes the fulfilled need from feed', () {
+    final listing = _testListing(id: 'created-seeking-listing');
     final application = _pendingApplication(
       id: 'created-seeking-application',
       listing: listing,
@@ -176,13 +170,10 @@ void main() {
 
     expect(controller.accept(application.id), isTrue);
 
-    expect(controller.createdListings.single.remainingPositions, 1);
-    expect(controller.createdListings.single.totalPositions, 2);
-    expect(controller.ownedListings.single.remainingPositions, 1);
-    expect(controller.ownedListings.single.filledPositions, 1);
+    expect(controller.createdListings, isEmpty);
     expect(
       controller.ownedListings.single.status,
-      CollabOwnedListingStatus.open,
+      CollabOwnedListingStatus.closed,
     );
   });
 
@@ -234,7 +225,7 @@ void main() {
     expect(find.textContaining('Doğrulan'), findsNothing);
   });
 
-  testWidgets('incoming accept action updates capacity and status', (
+  testWidgets('incoming accept action closes the fulfilled listing', (
     tester,
   ) async {
     final controller = CollabMockController();
@@ -260,7 +251,10 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Kabul Et'));
     await tester.pumpAndSettle();
 
-    expect(controller.ownedListings.first.remainingPositions, 0);
+    expect(
+      controller.ownedListings.first.status,
+      CollabOwnedListingStatus.closed,
+    );
     expect(
       controller.incomingApplications
           .firstWhere((item) => item.id == 'incoming-melis')
@@ -269,27 +263,18 @@ void main() {
     );
   });
 
-  testWidgets('full and closed listings hide the incoming accept action', (
+  testWidgets('closed listings hide the incoming accept action', (
     tester,
   ) async {
     for (final status in <CollabOwnedListingStatus>[
-      CollabOwnedListingStatus.full,
       CollabOwnedListingStatus.closed,
     ]) {
-      final listing = _testListing(
-        id: 'blocked-${status.name}',
-        remainingPositions: status == CollabOwnedListingStatus.full ? 0 : 1,
-        totalPositions: 1,
-      );
+      final listing = _testListing(id: 'blocked-${status.name}');
       final application = _pendingApplication(
         id: 'blocked-application-${status.name}',
         listing: listing,
       );
-      final owned = _ownedListing(
-        listing: listing,
-        status: status,
-        filledPositions: status == CollabOwnedListingStatus.full ? 1 : 0,
-      );
+      final owned = _ownedListing(listing: listing, status: status);
       final controller = _controller(
         incomingApplications: [application],
         ownedListings: [owned],
@@ -313,7 +298,7 @@ void main() {
     }
   });
 
-  testWidgets('available incoming UI omits capacity metrics', (tester) async {
+  testWidgets('incoming UI omits capacity metrics', (tester) async {
     final listing = _testListing(
       id: 'available-incoming-ui',
       direction: CollabDirection.available,
@@ -339,7 +324,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('İş Teklifi'), findsOneWidget);
+    expect(find.text('Başvuru'), findsOneWidget);
     expect(find.text('İlan Durumu'), findsOneWidget);
     expect(find.textContaining('0/0'), findsNothing);
     expect(find.text('Kontenjan Dolu'), findsNothing);
@@ -438,14 +423,13 @@ const _testApplicant = CollabApplicantProfile(
 CollabDiscoveryListing _testListing({
   required String id,
   CollabDirection direction = CollabDirection.seeking,
-  int? remainingPositions = 1,
-  int? totalPositions = 1,
 }) {
   return CollabDiscoveryListing(
     id: id,
     ownerName: 'Test Mekan',
     ownerInitials: 'TM',
     profileKind: CollabProfileKind.venue,
+    wantedKind: CollabProfileKind.musician,
     title: 'Test Collab ilanı',
     cadence: CollabCadence.regular,
     direction: direction,
@@ -459,13 +443,8 @@ CollabDiscoveryListing _testListing({
     rating: 4.8,
     reviewCount: 24,
     completedJobs: 45,
+    publishedAt: DateTime(2026, 8, 6),
     genres: const {'Rock'},
-    remainingPositions: direction == CollabDirection.seeking
-        ? remainingPositions
-        : null,
-    totalPositions: direction == CollabDirection.seeking
-        ? totalPositions
-        : null,
   );
 }
 
@@ -487,13 +466,11 @@ CollabApplicationRecord _pendingApplication({
 CollabOwnedListingRecord _ownedListing({
   required CollabDiscoveryListing listing,
   CollabOwnedListingStatus status = CollabOwnedListingStatus.open,
-  int filledPositions = 0,
 }) {
   return CollabOwnedListingRecord(
     listing: listing,
     status: status,
     applicationCount: 1,
-    filledPositions: filledPositions,
     createdAt: DateTime(2026, 8, 6, 10),
   );
 }
@@ -513,7 +490,6 @@ CollabListingDraft _testDraft(String title) {
     occurrenceTime: null,
     feeMode: CollabFeeMode.paid,
     feeAmount: 3000,
-    capacity: null,
     publisher: const CollabPublisherProfile(
       id: 'draft-studio',
       name: 'Taslak Stüdyo',

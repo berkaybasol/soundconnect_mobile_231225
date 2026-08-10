@@ -123,6 +123,7 @@ class CollabListingCard extends StatelessWidget {
     required this.onSave,
     this.interactive = true,
     this.showSave = true,
+    this.showCadence = true,
     super.key,
   });
 
@@ -132,6 +133,7 @@ class CollabListingCard extends StatelessWidget {
   final VoidCallback onSave;
   final bool interactive;
   final bool showSave;
+  final bool showCadence;
 
   @override
   Widget build(BuildContext context) {
@@ -221,24 +223,21 @@ class CollabListingCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: [
-                    CollabStatusPill(
-                      label: listing.cadence.label,
-                      color: AppColors.socialPink,
-                    ),
-                    CollabStatusPill(
-                      label: listing.direction.label,
-                      color: listing.direction == CollabDirection.seeking
-                          ? AppColors.socialOrange
-                          : AppColors.spotifyGreen,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 13),
+                if (showCadence) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      CollabStatusPill(
+                        label: listing.cadence.label,
+                        color: AppColors.socialPink,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 13),
+                ] else
+                  const SizedBox(height: 13),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final itemWidth = (constraints.maxWidth - 8) / 2;
@@ -251,21 +250,24 @@ class CollabListingCard extends StatelessWidget {
                           icon: Icons.location_on_outlined,
                           label: listing.location,
                         ),
+                        if (listing.cadence == CollabCadence.extra)
+                          _MetaItem(
+                            width: itemWidth,
+                            icon: Icons.calendar_month_outlined,
+                            label: _scheduleText(listing),
+                          ),
+                        if (listing.cadence == CollabCadence.extra ||
+                            (listing.profileKind == CollabProfileKind.venue &&
+                                listing.feeAmount != null))
+                          _MetaItem(
+                            width: itemWidth,
+                            icon: Icons.payments_outlined,
+                            label: _feeText(listing.feeAmount),
+                          ),
                         _MetaItem(
                           width: itemWidth,
-                          icon: Icons.calendar_month_outlined,
-                          label: _scheduleText(listing),
-                        ),
-                        _MetaItem(
-                          width: itemWidth,
-                          icon: Icons.payments_outlined,
-                          label: _feeText(listing.feeAmount),
-                        ),
-                        _MetaItem(
-                          width: itemWidth,
-                          icon: _roleIcon(listing.profileKind),
-                          label: listing.role,
-                          trailing: _CapacityLabel(listing: listing),
+                          icon: _wantedIcon(listing.wantedKind),
+                          label: _wantedText(listing),
                         ),
                       ],
                     );
@@ -295,11 +297,15 @@ class CollabListingCard extends StatelessWidget {
     return '₺$value';
   }
 
-  IconData _roleIcon(CollabProfileKind kind) => switch (kind) {
-    CollabProfileKind.studio => Icons.graphic_eq_rounded,
-    CollabProfileKind.venue => Icons.music_note_rounded,
+  String _wantedText(CollabDiscoveryListing listing) {
+    return listing.wantedSummary;
+  }
+
+  IconData _wantedIcon(CollabProfileKind kind) => switch (kind) {
+    CollabProfileKind.musician => Icons.music_note_outlined,
     CollabProfileKind.band => Icons.groups_2_outlined,
-    CollabProfileKind.musician => Icons.music_note_rounded,
+    CollabProfileKind.venue => Icons.storefront_outlined,
+    CollabProfileKind.studio => Icons.graphic_eq_rounded,
   };
 }
 
@@ -443,13 +449,11 @@ class _MetaItem extends StatelessWidget {
     required this.width,
     required this.icon,
     required this.label,
-    this.trailing,
   });
 
   final double width;
   final IconData icon;
   final String label;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -468,29 +472,7 @@ class _MetaItem extends StatelessWidget {
               style: TextStyle(color: muted, fontSize: 11.5),
             ),
           ),
-          if (trailing != null) ...[const SizedBox(width: 4), trailing!],
         ],
-      ),
-    );
-  }
-}
-
-class _CapacityLabel extends StatelessWidget {
-  const _CapacityLabel({required this.listing});
-
-  final CollabDiscoveryListing listing;
-
-  @override
-  Widget build(BuildContext context) {
-    final remaining = listing.remainingPositions;
-    final total = listing.totalPositions;
-    if (remaining == null || total == null) return const SizedBox.shrink();
-    return Text(
-      '$remaining/$total',
-      style: TextStyle(
-        color: AppColors.coralLight,
-        fontSize: 11.5,
-        fontWeight: FontWeight.w900,
       ),
     );
   }

@@ -151,10 +151,7 @@ class _CollabIncomingApplicationsScreenState
                         final canAccept =
                             application.status ==
                                 CollabApplicationStatus.pending &&
-                            owned.status == CollabOwnedListingStatus.open &&
-                            (owned.listing.direction ==
-                                    CollabDirection.available ||
-                                owned.remainingPositions > 0);
+                            owned.status == CollabOwnedListingStatus.open;
                         return _IncomingApplicationCard(
                           application: application,
                           onProfile: () => _showMessage(
@@ -270,8 +267,6 @@ class _IncomingListingSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final listing = owned.listing;
-    final capacity = owned.capacity;
-    final progress = capacity == 0 ? 0.0 : owned.filledPositions / capacity;
     return CollabGradientFrame(
       highlighted: true,
       radius: 20,
@@ -310,7 +305,7 @@ class _IncomingListingSummary extends StatelessWidget {
                           color: AppColors.socialPink,
                         ),
                         CollabStatusPill(
-                          label: listing.direction.label,
+                          label: listing.wantedSummary,
                           color: listing.direction == CollabDirection.seeking
                               ? AppColors.socialOrange
                               : AppColors.spotifyGreen,
@@ -341,59 +336,23 @@ class _IncomingListingSummary extends StatelessWidget {
               ),
             ],
           ),
-          if (listing.direction == CollabDirection.seeking) ...[
-            const SizedBox(height: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress.clamp(0.0, 1.0),
-                minHeight: 7,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.socialPink),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryMetric(
+                  value: '${owned.applicationCount}',
+                  label: 'Başvuru',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryMetric(
-                    value: '${owned.filledPositions}/$capacity',
-                    label: 'Kontenjan Dolu',
-                  ),
+              Expanded(
+                child: _SummaryMetric(
+                  value: owned.status.label,
+                  label: 'İlan Durumu',
                 ),
-                Expanded(
-                  child: _SummaryMetric(
-                    value: '${owned.applicationCount}',
-                    label: 'Başvuru',
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryMetric(
-                    value: '${owned.remainingPositions}',
-                    label: 'Kalan Kontenjan',
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryMetric(
-                    value: '${owned.applicationCount}',
-                    label: 'İş Teklifi',
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryMetric(
-                    value: owned.status.label,
-                    label: 'İlan Durumu',
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -90,6 +90,10 @@ class AppRouteGuard {
         !AccessPolicy.canAccessBackstage(session.roles)) {
       return startRouteFor(session);
     }
+    if (requested == AppRoutes.collabDiscovery &&
+        !AccessPolicy.canAccessCollab(session.roles)) {
+      return startRouteFor(session);
+    }
 
     return null;
   }
@@ -124,6 +128,5 @@ class AppRouteGuard {
   static const Set<String> _backstageRoutes = <String>{
     AppRoutes.home,
     AppRoutes.backstageProfilesHome,
-    AppRoutes.collabDiscovery,
   };
 }

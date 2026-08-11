@@ -10,6 +10,7 @@ import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
 import '../../modules/auth/presentation/screens/venue_application_screen.dart';
 import '../../modules/auth/presentation/screens/venue_pending_screen.dart';
+import '../../modules/collab/presentation/collab_route_args.dart';
 import '../../modules/collab/presentation/screens/collab_discovery_screen.dart';
 import '../../modules/collab/presentation/theme/collab_visual_theme.dart';
 import '../../modules/dm/presentation/screens/dm_chat_screen.dart';
@@ -245,9 +246,11 @@ class AppRouter {
           ),
         );
       case AppRoutes.collabDiscovery:
+        final args = _arguments<CollabDiscoveryRouteArgs>(settings);
         return collabPageRoute(
           settings: settings,
-          builder: (_) => const CollabDiscoveryScreen(),
+          builder: (_) =>
+              CollabDiscoveryScreen(initialListingId: args?.initialListingId),
         );
       case AppRoutes.home:
         return MaterialPageRoute(

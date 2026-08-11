@@ -2,24 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
-import '../../data/collab_application_mock_data.dart';
-import '../../domain/collab_application_models.dart';
-import '../../domain/collab_discovery_models.dart';
+import '../../domain/collab_types.dart';
+import '../../domain/entities/collab_actor.dart';
 import '../widgets/collab_action_widgets.dart';
 import '../widgets/collab_discovery_widgets.dart';
 
 class CollabProfileSelectionScreen extends StatefulWidget {
   const CollabProfileSelectionScreen({
-    required this.listing,
-    this.profiles = collabApplicantMockProfiles,
-    this.initialProfile,
+    required this.actors,
+    required this.wantedType,
+    this.initialActor,
     this.showBottomNavigation = true,
     super.key,
   });
 
-  final CollabDiscoveryListing listing;
-  final List<CollabApplicantProfile> profiles;
-  final CollabApplicantProfile? initialProfile;
+  final List<CollabActor> actors;
+  final CollabProfileKind wantedType;
+  final CollabActor? initialActor;
   final bool showBottomNavigation;
 
   @override
@@ -29,21 +28,28 @@ class CollabProfileSelectionScreen extends StatefulWidget {
 
 class _CollabProfileSelectionScreenState
     extends State<CollabProfileSelectionScreen> {
-  CollabApplicantProfile? _selectedProfile;
+  CollabActor? _selectedActor;
 
-  bool get _isOffer => widget.listing.direction == CollabDirection.available;
+  List<CollabActor> get _eligibleActors => widget.actors
+      .where((actor) => actor.profileType == widget.wantedType)
+      .toList(growable: false);
 
   @override
   void initState() {
     super.initState();
-    _selectedProfile =
-        widget.initialProfile ??
-        (widget.profiles.isEmpty ? null : widget.profiles.first);
+    final eligible = _eligibleActors;
+    final initial = widget.initialActor;
+    _selectedActor =
+        initial != null &&
+            eligible.any((actor) => actor.actorId == initial.actorId)
+        ? initial
+        : eligible.firstOrNull;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final actors = _eligibleActors;
     return Scaffold(
       appBar: AppBar(title: const Text('Profil Seç')),
       body: SafeArea(
@@ -56,33 +62,30 @@ class _CollabProfileSelectionScreenState
                 padding: const EdgeInsets.fromLTRB(14, 4, 14, 18),
                 children: [
                   Text(
-                    _isOffer
-                        ? 'İş teklifinde kullanacağın profili seç.'
-                        : 'Başvuruda kullanacağın profili seç.',
+                    'Başvuruda kullanacağın ${widget.wantedType.label.toLowerCase()} profilini seç.',
                     style: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontSize: 13,
                     ),
                   ),
                   const SizedBox(height: 25),
-                  const CollabSectionTitle('Profillerim'),
+                  const CollabSectionTitle('Uygun Profillerim'),
                   const SizedBox(height: 11),
-                  if (widget.profiles.isEmpty)
-                    const _EmptyProfilesCard()
+                  if (actors.isEmpty)
+                    _EmptyProfilesCard(wantedType: widget.wantedType)
                   else
-                    ...widget.profiles.map(
-                      (profile) => Padding(
+                    ...actors.map(
+                      (actor) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _SelectableProfileCard(
-                          profile: profile,
-                          selected: profile.id == _selectedProfile?.id,
-                          onTap: () =>
-                              setState(() => _selectedProfile = profile),
+                          actor: actor,
+                          selected: actor.actorId == _selectedActor?.actorId,
+                          onTap: () => setState(() => _selectedActor = actor),
                         ),
                       ),
                     ),
                   const SizedBox(height: 9),
-                  _ProfileInfoBanner(isOffer: _isOffer),
+                  const _ProfileInfoBanner(),
                 ],
               ),
             ),
@@ -90,10 +93,11 @@ class _CollabProfileSelectionScreenState
               top: false,
               minimum: const EdgeInsets.fromLTRB(14, 10, 14, 14),
               child: CollabPrimaryAction(
+                key: const ValueKey<String>('collab-profile-continue'),
                 label: 'Devam Et',
-                onPressed: _selectedProfile == null
+                onPressed: _selectedActor == null
                     ? null
-                    : () => Navigator.of(context).pop(_selectedProfile),
+                    : () => Navigator.of(context).pop(_selectedActor),
               ),
             ),
           ],
@@ -108,12 +112,12 @@ class _CollabProfileSelectionScreenState
 
 class _SelectableProfileCard extends StatelessWidget {
   const _SelectableProfileCard({
-    required this.profile,
+    required this.actor,
     required this.selected,
     required this.onTap,
   });
 
-  final CollabApplicantProfile profile;
+  final CollabActor actor;
   final bool selected;
   final VoidCallback onTap;
 
@@ -123,7 +127,7 @@ class _SelectableProfileCard extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: profile.name,
+      label: actor.displayName,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
@@ -136,9 +140,9 @@ class _SelectableProfileCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CollabIdentityAvatar(
-                initials: profile.initials,
-                profileKind: profile.profileKind,
-                avatarAsset: profile.avatarAsset,
+                initials: actor.initials,
+                profileKind: actor.profileType,
+                avatarUrl: actor.avatarUrl,
                 size: 72,
               ),
               const SizedBox(width: 14),
@@ -150,7 +154,7 @@ class _SelectableProfileCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            profile.name,
+                            actor.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -166,9 +170,7 @@ class _SelectableProfileCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      profile.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      actor.profileType.label,
                       style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 12,
@@ -184,13 +186,17 @@ class _SelectableProfileCard extends StatelessWidget {
                         _ProfileMetric(
                           icon: Icons.star_rounded,
                           label: 'Puan',
-                          value: profile.rating.toStringAsFixed(1),
-                          supporting: '${profile.reviewCount} yorum',
+                          value: actor.reviewCount == 0
+                              ? 'Yeni'
+                              : actor.rating.toStringAsFixed(1),
+                          supporting: actor.reviewCount == 0
+                              ? null
+                              : '${actor.reviewCount} yorum',
                         ),
                         _ProfileMetric(
                           icon: Icons.work_outline_rounded,
                           label: 'Tamamlanan İş',
-                          value: '${profile.completedJobs}',
+                          value: '${actor.completedJobCount}',
                         ),
                       ],
                     ),
@@ -299,9 +305,7 @@ class _ProfileMetric extends StatelessWidget {
 }
 
 class _ProfileInfoBanner extends StatelessWidget {
-  const _ProfileInfoBanner({required this.isOffer});
-
-  final bool isOffer;
+  const _ProfileInfoBanner();
 
   @override
   Widget build(BuildContext context) {
@@ -321,9 +325,7 @@ class _ProfileInfoBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isOffer
-                      ? 'Teklifin bu profil ile gönderilecek.'
-                      : 'Başvurun bu profil ile gönderilecek.',
+                  'Başvurun seçtiğin profil ile gönderilecek.',
                   style: TextStyle(
                     color: theme.colorScheme.onSurface,
                     fontSize: 13,
@@ -332,8 +334,7 @@ class _ProfileInfoBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Seçtiğin profilin bilgileri karşı tarafa görünecek ve '
-                  'iletişim bu profil üzerinden sağlanacak.',
+                  'Profil bilgilerin karşı tarafa görünür; telefon numaran yalnızca başvurunun taraflarıyla paylaşılır.',
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 11.5,
@@ -350,7 +351,9 @@ class _ProfileInfoBanner extends StatelessWidget {
 }
 
 class _EmptyProfilesCard extends StatelessWidget {
-  const _EmptyProfilesCard();
+  const _EmptyProfilesCard({required this.wantedType});
+
+  final CollabProfileKind wantedType;
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +361,7 @@ class _EmptyProfilesCard extends StatelessWidget {
       radius: 18,
       padding: const EdgeInsets.all(18),
       child: Text(
-        'Başvuru gönderebilmek için bir Backstage profiline ihtiyacın var.',
+        'Bu ilana başvurabilecek bir ${wantedType.label.toLowerCase()} profilin bulunmuyor.',
         textAlign: TextAlign.center,
         style: TextStyle(
           color: Theme.of(context).colorScheme.onSurfaceVariant,

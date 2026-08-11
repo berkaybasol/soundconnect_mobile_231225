@@ -1,159 +1,152 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_discovery_mock_data.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_management_mock_data.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_mock_controller.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_discovery_models.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_discovery_screen.dart';
+import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_types.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_listing_detail_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_listing_detail_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
+import 'support/collab_test_support.dart';
+
 void main() {
-  Widget detailApp(int listingIndex) => MaterialApp(
+  Widget detailApp(
+    CollabListingDetailCubit cubit, {
+    String listingId = 'listing-1',
+  }) => MaterialApp(
     theme: AppTheme.navy,
     home: CollabListingDetailScreen(
-      listing: collabDiscoveryMockListings[listingIndex],
-      controller: CollabMockController(),
+      listingId: listingId,
+      detailCubit: cubit,
       showBottomNavigation: false,
     ),
   );
 
-  Widget detailAppForListing(CollabDiscoveryListing listing) => MaterialApp(
-    theme: AppTheme.navy,
-    home: CollabListingDetailScreen(
-      listing: listing,
-      controller: CollabMockController(),
-      showBottomNavigation: false,
-    ),
-  );
-
-  testWidgets('seeking detail keeps only the approved job information', (
+  testWidgets('extra detail shows date, exact fee and approved job fields', (
     tester,
   ) async {
-    await tester.pumpWidget(detailApp(0));
+    final repository = FakeCollabDetailRepository(
+      listing: collabListingFixture(),
+    );
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(detailApp(cubit));
     await tester.pumpAndSettle();
 
     expect(find.text('Çarşamba gecesi bas gitarist arıyoruz'), findsOneWidget);
-    expect(find.text('Bas Gitar'), findsWidgets);
-    expect(find.text('Ücret'), findsOneWidget);
-    expect(find.text('₺1.500'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Başvuru Yap'),
-      450,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Başvuru Yap'), findsOneWidget);
-    expect(find.text('İş Teklifi Gönder'), findsNothing);
+    expect(find.textContaining('12.08.2026'), findsOneWidget);
+    expect(find.text('₺1.500,75'), findsOneWidget);
     expect(find.text('Funk, Rock, Alternatif'), findsOneWidget);
-    expect(find.text('4.8 / 5'), findsOneWidget);
-    expect(find.text('128'), findsOneWidget);
-
     expect(find.text('Performans Süresi'), findsNothing);
     expect(find.text('Ekipman'), findsNothing);
     expect(find.text('Prova'), findsNothing);
     expect(find.text('Ulaşım'), findsNothing);
-    expect(find.textContaining('Collab Puanı'), findsNothing);
   });
 
-  testWidgets('musician listing uses the standard application action', (
-    tester,
-  ) async {
-    await tester.pumpWidget(detailApp(2));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Stüdyo arayan'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Başvuru Yap'),
-      450,
-      scrollable: find.byType(Scrollable).first,
+  testWidgets('regular musician detail omits date and fee', (tester) async {
+    final repository = FakeCollabDetailRepository(
+      listing: collabListingFixture(
+        cadence: CollabCadence.regular,
+        publisher: musicianActor,
+        feeAmountMinor: 1000000,
+      ),
     );
-    expect(find.text('Başvuru Yap'), findsOneWidget);
-    expect(find.text('İş Teklifi Gönder'), findsNothing);
-  });
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
 
-  testWidgets('regular detail omits fee information', (tester) async {
-    await tester.pumpWidget(detailApp(4));
+    await tester.pumpWidget(detailApp(cubit));
     await tester.pumpAndSettle();
 
-    expect(find.text('₺10.000'), findsNothing);
     expect(find.text('Ücret'), findsNothing);
-    expect(find.text('Her Cuma'), findsNothing);
+    expect(find.text('₺10.000'), findsNothing);
+    expect(find.textContaining('12.08.2026'), findsNothing);
   });
 
-  testWidgets('regular venue detail shows fee when it was provided', (
-    tester,
-  ) async {
-    await tester.pumpWidget(detailApp(5));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Ücret'), findsOneWidget);
-    expect(find.text('₺12.000'), findsOneWidget);
-    expect(find.text('Her Cuma'), findsNothing);
-  });
-
-  testWidgets('regular venue detail states when fee was not provided', (
-    tester,
-  ) async {
-    final listing = collabDiscoveryMockListings[5].copyWith(
-      clearFeeAmount: true,
+  testWidgets('regular venue states when fee was not provided', (tester) async {
+    final repository = FakeCollabDetailRepository(
+      listing: collabListingFixture(
+        cadence: CollabCadence.regular,
+        feeAmountMinor: null,
+      ),
     );
-    await tester.pumpWidget(detailAppForListing(listing));
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(detailApp(cubit));
     await tester.pumpAndSettle();
 
     expect(find.text('Ücret'), findsOneWidget);
     expect(find.text('Ücret belirtilmemiş'), findsOneWidget);
   });
 
-  testWidgets('bookmark state stays synchronized with discovery', (
+  testWidgets('bookmark action calls repository and updates real state', (
     tester,
   ) async {
-    final controller = CollabMockController();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.navy,
-        home: CollabDiscoveryScreen(
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
+    final repository = FakeCollabDetailRepository(
+      listing: collabListingFixture(),
     );
-    await tester.pumpAndSettle();
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
 
-    await tester.tap(find.text('Çarşamba gecesi bas gitarist arıyoruz'));
+    await tester.pumpWidget(detailApp(cubit));
     await tester.pumpAndSettle();
-    expect(find.byType(CollabListingDetailScreen), findsOneWidget);
-
     await tester.tap(find.byTooltip('İlanı kaydet'));
-    await tester.pump();
-    await tester.pageBack();
     await tester.pumpAndSettle();
 
+    expect(repository.saveCalls, 1);
+    expect(cubit.state.listing?.savedByMe, isTrue);
     expect(find.byTooltip('Kaydedilenlerden çıkar'), findsOneWidget);
   });
 
-  testWidgets('listing owner sees edit instead of an application action', (
+  testWidgets('owner can close the listing after destructive confirmation', (
     tester,
   ) async {
-    final controller = CollabMockController();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.navy,
-        home: CollabListingDetailScreen(
-          listing: collabOwnedMockListings.first.listing,
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
+    final repository = FakeCollabDetailRepository(
+      listing: collabListingFixture(ownedByMe: true),
     );
-    await tester.pumpAndSettle();
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
 
+    await tester.pumpWidget(detailApp(cubit));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('İlanı Düzenle'),
-      450,
+      find.text('İlanı Kapat'),
+      400,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('İlanı Düzenle'), findsOneWidget);
-    expect(find.text('Başvuru Yap'), findsNothing);
-    expect(find.text('İş Teklifi Gönder'), findsNothing);
+    await tester.tap(find.text('İlanı Kapat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'İlanı Kapat'));
+    await tester.pumpAndSettle();
+
+    expect(repository.closeCalls, 1);
+    expect(cubit.state.listing?.status, CollabListingStatus.closed);
+    expect(find.text('İlan Kapandı'), findsWidgets);
+  });
+
+  testWidgets('detail error can retry the same real listing id', (
+    tester,
+  ) async {
+    final repository =
+        FakeCollabDetailRepository(
+            listing: collabListingFixture(id: 'retry-listing'),
+          )
+          ..detailError = const AppError(
+            code: 'temporary',
+            message: 'İlan şu an getirilemedi.',
+          );
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(detailApp(cubit, listingId: 'retry-listing'));
+    await tester.pumpAndSettle();
+    expect(find.text('İlan şu an getirilemedi.'), findsOneWidget);
+
+    repository.detailError = null;
+    await tester.tap(find.text('Tekrar Dene'));
+    await tester.pumpAndSettle();
+
+    expect(repository.detailCalls, 2);
+    expect(find.text('Çarşamba gecesi bas gitarist arıyoruz'), findsOneWidget);
   });
 }

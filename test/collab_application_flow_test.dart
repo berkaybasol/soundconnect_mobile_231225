@@ -1,15 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_application_mock_data.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_discovery_mock_data.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_mock_controller.dart';
+import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_types.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_listing_detail_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_application_compose_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_listing_detail_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_profile_selection_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
+import 'support/collab_test_support.dart';
+
 void main() {
   Widget app(Widget home) => MaterialApp(theme: AppTheme.navy, home: home);
+
+  Widget composeApp(CollabListingDetailCubit cubit) => app(
+    BlocProvider<CollabListingDetailCubit>.value(
+      value: cubit,
+      child: CollabApplicationComposeScreen(
+        listing: cubit.state.listing!,
+        initialActor: musicianActor,
+        eligibleActors: const [musicianActor],
+        showBottomNavigation: false,
+      ),
+    ),
+  );
 
   Future<void> scrollTo(WidgetTester tester, Finder finder) async {
     await tester.scrollUntilVisible(
@@ -19,13 +34,14 @@ void main() {
     );
   }
 
-  testWidgets('profile selection uses rating and completed work only', (
+  testWidgets('profile selection exposes only actors matching wanted type', (
     tester,
   ) async {
     await tester.pumpWidget(
       app(
-        CollabProfileSelectionScreen(
-          listing: collabDiscoveryMockListings.first,
+        const CollabProfileSelectionScreen(
+          actors: [musicianActor, bandActor],
+          wantedType: CollabProfileKind.musician,
           showBottomNavigation: false,
         ),
       ),
@@ -33,141 +49,164 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Profil Seç'), findsOneWidget);
-    expect(find.text('bugrasahin'), findsOneWidget);
-    expect(find.text('Acoustic Route'), findsOneWidget);
+    expect(find.text('Deniz Kaya'), findsOneWidget);
+    expect(find.text('Acoustic Route'), findsNothing);
     expect(find.text('4.9'), findsOneWidget);
     expect(find.text('32'), findsOneWidget);
-    expect(find.textContaining('Collab Puanı'), findsNothing);
     expect(find.textContaining('Doğrulan'), findsNothing);
   });
 
-  testWidgets('seeking listing completes profile and application flow', (
+  testWidgets(
+    'application form starts empty, validates phone and allows blank message',
+    (tester) async {
+      final repository =
+          FakeCollabDetailRepository(
+              listing: collabListingFixture(),
+              actors: const [musicianActor],
+            )
+            ..applyError = const AppError(
+              code: 'temporary',
+              message: 'Test hata yanıtı',
+            );
+      final cubit = CollabListingDetailCubit(repository);
+      addTearDown(cubit.close);
+      await cubit.load('listing-1');
+
+      await tester.pumpWidget(composeApp(cubit));
+      await tester.pumpAndSettle();
+
+      final phoneField = tester.widget<TextFormField>(
+        find.byKey(const ValueKey<String>('collab-phone-field')),
+      );
+      final messageField = tester.widget<TextFormField>(
+        find.byKey(const ValueKey<String>('collab-message-field')),
+      );
+      expect(phoneField.controller?.text, isEmpty);
+      expect(messageField.controller?.text, isEmpty);
+
+      await scrollTo(tester, find.text('Başvuruyu Gönder'));
+      await tester.tap(find.text('Başvuruyu Gönder'));
+      await tester.pump();
+
+      expect(find.text('Geçerli bir telefon numarası gir.'), findsOneWidget);
+      expect(find.text('Mesaj alanı boş bırakılamaz.'), findsNothing);
+      expect(repository.applyCalls, 0);
+
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('collab-phone-field')),
+        '+90 555 123 45 67',
+      );
+      await scrollTo(tester, find.text('Başvuruyu Gönder'));
+      await tester.tap(find.text('Başvuruyu Gönder'));
+      await tester.pumpAndSettle();
+      expect(repository.applyCalls, 1);
+      expect(repository.lastApplicationInput?.message, isEmpty);
+    },
+  );
+
+  testWidgets('application error remains on form and can be retried', (
     tester,
   ) async {
-    final controller = CollabMockController();
+    final repository =
+        FakeCollabDetailRepository(
+            listing: collabListingFixture(),
+            actors: const [musicianActor],
+          )
+          ..applyError = const AppError(
+            code: 'temporary',
+            message: 'Başvuru şu an gönderilemedi.',
+          );
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
+    await cubit.load('listing-1');
+
+    await tester.pumpWidget(composeApp(cubit));
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('collab-phone-field')),
+      '+90 555 123 45 67',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('collab-message-field')),
+      'İlanınızla ilgileniyorum; repertuvar detaylarını konuşabiliriz.',
+    );
+    await scrollTo(tester, find.text('Başvuruyu Gönder'));
+    await tester.tap(find.text('Başvuruyu Gönder'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Başvuru şu an gönderilemedi.'), findsOneWidget);
+    expect(find.byType(CollabApplicationComposeScreen), findsOneWidget);
+    expect(repository.applyCalls, 1);
+  });
+
+  testWidgets('detail completes actor selection and real application flow', (
+    tester,
+  ) async {
+    final repository = FakeCollabDetailRepository(
+      listing: collabListingFixture(),
+      actors: const [musicianActor, bandActor],
+    );
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
+
     await tester.pumpWidget(
       app(
         CollabListingDetailScreen(
-          listing: collabDiscoveryMockListings.first,
-          controller: controller,
+          listingId: 'listing-1',
+          detailCubit: cubit,
           showBottomNavigation: false,
         ),
       ),
     );
     await tester.pumpAndSettle();
-
     await scrollTo(tester, find.text('Başvuru Yap'));
     await tester.tap(find.text('Başvuru Yap'));
     await tester.pumpAndSettle();
 
     expect(find.byType(CollabProfileSelectionScreen), findsOneWidget);
-    await tester.tap(find.text('Acoustic Route'));
+    expect(find.text('Deniz Kaya'), findsOneWidget);
+    expect(find.text('Acoustic Route'), findsNothing);
     await tester.tap(find.text('Devam Et'));
     await tester.pumpAndSettle();
 
     expect(find.byType(CollabApplicationComposeScreen), findsOneWidget);
-    expect(find.text('Acoustic Route'), findsOneWidget);
-    expect(find.text('+90 555 123 45 67'), findsOneWidget);
-    expect(find.text('₺1.500'), findsOneWidget);
-    expect(find.textContaining('₺1.500 -'), findsNothing);
-
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('collab-phone-field')),
+      '+90 555 123 45 67',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('collab-message-field')),
+      'İlanınıza uygunum ve repertuvarı hızlıca çalışabilirim.',
+    );
     await scrollTo(tester, find.text('Başvuruyu Gönder'));
     await tester.tap(find.text('Başvuruyu Gönder'));
-    await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
     expect(find.byType(CollabListingDetailScreen), findsOneWidget);
     await scrollTo(tester, find.text('Başvuru Gönderildi'));
     expect(find.text('Başvuru Gönderildi'), findsOneWidget);
-    expect(find.text('Başvurun mock olarak gönderildi.'), findsOneWidget);
+    expect(repository.applyCalls, 1);
+    expect(repository.lastApplicationInput?.applicantActorId, 'actor-musician');
+    expect(repository.lastApplicationInput?.phone, '+90 555 123 45 67');
   });
 
-  testWidgets('musician listing uses the standard application flow', (
-    tester,
-  ) async {
-    final controller = CollabMockController();
-    await tester.pumpWidget(
-      app(
-        CollabListingDetailScreen(
-          listing: collabDiscoveryMockListings[2],
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await scrollTo(tester, find.text('Başvuru Yap'));
-    await tester.tap(find.text('Başvuru Yap'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Devam Et'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(CollabApplicationComposeScreen), findsOneWidget);
-    expect(find.text('Başvuru Yap'), findsOneWidget);
-    await scrollTo(tester, find.text('Başvuruyu Gönder'));
-    expect(find.text('Başvuruyu Gönder'), findsOneWidget);
-    expect(find.text('Teklifi Gönder'), findsNothing);
-  });
-
-  testWidgets('application form validates phone and a non-empty message', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      app(
-        CollabApplicationComposeScreen(
-          listing: collabDiscoveryMockListings.first,
-          initialProfile: collabApplicantMockProfiles.first,
-          initialPhoneNumber: '',
-          initialMessage: '',
-          showBottomNavigation: false,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await scrollTo(tester, find.text('Başvuruyu Gönder'));
-    await tester.tap(find.text('Başvuruyu Gönder'));
-    await tester.pump();
-
-    expect(find.text('Geçerli bir telefon numarası gir.'), findsOneWidget);
-    expect(find.text('Mesaj alanı boş bırakılamaz.'), findsOneWidget);
-  });
-
-  testWidgets('application phone rejects alphabetic characters', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      app(
-        CollabApplicationComposeScreen(
-          listing: collabDiscoveryMockListings.first,
-          initialProfile: collabApplicantMockProfiles.first,
-          initialPhoneNumber: 'abc5551234567xyz',
-          initialMessage:
-              'İlanınızla ilgileniyorum ve detayları konuşabiliriz.',
-          showBottomNavigation: false,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await scrollTo(tester, find.text('Başvuruyu Gönder'));
-    await tester.tap(find.text('Başvuruyu Gönder'));
-    await tester.pump();
-
-    expect(find.text('Geçerli bir telefon numarası gir.'), findsOneWidget);
-  });
-
-  testWidgets('profile and application screens fit a phone viewport', (
+  testWidgets('profile and compose screens fit a phone viewport', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = FakeCollabDetailRepository(
+      listing: collabListingFixture(),
+      actors: const [musicianActor],
+    );
+    final cubit = CollabListingDetailCubit(repository);
+    addTearDown(cubit.close);
+    await cubit.load('listing-1');
 
     await tester.pumpWidget(
       app(
-        CollabProfileSelectionScreen(
-          listing: collabDiscoveryMockListings.first,
+        const CollabProfileSelectionScreen(
+          actors: [musicianActor],
+          wantedType: CollabProfileKind.musician,
           showBottomNavigation: false,
         ),
       ),
@@ -175,17 +214,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        key: const ValueKey('application-viewport-app'),
-        theme: AppTheme.navy,
-        home: CollabApplicationComposeScreen(
-          listing: collabDiscoveryMockListings.first,
-          initialProfile: collabApplicantMockProfiles.first,
-          showBottomNavigation: false,
-        ),
-      ),
-    );
+    await tester.pumpWidget(composeApp(cubit));
     await tester.pumpAndSettle();
     await tester.fling(
       find.byType(Scrollable).last,

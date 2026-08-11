@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/collab_discovery_models.dart';
 
@@ -258,11 +259,11 @@ class CollabListingCard extends StatelessWidget {
                           ),
                         if (listing.cadence == CollabCadence.extra ||
                             (listing.profileKind == CollabProfileKind.venue &&
-                                listing.feeAmount != null))
+                                listing.feeAmountMinor != null))
                           _MetaItem(
                             width: itemWidth,
                             icon: Icons.payments_outlined,
-                            label: _feeText(listing.feeAmount),
+                            label: _feeText(listing),
                           ),
                         _MetaItem(
                           width: itemWidth,
@@ -282,19 +283,35 @@ class CollabListingCard extends StatelessWidget {
   }
 
   String _scheduleText(CollabDiscoveryListing listing) {
-    final time = listing.timeLabel?.trim();
-    return time == null || time.isEmpty
-        ? listing.scheduleLabel
-        : '${listing.scheduleLabel} · $time';
+    final scheduledAt = listing.scheduledAt?.toLocal();
+    if (scheduledAt == null) return 'Tarih belirtilmemiş';
+    final date = <int>[
+      scheduledAt.day,
+      scheduledAt.month,
+    ].map((part) => part.toString().padLeft(2, '0')).join('.');
+    final time = <int>[
+      scheduledAt.hour,
+      scheduledAt.minute,
+    ].map((part) => part.toString().padLeft(2, '0')).join(':');
+    return '$date.${scheduledAt.year} · $time';
   }
 
-  String _feeText(int? amount) {
-    if (amount == null) return 'Ücret belirtilmemiş';
-    final value = amount.toString().replaceAllMapped(
+  String _feeText(CollabDiscoveryListing listing) {
+    final minor = listing.feeAmountMinor;
+    if (minor == null) return 'Ücret belirtilmemiş';
+    final whole = minor ~/ 100;
+    final cents = minor.remainder(100);
+    final groupedWhole = whole.toString().replaceAllMapped(
       RegExp(r'\B(?=(\d{3})+(?!\d))'),
       (_) => '.',
     );
-    return '₺$value';
+    final amount = cents == 0
+        ? groupedWhole
+        : '$groupedWhole,${cents.toString().padLeft(2, '0')}';
+    final currency = listing.feeCurrency?.toUpperCase();
+    return currency == null || currency == 'TRY'
+        ? '₺$amount'
+        : '$currency $amount';
   }
 
   String _wantedText(CollabDiscoveryListing listing) {
@@ -321,6 +338,7 @@ class CollabProfileAvatar extends StatelessWidget {
       initials: listing.ownerInitials,
       profileKind: listing.profileKind,
       avatarAsset: listing.avatarAsset,
+      avatarUrl: listing.avatarUrl,
       size: size,
     );
   }
@@ -331,6 +349,7 @@ class CollabIdentityAvatar extends StatelessWidget {
     required this.initials,
     required this.profileKind,
     this.avatarAsset,
+    this.avatarUrl,
     this.size = 52,
     super.key,
   });
@@ -338,6 +357,7 @@ class CollabIdentityAvatar extends StatelessWidget {
   final String initials;
   final CollabProfileKind profileKind;
   final String? avatarAsset;
+  final String? avatarUrl;
   final double size;
 
   @override
@@ -363,30 +383,44 @@ class CollabIdentityAvatar extends StatelessWidget {
         gradient: LinearGradient(colors: AppColors.brandGradient),
       ),
       child: ClipOval(
-        child: avatarAsset == null
-            ? DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: colors,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      color: AppColors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
+        child: avatarUrl?.trim().isNotEmpty == true
+            ? AppCachedNetworkImage(
+                imageUrl: avatarUrl,
+                width: size,
+                height: size,
+                cacheWidth: (size * 3).round(),
+                cacheHeight: (size * 3).round(),
+                placeholderBuilder: (_) => _fallback(colors),
+                errorBuilder: (_) => _fallback(colors),
               )
-            : ColoredBox(
+            : avatarAsset != null
+            ? ColoredBox(
                 color: AppColors.pureBlack,
                 child: Image.asset(avatarAsset!, fit: BoxFit.contain),
-              ),
+              )
+            : _fallback(colors),
+      ),
+    );
+  }
+
+  Widget _fallback(List<Color> colors) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: const TextStyle(
+            color: AppColors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
     );
   }

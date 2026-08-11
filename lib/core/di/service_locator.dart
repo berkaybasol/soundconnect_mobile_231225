@@ -15,6 +15,17 @@ import '../../modules/auth/domain/usecases/resend_code_usecase.dart';
 import '../../modules/auth/domain/usecases/update_username_usecase.dart';
 import '../../modules/auth/domain/usecases/verify_code_usecase.dart';
 import '../../modules/auth/presentation/cubit/auth_cubit.dart';
+import '../../modules/collab/data/collab_repository_impl.dart';
+import '../../modules/collab/domain/collab_repository.dart';
+import '../../modules/collab/presentation/cubit/collab_actor_reviews_cubit.dart';
+import '../../modules/collab/presentation/cubit/collab_discovery_cubit.dart';
+import '../../modules/collab/presentation/cubit/collab_incoming_applications_cubit.dart';
+import '../../modules/collab/presentation/cubit/collab_jobs_cubit.dart';
+import '../../modules/collab/presentation/cubit/collab_listing_detail_cubit.dart';
+import '../../modules/collab/presentation/cubit/collab_listing_editor_cubit.dart';
+import '../../modules/collab/presentation/cubit/collab_my_applications_cubit.dart';
+import '../../modules/collab/presentation/cubit/collab_my_listings_cubit.dart';
+import '../../modules/collab/presentation/cubit/collab_saved_listings_cubit.dart';
 import '../../modules/dm/data/dm_repository_impl.dart';
 import '../../modules/dm/data/dm_realtime_client.dart';
 import '../../modules/dm/data/dm_user_profile_resolver_impl.dart';
@@ -159,6 +170,36 @@ void setupDependencies() {
     )
     ..registerFactory<InstrumentCubit>(
       () => InstrumentCubit(serviceLocator<InstrumentRepository>()),
+    )
+    ..registerLazySingleton<CollabRepository>(
+      () => CollabRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerFactory<CollabDiscoveryCubit>(
+      () => CollabDiscoveryCubit(serviceLocator<CollabRepository>()),
+    )
+    ..registerFactory<CollabListingDetailCubit>(
+      () => CollabListingDetailCubit(serviceLocator<CollabRepository>()),
+    )
+    ..registerFactory<CollabListingEditorCubit>(
+      () => CollabListingEditorCubit(serviceLocator<CollabRepository>()),
+    )
+    ..registerFactory<CollabMyListingsCubit>(
+      () => CollabMyListingsCubit(serviceLocator<CollabRepository>()),
+    )
+    ..registerFactory<CollabMyApplicationsCubit>(
+      () => CollabMyApplicationsCubit(serviceLocator<CollabRepository>()),
+    )
+    ..registerFactory<CollabIncomingApplicationsCubit>(
+      () => CollabIncomingApplicationsCubit(serviceLocator<CollabRepository>()),
+    )
+    ..registerFactory<CollabJobsCubit>(
+      () => CollabJobsCubit(serviceLocator<CollabRepository>()),
+    )
+    ..registerFactory<CollabSavedListingsCubit>(
+      () => CollabSavedListingsCubit(serviceLocator<CollabRepository>()),
+    )
+    ..registerFactory<CollabActorReviewsCubit>(
+      () => CollabActorReviewsCubit(serviceLocator<CollabRepository>()),
     )
     ..registerLazySingleton<NotificationRepository>(
       () => NotificationRepositoryImpl(serviceLocator<ApiClient>()),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../domain/collab_application_models.dart';
-import '../../domain/collab_discovery_models.dart';
-import '../../domain/collab_management_models.dart';
+import '../../domain/collab_types.dart';
+import '../../domain/entities/collab_actor.dart';
+import '../../domain/entities/collab_listing.dart';
 import 'collab_discovery_widgets.dart';
 
 enum CollabCardActionTone { neutral, brand, danger, success }
@@ -37,6 +38,75 @@ class CollabApplicationStatusPill extends StatelessWidget {
         Icons.block_outlined,
       ),
     };
+    return _StatusPill(label: status.label, color: color, icon: icon);
+  }
+}
+
+class CollabListingStatusPill extends StatelessWidget {
+  const CollabListingStatusPill({required this.status, super.key});
+
+  final CollabListingStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, icon) = switch (status) {
+      CollabListingStatus.draft => (
+        'Taslak',
+        AppColors.socialPurple,
+        Icons.edit_note_rounded,
+      ),
+      CollabListingStatus.open => (
+        'Yayında',
+        AppColors.spotifyGreen,
+        Icons.public_rounded,
+      ),
+      CollabListingStatus.closed => (
+        'Kapalı',
+        Theme.of(context).colorScheme.onSurfaceVariant,
+        Icons.lock_outline_rounded,
+      ),
+      CollabListingStatus.expired => (
+        'Süresi doldu',
+        AppColors.coral,
+        Icons.event_busy_rounded,
+      ),
+    };
+    return _StatusPill(label: label, color: color, icon: icon);
+  }
+}
+
+class CollabJobStatusPill extends StatelessWidget {
+  const CollabJobStatusPill({required this.status, super.key});
+
+  final CollabJobStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StatusPill(
+      label: status == CollabJobStatus.active ? 'Aktif iş' : 'Tamamlandı',
+      color: status == CollabJobStatus.active
+          ? AppColors.socialOrange
+          : AppColors.spotifyGreen,
+      icon: status == CollabJobStatus.active
+          ? Icons.handshake_outlined
+          : Icons.verified_rounded,
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
@@ -51,7 +121,7 @@ class CollabApplicationStatusPill extends StatelessWidget {
           const SizedBox(width: 5),
           Flexible(
             child: Text(
-              status.label,
+              label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -67,20 +137,95 @@ class CollabApplicationStatusPill extends StatelessWidget {
   }
 }
 
-class CollabOwnedStatusPill extends StatelessWidget {
-  const CollabOwnedStatusPill({required this.status, super.key});
+class CollabActorAvatar extends StatelessWidget {
+  const CollabActorAvatar({required this.actor, this.size = 50, super.key});
 
-  final CollabOwnedListingStatus status;
+  final CollabActor actor;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (status) {
-      CollabOwnedListingStatus.open => AppColors.spotifyGreen,
-      CollabOwnedListingStatus.closed => Theme.of(
-        context,
-      ).colorScheme.onSurfaceVariant,
-    };
-    return CollabStatusPill(label: status.label, color: color);
+    Widget fallback(BuildContext context) => ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Text(
+          actor.initials,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: size * .28,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+
+    return ClipOval(
+      child: AppCachedNetworkImage(
+        imageUrl: actor.avatarUrl,
+        width: size,
+        height: size,
+        cacheWidth: (size * 2).round(),
+        cacheHeight: (size * 2).round(),
+        placeholderBuilder: fallback,
+        errorBuilder: fallback,
+      ),
+    );
+  }
+}
+
+class CollabActorHeader extends StatelessWidget {
+  const CollabActorHeader({
+    required this.actor,
+    this.trailing,
+    this.onTap,
+    super.key,
+  });
+
+  final CollabActor actor;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Row(
+        children: [
+          CollabActorAvatar(actor: actor),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  actor.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${actor.profileType.label} · ${actor.rating.toStringAsFixed(1)} ★ · ${actor.completedJobCount} iş',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+        ],
+      ),
+    );
   }
 }
 
@@ -90,6 +235,7 @@ class CollabCardAction extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.tone = CollabCardActionTone.neutral,
+    this.busy = false,
     super.key,
   });
 
@@ -97,6 +243,7 @@ class CollabCardAction extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;
   final CollabCardActionTone tone;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -111,25 +258,33 @@ class CollabCardAction extends StatelessWidget {
     final child = SizedBox(
       height: 42,
       child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 17, color: fill ? AppColors.white : color),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+        child: busy
+            ? SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
                   color: fill ? AppColors.white : color,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
                 ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 17, color: fill ? AppColors.white : color),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: fill ? AppColors.white : color,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
 
@@ -138,7 +293,7 @@ class CollabCardAction extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onPressed,
+          onTap: busy ? null : onPressed,
           borderRadius: BorderRadius.circular(13),
           child: fill
               ? Ink(
@@ -218,9 +373,69 @@ class CollabTinyMeta extends StatelessWidget {
   }
 }
 
-String collabScheduleText(CollabDiscoveryListing listing) {
-  final time = listing.timeLabel?.trim();
-  return time == null || time.isEmpty
-      ? listing.scheduleLabel
-      : '${listing.scheduleLabel} · $time';
+class CollabPagedFooter extends StatelessWidget {
+  const CollabPagedFooter({
+    required this.loading,
+    required this.hasError,
+    required this.onRetry,
+    super.key,
+  });
+
+  final bool loading;
+  final bool hasError;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!loading && !hasError) return const SizedBox(height: 28);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Center(
+        child: loading
+            ? const CircularProgressIndicator(strokeWidth: 2)
+            : TextButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Devamını yeniden yükle'),
+              ),
+      ),
+    );
+  }
+}
+
+String collabListingStatusLabel(CollabListingStatus status) => switch (status) {
+  CollabListingStatus.draft => 'Taslak',
+  CollabListingStatus.open => 'Yayında',
+  CollabListingStatus.closed => 'Kapalı',
+  CollabListingStatus.expired => 'Süresi doldu',
+};
+
+String collabJobStatusLabel(CollabJobStatus status) =>
+    status == CollabJobStatus.active ? 'Aktif' : 'Tamamlandı';
+
+String collabShortDate(DateTime? value) {
+  if (value == null) return 'Tarih belirtilmedi';
+  final local = value.toLocal();
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${two(local.day)}.${two(local.month)}.${local.year} · ${two(local.hour)}:${two(local.minute)}';
+}
+
+String collabListingSchedule(CollabListing listing) {
+  if (listing.cadence == CollabCadence.regular) return 'Düzenli';
+  return collabShortDate(listing.scheduledAt);
+}
+
+String collabFeeText(CollabListing listing) {
+  if (listing.feeStatus == CollabFeeStatus.notApplicable) {
+    return 'Ücret uygulanmaz';
+  }
+  if (listing.feeStatus == CollabFeeStatus.unspecified ||
+      listing.feeAmountMinor == null) {
+    return 'Ücret belirtilmedi';
+  }
+  final amount = listing.feeAmountMinor! / 100;
+  final formatted = amount == amount.roundToDouble()
+      ? amount.toStringAsFixed(0)
+      : amount.toStringAsFixed(2);
+  return '$formatted ${listing.currency ?? 'TRY'}';
 }

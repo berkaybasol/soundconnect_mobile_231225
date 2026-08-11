@@ -1,288 +1,319 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
-import '../../data/collab_mock_controller.dart';
-import '../../domain/collab_discovery_models.dart';
+import '../../domain/collab_types.dart';
+import '../../domain/entities/collab_listing.dart';
+import '../cubit/collab_async_state.dart';
+import '../cubit/collab_my_listings_cubit.dart';
+import '../cubit/collab_paged_cubit.dart';
 import '../theme/collab_visual_theme.dart';
-import '../../domain/collab_listing_draft.dart';
-import '../../domain/collab_management_models.dart';
 import '../widgets/collab_discovery_widgets.dart';
 import '../widgets/collab_management_widgets.dart';
 import 'collab_create_listing_screen.dart';
 import 'collab_incoming_applications_screen.dart';
 import 'collab_listing_detail_screen.dart';
 
-enum _OwnedListingSort { newest, oldest, mostApplications }
-
-extension on _OwnedListingSort {
-  String get label => switch (this) {
-    _OwnedListingSort.newest => 'En Yeni',
-    _OwnedListingSort.oldest => 'En Eski',
-    _OwnedListingSort.mostApplications => 'En Çok Başvuru',
-  };
-}
-
 class CollabMyListingsScreen extends StatefulWidget {
   const CollabMyListingsScreen({
-    this.controller,
     this.showBottomNavigation = true,
     this.onCreateListing,
+    this.cubit,
     super.key,
   });
 
-  final CollabMockController? controller;
   final bool showBottomNavigation;
   final VoidCallback? onCreateListing;
+  final CollabMyListingsCubit? cubit;
 
   @override
   State<CollabMyListingsScreen> createState() => _CollabMyListingsScreenState();
 }
 
 class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
-  CollabOwnedListingStatus _status = CollabOwnedListingStatus.open;
-  _OwnedListingSort _sort = _OwnedListingSort.newest;
+  late final CollabMyListingsCubit _cubit;
+  late final bool _ownsCubit;
+  late final ScrollController _scrollController;
 
-  CollabMockController get _controller =>
-      widget.controller ?? collabMockController;
+  @override
+  void initState() {
+    super.initState();
+    _ownsCubit = widget.cubit == null;
+    _cubit = widget.cubit ?? serviceLocator<CollabMyListingsCubit>();
+    _scrollController = ScrollController()..addListener(_onScroll);
+    unawaited(_cubit.setStatusFilter(CollabListingStatus.open));
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    if (_ownsCubit) unawaited(_cubit.close());
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.extentAfter < 320) {
+      unawaited(_cubit.loadMore());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final listings = _sortedListings();
-            return CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 15, 16, 0),
-                    child: _MyListingsHeader(
-                      onBack: Navigator.of(context).canPop()
-                          ? () => Navigator.of(context).pop()
-                          : null,
-                      draftCount: _controller.drafts.length,
-                      onDrafts: _openDrafts,
-                      onCreate:
-                          widget.onCreateListing ?? () => _openCreateListing(),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 18, 14, 0),
-                    child: _OwnedStatusSelector(
-                      selected: _status,
-                      onSelected: (status) => setState(() => _status = status),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 17, 16, 11),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Toplam ${listings.length} ilan',
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                              fontSize: 12.5,
+    return BlocProvider<CollabMyListingsCubit>.value(
+      value: _cubit,
+      child:
+          BlocConsumer<CollabMyListingsCubit, CollabPagedState<CollabListing>>(
+            listenWhen: (previous, current) =>
+                (previous.actionError != current.actionError &&
+                    current.actionError != null) ||
+                (previous.error != current.error &&
+                    current.error != null &&
+                    current.items.isNotEmpty),
+            listener: (context, state) =>
+                _showMessage((state.actionError ?? state.error)!.message),
+            builder: (context, state) {
+              return Scaffold(
+                body: SafeArea(
+                  bottom: false,
+                  child: RefreshIndicator(
+                    onRefresh: _cubit.refresh,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 15, 16, 0),
+                            child: _Header(
+                              onBack: Navigator.of(context).canPop()
+                                  ? () => Navigator.of(context).pop()
+                                  : null,
+                              onCreate: widget.onCreateListing ?? _openCreate,
                             ),
                           ),
                         ),
-                        _OwnedSortMenu(
-                          selected: _sort,
-                          onSelected: (sort) => setState(() => _sort = sort),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 18),
+                            child: _StatusRail(
+                              selected: _cubit.statusFilter,
+                              onSelected: (status) =>
+                                  unawaited(_cubit.setStatusFilter(status)),
+                            ),
+                          ),
                         ),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 11),
+                            child: Text(
+                              '${state.totalElements} ilan',
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        ..._contentSlivers(state),
                       ],
                     ),
                   ),
                 ),
-                if (listings.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: CollabGradientFrame(
-                        radius: 18,
-                        padding: const EdgeInsets.all(22),
-                        child: Text(
-                          '${_status.label} durumda bir ilanın bulunmuyor.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 34),
-                    sliver: SliverList.separated(
-                      itemCount: listings.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final owned = listings[index];
-                        return _OwnedListingCard(
-                          owned: owned,
-                          onApplications: () => _openApplications(owned),
-                          onDetail: () => _openDetail(owned),
-                          onEdit: () => _showMessage(
-                            'İlan düzenleme formu mock akışta açılacak.',
-                          ),
-                          onClose:
-                              owned.status == CollabOwnedListingStatus.closed
-                              ? null
-                              : () => _confirmClose(owned),
-                        );
-                      },
-                    ),
-                  ),
-              ],
+                bottomNavigationBar: widget.showBottomNavigation
+                    ? ProfilePublicBottomBar(currentIndex: 1)
+                    : null,
+              );
+            },
+          ),
+    );
+  }
+
+  List<Widget> _contentSlivers(CollabPagedState<CollabListing> state) {
+    if (state.status == CollabLoadStatus.loading && state.items.isEmpty) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ];
+    }
+    if (state.status == CollabLoadStatus.failure && state.items.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _LoadError(
+            message: state.error?.message,
+            onRetry: _cubit.loadInitial,
+          ),
+        ),
+      ];
+    }
+    if (state.items.isEmpty) {
+      return const [
+        SliverFillRemaining(hasScrollBody: false, child: _EmptyState()),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+        sliver: SliverList.separated(
+          itemCount: state.items.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final listing = state.items[index];
+            return _OwnedListingCard(
+              listing: listing,
+              busy: state.actionIds.contains(listing.id),
+              onApplications: listing.isDraft
+                  ? null
+                  : () => _openApplications(listing),
+              onDetail: () => _openDetail(listing),
+              onEdit:
+                  listing.status == CollabListingStatus.closed ||
+                      listing.status == CollabListingStatus.expired
+                  ? null
+                  : () => _openEditor(listing),
+              onClose: listing.isOpen ? () => _confirmClose(listing) : null,
+              onDelete: listing.isDraft ? () => _confirmDelete(listing) : null,
             );
           },
         ),
       ),
-      bottomNavigationBar: widget.showBottomNavigation
-          ? ProfilePublicBottomBar(currentIndex: 1)
-          : null,
-    );
-  }
-
-  List<CollabOwnedListingRecord> _sortedListings() {
-    final listings = _controller.ownedListings
-        .where((record) => record.status == _status)
-        .toList(growable: true);
-    listings.sort(switch (_sort) {
-      _OwnedListingSort.newest => (a, b) => b.createdAt.compareTo(a.createdAt),
-      _OwnedListingSort.oldest => (a, b) => a.createdAt.compareTo(b.createdAt),
-      _OwnedListingSort.mostApplications =>
-        (a, b) => b.applicationCount.compareTo(a.applicationCount),
-    });
-    return listings;
-  }
-
-  void _openApplications(CollabOwnedListingRecord owned) {
-    Navigator.of(context).push<void>(
-      collabPageRoute(
-        builder: (_) => CollabIncomingApplicationsScreen(
-          ownedListing: owned,
-          controller: _controller,
-          showBottomNavigation: widget.showBottomNavigation,
+      SliverToBoxAdapter(
+        child: CollabPagedFooter(
+          loading: state.isLoadingMore,
+          hasError: state.loadMoreError != null,
+          onRetry: _cubit.loadMore,
         ),
       ),
-    );
+    ];
   }
 
-  Future<void> _openCreateListing({CollabListingDraft? initialDraft}) async {
+  Future<void> _openCreate() async {
     final result = await Navigator.of(context).push<CollabCreateListingResult>(
       collabPageRoute(
         builder: (_) => CollabCreateListingScreen(
-          controller: _controller,
-          initialDraft: initialDraft,
           showBottomNavigation: widget.showBottomNavigation,
         ),
       ),
     );
     if (!mounted || result == null) return;
-    if (result == CollabCreateListingResult.published) {
-      setState(() => _status = CollabOwnedListingStatus.open);
-      _showMessage('İlanın yayınlandı.');
-    } else {
-      _showMessage('Taslağın mock olarak kaydedildi.');
-    }
-  }
-
-  Future<void> _openDrafts() async {
-    if (_controller.drafts.isEmpty) {
-      _showMessage('Henüz kaydedilmiş bir taslağın yok.');
-      return;
-    }
-    final draft = await showModalBottomSheet<CollabListingDraft>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => _DraftsSheet(drafts: _controller.drafts),
+    await _cubit.refresh();
+    if (!mounted) return;
+    _showMessage(
+      result == CollabCreateListingResult.published
+          ? 'İlanın yayınlandı.'
+          : 'Taslağın kaydedildi.',
     );
-    if (!mounted || draft == null) return;
-    await _openCreateListing(initialDraft: draft);
   }
 
-  void _openDetail(CollabOwnedListingRecord owned) {
-    Navigator.of(context).push<void>(
+  Future<void> _openEditor(CollabListing listing) async {
+    final result = await Navigator.of(context).push<CollabCreateListingResult>(
+      collabPageRoute(
+        builder: (_) => CollabCreateListingScreen(
+          initialListing: listing,
+          showBottomNavigation: widget.showBottomNavigation,
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    await _cubit.refresh();
+  }
+
+  Future<void> _openDetail(CollabListing listing) async {
+    await Navigator.of(context).push<void>(
       collabPageRoute(
         builder: (_) => CollabListingDetailScreen(
-          listing: owned.listing,
+          listingId: listing.id,
           showBottomNavigation: widget.showBottomNavigation,
-          controller: _controller,
-          isOwnListing: true,
-          isListingClosed: owned.status == CollabOwnedListingStatus.closed,
         ),
       ),
     );
+    if (mounted) await _cubit.refresh();
   }
 
-  Future<void> _confirmClose(CollabOwnedListingRecord owned) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('İlanı kapat'),
-        content: const Text(
-          'İlan kapandığında bekleyen başvurular geçersizleşir. Kabul edilmiş '
-          'başvurular ve işler etkilenmez.',
+  Future<void> _openApplications(CollabListing listing) async {
+    await Navigator.of(context).push<void>(
+      collabPageRoute(
+        builder: (_) => CollabIncomingApplicationsScreen(
+          listingId: listing.id,
+          listingTitle: listing.title,
+          showBottomNavigation: widget.showBottomNavigation,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(
-              'İlanı Kapat',
-              style: TextStyle(color: AppColors.coral),
-            ),
-          ),
-        ],
       ),
     );
-    if (confirmed != true || !mounted) return;
-    _controller.closeListing(owned.listing.id);
-    _showMessage('İlan kapatıldı.');
+    if (mounted) await _cubit.refresh();
+  }
+
+  Future<void> _confirmClose(CollabListing listing) async {
+    final confirmed = await _confirm(
+      title: 'İlanı kapat',
+      message:
+          'İlan kapanacak ve bekleyen başvurular geçersizleşecek. Devam edilsin mi?',
+      action: 'İlanı kapat',
+    );
+    if (confirmed && mounted) await _cubit.closeListing(listing);
+  }
+
+  Future<void> _confirmDelete(CollabListing listing) async {
+    final confirmed = await _confirm(
+      title: 'Taslağı sil',
+      message: 'Bu taslak kalıcı olarak silinecek. Devam edilsin mi?',
+      action: 'Taslağı sil',
+    );
+    if (confirmed && mounted) await _cubit.deleteDraft(listing);
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String action,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Vazgeç'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(action, style: TextStyle(color: AppColors.coral)),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   void _showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
-class _MyListingsHeader extends StatelessWidget {
-  const _MyListingsHeader({
-    required this.onBack,
-    required this.draftCount,
-    required this.onDrafts,
-    required this.onCreate,
-  });
+class _Header extends StatelessWidget {
+  const _Header({required this.onBack, required this.onCreate});
 
   final VoidCallback? onBack;
-  final int draftCount;
-  final VoidCallback onDrafts;
-  final VoidCallback? onCreate;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       children: [
         if (onBack != null) ...[
@@ -302,208 +333,60 @@ class _MyListingsHeader extends StatelessWidget {
                 gradient: LinearGradient(colors: AppColors.brandGradient),
                 style: const TextStyle(
                   fontSize: 26,
-                  height: 1,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 5),
               Text(
                 'İlanlarım',
                 style: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 13.5,
                 ),
               ),
             ],
           ),
         ),
-        if (draftCount > 0)
-          IconButton(
-            onPressed: onDrafts,
-            tooltip: 'Taslaklar ($draftCount)',
-            icon: Badge.count(
-              count: draftCount,
-              child: const Icon(Icons.description_outlined),
-            ),
-          ),
-        IconButton(
+        IconButton.filledTonal(
           onPressed: onCreate,
           tooltip: 'Yeni ilan oluştur',
-          icon: const Icon(Icons.add_circle_outline_rounded),
+          icon: const Icon(Icons.add_rounded),
         ),
       ],
     );
   }
 }
 
-class _DraftsSheet extends StatelessWidget {
-  const _DraftsSheet({required this.drafts});
+class _StatusRail extends StatelessWidget {
+  const _StatusRail({required this.selected, required this.onSelected});
 
-  final List<CollabListingDraft> drafts;
+  final CollabListingStatus? selected;
+  final ValueChanged<CollabListingStatus?> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListView.separated(
-      shrinkWrap: true,
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
-      itemCount: drafts.length + 1,
-      separatorBuilder: (_, index) =>
-          index == 0 ? const SizedBox(height: 10) : const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Taslaklarım',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Devam etmek istediğin ilan taslağını seç.',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-              ),
-            ],
+    const options = <(CollabListingStatus?, String)>[
+      (CollabListingStatus.open, 'Yayında'),
+      (CollabListingStatus.draft, 'Taslaklar'),
+      (CollabListingStatus.closed, 'Kapalı'),
+      (CollabListingStatus.expired, 'Süresi doldu'),
+      (null, 'Tümü'),
+    ];
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: options.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, index) {
+          final option = options[index];
+          return CollabChoiceChip(
+            label: option.$2,
+            selected: selected == option.$1,
+            onTap: () => onSelected(option.$1),
           );
-        }
-        final draft = drafts[index - 1];
-        return CollabGradientFrame(
-          radius: 17,
-          child: Material(
-            color: Colors.transparent,
-            child: ListTile(
-              onTap: () => Navigator.of(context).pop(draft),
-              leading: Icon(
-                draft.direction == CollabDirection.seeking
-                    ? Icons.person_search_outlined
-                    : Icons.campaign_outlined,
-                color: AppColors.coralLight,
-              ),
-              title: Text(
-                draft.title.trim().isEmpty ? 'İsimsiz taslak' : draft.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text('${draft.cadence.label} · ${draft.wantedSummary}'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _OwnedStatusSelector extends StatelessWidget {
-  const _OwnedStatusSelector({
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final CollabOwnedListingStatus selected;
-  final ValueChanged<CollabOwnedListingStatus> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return CollabGradientFrame(
-      radius: 16,
-      child: SizedBox(
-        height: 49,
-        child: Row(
-          children: CollabOwnedListingStatus.values
-              .map((status) {
-                final isSelected = status == selected;
-                return Expanded(
-                  child: InkWell(
-                    onTap: () => onSelected(status),
-                    borderRadius: BorderRadius.circular(15),
-                    child: isSelected
-                        ? CollabGradientFrame(
-                            highlighted: true,
-                            radius: 15,
-                            strokeWidth: 1.3,
-                            child: Center(
-                              child: _StatusText(
-                                label: status.label,
-                                selected: true,
-                              ),
-                            ),
-                          )
-                        : Center(
-                            child: _StatusText(
-                              label: status.label,
-                              selected: false,
-                            ),
-                          ),
-                  ),
-                );
-              })
-              .toList(growable: false),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusText extends StatelessWidget {
-  const _StatusText({required this.label, required this.selected});
-
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        color: selected
-            ? Theme.of(context).colorScheme.onSurface
-            : Theme.of(context).colorScheme.onSurfaceVariant,
-        fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
-        fontSize: 13.5,
-      ),
-    );
-  }
-}
-
-class _OwnedSortMenu extends StatelessWidget {
-  const _OwnedSortMenu({required this.selected, required this.onSelected});
-
-  final _OwnedListingSort selected;
-  final ValueChanged<_OwnedListingSort> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<_OwnedListingSort>(
-      tooltip: 'İlanları sırala',
-      initialValue: selected,
-      onSelected: onSelected,
-      itemBuilder: (_) => _OwnedListingSort.values
-          .map((sort) => PopupMenuItem(value: sort, child: Text(sort.label)))
-          .toList(growable: false),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            selected.label,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
-        ],
+        },
       ),
     );
   }
@@ -511,204 +394,207 @@ class _OwnedSortMenu extends StatelessWidget {
 
 class _OwnedListingCard extends StatelessWidget {
   const _OwnedListingCard({
-    required this.owned,
+    required this.listing,
+    required this.busy,
     required this.onApplications,
     required this.onDetail,
     required this.onEdit,
     required this.onClose,
+    required this.onDelete,
   });
 
-  final CollabOwnedListingRecord owned;
-  final VoidCallback onApplications;
+  final CollabListing listing;
+  final bool busy;
+  final VoidCallback? onApplications;
   final VoidCallback onDetail;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
   final VoidCallback? onClose;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final listing = owned.listing;
-    final isClosed = owned.status == CollabOwnedListingStatus.closed;
-    return Opacity(
-      opacity: isClosed ? 0.74 : 1,
-      child: CollabGradientFrame(
-        highlighted: owned.status == CollabOwnedListingStatus.open,
-        radius: 20,
-        strokeWidth: owned.status == CollabOwnedListingStatus.open ? 1.25 : 1,
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CollabProfileAvatar(listing: listing, size: 53),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        listing.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontSize: 15.5,
-                          height: 1.2,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          CollabStatusPill(
-                            label: listing.cadence.label,
-                            color: AppColors.socialPink,
-                          ),
-                          CollabStatusPill(
-                            label: listing.wantedSummary,
-                            color: listing.direction == CollabDirection.seeking
-                                ? AppColors.socialOrange
-                                : AppColors.spotifyGreen,
-                          ),
-                        ],
-                      ),
-                    ],
+    return CollabGradientFrame(
+      highlighted: listing.isOpen,
+      radius: 19,
+      strokeWidth: listing.isOpen ? 1.25 : 1,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  listing.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 16,
+                    height: 1.22,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(width: 7),
-                CollabOwnedStatusPill(status: owned.status),
-              ],
-            ),
-            const SizedBox(height: 13),
-            Wrap(
-              spacing: 14,
-              runSpacing: 8,
-              children: [
-                CollabTinyMeta(
-                  icon: Icons.location_on_outlined,
-                  label: listing.location,
-                ),
-                CollabTinyMeta(
-                  icon: Icons.music_note_rounded,
-                  label: listing.role,
-                ),
-                CollabTinyMeta(
-                  icon: Icons.calendar_month_outlined,
-                  label: collabScheduleText(listing),
-                ),
-              ],
-            ),
-            const SizedBox(height: 13),
-            Divider(height: 1, color: theme.dividerColor),
-            const SizedBox(height: 11),
-            Row(
-              children: [
-                Expanded(
-                  child: _OwnedMetric(
-                    icon: Icons.groups_2_outlined,
-                    label: listing.direction == CollabDirection.seeking
-                        ? 'Başvuru'
-                        : 'İş Teklifi',
-                    value: '${owned.applicationCount}',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 13),
-            if (!isClosed) ...[
-              CollabCardAction(
-                label: 'Öne Çıkar · Yakında',
-                icon: Icons.star_outline_rounded,
-                tone: CollabCardActionTone.brand,
-                onPressed: null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(width: 8),
+              CollabListingStatusPill(status: listing.status),
             ],
-            CollabActionsWrap(
-              actions: [
-                if (!isClosed)
-                  CollabCardAction(
-                    label: 'Başvuruları Gör',
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              CollabStatusPill(
+                label: listing.cadence.label,
+                color: AppColors.socialPink,
+              ),
+              CollabStatusPill(
+                label: '${listing.wantedType.label} arayan',
+                color: AppColors.socialOrange,
+              ),
+              if (listing.specialtyLabel case final specialty?)
+                CollabStatusPill(
+                  label: specialty,
+                  color: AppColors.socialPurple,
+                ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          LayoutBuilder(
+            builder: (_, constraints) {
+              final width = (constraints.maxWidth - 8) / 2;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 9,
+                children: [
+                  CollabTinyMeta(
+                    width: width,
+                    icon: Icons.location_on_outlined,
+                    label: listing.city.name,
+                  ),
+                  CollabTinyMeta(
+                    width: width,
+                    icon: Icons.schedule_rounded,
+                    label: collabListingSchedule(listing),
+                  ),
+                  if (listing.feeStatus != CollabFeeStatus.notApplicable)
+                    CollabTinyMeta(
+                      width: width,
+                      icon: Icons.payments_outlined,
+                      label: collabFeeText(listing),
+                    ),
+                  CollabTinyMeta(
+                    width: width,
                     icon: Icons.people_alt_outlined,
-                    tone: CollabCardActionTone.brand,
-                    onPressed: onApplications,
-                  )
-                else
-                  CollabCardAction(
-                    label: 'Detayı Gör',
-                    icon: Icons.open_in_new_rounded,
-                    onPressed: onDetail,
+                    label: '${listing.applicationCount} başvuru',
                   ),
-                if (owned.status == CollabOwnedListingStatus.open)
-                  CollabCardAction(
-                    label: 'Düzenle',
-                    icon: Icons.edit_outlined,
-                    onPressed: onEdit,
-                  ),
-                if (!isClosed)
-                  CollabCardAction(
-                    label: 'Kapat',
-                    icon: Icons.close_rounded,
-                    tone: CollabCardActionTone.danger,
-                    onPressed: onClose,
-                  ),
-              ],
-            ),
-          ],
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 13),
+          CollabActionsWrap(
+            actions: [
+              CollabCardAction(
+                label: 'Detay',
+                icon: Icons.open_in_new_rounded,
+                onPressed: busy ? null : onDetail,
+              ),
+              CollabCardAction(
+                label: 'Başvurular (${listing.applicationCount})',
+                icon: Icons.people_alt_outlined,
+                tone: CollabCardActionTone.brand,
+                onPressed: busy ? null : onApplications,
+              ),
+              if (onEdit != null)
+                CollabCardAction(
+                  label: 'Düzenle',
+                  icon: Icons.edit_outlined,
+                  onPressed: busy ? null : onEdit,
+                ),
+              if (onClose != null)
+                CollabCardAction(
+                  label: 'İlanı kapat',
+                  icon: Icons.lock_outline_rounded,
+                  tone: CollabCardActionTone.danger,
+                  busy: busy,
+                  onPressed: busy ? null : onClose,
+                ),
+              if (onDelete != null)
+                CollabCardAction(
+                  label: 'Taslağı sil',
+                  icon: Icons.delete_outline_rounded,
+                  tone: CollabCardActionTone.danger,
+                  busy: busy,
+                  onPressed: busy ? null : onDelete,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: CollabGradientFrame(
+          radius: 18,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.campaign_outlined,
+                size: 34,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 12),
+              const Text('Bu durumda bir ilanın bulunmuyor.'),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _OwnedMetric extends StatelessWidget {
-  const _OwnedMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.message, required this.onRetry});
 
-  final IconData icon;
-  final String label;
-  final String value;
+  final String? message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 19, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 7),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 9.5,
-                ),
-              ),
-              Text(
-                value,
-                style: TextStyle(
-                  color: AppColors.coralLight,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message ?? 'İlanların yüklenemedi.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Yeniden dene'),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

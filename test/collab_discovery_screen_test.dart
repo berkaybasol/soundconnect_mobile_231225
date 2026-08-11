@@ -1,33 +1,78 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_creation_mock_data.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_mock_controller.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_discovery_models.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_listing_draft.dart';
+import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
+import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_commands.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_page.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_types.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_actor.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_listing.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_discovery_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_async_state.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_listing_detail_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_discovery_screen.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/collab_discovery_widgets.dart';
+import 'package:soundconnect_23_12_25codx/modules/instrument/domain/entities/instrument.dart';
+import 'package:soundconnect_23_12_25codx/modules/instrument/domain/instrument_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/city.dart';
+import 'package:soundconnect_23_12_25codx/modules/location/domain/location_repository.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 void main() {
-  Widget app([CollabMockController? controller]) => MaterialApp(
+  late _DiscoveryRepository repository;
+  late CollabDiscoveryCubit cubit;
+
+  Widget app({String? initialListingId}) => MaterialApp(
     theme: AppTheme.navy,
     home: CollabDiscoveryScreen(
-      controller: controller ?? CollabMockController(),
+      initialListingId: initialListingId,
+      cubit: cubit,
+      locationRepository: const _LocationRepository(),
+      instrumentRepository: const _InstrumentRepository(),
       showBottomNavigation: false,
     ),
   );
 
-  testWidgets('opens with regular listings selected', (tester) async {
+  setUp(() {
+    repository = _DiscoveryRepository();
+    cubit = CollabDiscoveryCubit(
+      repository,
+      searchDebounce: const Duration(milliseconds: 10),
+    );
+    if (serviceLocator.isRegistered<CollabListingDetailCubit>()) {
+      serviceLocator.unregister<CollabListingDetailCubit>();
+    }
+    serviceLocator.registerFactory<CollabListingDetailCubit>(
+      () => CollabListingDetailCubit(repository),
+    );
+  });
+
+  tearDown(() async {
+    await cubit.close();
+    if (serviceLocator.isRegistered<CollabListingDetailCubit>()) {
+      await serviceLocator.unregister<CollabListingDetailCubit>();
+    }
+  });
+
+  testWidgets('loads the regular server feed by default', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
+    expect(repository.queries, isNotEmpty);
+    expect(repository.queries.first.cadence, CollabCadence.regular);
+    expect(repository.queries.first.page, 0);
     expect(
       find.byKey(const ValueKey<String>('collab-brand-logo')),
       findsOneWidget,
     );
-    expect(find.text('Collab'), findsNothing);
-    expect(find.text('Ekibini ve fırsatını bul.'), findsNothing);
-    expect(find.byIcon(Icons.tune_rounded), findsNothing);
+    expect(find.text('Düzenli fırsatlar'), findsOneWidget);
+    expect(
+      find.text('Kadıköy sahnesine bas gitarist arıyoruz'),
+      findsOneWidget,
+    );
     expect(
       tester
           .getCenter(
@@ -42,163 +87,266 @@ void main() {
             .dx,
       ),
     );
-    expect(find.text('Düzenli fırsatlar'), findsOneWidget);
-    expect(
-      find.text('Düzenli sahne alabileceğimiz mekan arıyoruz'),
-      findsOneWidget,
-    );
-    expect(find.text('Acoustic Route'), findsOneWidget);
-    expect(find.text('Mekan arayan'), findsOneWidget);
-    expect(find.text('Çarşamba gecesi bas gitarist arıyoruz'), findsNothing);
-    expect(find.text('Mekandan'), findsNothing);
-    expect(find.text('Stüdyodan'), findsNothing);
-    expect(find.text('Arıyorum'), findsNothing);
-    expect(find.text('Müsaitim'), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byType(CollabListingCard),
-        matching: find.text('Düzenli'),
-      ),
-      findsNothing,
-    );
   });
 
-  testWidgets('cadence and wanted filters only show matching listings', (
+  testWidgets('sends city, wanted, specialty and search filters to server', (
     tester,
   ) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('collab-cadence-regular')),
-    );
+    await tester.tap(find.byKey(const ValueKey<String>('collab-quick-city')));
     await tester.pumpAndSettle();
-
-    expect(find.text('Düzenli fırsatlar'), findsOneWidget);
-    expect(find.text('Acoustic Route'), findsOneWidget);
-    expect(find.text('Mekan arayan'), findsOneWidget);
-    expect(
-      tester.getCenter(find.text('Mekan arayan')).dx,
-      greaterThan(tester.getCenter(find.text('İstanbul Anadolu')).dx),
-    );
-    expect(find.text('Gruptan'), findsNothing);
-    expect(find.text('Her Cuma'), findsNothing);
-    expect(find.text('Akustik Grup'), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byType(CollabListingCard),
-        matching: find.text('Düzenli'),
-      ),
-      findsNothing,
-    );
-    expect(find.text('₺10.000'), findsNothing);
-    expect(find.text('₺12.000'), findsOneWidget);
-    expect(find.text('₺5.000'), findsNothing);
-    expect(find.text('Çarşamba gecesi bas gitarist arıyoruz'), findsNothing);
+    await tester.tap(find.text('İstanbul').last);
+    await tester.pumpAndSettle();
+    expect(repository.queries.last.cityId, 'city-34');
 
     await tester.tap(find.byKey(const ValueKey<String>('collab-quick-wanted')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mekan arayan').last);
+    await tester.tap(find.text('Müzisyen arayan').last);
     await tester.pumpAndSettle();
-
-    expect(find.text('Acoustic Route'), findsOneWidget);
-    expect(find.text('Berlin Sahne'), findsNothing);
-    expect(find.text('Northline Studio'), findsNothing);
-  });
-
-  testWidgets('musician board reveals specialty and publisher includes band', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey<String>('collab-quick-specialty')),
-      findsNothing,
-    );
-    await tester.tap(find.byKey(const ValueKey<String>('collab-quick-wanted')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Müzisyen arayan'));
-    await tester.pumpAndSettle();
-
+    expect(repository.queries.last.wantedType, CollabProfileKind.musician);
     expect(
       find.byKey(const ValueKey<String>('collab-quick-specialty')),
       findsOneWidget,
     );
+
     await tester.tap(
-      find.byKey(const ValueKey<String>('collab-quick-publisher')),
+      find.byKey(const ValueKey<String>('collab-quick-specialty')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Gruptan'), findsOneWidget);
+    final specialtySearch = find.byKey(
+      const ValueKey('collab-multi-select-search'),
+    );
+    await tester.enterText(specialtySearch, 'vok');
+    await tester.pumpAndSettle();
+    expect(find.text('Vokal'), findsOneWidget);
+    await tester.enterText(specialtySearch, 'bas');
+    await tester.pumpAndSettle();
+    expect(find.text('Vokal'), findsNothing);
+    await tester.tap(find.text('Bas Gitar').last);
+    await tester.tap(find.text('Uygula'));
+    await tester.pumpAndSettle();
+    expect(repository.queries.last.instrumentIds, {'instrument-bass'});
+
+    await tester.enterText(find.byType(TextField).first, '  bas gitar  ');
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pumpAndSettle();
+    expect(repository.queries.last.search, 'bas gitar');
   });
 
-  testWidgets('search and bookmark are interactive', (tester) async {
+  testWidgets('appends the next page and persists bookmark changes', (
+    tester,
+  ) async {
+    repository.hasSecondPage = true;
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'Moda Kayıt');
+    await cubit.loadMore();
     await tester.pumpAndSettle();
 
-    expect(find.text('Moda Kayıt Stüdyosu'), findsOneWidget);
-    expect(find.text('1 ilan'), findsOneWidget);
+    expect(repository.queries.last.page, 1);
+    expect(find.text('Stüdyo projesi için vokalist arıyoruz'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('İlanı kaydet'));
-    await tester.pump();
-
+    await tester.tap(find.byTooltip('İlanı kaydet').first);
+    await tester.pumpAndSettle();
+    expect(repository.saveCalls, 1);
+    expect(cubit.state.items.first.savedByMe, isTrue);
     expect(find.byTooltip('Kaydedilenlerden çıkar'), findsOneWidget);
   });
 
-  testWidgets('keyword search includes genre and description', (tester) async {
+  testWidgets('shows a retry state and recovers after a server error', (
+    tester,
+  ) async {
+    repository.failDiscovery = true;
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'enerjisi yüksek');
-    await tester.pumpAndSettle();
-    expect(find.text('Çarşamba gecesi bas gitarist arıyoruz'), findsOneWidget);
-    expect(find.text('1 ilan'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('collab-discovery-retry')),
+      findsOneWidget,
+    );
+    expect(find.text('İlanlar şu anda yüklenemiyor.'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'Soul');
+    repository.failDiscovery = false;
+    await tester.tap(find.byKey(const ValueKey('collab-discovery-retry')));
     await tester.pumpAndSettle();
+
     expect(
-      find.text('Yarınki kayıt için kadın vokalist arıyoruz'),
+      find.text('Kadıköy sahnesine bas gitarist arıyoruz'),
       findsOneWidget,
     );
-    expect(
-      find.text('Konser ve kayıt projelerinde yer almak istiyorum'),
-      findsOneWidget,
-    );
+    expect(repository.queries.length, 2);
   });
 
-  testWidgets('mounted discovery reacts when controller publishes a listing', (
+  testWidgets('opens a notification detail without waiting for discovery', (
     tester,
   ) async {
-    final controller = CollabMockController();
-    await tester.pumpWidget(app(controller));
-    await tester.pumpAndSettle();
+    repository.hangDiscovery = true;
 
-    controller.publish(_listingDraft('Canlı akışta yeni Collab ilanı'));
+    await tester.pumpWidget(app(initialListingId: 'listing-deep-link'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
 
-    expect(find.text('Canlı akışta yeni Collab ilanı'), findsOneWidget);
-    expect(find.text('5 ilan'), findsOneWidget);
+    expect(repository.detailIds, <String>['listing-deep-link']);
+    expect(find.text('Bildirimden açılan ilan'), findsOneWidget);
+    expect(cubit.state.status, CollabLoadStatus.loading);
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }
 
-CollabListingDraft _listingDraft(String title) {
-  return CollabListingDraft(
-    cadence: CollabCadence.extra,
-    direction: CollabDirection.seeking,
-    title: title,
-    description:
-        'Bu açıklama, oluşturulan ilanın test akışında görünmesi için yeterince uzundur.',
-    location: 'Kadıköy, İstanbul',
-    city: 'İstanbul',
-    role: 'Bas Gitar',
-    genres: const {'Funk'},
-    occurrenceDate: DateTime.now().add(const Duration(days: 3)),
-    occurrenceTime: const CollabClockTime(hour: 21, minute: 0),
-    feeMode: CollabFeeMode.paid,
-    feeAmount: 1500,
-    publisher: collabPublisherMockProfiles.first,
-  );
+const _publisher = CollabActor(
+  actorId: 'actor-venue',
+  profileType: CollabProfileKind.venue,
+  sourceProfileId: 'venue-1',
+  contactUserId: 'user-venue',
+  displayName: 'Kadıköy Sahne',
+  rating: 4.8,
+  reviewCount: 24,
+  completedJobCount: 76,
+);
+
+CollabListing _listing({
+  required String id,
+  required String title,
+  CollabInstrumentSummary instrument = const CollabInstrumentSummary(
+    id: 'instrument-bass',
+    name: 'Bas Gitar',
+  ),
+}) => CollabListing(
+  id: id,
+  version: 1,
+  status: CollabListingStatus.open,
+  cadence: CollabCadence.regular,
+  wantedType: CollabProfileKind.musician,
+  instrument: instrument,
+  title: title,
+  description:
+      'Sahnemizde düzenli çalışacak, repertuvara hakim bir müzisyen arıyoruz.',
+  city: const CollabCitySummary(id: 'city-34', name: 'İstanbul'),
+  genres: const <String>['Rock', 'Funk'],
+  feeStatus: CollabFeeStatus.unspecified,
+  publishedAt: DateTime.utc(2026, 8, 11, 9),
+  createdAt: DateTime.utc(2026, 8, 11, 8),
+  publisher: _publisher,
+  ownedByMe: false,
+  appliedByMe: false,
+  savedByMe: false,
+);
+
+class _DiscoveryRepository implements CollabRepository {
+  final List<CollabDiscoveryQuery> queries = <CollabDiscoveryQuery>[];
+  bool failDiscovery = false;
+  bool hangDiscovery = false;
+  bool hasSecondPage = false;
+  int saveCalls = 0;
+  int unsaveCalls = 0;
+  final List<String> detailIds = <String>[];
+  final Completer<Result<CollabPage<CollabListing>>> hangingDiscovery =
+      Completer<Result<CollabPage<CollabListing>>>();
+
+  @override
+  Future<Result<CollabPage<CollabListing>>> discover(
+    CollabDiscoveryQuery query,
+  ) async {
+    queries.add(query);
+    if (hangDiscovery) return hangingDiscovery.future;
+    if (failDiscovery) {
+      return const Result<CollabPage<CollabListing>>.failure(
+        AppError(
+          code: 'collab_unavailable',
+          message: 'İlanlar şu anda yüklenemiyor.',
+        ),
+      );
+    }
+    final items = query.page == 0
+        ? <CollabListing>[
+            _listing(
+              id: 'listing-1',
+              title: 'Kadıköy sahnesine bas gitarist arıyoruz',
+            ),
+          ]
+        : <CollabListing>[
+            _listing(
+              id: 'listing-2',
+              title: 'Stüdyo projesi için vokalist arıyoruz',
+              instrument: const CollabInstrumentSummary(
+                id: 'instrument-vocal',
+                name: 'Vokal',
+              ),
+            ),
+          ];
+    final last = !hasSecondPage || query.page > 0;
+    return Result<CollabPage<CollabListing>>.success(
+      CollabPage<CollabListing>(
+        items: items,
+        page: query.page,
+        size: query.size,
+        totalElements: hasSecondPage ? 2 : 1,
+        totalPages: hasSecondPage ? 2 : 1,
+        first: query.page == 0,
+        last: last,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<CollabListing>> getListing(String listingId) async {
+    detailIds.add(listingId);
+    return Result<CollabListing>.success(
+      _listing(id: listingId, title: 'Bildirimden açılan ilan'),
+    );
+  }
+
+  @override
+  Future<Result<void>> saveListing(String listingId) async {
+    saveCalls++;
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> unsaveListing(String listingId) async {
+    unsaveCalls++;
+    return const Result<void>.success(null);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _LocationRepository implements LocationRepository {
+  const _LocationRepository();
+
+  @override
+  Future<Result<List<City>>> getCities() async =>
+      const Result<List<City>>.success(<City>[
+        City(id: 'city-34', name: 'İstanbul'),
+        City(id: 'city-06', name: 'Ankara'),
+      ]);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _InstrumentRepository implements InstrumentRepository {
+  const _InstrumentRepository();
+
+  @override
+  Future<Result<List<Instrument>>> getAll() async =>
+      const Result<List<Instrument>>.success(<Instrument>[
+        Instrument(id: 'instrument-bass', name: 'Bas Gitar'),
+        Instrument(id: 'instrument-vocal', name: 'Vokal'),
+        Instrument(id: 'instrument-guitar', name: 'Gitar'),
+        Instrument(id: 'instrument-drums', name: 'Bateri'),
+        Instrument(id: 'instrument-piano', name: 'Piyano'),
+        Instrument(id: 'instrument-violin', name: 'Keman'),
+        Instrument(id: 'instrument-cello', name: 'Çello'),
+        Instrument(id: 'instrument-sax', name: 'Saksafon'),
+        Instrument(id: 'instrument-trumpet', name: 'Trompet'),
+        Instrument(id: 'instrument-turntable', name: 'Turntable'),
+        Instrument(id: 'instrument-midi', name: 'MIDI Klavye'),
+        Instrument(id: 'instrument-sampler', name: 'Sampler'),
+      ]);
 }

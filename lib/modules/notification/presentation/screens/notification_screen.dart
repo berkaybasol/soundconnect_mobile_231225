@@ -8,6 +8,7 @@ import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
 import '../../../dm/presentation/dm_profile_navigation.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
+import '../../../collab/presentation/collab_route_args.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../overthinking/domain/overthinking_repository.dart';
 import '../../../overthinking/presentation/cubit/overthinking_feed_cubit.dart';
@@ -290,6 +291,10 @@ class _NotificationTile extends StatelessWidget {
       _openStudioReservationTarget(context, notification);
       return;
     }
+    if (_isCollabNotification(notification)) {
+      _openCollabTarget(context, notification);
+      return;
+    }
     if (_isArtistVenueNotification(notification)) {
       _openArtistVenueTarget(context, notification.payload);
       return;
@@ -314,6 +319,22 @@ class _NotificationTile extends StatelessWidget {
   bool _isDmNotification(AppNotification notification) {
     final module = notification.payload['module']?.toString().trim() ?? '';
     return module == 'DM' || notification.type.startsWith('DM');
+  }
+
+  bool _isCollabNotification(AppNotification notification) {
+    final module = notification.payload['module']?.toString().trim() ?? '';
+    return module == 'COLLAB' || notification.type.startsWith('COLLAB_');
+  }
+
+  void _openCollabTarget(BuildContext context, AppNotification notification) {
+    final listingId =
+        notification.payload['listingId']?.toString().trim() ?? '';
+    Navigator.of(context).pushNamed(
+      AppRoutes.collabDiscovery,
+      arguments: CollabDiscoveryRouteArgs(
+        initialListingId: listingId.isEmpty ? null : listingId,
+      ),
+    );
   }
 
   bool _isStudioNotification(AppNotification notification) {
@@ -883,6 +904,7 @@ class _NotificationTypeIcon extends StatelessWidget {
       final value when value.startsWith('DM') => Icons.forum_outlined,
       final value when value.startsWith('STUDIO') =>
         Icons.calendar_month_outlined,
+      final value when value.startsWith('COLLAB') => Icons.handshake_outlined,
       final value when value.startsWith('ARTIST_VENUE') =>
         Icons.handshake_outlined,
       final value when value.startsWith('SOCIAL') =>

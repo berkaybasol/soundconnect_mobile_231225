@@ -193,7 +193,7 @@ void main() {
     );
   });
 
-  test('Collab is available only to Backstage roles', () {
+  test('Collab is available only to supported business profile roles', () {
     final listener = AuthSession.authenticated(
       token: 'listener-token',
       userId: 'listener-id',
@@ -247,6 +247,29 @@ void main() {
       ),
     ];
 
+    final unsupportedBackstageSessions = <AuthSession>[
+      AuthSession.authenticated(
+        token: 'producer-token',
+        userId: 'producer-id',
+        username: 'producer',
+        accountStatus: 'ACTIVE',
+        roles: const <String>['ROLE_PRODUCER'],
+        permissions: const <String>[],
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        isAdmin: false,
+      ),
+      AuthSession.authenticated(
+        token: 'organizer-token',
+        userId: 'organizer-id',
+        username: 'organizer',
+        accountStatus: 'ACTIVE',
+        roles: const <String>['ORGANIZER'],
+        permissions: const <String>[],
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        isAdmin: false,
+      ),
+    ];
+
     expect(
       AppRouteGuard.redirectFor(AppRoutes.collabDiscovery, listener),
       AppRoutes.listenerProfile,
@@ -259,6 +282,12 @@ void main() {
       expect(
         AppRouteGuard.redirectFor(AppRoutes.collabDiscovery, session),
         isNull,
+      );
+    }
+    for (final session in unsupportedBackstageSessions) {
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.collabDiscovery, session),
+        AppRoutes.home,
       );
     }
   });

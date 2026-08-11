@@ -1,28 +1,47 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../instrument/domain/entities/instrument.dart';
+import '../../../instrument/domain/instrument_repository.dart';
+import '../../../location/domain/entities/city.dart';
+import '../../../location/domain/location_repository.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
-import '../../data/collab_creation_mock_data.dart';
-import '../../data/collab_mock_controller.dart';
+import '../../domain/collab_commands.dart';
 import '../../domain/collab_discovery_models.dart';
-import '../../domain/collab_listing_draft.dart';
+import '../../domain/collab_types.dart';
+import '../../domain/entities/collab_actor.dart';
+import '../../domain/entities/collab_listing.dart';
+import '../cubit/collab_async_state.dart';
+import '../cubit/collab_listing_editor_cubit.dart';
+import '../cubit/collab_listing_editor_state.dart';
 import '../widgets/collab_action_widgets.dart';
 import '../widgets/collab_discovery_widgets.dart';
+import '../widgets/collab_specialty_picker.dart';
 
 enum CollabCreateListingResult { published, draftSaved }
 
+enum _CollabFeeMode { unspecified, paid }
+
 class CollabCreateListingScreen extends StatefulWidget {
   const CollabCreateListingScreen({
-    this.controller,
-    this.initialDraft,
+    this.initialListing,
     this.showBottomNavigation = true,
+    this.cubit,
+    this.locationRepository,
+    this.instrumentRepository,
     super.key,
   });
 
-  final CollabMockController? controller;
-  final CollabListingDraft? initialDraft;
+  final CollabListing? initialListing;
   final bool showBottomNavigation;
+  final CollabListingEditorCubit? cubit;
+  final LocationRepository? locationRepository;
+  final InstrumentRepository? instrumentRepository;
 
   @override
   State<CollabCreateListingScreen> createState() =>
@@ -34,163 +53,252 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _feeController;
-  late CollabListingDraft _draft;
+  late final TextEditingController _customSpecialtyController;
+  late final CollabListingEditorCubit _cubit;
+  late final bool _ownsCubit;
+  late final LocationRepository _locationRepository;
+  late final InstrumentRepository _instrumentRepository;
+  List<City> _cities = const <City>[];
+  List<Instrument> _instruments = const <Instrument>[];
+  bool _catalogsLoading = true;
+  String? _catalogError;
   int _step = 0;
-  bool _submitting = false;
   bool _dateError = false;
   bool _timeError = false;
-
-  CollabMockController get _controller =>
-      widget.controller ?? collabMockController;
+  DateTime? _occurrenceDate;
+  TimeOfDay? _occurrenceTime;
+  _CollabFeeMode _feeMode = _CollabFeeMode.unspecified;
 
   @override
   void initState() {
     super.initState();
-    final initialDraft = widget.initialDraft;
-    if (initialDraft != null) {
-      _titleController = TextEditingController(text: initialDraft.title);
-      _descriptionController = TextEditingController(
-        text: initialDraft.description,
-      );
-      _feeController = TextEditingController(
-        text: initialDraft.feeAmount?.toString() ?? '',
-      );
-      _draft = initialDraft.copyWith(direction: CollabDirection.seeking);
-      if (_draft.cadence == CollabCadence.regular &&
-          _draft.publisher?.profileKind != CollabProfileKind.venue) {
-        _feeController.clear();
-        _draft = _draft.copyWith(
-          feeMode: CollabFeeMode.unspecified,
-          clearFeeAmount: true,
-        );
-      }
-      return;
-    }
-    final now = DateTime.now();
-    final mockDate = DateTime(now.year, now.month, now.day + 7);
-    _titleController = TextEditingController(
-      text: 'Çarşamba gecesi bas gitarist arıyoruz',
-    );
-    _descriptionController = TextEditingController(
-      text:
-          'Çarşamba gecesi sahne alacağımız mekan için deneyimli bir bas '
-          'gitarist arıyoruz. Enerjisi yüksek biriyle çalışmak istiyoruz.',
-    );
-    _feeController = TextEditingController(text: '1500');
-    _draft = CollabListingDraft(
-      cadence: CollabCadence.extra,
-      direction: CollabDirection.seeking,
-      title: _titleController.text,
-      description: _descriptionController.text,
-      location: collabCreationLocations.keys.first,
-      city: collabCreationLocations.values.first,
-      role: 'Bas Gitar',
-      genres: const {'Rock', 'Funk'},
-      occurrenceDate: mockDate,
-      occurrenceTime: const CollabClockTime(hour: 21, minute: 0),
-      feeMode: CollabFeeMode.paid,
-      feeAmount: 1500,
-      publisher: collabPublisherMockProfiles.first,
-    );
+    _titleController = TextEditingController();
+    _descriptionController = TextEditingController();
+    _feeController = TextEditingController();
+    _customSpecialtyController = TextEditingController();
+    _ownsCubit = widget.cubit == null;
+    _cubit = widget.cubit ?? serviceLocator<CollabListingEditorCubit>();
+    _locationRepository =
+        widget.locationRepository ?? serviceLocator<LocationRepository>();
+    _instrumentRepository =
+        widget.instrumentRepository ?? serviceLocator<InstrumentRepository>();
+    unawaited(_initialize());
   }
 
   @override
   void dispose() {
+    _customSpecialtyController.dispose();
     _feeController.dispose();
     _descriptionController.dispose();
     _titleController.dispose();
+    if (_ownsCubit) unawaited(_cubit.close());
     super.dispose();
+  }
+
+  Future<void> _initialize() async {
+    final editorFuture = _cubit.initialize(listing: widget.initialListing);
+    final catalogsFuture = _loadCatalogs();
+    await Future.wait<void>([editorFuture, catalogsFuture]);
+    if (!mounted || _cubit.state.actorStatus != CollabLoadStatus.success) {
+      return;
+    }
+
+    final input = _cubit.state.input;
+    if (input == null) return;
+    _syncFieldsFromInput(input);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadCatalogs() async {
+    if (mounted) {
+      setState(() {
+        _catalogsLoading = true;
+        _catalogError = null;
+      });
+    }
+    final cityFuture = _locationRepository.getCities();
+    final instrumentFuture = _instrumentRepository.getAll();
+    final cityResult = await cityFuture;
+    final instrumentResult = await instrumentFuture;
+    if (!mounted) return;
+    setState(() {
+      _catalogsLoading = false;
+      if (cityResult.isSuccess && instrumentResult.isSuccess) {
+        _cities = List<City>.unmodifiable(
+          <City>[...cityResult.data!]..sort((a, b) => a.name.compareTo(b.name)),
+        );
+        _instruments = List<Instrument>.unmodifiable(
+          <Instrument>[...instrumentResult.data!]
+            ..sort((a, b) => a.name.compareTo(b.name)),
+        );
+      } else {
+        _catalogError =
+            cityResult.error?.message ??
+            instrumentResult.error?.message ??
+            'Şehir ve enstrüman seçenekleri yüklenemedi.';
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope<CollabCreateListingResult>(
-      canPop: _step == 0,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _step > 0) setState(() => _step--);
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('İlan Oluştur'),
-          leading: BackButton(onPressed: _handleBack),
-        ),
-        body: SafeArea(
-          top: false,
-          bottom: false,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: _CreateStepIndicator(
-                  currentStep: _step,
-                  onStepTap: (step) {
-                    if (step < _step) setState(() => _step = step);
-                  },
-                ),
+    return BlocProvider<CollabListingEditorCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<CollabListingEditorCubit, CollabListingEditorState>(
+        listenWhen: (previous, current) => previous.error != current.error,
+        listener: (context, state) {
+          if (state.error != null) _showMessage(state.error!.message);
+        },
+        builder: (context, state) => PopScope<CollabCreateListingResult>(
+          canPop: _step == 0 && !state.isSubmitting,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && _step > 0 && !state.isSubmitting) {
+              setState(() => _step--);
+            }
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(
+                widget.initialListing == null
+                    ? 'İlan Oluştur'
+                    : 'İlanı Düzenle',
               ),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: switch (_step) {
-                    0 => _ListingTypeStep(
-                      key: const ValueKey('create-step-type'),
-                      draft: _draft,
-                      onCadenceChanged: _changeCadence,
-                      onComingSoonTap: () => _showMessage(
-                        'Param Güvende yakında kullanıma açılacak.',
-                      ),
-                    ),
-                    1 => Form(
-                      key: _formKey,
-                      child: _ListingInformationStep(
-                        key: const ValueKey('create-step-information'),
-                        draft: _draft,
-                        titleController: _titleController,
-                        descriptionController: _descriptionController,
-                        feeController: _feeController,
-                        dateError: _dateError,
-                        timeError: _timeError,
-                        onTitleChanged: (value) =>
-                            _updateDraft(_draft.copyWith(title: value)),
-                        onDescriptionChanged: (value) =>
-                            _updateDraft(_draft.copyWith(description: value)),
-                        onLocationChanged: _changeLocation,
-                        onRoleChanged: (value) =>
-                            _updateDraft(_draft.copyWith(role: value)),
-                        onGenreToggle: _toggleGenre,
-                        onDateTap: _pickDate,
-                        onTimeTap: _pickTime,
-                        onFeeModeChanged: _changeFeeMode,
-                        onFeeChanged: _changeFee,
-                        onPublisherTap: _pickPublisher,
-                      ),
-                    ),
-                    _ => _PreviewStep(
-                      key: const ValueKey('create-step-preview'),
-                      draft: _draft,
-                      submitting: _submitting,
-                      onPublish: _publish,
-                      onSaveDraft: _saveDraft,
-                    ),
-                  },
-                ),
+              leading: BackButton(
+                onPressed: state.isSubmitting ? null : _handleBack,
               ),
-              if (_step < 2)
-                SafeArea(
-                  top: false,
-                  minimum: const EdgeInsets.fromLTRB(14, 9, 14, 13),
-                  child: CollabPrimaryAction(
-                    key: const ValueKey('collab-create-continue'),
-                    label: 'Devam Et',
-                    onPressed: _continue,
-                  ),
-                ),
-            ],
+            ),
+            body: SafeArea(top: false, bottom: false, child: _buildBody(state)),
+            bottomNavigationBar: widget.showBottomNavigation
+                ? ProfilePublicBottomBar(currentIndex: 1)
+                : null,
           ),
         ),
-        bottomNavigationBar: widget.showBottomNavigation
-            ? ProfilePublicBottomBar(currentIndex: 1)
-            : null,
+      ),
+    );
+  }
+
+  Widget _buildBody(CollabListingEditorState state) {
+    if (state.actorStatus == CollabLoadStatus.loading ||
+        state.actorStatus == CollabLoadStatus.initial) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.actorStatus == CollabLoadStatus.failure) {
+      return _EditorInitializationState(
+        message: state.error?.message ?? 'Collab profillerin yüklenemedi.',
+        onRetry: () => unawaited(_initialize()),
+      );
+    }
+    if (state.actors.isEmpty || state.input == null) {
+      return const _EditorInitializationState(
+        message:
+            'İlan vermek için Müzisyen, Grup, Mekan veya Stüdyo profiline ihtiyacın var.',
+      );
+    }
+
+    final input = state.input!;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: _CreateStepIndicator(
+            currentStep: _step,
+            onStepTap: (step) {
+              if (step < _step && !state.isSubmitting) {
+                setState(() => _step = step);
+              }
+            },
+          ),
+        ),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: switch (_step) {
+              0 => _ListingTypeStep(
+                key: const ValueKey('create-step-type'),
+                cadence: input.cadence,
+                editable: state.listing?.isOpen != true,
+                onCadenceChanged: _changeCadence,
+                onComingSoonTap: () =>
+                    _showMessage('Param Güvende yakında kullanıma açılacak.'),
+              ),
+              1 => _buildInformationStep(state, input),
+              _ => _PreviewStep(
+                key: const ValueKey('create-step-preview'),
+                listing: _previewListing(state),
+                description: input.description,
+                genres: input.genres,
+                publisherName: state.selectedActor!.displayName,
+                submitting: state.isSubmitting,
+                editingOpenListing: state.listing?.isOpen == true,
+                onPublish: _publishOrUpdate,
+                onSaveDraft: _saveDraft,
+              ),
+            },
+          ),
+        ),
+        if (_step < 2)
+          SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(14, 9, 14, 13),
+            child: CollabPrimaryAction(
+              key: const ValueKey('collab-create-continue'),
+              label: 'Devam Et',
+              onPressed: state.isSubmitting ? null : _continue,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildInformationStep(
+    CollabListingEditorState state,
+    CollabListingInput input,
+  ) {
+    if (_catalogsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_catalogError != null) {
+      return _EditorInitializationState(
+        message: _catalogError!,
+        onRetry: () => unawaited(_loadCatalogs()),
+      );
+    }
+    return Form(
+      key: _formKey,
+      child: _ListingInformationStep(
+        key: const ValueKey('create-step-information'),
+        input: input,
+        editingOpenListing: state.listing?.isOpen == true,
+        selectedActor: state.selectedActor!,
+        cities: _cities,
+        instruments: _instruments,
+        titleController: _titleController,
+        descriptionController: _descriptionController,
+        customSpecialtyController: _customSpecialtyController,
+        feeController: _feeController,
+        feeMode: _feeMode,
+        occurrenceDate: _occurrenceDate,
+        occurrenceTime: _occurrenceTime,
+        dateError: _dateError,
+        timeError: _timeError,
+        onTitleChanged: (value) => _updateInput(input.copyWith(title: value)),
+        onDescriptionChanged: (value) =>
+            _updateInput(input.copyWith(description: value)),
+        onCityChanged: (value) {
+          if (value != null) _updateInput(input.copyWith(cityId: value));
+        },
+        onWantedTypeChanged: (value) {
+          if (value != null) _changeWantedType(value);
+        },
+        onSpecialtyChanged: _changeSpecialty,
+        onCustomSpecialtyChanged: (value) =>
+            _updateInput(input.copyWith(customSpecialty: value)),
+        onGenreToggle: _toggleGenre,
+        onDateTap: _pickDate,
+        onTimeTap: _pickTime,
+        onFeeModeChanged: _changeFeeMode,
+        onFeeChanged: _changeFee,
+        onPublisherTap: _pickPublisher,
       ),
     );
   }
@@ -208,75 +316,85 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
       setState(() => _step = 1);
       return;
     }
-    _draft = _draft.copyWith(
-      title: _titleController.text,
-      description: _descriptionController.text,
+    final state = _cubit.state;
+    final input = state.input;
+    final actor = state.selectedActor;
+    if (input == null || actor == null) return;
+    _updateInput(
+      input.copyWith(
+        title: _titleController.text,
+        description: _descriptionController.text,
+      ),
     );
+    final normalized = _cubit.state.input!;
     final formValid = _formKey.currentState?.validate() ?? false;
-    final needsDate = _draft.cadence == CollabCadence.extra;
+    final needsDate = normalized.cadence == CollabCadence.extra;
     setState(() {
-      _dateError = needsDate && _draft.occurrenceDate == null;
-      _timeError = needsDate && _draft.occurrenceTime == null;
+      _dateError = needsDate && _occurrenceDate == null;
+      _timeError = needsDate && _occurrenceTime == null;
     });
-    if (!formValid || _dateError || _timeError || _draft.publisher == null) {
+    final errors = normalized.validate(publisherType: actor.profileType);
+    if (!formValid || _dateError || _timeError || errors.isNotEmpty) {
       _showMessage('Devam etmek için zorunlu alanları kontrol et.');
-      return;
-    }
-    if (_isOccurrenceInPast()) {
-      _showMessage('Sahne tarihi ve saati geçmişte olamaz.');
       return;
     }
     setState(() => _step = 2);
   }
 
-  bool _isOccurrenceInPast() {
-    if (_draft.cadence != CollabCadence.extra ||
-        _draft.occurrenceDate == null ||
-        _draft.occurrenceTime == null) {
-      return false;
-    }
-    final date = _draft.occurrenceDate!;
-    final time = _draft.occurrenceTime!;
-    final occurrence = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
-    return occurrence.isBefore(DateTime.now());
-  }
-
   void _changeCadence(CollabCadence cadence) {
-    var next = _draft.copyWith(cadence: cadence);
+    final input = _cubit.state.input;
+    if (input == null) return;
+    var next = input.copyWith(cadence: cadence);
     if (cadence == CollabCadence.regular) {
-      next = next.copyWith(
-        clearOccurrenceDate: true,
-        clearOccurrenceTime: true,
-      );
-      if (next.publisher?.profileKind != CollabProfileKind.venue) {
-        _feeController.clear();
-        next = next.copyWith(
-          feeMode: CollabFeeMode.unspecified,
-          clearFeeAmount: true,
-        );
-      }
+      next = next.copyWith(clearScheduledAt: true);
+      _occurrenceDate = null;
+      _occurrenceTime = null;
     }
-    _updateDraft(next);
+    _updateInput(next);
+    _syncFeeUiFromCubit();
   }
 
-  void _changeLocation(String? location) {
-    if (location == null) return;
-    _updateDraft(
-      _draft.copyWith(
-        location: location,
-        city: collabCreationLocations[location],
+  void _changeWantedType(CollabProfileKind wantedType) {
+    final input = _cubit.state.input;
+    if (input == null) return;
+    _customSpecialtyController.clear();
+    _updateInput(
+      input.copyWith(
+        wantedType: wantedType,
+        clearInstrumentId: true,
+        clearBranch: true,
+        clearCustomSpecialty: true,
       ),
     );
   }
 
+  void _changeSpecialty(_CreateSpecialtyOption? specialty) {
+    final input = _cubit.state.input;
+    if (input == null || specialty == null) return;
+    _customSpecialtyController.clear();
+    if (specialty.instrumentId != null) {
+      _updateInput(
+        input.copyWith(
+          instrumentId: specialty.instrumentId,
+          clearBranch: true,
+          clearCustomSpecialty: true,
+        ),
+      );
+    } else {
+      _updateInput(
+        input.copyWith(
+          clearInstrumentId: true,
+          branch: specialty.branch,
+          clearCustomSpecialty: true,
+        ),
+      );
+    }
+  }
+
   void _toggleGenre(String genre) {
-    final genres = Set<String>.of(_draft.genres);
+    final input = _cubit.state.input;
+    if (input == null) return;
+    final genres = <String>{...input.genres};
     if (!genres.remove(genre)) {
       if (genres.length >= 3) {
         _showMessage('En fazla 3 tarz seçebilirsin.');
@@ -284,45 +402,51 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
       }
       genres.add(genre);
     }
-    _updateDraft(_draft.copyWith(genres: genres));
+    _updateInput(input.copyWith(genres: genres.toList(growable: false)));
   }
 
-  void _changeFeeMode(CollabFeeMode mode) {
-    if (mode == CollabFeeMode.unspecified) {
+  void _changeFeeMode(_CollabFeeMode mode) {
+    if (mode == _CollabFeeMode.unspecified) {
       _feeController.clear();
-      _updateDraft(_draft.copyWith(feeMode: mode, clearFeeAmount: true));
-    } else {
-      _updateDraft(_draft.copyWith(feeMode: mode));
+      final input = _cubit.state.input;
+      if (input != null) {
+        _updateInput(input.copyWith(clearFeeAmount: true, clearCurrency: true));
+      }
     }
+    setState(() => _feeMode = mode);
   }
 
   void _changeFee(String value) {
+    final input = _cubit.state.input;
+    if (input == null) return;
     final amount = int.tryParse(value.replaceAll(RegExp(r'\D'), ''));
-    _updateDraft(
+    _updateInput(
       amount == null
-          ? _draft.copyWith(clearFeeAmount: true)
-          : _draft.copyWith(feeAmount: amount),
+          ? input.copyWith(clearFeeAmount: true, clearCurrency: true)
+          : input.copyWith(feeAmountMinor: amount * 100, currency: 'TRY'),
     );
   }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final initial = _draft.occurrenceDate ?? now;
+    final today = DateTime(now.year, now.month, now.day);
+    final initial = _occurrenceDate ?? today;
     final picked = await showDatePicker(
       context: context,
-      initialDate: initial.isBefore(now) ? now : initial,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(now.year + 2),
+      initialDate: initial.isBefore(today) ? today : initial,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 7)),
     );
     if (!mounted || picked == null) return;
     setState(() {
-      _draft = _draft.copyWith(occurrenceDate: picked);
+      _occurrenceDate = picked;
       _dateError = false;
     });
+    _updateSchedule();
   }
 
   Future<void> _pickTime() async {
-    final current = _draft.occurrenceTime;
+    final current = _occurrenceTime;
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(
@@ -332,64 +456,236 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
     );
     if (!mounted || picked == null) return;
     setState(() {
-      _draft = _draft.copyWith(
-        occurrenceTime: CollabClockTime(
-          hour: picked.hour,
-          minute: picked.minute,
-        ),
-      );
+      _occurrenceTime = picked;
       _timeError = false;
     });
+    _updateSchedule();
   }
 
   Future<void> _pickPublisher() async {
-    final profile = await showModalBottomSheet<CollabPublisherProfile>(
+    final state = _cubit.state;
+    final profile = await showModalBottomSheet<CollabActor>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _PublisherPicker(selected: _draft.publisher),
+      builder: (_) =>
+          _PublisherPicker(actors: state.actors, selected: state.selectedActor),
     );
     if (!mounted || profile == null) return;
-    var next = _draft.copyWith(publisher: profile);
-    if (_draft.cadence == CollabCadence.regular &&
-        profile.profileKind != CollabProfileKind.venue) {
-      _feeController.clear();
-      next = next.copyWith(
-        feeMode: CollabFeeMode.unspecified,
-        clearFeeAmount: true,
-      );
+    final input = _cubit.state.input;
+    if (input == null) return;
+    _updateInput(input.copyWith(publisherActorId: profile.actorId));
+    _syncFeeUiFromCubit();
+  }
+
+  Future<void> _publishOrUpdate() async {
+    if (_cubit.state.isSubmitting) return;
+    if (_cubit.state.listing?.isOpen == true) {
+      await _cubit.updateOpenListing();
+    } else {
+      await _cubit.publish();
     }
-    _updateDraft(next);
-  }
-
-  Future<void> _publish() async {
-    if (_submitting) return;
-    setState(() => _submitting = true);
-    await Future<void>.delayed(const Duration(milliseconds: 450));
     if (!mounted) return;
-    final initialDraft = widget.initialDraft;
-    if (initialDraft != null) _controller.removeDraft(initialDraft);
-    _controller.publish(_draft);
-    Navigator.of(context).pop(CollabCreateListingResult.published);
+    final state = _cubit.state;
+    if (state.error == null &&
+        state.validationErrors.isEmpty &&
+        !state.isDirty &&
+        state.listing?.isOpen == true) {
+      Navigator.of(context).pop(CollabCreateListingResult.published);
+    }
   }
 
-  void _saveDraft() {
-    if (_submitting) return;
-    final initialDraft = widget.initialDraft;
-    if (initialDraft != null) _controller.removeDraft(initialDraft);
-    _controller.saveDraft(_draft);
-    Navigator.of(context).pop(CollabCreateListingResult.draftSaved);
+  Future<void> _saveDraft() async {
+    if (_cubit.state.isSubmitting) return;
+    await _cubit.saveDraft();
+    if (!mounted) return;
+    final state = _cubit.state;
+    if (state.error == null &&
+        state.validationErrors.isEmpty &&
+        !state.isDirty &&
+        state.listing?.isDraft == true) {
+      Navigator.of(context).pop(CollabCreateListingResult.draftSaved);
+    }
   }
 
-  void _updateDraft(CollabListingDraft draft) {
-    setState(() => _draft = draft);
+  void _updateInput(CollabListingInput input) {
+    _cubit.updateInput(input);
+  }
+
+  void _updateSchedule() {
+    final input = _cubit.state.input;
+    if (input == null) return;
+    final date = _occurrenceDate;
+    final time = _occurrenceTime;
+    if (date == null || time == null) {
+      _updateInput(input.copyWith(clearScheduledAt: true));
+      return;
+    }
+    _updateInput(
+      input.copyWith(
+        scheduledAt: DateTime(
+          date.year,
+          date.month,
+          date.day,
+          time.hour,
+          time.minute,
+        ),
+      ),
+    );
+  }
+
+  void _syncFieldsFromInput(CollabListingInput input) {
+    _titleController.text = input.title;
+    _descriptionController.text = input.description;
+    _customSpecialtyController.text = input.customSpecialty ?? '';
+    final scheduled = input.scheduledAt?.toLocal();
+    _occurrenceDate = scheduled == null
+        ? null
+        : DateTime(scheduled.year, scheduled.month, scheduled.day);
+    _occurrenceTime = scheduled == null
+        ? null
+        : TimeOfDay(hour: scheduled.hour, minute: scheduled.minute);
+    _feeMode = input.feeAmountMinor == null
+        ? _CollabFeeMode.unspecified
+        : _CollabFeeMode.paid;
+    _feeController.text = input.feeAmountMinor == null
+        ? ''
+        : (input.feeAmountMinor! ~/ 100).toString();
+  }
+
+  void _syncFeeUiFromCubit() {
+    final input = _cubit.state.input;
+    if (input?.feeAmountMinor == null) {
+      _feeController.clear();
+      if (mounted) setState(() => _feeMode = _CollabFeeMode.unspecified);
+    }
+  }
+
+  CollabDiscoveryListing _previewListing(CollabListingEditorState state) {
+    final input = state.input!;
+    final actor = state.selectedActor!;
+    final cityName =
+        _cities.where((value) => value.id == input.cityId).firstOrNull?.name ??
+        state.listing?.city.name ??
+        'Sehir';
+    final instrument = input.instrumentId == null
+        ? null
+        : _instruments
+              .where((value) => value.id == input.instrumentId)
+              .firstOrNull;
+    final specialty =
+        instrument?.name ??
+        (input.branch == CollabBranch.other
+            ? input.customSpecialty
+            : input.branch?.label) ??
+        '';
+    return CollabDiscoveryListing(
+      id: state.listing?.id ?? 'preview',
+      ownerName: actor.displayName,
+      ownerInitials: actor.initials,
+      profileKind: actor.profileType,
+      wantedKind: input.wantedType,
+      avatarUrl: actor.avatarUrl,
+      title: input.title.trim(),
+      cadence: input.cadence,
+      location: cityName,
+      scheduledAt: input.scheduledAt,
+      feeAmountMinor: input.feeAmountMinor,
+      feeCurrency: input.currency,
+      role: specialty,
+    );
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+const _collabGenreOptions = <String>[
+  'Rock',
+  'Pop',
+  'Alternatif',
+  'Jazz',
+  'Blues',
+  'Funk',
+  'Soul',
+  'Akustik',
+  'Elektronik',
+  'Diğer',
+];
+
+class _CreateSpecialtyOption {
+  const _CreateSpecialtyOption._({
+    required this.label,
+    this.instrumentId,
+    this.branch,
+  });
+
+  factory _CreateSpecialtyOption.instrument(Instrument instrument) =>
+      _CreateSpecialtyOption._(
+        label: instrument.name,
+        instrumentId: instrument.id,
+      );
+
+  factory _CreateSpecialtyOption.branch(CollabBranch branch) =>
+      _CreateSpecialtyOption._(label: branch.label, branch: branch);
+
+  final String label;
+  final String? instrumentId;
+  final CollabBranch? branch;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _CreateSpecialtyOption &&
+      other.instrumentId == instrumentId &&
+      other.branch == branch;
+
+  @override
+  int get hashCode => Object.hash(instrumentId, branch);
+}
+
+class _EditorInitializationState extends StatelessWidget {
+  const _EditorInitializationState({required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              onRetry == null
+                  ? Icons.person_off_outlined
+                  : Icons.cloud_off_rounded,
+              size: 42,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 10),
+              FilledButton.tonal(
+                key: const ValueKey('collab-create-initialize-retry'),
+                onPressed: onRetry,
+                child: const Text('Tekrar dene'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -402,7 +698,7 @@ class _CreateStepIndicator extends StatelessWidget {
   final int currentStep;
   final ValueChanged<int> onStepTap;
 
-  static const labels = <String>['Tür ve Yön', 'İlan Bilgileri', 'Önizleme'];
+  static const labels = <String>['İlan Türü', 'İlan Bilgileri', 'Önizleme'];
 
   @override
   Widget build(BuildContext context) {
@@ -487,13 +783,15 @@ class _CreateStepIndicator extends StatelessWidget {
 
 class _ListingTypeStep extends StatelessWidget {
   const _ListingTypeStep({
-    required this.draft,
+    required this.cadence,
+    required this.editable,
     required this.onCadenceChanged,
     required this.onComingSoonTap,
     super.key,
   });
 
-  final CollabListingDraft draft;
+  final CollabCadence cadence;
+  final bool editable;
   final ValueChanged<CollabCadence> onCadenceChanged;
   final VoidCallback onComingSoonTap;
 
@@ -520,19 +818,23 @@ class _ListingTypeStep extends StatelessWidget {
           const CollabSectionTitle('İlan Türü'),
           const SizedBox(height: 9),
           _CreateChoiceCard(
-            title: 'Ekstra',
-            description: 'Tek seferlik veya kısa süreli işler için.',
-            icon: Icons.work_outline_rounded,
-            selected: draft.cadence == CollabCadence.extra,
-            onTap: () => onCadenceChanged(CollabCadence.extra),
-          ),
-          const SizedBox(height: 9),
-          _CreateChoiceCard(
             title: 'Düzenli',
             description: 'Sürekli veya tekrarlayan işler için.',
             icon: Icons.event_repeat_rounded,
-            selected: draft.cadence == CollabCadence.regular,
-            onTap: () => onCadenceChanged(CollabCadence.regular),
+            selected: cadence == CollabCadence.regular,
+            onTap: editable
+                ? () => onCadenceChanged(CollabCadence.regular)
+                : null,
+          ),
+          const SizedBox(height: 9),
+          _CreateChoiceCard(
+            title: 'Ekstra',
+            description: 'Tek seferlik veya kısa süreli işler için.',
+            icon: Icons.work_outline_rounded,
+            selected: cadence == CollabCadence.extra,
+            onTap: editable
+                ? () => onCadenceChanged(CollabCadence.extra)
+                : null,
           ),
           const SizedBox(height: 17),
           _ComingSoonCard(
@@ -561,7 +863,7 @@ class _CreateChoiceCard extends StatelessWidget {
   final String description;
   final IconData icon;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -653,16 +955,26 @@ class _CreateRadio extends StatelessWidget {
 
 class _ListingInformationStep extends StatelessWidget {
   const _ListingInformationStep({
-    required this.draft,
+    required this.input,
+    required this.editingOpenListing,
+    required this.selectedActor,
+    required this.cities,
+    required this.instruments,
     required this.titleController,
     required this.descriptionController,
+    required this.customSpecialtyController,
     required this.feeController,
+    required this.feeMode,
+    required this.occurrenceDate,
+    required this.occurrenceTime,
     required this.dateError,
     required this.timeError,
     required this.onTitleChanged,
     required this.onDescriptionChanged,
-    required this.onLocationChanged,
-    required this.onRoleChanged,
+    required this.onCityChanged,
+    required this.onWantedTypeChanged,
+    required this.onSpecialtyChanged,
+    required this.onCustomSpecialtyChanged,
     required this.onGenreToggle,
     required this.onDateTap,
     required this.onTimeTap,
@@ -672,26 +984,85 @@ class _ListingInformationStep extends StatelessWidget {
     super.key,
   });
 
-  final CollabListingDraft draft;
+  final CollabListingInput input;
+  final bool editingOpenListing;
+  final CollabActor selectedActor;
+  final List<City> cities;
+  final List<Instrument> instruments;
   final TextEditingController titleController;
   final TextEditingController descriptionController;
+  final TextEditingController customSpecialtyController;
   final TextEditingController feeController;
+  final _CollabFeeMode feeMode;
+  final DateTime? occurrenceDate;
+  final TimeOfDay? occurrenceTime;
   final bool dateError;
   final bool timeError;
   final ValueChanged<String> onTitleChanged;
   final ValueChanged<String> onDescriptionChanged;
-  final ValueChanged<String?> onLocationChanged;
-  final ValueChanged<String?> onRoleChanged;
+  final ValueChanged<String?> onCityChanged;
+  final ValueChanged<CollabProfileKind?> onWantedTypeChanged;
+  final ValueChanged<_CreateSpecialtyOption?> onSpecialtyChanged;
+  final ValueChanged<String> onCustomSpecialtyChanged;
   final ValueChanged<String> onGenreToggle;
   final VoidCallback onDateTap;
   final VoidCallback onTimeTap;
-  final ValueChanged<CollabFeeMode> onFeeModeChanged;
+  final ValueChanged<_CollabFeeMode> onFeeModeChanged;
   final ValueChanged<String> onFeeChanged;
   final VoidCallback onPublisherTap;
+
+  List<_CreateSpecialtyOption> _specialtyOptions() {
+    final branches = CollabBranch.values
+        .map(_CreateSpecialtyOption.branch)
+        .toList(growable: false);
+    final branchLabels = branches
+        .map((option) => option.label.trim().toLowerCase())
+        .toSet();
+    final options = <_CreateSpecialtyOption>[
+      ...instruments
+          .where(
+            (instrument) =>
+                !branchLabels.contains(instrument.name.trim().toLowerCase()),
+          )
+          .map(_CreateSpecialtyOption.instrument),
+      ...branches,
+    ]..sort((a, b) => a.label.compareTo(b.label));
+    return List<_CreateSpecialtyOption>.unmodifiable(options);
+  }
+
+  Future<_CreateSpecialtyOption?> _pickSpecialty(
+    BuildContext context,
+    List<_CreateSpecialtyOption> options,
+    _CreateSpecialtyOption? selected,
+  ) => showModalBottomSheet<_CreateSpecialtyOption>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (sheetContext) => CollabSearchableOptionSheet(
+      title: 'Enstrüman / Branş',
+      options: options,
+      selected: selected,
+      labelFor: (option) => option.label,
+      onSelected: (option) => Navigator.of(sheetContext).pop(option),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cityValue = cities.any((city) => city.id == input.cityId)
+        ? input.cityId
+        : null;
+    final specialtyOptions = _specialtyOptions();
+    final specialtyValue = specialtyOptions
+        .where(
+          (option) =>
+              (input.instrumentId != null &&
+                  option.instrumentId == input.instrumentId) ||
+              (input.branch != null && option.branch == input.branch),
+        )
+        .firstOrNull;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(14, 5, 14, 24),
       child: Column(
@@ -742,36 +1113,89 @@ class _ListingInformationStep extends StatelessWidget {
           DropdownButtonFormField<String>(
             key: const ValueKey('collab-create-location'),
             isExpanded: true,
-            initialValue: draft.location,
+            initialValue: cityValue,
             decoration: const InputDecoration(
-              labelText: 'Şehir / Konum',
+              labelText: 'Şehir',
               prefixIcon: Icon(Icons.location_on_outlined),
             ),
-            items: collabCreationLocations.keys
+            items: cities
                 .map(
-                  (location) =>
-                      DropdownMenuItem(value: location, child: Text(location)),
+                  (city) =>
+                      DropdownMenuItem(value: city.id, child: Text(city.name)),
                 )
                 .toList(growable: false),
-            onChanged: onLocationChanged,
-            validator: (value) => value == null ? 'Konum seç.' : null,
+            onChanged: editingOpenListing ? null : onCityChanged,
+            validator: (value) => value == null ? 'Şehir seç.' : null,
           ),
           const SizedBox(height: 13),
-          DropdownButtonFormField<String>(
-            key: const ValueKey('collab-create-role'),
+          DropdownButtonFormField<CollabProfileKind>(
+            key: const ValueKey('collab-create-wanted-type'),
             isExpanded: true,
-            initialValue: draft.role,
+            initialValue: input.wantedType,
             decoration: const InputDecoration(
-              labelText: 'Aranan kişi, ekip veya yer',
-              prefixIcon: Icon(Icons.music_note_outlined),
+              labelText: 'Aranan',
+              prefixIcon: Icon(Icons.manage_search_rounded),
             ),
-            items: collabCreationRoles
-                .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+            items: CollabProfileKind.values
+                .map(
+                  (kind) => DropdownMenuItem(
+                    value: kind,
+                    child: Text(kind.wantedLabel),
+                  ),
+                )
                 .toList(growable: false),
-            onChanged: onRoleChanged,
-            validator: (value) =>
-                value == null ? 'Rol veya ihtiyaç seç.' : null,
+            onChanged: editingOpenListing ? null : onWantedTypeChanged,
           ),
+          if (input.wantedType == CollabProfileKind.musician) ...[
+            const SizedBox(height: 13),
+            FormField<_CreateSpecialtyOption>(
+              initialValue: specialtyValue,
+              validator: (value) =>
+                  value == null ? 'Enstrüman veya branş seç.' : null,
+              builder: (field) => InkWell(
+                key: const ValueKey('collab-create-specialty'),
+                borderRadius: BorderRadius.circular(12),
+                onTap: editingOpenListing
+                    ? null
+                    : () async {
+                        final selected = await _pickSpecialty(
+                          context,
+                          specialtyOptions,
+                          field.value,
+                        );
+                        if (selected == null) return;
+                        field.didChange(selected);
+                        onSpecialtyChanged(selected);
+                      },
+                child: InputDecorator(
+                  isEmpty: field.value == null,
+                  decoration: InputDecoration(
+                    labelText: 'Enstrüman / Branş',
+                    prefixIcon: const Icon(Icons.music_note_outlined),
+                    suffixIcon: const Icon(Icons.search_rounded),
+                    errorText: field.errorText,
+                    enabled: !editingOpenListing,
+                  ),
+                  child: Text(field.value?.label ?? 'Seçmek için dokun'),
+                ),
+              ),
+            ),
+            if (input.branch == CollabBranch.other) ...[
+              const SizedBox(height: 13),
+              TextFormField(
+                key: const ValueKey('collab-create-custom-specialty'),
+                controller: customSpecialtyController,
+                maxLength: 80,
+                decoration: const InputDecoration(
+                  labelText: 'Diğer branş',
+                  prefixIcon: Icon(Icons.edit_note_rounded),
+                ),
+                onChanged: editingOpenListing ? null : onCustomSpecialtyChanged,
+                validator: (value) =>
+                    value?.trim().isEmpty ?? true ? 'Branşı yaz.' : null,
+              ),
+            ],
+          ],
           const SizedBox(height: 20),
           const CollabSectionTitle('Tarz'),
           const SizedBox(height: 4),
@@ -786,17 +1210,17 @@ class _ListingInformationStep extends StatelessWidget {
           Wrap(
             spacing: 7,
             runSpacing: 7,
-            children: collabCreationGenres
+            children: _collabGenreOptions
                 .map(
                   (genre) => CollabChoiceChip(
                     label: genre,
-                    selected: draft.genres.contains(genre),
+                    selected: input.genres.contains(genre),
                     onTap: () => onGenreToggle(genre),
                   ),
                 )
                 .toList(growable: false),
           ),
-          if (draft.cadence == CollabCadence.extra) ...[
+          if (input.cadence == CollabCadence.extra) ...[
             const SizedBox(height: 20),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -804,37 +1228,36 @@ class _ListingInformationStep extends StatelessWidget {
                 Expanded(
                   child: _PickerField(
                     label: 'Sahne Tarihi',
-                    value: draft.occurrenceDate == null
+                    value: occurrenceDate == null
                         ? 'Tarih seç'
-                        : _longDate(draft.occurrenceDate!),
+                        : _longDate(occurrenceDate!),
                     icon: Icons.calendar_month_outlined,
                     error: dateError ? 'Tarih seç.' : null,
-                    onTap: onDateTap,
+                    onTap: editingOpenListing ? null : onDateTap,
                   ),
                 ),
                 const SizedBox(width: 9),
                 Expanded(
                   child: _PickerField(
                     label: 'Saat',
-                    value: draft.occurrenceTime?.label ?? 'Saat seç',
+                    value: occurrenceTime == null
+                        ? 'Saat seç'
+                        : _timeLabel(occurrenceTime!),
                     icon: Icons.schedule_rounded,
                     error: timeError ? 'Saat seç.' : null,
-                    onTap: onTimeTap,
+                    onTap: editingOpenListing ? null : onTimeTap,
                   ),
                 ),
               ],
             ),
           ],
-          if (draft.cadence == CollabCadence.extra ||
-              draft.publisher?.profileKind == CollabProfileKind.venue) ...[
+          if (input.cadence == CollabCadence.extra ||
+              selectedActor.profileType == CollabProfileKind.venue) ...[
             const SizedBox(height: 20),
             const CollabSectionTitle('Ücret'),
             const SizedBox(height: 10),
-            _FeeModeSelector(
-              selected: draft.feeMode,
-              onSelected: onFeeModeChanged,
-            ),
-            if (draft.feeMode == CollabFeeMode.paid) ...[
+            _FeeModeSelector(selected: feeMode, onSelected: onFeeModeChanged),
+            if (feeMode == _CollabFeeMode.paid) ...[
               const SizedBox(height: 10),
               TextFormField(
                 key: const ValueKey('collab-create-fee'),
@@ -848,8 +1271,10 @@ class _ListingInformationStep extends StatelessWidget {
                 onChanged: onFeeChanged,
                 validator: (value) {
                   final amount = int.tryParse(value ?? '');
-                  if (amount == null || amount <= 0) {
-                    return 'Sıfırdan büyük tek bir ücret gir.';
+                  if (amount == null ||
+                      amount <= 0 ||
+                      amount > collabMaxFeeAmountMinor ~/ 100) {
+                    return '1-1.000.000 TRY arasında tek bir ücret gir.';
                   }
                   return null;
                 },
@@ -859,7 +1284,10 @@ class _ListingInformationStep extends StatelessWidget {
           const SizedBox(height: 20),
           const CollabSectionTitle('İlan Veren Profil'),
           const SizedBox(height: 9),
-          _PublisherCard(profile: draft.publisher!, onTap: onPublisherTap),
+          _PublisherCard(
+            profile: selectedActor,
+            onTap: editingOpenListing ? null : onPublisherTap,
+          ),
         ],
       ),
     );
@@ -879,7 +1307,7 @@ class _PickerField extends StatelessWidget {
   final String value;
   final IconData icon;
   final String? error;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -946,8 +1374,8 @@ class _PickerField extends StatelessWidget {
 class _FeeModeSelector extends StatelessWidget {
   const _FeeModeSelector({required this.selected, required this.onSelected});
 
-  final CollabFeeMode selected;
-  final ValueChanged<CollabFeeMode> onSelected;
+  final _CollabFeeMode selected;
+  final ValueChanged<_CollabFeeMode> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -959,13 +1387,13 @@ class _FeeModeSelector extends StatelessWidget {
           children: [
             _FeeModeOption(
               label: 'Ücretli',
-              selected: selected == CollabFeeMode.paid,
-              onTap: () => onSelected(CollabFeeMode.paid),
+              selected: selected == _CollabFeeMode.paid,
+              onTap: () => onSelected(_CollabFeeMode.paid),
             ),
             _FeeModeOption(
               label: 'Ücret belirtilmemiş',
-              selected: selected == CollabFeeMode.unspecified,
-              onTap: () => onSelected(CollabFeeMode.unspecified),
+              selected: selected == _CollabFeeMode.unspecified,
+              onTap: () => onSelected(_CollabFeeMode.unspecified),
             ),
           ],
         ),
@@ -1030,8 +1458,8 @@ class _FeeLabel extends StatelessWidget {
 class _PublisherCard extends StatelessWidget {
   const _PublisherCard({required this.profile, required this.onTap});
 
-  final CollabPublisherProfile profile;
-  final VoidCallback onTap;
+  final CollabActor profile;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1046,8 +1474,8 @@ class _PublisherCard extends StatelessWidget {
           children: [
             CollabIdentityAvatar(
               initials: profile.initials,
-              profileKind: profile.profileKind,
-              avatarAsset: profile.avatarAsset,
+              profileKind: profile.profileType,
+              avatarUrl: profile.avatarUrl,
               size: 52,
             ),
             const SizedBox(width: 11),
@@ -1056,7 +1484,7 @@ class _PublisherCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    profile.name,
+                    profile.displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1067,7 +1495,7 @@ class _PublisherCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    profile.subtitle,
+                    profile.profileType.label,
                     style: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontSize: 11,
@@ -1085,9 +1513,10 @@ class _PublisherCard extends StatelessWidget {
 }
 
 class _PublisherPicker extends StatelessWidget {
-  const _PublisherPicker({required this.selected});
+  const _PublisherPicker({required this.actors, required this.selected});
 
-  final CollabPublisherProfile? selected;
+  final List<CollabActor> actors;
+  final CollabActor? selected;
 
   @override
   Widget build(BuildContext context) {
@@ -1102,18 +1531,18 @@ class _PublisherPicker extends StatelessWidget {
           const CollabSectionTitle('İlan Veren Profili Seç'),
           const SizedBox(height: 6),
           Text(
-            'Yalnızca Müzisyen, Mekan ve Stüdyo profilleri ilan verebilir.',
+            'Müzisyen, Grup, Mekan ve Stüdyo profillerinden birini seç.',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 11.5,
             ),
           ),
           const SizedBox(height: 12),
-          ...collabPublisherMockProfiles.map(
+          ...actors.map(
             (profile) => Padding(
               padding: const EdgeInsets.only(bottom: 9),
               child: CollabGradientFrame(
-                highlighted: profile.id == selected?.id,
+                highlighted: profile.actorId == selected?.actorId,
                 radius: 16,
                 child: Material(
                   color: Colors.transparent,
@@ -1121,14 +1550,14 @@ class _PublisherPicker extends StatelessWidget {
                     onTap: () => Navigator.of(context).pop(profile),
                     leading: CollabIdentityAvatar(
                       initials: profile.initials,
-                      profileKind: profile.profileKind,
-                      avatarAsset: profile.avatarAsset,
+                      profileKind: profile.profileType,
+                      avatarUrl: profile.avatarUrl,
                       size: 43,
                     ),
-                    title: Text(profile.name),
-                    subtitle: Text(profile.subtitle),
+                    title: Text(profile.displayName),
+                    subtitle: Text(profile.profileType.label),
                     trailing: _CreateRadio(
-                      selected: profile.id == selected?.id,
+                      selected: profile.actorId == selected?.actorId,
                     ),
                   ),
                 ),
@@ -1143,21 +1572,28 @@ class _PublisherPicker extends StatelessWidget {
 
 class _PreviewStep extends StatelessWidget {
   const _PreviewStep({
-    required this.draft,
+    required this.listing,
+    required this.publisherName,
+    required this.genres,
+    required this.description,
     required this.submitting,
+    required this.editingOpenListing,
     required this.onPublish,
     required this.onSaveDraft,
     super.key,
   });
 
-  final CollabListingDraft draft;
+  final CollabDiscoveryListing listing;
+  final String publisherName;
+  final List<String> genres;
+  final String description;
   final bool submitting;
+  final bool editingOpenListing;
   final VoidCallback onPublish;
   final VoidCallback onSaveDraft;
 
   @override
   Widget build(BuildContext context) {
-    final listing = draft.toListing('preview');
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(14, 5, 14, 28),
       child: Column(
@@ -1193,19 +1629,17 @@ class _PreviewStep extends StatelessWidget {
                 _PreviewRow(
                   icon: Icons.person_outline_rounded,
                   label: 'İlan Veren',
-                  value: draft.publisher!.name,
+                  value: publisherName,
                 ),
                 _PreviewRow(
                   icon: Icons.library_music_outlined,
                   label: 'Tarz',
-                  value: draft.genres.isEmpty
-                      ? 'Belirtilmemiş'
-                      : draft.genres.join(', '),
+                  value: genres.isEmpty ? 'Belirtilmemiş' : genres.join(', '),
                 ),
                 _PreviewRow(
                   icon: Icons.notes_rounded,
                   label: 'Açıklama',
-                  value: draft.description,
+                  value: description,
                   multiLine: true,
                 ),
               ],
@@ -1220,18 +1654,22 @@ class _PreviewStep extends StatelessWidget {
           const SizedBox(height: 14),
           CollabPrimaryAction(
             key: const ValueKey('collab-create-publish'),
-            label: 'Yayınla',
-            icon: Icons.send_outlined,
+            label: editingOpenListing ? 'Değişiklikleri Kaydet' : 'Yayınla',
+            icon: editingOpenListing
+                ? Icons.save_outlined
+                : Icons.send_outlined,
             busy: submitting,
             onPressed: submitting ? null : onPublish,
           ),
-          const SizedBox(height: 9),
-          CollabOutlineAction(
-            key: const ValueKey('collab-create-save-draft'),
-            label: 'Taslak Kaydet',
-            icon: Icons.description_outlined,
-            onPressed: submitting ? null : onSaveDraft,
-          ),
+          if (!editingOpenListing) ...[
+            const SizedBox(height: 9),
+            CollabOutlineAction(
+              key: const ValueKey('collab-create-save-draft'),
+              label: 'Taslak Kaydet',
+              icon: Icons.description_outlined,
+              onPressed: submitting ? null : onSaveDraft,
+            ),
+          ],
         ],
       ),
     );
@@ -1376,3 +1814,6 @@ String _longDate(DateTime date) {
   ];
   return '${date.day} ${months[date.month - 1]} ${date.year}';
 }
+
+String _timeLabel(TimeOfDay time) =>
+    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';

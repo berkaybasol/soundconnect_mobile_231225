@@ -1,27 +1,46 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
+import '../../../instrument/domain/entities/instrument.dart';
+import '../../../instrument/domain/instrument_repository.dart';
+import '../../../location/domain/entities/city.dart';
+import '../../../location/domain/location_repository.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
-import '../../data/collab_discovery_mock_data.dart';
-import '../../data/collab_mock_controller.dart';
+import '../../domain/collab_commands.dart';
 import '../../domain/collab_discovery_models.dart';
+import '../../domain/collab_types.dart';
+import '../../domain/entities/collab_listing.dart';
+import '../cubit/collab_async_state.dart';
+import '../cubit/collab_discovery_cubit.dart';
+import '../cubit/collab_discovery_state.dart';
 import '../theme/collab_visual_theme.dart';
 import '../widgets/collab_discovery_widgets.dart';
 import 'collab_create_listing_screen.dart';
 import 'collab_listing_detail_screen.dart';
 import 'collab_my_applications_screen.dart';
 import 'collab_my_listings_screen.dart';
+import 'collab_saved_listings_screen.dart';
 
 class CollabDiscoveryScreen extends StatefulWidget {
   const CollabDiscoveryScreen({
     this.showBottomNavigation = true,
-    this.controller,
+    this.initialListingId,
+    this.cubit,
+    this.locationRepository,
+    this.instrumentRepository,
     super.key,
   });
 
   final bool showBottomNavigation;
-  final CollabMockController? controller;
+  final String? initialListingId;
+  final CollabDiscoveryCubit? cubit;
+  final LocationRepository? locationRepository;
+  final InstrumentRepository? instrumentRepository;
 
   @override
   State<CollabDiscoveryScreen> createState() => _CollabDiscoveryScreenState();
@@ -29,167 +48,261 @@ class CollabDiscoveryScreen extends StatefulWidget {
 
 class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   final TextEditingController _searchController = TextEditingController();
-  CollabCadence _cadence = CollabCadence.regular;
-  CollabDiscoveryFilter _filter = const CollabDiscoveryFilter();
-
-  CollabMockController get _controller =>
-      widget.controller ?? collabMockController;
+  final ScrollController _scrollController = ScrollController();
+  late final CollabDiscoveryCubit _cubit;
+  late final bool _ownsCubit;
+  late final LocationRepository _locationRepository;
+  late final InstrumentRepository _instrumentRepository;
+  List<City> _cities = const <City>[];
+  List<Instrument> _instruments = const <Instrument>[];
+  bool _catalogsLoading = true;
+  String? _catalogError;
+  String? _openedInitialListingId;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_refreshSearch);
+    _ownsCubit = widget.cubit == null;
+    _cubit = widget.cubit ?? serviceLocator<CollabDiscoveryCubit>();
+    _locationRepository =
+        widget.locationRepository ?? serviceLocator<LocationRepository>();
+    _instrumentRepository =
+        widget.instrumentRepository ?? serviceLocator<InstrumentRepository>();
+    _searchController.addListener(_onSearchChanged);
+    _scrollController.addListener(_onScroll);
+    unawaited(_cubit.loadInitial());
+    _scheduleInitialDetail();
+    unawaited(_loadCatalogs());
+  }
+
+  @override
+  void didUpdateWidget(covariant CollabDiscoveryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialListingId != widget.initialListingId) {
+      _scheduleInitialDetail();
+    }
+  }
+
+  void _scheduleInitialDetail() {
+    final listingId = widget.initialListingId?.trim();
+    if (listingId == null || listingId.isEmpty) return;
+    if (_openedInitialListingId == listingId) return;
+    _openedInitialListingId = listingId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_openListingId(listingId));
+    });
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_refreshSearch);
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    if (_ownsCubit) unawaited(_cubit.close());
     super.dispose();
   }
 
-  void _refreshSearch() {
-    if (mounted) setState(() {});
+  void _onSearchChanged() {
+    _cubit.setSearchQuery(_searchController.text);
   }
 
-  List<CollabDiscoveryListing> get _allListings => <CollabDiscoveryListing>[
-    ..._controller.createdListings,
-    ...collabDiscoveryMockListings,
-  ];
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.extentAfter < 420) {
+      unawaited(_cubit.loadMore());
+    }
+  }
 
-  List<CollabDiscoveryListing> get _visibleListings {
-    final query = _searchController.text;
-    return _allListings
-        .where((listing) => listing.cadence == _cadence)
-        .where(
-          (listing) =>
-              listing.cadence == CollabCadence.regular ||
-              CollabPublishedWithin.last7Days.includes(listing.publishedAt),
-        )
-        .where(_filter.matches)
-        .where((listing) => listing.matches(query))
-        .toList(growable: false);
+  Future<void> _loadCatalogs() async {
+    if (mounted) {
+      setState(() {
+        _catalogsLoading = true;
+        _catalogError = null;
+      });
+    }
+    final citiesFuture = _locationRepository.getCities();
+    final instrumentsFuture = _instrumentRepository.getAll();
+    final cityResult = await citiesFuture;
+    final instrumentResult = await instrumentsFuture;
+    if (!mounted) return;
+    setState(() {
+      _catalogsLoading = false;
+      if (cityResult.isSuccess && instrumentResult.isSuccess) {
+        _cities = List<City>.unmodifiable(
+          <City>[...cityResult.data!]..sort((a, b) => a.name.compareTo(b.name)),
+        );
+        _instruments = List<Instrument>.unmodifiable(
+          <Instrument>[...instrumentResult.data!]
+            ..sort((a, b) => a.name.compareTo(b.name)),
+        );
+      } else {
+        _catalogError =
+            cityResult.error?.message ??
+            instrumentResult.error?.message ??
+            'Filtre seçenekleri yüklenemedi.';
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final listings = _visibleListings;
-          return SafeArea(
+    return BlocProvider<CollabDiscoveryCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<CollabDiscoveryCubit, CollabDiscoveryState>(
+        listenWhen: (previous, current) =>
+            previous.actionError != current.actionError ||
+            previous.loadMoreError != current.loadMoreError ||
+            (previous.error != current.error && current.items.isNotEmpty),
+        listener: (context, state) {
+          final error = state.actionError ?? state.loadMoreError ?? state.error;
+          if (error != null) _showMessage(error.message);
+        },
+        builder: (context, state) => Scaffold(
+          body: SafeArea(
             bottom: false,
-            child: CustomScrollView(
-              key: const PageStorageKey<String>('collab-discovery-scroll'),
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _DiscoveryHeader(
-                          onApplicationsTap: _openMyApplications,
-                          onListingsTap: _openMyListings,
-                        ),
-                        const SizedBox(height: 18),
-                        _CadenceSelector(
-                          selected: _cadence,
-                          onSelected: _selectCadence,
-                        ),
-                        const SizedBox(height: 13),
-                      ],
+            child: RefreshIndicator(
+              onRefresh: _cubit.refresh,
+              child: CustomScrollView(
+                controller: _scrollController,
+                key: const PageStorageKey<String>('collab-discovery-scroll'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _DiscoveryHeader(
+                            onApplicationsTap: _openMyApplications,
+                            onListingsTap: _openMyListings,
+                            onSavedTap: _openSavedListings,
+                          ),
+                          const SizedBox(height: 18),
+                          _CadenceSelector(
+                            selected: state.query.cadence,
+                            onSelected: _selectCadence,
+                          ),
+                          const SizedBox(height: 13),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                SliverToBoxAdapter(child: _buildQuickFilters()),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 13, 16, 0),
-                    child: GradientTextField(
-                      controller: _searchController,
-                      label: 'İlan, rol veya anahtar kelime ara...',
-                      prefixIcon: Icons.search_rounded,
-                      textInputAction: TextInputAction.search,
+                  SliverToBoxAdapter(child: _buildQuickFilters(state.query)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 13, 16, 0),
+                      child: GradientTextField(
+                        controller: _searchController,
+                        label: 'İlan, rol veya anahtar kelime ara...',
+                        prefixIcon: Icons.search_rounded,
+                        textInputAction: TextInputAction.search,
+                      ),
                     ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(17, 16, 17, 10),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _cadence == CollabCadence.extra
-                                ? 'Yakındaki ekstralar'
-                                : 'Düzenli fırsatlar',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(17, 16, 17, 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              state.query.cadence == CollabCadence.extra
+                                  ? 'Yakındaki ekstralar'
+                                  : 'Düzenli fırsatlar',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          '${listings.length} ilan',
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
+                          Text(
+                            '${state.totalElements} ilan',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                if (listings.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyDiscoveryState(
-                      onClear: () {
-                        _searchController.clear();
-                        setState(() => _filter = const CollabDiscoveryFilter());
-                      },
+                  if (state.status == CollabLoadStatus.loading &&
+                      state.items.isEmpty)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (state.status == CollabLoadStatus.failure &&
+                      state.items.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _DiscoveryFailureState(
+                        message: state.error?.message ?? 'İlanlar yüklenemedi.',
+                        onRetry: () => unawaited(_cubit.refresh()),
+                      ),
+                    )
+                  else if (state.items.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyDiscoveryState(onClear: _clearFilters),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                      sliver: SliverList.separated(
+                        itemCount: state.items.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final listing = state.items[index];
+                          return CollabListingCard(
+                            key: ValueKey(listing.id),
+                            listing: _toDiscoveryCardModel(listing),
+                            saved: listing.savedByMe,
+                            showCadence: false,
+                            onSave: () => _toggleSaved(listing.id),
+                            onTap: () => _openListing(listing),
+                          );
+                        },
+                      ),
                     ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 112),
-                    sliver: SliverList.separated(
-                      itemCount: listings.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final listing = listings[index];
-                        return CollabListingCard(
-                          key: ValueKey(listing.id),
-                          listing: listing,
-                          saved: _controller.isListingSaved(listing.id),
-                          showCadence: false,
-                          onSave: () => _toggleSaved(listing.id),
-                          onTap: () => _openListing(listing),
-                        );
-                      },
+                  if (state.items.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: _LoadMoreFooter(
+                        loading: state.isLoadingMore,
+                        hasNext: state.hasNext,
+                        hasError: state.loadMoreError != null,
+                        onRetry: () => unawaited(_cubit.loadMore()),
+                      ),
                     ),
-                  ),
-              ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 112)),
+                ],
+              ),
             ),
-          );
-        },
+          ),
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerFloat,
+          floatingActionButton: _CreateListingButton(
+            onPressed: _openCreateListing,
+          ),
+          bottomNavigationBar: widget.showBottomNavigation
+              ? ProfilePublicBottomBar(currentIndex: 1)
+              : null,
+        ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: _CreateListingButton(onPressed: _openCreateListing),
-      bottomNavigationBar: widget.showBottomNavigation
-          ? ProfilePublicBottomBar(currentIndex: 1)
-          : null,
     );
   }
 
-  Widget _buildQuickFilters() {
+  Widget _buildQuickFilters(CollabDiscoveryQuery query) {
     return SizedBox(
       height: 43,
       child: ListView(
@@ -198,167 +311,214 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
         children: [
           CollabChoiceChip(
             key: const ValueKey<String>('collab-quick-city'),
-            label: _filter.city ?? 'Şehir',
+            label: _cityLabel(query.cityId),
             icon: Icons.location_on_outlined,
-            selected: _filter.city != null,
-            onTap: _pickCity,
+            selected: query.cityId != null,
+            onTap: () => _pickCity(query),
           ),
           const SizedBox(width: 8),
           CollabChoiceChip(
             key: const ValueKey<String>('collab-quick-wanted'),
-            label: _filter.wantedKind?.wantedLabel ?? 'Aranan',
+            label: query.wantedType?.wantedLabel ?? 'Aranan',
             icon: Icons.manage_search_rounded,
-            selected: _filter.wantedKind != null,
-            onTap: _pickWantedKind,
+            selected: query.wantedType != null,
+            onTap: () => _pickWantedKind(query),
           ),
-          if (_filter.wantedKind == CollabProfileKind.musician) ...[
+          if (query.wantedType == CollabProfileKind.musician) ...[
             const SizedBox(width: 8),
             CollabChoiceChip(
               key: const ValueKey<String>('collab-quick-specialty'),
-              label: _specialtyChipLabel,
+              label: _specialtyChipLabel(query),
               icon: Icons.music_note_outlined,
-              selected: _filter.specialties.isNotEmpty,
-              onTap: _pickSpecialties,
+              selected:
+                  query.instrumentIds.isNotEmpty || query.branches.isNotEmpty,
+              onTap: () => _pickSpecialties(query),
             ),
           ],
           const SizedBox(width: 8),
           CollabChoiceChip(
             key: const ValueKey<String>('collab-quick-publisher'),
-            label: _publisherChipLabel,
+            label: _publisherChipLabel(query),
             icon: Icons.person_search_outlined,
-            selected: _filter.profileKinds.isNotEmpty,
-            onTap: _pickPublisherKinds,
+            selected: query.publisherTypes.isNotEmpty,
+            onTap: () => _pickPublisherKinds(query),
           ),
           const SizedBox(width: 8),
           CollabChoiceChip(
             key: const ValueKey<String>('collab-quick-published'),
-            label: _filter.publishedWithin == CollabPublishedWithin.all
+            label: query.publishedWithin == CollabPublishedWithin.all
                 ? 'Yayınlanma'
-                : _filter.publishedWithin.label,
+                : query.publishedWithin.label,
             icon: Icons.schedule_rounded,
-            selected: _filter.publishedWithin != CollabPublishedWithin.all,
-            onTap: _pickPublishedWithin,
+            selected: query.publishedWithin != CollabPublishedWithin.all,
+            onTap: () => _pickPublishedWithin(query),
           ),
         ],
       ),
     );
   }
 
-  String get _specialtyChipLabel {
-    if (_filter.specialties.isEmpty) return 'Enstrüman / Branş';
-    if (_filter.specialties.length == 1) return _filter.specialties.first;
-    return '${_filter.specialties.length} branş';
-  }
-
-  String get _publisherChipLabel {
-    if (_filter.profileKinds.isEmpty) return 'Kimden';
-    if (_filter.profileKinds.length == 1) {
-      return _filter.profileKinds.first.publisherLabel;
+  String _specialtyChipLabel(CollabDiscoveryQuery query) {
+    final count = query.instrumentIds.length + query.branches.length;
+    if (count == 0) return 'Enstrüman / Branş';
+    if (count == 1) {
+      if (query.instrumentIds.isNotEmpty) {
+        final id = query.instrumentIds.first;
+        return _instruments.where((item) => item.id == id).firstOrNull?.name ??
+            'Enstrüman';
+      }
+      return query.branches.first.label;
     }
-    return '${_filter.profileKinds.length} profil türü';
+    return '$count seçim';
   }
 
-  List<String> get _availableCities {
-    final values = _allListings.map((listing) => listing.city).toSet().toList();
-    values.sort();
-    return values;
+  String _publisherChipLabel(CollabDiscoveryQuery query) {
+    if (query.publisherTypes.isEmpty) return 'Kimden';
+    if (query.publisherTypes.length == 1) {
+      return query.publisherTypes.first.publisherLabel;
+    }
+    return '${query.publisherTypes.length} profil türü';
   }
 
-  List<String> get _availableSpecialties {
-    final values = _allListings
-        .where((listing) => listing.wantedKind == CollabProfileKind.musician)
-        .map((listing) => listing.role)
-        .toSet()
-        .toList();
-    values.sort();
-    return values;
+  String _cityLabel(String? cityId) {
+    if (cityId == null) return 'Şehir';
+    return _cities.where((city) => city.id == cityId).firstOrNull?.name ??
+        'Şehir';
   }
 
-  Future<void> _pickCity() async {
+  List<_SpecialtyOption> get _availableSpecialties {
+    final branches = CollabBranch.values
+        .map(_SpecialtyOption.branch)
+        .toList(growable: false);
+    final branchLabels = branches
+        .map((option) => option.label.trim().toLowerCase())
+        .toSet();
+    final options = <_SpecialtyOption>[
+      ..._instruments
+          .where(
+            (instrument) =>
+                !branchLabels.contains(instrument.name.trim().toLowerCase()),
+          )
+          .map(_SpecialtyOption.instrument),
+      ...branches,
+    ]..sort((a, b) => a.label.compareTo(b.label));
+    return List<_SpecialtyOption>.unmodifiable(options);
+  }
+
+  bool _catalogsReadyOrExplain() {
+    if (!_catalogsLoading && _catalogError == null) return true;
+    _showMessage(_catalogError ?? 'Filtre seçenekleri yükleniyor.');
+    if (_catalogError != null) unawaited(_loadCatalogs());
+    return false;
+  }
+
+  Future<void> _pickCity(CollabDiscoveryQuery query) async {
+    if (!_catalogsReadyOrExplain()) return;
     final result = await _showQuickSingleSelect<String>(
       title: 'Şehir seç',
-      options: _availableCities,
-      selected: _filter.city,
-      labelFor: (value) => value,
+      options: _cities.map((city) => city.id).toList(growable: false),
+      selected: query.cityId,
+      labelFor: _cityLabel,
     );
     if (!mounted || !result.didChoose) return;
-    setState(() {
-      _filter = result.value == null
-          ? _filter.copyWith(clearCity: true)
-          : _filter.copyWith(city: result.value);
-    });
+    unawaited(
+      _cubit.setFilters(
+        result.value == null
+            ? query.copyWith(clearCityId: true)
+            : query.copyWith(cityId: result.value),
+      ),
+    );
   }
 
-  Future<void> _pickWantedKind() async {
+  Future<void> _pickWantedKind(CollabDiscoveryQuery query) async {
     final result = await _showQuickSingleSelect<CollabProfileKind>(
       title: 'Ne aranıyor?',
       options: CollabProfileKind.values,
-      selected: _filter.wantedKind,
+      selected: query.wantedType,
       labelFor: (value) => value.wantedLabel,
     );
     if (!mounted || !result.didChoose) return;
-    setState(() {
-      if (result.value == null) {
-        _filter = _filter.copyWith(
-          clearWantedKind: true,
-          specialties: const <String>{},
-        );
-      } else {
-        _filter = _filter.copyWith(
-          wantedKind: result.value,
-          specialties: result.value == CollabProfileKind.musician
-              ? _filter.specialties
-              : const <String>{},
-        );
-      }
-    });
+    unawaited(
+      _cubit.setFilters(
+        result.value == null
+            ? query.copyWith(clearWantedType: true)
+            : query.copyWith(wantedType: result.value),
+      ),
+    );
   }
 
-  Future<void> _pickSpecialties() async {
-    final result = await _showQuickMultiSelect<String>(
+  Future<void> _pickSpecialties(CollabDiscoveryQuery query) async {
+    if (!_catalogsReadyOrExplain()) return;
+    final selected = <_SpecialtyOption>{
+      ..._availableSpecialties.where(
+        (option) =>
+            option.instrumentId != null &&
+            query.instrumentIds.contains(option.instrumentId),
+      ),
+      ..._availableSpecialties.where(
+        (option) =>
+            option.branch != null && query.branches.contains(option.branch),
+      ),
+    };
+    final result = await _showQuickMultiSelect<_SpecialtyOption>(
       title: 'Enstrüman / Branş',
       options: _availableSpecialties,
-      selected: _filter.specialties,
-      labelFor: (value) => value,
+      selected: selected,
+      labelFor: (value) => value.label,
     );
     if (!mounted || result == null) return;
-    setState(() => _filter = _filter.copyWith(specialties: result));
+    unawaited(
+      _cubit.setFilters(
+        query.copyWith(
+          instrumentIds: result
+              .map((option) => option.instrumentId)
+              .whereType<String>()
+              .toSet(),
+          branches: result
+              .map((option) => option.branch)
+              .whereType<CollabBranch>()
+              .toSet(),
+        ),
+      ),
+    );
   }
 
-  Future<void> _pickPublisherKinds() async {
+  Future<void> _pickPublisherKinds(CollabDiscoveryQuery query) async {
     final result = await _showQuickMultiSelect<CollabProfileKind>(
       title: 'İlan kimden?',
       options: CollabProfileKind.values,
-      selected: _filter.profileKinds,
+      selected: query.publisherTypes,
       labelFor: (value) => value.publisherLabel,
     );
     if (!mounted || result == null) return;
-    setState(() => _filter = _filter.copyWith(profileKinds: result));
+    unawaited(_cubit.setFilters(query.copyWith(publisherTypes: result)));
   }
 
-  Future<void> _pickPublishedWithin() async {
+  Future<void> _pickPublishedWithin(CollabDiscoveryQuery query) async {
     final result = await _showQuickSingleSelect<CollabPublishedWithin>(
       title: 'Ne zaman yayınlandı?',
-      options: _publishedWithinOptions,
-      selected: _filter.publishedWithin == CollabPublishedWithin.all
+      options: _publishedWithinOptions(query.cadence),
+      selected: query.publishedWithin == CollabPublishedWithin.all
           ? null
-          : _filter.publishedWithin,
+          : query.publishedWithin,
       labelFor: (value) => value.label,
     );
     if (!mounted || !result.didChoose) return;
-    setState(() {
-      _filter = _filter.copyWith(
-        publishedWithin: result.value ?? CollabPublishedWithin.all,
-      );
-    });
+    unawaited(
+      _cubit.setFilters(
+        query.copyWith(
+          publishedWithin: result.value ?? CollabPublishedWithin.all,
+        ),
+      ),
+    );
   }
 
-  List<CollabPublishedWithin> get _publishedWithinOptions =>
+  List<CollabPublishedWithin> _publishedWithinOptions(CollabCadence cadence) =>
       CollabPublishedWithin.values
           .where((value) => value != CollabPublishedWithin.all)
           .where(
             (value) =>
-                _cadence == CollabCadence.regular ||
+                cadence == CollabCadence.regular ||
                 value == CollabPublishedWithin.last24Hours ||
                 value == CollabPublishedWithin.last3Days ||
                 value == CollabPublishedWithin.last7Days,
@@ -405,47 +565,53 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     );
   }
 
+  CollabDiscoveryListing _toDiscoveryCardModel(CollabListing listing) =>
+      CollabDiscoveryListing(
+        id: listing.id,
+        ownerName: listing.publisher.displayName,
+        ownerInitials: listing.publisher.initials,
+        profileKind: listing.publisher.profileType,
+        wantedKind: listing.wantedType,
+        ownerSpecialty: null,
+        avatarUrl: listing.publisher.avatarUrl,
+        title: listing.title,
+        cadence: listing.cadence,
+        location: listing.city.name,
+        role: listing.specialtyLabel ?? '',
+        scheduledAt: listing.scheduledAt,
+        feeAmountMinor: listing.feeAmountMinor,
+        feeCurrency: listing.currency,
+      );
+
   void _toggleSaved(String listingId) {
-    _controller.toggleListingSaved(listingId);
+    unawaited(_cubit.toggleSaved(listingId));
   }
 
   void _selectCadence(CollabCadence cadence) {
-    setState(() {
-      _cadence = cadence;
-      if (cadence == CollabCadence.regular && _filter.dateRange != null) {
-        _filter = _filter.copyWith(clearDateRange: true);
-      }
-      if (cadence == CollabCadence.extra &&
-          (_filter.publishedWithin == CollabPublishedWithin.last30Days ||
-              _filter.publishedWithin ==
-                  CollabPublishedWithin.olderThan30Days)) {
-        _filter = _filter.copyWith(publishedWithin: CollabPublishedWithin.all);
-      }
-    });
+    unawaited(_cubit.setFilters(_cubit.state.query.copyWith(cadence: cadence)));
   }
 
-  void _openListing(CollabDiscoveryListing listing) {
-    Navigator.of(context).push<void>(
+  void _openListing(CollabListing listing) {
+    unawaited(_openListingId(listing.id));
+  }
+
+  Future<void> _openListingId(String listingId) async {
+    await Navigator.of(context).push<void>(
       collabPageRoute(
         builder: (_) => CollabListingDetailScreen(
-          listing: listing,
-          controller: _controller,
-          initiallySaved: _controller.isListingSaved(listing.id),
+          listingId: listingId,
           showBottomNavigation: widget.showBottomNavigation,
-          onSavedChanged: (saved) {
-            if (!mounted) return;
-            _controller.setListingSaved(listing.id, saved: saved);
-          },
+          onListingChanged: _cubit.upsertListing,
         ),
       ),
     );
+    if (mounted) await _cubit.refresh();
   }
 
   void _openMyApplications() {
     Navigator.of(context).push<void>(
       collabPageRoute(
         builder: (_) => CollabMyApplicationsScreen(
-          controller: _controller,
           showBottomNavigation: widget.showBottomNavigation,
         ),
       ),
@@ -456,7 +622,16 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     Navigator.of(context).push<void>(
       collabPageRoute(
         builder: (_) => CollabMyListingsScreen(
-          controller: _controller,
+          showBottomNavigation: widget.showBottomNavigation,
+        ),
+      ),
+    );
+  }
+
+  void _openSavedListings() {
+    Navigator.of(context).push<void>(
+      collabPageRoute(
+        builder: (_) => CollabSavedListingsScreen(
           showBottomNavigation: widget.showBottomNavigation,
         ),
       ),
@@ -467,19 +642,28 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     final result = await Navigator.of(context).push<CollabCreateListingResult>(
       collabPageRoute(
         builder: (_) => CollabCreateListingScreen(
-          controller: _controller,
           showBottomNavigation: widget.showBottomNavigation,
         ),
       ),
     );
     if (!mounted || result == null) return;
     if (result == CollabCreateListingResult.published) {
-      final created = _controller.createdListings.first;
-      setState(() => _cadence = created.cadence);
+      await _cubit.refresh();
+      if (!mounted) return;
       _showMessage('İlanın yayınlandı.');
     } else {
-      _showMessage('Taslağın mock olarak kaydedildi.');
+      _showMessage('Taslağın kaydedildi.');
     }
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    final current = _cubit.state.query;
+    unawaited(
+      _cubit.setFilters(
+        CollabDiscoveryQuery(cadence: current.cadence, size: current.size),
+      ),
+    );
   }
 
   void _showMessage(String message) {
@@ -493,10 +677,12 @@ class _DiscoveryHeader extends StatelessWidget {
   const _DiscoveryHeader({
     required this.onApplicationsTap,
     required this.onListingsTap,
+    required this.onSavedTap,
   });
 
   final VoidCallback onApplicationsTap;
   final VoidCallback onListingsTap;
+  final VoidCallback onSavedTap;
 
   @override
   Widget build(BuildContext context) {
@@ -532,6 +718,8 @@ class _DiscoveryHeader extends StatelessWidget {
               onApplicationsTap();
             } else if (value == 'listings') {
               onListingsTap();
+            } else if (value == 'saved') {
+              onSavedTap();
             }
           },
           itemBuilder: (_) => const [
@@ -549,6 +737,14 @@ class _DiscoveryHeader extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.work_outline_rounded),
                 title: Text('İlanlarım'),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'saved',
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.bookmarks_outlined),
+                title: Text('Kaydedilen ilanlar'),
               ),
             ),
           ],
@@ -786,6 +982,7 @@ class _QuickMultiSelectSheet<T> extends StatefulWidget {
 
 class _QuickMultiSelectSheetState<T> extends State<_QuickMultiSelectSheet<T>> {
   late Set<T> _selected;
+  String _query = '';
 
   @override
   void initState() {
@@ -795,6 +992,17 @@ class _QuickMultiSelectSheetState<T> extends State<_QuickMultiSelectSheet<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedQuery = _query.trim().toLowerCase();
+    final visibleOptions = normalizedQuery.isEmpty
+        ? widget.options
+        : widget.options
+              .where(
+                (option) => widget
+                    .labelFor(option)
+                    .toLowerCase()
+                    .contains(normalizedQuery),
+              )
+              .toList(growable: false);
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.72,
@@ -824,27 +1032,42 @@ class _QuickMultiSelectSheetState<T> extends State<_QuickMultiSelectSheet<T>> {
               ],
             ),
             const SizedBox(height: 8),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: widget.options
-                    .map(
-                      (option) => CheckboxListTile(
-                        value: _selected.contains(option),
-                        title: Text(widget.labelFor(option)),
-                        onChanged: (checked) {
-                          setState(() {
-                            if (checked == true) {
-                              _selected.add(option);
-                            } else {
-                              _selected.remove(option);
-                            }
-                          });
-                        },
-                      ),
-                    )
-                    .toList(growable: false),
+            if (widget.options.length > 12) ...[
+              TextField(
+                key: const ValueKey('collab-multi-select-search'),
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  hintText: 'Seçeneklerde ara',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+                onChanged: (value) => setState(() => _query = value),
               ),
+              const SizedBox(height: 8),
+            ],
+            Flexible(
+              child: visibleOptions.isEmpty
+                  ? const Center(child: Text('Eşleşen seçenek bulunamadı.'))
+                  : ListView(
+                      shrinkWrap: true,
+                      children: visibleOptions
+                          .map(
+                            (option) => CheckboxListTile(
+                              value: _selected.contains(option),
+                              title: Text(widget.labelFor(option)),
+                              onChanged: (checked) {
+                                setState(() {
+                                  if (checked == true) {
+                                    _selected.add(option);
+                                  } else {
+                                    _selected.remove(option);
+                                  }
+                                });
+                              },
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
             ),
             const SizedBox(height: 10),
             FilledButton(
@@ -855,6 +1078,118 @@ class _QuickMultiSelectSheetState<T> extends State<_QuickMultiSelectSheet<T>> {
         ),
       ),
     );
+  }
+}
+
+class _SpecialtyOption {
+  const _SpecialtyOption._({
+    required this.label,
+    this.instrumentId,
+    this.branch,
+  });
+
+  factory _SpecialtyOption.instrument(Instrument instrument) =>
+      _SpecialtyOption._(label: instrument.name, instrumentId: instrument.id);
+
+  factory _SpecialtyOption.branch(CollabBranch branch) =>
+      _SpecialtyOption._(label: branch.label, branch: branch);
+
+  final String label;
+  final String? instrumentId;
+  final CollabBranch? branch;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _SpecialtyOption &&
+      other.instrumentId == instrumentId &&
+      other.branch == branch;
+
+  @override
+  int get hashCode => Object.hash(instrumentId, branch);
+}
+
+class _DiscoveryFailureState extends StatelessWidget {
+  const _DiscoveryFailureState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+              size: 42,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            FilledButton.tonal(
+              key: const ValueKey('collab-discovery-retry'),
+              onPressed: onRetry,
+              child: const Text('Tekrar dene'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({
+    required this.loading,
+    required this.hasNext,
+    required this.hasError,
+    required this.onRetry,
+  });
+
+  final bool loading;
+  final bool hasNext;
+  final bool hasError;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.2),
+          ),
+        ),
+      );
+    }
+    if (hasError) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Center(
+          child: TextButton.icon(
+            key: const ValueKey('collab-discovery-load-more-retry'),
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Devamını tekrar yükle'),
+          ),
+        ),
+      );
+    }
+    return SizedBox(height: hasNext ? 12 : 4);
   }
 }
 

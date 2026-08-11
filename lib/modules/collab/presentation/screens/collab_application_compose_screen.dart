@@ -1,33 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
-import '../../data/collab_application_mock_data.dart';
-import '../../domain/collab_application_models.dart';
-import '../../domain/collab_discovery_models.dart';
+import '../../domain/collab_commands.dart';
+import '../../domain/collab_types.dart';
+import '../../domain/entities/collab_actor.dart';
+import '../../domain/entities/collab_listing.dart';
 import '../theme/collab_visual_theme.dart';
 import '../widgets/collab_action_widgets.dart';
 import '../widgets/collab_discovery_widgets.dart';
+import '../cubit/collab_listing_detail_cubit.dart';
+import '../cubit/collab_listing_detail_state.dart';
 import 'collab_profile_selection_screen.dart';
 
 class CollabApplicationComposeScreen extends StatefulWidget {
   const CollabApplicationComposeScreen({
     required this.listing,
-    required this.initialProfile,
-    this.initialPhoneNumber = collabMockPhoneNumber,
-    this.initialMessage = collabMockApplicationMessage,
+    required this.initialActor,
+    required this.eligibleActors,
     this.showBottomNavigation = true,
-    this.onSubmitted,
     super.key,
   });
 
-  final CollabDiscoveryListing listing;
-  final CollabApplicantProfile initialProfile;
-  final String initialPhoneNumber;
-  final String initialMessage;
+  final CollabListing listing;
+  final CollabActor initialActor;
+  final List<CollabActor> eligibleActors;
   final bool showBottomNavigation;
-  final bool Function(CollabApplicationDraft)? onSubmitted;
 
   @override
   State<CollabApplicationComposeScreen> createState() =>
@@ -39,40 +39,50 @@ class _CollabApplicationComposeScreenState
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _phoneController;
   late final TextEditingController _messageController;
-  late CollabApplicantProfile _profile;
-  bool _submitting = false;
-
-  bool get _isOffer => widget.listing.direction == CollabDirection.available;
+  late CollabActor _actor;
 
   @override
   void initState() {
     super.initState();
-    _profile = widget.initialProfile;
-    _phoneController = TextEditingController(text: widget.initialPhoneNumber);
-    _messageController = TextEditingController(text: widget.initialMessage)
-      ..addListener(_refreshCharacterCount);
+    _actor = widget.initialActor;
+    _phoneController = TextEditingController();
+    _messageController = TextEditingController()..addListener(_refreshCounter);
   }
 
   @override
   void dispose() {
-    _messageController.removeListener(_refreshCharacterCount);
+    _messageController.removeListener(_refreshCounter);
     _messageController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
 
-  void _refreshCharacterCount() {
+  void _refreshCounter() {
     if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocConsumer<CollabListingDetailCubit, CollabListingDetailState>(
+      listenWhen: (previous, current) =>
+          previous.isApplying && !current.isApplying,
+      listener: (context, state) {
+        if (state.application != null) {
+          Navigator.of(context).pop(true);
+          return;
+        }
+        final error = state.actionError;
+        if (error != null) _showMessage(error.message);
+      },
+      builder: (context, state) =>
+          _buildScaffold(context, submitting: state.isApplying),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, {required bool submitting}) {
     final theme = Theme.of(context);
-    final actionNoun = _isOffer ? 'teklif' : 'başvuru';
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isOffer ? 'İş Teklifi Gönder' : 'Başvuru Yap'),
-      ),
+      appBar: AppBar(title: const Text('Başvuru Yap')),
       body: SafeArea(
         top: false,
         bottom: false,
@@ -84,46 +94,38 @@ class _CollabApplicationComposeScreenState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  _isOffer
-                      ? 'Müsait profil sahibine iş teklifini gönder.'
-                      : 'İlan sahibine mesajını gönder.',
+                  'İlan sahibine iletişim bilgini ve mesajını güvenli biçimde gönder.',
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 20),
-                _SelectedProfileHeader(
-                  profile: _profile,
-                  onChange: _submitting ? null : _changeProfile,
+                _SelectedActorHeader(
+                  actor: _actor,
+                  onChange: submitting || widget.eligibleActors.length < 2
+                      ? null
+                      : _changeActor,
                 ),
                 const SizedBox(height: 22),
                 const CollabSectionTitle('İletişim Bilgisi'),
                 const SizedBox(height: 9),
                 TextFormField(
-                  key: const ValueKey('collab-phone-field'),
+                  key: const ValueKey<String>('collab-phone-field'),
                   controller: _phoneController,
-                  enabled: !_submitting,
+                  enabled: !submitting,
                   keyboardType: TextInputType.phone,
-                  autofillHints: const [AutofillHints.telephoneNumber],
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+()\s-]')),
-                    LengthLimitingTextInputFormatter(25),
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const <String>[AutofillHints.telephoneNumber],
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+().\s-]')),
+                    LengthLimitingTextInputFormatter(32),
                   ],
                   decoration: const InputDecoration(
                     hintText: '+90 5xx xxx xx xx',
                     prefixIcon: Icon(Icons.phone_outlined),
                   ),
-                  validator: (value) {
-                    if (RegExp(r'[^0-9+()\s-]').hasMatch(value ?? '')) {
-                      return 'Geçerli bir telefon numarası gir.';
-                    }
-                    final digits = value?.replaceAll(RegExp(r'\D'), '') ?? '';
-                    if (digits.length < 10 || digits.length > 15) {
-                      return 'Geçerli bir telefon numarası gir.';
-                    }
-                    return null;
-                  },
+                  validator: _validatePhone,
                 ),
                 const SizedBox(height: 7),
                 Row(
@@ -137,8 +139,7 @@ class _CollabApplicationComposeScreenState
                     const SizedBox(width: 7),
                     Expanded(
                       child: Text(
-                        'Telefon numaran yalnızca $actionNoun gönderdiğin profil '
-                        'sahibiyle paylaşılacak.',
+                        'Telefon numaran yalnızca senin ve ilan sahibinin başvuru ekranında görünür.',
                         style: TextStyle(
                           color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 10.5,
@@ -149,12 +150,12 @@ class _CollabApplicationComposeScreenState
                   ],
                 ),
                 const SizedBox(height: 21),
-                const CollabSectionTitle('Mesajın'),
+                const CollabSectionTitle('Mesajın (Opsiyonel)'),
                 const SizedBox(height: 9),
                 TextFormField(
-                  key: const ValueKey('collab-message-field'),
+                  key: const ValueKey<String>('collab-message-field'),
                   controller: _messageController,
-                  enabled: !_submitting,
+                  enabled: !submitting,
                   minLines: 5,
                   maxLines: 8,
                   maxLength: 500,
@@ -164,27 +165,17 @@ class _CollabApplicationComposeScreenState
                         required currentLength,
                         required isFocused,
                         maxLength,
-                      }) {
-                        return Text(
-                          '$currentLength/$maxLength',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontSize: 10.5,
-                          ),
-                        );
-                      },
-                  decoration: InputDecoration(
-                    hintText: _isOffer
-                        ? 'İşin detaylarını ve teklifini kısaca anlat.'
-                        : 'Kendini ve neden uygun olduğunu kısaca anlat.',
+                      }) => Text(
+                        '$currentLength/$maxLength',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                  decoration: const InputDecoration(
+                    hintText: 'Kendini ve neden uygun olduğunu kısaca anlat.',
                     alignLabelWithHint: true,
                   ),
-                  validator: (value) {
-                    if ((value?.trim().isEmpty ?? true)) {
-                      return 'Mesaj alanı boş bırakılamaz.';
-                    }
-                    return null;
-                  },
                 ),
                 const SizedBox(height: 20),
                 const CollabSectionTitle('İlan Özeti'),
@@ -192,19 +183,19 @@ class _CollabApplicationComposeScreenState
                 _ApplicationListingSummary(listing: widget.listing),
                 const SizedBox(height: 18),
                 CollabPrimaryAction(
-                  key: const ValueKey('collab-apply-submit'),
-                  label: _isOffer ? 'Teklifi Gönder' : 'Başvuruyu Gönder',
+                  key: const ValueKey<String>('collab-apply-submit'),
+                  label: 'Başvuruyu Gönder',
                   icon: Icons.send_outlined,
-                  busy: _submitting,
-                  onPressed: _submitting ? null : _submit,
+                  busy: submitting,
+                  onPressed: submitting ? null : _submit,
                 ),
                 const SizedBox(height: 9),
                 CollabOutlineAction(
-                  key: const ValueKey('collab-apply-cancel'),
+                  key: const ValueKey<String>('collab-apply-cancel'),
                   label: 'Vazgeç',
-                  onPressed: _submitting
+                  onPressed: submitting
                       ? null
-                      : () => Navigator.of(context).pop(),
+                      : () => Navigator.of(context).pop(false),
                 ),
                 const SizedBox(height: 13),
                 const _DmInfoBanner(),
@@ -219,53 +210,58 @@ class _CollabApplicationComposeScreenState
     );
   }
 
-  Future<void> _changeProfile() async {
-    final profile = await Navigator.of(context).push<CollabApplicantProfile>(
+  String? _validatePhone(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty || RegExp(r'[^0-9+().\s-]').hasMatch(raw)) {
+      return 'Geçerli bir telefon numarası gir.';
+    }
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 7 || digits.length > 15) {
+      return 'Telefon numarası 7-15 rakam içermelidir.';
+    }
+    if ('+'.allMatches(raw).length > 1 ||
+        (raw.contains('+') && !raw.startsWith('+'))) {
+      return '+ işareti yalnızca numaranın başında olabilir.';
+    }
+    return null;
+  }
+
+  Future<void> _changeActor() async {
+    final actor = await Navigator.of(context).push<CollabActor>(
       collabPageRoute(
         builder: (_) => CollabProfileSelectionScreen(
-          listing: widget.listing,
-          initialProfile: _profile,
+          actors: widget.eligibleActors,
+          wantedType: widget.listing.wantedType,
+          initialActor: _actor,
           showBottomNavigation: false,
         ),
       ),
     );
-    if (!mounted || profile == null) return;
-    setState(() => _profile = profile);
+    if (mounted && actor != null) setState(() => _actor = actor);
   }
 
-  Future<void> _submit() async {
+  void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    setState(() => _submitting = true);
-    await Future<void>.delayed(const Duration(milliseconds: 450));
-    if (!mounted) return;
-    final draft = CollabApplicationDraft(
-      listing: widget.listing,
-      profile: _profile,
-      phoneNumber: _phoneController.text.trim(),
-      message: _messageController.text.trim(),
+    context.read<CollabListingDetailCubit>().apply(
+      CollabApplicationInput(
+        applicantActorId: _actor.actorId,
+        phone: _phoneController.text.trim(),
+        message: _messageController.text.trim(),
+      ),
     );
-    final accepted = widget.onSubmitted?.call(draft) ?? true;
-    if (!accepted) {
-      setState(() => _submitting = false);
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Bu profil ile bu ilana daha önce başvuru veya teklif gönderdin.',
-            ),
-          ),
-        );
-      return;
-    }
-    Navigator.of(context).pop(draft);
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
-class _SelectedProfileHeader extends StatelessWidget {
-  const _SelectedProfileHeader({required this.profile, required this.onChange});
+class _SelectedActorHeader extends StatelessWidget {
+  const _SelectedActorHeader({required this.actor, required this.onChange});
 
-  final CollabApplicantProfile profile;
+  final CollabActor actor;
   final VoidCallback? onChange;
 
   @override
@@ -279,9 +275,9 @@ class _SelectedProfileHeader extends StatelessWidget {
       child: Row(
         children: [
           CollabIdentityAvatar(
-            initials: profile.initials,
-            profileKind: profile.profileKind,
-            avatarAsset: profile.avatarAsset,
+            initials: actor.initials,
+            profileKind: actor.profileType,
+            avatarUrl: actor.avatarUrl,
             size: 53,
           ),
           const SizedBox(width: 11),
@@ -290,7 +286,7 @@ class _SelectedProfileHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  profile.name,
+                  actor.displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -301,9 +297,7 @@ class _SelectedProfileHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  profile.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  actor.profileType.label,
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 11.5,
@@ -312,8 +306,11 @@ class _SelectedProfileHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          TextButton(onPressed: onChange, child: const Text('Profil Değiştir')),
+          if (onChange != null)
+            TextButton(
+              onPressed: onChange,
+              child: const Text('Profil Değiştir'),
+            ),
         ],
       ),
     );
@@ -323,7 +320,7 @@ class _SelectedProfileHeader extends StatelessWidget {
 class _ApplicationListingSummary extends StatelessWidget {
   const _ApplicationListingSummary({required this.listing});
 
-  final CollabDiscoveryListing listing;
+  final CollabListing listing;
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +334,12 @@ class _ApplicationListingSummary extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CollabProfileAvatar(listing: listing, size: 48),
+              CollabIdentityAvatar(
+                initials: listing.publisher.initials,
+                profileKind: listing.publisher.profileType,
+                avatarUrl: listing.publisher.avatarUrl,
+                size: 48,
+              ),
               const SizedBox(width: 11),
               Expanded(
                 child: Column(
@@ -364,10 +366,8 @@ class _ApplicationListingSummary extends StatelessWidget {
                           color: AppColors.socialPink,
                         ),
                         CollabStatusPill(
-                          label: listing.wantedSummary,
-                          color: listing.direction == CollabDirection.seeking
-                              ? AppColors.socialOrange
-                              : AppColors.spotifyGreen,
+                          label: _wantedSummary(listing),
+                          color: AppColors.socialOrange,
                         ),
                       ],
                     ),
@@ -389,24 +389,24 @@ class _ApplicationListingSummary extends StatelessWidget {
                   _SummaryMeta(
                     width: width,
                     icon: Icons.location_on_outlined,
-                    label: listing.location,
+                    label: listing.city.name,
                   ),
-                  _SummaryMeta(
-                    width: width,
-                    icon: Icons.calendar_month_outlined,
-                    label: listing.timeLabel == null
-                        ? listing.scheduleLabel
-                        : '${listing.scheduleLabel} · ${listing.timeLabel}',
-                  ),
-                  _SummaryMeta(
-                    width: width,
-                    icon: Icons.payments_outlined,
-                    label: _feeText(listing.feeAmount),
-                  ),
+                  if (listing.cadence == CollabCadence.extra)
+                    _SummaryMeta(
+                      width: width,
+                      icon: Icons.calendar_month_outlined,
+                      label: _dateTimeText(listing.scheduledAt),
+                    ),
+                  if (_supportsFee(listing))
+                    _SummaryMeta(
+                      width: width,
+                      icon: Icons.payments_outlined,
+                      label: _feeText(listing),
+                    ),
                   _SummaryMeta(
                     width: width,
                     icon: Icons.music_note_rounded,
-                    label: listing.role,
+                    label: listing.specialtyLabel ?? listing.wantedType.label,
                   ),
                 ],
               );
@@ -490,8 +490,7 @@ class _DmInfoBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'İlan sahibiyle olan mevcut DM sohbetinizde iletişime '
-                  'devam edebilirsiniz.',
+                  'İlan sahibinin profilinden gerçek DM sohbetini açabilirsin.',
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 10.5,
@@ -507,11 +506,39 @@ class _DmInfoBanner extends StatelessWidget {
   }
 }
 
-String _feeText(int? amount) {
-  if (amount == null) return 'Ücret belirtilmemiş';
-  final value = amount.toString().replaceAllMapped(
+bool _supportsFee(CollabListing listing) =>
+    listing.cadence == CollabCadence.extra ||
+    (listing.cadence == CollabCadence.regular &&
+        listing.publisher.profileType == CollabProfileKind.venue);
+
+String _wantedSummary(CollabListing listing) {
+  final base = listing.wantedType.wantedLabel;
+  final specialty = listing.specialtyLabel;
+  return listing.wantedType == CollabProfileKind.musician && specialty != null
+      ? '$base: $specialty'
+      : base;
+}
+
+String _dateTimeText(DateTime? value) {
+  if (value == null) return 'Tarih belirtilmemiş';
+  final local = value.toLocal();
+  return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}.${local.year} · '
+      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+}
+
+String _feeText(CollabListing listing) {
+  final minor = listing.feeAmountMinor;
+  if (minor == null) return 'Ücret belirtilmemiş';
+  final major = minor ~/ 100;
+  final fraction = minor.remainder(100).abs();
+  final grouped = major.toString().replaceAllMapped(
     RegExp(r'\B(?=(\d{3})+(?!\d))'),
     (_) => '.',
   );
-  return '₺$value';
+  final amount = fraction == 0
+      ? grouped
+      : '$grouped,${fraction.toString().padLeft(2, '0')}';
+  return listing.currency == 'TRY'
+      ? '₺$amount'
+      : '$amount ${listing.currency ?? ''}'.trim();
 }

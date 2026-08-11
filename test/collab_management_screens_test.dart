@@ -1,526 +1,606 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_management_mock_data.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/data/collab_mock_controller.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_application_models.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_discovery_models.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_listing_draft.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_management_models.dart';
-import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_create_listing_screen.dart';
+import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_commands.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_page.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_types.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_actor.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_application.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_job.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_listing.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_review.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_incoming_applications_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_jobs_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_my_applications_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_my_listings_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_saved_listings_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_incoming_applications_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_my_applications_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_my_listings_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_saved_listings_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/theme/collab_visual_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 void main() {
-  Widget app(Widget home) => MaterialApp(theme: AppTheme.navy, home: home);
+  Widget app(Widget home) => MaterialApp(
+    theme: AppTheme.navy,
+    home: CollabThemeScope(child: home),
+  );
 
-  test('application status contains only the five approved states', () {
+  test('application status contract contains the five approved states', () {
     expect(CollabApplicationStatus.values, hasLength(5));
     expect(
       CollabApplicationStatus.values.map((status) => status.label),
-      containsAll(<String>[
+      <String>[
         'Bekliyor',
         'Kabul edildi',
         'Reddedildi',
         'Başvuran geri çekti',
         'İlan kapanınca geçersizleşti',
-      ]),
-    );
-    expect(
-      CollabApplicationStatus.values.map((status) => status.label),
-      isNot(contains('Tamamlandı')),
+      ],
     );
   });
 
-  test('controller keeps completed work separate from applications', () {
-    final controller = CollabMockController();
-    expect(controller.jobs.single.status, CollabJobStatus.completed);
-    expect(
-      controller.jobs.single.application.status,
-      CollabApplicationStatus.accepted,
+  test('my listings uses real server pagination', () async {
+    final repository = _ManagementRepository(
+      myListings: List<CollabListing>.generate(
+        21,
+        (index) => _listing('listing-$index', title: 'İlan $index'),
+      ),
     );
+    final cubit = CollabMyListingsCubit(repository);
+
+    await cubit.setStatusFilter(CollabListingStatus.open);
+    expect(cubit.state.items, hasLength(20));
+    expect(cubit.state.hasNext, isTrue);
+
+    await cubit.loadMore();
+    expect(cubit.state.items, hasLength(21));
+    expect(cubit.state.hasNext, isFalse);
+    await cubit.close();
   });
 
-  test('accepting an applicant closes the single-need listing', () {
-    final controller = CollabMockController();
-    final accepted = controller.accept('incoming-melis');
-
-    expect(accepted, isTrue);
-    expect(
-      controller.incomingApplications
-          .firstWhere((item) => item.id == 'incoming-melis')
-          .status,
-      CollabApplicationStatus.accepted,
-    );
-    final owned = controller.ownedListings.firstWhere(
-      (item) => item.listing.id == 'owned-studio-guitar',
-    );
-    expect(owned.status, CollabOwnedListingStatus.closed);
-  });
-
-  test('closing a listing invalidates only pending applications', () {
-    final controller = CollabMockController();
-    controller.closeListing('owned-studio-guitar');
-
-    final melis = controller.incomingApplications.firstWhere(
-      (item) => item.id == 'incoming-melis',
-    );
-    final bugra = controller.incomingApplications.firstWhere(
-      (item) => item.id == 'incoming-bugra',
-    );
-    expect(melis.status, CollabApplicationStatus.invalidatedByListingClosure);
-    expect(bugra.status, CollabApplicationStatus.accepted);
-  });
-
-  test('accepting an available listing offer creates an active job', () {
-    final listing = _testListing(
-      id: 'available-offer-listing',
-      direction: CollabDirection.available,
-    );
-    final application = _pendingApplication(
-      id: 'available-offer',
-      listing: listing,
-    );
-    final owned = _ownedListing(listing: listing);
-    final controller = _controller(
-      incomingApplications: [application],
-      ownedListings: [owned],
-      createdListings: [listing],
-    );
-
-    expect(controller.accept(application.id), isTrue);
-
-    final updatedOwned = controller.ownedListings.single;
-    expect(updatedOwned.status, CollabOwnedListingStatus.closed);
-    expect(controller.createdListings, isEmpty);
-    expect(
-      controller.incomingApplications.single.status,
-      CollabApplicationStatus.accepted,
-    );
-    expect(controller.jobs, hasLength(1));
-    expect(controller.jobs.single.status, CollabJobStatus.active);
-    expect(controller.jobs.single.application.id, application.id);
-  });
-
-  test('an active job can be completed exactly once', () {
-    final listing = _testListing(
-      id: 'job-lifecycle-listing',
-      direction: CollabDirection.available,
-    );
-    final application = _pendingApplication(
-      id: 'job-lifecycle-offer',
-      listing: listing,
-    );
-    final controller = _controller(
-      incomingApplications: [application],
-      ownedListings: [_ownedListing(listing: listing)],
-    );
-    expect(controller.accept(application.id), isTrue);
-    final jobId = controller.jobs.single.id;
-
-    expect(controller.completeJob(jobId), isTrue);
-    expect(controller.jobs.single.status, CollabJobStatus.completed);
-    expect(controller.completeJob(jobId), isFalse);
-  });
-
-  test('the same profile cannot submit twice to the same listing', () {
-    final listing = _testListing(id: 'duplicate-submit-listing');
-    final draft = CollabApplicationDraft(
-      listing: listing,
-      profile: _testApplicant,
-      phoneNumber: '+90 555 111 22 33',
-      message: 'Bu ilana başvurmak istiyorum.',
-    );
-    final controller = _controller();
-
-    expect(controller.submit(draft), isTrue);
-    expect(controller.submit(draft), isFalse);
-    expect(controller.outgoingApplications, hasLength(1));
-  });
-
-  test('closing a created listing removes it from the feed source', () {
-    final listing = _testListing(id: 'created-listing-to-close');
-    final controller = _controller(
-      ownedListings: [_ownedListing(listing: listing)],
-      createdListings: [listing],
-    );
-    expect(controller.createdListings.single.id, listing.id);
-
-    controller.closeListing(listing.id);
-
-    expect(controller.createdListings, isEmpty);
-    expect(
-      controller.ownedListings.single.status,
-      CollabOwnedListingStatus.closed,
-    );
-  });
-
-  test('accepting a created listing removes the fulfilled need from feed', () {
-    final listing = _testListing(id: 'created-seeking-listing');
-    final application = _pendingApplication(
-      id: 'created-seeking-application',
-      listing: listing,
-    );
-    final controller = _controller(
-      incomingApplications: [application],
-      ownedListings: [_ownedListing(listing: listing)],
-      createdListings: [listing],
-    );
-
-    expect(controller.accept(application.id), isTrue);
-
-    expect(controller.createdListings, isEmpty);
-    expect(
-      controller.ownedListings.single.status,
-      CollabOwnedListingStatus.closed,
-    );
-  });
-
-  testWidgets('my applications separates active states and completed jobs', (
+  testWidgets('my listings closes through the real cubit and filtered page', (
     tester,
   ) async {
-    final controller = CollabMockController();
+    final repository = _ManagementRepository(
+      myListings: <CollabListing>[_listing('owned', ownedByMe: true)],
+    );
+    final cubit = CollabMyListingsCubit(repository);
+
     await tester.pumpWidget(
-      app(
-        CollabMyApplicationsScreen(
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
+      app(CollabMyListingsScreen(cubit: cubit, showBottomNavigation: false)),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Başvurularım'), findsOneWidget);
-    expect(find.text('Başvurular (5)'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Tamamlanan İşler (1)'),
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Tamamlanan İşler (1)'), findsOneWidget);
-    expect(find.textContaining('Collab Puanı'), findsNothing);
-    expect(find.textContaining('Doğrulan'), findsNothing);
+    expect(find.text('İlanlarım'), findsOneWidget);
+    expect(find.text('Bas gitarist aranıyor'), findsOneWidget);
+    await tester.tap(find.text('İlanı kapat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'İlanı kapat'));
+    await tester.pumpAndSettle();
+
+    expect(repository.closeCalls, 1);
+    expect(find.text('Bas gitarist aranıyor'), findsNothing);
+    await cubit.close();
   });
 
-  testWidgets('incoming application card exposes phone and approved metrics', (
+  testWidgets('incoming shows phone and accept refreshes atomic statuses', (
     tester,
   ) async {
-    final controller = CollabMockController();
+    final listing = _listing('incoming-listing', ownedByMe: true);
+    final repository = _ManagementRepository(
+      incoming: <CollabApplication>[
+        _application('first', listing: listing, applicant: _applicant),
+        _application('second', listing: listing, applicant: _secondApplicant),
+      ],
+    );
+    final cubit = CollabIncomingApplicationsCubit(repository);
+
     await tester.pumpWidget(
       app(
         CollabIncomingApplicationsScreen(
-          ownedListing: collabOwnedMockListings.first,
-          controller: controller,
+          listingId: listing.id,
+          listingTitle: listing.title,
+          cubit: cubit,
           showBottomNavigation: false,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('+90 532 123 45 67'), findsOneWidget);
-    expect(find.text('4.8 / 5'), findsOneWidget);
-    expect(find.text('14 yorum'), findsOneWidget);
-    expect(find.textContaining('Collab Puanı'), findsNothing);
-    expect(find.textContaining('Doğrulan'), findsNothing);
+    expect(find.text('+90 555 111 22 33'), findsNWidgets(2));
+    await tester.tap(find.text('Kabul et').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Kabul et'));
+    await tester.pumpAndSettle();
+
+    expect(repository.acceptCalls, 1);
+    expect(find.text('Kabul edildi'), findsAtLeastNWidgets(1));
+    expect(find.text('İlan kapanınca geçersizleşti'), findsOneWidget);
+    await cubit.close();
   });
 
-  testWidgets('incoming accept action closes the fulfilled listing', (
-    tester,
-  ) async {
-    final controller = CollabMockController();
-    await tester.pumpWidget(
-      app(
-        CollabIncomingApplicationsScreen(
-          ownedListing: collabOwnedMockListings.first,
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final accept = find.text('Kabul Et').first;
-    await tester.scrollUntilVisible(
-      accept,
-      350,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(accept);
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Kabul Et'));
-    await tester.pumpAndSettle();
-
-    expect(
-      controller.ownedListings.first.status,
-      CollabOwnedListingStatus.closed,
-    );
-    expect(
-      controller.incomingApplications
-          .firstWhere((item) => item.id == 'incoming-melis')
-          .status,
-      CollabApplicationStatus.accepted,
-    );
-  });
-
-  testWidgets('closed listings hide the incoming accept action', (
-    tester,
-  ) async {
-    for (final status in <CollabOwnedListingStatus>[
-      CollabOwnedListingStatus.closed,
-    ]) {
-      final listing = _testListing(id: 'blocked-${status.name}');
-      final application = _pendingApplication(
-        id: 'blocked-application-${status.name}',
-        listing: listing,
+  testWidgets(
+    'outgoing withdraw and bilateral completion use separate cubits',
+    (tester) async {
+      final listing = _listing('applied-listing');
+      final repository = _ManagementRepository(
+        outgoing: <CollabApplication>[
+          _application('mine', listing: listing, applicant: _me),
+        ],
+        jobs: <CollabJob>[_job('active-job', listing: listing)],
       );
-      final owned = _ownedListing(listing: listing, status: status);
-      final controller = _controller(
-        incomingApplications: [application],
-        ownedListings: [owned],
-      );
+      final applicationsCubit = CollabMyApplicationsCubit(repository);
+      final jobsCubit = CollabJobsCubit(repository);
 
       await tester.pumpWidget(
-        MaterialApp(
-          key: ValueKey('blocked-${status.name}'),
-          theme: AppTheme.navy,
-          home: CollabIncomingApplicationsScreen(
-            ownedListing: owned,
-            controller: controller,
+        app(
+          CollabMyApplicationsScreen(
+            applicationsCubit: applicationsCubit,
+            jobsCubit: jobsCubit,
             showBottomNavigation: false,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(application.phoneNumber), findsOneWidget);
-      expect(find.text('Kabul Et'), findsNothing);
-    }
-  });
+      await tester.tap(find.text('Geri çek'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Geri çek'));
+      await tester.pumpAndSettle();
+      expect(repository.withdrawCalls, 1);
+      expect(find.text('Başvuran geri çekti'), findsOneWidget);
 
-  testWidgets('incoming UI omits capacity metrics', (tester) async {
-    final listing = _testListing(
-      id: 'available-incoming-ui',
-      direction: CollabDirection.available,
-    );
-    final application = _pendingApplication(
-      id: 'available-incoming-ui-offer',
-      listing: listing,
-    );
-    final owned = _ownedListing(listing: listing);
-    final controller = _controller(
-      incomingApplications: [application],
-      ownedListings: [owned],
-    );
+      await tester.tap(find.text('İşlerim'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('İşi tamamladım'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Tamamlandı'));
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      app(
-        CollabIncomingApplicationsScreen(
-          ownedListing: owned,
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      expect(repository.completionCalls, 1);
+      expect(
+        find.text('Sen onayladın · Karşı taraf bekleniyor.'),
+        findsOneWidget,
+      );
+      await applicationsCubit.close();
+      await jobsCubit.close();
+    },
+  );
 
-    expect(find.text('Başvuru'), findsOneWidget);
-    expect(find.text('İlan Durumu'), findsOneWidget);
-    expect(find.textContaining('0/0'), findsNothing);
-    expect(find.text('Kontenjan Dolu'), findsNothing);
-    expect(find.text('Kalan Kontenjan'), findsNothing);
-    expect(find.text('Kabul Et'), findsOneWidget);
-  });
-
-  testWidgets('saved drafts are reachable and resume from My Listings', (
+  testWidgets('completed job accepts a one-to-five star review', (
     tester,
   ) async {
-    final draft = _testDraft('Devam edilecek Collab taslağı');
-    final controller = _controller(drafts: [draft]);
+    final listing = _listing('completed-listing');
+    final repository = _ManagementRepository(
+      jobs: <CollabJob>[
+        _job('completed-job', listing: listing, completed: true),
+      ],
+    );
+    final applicationsCubit = CollabMyApplicationsCubit(repository);
+    final jobsCubit = CollabJobsCubit(repository);
+
     await tester.pumpWidget(
       app(
-        CollabMyListingsScreen(
-          controller: controller,
+        CollabMyApplicationsScreen(
+          applicationsCubit: applicationsCubit,
+          jobsCubit: jobsCubit,
           showBottomNavigation: false,
         ),
       ),
     );
     await tester.pumpAndSettle();
-
-    await tester.tap(find.byTooltip('Taslaklar (1)'));
+    await tester.tap(find.text('İşlerim'));
     await tester.pumpAndSettle();
-    expect(find.text(draft.title), findsOneWidget);
-    await tester.tap(find.text(draft.title));
+    await tester.tap(find.text('Tamamlandı').first);
     await tester.pumpAndSettle();
-
-    expect(find.byType(CollabCreateListingScreen), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('collab-create-continue')));
+    await tester.tap(find.text('Puanla ve yorumla'));
     await tester.pumpAndSettle();
-    final titleField = tester.widget<TextFormField>(
-      find.byKey(const ValueKey('collab-create-title')),
+    await tester.tap(find.byTooltip('3 yıldız'));
+    await tester.pump();
+    await tester.enterText(
+      find.byType(TextField),
+      'İletişimi güçlü ve hazırlıklıydı.',
     );
-    expect(titleField.controller?.text, draft.title);
+    await tester.tap(find.text('Değerlendirmeyi gönder'));
+    await tester.pumpAndSettle();
+
+    expect(repository.reviewCalls, 1);
+    expect(repository.lastRating, 3);
+    expect(find.text('Değerlendirildi'), findsOneWidget);
+    await applicationsCubit.close();
+    await jobsCubit.close();
   });
 
-  testWidgets('management screens fit a phone viewport', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final controller = CollabMockController();
+  testWidgets('saved listing can be removed from the server page', (
+    tester,
+  ) async {
+    final repository = _ManagementRepository(
+      saved: <CollabListing>[_listing('saved', savedByMe: true)],
+    );
+    final cubit = CollabSavedListingsCubit(repository);
 
     await tester.pumpWidget(
-      MaterialApp(
-        key: const ValueKey('my-applications-phone'),
-        theme: AppTheme.navy,
-        home: CollabMyApplicationsScreen(
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
+      app(CollabSavedListingsScreen(cubit: cubit, showBottomNavigation: false)),
     );
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+    expect(find.text('Bas gitarist aranıyor'), findsOneWidget);
+    await tester.tap(find.text('Kaydı kaldır'));
+    await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        key: const ValueKey('my-listings-phone'),
-        theme: AppTheme.navy,
-        home: CollabMyListingsScreen(
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        key: const ValueKey('incoming-phone'),
-        theme: AppTheme.navy,
-        home: CollabIncomingApplicationsScreen(
-          ownedListing: collabOwnedMockListings.first,
-          controller: controller,
-          showBottomNavigation: false,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+    expect(repository.unsaveCalls, 1);
+    expect(find.text('Bas gitarist aranıyor'), findsNothing);
+    await cubit.close();
   });
 }
 
-const _testApplicant = CollabApplicantProfile(
-  id: 'test-applicant',
-  name: 'testmusician',
-  initials: 'TM',
-  profileKind: CollabProfileKind.musician,
-  specialty: 'Bas Gitarist',
-  rating: 4.7,
-  reviewCount: 12,
-  completedJobs: 21,
-);
-
-CollabDiscoveryListing _testListing({
-  required String id,
-  CollabDirection direction = CollabDirection.seeking,
-}) {
-  return CollabDiscoveryListing(
-    id: id,
-    ownerName: 'Test Mekan',
-    ownerInitials: 'TM',
-    profileKind: CollabProfileKind.venue,
-    wantedKind: CollabProfileKind.musician,
-    title: 'Test Collab ilanı',
-    cadence: CollabCadence.regular,
-    direction: direction,
-    location: 'Kadıköy, İstanbul',
-    city: 'İstanbul',
-    scheduleLabel: 'Düzenli',
-    timeWindow: CollabTimeWindow.flexible,
-    feeAmount: 2500,
-    role: 'Bas Gitar',
-    description: 'Controller ve arayüz regresyonlarını doğrulayan test ilanı.',
-    rating: 4.8,
-    reviewCount: 24,
-    completedJobs: 45,
-    publishedAt: DateTime(2026, 8, 6),
-    genres: const {'Rock'},
-  );
+class _RepositoryStub implements CollabRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-CollabApplicationRecord _pendingApplication({
-  required String id,
-  required CollabDiscoveryListing listing,
-}) {
-  return CollabApplicationRecord(
-    id: id,
-    listing: listing,
-    applicantProfile: _testApplicant,
-    phoneNumber: '+90 555 444 33 22',
-    message: 'İlanınızla ilgileniyorum, detayları konuşabiliriz.',
-    status: CollabApplicationStatus.pending,
-    submittedAt: DateTime(2026, 8, 6, 12),
-  );
-}
+class _ManagementRepository extends _RepositoryStub {
+  _ManagementRepository({
+    List<CollabListing>? myListings,
+    List<CollabListing>? saved,
+    List<CollabApplication>? incoming,
+    List<CollabApplication>? outgoing,
+    List<CollabJob>? jobs,
+  }) : myListings = myListings ?? <CollabListing>[],
+       saved = saved ?? <CollabListing>[],
+       incoming = incoming ?? <CollabApplication>[],
+       outgoing = outgoing ?? <CollabApplication>[],
+       jobs = jobs ?? <CollabJob>[];
 
-CollabOwnedListingRecord _ownedListing({
-  required CollabDiscoveryListing listing,
-  CollabOwnedListingStatus status = CollabOwnedListingStatus.open,
-}) {
-  return CollabOwnedListingRecord(
-    listing: listing,
-    status: status,
-    applicationCount: 1,
-    createdAt: DateTime(2026, 8, 6, 10),
-  );
-}
+  final List<CollabListing> myListings;
+  final List<CollabListing> saved;
+  final List<CollabApplication> incoming;
+  final List<CollabApplication> outgoing;
+  final List<CollabJob> jobs;
 
-CollabListingDraft _testDraft(String title) {
-  return CollabListingDraft(
-    cadence: CollabCadence.regular,
-    direction: CollabDirection.available,
-    title: title,
-    description:
-        'Kaydedilmiş ilan taslağının yeniden açılmasını doğrulayan açıklama.',
-    location: 'Çankaya, Ankara',
-    city: 'Ankara',
-    role: 'Stüdyo',
-    genres: const {'Rock'},
-    occurrenceDate: null,
-    occurrenceTime: null,
-    feeMode: CollabFeeMode.paid,
-    feeAmount: 3000,
-    publisher: const CollabPublisherProfile(
-      id: 'draft-studio',
-      name: 'Taslak Stüdyo',
-      initials: 'TS',
-      profileKind: CollabProfileKind.studio,
-      subtitle: 'Stüdyo',
-      rating: 4.8,
-      reviewCount: 10,
-      completedJobs: 20,
+  int closeCalls = 0;
+  int acceptCalls = 0;
+  int withdrawCalls = 0;
+  int completionCalls = 0;
+  int reviewCalls = 0;
+  int unsaveCalls = 0;
+  int? lastRating;
+
+  @override
+  Future<Result<CollabPage<CollabListing>>> getMyListings({
+    CollabListingStatus? status,
+    int page = 0,
+    int size = 20,
+  }) async => Result.success(
+    _page(
+      myListings
+          .where((item) => status == null || item.status == status)
+          .toList(),
+      page: page,
+      size: size,
     ),
   );
+
+  @override
+  Future<Result<CollabListing>> closeListing(
+    String listingId, {
+    required int expectedVersion,
+  }) async {
+    closeCalls++;
+    final index = myListings.indexWhere((item) => item.id == listingId);
+    final updated = myListings[index].copyWith(
+      version: expectedVersion + 1,
+      status: CollabListingStatus.closed,
+      closureReason: CollabClosureReason.ownerClosed,
+    );
+    myListings[index] = updated;
+    return Result.success(updated);
+  }
+
+  @override
+  Future<Result<void>> deleteDraft(
+    String listingId, {
+    required int expectedVersion,
+  }) async {
+    myListings.removeWhere((item) => item.id == listingId);
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<CollabPage<CollabApplication>>> getIncomingApplications(
+    String listingId, {
+    CollabApplicationStatus? status,
+    int page = 0,
+    int size = 20,
+  }) async => Result.success(
+    _page(
+      incoming
+          .where((item) => item.listing.id == listingId)
+          .where((item) => status == null || item.status == status)
+          .toList(),
+      page: page,
+      size: size,
+    ),
+  );
+
+  @override
+  Future<Result<CollabJob>> acceptApplication(
+    String applicationId, {
+    required int expectedVersion,
+  }) async {
+    acceptCalls++;
+    final accepted = incoming.firstWhere((item) => item.id == applicationId);
+    for (var index = 0; index < incoming.length; index++) {
+      final application = incoming[index];
+      if (!application.isPending) continue;
+      incoming[index] = application.copyWith(
+        version: application.version + 1,
+        status: application.id == applicationId
+            ? CollabApplicationStatus.accepted
+            : CollabApplicationStatus.invalidatedByListingClosure,
+      );
+    }
+    final job = _job('accepted-job', listing: accepted.listing);
+    jobs.add(job);
+    return Result.success(job);
+  }
+
+  @override
+  Future<Result<CollabApplication>> rejectApplication(
+    String applicationId, {
+    required int expectedVersion,
+  }) async {
+    final index = incoming.indexWhere((item) => item.id == applicationId);
+    final updated = incoming[index].copyWith(
+      version: expectedVersion + 1,
+      status: CollabApplicationStatus.rejected,
+    );
+    incoming[index] = updated;
+    return Result.success(updated);
+  }
+
+  @override
+  Future<Result<CollabPage<CollabApplication>>> getMyApplications({
+    CollabApplicationStatus? status,
+    int page = 0,
+    int size = 20,
+  }) async => Result.success(
+    _page(
+      outgoing
+          .where((item) => status == null || item.status == status)
+          .toList(),
+      page: page,
+      size: size,
+    ),
+  );
+
+  @override
+  Future<Result<CollabApplication>> withdrawApplication(
+    String applicationId, {
+    required int expectedVersion,
+  }) async {
+    withdrawCalls++;
+    final index = outgoing.indexWhere((item) => item.id == applicationId);
+    final updated = outgoing[index].copyWith(
+      version: expectedVersion + 1,
+      status: CollabApplicationStatus.withdrawnByApplicant,
+    );
+    outgoing[index] = updated;
+    return Result.success(updated);
+  }
+
+  @override
+  Future<Result<void>> saveListing(String listingId) async =>
+      const Result<void>.success(null);
+
+  @override
+  Future<Result<void>> unsaveListing(String listingId) async {
+    unsaveCalls++;
+    saved.removeWhere((item) => item.id == listingId);
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<CollabPage<CollabListing>>> getSavedListings({
+    int page = 0,
+    int size = 20,
+  }) async => Result.success(_page(saved, page: page, size: size));
+
+  @override
+  Future<Result<CollabPage<CollabJob>>> getMyJobs({
+    CollabJobStatus? status,
+    int page = 0,
+    int size = 20,
+  }) async => Result.success(
+    _page(
+      jobs.where((item) => status == null || item.status == status).toList(),
+      page: page,
+      size: size,
+    ),
+  );
+
+  @override
+  Future<Result<CollabJob>> confirmJobCompletion(
+    String jobId, {
+    required int expectedVersion,
+  }) async {
+    completionCalls++;
+    final index = jobs.indexWhere((item) => item.id == jobId);
+    final current = jobs[index];
+    final updated = _copyJob(
+      current,
+      version: expectedVersion + 1,
+      confirmedByMe: true,
+      applicantConfirmed: true,
+    );
+    jobs[index] = updated;
+    return Result.success(updated);
+  }
+
+  @override
+  Future<Result<CollabReview>> createReview(
+    String jobId,
+    CollabReviewInput input, {
+    required String clientRequestId,
+  }) async {
+    reviewCalls++;
+    lastRating = input.rating;
+    final index = jobs.indexWhere((item) => item.id == jobId);
+    jobs[index] = _copyJob(jobs[index], reviewedByMe: true);
+    return Result.success(
+      CollabReview(
+        id: 'review-1',
+        jobId: jobId,
+        reviewer: _me,
+        target: _publisher,
+        rating: input.rating,
+        comment: input.comment,
+        createdAt: DateTime(2026, 8, 11),
+      ),
+    );
+  }
 }
 
-CollabMockController _controller({
-  List<CollabApplicationRecord> outgoingApplications =
-      const <CollabApplicationRecord>[],
-  List<CollabApplicationRecord> incomingApplications =
-      const <CollabApplicationRecord>[],
-  List<CollabOwnedListingRecord> ownedListings =
-      const <CollabOwnedListingRecord>[],
-  List<CollabJobRecord> jobs = const <CollabJobRecord>[],
-  List<CollabDiscoveryListing> createdListings =
-      const <CollabDiscoveryListing>[],
-  List<CollabListingDraft> drafts = const <CollabListingDraft>[],
-}) {
-  return CollabMockController(
-    outgoingApplications: outgoingApplications,
-    incomingApplications: incomingApplications,
-    ownedListings: ownedListings,
-    jobs: jobs,
-    createdListings: createdListings,
-    drafts: drafts,
+CollabPage<T> _page<T>(List<T> all, {required int page, required int size}) {
+  final start = page * size;
+  final end = (start + size).clamp(0, all.length);
+  final items = start >= all.length ? <T>[] : all.sublist(start, end);
+  final totalPages = all.isEmpty ? 0 : (all.length / size).ceil();
+  return CollabPage<T>(
+    items: items,
+    page: page,
+    size: size,
+    totalElements: all.length,
+    totalPages: totalPages,
+    first: page == 0,
+    last: totalPages == 0 || page >= totalPages - 1,
   );
 }
+
+const CollabActor _publisher = CollabActor(
+  actorId: 'publisher-actor',
+  profileType: CollabProfileKind.venue,
+  sourceProfileId: 'venue-1',
+  contactUserId: 'publisher-user',
+  displayName: 'Kadıköy Sahne',
+  rating: 4.8,
+  reviewCount: 12,
+  completedJobCount: 22,
+);
+
+const CollabActor _me = CollabActor(
+  actorId: 'me-actor',
+  profileType: CollabProfileKind.musician,
+  sourceProfileId: 'musician-me',
+  contactUserId: 'me-user',
+  displayName: 'Deniz Yılmaz',
+  rating: 4.9,
+  reviewCount: 7,
+  completedJobCount: 14,
+);
+
+const CollabActor _applicant = CollabActor(
+  actorId: 'applicant-1',
+  profileType: CollabProfileKind.musician,
+  sourceProfileId: 'musician-1',
+  contactUserId: 'applicant-user-1',
+  displayName: 'Melis Kaya',
+  rating: 4.7,
+  reviewCount: 9,
+  completedJobCount: 11,
+);
+
+const CollabActor _secondApplicant = CollabActor(
+  actorId: 'applicant-2',
+  profileType: CollabProfileKind.musician,
+  sourceProfileId: 'musician-2',
+  contactUserId: 'applicant-user-2',
+  displayName: 'Buğra Can',
+  rating: 4.5,
+  reviewCount: 5,
+  completedJobCount: 8,
+);
+
+CollabListing _listing(
+  String id, {
+  String title = 'Bas gitarist aranıyor',
+  bool ownedByMe = false,
+  bool savedByMe = false,
+}) => CollabListing(
+  id: id,
+  version: 1,
+  status: CollabListingStatus.open,
+  cadence: CollabCadence.regular,
+  wantedType: CollabProfileKind.musician,
+  title: title,
+  description: 'Düzenli sahnelerimiz için bas gitarist arıyoruz.',
+  city: const CollabCitySummary(id: 'city-34', name: 'İstanbul'),
+  genres: const <String>['Rock'],
+  feeStatus: CollabFeeStatus.unspecified,
+  publisher: _publisher,
+  ownedByMe: ownedByMe,
+  appliedByMe: !ownedByMe,
+  savedByMe: savedByMe,
+  applicationCount: 2,
+);
+
+CollabApplication _application(
+  String id, {
+  required CollabListing listing,
+  required CollabActor applicant,
+}) => CollabApplication(
+  id: id,
+  version: 1,
+  listing: listing,
+  applicant: applicant,
+  phone: '+90 555 111 22 33',
+  message: 'Bu iş için uygunum ve detayları konuşmak isterim.',
+  status: CollabApplicationStatus.pending,
+  submittedAt: DateTime(2026, 8, 11, 12),
+  statusChangedAt: DateTime(2026, 8, 11, 12),
+);
+
+CollabJob _job(
+  String id, {
+  required CollabListing listing,
+  bool completed = false,
+}) => CollabJob(
+  id: id,
+  version: 1,
+  status: completed ? CollabJobStatus.completed : CollabJobStatus.active,
+  listing: listing,
+  publisher: _publisher,
+  applicant: _me,
+  publisherConfirmedCompletion: completed,
+  applicantConfirmedCompletion: completed,
+  confirmedByMe: completed,
+  reviewedByMe: false,
+  completedAt: completed ? DateTime(2026, 8, 10) : null,
+);
+
+CollabJob _copyJob(
+  CollabJob job, {
+  int? version,
+  bool? confirmedByMe,
+  bool? publisherConfirmed,
+  bool? applicantConfirmed,
+  bool? reviewedByMe,
+}) => CollabJob(
+  id: job.id,
+  version: version ?? job.version,
+  status: job.status,
+  listing: job.listing,
+  publisher: job.publisher,
+  applicant: job.applicant,
+  publisherConfirmedCompletion:
+      publisherConfirmed ?? job.publisherConfirmedCompletion,
+  applicantConfirmedCompletion:
+      applicantConfirmed ?? job.applicantConfirmedCompletion,
+  confirmedByMe: confirmedByMe ?? job.confirmedByMe,
+  publisherConfirmedAt: job.publisherConfirmedAt,
+  applicantConfirmedAt: job.applicantConfirmedAt,
+  completedAt: job.completedAt,
+  reviewedByMe: reviewedByMe ?? job.reviewedByMe,
+);

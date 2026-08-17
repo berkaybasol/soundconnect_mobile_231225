@@ -10,6 +10,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_application.dart';
+import '../collab_deep_link_scroll.dart';
 import '../collab_navigation.dart';
 import '../cubit/collab_async_state.dart';
 import '../cubit/collab_incoming_applications_cubit.dart';
@@ -23,6 +24,7 @@ class CollabIncomingApplicationsScreen extends StatefulWidget {
   const CollabIncomingApplicationsScreen({
     required this.listingId,
     this.listingTitle,
+    this.initialApplicationId,
     this.showBottomNavigation = true,
     this.cubit,
     super.key,
@@ -30,6 +32,7 @@ class CollabIncomingApplicationsScreen extends StatefulWidget {
 
   final String listingId;
   final String? listingTitle;
+  final String? initialApplicationId;
   final bool showBottomNavigation;
   final CollabIncomingApplicationsCubit? cubit;
 
@@ -43,6 +46,10 @@ class _CollabIncomingApplicationsScreenState
   late final CollabIncomingApplicationsCubit _cubit;
   late final bool _ownsCubit;
   late final ScrollController _scrollController;
+  final GlobalKey _initialApplicationKey = GlobalKey();
+  bool _initialTargetHandled = false;
+  bool _initialTargetScheduled = false;
+  bool _initialTargetRevealDeferred = false;
 
   @override
   void initState() {
@@ -71,7 +78,13 @@ class _CollabIncomingApplicationsScreenState
   }
 
   void _onScroll() {
-    if (_scrollController.position.extentAfter < 320) {
+    if (_initialTargetRevealDeferred &&
+        _initialApplicationKey.currentContext != null) {
+      _initialTargetRevealDeferred = false;
+      _scheduleInitialTarget(_cubit.state);
+    }
+    if (_scrollController.position.extentAfter < 320 &&
+        _cubit.state.loadMoreError == null) {
       unawaited(_cubit.loadMore());
     }
   }
@@ -88,74 +101,81 @@ class _CollabIncomingApplicationsScreenState
             listenWhen: (previous, current) =>
                 (previous.actionError != current.actionError &&
                     current.actionError != null) ||
+                (previous.loadMoreError != current.loadMoreError &&
+                    current.loadMoreError != null) ||
                 (previous.error != current.error &&
                     current.error != null &&
                     current.items.isNotEmpty),
-            listener: (context, state) =>
-                _showMessage((state.actionError ?? state.error)!.message),
-            builder: (context, state) => Scaffold(
-              appBar: AppBar(title: const Text('Başvurular')),
-              body: SafeArea(
-                top: false,
-                bottom: false,
-                child: RefreshIndicator(
-                  onRefresh: _cubit.refresh,
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 5, 16, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (_listingTitle(state).isNotEmpty)
+            listener: (context, state) => _showMessage(
+              (state.actionError ?? state.loadMoreError ?? state.error)!
+                  .message,
+            ),
+            builder: (context, state) {
+              _scheduleInitialTarget(state);
+              return Scaffold(
+                appBar: AppBar(title: const Text('Başvurular')),
+                body: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: RefreshIndicator(
+                    onRefresh: _cubit.refresh,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 5, 16, 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (_listingTitle(state).isNotEmpty)
+                                  Text(
+                                    _listingTitle(state),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                const SizedBox(height: 5),
                                 Text(
-                                  _listingTitle(state),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                  '${state.totalElements} başvuru',
                                   style: TextStyle(
                                     color: Theme.of(
                                       context,
-                                    ).colorScheme.onSurface,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
+                                    ).colorScheme.onSurfaceVariant,
+                                    fontSize: 12.5,
                                   ),
                                 ),
-                              const SizedBox(height: 5),
-                              Text(
-                                '${state.totalElements} başvuru',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 16, bottom: 12),
-                          child: _StatusRail(
-                            selected: _cubit.statusFilter,
-                            onSelected: (status) =>
-                                unawaited(_cubit.setStatusFilter(status)),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 16, bottom: 12),
+                            child: _StatusRail(
+                              selected: _cubit.statusFilter,
+                              onSelected: (status) =>
+                                  unawaited(_cubit.setStatusFilter(status)),
+                            ),
                           ),
                         ),
-                      ),
-                      ..._contentSlivers(state),
-                    ],
+                        ..._contentSlivers(state),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              bottomNavigationBar: widget.showBottomNavigation
-                  ? ProfilePublicBottomBar(currentIndex: 1)
-                  : null,
-            ),
+                bottomNavigationBar: widget.showBottomNavigation
+                    ? ProfilePublicBottomBar(currentIndex: 1)
+                    : null,
+              );
+            },
           ),
     );
   }
@@ -200,39 +220,109 @@ class _CollabIncomingApplicationsScreenState
           itemBuilder: (context, index) {
             final application = state.items[index];
             final busy = state.actionIds.contains(application.id);
-            return _ApplicationCard(
-              application: application,
-              busy: busy,
-              onDetail: () => _openDetail(application.listing.id),
-              onProfile: () =>
-                  openCollabActorProfile(context, application.applicant),
-              onMessage: application.applicant.contactUserId.trim().isEmpty
-                  ? null
-                  : () => openCollabActorConversation(
-                      context,
-                      application.applicant,
-                    ),
-              onPhone: application.phone?.trim().isNotEmpty == true
-                  ? () => _openPhone(application.phone!)
-                  : null,
-              onAccept: application.isPending && application.listing.isOpen
-                  ? () => _confirmDecision(application, accept: true)
-                  : null,
-              onReject: application.isPending
-                  ? () => _confirmDecision(application, accept: false)
-                  : null,
+            return KeyedSubtree(
+              key: application.id == widget.initialApplicationId?.trim()
+                  ? _initialApplicationKey
+                  : ValueKey<String>('collab-incoming-${application.id}'),
+              child: _ApplicationCard(
+                application: application,
+                busy: busy,
+                onDetail: () => _openDetail(application.listing.id),
+                onProfile: () =>
+                    openCollabActorProfile(context, application.applicant),
+                onMessage: application.applicant.contactUserId.trim().isEmpty
+                    ? null
+                    : () => openCollabActorConversation(
+                        context,
+                        application.applicant,
+                      ),
+                onPhone: application.phone?.trim().isNotEmpty == true
+                    ? () => _openPhone(application.phone!)
+                    : null,
+                onAccept: application.isPending && application.listing.isOpen
+                    ? () => _confirmDecision(application, accept: true)
+                    : null,
+                onReject: application.isPending
+                    ? () => _confirmDecision(application, accept: false)
+                    : null,
+              ),
             );
           },
         ),
       ),
       SliverToBoxAdapter(
         child: CollabPagedFooter(
+          key: const ValueKey<String>(
+            'collab-incoming-applications-load-more-footer',
+          ),
           loading: state.isLoadingMore,
           hasError: state.loadMoreError != null,
           onRetry: _cubit.loadMore,
         ),
       ),
     ];
+  }
+
+  void _scheduleInitialTarget(CollabPagedState<CollabApplication> state) {
+    final targetId = widget.initialApplicationId?.trim() ?? '';
+    if (_initialTargetHandled ||
+        _initialTargetScheduled ||
+        targetId.isEmpty ||
+        state.status == CollabLoadStatus.initial ||
+        state.status == CollabLoadStatus.loading ||
+        state.status == CollabLoadStatus.failure) {
+      return;
+    }
+    final targetIndex = state.items.indexWhere(
+      (application) => application.id == targetId,
+    );
+    if (targetIndex >= 0) {
+      if (_initialTargetRevealDeferred &&
+          _initialApplicationKey.currentContext == null) {
+        return;
+      }
+      _initialTargetScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final revealed = await revealCollabPagedTarget(
+          controller: _scrollController,
+          targetKey: _initialApplicationKey,
+          targetIndex: targetIndex,
+          itemCount: state.items.length,
+          estimatedItemExtent: 300,
+        );
+        if (!mounted) return;
+        _initialTargetScheduled = false;
+        _initialTargetHandled = revealed;
+        _initialTargetRevealDeferred = !revealed;
+        if (!revealed) {
+          _showMessage(
+            'Hedef başvuru yüklendi ancak otomatik kaydırılamadı. '
+            'Listede elle kaydırarak açabilirsin.',
+          );
+        }
+      });
+      return;
+    }
+    if (state.loadMoreError != null) return;
+    if (state.hasNext && !state.isLoadingMore) {
+      _initialTargetScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await _cubit.loadMore();
+        _initialTargetScheduled = false;
+        if (mounted) _scheduleInitialTarget(_cubit.state);
+      });
+      return;
+    }
+    if (!state.isLoadingMore) {
+      _initialTargetHandled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showMessage('Bildirimdeki başvuru artık listede bulunamıyor.');
+        }
+      });
+    }
   }
 
   Future<void> _confirmDecision(

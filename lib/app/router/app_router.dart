@@ -249,8 +249,7 @@ class AppRouter {
         final args = _arguments<CollabDiscoveryRouteArgs>(settings);
         return collabPageRoute(
           settings: settings,
-          builder: (_) =>
-              CollabDiscoveryScreen(initialListingId: args?.initialListingId),
+          builder: (_) => CollabDiscoveryScreen(initialRouteArgs: args),
         );
       case AppRoutes.home:
         return MaterialPageRoute(

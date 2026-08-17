@@ -4,6 +4,7 @@ import '../../domain/collab_page.dart';
 import '../../domain/collab_repository.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_application.dart';
+import 'collab_conflict_support.dart';
 import 'collab_paged_cubit.dart';
 
 class CollabIncomingApplicationsCubit
@@ -54,14 +55,19 @@ class CollabIncomingApplicationsCubit
 
   Future<void> accept(CollabApplication application) async {
     if (!application.isPending || !beginItemAction(application.id)) return;
+    final generation = operationGeneration;
     final result = await _repository.acceptApplication(
       application.id,
       expectedVersion: application.version,
     );
-    if (isClosed) return;
-    if (result.isSuccess) {
+    if (!isCurrentOperation(generation)) {
+      if (!isClosed) endItemAction(application.id);
+      return;
+    }
+    if (result.isSuccess || isCollabStaleUpdate(result.error)) {
       // Accept closes the listing and invalidates every other pending
-      // application atomically; refreshing prevents stale action buttons.
+      // application atomically. A version conflict also means another device
+      // changed the authoritative state, so refresh without retrying.
       await refresh();
     }
     if (!isClosed) endItemAction(application.id, error: result.error);
@@ -69,19 +75,28 @@ class CollabIncomingApplicationsCubit
 
   Future<void> reject(CollabApplication application) async {
     if (!application.isPending || !beginItemAction(application.id)) return;
+    final generation = operationGeneration;
     final result = await _repository.rejectApplication(
       application.id,
       expectedVersion: application.version,
     );
-    if (isClosed) return;
+    if (!isCurrentOperation(generation)) {
+      if (!isClosed) endItemAction(application.id);
+      return;
+    }
     if (result.isSuccess) {
       final updated = result.data!;
       if (_statusFilter == null || _statusFilter == updated.status) {
         replaceItem(updated);
       } else {
-        removeItem(updated.id);
+        await removeItemAndRefresh(updated.id);
+        if (isClosed) return;
       }
+    } else if (isCollabStaleUpdate(result.error)) {
+      await refresh();
+      if (isClosed) return;
     }
+    if (isClosed) return;
     endItemAction(application.id, error: result.error);
   }
 }

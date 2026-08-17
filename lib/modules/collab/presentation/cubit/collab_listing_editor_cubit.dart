@@ -5,36 +5,41 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/app_error.dart';
 import '../../../../core/error/result.dart';
+import '../../data/collab_idempotency_store.dart';
+import '../../data/collab_request_canonicalizer.dart';
 import '../../domain/collab_commands.dart';
 import '../../domain/collab_repository.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_listing.dart';
 import 'collab_async_state.dart';
+import 'collab_conflict_support.dart';
 import 'collab_listing_editor_state.dart';
 
 class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
   CollabListingEditorCubit(
     this._repository, {
     String Function()? requestIdFactory,
+    CollabIdempotencyStore? idempotencyStore,
   }) : _requestIdFactory = requestIdFactory ?? const Uuid().v4,
+       _idempotencyStore = idempotencyStore ?? MemoryCollabIdempotencyStore(),
        super(const CollabListingEditorState());
 
   final CollabRepository _repository;
   final String Function() _requestIdFactory;
-  String? _createRequestId;
-  String? _createPayloadFingerprint;
+  final CollabIdempotencyStore _idempotencyStore;
   int _generation = 0;
 
   Future<void> initialize({CollabListing? listing}) async {
     final generation = ++_generation;
-    _createRequestId = null;
-    _createPayloadFingerprint = null;
     emit(
       state.copyWith(
         actorStatus: CollabLoadStatus.loading,
         listing: listing,
+        conflictListing: null,
         input: listing == null ? null : _inputFromListing(listing),
         isDirty: false,
+        hasUnresolvedConflict: false,
+        operation: CollabEditorOperation.idle,
         validationErrors: const <String>[],
         error: null,
       ),
@@ -64,6 +69,8 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
 
   void updateInput(CollabListingInput input) {
     if (state.isSubmitting) return;
+    final listing = state.listing;
+    if (listing?.isOpen == true && listing!.applicationCount > 0) return;
     var normalized = input;
     if (normalized.wantedType != CollabProfileKind.musician) {
       normalized = normalized.copyWith(
@@ -96,10 +103,16 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
 
   Future<void> saveDraft() async {
     final input = state.input;
-    if (input == null || state.isSubmitting) return;
+    if (input == null || state.isSubmitting || state.hasUnresolvedConflict) {
+      return;
+    }
+    final generation = _generation;
     final actor = state.selectedActor;
     if (actor == null) return;
-    final errors = input.validate(publisherType: actor.profileType);
+    final errors = input.validate(
+      publisherType: actor.profileType,
+      latestScheduledAt: _latestScheduledAt,
+    );
     if (errors.isNotEmpty) {
       emit(state.copyWith(validationErrors: errors, error: null));
       return;
@@ -112,12 +125,22 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
       ),
     );
     final result = await _persistDraft(input);
-    if (isClosed) return;
+    if (!_isCurrent(generation)) return;
+    if (isCollabStaleUpdate(result.error)) {
+      await _recoverFromStaleUpdate(
+        listingId: state.listing!.id,
+        conflict: result.error!,
+        generation: generation,
+      );
+      return;
+    }
     emit(
       state.copyWith(
         operation: CollabEditorOperation.idle,
         listing: result.data ?? state.listing,
         isDirty: !result.isSuccess,
+        hasUnresolvedConflict: false,
+        conflictListing: null,
         error: result.error,
       ),
     );
@@ -126,8 +149,17 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
   Future<void> publish() async {
     final input = state.input;
     final actor = state.selectedActor;
-    if (input == null || actor == null || state.isSubmitting) return;
-    final errors = input.validate(publisherType: actor.profileType);
+    if (input == null ||
+        actor == null ||
+        state.isSubmitting ||
+        state.hasUnresolvedConflict) {
+      return;
+    }
+    final generation = _generation;
+    final errors = input.validate(
+      publisherType: actor.profileType,
+      latestScheduledAt: _latestScheduledAt,
+    );
     if (errors.isNotEmpty) {
       emit(state.copyWith(validationErrors: errors, error: null));
       return;
@@ -142,8 +174,16 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
     var draft = state.listing;
     if (draft == null || state.isDirty) {
       final saveResult = await _persistDraft(input);
-      if (isClosed) return;
+      if (!_isCurrent(generation)) return;
       if (!saveResult.isSuccess) {
+        if (isCollabStaleUpdate(saveResult.error)) {
+          await _recoverFromStaleUpdate(
+            listingId: state.listing!.id,
+            conflict: saveResult.error!,
+            generation: generation,
+          );
+          return;
+        }
         emit(
           state.copyWith(
             operation: CollabEditorOperation.idle,
@@ -172,16 +212,22 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
       draft.id,
       expectedVersion: draft.version,
     );
-    if (isClosed) return;
-    if (result.isSuccess) {
-      _createRequestId = null;
-      _createPayloadFingerprint = null;
+    if (!_isCurrent(generation)) return;
+    if (isCollabStaleUpdate(result.error)) {
+      await _recoverFromStaleUpdate(
+        listingId: draft.id,
+        conflict: result.error!,
+        generation: generation,
+      );
+      return;
     }
     emit(
       state.copyWith(
         operation: CollabEditorOperation.idle,
         listing: result.data ?? draft,
         isDirty: false,
+        hasUnresolvedConflict: false,
+        conflictListing: null,
         error: result.error,
       ),
     );
@@ -195,10 +241,26 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
         listing == null ||
         actor == null ||
         listing.isDraft ||
-        state.isSubmitting) {
+        state.isSubmitting ||
+        state.hasUnresolvedConflict) {
       return;
     }
-    final errors = input.validate(publisherType: actor.profileType);
+    final generation = _generation;
+    if (listing.applicationCount > 0) {
+      emit(
+        state.copyWith(
+          error: const AppError(
+            code: 'collab_published_edit_restricted',
+            message: 'Başvuru alan açık ilanın iş şartları değiştirilemez.',
+          ),
+        ),
+      );
+      return;
+    }
+    final errors = input.validate(
+      publisherType: actor.profileType,
+      latestScheduledAt: _latestScheduledAt,
+    );
     if (errors.isNotEmpty) {
       emit(state.copyWith(validationErrors: errors));
       return;
@@ -215,12 +277,22 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
       input,
       expectedVersion: listing.version,
     );
-    if (isClosed) return;
+    if (!_isCurrent(generation)) return;
+    if (isCollabStaleUpdate(result.error)) {
+      await _recoverFromStaleUpdate(
+        listingId: listing.id,
+        conflict: result.error!,
+        generation: generation,
+      );
+      return;
+    }
     emit(
       state.copyWith(
         operation: CollabEditorOperation.idle,
         listing: result.data ?? listing,
         isDirty: !result.isSuccess,
+        hasUnresolvedConflict: false,
+        conflictListing: null,
         error: result.error,
       ),
     );
@@ -228,7 +300,13 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
 
   Future<void> deleteDraft() async {
     final listing = state.listing;
-    if (listing == null || !listing.isDraft || state.isSubmitting) return;
+    if (listing == null ||
+        !listing.isDraft ||
+        state.isSubmitting ||
+        state.hasUnresolvedConflict) {
+      return;
+    }
+    final generation = _generation;
     emit(
       state.copyWith(operation: CollabEditorOperation.deleting, error: null),
     );
@@ -236,32 +314,61 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
       listing.id,
       expectedVersion: listing.version,
     );
-    if (isClosed) return;
-    if (result.isSuccess) {
-      _createRequestId = null;
-      _createPayloadFingerprint = null;
+    if (!_isCurrent(generation)) return;
+    if (isCollabStaleUpdate(result.error)) {
+      await _recoverFromStaleUpdate(
+        listingId: listing.id,
+        conflict: result.error!,
+        generation: generation,
+      );
+      return;
     }
     emit(
       state.copyWith(
         operation: CollabEditorOperation.idle,
         listing: result.isSuccess ? null : listing,
-        isDirty: result.isSuccess ? true : state.isDirty,
+        isDirty: result.isSuccess ? false : state.isDirty,
+        hasUnresolvedConflict: false,
+        conflictListing: null,
         error: result.error,
       ),
     );
   }
 
-  Future<Result<CollabListing>> _persistDraft(CollabListingInput input) {
+  Future<Result<CollabListing>> _persistDraft(CollabListingInput input) async {
     final existing = state.listing;
     if (existing == null) {
-      final fingerprint = _listingPayloadFingerprint(input);
-      if (_createRequestId == null ||
-          _createPayloadFingerprint != fingerprint) {
-        _createRequestId = _requestIdFactory();
-        _createPayloadFingerprint = fingerprint;
+      final canonicalInput = canonicalCollabListingInput(input);
+      try {
+        final lease = await _idempotencyStore.acquire(
+          operation: 'create_listing',
+          targetId: 'new',
+          payloadFingerprint: _listingPayloadFingerprint(canonicalInput),
+          createRequestId: _requestIdFactory,
+        );
+        final result = await _repository.createDraft(
+          canonicalInput,
+          clientRequestId: lease.requestId,
+        );
+        if (result.isSuccess) {
+          try {
+            await _idempotencyStore.complete(lease);
+          } catch (_) {
+            // The authoritative create response must not be converted to a
+            // failure by best-effort local cleanup. TTL/reset semantics keep a
+            // stale lease from replaying forever.
+          }
+        }
+        return result;
+      } catch (_) {
+        return const Result<CollabListing>.failure(
+          AppError(
+            code: 'collab_idempotency_storage',
+            message:
+                'Güvenli istek anahtarı hazırlanamadı. Lütfen tekrar dene.',
+          ),
+        );
       }
-      final requestId = _createRequestId!;
-      return _repository.createDraft(input, clientRequestId: requestId);
     }
     if (!existing.isDraft) {
       return Future<Result<CollabListing>>.value(
@@ -278,6 +385,103 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
       input,
       expectedVersion: existing.version,
     );
+  }
+
+  Future<void> _recoverFromStaleUpdate({
+    required String listingId,
+    required AppError conflict,
+    required int generation,
+  }) async {
+    final latestResult = await _repository.getListing(listingId);
+    if (!_isCurrent(generation)) return;
+
+    final latest = latestResult.data;
+    if (latestResult.isSuccess && latest != null) {
+      emit(
+        state.copyWith(
+          operation: CollabEditorOperation.idle,
+          conflictListing: latest,
+          isDirty: true,
+          hasUnresolvedConflict: true,
+          validationErrors: const <String>[],
+          error: collabPreservedConflictError(conflict),
+        ),
+      );
+      return;
+    }
+
+    if (isCollabListingNotFound(latestResult.error)) {
+      emit(
+        state.copyWith(
+          operation: CollabEditorOperation.idle,
+          conflictListing: null,
+          isDirty: true,
+          hasUnresolvedConflict: true,
+          validationErrors: const <String>[],
+          error: collabDeletedConflictError(conflict),
+        ),
+      );
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        operation: CollabEditorOperation.idle,
+        conflictListing: null,
+        isDirty: true,
+        hasUnresolvedConflict: true,
+        error: collabUnresolvedConflictError(conflict),
+      ),
+    );
+  }
+
+  void keepLocalConflictForm() {
+    if (!state.hasUnresolvedConflict || isClosed) return;
+    emit(state.copyWith(error: null));
+  }
+
+  void loadLatestConflictVersion() {
+    final latest = state.conflictListing;
+    if (!state.hasUnresolvedConflict || latest == null || isClosed) return;
+    emit(
+      state.copyWith(
+        listing: latest,
+        conflictListing: null,
+        input: _inputFromListing(latest),
+        isDirty: false,
+        hasUnresolvedConflict: false,
+        validationErrors: const <String>[],
+        error: null,
+      ),
+    );
+  }
+
+  bool _isCurrent(int generation) {
+    return !isClosed && generation == _generation;
+  }
+
+  Future<bool> abandonPendingCreate() async {
+    if (state.listing != null) return true;
+    try {
+      await _idempotencyStore.resetOperation(
+        operation: 'create_listing',
+        targetId: 'new',
+      );
+      return true;
+    } catch (_) {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            error: const AppError(
+              code: 'collab_idempotency_reset',
+              message:
+                  'Yeni ilan denemesi güvenle sıfırlanamadı. Lütfen tekrar dene.',
+            ),
+          ),
+        );
+      }
+      return false;
+    }
   }
 
   CollabListingInput _emptyInput(String actorId) => CollabListingInput(
@@ -308,18 +512,25 @@ class CollabListingEditorCubit extends Cubit<CollabListingEditorState> {
 
   String _listingPayloadFingerprint(CollabListingInput input) =>
       jsonEncode(<String, Object?>{
-        'publisherActorId': input.publisherActorId.trim(),
+        'publisherActorId': input.publisherActorId,
         'cadence': input.cadence.apiValue,
         'wantedType': input.wantedType.apiValue,
-        'instrumentId': input.instrumentId?.trim(),
+        'instrumentId': input.instrumentId,
         'branch': input.branch?.apiValue,
-        'customSpecialty': input.customSpecialty?.trim(),
-        'title': input.title.trim(),
-        'description': input.description.trim(),
-        'cityId': input.cityId.trim(),
-        'genres': input.genres.map((item) => item.trim()).toList(),
-        'scheduledAt': input.scheduledAt?.toUtc().toIso8601String(),
+        'customSpecialty': input.customSpecialty,
+        'title': input.title,
+        'description': input.description,
+        'cityId': input.cityId,
+        'genres': input.genres,
+        'scheduledAt': input.scheduledAt?.toIso8601String(),
         'feeAmountMinor': input.feeAmountMinor,
-        'currency': input.currency?.trim().toUpperCase(),
+        'currency': input.currency,
       });
+
+  DateTime? get _latestScheduledAt {
+    final listing = state.listing;
+    final publishedAt = listing?.publishedAt;
+    if (listing?.isOpen != true || publishedAt == null) return null;
+    return publishedAt.add(const Duration(days: 7));
+  }
 }

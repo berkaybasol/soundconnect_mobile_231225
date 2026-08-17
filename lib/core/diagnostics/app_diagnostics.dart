@@ -57,6 +57,19 @@ class AppDiagnostics {
     );
   }
 
+  static void reportRecoverable({
+    required String source,
+    required Object error,
+    required StackTrace stackTrace,
+  }) {
+    report(
+      severity: AppDiagnosticSeverity.error,
+      source: source,
+      errorType: error.runtimeType.toString(),
+      stackTrace: stackTrace,
+    );
+  }
+
   @visibleForTesting
   static void report({
     required AppDiagnosticSeverity severity,

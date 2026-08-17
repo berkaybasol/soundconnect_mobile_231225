@@ -21,6 +21,11 @@ class AppRouteGuard {
     AppRoutes.studioPublicProfile,
   };
 
+  /// Routes that belong to sign-in, registration, recovery or account
+  /// activation. A pending app link must survive navigation inside this flow.
+  static bool isAnonymousFlowRoute(String? routeName) =>
+      routeName != null && _anonymousRoutes.contains(routeName);
+
   static String? redirectFor(String? requestedRoute, AuthSession session) {
     final requested = requestedRoute ?? AppRoutes.login;
     final isPublic =

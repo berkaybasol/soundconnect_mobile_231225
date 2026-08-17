@@ -42,6 +42,14 @@ extension CollabProfileKindX on CollabProfileKind {
   };
 
   String get wantedLabel => '$label arayan';
+
+  String get missingApplicationProfileMessage => switch (this) {
+    CollabProfileKind.band =>
+      'Henüz grubunuz yok. Profil → Yönetim Paneli → Bandlerim bölümünden '
+          'grubunuzu oluşturabilirsiniz.',
+    _ =>
+      'Bu ilana başvurabilecek bir ${label.toLowerCase()} profilin bulunmuyor.',
+  };
 }
 
 enum CollabPublishedWithin {

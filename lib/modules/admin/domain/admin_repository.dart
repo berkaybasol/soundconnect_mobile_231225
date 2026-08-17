@@ -2,6 +2,7 @@ import '../../../core/error/result.dart';
 import '../../../core/pagination/page.dart';
 import 'entities/admin_dashboard_summary.dart';
 import 'entities/admin_backline_category_request.dart';
+import 'entities/admin_collab_report.dart';
 import 'entities/admin_venue_application.dart';
 import 'entities/admin_studio_application.dart';
 
@@ -43,5 +44,19 @@ abstract class AdminRepository {
     required String id,
     required AdminBacklineCategoryReviewDecision decision,
     String? note,
+  });
+
+  Future<Result<Page<AdminCollabReport>>> getCollabReports({
+    AdminCollabReportStatus? status,
+    AdminCollabReportReason? reason,
+    int page = 0,
+    int size = 20,
+  });
+
+  Future<Result<AdminCollabReport>> reviewCollabReport({
+    required String id,
+    required int expectedVersion,
+    required AdminCollabReportDecision decision,
+    required String resolutionNote,
   });
 }

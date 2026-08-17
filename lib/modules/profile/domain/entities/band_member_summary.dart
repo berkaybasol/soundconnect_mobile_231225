@@ -30,7 +30,7 @@ class BandMemberSummary {
       case 'PR_MANAGER':
         return 'Sosyal Medya Uzmanı';
       case 'BOS_ADAM':
-        return 'lvl 1 zavallı xd';
+        return 'Ekip üyesi';
       default:
         final String trimmed = role.trim();
         return trimmed.isEmpty ? '-' : trimmed;

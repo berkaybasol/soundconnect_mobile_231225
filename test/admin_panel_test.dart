@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart' hide Page;
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
@@ -7,14 +9,18 @@ import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
 import 'package:soundconnect_23_12_25codx/core/pagination/page.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/data/admin_endpoints.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/data/models/admin_collab_report_model.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/data/admin_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/admin_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_backline_category_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_dashboard_summary.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_collab_report.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_studio_application.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_venue_application.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/cubit/admin_panel_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/cubit/admin_panel_state.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_collab_reports.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 void main() {
   group('AdminRepositoryImpl', () {
@@ -282,6 +288,141 @@ void main() {
       expect(result.data, isNull);
       expect(result.error?.code, 'admin_backline_category_request_validation');
       expect(apiClient.lastMethod, isNull);
+    });
+
+    test('decodes and filters the Collab moderation queue', () async {
+      final apiClient = _AdminApiClientFake((path, query) async {
+        expect(path, AdminEndpoints.collabReports);
+        return <String, dynamic>{
+          'content': <Object?>[_collabReportJson()],
+          'page': 0,
+          'number': 0,
+          'size': 20,
+          'totalElements': 1,
+          'totalPages': 1,
+          'first': true,
+          'last': true,
+        };
+      });
+
+      final result = await AdminRepositoryImpl(apiClient).getCollabReports(
+        status: AdminCollabReportStatus.open,
+        reason: AdminCollabReportReason.spam,
+      );
+
+      expect(result.data?.items.single.id, 'report-1');
+      expect(result.data?.items.single.reportedAt.isUtc, isTrue);
+      expect(result.data?.items.single.status, AdminCollabReportStatus.open);
+      expect(result.data?.items.single.listingStatusAtReport, 'OPEN');
+      expect(result.data?.items.single.listingStatus, 'OPEN');
+      expect(
+        result.data?.items.single.listingDescription,
+        'Cuma gecesi sahne için deneyimli müzisyen.',
+      );
+      expect(result.data?.items.single.publisherActorId, 'actor-1');
+      expect(result.data?.items.single.publisherDisplayName, 'Kadıköy Sahne');
+      expect(result.data?.items.single.cadence, 'EXTRA');
+      expect(result.data?.items.single.wantedType, 'MUSICIAN');
+      expect(result.data?.items.single.instrumentName, 'Bas gitar');
+      expect(result.data?.items.single.cityName, 'İstanbul');
+      expect(result.data?.items.single.listingGenres, <String>['Rock', 'Funk']);
+      expect(result.data?.items.single.scheduledAt?.isUtc, isTrue);
+      expect(result.data?.items.single.feeAmountMinor, 150075);
+      expect(apiClient.lastQuery, <String, dynamic>{
+        'status': 'OPEN',
+        'reason': 'SPAM',
+        'page': 0,
+        'size': 20,
+      });
+    });
+
+    testWidgets('Collab moderation card shows authoritative listing evidence', (
+      tester,
+    ) async {
+      final report = AdminCollabReportModel.fromJson(
+        _collabReportJson(
+          status: 'ACTIONED',
+          decision: 'REMOVE_LISTING',
+          resolutionNote: 'İlan doğrulanıp kaldırıldı.',
+        ),
+      );
+      final repository = _AdminRepositoryFake(
+        applications: (_) async =>
+            const Result.success(<AdminVenueApplication>[]),
+        collabReports: (_, __, ___, ____) async => Result.success(
+          Page<AdminCollabReport>(
+            items: <AdminCollabReport>[report],
+            hasNext: false,
+          ),
+        ),
+      );
+      final cubit = AdminPanelCubit(repository);
+      await cubit.loadCollabReportsList(null, null);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.navy,
+          home: BlocProvider<AdminPanelCubit>.value(
+            value: cubit,
+            child: Scaffold(
+              body: Builder(
+                builder: (context) => CustomScrollView(
+                  slivers: AdminCollabReportsSection.buildSlivers(
+                    context,
+                    cubit.state,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'İlan açıklaması: Cuma gecesi sahne için deneyimli müzisyen.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Rapor anındaki durum: OPEN'), findsOneWidget);
+      expect(find.text('Güncel durum: CLOSED'), findsOneWidget);
+      expect(find.text('Yayınlayan: Kadıköy Sahne (actor-1)'), findsOneWidget);
+      expect(find.text('Şehir: İstanbul'), findsOneWidget);
+      expect(find.text('İlan tipi / aranan: EXTRA / MUSICIAN'), findsOneWidget);
+      expect(find.text('Uzmanlık: Enstrüman: Bas gitar'), findsOneWidget);
+      expect(find.text('Tarzlar: Rock, Funk'), findsOneWidget);
+      expect(find.textContaining('Planlanan zaman:'), findsOneWidget);
+      expect(find.text('Ücret: 1.500,75 TRY (150075 minor)'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await cubit.close();
+    });
+
+    test('sends versioned Collab listing removal decision', () async {
+      final apiClient = _AdminApiClientFake(
+        (_, __) => throw StateError('GET is not expected'),
+        postHandler: (_, __) async => _collabReportJson(
+          status: 'ACTIONED',
+          decision: 'REMOVE_LISTING',
+          resolutionNote: 'Topluluk kurallarını ihlal ediyor.',
+        ),
+      );
+
+      final result = await AdminRepositoryImpl(apiClient).reviewCollabReport(
+        id: 'report-1',
+        expectedVersion: 3,
+        decision: AdminCollabReportDecision.removeListing,
+        resolutionNote: '  Topluluk kurallarını ihlal ediyor.  ',
+      );
+
+      expect(result.data?.status, AdminCollabReportStatus.actioned);
+      expect(apiClient.lastPath, AdminEndpoints.reviewCollabReport('report-1'));
+      expect(apiClient.lastBody, <String, dynamic>{
+        'decision': 'REMOVE_LISTING',
+        'expectedVersion': 3,
+        'resolutionNote': 'Topluluk kurallarını ihlal ediyor.',
+      });
     });
 
     test('preserves typed API errors', () async {
@@ -555,6 +696,44 @@ Map<String, dynamic> _backlineCategoryRequestJson({
   };
 }
 
+Map<String, dynamic> _collabReportJson({
+  String status = 'OPEN',
+  String? decision,
+  String? resolutionNote,
+}) {
+  final reviewed = status != 'OPEN';
+  return <String, dynamic>{
+    'id': 'report-1',
+    'version': 3,
+    'status': status,
+    'reason': 'SPAM',
+    'details': 'Aynı ilan tekrar tekrar açılıyor.',
+    'reportedAt': '2026-08-11T09:00:00Z',
+    'listingId': 'listing-1',
+    'listingTitle': 'Bas gitarist aranıyor',
+    'listingDescription': 'Cuma gecesi sahne için deneyimli müzisyen.',
+    'listingStatusAtReport': 'OPEN',
+    'listingStatus': reviewed ? 'CLOSED' : 'OPEN',
+    'publisherActorId': 'actor-1',
+    'publisherDisplayName': 'Kadıköy Sahne',
+    'cadence': 'EXTRA',
+    'wantedType': 'MUSICIAN',
+    'instrument': <String, dynamic>{'id': 'instrument-1', 'name': 'Bas gitar'},
+    'branch': null,
+    'customSpecialty': null,
+    'city': <String, dynamic>{'id': 'city-1', 'name': 'İstanbul'},
+    'listingGenres': <String>['Rock', 'Funk'],
+    'scheduledAt': '2026-08-15T18:30:00Z',
+    'feeAmountMinor': 150075,
+    'currency': 'TRY',
+    'reporterUserId': 'user-1',
+    'reviewDecision': decision,
+    'reviewedByUserId': reviewed ? 'admin-1' : null,
+    'reviewedAt': reviewed ? '2026-08-11T10:00:00Z' : null,
+    'resolutionNote': resolutionNote,
+  };
+}
+
 class _AdminRepositoryFake implements AdminRepository {
   _AdminRepositoryFake({
     Future<Result<AdminDashboardSummary>> Function()? summary,
@@ -562,6 +741,7 @@ class _AdminRepositoryFake implements AdminRepository {
     this.studioApplications,
     this.backlineCategoryRequests,
     this.categoryReview,
+    this.collabReports,
   }) : summary =
            summary ??
            (() async => const Result.success(AdminDashboardSummary.empty()));
@@ -589,6 +769,13 @@ class _AdminRepositoryFake implements AdminRepository {
     String? note,
   )?
   categoryReview;
+  final Future<Result<Page<AdminCollabReport>>> Function(
+    AdminCollabReportStatus? status,
+    AdminCollabReportReason? reason,
+    int page,
+    int size,
+  )?
+  collabReports;
 
   @override
   Future<Result<AdminDashboardSummary>> getDashboardSummary() => summary();
@@ -658,6 +845,24 @@ class _AdminRepositoryFake implements AdminRepository {
   }) async =>
       categoryReview?.call(id, decision, note) ??
       Result.success(_backlineCategoryRequest(id));
+
+  @override
+  Future<Result<Page<AdminCollabReport>>> getCollabReports({
+    AdminCollabReportStatus? status,
+    AdminCollabReportReason? reason,
+    int page = 0,
+    int size = 20,
+  }) async =>
+      collabReports?.call(status, reason, page, size) ??
+      const Result.success(Page<AdminCollabReport>(items: [], hasNext: false));
+
+  @override
+  Future<Result<AdminCollabReport>> reviewCollabReport({
+    required String id,
+    required int expectedVersion,
+    required AdminCollabReportDecision decision,
+    required String resolutionNote,
+  }) => throw UnimplementedError();
 }
 
 class _AdminApiClientFake extends ApiClient {

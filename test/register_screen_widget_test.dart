@@ -35,7 +35,15 @@ void main() {
     await locationCubit.close();
   });
 
-  Widget app() {
+  Widget app({bool includeSourceRoute = false}) {
+    Widget registration() => MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthCubit>.value(value: authCubit),
+        BlocProvider<LocationCubit>.value(value: locationCubit),
+      ],
+      child: RegisterScreen(),
+    );
+
     return MaterialApp(
       routes: <String, WidgetBuilder>{
         AppRoutes.otpVerify: (context) {
@@ -44,13 +52,19 @@ void main() {
           return Scaffold(body: Text('otp:${otpArgs?.email}:${otpArgs?.role}'));
         },
       },
-      home: MultiBlocProvider(
-        providers: [
-          BlocProvider<AuthCubit>.value(value: authCubit),
-          BlocProvider<LocationCubit>.value(value: locationCubit),
-        ],
-        child: RegisterScreen(),
-      ),
+      home: includeSourceRoute ? null : registration(),
+      onGenerateInitialRoutes: includeSourceRoute
+          ? (_) => <Route<dynamic>>[
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: '/source'),
+                builder: (_) => const Scaffold(body: Text('source-route')),
+              ),
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: AppRoutes.register),
+                builder: (_) => registration(),
+              ),
+            ]
+          : null,
     );
   }
 
@@ -200,7 +214,7 @@ void main() {
       _useLargeSurface(tester);
       final completer = Completer<Result<RegisterResult>>();
       authRepository.registerCompleter = completer;
-      await tester.pumpWidget(app());
+      await tester.pumpWidget(app(includeSourceRoute: true));
       await tester.pump();
       await _completeSharedRegistrationSteps(tester);
 
@@ -215,6 +229,11 @@ void main() {
       expect(authRepository.lastRegistration?.venueName, isNull);
       expect(_primaryButton(tester).onPressed, isNull);
       expect(_primaryButton(tester).label, 'Kaydediliyor...');
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.byType(RegisterScreen), findsOneWidget);
+      expect(find.text('source-route'), findsNothing);
 
       completer.complete(
         const Result.success(

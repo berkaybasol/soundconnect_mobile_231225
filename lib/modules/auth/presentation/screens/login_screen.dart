@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_route_guard.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/deep_link/app_deep_link_policy.dart';
+import '../../../../core/deep_link/pending_app_deep_link_store.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../collab/presentation/collab_route_args.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_theme_variant.dart';
 import '../../../../shared/theme/theme_controller.dart';
@@ -33,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordObscured = true;
+  bool _loginNavigationStarted = false;
 
   @override
   void initState() {
@@ -65,6 +71,72 @@ class _LoginScreenState extends State<LoginScreen> {
     return username;
   }
 
+  Future<void> _navigateAfterLogin() async {
+    final loginRoute = ModalRoute.of(context);
+    if (!mounted || loginRoute?.isCurrent != true) return;
+    final sessionManager = serviceLocator<AuthSessionManager>();
+    final inbox = serviceLocator.isRegistered<AppDeepLinkInbox>()
+        ? serviceLocator<AppDeepLinkInbox>()
+        : null;
+    var claim = const AppDeepLinkClaim.empty();
+    if (inbox != null) {
+      while (mounted && loginRoute?.isCurrent == true) {
+        final claimRevision = inbox.claimRevision;
+        claim = await inbox.claim();
+        if (!mounted || loginRoute?.isCurrent != true) {
+          final claimedLink = claim.link;
+          if (claimedLink != null) await inbox.release(claimedLink);
+          return;
+        }
+        if (claim.status != AppDeepLinkClaimStatus.busy) break;
+        await inbox.waitForClaimChange(afterRevision: claimRevision);
+      }
+    }
+    final pending = claim.link;
+    if (!mounted || loginRoute?.isCurrent != true) {
+      if (pending != null) await inbox?.release(pending);
+      return;
+    }
+    final session = sessionManager.session;
+    final canOpenPendingCollabLink =
+        resolveAppDeepLinkAccess(session) == AppDeepLinkAccess.openCollab;
+    final navigator = Navigator.of(context);
+    if (pending != null && canOpenPendingCollabLink) {
+      navigator.pushNamedAndRemoveUntil<void>(
+        AppRoutes.collabDiscovery,
+        (route) => false,
+        arguments: CollabDiscoveryRouteArgs(
+          initialListingId: pending.target.listingId,
+        ),
+      );
+      await inbox?.complete(pending);
+      return;
+    }
+    final shouldExplainUnavailableLink = pending != null;
+    if (pending != null) await inbox?.complete(pending);
+    if (!mounted || loginRoute?.isCurrent != true) return;
+
+    final route = AppRouteGuard.startRouteFor(session);
+    final messenger = shouldExplainUnavailableLink
+        ? ScaffoldMessenger.of(context)
+        : null;
+    navigator.pushNamedAndRemoveUntil<void>(route, (route) => false);
+    if (messenger != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!messenger.mounted) return;
+        messenger
+          ..removeCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Bu ilanı müzisyen, mekan veya stüdyo hesabıyla görüntüleyebilirsin.',
+              ),
+            ),
+          );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeController = serviceLocator.isRegistered<ThemeController>()
@@ -74,12 +146,18 @@ class _LoginScreenState extends State<LoginScreen> {
       listener: (context, state) {
         if (state.action != AuthAction.login) return;
         if (state.status == AuthStatus.success) {
-          final session = serviceLocator<AuthSessionManager>().session;
-          final route = AppRouteGuard.startRouteFor(session);
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil(route, (route) => false);
+          final route = ModalRoute.of(context);
+          if (_loginNavigationStarted || route?.isCurrent != true) {
+            return;
+          }
+          _loginNavigationStarted = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || route?.isCurrent != true) return;
+            unawaited(_navigateAfterLogin());
+          });
         } else if (state.status == AuthStatus.failure) {
+          final route = ModalRoute.of(context);
+          if (route?.isCurrent != true) return;
           final pendingRoute = switch (state.error?.code) {
             'auth_pending_venue_approval' => AppRoutes.venuePending,
             'auth_pending_studio_approval' => AppRoutes.studioPending,
@@ -87,9 +165,15 @@ class _LoginScreenState extends State<LoginScreen> {
             _ => null,
           };
           if (pendingRoute != null) {
-            Navigator.of(
-              context,
-            ).pushNamedAndRemoveUntil(pendingRoute, (route) => false);
+            if (_loginNavigationStarted) return;
+            _loginNavigationStarted = true;
+            final navigator = Navigator.of(context);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted || !navigator.mounted || route?.isCurrent != true) {
+                return;
+              }
+              navigator.pushNamedAndRemoveUntil(pendingRoute, (route) => false);
+            });
             return;
           }
           final message =
@@ -105,205 +189,224 @@ class _LoginScreenState extends State<LoginScreen> {
             state.status == AuthStatus.loading &&
             state.action == AuthAction.login;
 
-        return AppScaffold(
-          title: '',
-          actions: [
-            PopupMenuButton<AppThemeVariant>(
-              tooltip: 'Tema seç',
-              initialValue: themeController.variant,
-              onSelected: themeController.setVariant,
-              itemBuilder: (_) => AppThemeVariant.values
-                  .map(
-                    (variant) => PopupMenuItem<AppThemeVariant>(
-                      value: variant,
-                      child: Text(variant.label),
-                    ),
-                  )
-                  .toList(),
-              icon: const Icon(Icons.palette_outlined),
-            ),
-          ],
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(height: 24),
-              Center(child: Image.asset('assets/logo.png', height: 180)),
-              SizedBox(height: 28),
-              GradientTextField(
-                controller: _usernameController,
-                label: 'Kullanıcı adı',
-                prefixIcon: Icons.person_outline,
+        final navigationLocked = isLoading || _loginNavigationStarted;
+        return PopScope(
+          canPop: !navigationLocked,
+          child: AppScaffold(
+            title: '',
+            actions: [
+              PopupMenuButton<AppThemeVariant>(
+                tooltip: 'Tema seç',
+                enabled: !navigationLocked,
+                initialValue: themeController.variant,
+                onSelected: themeController.setVariant,
+                itemBuilder: (_) => AppThemeVariant.values
+                    .map(
+                      (variant) => PopupMenuItem<AppThemeVariant>(
+                        value: variant,
+                        child: Text(variant.label),
+                      ),
+                    )
+                    .toList(),
+                icon: const Icon(Icons.palette_outlined),
               ),
-              SizedBox(height: 16),
-              GradientTextField(
-                controller: _passwordController,
-                label: 'Şifre',
-                prefixIcon: Icons.lock_outline,
-                obscureText: _isPasswordObscured,
-                suffixIcon: IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _isPasswordObscured = !_isPasswordObscured;
-                    });
-                  },
-                  icon: Icon(
-                    _isPasswordObscured
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
+            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(height: 24),
+                Center(child: Image.asset('assets/logo.png', height: 180)),
+                SizedBox(height: 28),
+                GradientTextField(
+                  controller: _usernameController,
+                  label: 'Kullanıcı adı',
+                  prefixIcon: Icons.person_outline,
+                ),
+                SizedBox(height: 16),
+                GradientTextField(
+                  controller: _passwordController,
+                  label: 'Şifre',
+                  prefixIcon: Icons.lock_outline,
+                  obscureText: _isPasswordObscured,
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordObscured = !_isPasswordObscured;
+                      });
+                    },
+                    icon: Icon(
+                      _isPasswordObscured
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      AppColors.coralLight,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.asset('assets/fish.png', height: 16),
-                  ),
-                  SizedBox(width: 4),
-                  TextButton(
-                    key: const Key('forgot-password-button'),
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.forgotPassword),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Şifreni mi unuttun?',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ColorFiltered(
+                      colorFilter: ColorFilter.mode(
+                        AppColors.coralLight,
+                        BlendMode.srcIn,
                       ),
+                      child: Image.asset('assets/fish.png', height: 16),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 18),
-              InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: isLoading
-                    ? null
-                    : () {
-                        final username = _canonicalizeUsername();
-                        final password = _passwordController.text;
-                        if (username.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('kullanıcı adı boş olamaz')),
-                          );
-                          return;
-                        }
-                        if (PasswordPolicy.isBlank(password)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('şifre boş olamaz')),
-                          );
-                          return;
-                        }
-                        if (PasswordPolicy.exceedsBcryptLimit(password)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Şifre UTF-8 olarak en fazla 72 bayt olmalı',
-                              ),
+                    SizedBox(width: 4),
+                    TextButton(
+                      key: const Key('forgot-password-button'),
+                      onPressed: navigationLocked
+                          ? null
+                          : () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.forgotPassword,
                             ),
-                          );
-                          return;
-                        }
-                        context.read<AuthCubit>().login(
-                          username: username,
-                          password: password,
-                        );
-                      },
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isLoading
-                          ? [
-                              Theme.of(
-                                context,
-                              ).dividerColor.withValues(alpha: 0.7),
-                              Theme.of(
-                                context,
-                              ).dividerColor.withValues(alpha: 0.7),
-                            ]
-                          : AppColors.brandGradient,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(1),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(17),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      alignment: Alignment.center,
                       child: Text(
-                        isLoading ? 'Giriş yapılıyor...' : 'Giriş yap',
+                        'Şifreni mi unuttun?',
                         style: TextStyle(
-                          color: isLoading
-                              ? Theme.of(context).colorScheme.onSurfaceVariant
-                              : Theme.of(context).colorScheme.onSurface,
-                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 18),
+                InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: navigationLocked
+                      ? null
+                      : () {
+                          final username = _canonicalizeUsername();
+                          final password = _passwordController.text;
+                          if (username.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('kullanıcı adı boş olamaz'),
+                              ),
+                            );
+                            return;
+                          }
+                          if (PasswordPolicy.isBlank(password)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('şifre boş olamaz')),
+                            );
+                            return;
+                          }
+                          if (PasswordPolicy.exceedsBcryptLimit(password)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Şifre UTF-8 olarak en fazla 72 bayt olmalı',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          context.read<AuthCubit>().login(
+                            username: username,
+                            password: password,
+                          );
+                        },
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: navigationLocked
+                            ? [
+                                Theme.of(
+                                  context,
+                                ).dividerColor.withValues(alpha: 0.7),
+                                Theme.of(
+                                  context,
+                                ).dividerColor.withValues(alpha: 0.7),
+                              ]
+                            : AppColors.brandGradient,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(1),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(17),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _loginNavigationStarted
+                              ? 'Yönlendiriliyor...'
+                              : isLoading
+                              ? 'Giriş yapılıyor...'
+                              : 'Giriş yap',
+                          style: TextStyle(
+                            color: navigationLocked
+                                ? Theme.of(context).colorScheme.onSurfaceVariant
+                                : Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'veya',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'veya',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                     ),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              SizedBox(height: 14),
-              Tooltip(
-                message: 'Google ile giris yakinda kullanima acilacak',
-                child: OutlinedButton.icon(
-                  key: const Key('google-sign-in-unavailable'),
-                  onPressed: null,
-                  icon: Image.asset('assets/google.png', height: 20),
-                  label: Text('Google ile devam et (yakinda)'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.onSurface,
-                    side: BorderSide(color: Theme.of(context).dividerColor),
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                    Expanded(child: Divider()),
+                  ],
+                ),
+                SizedBox(height: 14),
+                Tooltip(
+                  message: 'Google ile giris yakinda kullanima acilacak',
+                  child: OutlinedButton.icon(
+                    key: const Key('google-sign-in-unavailable'),
+                    onPressed: null,
+                    icon: Image.asset('assets/google.png', height: 20),
+                    label: Text('Google ile devam et (yakinda)'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                      side: BorderSide(color: Theme.of(context).dividerColor),
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Hesabın yok mu?',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.register),
-                    child: Text('Üye ol'),
-                  ),
-                ],
-              ),
-            ],
+                SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Hesabın yok mu?',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    TextButton(
+                      onPressed: navigationLocked
+                          ? null
+                          : () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.register,
+                            ),
+                      child: Text('Üye ol'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },

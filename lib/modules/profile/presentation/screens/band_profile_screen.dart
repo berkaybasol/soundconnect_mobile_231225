@@ -26,10 +26,12 @@ import '../../domain/entities/profile_venue_models.dart';
 import '../../domain/musician_profile_repository.dart';
 import '../../domain/musician_search_repository.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
+import '../../../dm/presentation/band_representative_conversation.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../../follow/domain/band_follow_repository.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../spotify/domain/spotify_repository.dart';
+import '../../domain/band_representative_contact_policy.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'band_management_panel_screen.dart';
 import 'profile_common_widgets.dart';
@@ -248,24 +250,80 @@ class _BandProfileViewState extends State<_BandProfileView> {
     }
 
     final hasViewer = (_currentUserId ?? '').trim().isNotEmpty;
+    final representative = BandRepresentativeContactPolicy.resolve(
+      profile.members,
+    );
+    if (!hasViewer || representative == null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: 32),
+        child: Center(
+          child: GradientOutlineButton(
+            label: _bandFollowLoading
+                ? 'Bekle...'
+                : (_isFollowingBand ? 'Takip Ediliyor' : 'Takip Et'),
+            loading: _bandFollowLoading,
+            leading: Icon(
+              _isFollowingBand
+                  ? Icons.check_circle_outline
+                  : Icons.person_add_alt_1,
+              size: 18,
+            ),
+            onPressed: hasViewer && !_bandFollowLoading
+                ? () => _toggleBandFollow(profile.id)
+                : null,
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 32),
-      child: Center(
-        child: GradientOutlineButton(
-          label: _bandFollowLoading
-              ? 'Bekle...'
-              : (_isFollowingBand ? 'Takip Ediliyor' : 'Takip Et'),
-          loading: _bandFollowLoading,
-          leading: Icon(
-            _isFollowingBand
-                ? Icons.check_circle_outline
-                : Icons.person_add_alt_1,
-            size: 18,
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: !_bandFollowLoading
+                  ? () => _toggleBandFollow(profile.id)
+                  : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                side: BorderSide(color: Theme.of(context).dividerColor),
+                padding: EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Text(
+                _bandFollowLoading
+                    ? 'Bekle...'
+                    : (_isFollowingBand ? 'Takip Ediliyor' : 'Takip Et'),
+              ),
+            ),
           ),
-          onPressed: hasViewer && !_bandFollowLoading
-              ? () => _toggleBandFollow(profile.id)
-              : null,
-        ),
+          SizedBox(width: 12),
+          Expanded(
+            child: GradientOutlineButton(
+              key: const ValueKey<String>('band-profile-message-action'),
+              label: 'Mesaj Gönder',
+              onPressed: () {
+                unawaited(
+                  openBandRepresentativeConversation(
+                    context,
+                    bandName: profile.name,
+                    contactUserId: representative.userId,
+                    contactUsername: representative.username,
+                  ),
+                );
+              },
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              horizontalPadding: 12,
+              strokeWidth: 0.7,
+              leading: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+            ),
+          ),
+        ],
       ),
     );
   }

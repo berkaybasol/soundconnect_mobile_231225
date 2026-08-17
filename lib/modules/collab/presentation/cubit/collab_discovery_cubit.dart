@@ -55,6 +55,7 @@ class CollabDiscoveryCubit extends Cubit<CollabDiscoveryState> {
         totalElements: 0,
         isRefreshing: false,
         isLoadingMore: false,
+        savingListingIds: const <String>{},
         error: null,
         loadMoreError: null,
         actionError: null,
@@ -90,6 +91,7 @@ class CollabDiscoveryCubit extends Cubit<CollabDiscoveryState> {
         totalElements: keepItems ? state.totalElements : 0,
         isRefreshing: keepItems,
         isLoadingMore: false,
+        savingListingIds: const <String>{},
         error: null,
         loadMoreError: null,
         actionError: null,
@@ -158,6 +160,7 @@ class CollabDiscoveryCubit extends Cubit<CollabDiscoveryState> {
     final index = state.items.indexWhere((item) => item.id == listingId);
     if (index < 0) return;
     final previous = state.items[index];
+    final generation = _generation;
     final nextSaved = !previous.savedByMe;
     final optimistic = previous.copyWith(savedByMe: nextSaved);
     _replaceListing(optimistic);
@@ -173,7 +176,7 @@ class CollabDiscoveryCubit extends Cubit<CollabDiscoveryState> {
     final result = nextSaved
         ? await _repository.saveListing(listingId)
         : await _repository.unsaveListing(listingId);
-    if (isClosed) return;
+    if (isClosed || generation != _generation) return;
     if (!result.isSuccess) _replaceListing(previous);
     emit(
       state.copyWith(

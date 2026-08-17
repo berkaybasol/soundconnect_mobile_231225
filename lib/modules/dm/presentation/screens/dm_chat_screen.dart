@@ -351,6 +351,20 @@ class _DmChatViewState extends State<_DmChatView> {
   Future<void> _openRelatedProfile() async {
     final args = _args;
     if (args == null || !mounted) return;
+    final musicianProfileId = args.otherMusicianProfileId?.trim() ?? '';
+    if (musicianProfileId.isNotEmpty) {
+      _navigateToProfile(
+        DmProfileTarget(
+          type: DmProfileTargetType.musician,
+          id: musicianProfileId,
+          displayName: args.otherUsername?.trim().isNotEmpty == true
+              ? args.otherUsername!.trim()
+              : 'Müzisyen',
+          imageUrl: args.otherUserProfilePicture,
+        ),
+      );
+      return;
+    }
     final resolver = serviceLocator<DmUserProfileResolver>();
     final resolved = await resolver.resolveByUserId(
       userId: args.otherUserId,

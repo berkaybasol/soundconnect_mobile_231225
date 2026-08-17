@@ -29,12 +29,15 @@ class NotificationRealtimeClient {
       StreamController<AppNotification>.broadcast();
   final StreamController<int> _badgeController =
       StreamController<int>.broadcast();
+  final StreamController<void> _connectionController =
+      StreamController<void>.broadcast();
   final StreamController<RealtimeClientError> _errorController =
       StreamController<RealtimeClientError>.broadcast();
 
   Stream<AppNotification> get notificationStream =>
       _notificationController.stream;
   Stream<int> get badgeStream => _badgeController.stream;
+  Stream<void> get connectionStream => _connectionController.stream;
   Stream<RealtimeClientError> get errorStream => _errorController.stream;
   bool get isConnected => _connected;
 
@@ -51,7 +54,12 @@ class NotificationRealtimeClient {
     if (_connectedUserId == userId && _connected) return;
     final inFlight = _connectInFlight;
     if (inFlight != null) {
-      await inFlight;
+      try {
+        await inFlight;
+      } catch (_) {
+        // A cancelled/failed previous-user handshake must not prevent this
+        // caller from establishing the newly requested session below.
+      }
       if (_connectedUserId == userId && _connected) return;
     }
 
@@ -100,7 +108,10 @@ class NotificationRealtimeClient {
             try {
               _connected = true;
               _connectedUserId = userId;
-              _bindSubscriptions(userId);
+              _bindSubscriptions(userId, generation);
+              if (!_connectionController.isClosed) {
+                _connectionController.add(null);
+              }
               if (!completer.isCompleted) completer.complete();
               if (identical(_pendingConnect, completer)) {
                 _pendingConnect = null;
@@ -207,6 +218,7 @@ class NotificationRealtimeClient {
     await disconnect();
     await _notificationController.close();
     await _badgeController.close();
+    await _connectionController.close();
     await _errorController.close();
   }
 
@@ -221,20 +233,34 @@ class NotificationRealtimeClient {
     transport?.deactivate();
   }
 
-  void _bindSubscriptions(String userId) {
+  void _bindSubscriptions(String userId, int generation) {
     final transport = _transport;
     if (transport == null) return;
+
+    bool isCurrentConnection() {
+      return generation == _generation &&
+          _connected &&
+          _connectedUserId == userId &&
+          identical(_transport, transport);
+    }
+
     transport.subscribe(
       destination: '/topic/notifications/$userId',
-      callback: _onNotificationFrame,
+      callback: (body) {
+        if (!isCurrentConnection()) return;
+        _onNotificationFrame(body, expectedUserId: userId);
+      },
     );
     transport.subscribe(
       destination: '/topic/notifications/$userId/badge',
-      callback: _onBadgeFrame,
+      callback: (body) {
+        if (!isCurrentConnection()) return;
+        _onBadgeFrame(body);
+      },
     );
   }
 
-  void _onNotificationFrame(String? body) {
+  void _onNotificationFrame(String? body, {required String expectedUserId}) {
     if (body == null || body.trim().isEmpty) return;
     try {
       final decoded = jsonDecode(body);
@@ -244,6 +270,9 @@ class NotificationRealtimeClient {
       final notification = AppNotificationModel.fromJson(decoded);
       if (notification.id.trim().isEmpty) {
         throw const FormatException('Missing notification id.');
+      }
+      if (notification.recipientId.trim() != expectedUserId) {
+        throw const FormatException('Notification recipient mismatch.');
       }
       _notificationController.add(notification);
     } catch (_) {

@@ -1,6 +1,7 @@
 import '../../../../core/error/app_error.dart';
 import '../../../../core/state/copy_with.dart';
 import '../../domain/entities/admin_backline_category_request.dart';
+import '../../domain/entities/admin_collab_report.dart';
 import '../../domain/entities/admin_dashboard_summary.dart';
 import '../../domain/entities/admin_venue_application.dart';
 import '../../domain/entities/admin_studio_application.dart';
@@ -21,6 +22,12 @@ class AdminPanelState {
   final bool backlineCategoryRequestsLoadingMore;
   final AdminBacklineCategoryRequestStatus?
   selectedBacklineCategoryRequestStatus;
+  final List<AdminCollabReport> collabReports;
+  final int collabReportsPage;
+  final bool collabReportsHasNext;
+  final bool collabReportsLoadingMore;
+  final AdminCollabReportStatus? selectedCollabReportStatus;
+  final AdminCollabReportReason? selectedCollabReportReason;
   final AdminVenueApplicationStatus selectedStatus;
   final Set<String> actionIds;
   final AppError? summaryError;
@@ -42,6 +49,12 @@ class AdminPanelState {
     required this.backlineCategoryRequestsHasNext,
     required this.backlineCategoryRequestsLoadingMore,
     required this.selectedBacklineCategoryRequestStatus,
+    required this.collabReports,
+    required this.collabReportsPage,
+    required this.collabReportsHasNext,
+    required this.collabReportsLoadingMore,
+    required this.selectedCollabReportStatus,
+    required this.selectedCollabReportReason,
     required this.selectedStatus,
     required this.actionIds,
     this.summaryError,
@@ -63,6 +76,12 @@ class AdminPanelState {
       backlineCategoryRequestsLoadingMore = false,
       selectedBacklineCategoryRequestStatus =
           AdminBacklineCategoryRequestStatus.pending,
+      collabReports = const [],
+      collabReportsPage = 0,
+      collabReportsHasNext = false,
+      collabReportsLoadingMore = false,
+      selectedCollabReportStatus = AdminCollabReportStatus.open,
+      selectedCollabReportReason = null,
       selectedStatus = AdminVenueApplicationStatus.pending,
       actionIds = const <String>{},
       summaryError = null,
@@ -82,6 +101,12 @@ class AdminPanelState {
     bool? backlineCategoryRequestsHasNext,
     bool? backlineCategoryRequestsLoadingMore,
     Object? selectedBacklineCategoryRequestStatus = copyWithUnset,
+    List<AdminCollabReport>? collabReports,
+    int? collabReportsPage,
+    bool? collabReportsHasNext,
+    bool? collabReportsLoadingMore,
+    Object? selectedCollabReportStatus = copyWithUnset,
+    Object? selectedCollabReportReason = copyWithUnset,
     AdminVenueApplicationStatus? selectedStatus,
     Set<String>? actionIds,
     Object? summaryError = copyWithUnset,
@@ -114,6 +139,19 @@ class AdminPanelState {
           ? this.selectedBacklineCategoryRequestStatus
           : selectedBacklineCategoryRequestStatus
                 as AdminBacklineCategoryRequestStatus?,
+      collabReports: collabReports ?? this.collabReports,
+      collabReportsPage: collabReportsPage ?? this.collabReportsPage,
+      collabReportsHasNext: collabReportsHasNext ?? this.collabReportsHasNext,
+      collabReportsLoadingMore:
+          collabReportsLoadingMore ?? this.collabReportsLoadingMore,
+      selectedCollabReportStatus:
+          identical(selectedCollabReportStatus, copyWithUnset)
+          ? this.selectedCollabReportStatus
+          : selectedCollabReportStatus as AdminCollabReportStatus?,
+      selectedCollabReportReason:
+          identical(selectedCollabReportReason, copyWithUnset)
+          ? this.selectedCollabReportReason
+          : selectedCollabReportReason as AdminCollabReportReason?,
       selectedStatus: selectedStatus ?? this.selectedStatus,
       actionIds: actionIds ?? this.actionIds,
       summaryError: identical(summaryError, copyWithUnset)

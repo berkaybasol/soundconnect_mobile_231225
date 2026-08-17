@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/utils/turkish_alphabetical.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../../instrument/domain/entities/instrument.dart';
@@ -15,12 +16,14 @@ import '../../domain/collab_commands.dart';
 import '../../domain/collab_discovery_models.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_listing.dart';
+import '../collab_route_args.dart';
 import '../cubit/collab_async_state.dart';
 import '../cubit/collab_discovery_cubit.dart';
 import '../cubit/collab_discovery_state.dart';
 import '../theme/collab_visual_theme.dart';
 import '../widgets/collab_discovery_widgets.dart';
 import 'collab_create_listing_screen.dart';
+import 'collab_incoming_applications_screen.dart';
 import 'collab_listing_detail_screen.dart';
 import 'collab_my_applications_screen.dart';
 import 'collab_my_listings_screen.dart';
@@ -30,6 +33,7 @@ class CollabDiscoveryScreen extends StatefulWidget {
   const CollabDiscoveryScreen({
     this.showBottomNavigation = true,
     this.initialListingId,
+    this.initialRouteArgs,
     this.cubit,
     this.locationRepository,
     this.instrumentRepository,
@@ -38,6 +42,7 @@ class CollabDiscoveryScreen extends StatefulWidget {
 
   final bool showBottomNavigation;
   final String? initialListingId;
+  final CollabDiscoveryRouteArgs? initialRouteArgs;
   final CollabDiscoveryCubit? cubit;
   final LocationRepository? locationRepository;
   final InstrumentRepository? instrumentRepository;
@@ -56,8 +61,9 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   List<City> _cities = const <City>[];
   List<Instrument> _instruments = const <Instrument>[];
   bool _catalogsLoading = true;
-  String? _catalogError;
-  String? _openedInitialListingId;
+  String? _cityCatalogError;
+  String? _instrumentCatalogError;
+  String? _openedInitialTargetSignature;
 
   @override
   void initState() {
@@ -78,20 +84,70 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   @override
   void didUpdateWidget(covariant CollabDiscoveryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialListingId != widget.initialListingId) {
+    if (_routeArgsFor(oldWidget).signature != _routeArgsFor(widget).signature) {
       _scheduleInitialDetail();
     }
   }
 
   void _scheduleInitialDetail() {
-    final listingId = widget.initialListingId?.trim();
-    if (listingId == null || listingId.isEmpty) return;
-    if (_openedInitialListingId == listingId) return;
-    _openedInitialListingId = listingId;
+    final args = _routeArgsFor(widget);
+    if (args.target == CollabDeepLinkTarget.discovery) return;
+    if (_openedInitialTargetSignature == args.signature) return;
+    _openedInitialTargetSignature = args.signature;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_openListingId(listingId));
+      unawaited(_openInitialTarget(args));
     });
+  }
+
+  CollabDiscoveryRouteArgs _routeArgsFor(CollabDiscoveryScreen screen) =>
+      screen.initialRouteArgs ??
+      CollabDiscoveryRouteArgs(initialListingId: screen.initialListingId);
+
+  Future<void> _openInitialTarget(CollabDiscoveryRouteArgs args) async {
+    switch (args.target) {
+      case CollabDeepLinkTarget.discovery:
+        return;
+      case CollabDeepLinkTarget.listing:
+        final listingId = args.initialListingId;
+        if (listingId != null) await _openListingId(listingId);
+        return;
+      case CollabDeepLinkTarget.incomingApplications:
+        final listingId = args.initialListingId;
+        if (listingId != null) {
+          await Navigator.of(context).push<void>(
+            collabPageRoute(
+              builder: (_) => CollabIncomingApplicationsScreen(
+                listingId: listingId,
+                initialApplicationId: args.applicationId,
+                showBottomNavigation: widget.showBottomNavigation,
+              ),
+            ),
+          );
+        }
+        return;
+      case CollabDeepLinkTarget.myApplications:
+        await _openMyApplicationsTarget(
+          initialSection: CollabApplicationsSection.applications,
+          initialApplicationId: args.applicationId,
+        );
+        return;
+      case CollabDeepLinkTarget.jobs:
+        await _openMyApplicationsTarget(
+          initialSection: CollabApplicationsSection.jobs,
+          initialJobId: args.jobId,
+          initialAction: args.action,
+        );
+        return;
+      case CollabDeepLinkTarget.reviews:
+        await _openMyApplicationsTarget(
+          initialSection: CollabApplicationsSection.jobs,
+          initialJobId: args.jobId,
+          initialReviewId: args.reviewId,
+          initialAction: args.action,
+        );
+        return;
+    }
   }
 
   @override
@@ -120,7 +176,8 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     if (mounted) {
       setState(() {
         _catalogsLoading = true;
-        _catalogError = null;
+        _cityCatalogError = null;
+        _instrumentCatalogError = null;
       });
     }
     final citiesFuture = _locationRepository.getCities();
@@ -130,19 +187,23 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     if (!mounted) return;
     setState(() {
       _catalogsLoading = false;
-      if (cityResult.isSuccess && instrumentResult.isSuccess) {
+      if (cityResult.isSuccess) {
         _cities = List<City>.unmodifiable(
-          <City>[...cityResult.data!]..sort((a, b) => a.name.compareTo(b.name)),
+          sortByTurkishName(cityResult.data!, (city) => city.name),
         );
+      } else {
+        _cityCatalogError =
+            cityResult.error?.message ?? 'Şehir seçenekleri yüklenemedi.';
+      }
+      if (instrumentResult.isSuccess) {
         _instruments = List<Instrument>.unmodifiable(
           <Instrument>[...instrumentResult.data!]
             ..sort((a, b) => a.name.compareTo(b.name)),
         );
       } else {
-        _catalogError =
-            cityResult.error?.message ??
+        _instrumentCatalogError =
             instrumentResult.error?.message ??
-            'Filtre seçenekleri yüklenemedi.';
+            'Enstrüman seçenekleri yüklenemedi.';
       }
     });
   }
@@ -180,6 +241,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
                         children: [
                           _DiscoveryHeader(
                             onApplicationsTap: _openMyApplications,
+                            onJobsTap: _openMyJobs,
                             onListingsTap: _openMyListings,
                             onSavedTap: _openSavedListings,
                           ),
@@ -405,15 +467,29 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     return List<_SpecialtyOption>.unmodifiable(options);
   }
 
-  bool _catalogsReadyOrExplain() {
-    if (!_catalogsLoading && _catalogError == null) return true;
-    _showMessage(_catalogError ?? 'Filtre seçenekleri yükleniyor.');
-    if (_catalogError != null) unawaited(_loadCatalogs());
+  bool _citiesReadyOrExplain() {
+    if (!_catalogsLoading && _cityCatalogError == null) return true;
+    _showMessage(_cityCatalogError ?? 'Şehir seçenekleri yükleniyor.');
+    if (_cityCatalogError != null) unawaited(_loadCatalogs());
     return false;
   }
 
+  bool _specialtiesReadyOrExplain() {
+    if (_catalogsLoading) {
+      _showMessage('Enstrüman seçenekleri yükleniyor.');
+      return false;
+    }
+    if (_instrumentCatalogError != null) {
+      _showMessage(
+        '$_instrumentCatalogError Branş seçenekleriyle devam edebilirsin.',
+      );
+      unawaited(_loadCatalogs());
+    }
+    return true;
+  }
+
   Future<void> _pickCity(CollabDiscoveryQuery query) async {
-    if (!_catalogsReadyOrExplain()) return;
+    if (!_citiesReadyOrExplain()) return;
     final result = await _showQuickSingleSelect<String>(
       title: 'Şehir seç',
       options: _cities.map((city) => city.id).toList(growable: false),
@@ -448,7 +524,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   }
 
   Future<void> _pickSpecialties(CollabDiscoveryQuery query) async {
-    if (!_catalogsReadyOrExplain()) return;
+    if (!_specialtiesReadyOrExplain()) return;
     final selected = <_SpecialtyOption>{
       ..._availableSpecialties.where(
         (option) =>
@@ -609,14 +685,34 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   }
 
   void _openMyApplications() {
-    Navigator.of(context).push<void>(
-      collabPageRoute(
-        builder: (_) => CollabMyApplicationsScreen(
-          showBottomNavigation: widget.showBottomNavigation,
-        ),
-      ),
+    unawaited(_openMyApplicationsTarget());
+  }
+
+  void _openMyJobs() {
+    unawaited(
+      _openMyApplicationsTarget(initialSection: CollabApplicationsSection.jobs),
     );
   }
+
+  Future<void> _openMyApplicationsTarget({
+    CollabApplicationsSection initialSection =
+        CollabApplicationsSection.applications,
+    String? initialApplicationId,
+    String? initialJobId,
+    String? initialReviewId,
+    String? initialAction,
+  }) => Navigator.of(context).push<void>(
+    collabPageRoute(
+      builder: (_) => CollabMyApplicationsScreen(
+        showBottomNavigation: widget.showBottomNavigation,
+        initialSection: initialSection,
+        initialApplicationId: initialApplicationId,
+        initialJobId: initialJobId,
+        initialReviewId: initialReviewId,
+        initialAction: initialAction,
+      ),
+    ),
+  );
 
   void _openMyListings() {
     Navigator.of(context).push<void>(
@@ -676,11 +772,13 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
 class _DiscoveryHeader extends StatelessWidget {
   const _DiscoveryHeader({
     required this.onApplicationsTap,
+    required this.onJobsTap,
     required this.onListingsTap,
     required this.onSavedTap,
   });
 
   final VoidCallback onApplicationsTap;
+  final VoidCallback onJobsTap;
   final VoidCallback onListingsTap;
   final VoidCallback onSavedTap;
 
@@ -716,6 +814,8 @@ class _DiscoveryHeader extends StatelessWidget {
           onSelected: (value) {
             if (value == 'applications') {
               onApplicationsTap();
+            } else if (value == 'jobs') {
+              onJobsTap();
             } else if (value == 'listings') {
               onListingsTap();
             } else if (value == 'saved') {
@@ -729,6 +829,14 @@ class _DiscoveryHeader extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.outbox_outlined),
                 title: Text('Başvurularım'),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'jobs',
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.handshake_outlined),
+                title: Text('İşlerim'),
               ),
             ),
             PopupMenuItem(

@@ -76,6 +76,70 @@ void main() {
 
   group('realtime success contracts', () {
     test(
+      'notification starts the new user after cancelling a pending handshake',
+      () async {
+        final harness = _TransportHarness(_Activation.none);
+        final client = NotificationRealtimeClient(
+          transportFactory: harness.create,
+        );
+        addTearDown(client.dispose);
+
+        final firstConnect = client.connect(userId: 'user-1', token: 'token-1');
+        final firstFailure = expectLater(
+          firstConnect,
+          throwsA(isA<RealtimeClientError>()),
+        );
+        await _eventually(() => harness.createCalls == 1);
+        final disconnect = client.disconnect();
+        final secondConnect = client.connect(
+          userId: 'user-2',
+          token: 'token-2',
+        );
+        await disconnect;
+        await _eventually(() => harness.createCalls == 2);
+        harness.transport!.config.onConnect();
+        await Future.wait<void>(<Future<void>>[firstFailure, secondConnect]);
+
+        expect(client.isConnected, isTrue);
+        expect(harness.transport?.subscriptions.keys, <String>{
+          '/topic/notifications/user-2',
+          '/topic/notifications/user-2/badge',
+        });
+      },
+    );
+
+    test(
+      'DM starts the new user after cancelling a pending handshake',
+      () async {
+        final harness = _TransportHarness(_Activation.none);
+        final client = DmRealtimeClient(transportFactory: harness.create);
+        addTearDown(client.dispose);
+
+        final firstConnect = client.connect(userId: 'user-1', token: 'token-1');
+        final firstFailure = expectLater(
+          firstConnect,
+          throwsA(isA<RealtimeClientError>()),
+        );
+        await _eventually(() => harness.createCalls == 1);
+        final disconnect = client.disconnect();
+        final secondConnect = client.connect(
+          userId: 'user-2',
+          token: 'token-2',
+        );
+        await disconnect;
+        await _eventually(() => harness.createCalls == 2);
+        harness.transport!.config.onConnect();
+        await Future.wait<void>(<Future<void>>[firstFailure, secondConnect]);
+
+        expect(client.isConnected, isTrue);
+        expect(harness.transport?.subscriptions.keys, <String>{
+          '/topic/dm/user-2',
+          '/topic/dm/user-2/badge',
+        });
+      },
+    );
+
+    test(
       'DM connects once, subscribes, decodes frames, and balances retains',
       () async {
         final harness = _TransportHarness(_Activation.connect);
@@ -132,10 +196,17 @@ void main() {
           transportFactory: harness.create,
         );
         addTearDown(client.dispose);
+        var connectionEvents = 0;
+        final connectionSubscription = client.connectionStream.listen(
+          (_) => connectionEvents += 1,
+        );
+        addTearDown(connectionSubscription.cancel);
 
         await client.connect(userId: 'user-2', token: 'token-2');
         await client.connect(userId: 'user-2', token: 'token-2');
+        await Future<void>.delayed(Duration.zero);
         expect(harness.createCalls, 1);
+        expect(connectionEvents, 1);
         expect(harness.transport?.subscriptions.keys, <String>{
           '/topic/notifications/user-2',
           '/topic/notifications/user-2/badge',
@@ -160,6 +231,70 @@ void main() {
 
         expect((await notification).id, 'notification-1');
         expect((await badge), 8);
+
+        harness.transport!.config.onDisconnect();
+        harness.transport!.config.onConnect();
+        await Future<void>.delayed(Duration.zero);
+        expect(connectionEvents, 2);
+      },
+    );
+
+    test(
+      'notification drops delayed frames from the previous user transport',
+      () async {
+        final harness = _TransportHarness(_Activation.connect);
+        final client = NotificationRealtimeClient(
+          transportFactory: harness.create,
+        );
+        addTearDown(client.dispose);
+        final notifications = <String>[];
+        final badges = <int>[];
+        final notificationSubscription = client.notificationStream.listen(
+          (item) => notifications.add(item.id),
+        );
+        final badgeSubscription = client.badgeStream.listen(badges.add);
+        addTearDown(notificationSubscription.cancel);
+        addTearDown(badgeSubscription.cancel);
+
+        await client.connect(userId: 'user-1', token: 'token-1');
+        final oldTransport = harness.transport!;
+        await client.connect(userId: 'user-2', token: 'token-2');
+
+        oldTransport.deliver(
+          '/topic/notifications/user-1',
+          jsonEncode(<String, dynamic>{
+            'id': 'stale-user-1-notification',
+            'recipientId': 'user-1',
+            'type': 'GENERAL',
+            'title': 'Stale',
+            'message': 'Stale frame',
+            'read': false,
+            'payload': const <String, dynamic>{},
+          }),
+        );
+        oldTransport.deliver('/topic/notifications/user-1/badge', '91');
+        await Future<void>.delayed(Duration.zero);
+
+        expect(notifications, isEmpty);
+        expect(badges, isEmpty);
+
+        harness.transport!.deliver(
+          '/topic/notifications/user-2',
+          jsonEncode(<String, dynamic>{
+            'id': 'current-user-2-notification',
+            'recipientId': 'user-2',
+            'type': 'GENERAL',
+            'title': 'Current',
+            'message': 'Current frame',
+            'read': false,
+            'payload': const <String, dynamic>{},
+          }),
+        );
+        harness.transport!.deliver('/topic/notifications/user-2/badge', '2');
+        await Future<void>.delayed(Duration.zero);
+
+        expect(notifications, <String>['current-user-2-notification']);
+        expect(badges, <int>[2]);
       },
     );
 
@@ -276,7 +411,9 @@ class _TransportHarness {
 
   RealtimeTransport create(RealtimeTransportConfig config) {
     createCalls += 1;
-    return transport = _FakeRealtimeTransport(config, activation);
+    final created = _FakeRealtimeTransport(config, activation);
+    transport = created;
+    return created;
   }
 }
 
@@ -339,4 +476,12 @@ class _SentFrame {
 
   final String destination;
   final String body;
+}
+
+Future<void> _eventually(bool Function() predicate) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    if (predicate()) return;
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  expect(predicate(), isTrue);
 }

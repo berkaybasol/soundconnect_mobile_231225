@@ -8,6 +8,15 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="false">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.collab_share_files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/collab_share_paths" />
+        </provider>
         <service
             android:name="com.ryanheise.audioservice.AudioService"
             android:exported="false"
@@ -37,9 +46,33 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- app_links owns incoming links; disable Flutter's built-in handler. -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="soundconnect.com.tr"
+                    android:pathPrefix="/is-birligi/ilan/" />
+            </intent-filter>
+            <!-- Fallback for an explicit "Uygulamada aç" button in browsers
+                 that suppress verified App Links. Shared URLs remain HTTPS. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="soundconnect"
+                    android:host="is-birligi"
+                    android:pathPrefix="/ilan/" />
             </intent-filter>
         </activity>
         <activity
@@ -59,6 +92,9 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <package android:name="com.instagram.android" />
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

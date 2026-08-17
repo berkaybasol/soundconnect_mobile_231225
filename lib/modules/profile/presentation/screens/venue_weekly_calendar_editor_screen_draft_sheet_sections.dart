@@ -111,7 +111,7 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
                         SizedBox(height: 5),
                         Text(
                           _posterUploading
-                              ? 'GÃƒÆ’Ã‚Â¶rsel yÃƒÆ’Ã‚Â¼kleniyor...'
+                              ? 'Görsel yükleniyor...'
                               : _posterAssetId != null
                               ? 'AfiÃƒâ€¦Ã…Â¸ hazÃƒâ€Ã‚Â±r, deÃƒâ€Ã…Â¸iÃƒâ€¦Ã…Â¸tirmek iÃƒÆ’Ã‚Â§in dokun'
                               : 'Galeriden etkinlik afiÃƒâ€¦Ã…Â¸i seÃƒÆ’Ã‚Â§',

@@ -31,6 +31,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
   String? _email;
   String? _role;
   bool _emailInitialized = false;
+  bool _completionNavigationScheduled = false;
   Timer? _countdownTimer;
   int _remainingSeconds = 180;
 
@@ -99,6 +100,10 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
       listener: (context, state) {
         if (state.action == AuthAction.verify &&
             state.status == AuthStatus.success) {
+          final route = ModalRoute.of(context);
+          if (_completionNavigationScheduled || route?.isCurrent != true) {
+            return;
+          }
           final registrationStatus = state.registerResult?.status;
           final hasServerRegistrationStatus = registrationStatus != null;
           final isVenuePending =
@@ -111,10 +116,13 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               ? 'E-posta doğrulandı. Başvuru durumunu görmek için '
                     'kullanıcı adın ve şifrenle giriş yap.'
               : "SoundConnect'e hoş geldin!";
-          FocusManager.instance.primaryFocus?.unfocus();
+          _completionNavigationScheduled = true;
+          _countdownTimer?.cancel();
+          final navigator = Navigator.of(context);
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            final navigator = Navigator.of(context);
+            if (!mounted || !navigator.mounted || route?.isCurrent != true) {
+              return;
+            }
             if (isVenuePending) {
               navigator.pushNamedAndRemoveUntil(
                 AppRoutes.venuePending,
@@ -152,136 +160,146 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
         final isResending =
             state.status == AuthStatus.loading &&
             state.action == AuthAction.resend;
+        final isOtpActionInFlight = isVerifying || isResending;
         final resendInfo = state.resendResult;
         final effectiveEmail = _email ?? state.registerResult?.email;
         final canSubmit = effectiveEmail != null && effectiveEmail.isNotEmpty;
 
-        return AppScaffold(
-          title: 'E-postayı doğrula',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 24),
-              const Text('E-postana gelen 6 haneli kodu gir.'),
-              const SizedBox(height: 6),
-              Text(
-                'Kod geçerliliği: $_formattedRemaining',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              ValueListenableBuilder<TextEditingValue>(
-                valueListenable: _codeController,
-                builder: (context, value, child) {
-                  final code = value.text.trim();
-                  final isValid = _isValidCode(code);
-                  final iconColor = isValid
-                      ? AppColors.coralAlt
-                      : Theme.of(context).disabledColor;
-
-                  return TextField(
-                    controller: _codeController,
-                    maxLength: 6,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
-                    decoration: InputDecoration(
-                      labelText: 'Kod',
-                      prefixIcon: Icon(
-                        Icons.verified_outlined,
-                        color: iconColor,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              GradientOutlineButton(
-                onPressed: isVerifying || !canSubmit
-                    ? null
-                    : () {
-                        if (effectiveEmail.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('E-posta boş olamaz.'),
-                            ),
-                          );
-                          return;
-                        }
-                        if (!_isValidEmail(effectiveEmail)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Geçerli bir e-posta gir.'),
-                            ),
-                          );
-                          return;
-                        }
-                        final code = _codeController.text.trim();
-                        if (code.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Kod boş olamaz.')),
-                          );
-                          return;
-                        }
-                        if (_remainingSeconds <= 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Kodun süresi doldu. Tekrar gönder.',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-                        if (!_isValidCode(code)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Kod 6 haneli olmalı.'),
-                            ),
-                          );
-                          return;
-                        }
-                        context.read<AuthCubit>().verifyCode(
-                          email: effectiveEmail,
-                          code: code,
-                        );
-                      },
-                label: isVerifying ? 'Doğrulanıyor...' : 'Doğrula',
-                loading: isVerifying,
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: isResending || !canSubmit
-                    ? null
-                    : () {
-                        if (effectiveEmail.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('E-posta boş olamaz.'),
-                            ),
-                          );
-                          return;
-                        }
-                        if (!_isValidEmail(effectiveEmail)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Geçerli bir e-posta gir.'),
-                            ),
-                          );
-                          return;
-                        }
-                        context.read<AuthCubit>().resendCode(
-                          email: effectiveEmail,
-                        );
-                      },
-                child: Text(
-                  isResending
-                      ? 'Tekrar gönderiliyor...'
-                      : 'Tekrar gönder (${resendInfo?.cooldownSeconds ?? 30}s)',
+        return PopScope(
+          canPop: !isOtpActionInFlight && !_completionNavigationScheduled,
+          child: AppScaffold(
+            title: 'E-postayı doğrula',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 24),
+                const Text('E-postana gelen 6 haneli kodu gir.'),
+                const SizedBox(height: 6),
+                Text(
+                  'Kod geçerliliği: $_formattedRemaining',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _codeController,
+                  builder: (context, value, child) {
+                    final code = value.text.trim();
+                    final isValid = _isValidCode(code);
+                    final iconColor = isValid
+                        ? AppColors.coralAlt
+                        : Theme.of(context).disabledColor;
+
+                    return TextField(
+                      controller: _codeController,
+                      maxLength: 6,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: 'Kod',
+                        prefixIcon: Icon(
+                          Icons.verified_outlined,
+                          color: iconColor,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                GradientOutlineButton(
+                  onPressed:
+                      isOtpActionInFlight ||
+                          _completionNavigationScheduled ||
+                          !canSubmit
+                      ? null
+                      : () {
+                          if (effectiveEmail.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('E-posta boş olamaz.'),
+                              ),
+                            );
+                            return;
+                          }
+                          if (!_isValidEmail(effectiveEmail)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Geçerli bir e-posta gir.'),
+                              ),
+                            );
+                            return;
+                          }
+                          final code = _codeController.text.trim();
+                          if (code.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Kod boş olamaz.')),
+                            );
+                            return;
+                          }
+                          if (_remainingSeconds <= 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Kodun süresi doldu. Tekrar gönder.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          if (!_isValidCode(code)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Kod 6 haneli olmalı.'),
+                              ),
+                            );
+                            return;
+                          }
+                          context.read<AuthCubit>().verifyCode(
+                            email: effectiveEmail,
+                            code: code,
+                          );
+                        },
+                  label: isVerifying ? 'Doğrulanıyor...' : 'Doğrula',
+                  loading: isVerifying,
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed:
+                      isOtpActionInFlight ||
+                          _completionNavigationScheduled ||
+                          !canSubmit
+                      ? null
+                      : () {
+                          if (effectiveEmail.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('E-posta boş olamaz.'),
+                              ),
+                            );
+                            return;
+                          }
+                          if (!_isValidEmail(effectiveEmail)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Geçerli bir e-posta gir.'),
+                              ),
+                            );
+                            return;
+                          }
+                          context.read<AuthCubit>().resendCode(
+                            email: effectiveEmail,
+                          );
+                        },
+                  child: Text(
+                    isResending
+                        ? 'Tekrar gönderiliyor...'
+                        : 'Tekrar gönder (${resendInfo?.cooldownSeconds ?? 30}s)',
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

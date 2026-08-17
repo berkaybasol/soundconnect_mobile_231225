@@ -16,6 +16,7 @@ import '../../modules/auth/domain/usecases/update_username_usecase.dart';
 import '../../modules/auth/domain/usecases/verify_code_usecase.dart';
 import '../../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../../modules/collab/data/collab_repository_impl.dart';
+import '../../modules/collab/data/collab_idempotency_store.dart';
 import '../../modules/collab/domain/collab_repository.dart';
 import '../../modules/collab/presentation/cubit/collab_actor_reviews_cubit.dart';
 import '../../modules/collab/presentation/cubit/collab_discovery_cubit.dart';
@@ -118,6 +119,7 @@ import '../../modules/tablegroup/presentation/cubit/table_group_list_cubit.dart'
 import '../auth/token_store.dart';
 import '../auth/auth_session_manager.dart';
 import '../auth/auth_session_store.dart';
+import '../deep_link/pending_app_deep_link_store.dart';
 import '../network/api_client.dart';
 import '../network/dio_api_client.dart';
 
@@ -135,6 +137,12 @@ void setupDependencies() {
         sessionStore: serviceLocator<AuthSessionStore>(),
         onSessionEnded: _stopSessionServices,
       ),
+    )
+    ..registerLazySingleton<PendingAppDeepLinkStore>(
+      SharedPreferencesPendingAppDeepLinkStore.new,
+    )
+    ..registerLazySingleton<AppDeepLinkInbox>(
+      () => AppDeepLinkInbox(store: serviceLocator<PendingAppDeepLinkStore>()),
     )
     ..registerLazySingleton<ApiClient>(
       () => DioApiClient(
@@ -174,14 +182,25 @@ void setupDependencies() {
     ..registerLazySingleton<CollabRepository>(
       () => CollabRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<CollabIdempotencyStore>(
+      () => SharedPreferencesCollabIdempotencyStore(
+        tokenStore: serviceLocator<TokenStore>(),
+      ),
+    )
     ..registerFactory<CollabDiscoveryCubit>(
       () => CollabDiscoveryCubit(serviceLocator<CollabRepository>()),
     )
     ..registerFactory<CollabListingDetailCubit>(
-      () => CollabListingDetailCubit(serviceLocator<CollabRepository>()),
+      () => CollabListingDetailCubit(
+        serviceLocator<CollabRepository>(),
+        idempotencyStore: serviceLocator<CollabIdempotencyStore>(),
+      ),
     )
     ..registerFactory<CollabListingEditorCubit>(
-      () => CollabListingEditorCubit(serviceLocator<CollabRepository>()),
+      () => CollabListingEditorCubit(
+        serviceLocator<CollabRepository>(),
+        idempotencyStore: serviceLocator<CollabIdempotencyStore>(),
+      ),
     )
     ..registerFactory<CollabMyListingsCubit>(
       () => CollabMyListingsCubit(serviceLocator<CollabRepository>()),
@@ -193,7 +212,10 @@ void setupDependencies() {
       () => CollabIncomingApplicationsCubit(serviceLocator<CollabRepository>()),
     )
     ..registerFactory<CollabJobsCubit>(
-      () => CollabJobsCubit(serviceLocator<CollabRepository>()),
+      () => CollabJobsCubit(
+        serviceLocator<CollabRepository>(),
+        idempotencyStore: serviceLocator<CollabIdempotencyStore>(),
+      ),
     )
     ..registerFactory<CollabSavedListingsCubit>(
       () => CollabSavedListingsCubit(serviceLocator<CollabRepository>()),

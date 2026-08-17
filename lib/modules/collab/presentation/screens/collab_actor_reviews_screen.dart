@@ -8,6 +8,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/collab_actor.dart';
 import '../../domain/entities/collab_review.dart';
+import '../collab_deep_link_scroll.dart';
 import '../collab_navigation.dart';
 import '../cubit/collab_actor_reviews_cubit.dart';
 import '../cubit/collab_async_state.dart';
@@ -18,12 +19,14 @@ import '../widgets/collab_management_widgets.dart';
 class CollabActorReviewsScreen extends StatefulWidget {
   const CollabActorReviewsScreen({
     required this.actor,
+    this.initialReviewId,
     this.showBottomNavigation = true,
     this.cubit,
     super.key,
   });
 
   final CollabActor actor;
+  final String? initialReviewId;
   final bool showBottomNavigation;
   final CollabActorReviewsCubit? cubit;
 
@@ -36,6 +39,10 @@ class _CollabActorReviewsScreenState extends State<CollabActorReviewsScreen> {
   late final CollabActorReviewsCubit _cubit;
   late final bool _ownsCubit;
   late final ScrollController _scrollController;
+  final GlobalKey _initialReviewKey = GlobalKey();
+  bool _initialTargetHandled = false;
+  bool _initialTargetScheduled = false;
+  bool _initialTargetRevealDeferred = false;
 
   @override
   void initState() {
@@ -64,7 +71,13 @@ class _CollabActorReviewsScreenState extends State<CollabActorReviewsScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.extentAfter < 320) {
+    if (_initialTargetRevealDeferred &&
+        _initialReviewKey.currentContext != null) {
+      _initialTargetRevealDeferred = false;
+      _scheduleInitialTarget(_cubit.state);
+    }
+    if (_scrollController.position.extentAfter < 320 &&
+        _cubit.state.loadMoreError == null) {
       unawaited(_cubit.loadMore());
     }
   }
@@ -76,39 +89,45 @@ class _CollabActorReviewsScreenState extends State<CollabActorReviewsScreen> {
       child:
           BlocConsumer<CollabActorReviewsCubit, CollabPagedState<CollabReview>>(
             listenWhen: (previous, current) =>
-                previous.error != current.error &&
-                current.error != null &&
-                current.items.isNotEmpty,
-            listener: (_, state) => _showMessage(state.error!.message),
-            builder: (context, state) => Scaffold(
-              appBar: AppBar(title: const Text('Collab Değerlendirmeleri')),
-              body: SafeArea(
-                top: false,
-                bottom: false,
-                child: RefreshIndicator(
-                  onRefresh: _cubit.refresh,
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 5, 14, 17),
-                          child: _ActorReviewSummary(
-                            actor: widget.actor,
-                            totalElements: state.totalElements,
+                (previous.loadMoreError != current.loadMoreError &&
+                    current.loadMoreError != null) ||
+                (previous.error != current.error &&
+                    current.error != null &&
+                    current.items.isNotEmpty),
+            listener: (_, state) =>
+                _showMessage((state.loadMoreError ?? state.error)!.message),
+            builder: (context, state) {
+              _scheduleInitialTarget(state);
+              return Scaffold(
+                appBar: AppBar(title: const Text('Collab Değerlendirmeleri')),
+                body: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: RefreshIndicator(
+                    onRefresh: _cubit.refresh,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 5, 14, 17),
+                            child: _ActorReviewSummary(
+                              actor: widget.actor,
+                              totalElements: state.totalElements,
+                            ),
                           ),
                         ),
-                      ),
-                      ..._contentSlivers(state),
-                    ],
+                        ..._contentSlivers(state),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              bottomNavigationBar: widget.showBottomNavigation
-                  ? ProfilePublicBottomBar(currentIndex: 1)
-                  : null,
-            ),
+                bottomNavigationBar: widget.showBottomNavigation
+                    ? ProfilePublicBottomBar(currentIndex: 1)
+                    : null,
+              );
+            },
           ),
     );
   }
@@ -146,22 +165,90 @@ class _CollabActorReviewsScreenState extends State<CollabActorReviewsScreen> {
           separatorBuilder: (_, _) => const SizedBox(height: 11),
           itemBuilder: (context, index) {
             final review = state.items[index];
-            return _ReviewCard(
-              review: review,
-              onReviewerTap: () =>
-                  openCollabActorProfile(context, review.reviewer),
+            return KeyedSubtree(
+              key: review.id == widget.initialReviewId?.trim()
+                  ? _initialReviewKey
+                  : ValueKey<String>('collab-review-${review.id}'),
+              child: _ReviewCard(
+                review: review,
+                onReviewerTap: () =>
+                    openCollabActorProfile(context, review.reviewer),
+              ),
             );
           },
         ),
       ),
       SliverToBoxAdapter(
         child: CollabPagedFooter(
+          key: const ValueKey<String>('collab-actor-reviews-load-more-footer'),
           loading: state.isLoadingMore,
           hasError: state.loadMoreError != null,
           onRetry: _cubit.loadMore,
         ),
       ),
     ];
+  }
+
+  void _scheduleInitialTarget(CollabPagedState<CollabReview> state) {
+    final targetId = widget.initialReviewId?.trim() ?? '';
+    if (_initialTargetHandled ||
+        _initialTargetScheduled ||
+        targetId.isEmpty ||
+        state.status == CollabLoadStatus.initial ||
+        state.status == CollabLoadStatus.loading ||
+        state.status == CollabLoadStatus.failure) {
+      return;
+    }
+    final targetIndex = state.items.indexWhere(
+      (review) => review.id == targetId,
+    );
+    if (targetIndex >= 0) {
+      if (_initialTargetRevealDeferred &&
+          _initialReviewKey.currentContext == null) {
+        return;
+      }
+      _initialTargetScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final revealed = await revealCollabPagedTarget(
+          controller: _scrollController,
+          targetKey: _initialReviewKey,
+          targetIndex: targetIndex,
+          itemCount: state.items.length,
+          estimatedItemExtent: 190,
+        );
+        if (!mounted) return;
+        _initialTargetScheduled = false;
+        _initialTargetHandled = revealed;
+        _initialTargetRevealDeferred = !revealed;
+        if (!revealed) {
+          _showMessage(
+            'Hedef değerlendirme yüklendi ancak otomatik kaydırılamadı. '
+            'Listede elle kaydırarak açabilirsin.',
+          );
+        }
+      });
+      return;
+    }
+    if (state.loadMoreError != null) return;
+    if (state.hasNext && !state.isLoadingMore) {
+      _initialTargetScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await _cubit.loadMore();
+        _initialTargetScheduled = false;
+        if (mounted) _scheduleInitialTarget(_cubit.state);
+      });
+      return;
+    }
+    if (!state.isLoadingMore) {
+      _initialTargetHandled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showMessage('Bildirimdeki değerlendirme artık bulunamıyor.');
+        }
+      });
+    }
   }
 
   void _showMessage(String message) {

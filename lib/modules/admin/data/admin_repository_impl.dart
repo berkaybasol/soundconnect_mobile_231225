@@ -5,12 +5,14 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/pagination/page.dart';
 import '../domain/admin_repository.dart';
 import '../domain/entities/admin_backline_category_request.dart';
+import '../domain/entities/admin_collab_report.dart';
 import '../domain/entities/admin_dashboard_summary.dart';
 import '../domain/entities/admin_venue_application.dart';
 import '../domain/entities/admin_studio_application.dart';
 import 'admin_endpoints.dart';
 import 'models/admin_dashboard_summary_model.dart';
 import 'models/admin_backline_category_request_model.dart';
+import 'models/admin_collab_report_model.dart';
 import 'models/admin_venue_application_model.dart';
 import 'models/admin_studio_application_model.dart';
 
@@ -393,6 +395,157 @@ class AdminRepositoryImpl implements AdminRepository {
       throw const FormatException('Kategori talebi sayfa sınırları tutarsız');
     }
     return Page<AdminBacklineCategoryRequest>(
+      items: items,
+      hasNext: !last,
+      nextCursor: last ? null : '${page + 1}',
+    );
+  }
+
+  @override
+  Future<Result<Page<AdminCollabReport>>> getCollabReports({
+    AdminCollabReportStatus? status,
+    AdminCollabReportReason? reason,
+    int page = 0,
+    int size = 20,
+  }) async {
+    if (page < 0 || page > 1000 || size < 1 || size > 50) {
+      return const Result.failure(
+        AppError(
+          code: 'admin_collab_report_validation',
+          message: 'Geçersiz sayfalama isteği.',
+        ),
+      );
+    }
+    try {
+      final response = await _apiClient.get<Page<AdminCollabReport>>(
+        AdminEndpoints.collabReports,
+        query: <String, dynamic>{
+          if (status != null) 'status': status.apiValue,
+          if (reason != null) 'reason': reason.apiValue,
+          'page': page,
+          'size': size,
+        },
+        decoder: (json) => _decodeCollabReportPage(
+          json,
+          requestedPage: page,
+          requestedSize: size,
+        ),
+      );
+      return Result.success(response);
+    } on ApiException catch (error) {
+      return Result.failure(error.error);
+    } on FormatException {
+      return const Result.failure(
+        AppError(
+          code: 'admin_collab_reports_invalid_response',
+          message: 'Collab raporları beklenen biçimde alınamadı.',
+        ),
+      );
+    } catch (_) {
+      return const Result.failure(
+        AppError(
+          code: 'admin_collab_reports_unknown',
+          message: 'Collab raporları yüklenemedi. Lütfen tekrar dene.',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<AdminCollabReport>> reviewCollabReport({
+    required String id,
+    required int expectedVersion,
+    required AdminCollabReportDecision decision,
+    required String resolutionNote,
+  }) async {
+    final normalizedId = id.trim();
+    final normalizedNote = resolutionNote.trim();
+    if (normalizedId.isEmpty ||
+        expectedVersion < 0 ||
+        normalizedNote.length < 5 ||
+        normalizedNote.length > 500) {
+      return const Result.failure(
+        AppError(
+          code: 'admin_collab_report_validation',
+          message: 'Karar açıklaması 5-500 karakter arasında olmalıdır.',
+        ),
+      );
+    }
+    try {
+      final response = await _apiClient.post<AdminCollabReport>(
+        AdminEndpoints.reviewCollabReport(normalizedId),
+        body: <String, dynamic>{
+          'decision': decision.apiValue,
+          'expectedVersion': expectedVersion,
+          'resolutionNote': normalizedNote,
+        },
+        decoder: AdminCollabReportModel.fromJson,
+      );
+      return Result.success(response);
+    } on ApiException catch (error) {
+      return Result.failure(error.error);
+    } on FormatException {
+      return const Result.failure(
+        AppError(
+          code: 'admin_collab_report_invalid_response',
+          message: 'Güncellenen Collab raporu doğrulanamadı.',
+        ),
+      );
+    } catch (_) {
+      return const Result.failure(
+        AppError(
+          code: 'admin_collab_report_review_unknown',
+          message: 'Collab raporu sonuçlandırılamadı.',
+        ),
+      );
+    }
+  }
+
+  Page<AdminCollabReport> _decodeCollabReportPage(
+    Object? value, {
+    required int requestedPage,
+    required int requestedSize,
+  }) {
+    if (value is! Map<String, dynamic>) {
+      throw const FormatException('Collab rapor sayfası nesne olmalıdır');
+    }
+    final content = value['content'];
+    final page = value.containsKey('page') ? value['page'] : value['number'];
+    final size = value['size'];
+    final totalElements = value['totalElements'];
+    final totalPages = value['totalPages'];
+    final first = value['first'];
+    final last = value['last'];
+    if (content is! List ||
+        page is! int ||
+        size is! int ||
+        totalElements is! int ||
+        totalPages is! int ||
+        first is! bool ||
+        last is! bool ||
+        page != requestedPage ||
+        size != requestedSize ||
+        totalElements < 0 ||
+        totalPages < 0) {
+      throw const FormatException('Collab rapor sayfası geçersiz');
+    }
+    final items = content
+        .map(AdminCollabReportModel.fromJson)
+        .toList(growable: false);
+    final expectedPages = totalElements == 0
+        ? 0
+        : (totalElements + size - 1) ~/ size;
+    final expectedFirst = page == 0;
+    final expectedLast = totalPages == 0 || page >= totalPages - 1;
+    if (totalPages != expectedPages ||
+        (totalPages > 0 && page >= totalPages && items.isNotEmpty) ||
+        items.length > size ||
+        items.length > totalElements ||
+        first != expectedFirst ||
+        last != expectedLast) {
+      throw const FormatException('Collab rapor sayfa sınırları tutarsız');
+    }
+    return Page<AdminCollabReport>(
       items: items,
       hasNext: !last,
       nextCursor: last ? null : '${page + 1}',

@@ -10,11 +10,16 @@ import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_page.dart
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_types.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_actor.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_application.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_job.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/entities/collab_listing.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_discovery_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_async_state.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_jobs_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_listing_detail_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/cubit/collab_my_applications_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_discovery_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_my_applications_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/instrument/domain/entities/instrument.dart';
 import 'package:soundconnect_23_12_25codx/modules/instrument/domain/instrument_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/city.dart';
@@ -45,8 +50,20 @@ void main() {
     if (serviceLocator.isRegistered<CollabListingDetailCubit>()) {
       serviceLocator.unregister<CollabListingDetailCubit>();
     }
+    if (serviceLocator.isRegistered<CollabMyApplicationsCubit>()) {
+      serviceLocator.unregister<CollabMyApplicationsCubit>();
+    }
+    if (serviceLocator.isRegistered<CollabJobsCubit>()) {
+      serviceLocator.unregister<CollabJobsCubit>();
+    }
     serviceLocator.registerFactory<CollabListingDetailCubit>(
       () => CollabListingDetailCubit(repository),
+    );
+    serviceLocator.registerFactory<CollabMyApplicationsCubit>(
+      () => CollabMyApplicationsCubit(repository),
+    );
+    serviceLocator.registerFactory<CollabJobsCubit>(
+      () => CollabJobsCubit(repository),
     );
   });
 
@@ -54,6 +71,12 @@ void main() {
     await cubit.close();
     if (serviceLocator.isRegistered<CollabListingDetailCubit>()) {
       await serviceLocator.unregister<CollabListingDetailCubit>();
+    }
+    if (serviceLocator.isRegistered<CollabMyApplicationsCubit>()) {
+      await serviceLocator.unregister<CollabMyApplicationsCubit>();
+    }
+    if (serviceLocator.isRegistered<CollabJobsCubit>()) {
+      await serviceLocator.unregister<CollabJobsCubit>();
     }
   });
 
@@ -153,6 +176,26 @@ void main() {
     expect(repository.saveCalls, 1);
     expect(cubit.state.items.first.savedByMe, isTrue);
     expect(find.byTooltip('Kaydedilenlerden çıkar'), findsOneWidget);
+  });
+
+  testWidgets('management menu opens the jobs section directly', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Collab işlerim'));
+    await tester.pumpAndSettle();
+    expect(find.text('Başvurularım'), findsOneWidget);
+    expect(find.text('İşlerim'), findsOneWidget);
+    expect(find.text('İlanlarım'), findsOneWidget);
+    expect(find.text('Kaydedilen ilanlar'), findsOneWidget);
+
+    await tester.tap(find.text('İşlerim'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CollabMyApplicationsScreen), findsOneWidget);
+    expect(find.text('Aktif bir Collab işin bulunmuyor.'), findsOneWidget);
   });
 
   testWidgets('shows a retry state and recovers after a server error', (
@@ -311,6 +354,40 @@ class _DiscoveryRepository implements CollabRepository {
     unsaveCalls++;
     return const Result<void>.success(null);
   }
+
+  @override
+  Future<Result<CollabPage<CollabApplication>>> getMyApplications({
+    CollabApplicationStatus? status,
+    int page = 0,
+    int size = 20,
+  }) async => Result<CollabPage<CollabApplication>>.success(
+    CollabPage<CollabApplication>(
+      items: const <CollabApplication>[],
+      page: page,
+      size: size,
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
+    ),
+  );
+
+  @override
+  Future<Result<CollabPage<CollabJob>>> getMyJobs({
+    CollabJobStatus? status,
+    int page = 0,
+    int size = 20,
+  }) async => Result<CollabPage<CollabJob>>.success(
+    CollabPage<CollabJob>(
+      items: const <CollabJob>[],
+      page: page,
+      size: size,
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
+    ),
+  );
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

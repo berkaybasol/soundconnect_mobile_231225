@@ -14,8 +14,10 @@ class CollabListingEditorState {
     this.operation = CollabEditorOperation.idle,
     this.validationErrors = const <String>[],
     this.isDirty = false,
+    this.hasUnresolvedConflict = false,
     this.input,
     this.listing,
+    this.conflictListing,
     this.error,
   });
 
@@ -24,8 +26,10 @@ class CollabListingEditorState {
   final CollabEditorOperation operation;
   final CollabListingInput? input;
   final CollabListing? listing;
+  final CollabListing? conflictListing;
   final List<String> validationErrors;
   final bool isDirty;
+  final bool hasUnresolvedConflict;
   final AppError? error;
 
   bool get isSubmitting => operation != CollabEditorOperation.idle;
@@ -43,8 +47,10 @@ class CollabListingEditorState {
     CollabEditorOperation? operation,
     Object? input = copyWithUnset,
     Object? listing = copyWithUnset,
+    Object? conflictListing = copyWithUnset,
     List<String>? validationErrors,
     bool? isDirty,
+    bool? hasUnresolvedConflict,
     Object? error = copyWithUnset,
   }) => CollabListingEditorState(
     actorStatus: actorStatus ?? this.actorStatus,
@@ -56,8 +62,12 @@ class CollabListingEditorState {
     listing: identical(listing, copyWithUnset)
         ? this.listing
         : listing as CollabListing?,
+    conflictListing: identical(conflictListing, copyWithUnset)
+        ? this.conflictListing
+        : conflictListing as CollabListing?,
     validationErrors: validationErrors ?? this.validationErrors,
     isDirty: isDirty ?? this.isDirty,
+    hasUnresolvedConflict: hasUnresolvedConflict ?? this.hasUnresolvedConflict,
     error: identical(error, copyWithUnset) ? this.error : error as AppError?,
   );
 }

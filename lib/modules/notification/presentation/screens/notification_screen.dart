@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -63,6 +65,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<NotificationCubit, NotificationState>(
+      listenWhen: (previous, current) =>
+          previous.errorMessage != current.errorMessage,
       listener: (context, state) {
         final error = state.errorMessage;
         if (error == null || error.trim().isEmpty) return;
@@ -165,10 +169,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
 enum _NotificationAction { markAllRead, clearAll }
 
-class _NotificationTile extends StatelessWidget {
+class _NotificationTile extends StatefulWidget {
   final AppNotification notification;
 
   const _NotificationTile({required this.notification});
+
+  @override
+  State<_NotificationTile> createState() => _NotificationTileState();
+}
+
+class _NotificationTileState extends State<_NotificationTile> {
+  bool _openingTarget = false;
+
+  AppNotification get notification => widget.notification;
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +203,7 @@ class _NotificationTile extends StatelessWidget {
           context.read<NotificationCubit>().deleteNotification(notification),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => _handleTap(context),
+        onTap: _openingTarget ? null : () => _handleTap(context),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -276,43 +289,50 @@ class _NotificationTile extends StatelessWidget {
   }
 
   Future<void> _handleTap(BuildContext context) async {
-    await context.read<NotificationCubit>().markAsRead(notification);
-    if (!context.mounted) return;
-    if (_isDmNotification(notification)) {
-      final senderId =
-          notification.payload['senderId']?.toString().trim() ?? '';
-      if (senderId.isEmpty) return;
-      final args = await _resolveDmChatArgs(notification, senderId);
-      if (!context.mounted) return;
-      Navigator.of(context).pushNamed(AppRoutes.dmChat, arguments: args);
-      return;
-    }
-    if (_isStudioNotification(notification)) {
-      _openStudioReservationTarget(context, notification);
-      return;
-    }
-    if (_isCollabNotification(notification)) {
-      _openCollabTarget(context, notification);
-      return;
-    }
-    if (_isArtistVenueNotification(notification)) {
-      _openArtistVenueTarget(context, notification.payload);
-      return;
-    }
-    if (_isOverthinkingNotification(notification)) {
-      await _openOverthinkingTarget(context, notification);
-      return;
-    }
-    if (_isTableNotification(notification)) {
-      _openTableTarget(context, notification);
-      return;
-    }
-    if (_isSocialNotification(notification)) {
-      await _openSocialTarget(context, notification);
-      return;
-    }
-    if (_isBandNotification(notification)) {
-      _openBandTarget(context, notification);
+    if (_openingTarget) return;
+    setState(() => _openingTarget = true);
+    unawaited(context.read<NotificationCubit>().markAsRead(notification));
+    try {
+      if (_isDmNotification(notification)) {
+        final senderId =
+            notification.payload['senderId']?.toString().trim() ?? '';
+        if (senderId.isEmpty) return;
+        final args = await _resolveDmChatArgs(notification, senderId);
+        if (!context.mounted) return;
+        await Navigator.of(
+          context,
+        ).pushNamed(AppRoutes.dmChat, arguments: args);
+        return;
+      }
+      if (_isStudioNotification(notification)) {
+        await _openStudioReservationTarget(context, notification);
+        return;
+      }
+      if (_isCollabNotification(notification)) {
+        await _openCollabTarget(context, notification);
+        return;
+      }
+      if (_isArtistVenueNotification(notification)) {
+        await _openArtistVenueTarget(context, notification.payload);
+        return;
+      }
+      if (_isOverthinkingNotification(notification)) {
+        await _openOverthinkingTarget(context, notification);
+        return;
+      }
+      if (_isTableNotification(notification)) {
+        await _openTableTarget(context, notification);
+        return;
+      }
+      if (_isSocialNotification(notification)) {
+        await _openSocialTarget(context, notification);
+        return;
+      }
+      if (_isBandNotification(notification)) {
+        await _openBandTarget(context, notification);
+      }
+    } finally {
+      if (mounted) setState(() => _openingTarget = false);
     }
   }
 
@@ -326,13 +346,14 @@ class _NotificationTile extends StatelessWidget {
     return module == 'COLLAB' || notification.type.startsWith('COLLAB_');
   }
 
-  void _openCollabTarget(BuildContext context, AppNotification notification) {
-    final listingId =
-        notification.payload['listingId']?.toString().trim() ?? '';
-    Navigator.of(context).pushNamed(
+  Future<void> _openCollabTarget(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
+    await Navigator.of(context).pushNamed(
       AppRoutes.collabDiscovery,
-      arguments: CollabDiscoveryRouteArgs(
-        initialListingId: listingId.isEmpty ? null : listingId,
+      arguments: CollabDiscoveryRouteArgs.fromNotificationPayload(
+        notification.payload,
       ),
     );
   }
@@ -343,17 +364,17 @@ class _NotificationTile extends StatelessWidget {
         notification.type.startsWith('STUDIO_RESERVATION');
   }
 
-  void _openStudioReservationTarget(
+  Future<void> _openStudioReservationTarget(
     BuildContext context,
     AppNotification notification,
-  ) {
+  ) async {
     final roomId = notification.payload['roomId']?.toString().trim() ?? '';
     final studioProfileId =
         notification.payload['studioProfileId']?.toString().trim() ?? '';
     if (studioProfileId.isEmpty) return;
     final action = notification.payload['action']?.toString().trim() ?? '';
     if (action == 'CANCELLED_BY_STUDIO_ROOM_ARCHIVED') {
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         AppRoutes.studioPublicProfile,
         arguments: PublicProfileArgs(profileId: studioProfileId),
       );
@@ -372,7 +393,7 @@ class _NotificationTile extends StatelessWidget {
     final reservationId = notification.payload['reservationId']
         ?.toString()
         .trim();
-    Navigator.of(context).pushNamed(
+    await Navigator.of(context).pushNamed(
       AppRoutes.studioReservationCalendar,
       arguments: StudioReservationCalendarArgs(
         roomId: roomId,
@@ -527,10 +548,10 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  void _openArtistVenueTarget(
+  Future<void> _openArtistVenueTarget(
     BuildContext context,
     Map<String, dynamic> payload,
-  ) {
+  ) async {
     final requestByType = payload['requestByType']?.toString().trim() ?? '';
     final action = payload['action']?.toString().trim() ?? '';
     final bandId = payload['bandId']?.toString().trim() ?? '';
@@ -538,7 +559,7 @@ class _NotificationTile extends StatelessWidget {
     if (requestByType == 'BAND' &&
         bandId.isNotEmpty &&
         action != 'REQUEST_CREATED') {
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         AppRoutes.bandMemberProfile,
         arguments: BandProfileScreenArgs(
           bandId: bandId,
@@ -550,7 +571,7 @@ class _NotificationTile extends StatelessWidget {
 
     if (action == 'REQUEST_CREATED' &&
         (requestByType == 'ARTIST' || requestByType == 'BAND')) {
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         AppRoutes.venueProfile,
         arguments: const VenueProfileArgs(openIncomingApplications: true),
       );
@@ -558,7 +579,7 @@ class _NotificationTile extends StatelessWidget {
     }
 
     if (requestByType == 'VENUE') {
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         action == 'REQUEST_CREATED'
             ? AppRoutes.musicianProfile
             : AppRoutes.venueProfile,
@@ -571,25 +592,28 @@ class _NotificationTile extends StatelessWidget {
       return;
     }
 
-    Navigator.of(context).pushNamed(
+    await Navigator.of(context).pushNamed(
       action == 'REQUEST_CREATED'
           ? AppRoutes.venueProfile
           : AppRoutes.musicianProfile,
     );
   }
 
-  void _openTableTarget(BuildContext context, AppNotification notification) {
+  Future<void> _openTableTarget(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
     final payload = notification.payload;
     if (_shouldOpenTableList(notification.type)) {
-      Navigator.of(context).pushNamed(AppRoutes.tableGroupList);
+      await Navigator.of(context).pushNamed(AppRoutes.tableGroupList);
       return;
     }
     final tableGroupId = payload['tableGroupId']?.toString().trim() ?? '';
     if (tableGroupId.isEmpty) {
-      Navigator.of(context).pushNamed(AppRoutes.tableGroupList);
+      await Navigator.of(context).pushNamed(AppRoutes.tableGroupList);
       return;
     }
-    Navigator.of(context).pushNamed(
+    await Navigator.of(context).pushNamed(
       AppRoutes.tableGroupDetail,
       arguments: TableGroupDetailArgs(tableGroupId: tableGroupId),
     );
@@ -610,7 +634,7 @@ class _NotificationTile extends StatelessWidget {
     final action = payload['action']?.toString().trim() ?? '';
     final bandId = payload['bandId']?.toString().trim() ?? '';
     if (action == 'NEW_BAND_FOLLOWER' && bandId.isNotEmpty) {
-      Navigator.of(context).pushNamed(
+      await Navigator.of(context).pushNamed(
         AppRoutes.bandMemberProfile,
         arguments: BandProfileScreenArgs(
           bandId: bandId,
@@ -635,7 +659,7 @@ class _NotificationTile extends StatelessWidget {
         .toList(growable: false);
     if (targets.isEmpty) return;
     if (targets.length == 1) {
-      _navigateToProfileTarget(context, targets.first);
+      await _navigateToProfileTarget(context, targets.first);
       return;
     }
     final selected = await showModalBottomSheet<DmProfileTarget>(
@@ -644,24 +668,30 @@ class _NotificationTile extends StatelessWidget {
       builder: (_) => _SocialProfileTargetSheet(items: targets),
     );
     if (!context.mounted || selected == null) return;
-    _navigateToProfileTarget(context, selected);
+    await _navigateToProfileTarget(context, selected);
   }
 
-  void _navigateToProfileTarget(BuildContext context, DmProfileTarget target) {
+  Future<void> _navigateToProfileTarget(
+    BuildContext context,
+    DmProfileTarget target,
+  ) async {
     final route = dmProfileRouteFor(target);
     if (route == null) return;
-    Navigator.of(
+    await Navigator.of(
       context,
     ).pushNamed(route.routeName, arguments: route.arguments);
   }
 
-  void _openBandTarget(BuildContext context, AppNotification notification) {
+  Future<void> _openBandTarget(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
     final action = notification.payload['action']?.toString().trim() ?? '';
     final bandId = notification.payload['bandId']?.toString().trim() ?? '';
     if (action == 'INVITE_RECEIVED' && bandId.isNotEmpty) {
       final bandName =
           notification.payload['bandName']?.toString().trim() ?? '';
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => BandInviteDecisionScreen(
             args: BandInviteDecisionScreenArgs(
@@ -677,14 +707,14 @@ class _NotificationTile extends StatelessWidget {
     }
 
     if (action == 'INVITE_RECEIVED' || action == 'MEMBER_REMOVED') {
-      Navigator.of(context).pushNamed(AppRoutes.myBands);
+      await Navigator.of(context).pushNamed(AppRoutes.myBands);
       return;
     }
     if (bandId.isEmpty) {
-      Navigator.of(context).pushNamed(AppRoutes.myBands);
+      await Navigator.of(context).pushNamed(AppRoutes.myBands);
       return;
     }
-    Navigator.of(context).pushNamed(
+    await Navigator.of(context).pushNamed(
       AppRoutes.bandMemberProfile,
       arguments: BandProfileScreenArgs(
         bandId: bandId,

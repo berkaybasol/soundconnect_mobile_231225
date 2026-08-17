@@ -80,6 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Timer? _usernameAvailabilityDebounce;
   String? _lastUsernameCheckRequested;
   bool _usernameTouched = false;
+  bool _registrationNavigationScheduled = false;
 
   bool get _isBusinessRole =>
       _selectedRole == 'ROLE_VENUE' || _selectedRole == 'ROLE_STUDIO';
@@ -684,7 +685,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildBusinessStep() {
+  Widget _buildBusinessStep({required bool enabled}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -782,20 +783,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedCityId = value;
-                              _selectedDistrictId = null;
-                              _selectedNeighborhoodId = null;
-                            });
-                            if (value != null) {
-                              context.read<LocationCubit>().loadDistricts(
-                                value,
-                              );
-                            } else {
-                              context.read<LocationCubit>().resetDistricts();
-                            }
-                          },
+                          onChanged: !enabled
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedCityId = value;
+                                    _selectedDistrictId = null;
+                                    _selectedNeighborhoodId = null;
+                                  });
+                                  if (value != null) {
+                                    context.read<LocationCubit>().loadDistricts(
+                                      value,
+                                    );
+                                  } else {
+                                    context
+                                        .read<LocationCubit>()
+                                        .resetDistricts();
+                                  }
+                                },
                         ),
                         SizedBox(height: 12),
                         DropdownButtonFormField<String>(
@@ -832,17 +837,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedDistrictId = value;
-                              _selectedNeighborhoodId = null;
-                            });
-                            if (value != null) {
-                              context.read<LocationCubit>().loadNeighborhoods(
-                                value,
-                              );
-                            }
-                          },
+                          onChanged: !enabled
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedDistrictId = value;
+                                    _selectedNeighborhoodId = null;
+                                  });
+                                  if (value != null) {
+                                    context
+                                        .read<LocationCubit>()
+                                        .loadNeighborhoods(value);
+                                  }
+                                },
                         ),
                         SizedBox(height: 12),
                         DropdownButtonFormField<String>(
@@ -879,11 +886,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               )
                               .toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedNeighborhoodId = value;
-                            });
-                          },
+                          onChanged: !enabled
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedNeighborhoodId = value;
+                                  });
+                                },
                         ),
                       ],
                     );
@@ -910,12 +919,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
       listener: (context, state) {
         if (state.action != AuthAction.register) return;
         if (state.status == AuthStatus.success) {
+          final route = ModalRoute.of(context);
+          if (_registrationNavigationScheduled || route?.isCurrent != true) {
+            return;
+          }
+          _registrationNavigationScheduled = true;
           final email = state.registerResult?.email;
-          Navigator.pushNamed(
-            context,
-            AppRoutes.otpVerify,
-            arguments: OtpVerifyArgs(email: email, role: _selectedRole),
-          );
+          final navigator = Navigator.of(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !navigator.mounted || route?.isCurrent != true) {
+              return;
+            }
+            navigator.pushNamed(
+              AppRoutes.otpVerify,
+              arguments: OtpVerifyArgs(email: email, role: _selectedRole),
+            );
+          });
         } else if (state.status == AuthStatus.failure) {
           final message = state.error?.message ?? 'Kayıt başarısız.';
           _showError(message);
@@ -930,96 +949,102 @@ class _RegisterScreenState extends State<RegisterScreen> {
             state.action == AuthAction.usernameAvailability &&
             _lastUsernameCheckRequested ==
                 UsernamePolicy.normalize(_usernameController.text);
+        final registrationLocked =
+            isLoading || _registrationNavigationScheduled;
 
         final pages = <Widget>[
           _buildUsernameStep(state),
           _buildEmailStep(),
           _buildPasswordStep(),
           _buildRoleStep(),
-          if (_isBusinessRole) _buildBusinessStep(),
+          if (_isBusinessRole) _buildBusinessStep(enabled: !registrationLocked),
         ];
 
-        return AppScaffold(
-          title: 'Kaydol',
-          centerContent: true,
-          centerAlignment: Alignment(0, -0.48),
-          scrollable: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(height: 12),
-                  ValueListenableBuilder<double>(
-                    valueListenable: _pageProgress,
-                    builder: (context, value, child) {
-                      return Center(child: _buildProgressIndicator(value));
-                    },
-                  ),
-                  SizedBox(height: 24),
-                  Expanded(
-                    child: PageView.builder(
-                      controller: _pageController,
-                      itemCount: pages.length,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _stepIndex = index;
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        return AnimatedBuilder(
-                          animation: _pageController,
-                          builder: (context, child) {
-                            final page = _pageController.position.haveDimensions
-                                ? (_pageController.page ??
-                                      _stepIndex.toDouble())
-                                : _stepIndex.toDouble();
-                            final distance = (page - index).abs();
-                            final opacity = (1 - (distance * 0.35)).clamp(
-                              0.0,
-                              1.0,
-                            );
-                            final scale = (1 - (distance * 0.06)).clamp(
-                              0.94,
-                              1.0,
-                            );
-
-                            return Opacity(
-                              opacity: opacity,
-                              child: Transform.scale(
-                                scale: scale,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: pages[index],
-                        );
+        return PopScope(
+          canPop: !registrationLocked,
+          child: AppScaffold(
+            title: 'Kaydol',
+            centerContent: true,
+            centerAlignment: Alignment(0, -0.48),
+            scrollable: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: 12),
+                    ValueListenableBuilder<double>(
+                      valueListenable: _pageProgress,
+                      builder: (context, value, child) {
+                        return Center(child: _buildProgressIndicator(value));
                       },
                     ),
-                  ),
-                  SizedBox(height: 20),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: isLoading || isUsernameChecking
-                            ? null
-                            : _back,
-                        child: Text('Geri'),
+                    SizedBox(height: 24),
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: pages.length,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _stepIndex = index;
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          return AnimatedBuilder(
+                            animation: _pageController,
+                            builder: (context, child) {
+                              final page =
+                                  _pageController.position.haveDimensions
+                                  ? (_pageController.page ??
+                                        _stepIndex.toDouble())
+                                  : _stepIndex.toDouble();
+                              final distance = (page - index).abs();
+                              final opacity = (1 - (distance * 0.35)).clamp(
+                                0.0,
+                                1.0,
+                              );
+                              final scale = (1 - (distance * 0.06)).clamp(
+                                0.94,
+                                1.0,
+                              );
+
+                              return Opacity(
+                                opacity: opacity,
+                                child: Transform.scale(
+                                  scale: scale,
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: pages[index],
+                          );
+                        },
                       ),
-                      Spacer(),
-                      GradientOutlineButton(
-                        onPressed: isLoading || isUsernameChecking
-                            ? null
-                            : _next,
-                        label: _stepIndex == _totalSteps - 1
-                            ? (isLoading ? 'Kaydediliyor...' : 'Tamamla')
-                            : 'Devam et',
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
+                    ),
+                    SizedBox(height: 20),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: registrationLocked || isUsernameChecking
+                              ? null
+                              : _back,
+                          child: Text('Geri'),
+                        ),
+                        Spacer(),
+                        GradientOutlineButton(
+                          onPressed: registrationLocked || isUsernameChecking
+                              ? null
+                              : _next,
+                          label: _stepIndex == _totalSteps - 1
+                              ? (isLoading ? 'Kaydediliyor...' : 'Tamamla')
+                              : 'Devam et',
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         );
       },

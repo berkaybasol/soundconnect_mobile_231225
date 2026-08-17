@@ -100,7 +100,7 @@ void main() {
         expect(body['currency'], 'TRY');
         expect(body['scheduledAt'], '2026-08-12T19:30:00.000Z');
         expect(body.containsKey('timeZone'), isFalse);
-        expect(body['genres'], <String>['Rock', 'Blues']);
+        expect(body['genres'], <String>['Blues', 'Rock']);
       },
     );
 
@@ -149,6 +149,55 @@ void main() {
       });
     });
 
+    test('canonical request bodies omit blank optional text', () async {
+      final api = RecordingApiClient((request) {
+        if (request.path.endsWith('/applications')) {
+          return _applicationJson();
+        }
+        if (request.path.endsWith('/reviews')) return _reviewJson();
+        return null;
+      });
+      final repository = CollabRepositoryImpl(api);
+
+      await repository.apply(
+        'listing-1',
+        const CollabApplicationInput(
+          applicantActorId: ' actor-2 ',
+          phone: ' +90 (555) 111-22-33 ',
+          message: '   ',
+        ),
+        clientRequestId: 'apply-request-1',
+      );
+      expect(api.lastRequest.body, <String, dynamic>{
+        'clientRequestId': 'apply-request-1',
+        'applicantActorId': 'actor-2',
+        'phoneNumber': '+905551112233',
+      });
+
+      await repository.reportListing(
+        'listing-1',
+        const CollabReportInput(
+          reason: CollabReportReason.spam,
+          details: '   ',
+        ),
+        clientRequestId: 'report-request-1',
+      );
+      expect(api.lastRequest.body, <String, dynamic>{
+        'clientRequestId': 'report-request-1',
+        'reason': 'SPAM',
+      });
+
+      await repository.createReview(
+        'job-1',
+        const CollabReviewInput(rating: 5, comment: '   '),
+        clientRequestId: 'review-request-1',
+      );
+      expect(api.lastRequest.body, <String, dynamic>{
+        'clientRequestId': 'review-request-1',
+        'rating': 5,
+      });
+    });
+
     test(
       'rejects a phone outside the backend normalization contract',
       () async {
@@ -159,7 +208,7 @@ void main() {
           'listing-1',
           const CollabApplicationInput(
             applicantActorId: 'actor-2',
-            phone: '555-ABCD',
+            phone: 'abc1234567',
             message: '',
           ),
           clientRequestId: 'apply-request-1',
@@ -333,4 +382,14 @@ Map<String, dynamic> _jobJson() => <String, dynamic>{
   'confirmedByMe': false,
   'reviewedByMe': false,
   'completedAt': null,
+};
+
+Map<String, dynamic> _reviewJson() => <String, dynamic>{
+  'id': 'review-1',
+  'jobId': 'job-1',
+  'reviewer': _actorJson(actorId: 'actor-1'),
+  'target': _actorJson(actorId: 'actor-2'),
+  'rating': 5,
+  'comment': null,
+  'submittedAt': '2026-08-11T12:00:00Z',
 };

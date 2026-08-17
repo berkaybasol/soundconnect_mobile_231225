@@ -12,6 +12,7 @@ import '../domain/entities/collab_job.dart';
 import '../domain/entities/collab_listing.dart';
 import '../domain/entities/collab_review.dart';
 import 'collab_endpoints.dart';
+import 'collab_request_canonicalizer.dart';
 import 'models/collab_api_models.dart';
 
 class CollabRepositoryImpl implements CollabRepository {
@@ -217,7 +218,8 @@ class CollabRepositoryImpl implements CollabRepository {
     CollabReportInput input, {
     required String clientRequestId,
   }) async {
-    if (!input.isValid) {
+    final canonicalInput = canonicalCollabReportInput(input);
+    if (!canonicalInput.isValid) {
       return const Result<void>.failure(
         AppError(
           code: 'collab_report_details_invalid',
@@ -231,9 +233,8 @@ class CollabRepositoryImpl implements CollabRepository {
         CollabEndpoints.listingReport(listingId),
         body: <String, dynamic>{
           'clientRequestId': clientRequestId,
-          'reason': input.reason.apiValue,
-          if (input.details?.trim().isNotEmpty == true)
-            'details': input.details!.trim(),
+          'reason': canonicalInput.reason.apiValue,
+          if (canonicalInput.details != null) 'details': canonicalInput.details,
         },
         decoder: (_) => null,
       ),
@@ -258,14 +259,16 @@ class CollabRepositoryImpl implements CollabRepository {
         ),
       );
     }
+    final canonicalInput = canonicalCollabApplicationInput(input);
     return _guard(
       () => _apiClient.post<CollabApplication>(
         CollabEndpoints.listingApplications(listingId),
         body: <String, dynamic>{
           'clientRequestId': clientRequestId,
-          'applicantActorId': input.applicantActorId,
-          'phoneNumber': input.phone.trim(),
-          'message': input.message.trim(),
+          'applicantActorId': canonicalInput.applicantActorId,
+          'phoneNumber': canonicalInput.phone,
+          if (canonicalInput.message.isNotEmpty)
+            'message': canonicalInput.message,
         },
         decoder: (json) => CollabApplicationModel.fromJson(_map(json)),
       ),
@@ -393,7 +396,8 @@ class CollabRepositoryImpl implements CollabRepository {
     CollabReviewInput input, {
     required String clientRequestId,
   }) async {
-    if (!input.isValid) {
+    final canonicalInput = canonicalCollabReviewInput(input);
+    if (!canonicalInput.isValid) {
       return const Result.failure(
         AppError(
           code: 'collab_review_rating_invalid',
@@ -406,9 +410,8 @@ class CollabRepositoryImpl implements CollabRepository {
         CollabEndpoints.jobReviews(jobId),
         body: <String, dynamic>{
           'clientRequestId': clientRequestId,
-          'rating': input.rating,
-          if (input.comment?.trim().isNotEmpty == true)
-            'comment': input.comment!.trim(),
+          'rating': canonicalInput.rating,
+          if (canonicalInput.comment != null) 'comment': canonicalInput.comment,
         },
         decoder: (json) => CollabReviewModel.fromJson(_map(json)),
       ),
@@ -553,31 +556,29 @@ class CollabRepositoryImpl implements CollabRepository {
     'size': query.size,
   };
 
-  Map<String, dynamic> _listingInputBody(
-    CollabListingInput input,
-  ) => <String, dynamic>{
-    'publisherActorId': input.publisherActorId.trim(),
-    'cadence': input.cadence.apiValue,
-    'wantedType': input.wantedType.apiValue,
-    if (input.instrumentId?.trim().isNotEmpty == true)
-      'instrumentId': input.instrumentId!.trim(),
-    if (input.branch != null) 'branch': input.branch!.apiValue,
-    if (input.customSpecialty?.trim().isNotEmpty == true)
-      'customSpecialty': input.customSpecialty!.trim(),
-    'title': input.title.trim(),
-    'description': input.description.trim(),
-    'cityId': input.cityId.trim(),
-    'genres': input.genres
-        .map((genre) => genre.trim())
-        .where((genre) => genre.isNotEmpty)
-        .toSet()
-        .toList(growable: false),
-    if (input.scheduledAt != null)
-      'scheduledAt': input.scheduledAt!.toUtc().toIso8601String(),
-    if (input.feeAmountMinor != null) 'feeAmountMinor': input.feeAmountMinor,
-    if (input.currency?.trim().isNotEmpty == true)
-      'currency': input.currency!.trim().toUpperCase(),
-  };
+  Map<String, dynamic> _listingInputBody(CollabListingInput input) {
+    final canonicalInput = canonicalCollabListingInput(input);
+    return <String, dynamic>{
+      'publisherActorId': canonicalInput.publisherActorId,
+      'cadence': canonicalInput.cadence.apiValue,
+      'wantedType': canonicalInput.wantedType.apiValue,
+      if (canonicalInput.instrumentId != null)
+        'instrumentId': canonicalInput.instrumentId,
+      if (canonicalInput.branch != null)
+        'branch': canonicalInput.branch!.apiValue,
+      if (canonicalInput.customSpecialty != null)
+        'customSpecialty': canonicalInput.customSpecialty,
+      'title': canonicalInput.title,
+      'description': canonicalInput.description,
+      'cityId': canonicalInput.cityId,
+      'genres': canonicalInput.genres,
+      if (canonicalInput.scheduledAt != null)
+        'scheduledAt': canonicalInput.scheduledAt!.toIso8601String(),
+      if (canonicalInput.feeAmountMinor != null)
+        'feeAmountMinor': canonicalInput.feeAmountMinor,
+      if (canonicalInput.currency != null) 'currency': canonicalInput.currency,
+    };
+  }
 
   AppError? _validateDiscoveryQuery(CollabDiscoveryQuery query) {
     if (query.page < 0 || query.size < 1 || query.size > 50) {

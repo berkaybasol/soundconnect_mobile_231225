@@ -46,6 +46,95 @@ void main() {
     },
   );
 
+  test(
+    'notification resume reconnects a dropped socket and refreshes missed data',
+    () async {
+      final realtime = _ControlledNotificationRealtimeClient();
+      final repository = _NotificationRepositoryFake();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(_jwt('user-1')),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.closeStreams();
+      });
+
+      final start = cubit.ensureStarted();
+      await realtime.firstConnectStarted.future;
+      realtime.allowConnect.complete();
+      await start;
+      realtime.connected = false;
+      repository.items = <AppNotification>[_notification('missed-on-resume')];
+
+      await cubit.reconcileAfterResume();
+
+      expect(realtime.connectCalls, 2);
+      expect(realtime.connected, isTrue);
+      expect(repository.listCalls, 2);
+      expect(cubit.state.items.single.id, 'missed-on-resume');
+    },
+  );
+
+  test(
+    'notification reconnect signal reconciles a missed server notification',
+    () async {
+      final realtime = _ControlledNotificationRealtimeClient();
+      final repository = _NotificationRepositoryFake();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(_jwt('user-1')),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.closeStreams();
+      });
+
+      final start = cubit.ensureStarted();
+      await realtime.firstConnectStarted.future;
+      realtime.allowConnect.complete();
+      await start;
+      repository.items = <AppNotification>[
+        _notification('missed-during-reconnect'),
+      ];
+
+      realtime.emitSuccessfulConnection();
+      await _eventually(() => repository.listCalls == 2);
+
+      expect(cubit.state.items.single.id, 'missed-during-reconnect');
+    },
+  );
+
+  test('notification resume still refreshes when reconnect fails', () async {
+    final realtime = _ControlledNotificationRealtimeClient();
+    final repository = _NotificationRepositoryFake();
+    final cubit = NotificationCubit(
+      repository,
+      _MemoryTokenStore(_jwt('user-1')),
+      realtimeClient: realtime,
+    );
+    addTearDown(() async {
+      await cubit.close();
+      await realtime.closeStreams();
+    });
+
+    final start = cubit.ensureStarted();
+    await realtime.firstConnectStarted.future;
+    realtime.allowConnect.complete();
+    await start;
+    realtime.connected = false;
+    realtime.failConnect = true;
+    repository.items = <AppNotification>[_notification('rest-only')];
+
+    await cubit.reconcileAfterResume();
+
+    expect(realtime.connectCalls, 2);
+    expect(repository.listCalls, 2);
+    expect(cubit.state.items.single.id, 'rest-only');
+  });
+
   test('DM delayed connect cannot revive realtime after logout', () async {
     final realtime = _ControlledDmRealtimeClient();
     final repository = _DmRepositoryFake();
@@ -75,11 +164,13 @@ void main() {
 class _ControlledNotificationRealtimeClient extends NotificationRealtimeClient {
   final notificationController = StreamController<AppNotification>.broadcast();
   final badgeController = StreamController<int>.broadcast();
+  final connectionController = StreamController<void>.broadcast();
   final firstConnectStarted = Completer<void>();
   final allowConnect = Completer<void>();
   int connectCalls = 0;
   int disconnectCalls = 0;
   bool connected = false;
+  bool failConnect = false;
 
   @override
   Stream<AppNotification> get notificationStream =>
@@ -87,6 +178,12 @@ class _ControlledNotificationRealtimeClient extends NotificationRealtimeClient {
 
   @override
   Stream<int> get badgeStream => badgeController.stream;
+
+  @override
+  Stream<void> get connectionStream => connectionController.stream;
+
+  @override
+  bool get isConnected => connected;
 
   @override
   void retain() {}
@@ -99,7 +196,9 @@ class _ControlledNotificationRealtimeClient extends NotificationRealtimeClient {
     connectCalls += 1;
     if (!firstConnectStarted.isCompleted) firstConnectStarted.complete();
     await allowConnect.future;
+    if (failConnect) throw StateError('connect failed');
     connected = true;
+    connectionController.add(null);
   }
 
   @override
@@ -112,6 +211,12 @@ class _ControlledNotificationRealtimeClient extends NotificationRealtimeClient {
     await super.dispose();
     await notificationController.close();
     await badgeController.close();
+    await connectionController.close();
+  }
+
+  void emitSuccessfulConnection() {
+    connected = true;
+    connectionController.add(null);
   }
 }
 
@@ -154,6 +259,7 @@ class _ControlledDmRealtimeClient extends DmRealtimeClient {
 
 class _NotificationRepositoryFake implements NotificationRepository {
   int listCalls = 0;
+  List<AppNotification> items = <AppNotification>[];
 
   @override
   Future<Result<Page<AppNotification>>> listNotifications({
@@ -161,8 +267,8 @@ class _NotificationRepositoryFake implements NotificationRepository {
     int size = 20,
   }) async {
     listCalls += 1;
-    return const Result<Page<AppNotification>>.success(
-      Page<AppNotification>(items: <AppNotification>[], hasNext: false),
+    return Result<Page<AppNotification>>.success(
+      Page<AppNotification>(items: items, hasNext: false),
     );
   }
 
@@ -250,4 +356,23 @@ String _jwt(String subject) {
       base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
   return '${encode(const <String, dynamic>{'alg': 'none'})}.'
       '${encode(<String, dynamic>{'sub': subject})}.signature';
+}
+
+AppNotification _notification(String id) => AppNotification(
+  id: id,
+  recipientId: 'user-1',
+  type: 'COLLAB_APPLICATION_RECEIVED',
+  title: id,
+  message: 'Message',
+  read: false,
+  createdAt: DateTime.utc(2026, 8, 15),
+  payload: const <String, dynamic>{'module': 'COLLAB'},
+);
+
+Future<void> _eventually(bool Function() predicate) async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    if (predicate()) return;
+    await Future<void>.delayed(Duration.zero);
+  }
+  expect(predicate(), isTrue);
 }

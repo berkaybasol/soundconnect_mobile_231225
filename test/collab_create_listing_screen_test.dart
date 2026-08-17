@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_commands.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_repository.dart';
@@ -20,12 +21,16 @@ void main() {
   late _EditorRepository repository;
   late CollabListingEditorCubit cubit;
 
-  Widget screen({CollabListing? initialListing}) => MaterialApp(
+  Widget screen({
+    CollabListing? initialListing,
+    LocationRepository locationRepository = const _LocationRepository(),
+    InstrumentRepository instrumentRepository = const _InstrumentRepository(),
+  }) => MaterialApp(
     theme: AppTheme.navy,
     home: CollabCreateListingScreen(
       cubit: cubit,
-      locationRepository: const _LocationRepository(),
-      instrumentRepository: const _InstrumentRepository(),
+      locationRepository: locationRepository,
+      instrumentRepository: instrumentRepository,
       initialListing: initialListing,
       showBottomNavigation: false,
     ),
@@ -118,6 +123,90 @@ void main() {
     expect(find.text('Sahne Tarihi'), findsNothing);
     expect(find.text('Saat'), findsNothing);
     expect(find.text('Ücret'), findsWidgets);
+    expect(find.text('Türkü'), findsOneWidget);
+    expect(find.text('Türk Sanat Müziği'), findsOneWidget);
+    expect(find.text('Piyasa'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('collab-create-publisher-picker')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('studio publisher does not show a redundant profile picker', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      screen(
+        initialListing: _listing(
+          status: CollabListingStatus.draft,
+          input: const CollabListingInput(
+            publisherActorId: 'actor-studio',
+            cadence: CollabCadence.regular,
+            wantedType: CollabProfileKind.musician,
+            instrumentId: 'instrument-bass',
+            title: 'Stüdyo için bas gitarist aranıyor',
+            description:
+                'Düzenli kayıt projelerinde çalışacak bir bas gitarist arıyoruz.',
+            cityId: 'city-34',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await goToInformation(tester);
+
+    expect(cubit.state.selectedActor, _studioActor);
+    expect(
+      find.byKey(const ValueKey('collab-create-publisher-picker')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('musician with a band can choose the publishing profile', (
+    tester,
+  ) async {
+    await cubit.close();
+    repository = _EditorRepository(
+      actors: const <CollabActor>[_musicianActor, _bandActor],
+    );
+    cubit = CollabListingEditorCubit(
+      repository,
+      requestIdFactory: () => 'request-create-musician',
+    );
+
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    await goToInformation(tester);
+
+    final picker = find.byKey(const ValueKey('collab-create-publisher-picker'));
+    expect(picker, findsOneWidget);
+    await tester.ensureVisible(picker);
+    await tester.tap(picker);
+    await tester.pumpAndSettle();
+    expect(find.text('Ece Yılmaz'), findsWidgets);
+    expect(find.text('Gece Hattı'), findsOneWidget);
+  });
+
+  testWidgets('empty specialty label and hint never overlap on a phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    await goToInformation(tester);
+
+    final specialty = find.byKey(const ValueKey('collab-create-specialty'));
+    await tester.ensureVisible(specialty);
+    await tester.pumpAndSettle();
+    final label = find.text('Enstrüman / Branş');
+    final hint = find.text('Seçmek için dokun');
+    expect(label, findsOneWidget);
+    expect(hint, findsOneWidget);
+    expect(tester.getRect(label).overlaps(tester.getRect(hint)), isFalse);
   });
 
   testWidgets(
@@ -211,6 +300,10 @@ void main() {
 
     expect(repository.updateListingCalls, 0);
     expect(cubit.state.validationErrors, isNotEmpty);
+    expect(
+      find.byKey(const ValueKey('collab-validation-summary')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('create-step-preview')), findsOneWidget);
     expect(find.text('published'), findsNothing);
   });
@@ -235,8 +328,201 @@ void main() {
 
     expect(repository.updateDraftCalls, 0);
     expect(cubit.state.validationErrors, isNotEmpty);
+    expect(
+      find.byKey(const ValueKey('collab-validation-summary')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('create-step-preview')), findsOneWidget);
     expect(find.text('draftSaved'), findsNothing);
+  });
+
+  testWidgets('open listing without applications keeps all terms editable', (
+    tester,
+  ) async {
+    final listing = _listing(
+      status: CollabListingStatus.open,
+      applicationCount: 0,
+    );
+    repository.storedListing = listing;
+    await tester.pumpWidget(screen(initialListing: listing));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ekstra'));
+    await tester.pump();
+    expect(cubit.state.input?.cadence, CollabCadence.extra);
+    await goToInformation(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('collab-create-title')),
+      'Güncellenmiş açık ilan başlığı',
+    );
+    expect(cubit.state.input?.title, 'Güncellenmiş açık ilan başlığı');
+  });
+
+  testWidgets(
+    'version conflict keeps local form until server reload is chosen',
+    (tester) async {
+      final localDraft = _listing(status: CollabListingStatus.draft);
+      final remoteDraft = _listing(
+        status: CollabListingStatus.draft,
+        input: const CollabListingInput(
+          publisherActorId: 'actor-venue',
+          cadence: CollabCadence.regular,
+          wantedType: CollabProfileKind.musician,
+          instrumentId: 'instrument-bass',
+          title: 'Diğer cihazdaki güncel başlık',
+          description:
+              'Diğer cihazda kaydedilmiş ve sunucudan geri alınmış açıklama.',
+          cityId: 'city-34',
+          genres: <String>['Rock'],
+        ),
+        version: 2,
+      );
+      repository
+        ..updateDraftError = const AppError(
+          code: '9317',
+          message: 'İlan başka bir cihazda değiştirildi.',
+        )
+        ..latestListing = remoteDraft;
+      await tester.pumpWidget(screen(initialListing: localDraft));
+      await tester.pumpAndSettle();
+      cubit.updateInput(
+        cubit.state.input!.copyWith(title: 'Bu cihazdaki yerel başlık'),
+      );
+
+      await cubit.saveDraft();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('collab-conflict-keep-local')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('collab-conflict-load-server')),
+        findsOneWidget,
+      );
+      expect(cubit.state.input?.title, 'Bu cihazdaki yerel başlık');
+      expect(cubit.state.conflictListing?.version, 2);
+
+      await tester.tap(
+        find.byKey(const ValueKey('collab-conflict-load-server')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(cubit.state.input?.title, 'Diğer cihazdaki güncel başlık');
+      expect(cubit.state.listing?.version, 2);
+      expect(cubit.state.hasUnresolvedConflict, isFalse);
+    },
+  );
+
+  testWidgets('open listing with applications locks every job term', (
+    tester,
+  ) async {
+    final listing = _listing(
+      status: CollabListingStatus.open,
+      applicationCount: 1,
+    );
+    repository.storedListing = listing;
+    await tester.pumpWidget(screen(initialListing: listing));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ekstra'));
+    await tester.pump();
+    expect(cubit.state.input?.cadence, CollabCadence.regular);
+    await goToInformation(tester);
+    expect(
+      find.byKey(const ValueKey('collab-open-fields-locked')),
+      findsOneWidget,
+    );
+    final originalTitle = cubit.state.input!.title;
+    final titleField = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const ValueKey('collab-create-title')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(titleField.readOnly, isTrue);
+    cubit.updateInput(
+      cubit.state.input!.copyWith(title: 'Değişmemesi gereken başlık'),
+    );
+    expect(cubit.state.input?.title, originalTitle);
+  });
+
+  testWidgets('instrument failure keeps city and non-instrument form usable', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      screen(instrumentRepository: const _FailingInstrumentRepository()),
+    );
+    await tester.pumpAndSettle();
+    await goToInformation(tester);
+
+    expect(
+      find.byKey(const ValueKey('collab-instrument-catalog-warning')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('collab-create-location')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('existing decimal fee is preserved and remains editable', (
+    tester,
+  ) async {
+    final listing = _listing(
+      status: CollabListingStatus.open,
+      input: const CollabListingInput(
+        publisherActorId: 'actor-venue',
+        cadence: CollabCadence.regular,
+        wantedType: CollabProfileKind.musician,
+        instrumentId: 'instrument-bass',
+        title: 'Kadıköy sahnesine bas gitarist arıyoruz',
+        description:
+            'Düzenli sahnelerimizde repertuvara hakim bir bas gitarist arıyoruz.',
+        cityId: 'city-34',
+        genres: <String>['Rock', 'Funk'],
+        feeAmountMinor: 150075,
+        currency: 'TRY',
+      ),
+    );
+    repository.storedListing = listing;
+    await tester.pumpWidget(screen(initialListing: listing));
+    await tester.pumpAndSettle();
+    await goToInformation(tester);
+
+    final fee = find.byKey(const ValueKey('collab-create-fee'));
+    await reveal(tester, fee);
+    expect(tester.widget<TextFormField>(fee).controller!.text, '1500,75');
+    await tester.enterText(fee, '1234,56');
+    expect(cubit.state.input?.feeAmountMinor, 123456);
+  });
+
+  testWidgets('dirty editor requires confirmation before leaving', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await tester.tap(find.text('Oluşturmayı Aç'));
+    await tester.pumpAndSettle();
+    await goToInformation(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('collab-create-title')),
+      'Kaybolmaması gereken değişiklik',
+    );
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Değişiklikler silinsin mi?'), findsOneWidget);
+    await tester.tap(find.text('Düzenlemeye Devam Et'));
+    await tester.pumpAndSettle();
+    expect(find.text('İlan Oluştur'), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Değişiklikleri Sil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Oluşturmayı Aç'), findsOneWidget);
   });
 }
 
@@ -262,10 +548,33 @@ const _studioActor = CollabActor(
   completedJobCount: 45,
 );
 
+const _musicianActor = CollabActor(
+  actorId: 'actor-musician',
+  profileType: CollabProfileKind.musician,
+  sourceProfileId: 'musician-profile',
+  contactUserId: 'musician-user',
+  displayName: 'Ece Yılmaz',
+  rating: 4.9,
+  reviewCount: 24,
+  completedJobCount: 61,
+);
+
+const _bandActor = CollabActor(
+  actorId: 'actor-band',
+  profileType: CollabProfileKind.band,
+  sourceProfileId: 'band-profile',
+  contactUserId: 'musician-user',
+  displayName: 'Gece Hattı',
+  rating: 4.6,
+  reviewCount: 15,
+  completedJobCount: 38,
+);
+
 CollabListing _listing({
   required CollabListingStatus status,
   CollabListingInput? input,
   int version = 1,
+  int applicationCount = 0,
 }) {
   final value =
       input ??
@@ -318,14 +627,16 @@ CollabListing _listing({
     ownedByMe: true,
     appliedByMe: false,
     savedByMe: false,
+    applicationCount: applicationCount,
   );
 }
 
 class _EditorRepository implements CollabRepository {
-  final List<CollabActor> actors = const <CollabActor>[
-    _venueActor,
-    _studioActor,
-  ];
+  _EditorRepository({
+    this.actors = const <CollabActor>[_venueActor, _studioActor],
+  });
+
+  final List<CollabActor> actors;
   Completer<Result<CollabListing>>? pendingCreate;
   CollabListing? storedListing;
   CollabListingInput? lastInput;
@@ -334,6 +645,9 @@ class _EditorRepository implements CollabRepository {
   int updateDraftCalls = 0;
   int publishDraftCalls = 0;
   int updateListingCalls = 0;
+  int getListingCalls = 0;
+  AppError? updateDraftError;
+  CollabListing? latestListing;
 
   @override
   Future<Result<List<CollabActor>>> getMyActors() async =>
@@ -373,6 +687,8 @@ class _EditorRepository implements CollabRepository {
   }) async {
     updateDraftCalls++;
     lastInput = input;
+    final error = updateDraftError;
+    if (error != null) return Result<CollabListing>.failure(error);
     final listing = _listing(
       status: CollabListingStatus.draft,
       input: input,
@@ -380,6 +696,16 @@ class _EditorRepository implements CollabRepository {
     );
     storedListing = listing;
     return Result<CollabListing>.success(listing);
+  }
+
+  @override
+  Future<Result<CollabListing>> getListing(String listingId) async {
+    getListingCalls++;
+    final listing = latestListing;
+    if (listing != null) return Result<CollabListing>.success(listing);
+    return const Result<CollabListing>.failure(
+      AppError(code: '9300', message: 'İlan bulunamadı.'),
+    );
   }
 
   @override
@@ -440,6 +766,19 @@ class _InstrumentRepository implements InstrumentRepository {
         Instrument(id: 'instrument-bass', name: 'Bas Gitar'),
         Instrument(id: 'instrument-vocal', name: 'Vokal'),
       ]);
+}
+
+class _FailingInstrumentRepository implements InstrumentRepository {
+  const _FailingInstrumentRepository();
+
+  @override
+  Future<Result<List<Instrument>>> getAll() async =>
+      const Result<List<Instrument>>.failure(
+        AppError(
+          code: 'INSTRUMENT_CATALOG_UNAVAILABLE',
+          message: 'Enstrüman kataloğu alınamadı.',
+        ),
+      );
 }
 
 class _CreateHost extends StatefulWidget {

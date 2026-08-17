@@ -140,6 +140,7 @@ class CollabListingInput {
   List<String> validate({
     required CollabProfileKind publisherType,
     DateTime? now,
+    DateTime? latestScheduledAt,
   }) {
     final errors = <String>[];
     final normalizedTitle = title.trim();
@@ -196,7 +197,8 @@ class CollabListingInput {
         if (!occurrence.isAfter(clock)) {
           errors.add('Sahne tarihi gelecekte olmalıdır.');
         }
-        if (occurrence.isAfter(clock.add(const Duration(days: 7)))) {
+        final latest = latestScheduledAt ?? clock.add(const Duration(days: 7));
+        if (occurrence.isAfter(latest)) {
           errors.add('Ekstra ilan en fazla 7 gün sonrası için açılabilir.');
         }
       }

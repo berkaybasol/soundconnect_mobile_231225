@@ -1,8 +1,14 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/auth_repository.dart';
@@ -22,9 +28,21 @@ import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/logi
 void main() {
   late _RecordingAuthRepository repository;
   late AuthCubit cubit;
+  late _MemoryTokenStore tokenStore;
+  late AuthSessionManager sessionManager;
 
-  setUp(() {
+  setUp(() async {
+    await serviceLocator.reset();
     repository = _RecordingAuthRepository();
+    tokenStore = _MemoryTokenStore();
+    sessionManager = AuthSessionManager(
+      tokenStore: tokenStore,
+      sessionStore: _MemoryAuthSessionStore(),
+    );
+    serviceLocator.registerSingleton<AuthSessionManager>(
+      sessionManager,
+      dispose: (manager) => manager.dispose(),
+    );
     cubit = AuthCubit(
       loginUseCase: LoginUseCase(repository),
       registerUseCase: RegisterUseCase(repository),
@@ -33,16 +51,49 @@ void main() {
       requestPasswordResetUseCase: RequestPasswordResetUseCase(repository),
       resetPasswordUseCase: ResetPasswordUseCase(repository),
       updateUsernameUseCase: UpdateUsernameUseCase(repository),
-      tokenStore: _MemoryTokenStore(),
+      tokenStore: tokenStore,
+      sessionManager: sessionManager,
     );
   });
 
   tearDown(() async {
     await cubit.close();
+    await serviceLocator.reset();
   });
 
-  Widget app({Map<String, WidgetBuilder>? routes}) {
+  Widget app({
+    Map<String, WidgetBuilder>? routes,
+    NavigatorObserver? observer,
+    bool includeCoveredLoginRoute = false,
+    bool includeSourceRoute = false,
+  }) {
+    if (includeCoveredLoginRoute || includeSourceRoute) {
+      return MaterialApp(
+        navigatorObservers: <NavigatorObserver>[if (observer != null) observer],
+        onGenerateInitialRoutes: (_) => <Route<dynamic>>[
+          if (includeSourceRoute)
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: '/source'),
+              builder: (_) => const Scaffold(body: Text('source-route')),
+            ),
+          for (
+            var index = 0;
+            index < (includeCoveredLoginRoute ? 2 : 1);
+            index += 1
+          )
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: AppRoutes.login),
+              builder: (_) => BlocProvider<AuthCubit>.value(
+                value: cubit,
+                child: const LoginScreen(),
+              ),
+            ),
+        ],
+        routes: routes ?? const <String, WidgetBuilder>{},
+      );
+    }
     return MaterialApp(
+      navigatorObservers: <NavigatorObserver>[if (observer != null) observer],
       routes: routes ?? const <String, WidgetBuilder>{},
       home: BlocProvider<AuthCubit>.value(value: cubit, child: LoginScreen()),
     );
@@ -112,6 +163,84 @@ void main() {
       'alice',
     );
   });
+
+  testWidgets('rapid login taps make one request while authentication waits', (
+    tester,
+  ) async {
+    final pending = Completer<Result<LoginResult>>();
+    repository.loginCompleter = pending;
+    await tester.pumpWidget(app());
+    await tester.enterText(find.byType(TextField).at(0), 'alice');
+    await tester.enterText(find.byType(TextField).at(1), 'password');
+
+    _invokeLoginSubmit(tester);
+    _invokeLoginSubmit(tester);
+
+    expect(repository.loginCalls, 1);
+
+    pending.complete(
+      const Result.failure(
+        AppError(code: 'test_rejection', message: 'Rejected once'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Rejected once'), findsOneWidget);
+  });
+
+  testWidgets(
+    'in-flight login blocks back and anonymous links until one success handoff',
+    (tester) async {
+      final pending = Completer<Result<LoginResult>>();
+      repository
+        ..loginCompleter = pending
+        ..loginResult = Result<LoginResult>.success(
+          LoginResult(
+            token: _token(role: 'ROLE_MUSICIAN'),
+            username: 'alice',
+          ),
+        );
+      await tester.pumpWidget(
+        app(
+          includeSourceRoute: true,
+          routes: <String, WidgetBuilder>{
+            AppRoutes.home: (_) =>
+                const Scaffold(body: Text('home-destination')),
+            AppRoutes.register: (_) =>
+                const Scaffold(body: Text('register-destination')),
+            AppRoutes.forgotPassword: (_) =>
+                const Scaffold(body: Text('forgot-destination')),
+          },
+        ),
+      );
+      await tester.enterText(find.byType(TextField).at(0), 'alice');
+      await tester.enterText(find.byType(TextField).at(1), 'password');
+      _invokeLoginSubmit(tester);
+      await tester.pump();
+
+      final forgotButton = tester.widget<TextButton>(
+        find.byKey(const Key('forgot-password-button')),
+      );
+      final registerButton = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Üye ol'),
+      );
+      expect(forgotButton.onPressed, isNull);
+      expect(registerButton.onPressed, isNull);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.text('source-route'), findsNothing);
+
+      pending.complete(repository.loginResult);
+      await tester.pumpAndSettle();
+
+      expect(find.text('home-destination'), findsOneWidget);
+      expect(sessionManager.session.isAuthenticated, isTrue);
+      expect(tester.takeException(), isNull);
+
+      await sessionManager.logout();
+    },
+  );
 
   testWidgets('rejects a password above the bcrypt boundary', (tester) async {
     await tester.pumpWidget(app());
@@ -263,6 +392,41 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'only the current stacked login route handles a shared pending redirect',
+    (tester) async {
+      const destination = 'Venue pending destination';
+      repository.loginResult = const Result<LoginResult>.failure(
+        AppError(code: 'auth_pending_venue_approval', message: 'Pending'),
+      );
+      final observer = _RecordingNavigatorObserver();
+      await tester.pumpWidget(
+        app(
+          observer: observer,
+          includeCoveredLoginRoute: true,
+          routes: <String, WidgetBuilder>{
+            AppRoutes.venuePending: (_) =>
+                const Scaffold(body: Text(destination)),
+          },
+        ),
+      );
+      await tester.enterText(find.byType(TextField).at(0), 'pending-user');
+      await tester.enterText(find.byType(TextField).at(1), 'password123');
+
+      _invokeLoginSubmit(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text(destination), findsOneWidget);
+      expect(
+        observer.pushedRouteNames.where(
+          (name) => name == AppRoutes.venuePending,
+        ),
+        hasLength(1),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 void _invokeLoginSubmit(WidgetTester tester) {
@@ -283,6 +447,7 @@ class _RecordingAuthRepository extends AuthRepository {
   Result<LoginResult> loginResult = const Result<LoginResult>.failure(
     AppError(code: 'test_rejection', message: 'Rejected by test repository'),
   );
+  Completer<Result<LoginResult>>? loginCompleter;
 
   @override
   Future<Result<LoginResult>> login({
@@ -292,7 +457,7 @@ class _RecordingAuthRepository extends AuthRepository {
     loginCalls++;
     lastUsername = username;
     lastPassword = password;
-    return loginResult;
+    return loginCompleter?.future ?? loginResult;
   }
 
   @override
@@ -363,6 +528,15 @@ class _RecordingAuthRepository extends AuthRepository {
   }
 }
 
+class _RecordingNavigatorObserver extends NavigatorObserver {
+  final List<String?> pushedRouteNames = <String?>[];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushedRouteNames.add(route.settings.name);
+  }
+}
+
 class _MemoryTokenStore implements TokenStore {
   String? token;
 
@@ -374,4 +548,29 @@ class _MemoryTokenStore implements TokenStore {
 
   @override
   Future<void> writeToken(String token) async => this.token = token;
+}
+
+class _MemoryAuthSessionStore implements AuthSessionStore {
+  AuthSessionMetadata? value;
+
+  @override
+  Future<void> clear() async => value = null;
+
+  @override
+  Future<AuthSessionMetadata?> read() async => value;
+
+  @override
+  Future<void> write(AuthSessionMetadata metadata) async => value = metadata;
+}
+
+String _token({required String role}) {
+  String encode(Map<String, Object> value) =>
+      base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  final expiresAt = DateTime.utc(2035).millisecondsSinceEpoch ~/ 1000;
+  return '${encode(const <String, Object>{'alg': 'HS256'})}.'
+      '${encode(<String, Object>{
+        'sub': 'user-id',
+        'roles': <String>[role],
+        'exp': expiresAt,
+      })}.signature';
 }

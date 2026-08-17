@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "REPLACE_WITH_APPLE_TEAM_ID.com.berkayb.soundconnect.soundconnect231225codx"
+        ],
+        "components": [
+          {
+            "/": "/is-birligi/ilan/*",
+            "comment": "SoundConnect iş birliği ilan detayları"
+          }
+        ]
+      }
+    ]
+  }
+}

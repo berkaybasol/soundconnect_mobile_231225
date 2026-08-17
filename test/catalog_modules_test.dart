@@ -91,6 +91,103 @@ void main() {
     });
 
     test(
+      'sorts every location level with Turkish alphabetical rules',
+      () async {
+        final client = RecordingApiClient((request) {
+          return switch (request.path) {
+            LocationEndpoints.getAllCities => <Map<String, dynamic>>[
+              <String, dynamic>{'id': 'city-5', 'name': 'Üsküdar'},
+              <String, dynamic>{'id': 'city-4', 'name': 'İstanbul'},
+              <String, dynamic>{'id': 'city-3', 'name': 'Iğdır'},
+              <String, dynamic>{'id': 'city-2', 'name': 'Çankaya'},
+              <String, dynamic>{'id': 'city-1', 'name': 'Ceyhan'},
+            ],
+            '/api/v1/districts/get-by-city/city-1' => <Map<String, dynamic>>[
+              <String, dynamic>{
+                'id': 'district-5',
+                'name': 'Şişli',
+                'cityId': 'city-1',
+              },
+              <String, dynamic>{
+                'id': 'district-4',
+                'name': 'İstanbul',
+                'cityId': 'city-1',
+              },
+              <String, dynamic>{
+                'id': 'district-3',
+                'name': 'Iğdır',
+                'cityId': 'city-1',
+              },
+              <String, dynamic>{
+                'id': 'district-2',
+                'name': 'Çankaya',
+                'cityId': 'city-1',
+              },
+              <String, dynamic>{
+                'id': 'district-1',
+                'name': 'Ceyhan',
+                'cityId': 'city-1',
+              },
+            ],
+            '/api/v1/neighborhoods/get-by-district/district-1' =>
+              <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'id': 'neighborhood-5',
+                  'name': 'Ödemiş',
+                  'districtId': 'district-1',
+                },
+                <String, dynamic>{
+                  'id': 'neighborhood-4',
+                  'name': 'Osmangazi',
+                  'districtId': 'district-1',
+                },
+                <String, dynamic>{
+                  'id': 'neighborhood-3',
+                  'name': '100. Yıl',
+                  'districtId': 'district-1',
+                },
+                <String, dynamic>{
+                  'id': 'neighborhood-2',
+                  'name': '10 Ekim',
+                  'districtId': 'district-1',
+                },
+                <String, dynamic>{
+                  'id': 'neighborhood-1',
+                  'name': '2 Eylül',
+                  'districtId': 'district-1',
+                },
+              ],
+            _ => throw StateError('Unexpected path: ${request.path}'),
+          };
+        });
+        final repository = LocationRepositoryImpl(client);
+
+        final cities = await repository.getCities();
+        final districts = await repository.getDistricts('city-1');
+        final neighborhoods = await repository.getNeighborhoods('district-1');
+
+        expect(cities.data!.map((city) => city.name), <String>[
+          'Ceyhan',
+          'Çankaya',
+          'Iğdır',
+          'İstanbul',
+          'Üsküdar',
+        ]);
+        expect(districts.data!.map((district) => district.name), <String>[
+          'Ceyhan',
+          'Çankaya',
+          'Iğdır',
+          'İstanbul',
+          'Şişli',
+        ]);
+        expect(
+          neighborhoods.data!.map((neighborhood) => neighborhood.name),
+          <String>['2 Eylül', '10 Ekim', '100. Yıl', 'Osmangazi', 'Ödemiş'],
+        );
+      },
+    );
+
+    test(
       'LocationCubit clears dependent selections and stale errors',
       () async {
         const failure = AppError(code: 'cities_failed', message: 'Unavailable');

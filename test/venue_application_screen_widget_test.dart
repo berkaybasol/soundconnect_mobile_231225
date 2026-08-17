@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,7 +35,15 @@ void main() {
     await locationCubit.close();
   });
 
-  Widget app({VenueApplicationArgs? args}) {
+  Widget app({VenueApplicationArgs? args, bool includeSourceRoute = false}) {
+    Widget application() => MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthCubit>.value(value: authCubit),
+        BlocProvider<LocationCubit>.value(value: locationCubit),
+      ],
+      child: VenueApplicationScreen(args: args),
+    );
+
     return MaterialApp(
       routes: <String, WidgetBuilder>{
         AppRoutes.otpVerify: (context) {
@@ -42,13 +52,19 @@ void main() {
           return Scaffold(body: Text('otp:${otpArgs?.email}:${otpArgs?.role}'));
         },
       },
-      home: MultiBlocProvider(
-        providers: [
-          BlocProvider<AuthCubit>.value(value: authCubit),
-          BlocProvider<LocationCubit>.value(value: locationCubit),
-        ],
-        child: VenueApplicationScreen(args: args),
-      ),
+      home: includeSourceRoute ? null : application(),
+      onGenerateInitialRoutes: includeSourceRoute
+          ? (_) => <Route<dynamic>>[
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: '/source'),
+                builder: (_) => const Scaffold(body: Text('source-route')),
+              ),
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: AppRoutes.venueApplication),
+                builder: (_) => application(),
+              ),
+            ]
+          : null,
     );
   }
 
@@ -95,6 +111,8 @@ void main() {
   testWidgets('requires neighborhood and maps the complete venue submission', (
     tester,
   ) async {
+    final completer = Completer<Result<RegisterResult>>();
+    authRepository.registerCompleter = completer;
     authRepository.registerResult = const Result.success(
       RegisterResult(
         email: 'venue@example.com',
@@ -104,7 +122,7 @@ void main() {
       ),
     );
     _useLargeSurface(tester);
-    await tester.pumpWidget(app(args: _args));
+    await tester.pumpWidget(app(args: _args, includeSourceRoute: true));
     await tester.pump();
     await tester.pump();
 
@@ -158,6 +176,14 @@ void main() {
     await _chooseDropdown(tester, 2, 'Moda');
     await tester.tap(find.byType(GradientOutlineButton).hitTestable());
     await tester.pump();
+
+    expect(authRepository.registerCalls, 1);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(VenueApplicationScreen), findsOneWidget);
+    expect(find.text('source-route'), findsNothing);
+
+    completer.complete(authRepository.registerResult);
     await tester.pumpAndSettle();
 
     final registration = authRepository.lastRegistration;

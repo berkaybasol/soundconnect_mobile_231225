@@ -27,10 +27,29 @@ void main() {
     await cubit.close();
   });
 
-  Widget app({OtpVerifyArgs? args}) {
+  Widget app({
+    OtpVerifyArgs? args,
+    NavigatorObserver? observer,
+    bool includeRegistrationRoute = false,
+    bool includeCoveredOtpRoute = false,
+  }) {
     return MaterialApp(
       initialRoute: AppRoutes.otpVerify,
+      navigatorObservers: <NavigatorObserver>[if (observer != null) observer],
       onGenerateInitialRoutes: (_) => <Route<dynamic>>[
+        if (includeRegistrationRoute)
+          MaterialPageRoute<void>(
+            settings: const RouteSettings(name: AppRoutes.register),
+            builder: (_) => const Scaffold(body: Text('register-source')),
+          ),
+        if (includeCoveredOtpRoute)
+          MaterialPageRoute<void>(
+            settings: RouteSettings(name: AppRoutes.otpVerify, arguments: args),
+            builder: (_) => BlocProvider<AuthCubit>.value(
+              value: cubit,
+              child: const OtpVerifyScreen(),
+            ),
+          ),
         MaterialPageRoute<void>(
           settings: RouteSettings(name: AppRoutes.otpVerify, arguments: args),
           builder: (_) => BlocProvider<AuthCubit>.value(
@@ -123,6 +142,71 @@ void main() {
     expect(find.text('Code rejected'), findsOneWidget);
   });
 
+  testWidgets(
+    'rapid verify taps make one request and lock resend until completion',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      final completer = Completer<Result<void>>();
+      repository.verifyCompleter = completer;
+      await tester.pumpWidget(
+        app(args: const OtpVerifyArgs(email: 'valid@example.com')),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '123456');
+
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.pump();
+
+      expect(repository.verifyCalls, 1);
+      expect(repository.resendCalls, 0);
+      expect(
+        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        isNull,
+      );
+
+      completer.complete(
+        const Result.failure(
+          AppError(code: 'otp_invalid', message: 'Code rejected'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    },
+  );
+
+  testWidgets('in-flight verification blocks back until the success handoff', (
+    tester,
+  ) async {
+    _disposeOtpAfterTest(tester);
+    final completer = Completer<Result<void>>();
+    repository.verifyCompleter = completer;
+    await tester.pumpWidget(
+      app(
+        args: const OtpVerifyArgs(
+          email: 'musician@example.com',
+          role: 'ROLE_MUSICIAN',
+        ),
+        includeRegistrationRoute: true,
+      ),
+    );
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.tap(find.byType(GradientOutlineButton));
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(OtpVerifyScreen), findsOneWidget);
+    expect(find.text('register-source'), findsNothing);
+
+    completer.complete(const Result.success(null));
+    await tester.pumpAndSettle();
+
+    expect(find.text('login-target'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('resend maps email and restarts countdown from server TTL', (
     tester,
   ) async {
@@ -207,6 +291,39 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'only the current stacked OTP route handles shared verification success',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      final observer = _RecordingNavigatorObserver();
+      await tester.pumpWidget(
+        app(
+          args: const OtpVerifyArgs(
+            email: 'musician@example.com',
+            role: 'ROLE_MUSICIAN',
+          ),
+          observer: observer,
+          includeRegistrationRoute: true,
+          includeCoveredOtpRoute: true,
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '123456');
+      await tester.pump(const Duration(milliseconds: 999));
+
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('login-target'), findsOneWidget);
+      expect(
+        observer.pushedRouteNames.where((name) => name == AppRoutes.login),
+        hasLength(1),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _LoginTarget extends StatelessWidget {
@@ -231,4 +348,13 @@ void _disposeOtpAfterTest(WidgetTester tester) {
   addTearDown(() async {
     await tester.pumpWidget(const SizedBox.shrink());
   });
+}
+
+class _RecordingNavigatorObserver extends NavigatorObserver {
+  final List<String?> pushedRouteNames = <String?>[];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushedRouteNames.add(route.settings.name);
+  }
 }

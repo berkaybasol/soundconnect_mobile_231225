@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
+import '../../../../core/utils/turkish_alphabetical.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../location/domain/entities/city.dart';
 import '../../../location/domain/entities/district.dart';
@@ -74,9 +75,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
   }
 
   List<City> _sortCities(List<City> input) {
-    final list = List<City>.from(input);
-    list.sort((a, b) => a.name.compareTo(b.name));
-    return list;
+    return sortByTurkishName(input, (city) => city.name);
   }
 
   Future<void> _onCityChanged(String? cityId) async {
@@ -131,9 +130,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
   }
 
   List<District> _sortDistricts(List<District> input) {
-    final list = List<District>.from(input);
-    list.sort((a, b) => a.name.compareTo(b.name));
-    return list;
+    return sortByTurkishName(input, (district) => district.name);
   }
 
   Future<void> _loadNeighborhoods(String districtId) async {
@@ -147,9 +144,7 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
   }
 
   List<Neighborhood> _sortNeighborhoods(List<Neighborhood> input) {
-    final list = List<Neighborhood>.from(input);
-    list.sort((a, b) => a.name.compareTo(b.name));
-    return list;
+    return sortByTurkishName(input, (neighborhood) => neighborhood.name);
   }
 
   Future<void> _onSearchTap() async {

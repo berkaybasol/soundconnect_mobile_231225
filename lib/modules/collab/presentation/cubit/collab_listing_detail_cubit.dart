@@ -3,33 +3,33 @@ import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/error/app_error.dart';
+import '../../data/collab_idempotency_store.dart';
+import '../../data/collab_request_canonicalizer.dart';
 import '../../domain/collab_commands.dart';
 import '../../domain/collab_repository.dart';
 import '../../domain/collab_types.dart';
 import 'collab_async_state.dart';
+import 'collab_conflict_support.dart';
 import 'collab_listing_detail_state.dart';
 
 class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
   CollabListingDetailCubit(
     this._repository, {
     String Function()? requestIdFactory,
+    CollabIdempotencyStore? idempotencyStore,
   }) : _requestIdFactory = requestIdFactory ?? const Uuid().v4,
+       _idempotencyStore = idempotencyStore ?? MemoryCollabIdempotencyStore(),
        super(const CollabListingDetailState());
 
   final CollabRepository _repository;
   final String Function() _requestIdFactory;
-  String? _applicationRequestId;
-  String? _applicationPayloadFingerprint;
-  String? _reportRequestId;
-  String? _reportPayloadFingerprint;
+  final CollabIdempotencyStore _idempotencyStore;
   int _generation = 0;
+  int _actorGeneration = 0;
 
   Future<void> load(String listingId) async {
     final generation = ++_generation;
-    _applicationRequestId = null;
-    _applicationPayloadFingerprint = null;
-    _reportRequestId = null;
-    _reportPayloadFingerprint = null;
     emit(
       state.copyWith(
         status: CollabLoadStatus.loading,
@@ -38,6 +38,10 @@ class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
         error: null,
         actionError: null,
         reportSubmitted: false,
+        isSaving: false,
+        isApplying: false,
+        isClosing: false,
+        isReporting: false,
       ),
     );
     final result = await _repository.getListing(listingId);
@@ -68,11 +72,12 @@ class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
             state.actorStatus == CollabLoadStatus.success)) {
       return;
     }
+    final generation = ++_actorGeneration;
     emit(
       state.copyWith(actorStatus: CollabLoadStatus.loading, actorError: null),
     );
     final result = await _repository.getMyActors();
-    if (isClosed) return;
+    if (isClosed || generation != _actorGeneration) return;
     emit(
       state.copyWith(
         actorStatus: result.isSuccess
@@ -86,7 +91,13 @@ class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
 
   Future<void> toggleSaved() async {
     final listing = state.listing;
-    if (listing == null || state.isSaving) return;
+    if (listing == null ||
+        !listing.isOpen ||
+        listing.ownedByMe ||
+        state.isSaving) {
+      return;
+    }
+    final generation = _generation;
     final nextSaved = !listing.savedByMe;
     emit(
       state.copyWith(
@@ -98,7 +109,7 @@ class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
     final result = nextSaved
         ? await _repository.saveListing(listing.id)
         : await _repository.unsaveListing(listing.id);
-    if (isClosed) return;
+    if (!_isCurrent(generation)) return;
     emit(
       state.copyWith(
         listing: result.isSuccess ? state.listing : listing,
@@ -111,32 +122,47 @@ class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
   Future<void> apply(CollabApplicationInput input) async {
     final listing = state.listing;
     if (listing == null || state.isApplying || !listing.canApply) return;
-    final fingerprint = _applicationFingerprint(input);
-    if (_applicationRequestId == null ||
-        _applicationPayloadFingerprint != fingerprint) {
-      _applicationRequestId = _requestIdFactory();
-      _applicationPayloadFingerprint = fingerprint;
-    }
-    final requestId = _applicationRequestId!;
+    final generation = _generation;
+    final canonicalInput = canonicalCollabApplicationInput(input);
     emit(state.copyWith(isApplying: true, actionError: null));
+    late final CollabIdempotencyLease lease;
+    try {
+      lease = await _idempotencyStore.acquire(
+        operation: 'apply',
+        targetId: listing.id,
+        payloadFingerprint: _applicationFingerprint(canonicalInput),
+        createRequestId: _requestIdFactory,
+      );
+    } catch (_) {
+      if (_isCurrent(generation)) {
+        emit(state.copyWith(isApplying: false, actionError: _idempotencyError));
+      }
+      return;
+    }
+    if (!_isCurrent(generation)) return;
     final result = await _repository.apply(
       listing.id,
-      input,
-      clientRequestId: requestId,
+      canonicalInput,
+      clientRequestId: lease.requestId,
     );
-    if (isClosed) return;
     if (result.isSuccess) {
-      _applicationRequestId = null;
-      _applicationPayloadFingerprint = null;
+      AppError? cleanupError;
+      try {
+        await _idempotencyStore.complete(lease);
+      } catch (_) {
+        cleanupError = _idempotencyCleanupError;
+      }
+      if (!_isCurrent(generation)) return;
       emit(
         state.copyWith(
           listing: listing.copyWith(appliedByMe: true),
           application: result.data,
           isApplying: false,
-          actionError: null,
+          actionError: cleanupError,
         ),
       );
     } else {
+      if (!_isCurrent(generation)) return;
       emit(state.copyWith(isApplying: false, actionError: result.error));
     }
   }
@@ -149,12 +175,21 @@ class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
         state.isClosing) {
       return;
     }
+    final generation = _generation;
     emit(state.copyWith(isClosing: true, actionError: null));
     final result = await _repository.closeListing(
       listing.id,
       expectedVersion: listing.version,
     );
-    if (isClosed) return;
+    if (!_isCurrent(generation)) return;
+    if (isCollabStaleUpdate(result.error)) {
+      final conflict = result.error;
+      await load(listing.id);
+      if (!isClosed && conflict != null) {
+        emit(state.copyWith(isClosing: false, actionError: conflict));
+      }
+      return;
+    }
     emit(
       state.copyWith(
         listing: result.data ?? listing,
@@ -167,42 +202,73 @@ class CollabListingDetailCubit extends Cubit<CollabListingDetailState> {
   Future<void> report(CollabReportInput input) async {
     final listing = state.listing;
     if (listing == null || state.isReporting || state.reportSubmitted) return;
-    final fingerprint = _reportFingerprint(input);
-    if (_reportRequestId == null || _reportPayloadFingerprint != fingerprint) {
-      _reportRequestId = _requestIdFactory();
-      _reportPayloadFingerprint = fingerprint;
-    }
-    final requestId = _reportRequestId!;
+    final generation = _generation;
+    final canonicalInput = canonicalCollabReportInput(input);
     emit(state.copyWith(isReporting: true, actionError: null));
+    late final CollabIdempotencyLease lease;
+    try {
+      lease = await _idempotencyStore.acquire(
+        operation: 'report',
+        targetId: listing.id,
+        payloadFingerprint: _reportFingerprint(canonicalInput),
+        createRequestId: _requestIdFactory,
+      );
+    } catch (_) {
+      if (_isCurrent(generation)) {
+        emit(
+          state.copyWith(isReporting: false, actionError: _idempotencyError),
+        );
+      }
+      return;
+    }
+    if (!_isCurrent(generation)) return;
     final result = await _repository.reportListing(
       listing.id,
-      input,
-      clientRequestId: requestId,
+      canonicalInput,
+      clientRequestId: lease.requestId,
     );
-    if (isClosed) return;
+    AppError? cleanupError;
     if (result.isSuccess) {
-      _reportRequestId = null;
-      _reportPayloadFingerprint = null;
+      try {
+        await _idempotencyStore.complete(lease);
+      } catch (_) {
+        cleanupError = _idempotencyCleanupError;
+      }
     }
+    if (!_isCurrent(generation)) return;
     emit(
       state.copyWith(
         isReporting: false,
         reportSubmitted: result.isSuccess,
-        actionError: result.error,
+        actionError: result.error ?? cleanupError,
       ),
     );
   }
 
+  bool _isCurrent(int generation) {
+    return !isClosed && generation == _generation;
+  }
+
   String _applicationFingerprint(CollabApplicationInput input) =>
       jsonEncode(<String, Object?>{
-        'applicantActorId': input.applicantActorId.trim(),
-        'phone': input.phone.trim(),
-        'message': input.message.trim(),
+        'applicantActorId': input.applicantActorId,
+        'phone': input.phone,
+        'message': canonicalCollabOptionalText(input.message),
       });
 
   String _reportFingerprint(CollabReportInput input) =>
       jsonEncode(<String, Object?>{
         'reason': input.reason.apiValue,
-        'details': input.details?.trim(),
+        'details': input.details,
       });
+
+  static const AppError _idempotencyError = AppError(
+    code: 'collab_idempotency_storage',
+    message: 'Güvenli istek anahtarı hazırlanamadı. Lütfen tekrar dene.',
+  );
+
+  static const AppError _idempotencyCleanupError = AppError(
+    code: 'collab_idempotency_cleanup',
+    message: 'İşlem tamamlandı ancak yerel istek anahtarı temizlenemedi.',
+  );
 }

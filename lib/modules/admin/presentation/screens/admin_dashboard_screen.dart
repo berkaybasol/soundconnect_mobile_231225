@@ -13,11 +13,13 @@ import '../cubit/admin_panel_cubit.dart';
 import '../cubit/admin_panel_state.dart';
 import 'admin_application_filters.dart';
 import 'admin_backline_category_requests.dart';
+import 'admin_collab_reports.dart';
 
 enum _AdminModule {
   venueApplications,
   studioApplications,
   backlineCategoryRequests,
+  collabReports,
   users,
   profiles,
   promotions,
@@ -75,6 +77,8 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                 loadStudio: _selectedModule == _AdminModule.studioApplications,
                 loadBacklineCategoryRequests:
                     _selectedModule == _AdminModule.backlineCategoryRequests,
+                loadCollabReports:
+                    _selectedModule == _AdminModule.collabReports,
               ),
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -88,6 +92,8 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                         loadBacklineCategoryRequests:
                             _selectedModule ==
                             _AdminModule.backlineCategoryRequests,
+                        loadCollabReports:
+                            _selectedModule == _AdminModule.collabReports,
                       ),
                     ),
                   ),
@@ -102,6 +108,8 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                           loadBacklineCategoryRequests:
                               _selectedModule ==
                               _AdminModule.backlineCategoryRequests,
+                          loadCollabReports:
+                              _selectedModule == _AdminModule.collabReports,
                         ),
                         compact: true,
                       ),
@@ -122,6 +130,11 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
                               .loadBacklineCategoryRequestsList(
                                 state.selectedBacklineCategoryRequestStatus,
                               );
+                        } else if (module == _AdminModule.collabReports) {
+                          context.read<AdminPanelCubit>().loadCollabReportsList(
+                            state.selectedCollabReportStatus,
+                            state.selectedCollabReportReason,
+                          );
                         } else if (module == _AdminModule.venueApplications) {
                           context.read<AdminPanelCubit>().loadVenueApplications(
                             state.selectedStatus,
@@ -153,6 +166,9 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
     }
     if (_selectedModule == _AdminModule.backlineCategoryRequests) {
       return AdminBacklineCategoryRequestsSection.buildSlivers(context, state);
+    }
+    if (_selectedModule == _AdminModule.collabReports) {
+      return AdminCollabReportsSection.buildSlivers(context, state);
     }
     if (_selectedModule != _AdminModule.venueApplications) {
       return [
@@ -489,6 +505,12 @@ class _ModuleBoard extends StatelessWidget {
         icon: Icons.account_tree_outlined,
       ),
       const _ModuleItem(
+        module: _AdminModule.collabReports,
+        title: 'Collab Moderasyonu',
+        subtitle: 'İlan raporları ve kararlar',
+        icon: Icons.shield_outlined,
+      ),
+      const _ModuleItem(
         module: _AdminModule.users,
         title: 'Kullanıcılar',
         subtitle: 'Hesaplar ve roller',
@@ -684,6 +706,7 @@ class _ModuleHeader extends StatelessWidget {
                   _AdminModule.venueApplications,
                   _AdminModule.studioApplications,
                   _AdminModule.backlineCategoryRequests,
+                  _AdminModule.collabReports,
                 }.contains(module)
                 ? 'Canlı'
                 : 'Sıradaki',
@@ -1149,6 +1172,7 @@ String _moduleTitle(_AdminModule module) {
     _AdminModule.venueApplications => 'Mekân Başvuruları',
     _AdminModule.studioApplications => 'Stüdyo Başvuruları',
     _AdminModule.backlineCategoryRequests => 'Backline Kategori Talepleri',
+    _AdminModule.collabReports => 'Collab Moderasyonu',
     _AdminModule.users => 'Kullanıcılar',
     _AdminModule.profiles => 'Profiller',
     _AdminModule.promotions => 'Promosyonlar',

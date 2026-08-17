@@ -25,20 +25,31 @@ class NotificationCubit extends Cubit<NotificationState> {
 
   StreamSubscription<AppNotification>? _notificationSubscription;
   StreamSubscription<int>? _badgeSubscription;
+  StreamSubscription<void>? _connectionSubscription;
   String? _startedUserId;
   Future<void>? _startInFlight;
+  Future<void>? _stopInFlight;
+  Future<void>? _resumeReconciliationInFlight;
+  Future<void>? _gapReconciliationInFlight;
+  int? _gapReconciliationGeneration;
+  bool _gapReconciliationQueued = false;
+  Timer? _badgeReconciliationTimer;
   int _lifecycleGeneration = 0;
+  int _sessionRevision = 0;
+  int _refreshSequence = 0;
+  int _realtimeRevision = 0;
+  int _badgeRevision = 0;
+  final Map<String, int> _realtimeRevisionById = <String, int>{};
+  final Set<String> _pendingDeletionIds = <String>{};
 
   Future<void> ensureStarted() async {
+    final stopInFlight = _stopInFlight;
+    if (stopInFlight != null) await stopInFlight;
     final requestGeneration = _lifecycleGeneration;
     final inFlight = _startInFlight;
     if (inFlight != null) {
       await inFlight;
-      if (!_isCurrent(requestGeneration) ||
-          _startedUserId != null ||
-          state.initialized) {
-        return;
-      }
+      if (!_isCurrent(requestGeneration)) return;
     }
     if (!_isCurrent(requestGeneration)) return;
     final startFuture = _ensureStartedInternal(requestGeneration);
@@ -56,50 +67,173 @@ class NotificationCubit extends Cubit<NotificationState> {
     final currentUserId = await resolveNotificationUserId(_tokenStore);
     if (!_isCurrent(generation)) return;
     if (currentUserId == null || currentUserId.trim().isEmpty) {
+      if (_startedUserId != null) _sessionRevision += 1;
       _startedUserId = null;
-      emit(state.copyWith(initialized: true));
+      _realtimeRevisionById.clear();
+      _pendingDeletionIds.clear();
+      emit(const NotificationState.initial().copyWith(initialized: true));
       return;
     }
     if (_startedUserId == currentUserId && state.initialized) return;
+    final switchingUser = _startedUserId != null;
+    _sessionRevision += 1;
     _startedUserId = currentUserId;
+    _realtimeRevisionById.clear();
+    _pendingDeletionIds.clear();
+    if (switchingUser) emit(const NotificationState.initial());
 
     await _notificationSubscription?.cancel();
     await _badgeSubscription?.cancel();
+    await _connectionSubscription?.cancel();
     if (!_isCurrent(generation)) return;
     _notificationSubscription = null;
     _badgeSubscription = null;
+    _connectionSubscription = null;
+    if (switchingUser) {
+      await _realtimeClient.disconnect();
+      if (!_isCurrent(generation)) return;
+    }
 
+    final subscriptionSessionRevision = _sessionRevision;
     _notificationSubscription = _realtimeClient.notificationStream.listen((
       notification,
     ) {
-      if (_isCurrent(generation)) _onRealtimeNotification(notification);
+      if (_isCurrentSession(generation, subscriptionSessionRevision)) {
+        _onRealtimeNotification(notification);
+      }
     });
     _badgeSubscription = _realtimeClient.badgeStream.listen((count) {
-      if (_isCurrent(generation)) {
+      if (_isCurrentSession(generation, subscriptionSessionRevision)) {
+        final shouldReconcile = state.initialized;
+        _badgeRevision += 1;
         emit(state.copyWith(unreadCount: count.clamp(0, 999999)));
+        if (shouldReconcile) {
+          _scheduleBadgeReconciliation(generation, subscriptionSessionRevision);
+        }
       }
     });
-
-    final token = await readNotificationAuthToken(_tokenStore);
-    if (!_isCurrent(generation)) return;
-    if (token != null) {
-      try {
-        await _realtimeClient.connect(userId: currentUserId, token: token);
-      } catch (_) {
-        // REST notifications remain available when realtime is unavailable.
+    var observedConnection = _realtimeClient.isConnected;
+    _connectionSubscription = _realtimeClient.connectionStream.listen((_) {
+      if (!_isCurrentSession(generation, subscriptionSessionRevision)) return;
+      if (!observedConnection) {
+        observedConnection = true;
+        return;
       }
-    }
+      // An explicit foreground reconciliation already performs its own
+      // authoritative REST refresh after reconnecting. The connection frame
+      // is the same event, not a second gap that needs another request.
+      if (_resumeReconciliationInFlight != null) return;
+      unawaited(_reconcileAfterRealtimeGap(generation));
+    });
+
+    await _connectRealtimeIfNeeded(currentUserId, generation);
     if (!_isCurrent(generation)) {
       await _realtimeClient.disconnect();
       return;
     }
-    await _refresh(generation);
+    await _reconcileAfterRealtimeGap(generation);
   }
 
-  Future<void> refresh() => _refresh(_lifecycleGeneration);
+  Future<void> _reconcileAfterRealtimeGap(int generation) {
+    final inFlight = _gapReconciliationInFlight;
+    if (inFlight != null && _gapReconciliationGeneration == generation) {
+      _gapReconciliationQueued = true;
+      return inFlight;
+    }
+    if (!_isCurrent(generation)) return Future<void>.value();
 
-  Future<void> _refresh(int generation) async {
+    final operation = _runGapReconciliationLoop(generation);
+    _gapReconciliationInFlight = operation;
+    _gapReconciliationGeneration = generation;
+    return operation.whenComplete(() {
+      if (identical(_gapReconciliationInFlight, operation)) {
+        _gapReconciliationInFlight = null;
+        _gapReconciliationGeneration = null;
+      }
+    });
+  }
+
+  Future<void> _runGapReconciliationLoop(int generation) async {
+    do {
+      _gapReconciliationQueued = false;
+      final sessionRevision = _sessionRevision;
+      await _refresh(generation, sessionRevision: sessionRevision);
+      if (_isCurrent(generation) && sessionRevision != _sessionRevision) {
+        _gapReconciliationQueued = true;
+      }
+    } while (_gapReconciliationQueued && _isCurrent(generation));
+  }
+
+  void _scheduleBadgeReconciliation(int generation, int sessionRevision) {
+    _badgeReconciliationTimer?.cancel();
+    _badgeReconciliationTimer = Timer(const Duration(milliseconds: 250), () {
+      _badgeReconciliationTimer = null;
+      if (_isCurrentSession(generation, sessionRevision)) {
+        unawaited(_reconcileAfterRealtimeGap(generation));
+      }
+    });
+  }
+
+  Future<void> refresh() =>
+      _refresh(_lifecycleGeneration, sessionRevision: _sessionRevision);
+
+  /// Reconciles notifications after the app returns to the foreground.
+  ///
+  /// Mobile platforms may suspend the realtime socket while the app is in the
+  /// background. Reconnecting and refreshing are deliberately independent so
+  /// a websocket outage never prevents the REST-backed list and badge from
+  /// catching up.
+  Future<void> reconcileAfterResume() {
+    final inFlight = _resumeReconciliationInFlight;
+    if (inFlight != null) return inFlight;
+
+    final operation = _reconcileAfterResumeInternal();
+    _resumeReconciliationInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_resumeReconciliationInFlight, operation)) {
+        _resumeReconciliationInFlight = null;
+      }
+    });
+  }
+
+  Future<void> _reconcileAfterResumeInternal() async {
+    final generation = _lifecycleGeneration;
+    final startInFlight = _startInFlight;
+    if (startInFlight != null) await startInFlight;
     if (!_isCurrent(generation)) return;
+
+    final currentUserId = await resolveNotificationUserId(_tokenStore);
+    if (!_isCurrent(generation)) return;
+    if (currentUserId == null || currentUserId.trim().isEmpty) {
+      await stop();
+      return;
+    }
+    if (_startedUserId != currentUserId || !state.initialized) {
+      await ensureStarted();
+      return;
+    }
+
+    await _connectRealtimeIfNeeded(currentUserId, generation);
+    if (!_isCurrent(generation)) return;
+    await _refresh(generation, sessionRevision: _sessionRevision);
+  }
+
+  Future<void> _connectRealtimeIfNeeded(String userId, int generation) async {
+    if (!_isCurrent(generation) || _realtimeClient.isConnected) return;
+    final token = await readNotificationAuthToken(_tokenStore);
+    if (!_isCurrent(generation) || token == null) return;
+    try {
+      await _realtimeClient.connect(userId: userId, token: token);
+    } catch (_) {
+      // REST notifications remain available when realtime is unavailable.
+    }
+  }
+
+  Future<void> _refresh(int generation, {required int sessionRevision}) async {
+    if (!_isCurrentSession(generation, sessionRevision)) return;
+    final requestSequence = ++_refreshSequence;
+    final realtimeRevisionAtStart = _realtimeRevision;
+    final badgeRevisionAtStart = _badgeRevision;
     emit(
       state.copyWith(
         status: NotificationStatus.loading,
@@ -107,10 +241,22 @@ class NotificationCubit extends Cubit<NotificationState> {
         initialized: true,
       ),
     );
-    final unreadResult = await _repository.getUnreadCount();
-    if (!_isCurrent(generation)) return;
     final pageResult = await _repository.listNotifications();
-    if (!_isCurrent(generation)) return;
+    if (!_isCurrentSessionRefresh(
+      generation,
+      sessionRevision,
+      requestSequence,
+    )) {
+      return;
+    }
+    final unreadResult = await _repository.getUnreadCount();
+    if (!_isCurrentSessionRefresh(
+      generation,
+      sessionRevision,
+      requestSequence,
+    )) {
+      return;
+    }
 
     if (!pageResult.isSuccess || pageResult.data == null) {
       emit(
@@ -123,13 +269,30 @@ class NotificationCubit extends Cubit<NotificationState> {
       return;
     }
 
+    final realtimeItems = state.items.where(
+      (item) => (_realtimeRevisionById[item.id] ?? 0) > realtimeRevisionAtStart,
+    );
+    final mergedItems = _mergeById(<AppNotification>[
+      ...realtimeItems,
+      ...pageResult.data!.items,
+    ]).where((item) => !_pendingDeletionIds.contains(item.id)).toList();
+    final mergedIds = mergedItems.map((item) => item.id).toSet();
+    _realtimeRevisionById.removeWhere((id, _) => !mergedIds.contains(id));
+
+    final badgeChangedDuringRefresh = _badgeRevision > badgeRevisionAtStart;
+    var unreadCount = badgeChangedDuringRefresh
+        ? state.unreadCount
+        : unreadResult.data ?? state.unreadCount;
+    if (!badgeChangedDuringRefresh) {
+      final visibleUnreadCount = mergedItems.where((item) => !item.read).length;
+      if (unreadCount < visibleUnreadCount) unreadCount = visibleUnreadCount;
+    }
+
     emit(
       state.copyWith(
         status: NotificationStatus.success,
-        items: pageResult.data!.items,
-        unreadCount: unreadResult.isSuccess
-            ? unreadResult.data ?? 0
-            : state.unreadCount,
+        items: mergedItems,
+        unreadCount: unreadCount.clamp(0, 999999),
         page: 0,
         hasNext: pageResult.data!.hasNext,
         clearError: true,
@@ -142,9 +305,16 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (!state.hasNext || state.status == NotificationStatus.loadingMore) {
       return;
     }
+    final generation = _lifecycleGeneration;
+    final sessionRevision = _sessionRevision;
+    final refreshSequence = _refreshSequence;
     final nextPage = state.page + 1;
     emit(state.copyWith(status: NotificationStatus.loadingMore));
     final result = await _repository.listNotifications(page: nextPage);
+    if (!_isCurrentSession(generation, sessionRevision) ||
+        !_isCurrentRefresh(generation, refreshSequence)) {
+      return;
+    }
     if (!result.isSuccess || result.data == null) {
       emit(
         state.copyWith(
@@ -174,22 +344,30 @@ class NotificationCubit extends Cubit<NotificationState> {
 
   Future<void> markAsRead(AppNotification notification) async {
     if (notification.read) return;
+    final generation = _lifecycleGeneration;
+    final sessionRevision = _sessionRevision;
+    final badgeRevision = _badgeRevision;
     final result = await _repository.markAsRead(
       notificationId: notification.id,
     );
+    if (!_isCurrentSession(generation, sessionRevision)) return;
     if (!result.isSuccess) {
       emit(state.copyWith(errorMessage: result.error?.message));
       return;
     }
+    var changed = false;
+    final updatedItems = state.items.map((item) {
+      if (item.id != notification.id || item.read) return item;
+      changed = true;
+      return item.copyWith(read: true);
+    }).toList();
+    if (!changed) return;
     emit(
       state.copyWith(
-        items: state.items
-            .map(
-              (item) =>
-                  item.id == notification.id ? item.copyWith(read: true) : item,
-            )
-            .toList(),
-        unreadCount: (state.unreadCount - 1).clamp(0, 999999),
+        items: updatedItems,
+        unreadCount: _badgeRevision == badgeRevision
+            ? (state.unreadCount - 1).clamp(0, 999999)
+            : state.unreadCount,
         clearError: true,
       ),
     );
@@ -225,73 +403,139 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   Future<void> markAllAsRead() async {
+    final generation = _lifecycleGeneration;
+    final sessionRevision = _sessionRevision;
     final result = await _repository.markAllAsRead();
+    if (!_isCurrentSession(generation, sessionRevision)) return;
     if (!result.isSuccess) {
       emit(state.copyWith(errorMessage: result.error?.message));
       return;
     }
-    emit(
-      state.copyWith(
-        items: state.items.map((item) => item.copyWith(read: true)).toList(),
-        unreadCount: 0,
-        clearError: true,
-      ),
-    );
+    await _refresh(generation, sessionRevision: sessionRevision);
   }
 
   Future<void> deleteNotification(AppNotification notification) async {
-    final result = await _repository.deleteNotification(
-      notificationId: notification.id,
+    final generation = _lifecycleGeneration;
+    final sessionRevision = _sessionRevision;
+    final badgeRevision = _badgeRevision;
+    final currentIndex = state.items.indexWhere(
+      (item) => item.id == notification.id,
     );
-    if (!result.isSuccess) {
-      emit(state.copyWith(errorMessage: result.error?.message));
-      return;
-    }
+    if (currentIndex < 0 || !_pendingDeletionIds.add(notification.id)) return;
+    final currentNotification = state.items[currentIndex];
+    final realtimeRevision = _realtimeRevisionById.remove(notification.id);
     emit(
       state.copyWith(
         items: state.items.where((item) => item.id != notification.id).toList(),
-        unreadCount: notification.read
+        unreadCount: currentNotification.read
             ? state.unreadCount
             : (state.unreadCount - 1).clamp(0, 999999),
         clearError: true,
       ),
     );
+    final result = await _repository.deleteNotification(
+      notificationId: notification.id,
+    );
+    if (!_isCurrentSession(generation, sessionRevision)) return;
+    if (!result.isSuccess) {
+      _pendingDeletionIds.remove(notification.id);
+      if (realtimeRevision != null) {
+        _realtimeRevisionById[notification.id] = realtimeRevision;
+      }
+      final restoredItems = <AppNotification>[...state.items];
+      if (!restoredItems.any((item) => item.id == notification.id)) {
+        restoredItems.insert(
+          currentIndex.clamp(0, restoredItems.length),
+          currentNotification,
+        );
+      }
+      emit(
+        state.copyWith(
+          items: restoredItems,
+          unreadCount:
+              !currentNotification.read && _badgeRevision == badgeRevision
+              ? (state.unreadCount + 1).clamp(0, 999999)
+              : state.unreadCount,
+          errorMessage: result.error?.message,
+        ),
+      );
+      return;
+    }
+    _pendingDeletionIds.remove(notification.id);
+    _realtimeRevisionById.remove(notification.id);
   }
 
   Future<void> clearAllNotifications() async {
     if (state.items.isEmpty) return;
+    final generation = _lifecycleGeneration;
+    final sessionRevision = _sessionRevision;
     final result = await _repository.clearAllNotifications();
+    if (!_isCurrentSession(generation, sessionRevision)) return;
     if (!result.isSuccess) {
       emit(state.copyWith(errorMessage: result.error?.message));
       return;
     }
-    emit(
-      state.copyWith(
-        items: const [],
-        unreadCount: 0,
-        page: 0,
-        hasNext: false,
-        clearError: true,
-      ),
-    );
+    await _refresh(generation, sessionRevision: sessionRevision);
   }
 
-  Future<void> stop() async {
-    _lifecycleGeneration += 1;
+  Future<void> stop() {
+    final inFlight = _stopInFlight;
+    if (inFlight != null) return inFlight;
+
+    final operation = _stopInternal();
+    _stopInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_stopInFlight, operation)) _stopInFlight = null;
+    });
+  }
+
+  Future<void> _stopInternal() async {
+    final generation = ++_lifecycleGeneration;
+    _sessionRevision += 1;
+    _refreshSequence += 1;
     _startedUserId = null;
+    _badgeReconciliationTimer?.cancel();
+    _badgeReconciliationTimer = null;
+    _gapReconciliationQueued = false;
     await _notificationSubscription?.cancel();
     await _badgeSubscription?.cancel();
+    await _connectionSubscription?.cancel();
     _notificationSubscription = null;
     _badgeSubscription = null;
+    _connectionSubscription = null;
     await _realtimeClient.disconnect();
-    if (!isClosed) emit(const NotificationState.initial());
+    _realtimeRevisionById.clear();
+    _pendingDeletionIds.clear();
+    if (_isCurrent(generation)) emit(const NotificationState.initial());
   }
 
   bool _isCurrent(int generation) {
     return !isClosed && generation == _lifecycleGeneration;
   }
 
+  bool _isCurrentSession(int generation, int sessionRevision) {
+    return _isCurrent(generation) && sessionRevision == _sessionRevision;
+  }
+
+  bool _isCurrentRefresh(int generation, int requestSequence) {
+    return _isCurrent(generation) && requestSequence == _refreshSequence;
+  }
+
+  bool _isCurrentSessionRefresh(
+    int generation,
+    int sessionRevision,
+    int requestSequence,
+  ) {
+    return _isCurrentSession(generation, sessionRevision) &&
+        requestSequence == _refreshSequence;
+  }
+
   void _onRealtimeNotification(AppNotification notification) {
+    final recipientId = notification.recipientId.trim();
+    if (_startedUserId == null || recipientId != _startedUserId) return;
+    if (_pendingDeletionIds.contains(notification.id)) return;
+    _realtimeRevision += 1;
+    _realtimeRevisionById[notification.id] = _realtimeRevision;
     final existingIndex = state.items.indexWhere(
       (item) => item.id == notification.id,
     );
@@ -314,6 +558,11 @@ class NotificationCubit extends Cubit<NotificationState> {
         clearError: true,
       ),
     );
+  }
+
+  List<AppNotification> _mergeById(Iterable<AppNotification> items) {
+    final seenIds = <String>{};
+    return items.where((item) => seenIds.add(item.id)).toList(growable: false);
   }
 
   @override

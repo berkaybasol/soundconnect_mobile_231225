@@ -50,7 +50,12 @@ class DmRealtimeClient {
     if (_connectedUserId == userId && _connected) return;
     final inFlight = _connectInFlight;
     if (inFlight != null) {
-      await inFlight;
+      try {
+        await inFlight;
+      } catch (_) {
+        // A cancelled/failed previous-user handshake must not prevent this
+        // caller from establishing the newly requested session below.
+      }
       if (_connectedUserId == userId && _connected) return;
     }
 

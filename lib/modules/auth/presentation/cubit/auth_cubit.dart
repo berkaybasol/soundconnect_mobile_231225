@@ -31,7 +31,10 @@ class AuthCubit extends Cubit<AuthState> {
   final TokenStore _tokenStore;
   final AuthSessionManager? _sessionManager;
   bool _wasSessionAuthenticated;
+  Future<void>? _loginInFlight;
   Future<void>? _logoutInFlight;
+  Future<void>? _registerInFlight;
+  Future<void>? _otpActionInFlight;
   int _usernameAvailabilityRequest = 0;
   int _passwordResetAccountRequest = 0;
 
@@ -64,7 +67,18 @@ class AuthCubit extends Cubit<AuthState> {
     _sessionManager?.addListener(_handleSessionChanged);
   }
 
-  Future<void> login({
+  Future<void> login({required String username, required String password}) {
+    final inFlight = _loginInFlight;
+    if (inFlight != null) return inFlight;
+
+    final operation = _performLogin(username: username, password: password);
+    _loginInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_loginInFlight, operation)) _loginInFlight = null;
+    });
+  }
+
+  Future<void> _performLogin({
     required String username,
     required String password,
   }) async {
@@ -190,6 +204,47 @@ class AuthCubit extends Cubit<AuthState> {
     String? studioName,
     String? studioAddress,
     String? studioPhone,
+  }) {
+    final inFlight = _registerInFlight;
+    if (inFlight != null) return inFlight;
+
+    final operation = _performRegister(
+      username: username,
+      email: email,
+      password: password,
+      rePassword: rePassword,
+      role: role,
+      venueName: venueName,
+      venueAddress: venueAddress,
+      phone: phone,
+      cityId: cityId,
+      districtId: districtId,
+      neighborhoodId: neighborhoodId,
+      studioName: studioName,
+      studioAddress: studioAddress,
+      studioPhone: studioPhone,
+    );
+    _registerInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_registerInFlight, operation)) _registerInFlight = null;
+    });
+  }
+
+  Future<void> _performRegister({
+    required String username,
+    required String email,
+    required String password,
+    required String rePassword,
+    required String role,
+    String? venueName,
+    String? venueAddress,
+    String? phone,
+    String? cityId,
+    String? districtId,
+    String? neighborhoodId,
+    String? studioName,
+    String? studioAddress,
+    String? studioPhone,
   }) async {
     emit(
       state.copyWith(
@@ -234,7 +289,21 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
-  Future<void> verifyCode({required String email, required String code}) async {
+  Future<void> verifyCode({required String email, required String code}) {
+    final inFlight = _otpActionInFlight;
+    if (inFlight != null) return inFlight;
+
+    final operation = _performVerifyCode(email: email, code: code);
+    _otpActionInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_otpActionInFlight, operation)) _otpActionInFlight = null;
+    });
+  }
+
+  Future<void> _performVerifyCode({
+    required String email,
+    required String code,
+  }) async {
     emit(
       state.copyWith(
         status: AuthStatus.loading,
@@ -262,7 +331,18 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
-  Future<void> resendCode({required String email}) async {
+  Future<void> resendCode({required String email}) {
+    final inFlight = _otpActionInFlight;
+    if (inFlight != null) return inFlight;
+
+    final operation = _performResendCode(email: email);
+    _otpActionInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_otpActionInFlight, operation)) _otpActionInFlight = null;
+    });
+  }
+
+  Future<void> _performResendCode({required String email}) async {
     emit(
       state.copyWith(
         status: AuthStatus.loading,

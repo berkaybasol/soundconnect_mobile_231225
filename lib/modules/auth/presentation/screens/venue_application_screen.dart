@@ -43,6 +43,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
   String? _selectedCityId;
   String? _selectedDistrictId;
   String? _selectedNeighborhoodId;
+  bool _registrationNavigationScheduled = false;
 
   @override
   void initState() {
@@ -119,12 +120,22 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
       listener: (context, state) {
         if (state.action != AuthAction.register) return;
         if (state.status == AuthStatus.success) {
+          final route = ModalRoute.of(context);
+          if (_registrationNavigationScheduled || route?.isCurrent != true) {
+            return;
+          }
+          _registrationNavigationScheduled = true;
           final email = state.registerResult?.email;
-          Navigator.pushNamed(
-            context,
-            AppRoutes.otpVerify,
-            arguments: OtpVerifyArgs(email: email, role: widget.args?.role),
-          );
+          final navigator = Navigator.of(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !navigator.mounted || route?.isCurrent != true) {
+              return;
+            }
+            navigator.pushNamed(
+              AppRoutes.otpVerify,
+              arguments: OtpVerifyArgs(email: email, role: widget.args?.role),
+            );
+          });
         } else if (state.status == AuthStatus.failure) {
           final message = state.error?.message ?? 'Kayıt başarısız.';
           _showError(message);
@@ -134,221 +145,238 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
         final isLoading =
             state.status == AuthStatus.loading &&
             state.action == AuthAction.register;
+        final registrationLocked =
+            isLoading || _registrationNavigationScheduled;
 
-        return AppScaffold(
-          title: 'Mekan bilgileri',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Mekan bilgilerini paylaş',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'Bilgileri doldurduktan sonra kısa sürede sizinle iletişime geçeceğiz.',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+        return PopScope(
+          canPop: !registrationLocked,
+          child: AppScaffold(
+            title: 'Mekan bilgileri',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Mekan bilgilerini paylaş',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
-              ),
-              SizedBox(height: 16),
-              GradientTextField(
-                key: const Key('venue-application-name-field'),
-                controller: _venueNameController,
-                label: 'Mekan adı',
-                prefixIcon: Icons.storefront_outlined,
-              ),
-              SizedBox(height: 12),
-              GradientTextField(
-                key: const Key('venue-application-phone-field'),
-                controller: _venuePhoneController,
-                label: 'Telefon',
-                prefixIcon: Icons.phone_outlined,
-              ),
-              SizedBox(height: 12),
-              BlocBuilder<LocationCubit, LocationState>(
-                builder: (context, locationState) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (locationState.status == LocationStatus.failure &&
-                          locationState.cities.isEmpty) ...[
-                        Text(
-                          locationState.error?.message ??
-                              'Sehirler yuklenemedi.',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
+                SizedBox(height: 6),
+                Text(
+                  'Bilgileri doldurduktan sonra kısa sürede sizinle iletişime geçeceğiz.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                SizedBox(height: 16),
+                GradientTextField(
+                  key: const Key('venue-application-name-field'),
+                  controller: _venueNameController,
+                  label: 'Mekan adı',
+                  prefixIcon: Icons.storefront_outlined,
+                ),
+                SizedBox(height: 12),
+                GradientTextField(
+                  key: const Key('venue-application-phone-field'),
+                  controller: _venuePhoneController,
+                  label: 'Telefon',
+                  prefixIcon: Icons.phone_outlined,
+                ),
+                SizedBox(height: 12),
+                BlocBuilder<LocationCubit, LocationState>(
+                  builder: (context, locationState) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (locationState.status == LocationStatus.failure &&
+                            locationState.cities.isEmpty) ...[
+                          Text(
+                            locationState.error?.message ??
+                                'Sehirler yuklenemedi.',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                           ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: () =>
-                                context.read<LocationCubit>().loadCities(),
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Tekrar dene'),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  context.read<LocationCubit>().loadCities(),
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Tekrar dene'),
+                            ),
                           ),
+                          const SizedBox(height: 8),
+                        ],
+                        DropdownButtonFormField<String>(
+                          value: _selectedCityId,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            prefixIcon: Icon(Icons.location_city_outlined),
+                            hintText: 'Şehir seç',
+                          ),
+                          dropdownColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainer,
+                          items: locationState.cities
+                              .map(
+                                (city) => DropdownMenuItem(
+                                  value: city.id,
+                                  child: Text(city.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: registrationLocked
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedCityId = value;
+                                    _selectedDistrictId = null;
+                                    _selectedNeighborhoodId = null;
+                                  });
+                                  if (value != null) {
+                                    context.read<LocationCubit>().loadDistricts(
+                                      value,
+                                    );
+                                  } else {
+                                    context
+                                        .read<LocationCubit>()
+                                        .resetDistricts();
+                                  }
+                                },
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _selectedDistrictId,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            prefixIcon: Icon(Icons.map_outlined),
+                            hintText: 'İlçe seç',
+                          ),
+                          dropdownColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainer,
+                          items: locationState.districts
+                              .map(
+                                (district) => DropdownMenuItem(
+                                  value: district.id,
+                                  child: Text(district.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: registrationLocked
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedDistrictId = value;
+                                    _selectedNeighborhoodId = null;
+                                  });
+                                  if (value != null) {
+                                    context
+                                        .read<LocationCubit>()
+                                        .loadNeighborhoods(value);
+                                  }
+                                },
+                        ),
+                        SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _selectedNeighborhoodId,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            prefixIcon: Icon(Icons.place_outlined),
+                            hintText: 'Mahalle seç',
+                          ),
+                          dropdownColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainer,
+                          items: locationState.neighborhoods
+                              .map(
+                                (neighborhood) => DropdownMenuItem(
+                                  value: neighborhood.id,
+                                  child: Text(neighborhood.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: registrationLocked
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedNeighborhoodId = value;
+                                  });
+                                },
+                        ),
                       ],
-                      DropdownButtonFormField<String>(
-                        value: _selectedCityId,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                          ),
-                          prefixIcon: Icon(Icons.location_city_outlined),
-                          hintText: 'Şehir seç',
-                        ),
-                        dropdownColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainer,
-                        items: locationState.cities
-                            .map(
-                              (city) => DropdownMenuItem(
-                                value: city.id,
-                                child: Text(city.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedCityId = value;
-                            _selectedDistrictId = null;
-                            _selectedNeighborhoodId = null;
-                          });
-                          if (value != null) {
-                            context.read<LocationCubit>().loadDistricts(value);
-                          } else {
-                            context.read<LocationCubit>().resetDistricts();
-                          }
-                        },
-                      ),
-                      SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _selectedDistrictId,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                          ),
-                          prefixIcon: Icon(Icons.map_outlined),
-                          hintText: 'İlçe seç',
-                        ),
-                        dropdownColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainer,
-                        items: locationState.districts
-                            .map(
-                              (district) => DropdownMenuItem(
-                                value: district.id,
-                                child: Text(district.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedDistrictId = value;
-                            _selectedNeighborhoodId = null;
-                          });
-                          if (value != null) {
-                            context.read<LocationCubit>().loadNeighborhoods(
-                              value,
-                            );
-                          }
-                        },
-                      ),
-                      SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _selectedNeighborhoodId,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                          ),
-                          prefixIcon: Icon(Icons.place_outlined),
-                          hintText: 'Mahalle seç',
-                        ),
-                        dropdownColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainer,
-                        items: locationState.neighborhoods
-                            .map(
-                              (neighborhood) => DropdownMenuItem(
-                                value: neighborhood.id,
-                                child: Text(neighborhood.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedNeighborhoodId = value;
-                          });
-                        },
-                      ),
-                    ],
-                  );
-                },
-              ),
-              SizedBox(height: 12),
-              GradientTextField(
-                key: const Key('venue-application-address-field'),
-                controller: _venueAddressController,
-                label: 'Açık Adres',
-                prefixIcon: Icons.location_on_outlined,
-              ),
-              SizedBox(height: 20),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: isLoading ? null : () => Navigator.pop(context),
-                    child: Text('Geri'),
-                  ),
-                  Spacer(),
-                  GradientOutlineButton(
-                    onPressed: isLoading ? null : _submit,
-                    label: isLoading ? 'Kaydediliyor...' : 'Tamamla',
-                  ),
-                ],
-              ),
-            ],
+                    );
+                  },
+                ),
+                SizedBox(height: 12),
+                GradientTextField(
+                  key: const Key('venue-application-address-field'),
+                  controller: _venueAddressController,
+                  label: 'Açık Adres',
+                  prefixIcon: Icons.location_on_outlined,
+                ),
+                SizedBox(height: 20),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: registrationLocked
+                          ? null
+                          : () => Navigator.pop(context),
+                      child: Text('Geri'),
+                    ),
+                    Spacer(),
+                    GradientOutlineButton(
+                      onPressed: registrationLocked ? null : _submit,
+                      label: isLoading ? 'Kaydediliyor...' : 'Tamamla',
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },

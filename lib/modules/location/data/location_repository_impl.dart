@@ -2,6 +2,7 @@ import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/utils/turkish_alphabetical.dart';
 import '../domain/location_repository.dart';
 import '../domain/entities/city.dart';
 import '../domain/entities/district.dart';
@@ -26,7 +27,7 @@ class LocationRepositoryImpl implements LocationRepository {
               .map((item) => CityModel.fromJson(item as Map<String, dynamic>))
               .map((model) => model.toEntity())
               .toList();
-          return list;
+          return sortByTurkishName(list, (city) => city.name);
         },
       );
       return Result.success(response);
@@ -54,7 +55,7 @@ class LocationRepositoryImpl implements LocationRepository {
               )
               .map((model) => model.toEntity())
               .toList();
-          return list;
+          return sortByTurkishName(list, (district) => district.name);
         },
       );
       return Result.success(response);
@@ -83,7 +84,7 @@ class LocationRepositoryImpl implements LocationRepository {
               )
               .map((model) => model.toEntity())
               .toList();
-          return list;
+          return sortByTurkishName(list, (neighborhood) => neighborhood.name);
         },
       );
       return Result.success(response);

@@ -32,4 +32,9 @@ class AdminEndpoints {
 
   static String reviewBacklineCategoryRequest(String id) =>
       '$backlineCategoryRequests/${Uri.encodeComponent(id)}/review';
+
+  static const String collabReports = '/api/v1/admin/collab/reports';
+
+  static String reviewCollabReport(String id) =>
+      '$collabReports/${Uri.encodeComponent(id)}/review';
 }

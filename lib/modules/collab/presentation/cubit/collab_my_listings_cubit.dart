@@ -3,6 +3,7 @@ import '../../domain/collab_page.dart';
 import '../../domain/collab_repository.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_listing.dart';
+import 'collab_conflict_support.dart';
 import 'collab_paged_cubit.dart';
 
 class CollabMyListingsCubit extends CollabPagedCubit<CollabListing> {
@@ -28,30 +29,49 @@ class CollabMyListingsCubit extends CollabPagedCubit<CollabListing> {
 
   Future<void> closeListing(CollabListing listing) async {
     if (!listing.isOpen || !beginItemAction(listing.id)) return;
+    final generation = operationGeneration;
     final result = await _repository.closeListing(
       listing.id,
       expectedVersion: listing.version,
     );
-    if (isClosed) return;
+    if (!isCurrentOperation(generation)) {
+      if (!isClosed) endItemAction(listing.id);
+      return;
+    }
     if (result.isSuccess) {
       final updated = result.data!;
       if (_statusFilter == null || _statusFilter == updated.status) {
         replaceItem(updated);
       } else {
-        removeItem(updated.id);
+        await removeItemAndRefresh(updated.id);
+        if (isClosed) return;
       }
+    } else if (isCollabStaleUpdate(result.error)) {
+      await refresh();
+      if (isClosed) return;
     }
+    if (isClosed) return;
     endItemAction(listing.id, error: result.error);
   }
 
   Future<void> deleteDraft(CollabListing listing) async {
     if (!listing.isDraft || !beginItemAction(listing.id)) return;
+    final generation = operationGeneration;
     final result = await _repository.deleteDraft(
       listing.id,
       expectedVersion: listing.version,
     );
-    if (isClosed) return;
-    if (result.isSuccess) removeItem(listing.id);
+    if (!isCurrentOperation(generation)) {
+      if (!isClosed) endItemAction(listing.id);
+      return;
+    }
+    if (result.isSuccess) {
+      await removeItemAndRefresh(listing.id);
+      if (isClosed) return;
+    } else if (isCollabStaleUpdate(result.error)) {
+      await refresh();
+      if (isClosed) return;
+    }
     endItemAction(listing.id, error: result.error);
   }
 }

@@ -6,6 +6,7 @@ class CollabActor {
     required this.profileType,
     required this.sourceProfileId,
     required this.contactUserId,
+    this.contactUsername = '',
     required this.displayName,
     required this.rating,
     required this.reviewCount,
@@ -19,6 +20,7 @@ class CollabActor {
 
   /// Empty only for review snapshots that intentionally omit contact data.
   final String contactUserId;
+  final String contactUsername;
   final String displayName;
   final String? avatarUrl;
   final double rating;

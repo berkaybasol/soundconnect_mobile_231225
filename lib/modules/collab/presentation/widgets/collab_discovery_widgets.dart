@@ -67,14 +67,15 @@ class CollabChoiceChip extends StatelessWidget {
 
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Semantics(
-      button: true,
+      button: onTap != null,
+      enabled: onTap != null,
       selected: selected,
       label: label,
       child: InkWell(

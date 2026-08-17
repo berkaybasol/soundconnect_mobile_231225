@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/access_policy.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../dm/presentation/cubit/dm_badge_cubit.dart';
@@ -21,6 +23,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
   final String? profileImageUrl;
   final StageMode stageMode;
   final bool profileTapAlwaysOpensOwnProfile;
+  final FutureOr<bool> Function()? onBeforeNavigate;
 
   ProfilePublicBottomBar({
     super.key,
@@ -28,6 +31,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
     this.profileImageUrl,
     this.stageMode = StageMode.backstage,
     this.profileTapAlwaysOpensOwnProfile = false,
+    this.onBeforeNavigate,
   });
 
   Widget _profileAvatar(BuildContext context, bool active) {
@@ -63,7 +67,10 @@ class ProfilePublicBottomBar extends StatelessWidget {
   ) {
     return [
       BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Akış'),
-      BottomNavigationBarItem(icon: _announcementIcon(context), label: 'İlan'),
+      BottomNavigationBarItem(
+        icon: _announcementIcon(context),
+        label: 'Collab',
+      ),
       BottomNavigationBarItem(
         icon: Icon(Icons.rocket_launch_outlined),
         label: 'Git',
@@ -106,13 +113,19 @@ class ProfilePublicBottomBar extends StatelessWidget {
     ];
   }
 
-  void _handleBackstageTap(
+  Future<void> _handleBackstageTap(
     BuildContext context,
     int index,
     String? resolvedProfileImageUrl,
-  ) {
+  ) async {
+    if (index != 2 &&
+        index == currentIndex &&
+        !(index == 4 && profileTapAlwaysOpensOwnProfile)) {
+      return;
+    }
+    if (!await _navigationAllowed()) return;
+    if (!context.mounted) return;
     if (index == 0) {
-      if (currentIndex == 0) return;
       replaceProfileBottomNavigationRoute(
         context,
         AppRoutes.backstageProfilesHome,
@@ -123,12 +136,22 @@ class ProfilePublicBottomBar extends StatelessWidget {
       return;
     }
     if (index == 1) {
-      if (currentIndex == 1) return;
+      final token = await serviceLocator<TokenStore>().readToken();
+      if (!context.mounted) return;
+      if (!AccessPolicy.canAccessCollab(_rolesFromToken(token))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Collab yalnız Müzisyen, Mekan ve Stüdyo profilleriyle kullanılabilir.',
+            ),
+          ),
+        );
+        return;
+      }
       replaceProfileBottomNavigationRoute(context, AppRoutes.collabDiscovery);
       return;
     }
     if (index == 3) {
-      if (currentIndex == 3) return;
       replaceProfileBottomNavigationRoute(context, AppRoutes.dmConversations);
       return;
     }
@@ -137,9 +160,14 @@ class ProfilePublicBottomBar extends StatelessWidget {
       return;
     }
     if (index == 4) {
-      if (currentIndex == 4 && !profileTapAlwaysOpensOwnProfile) return;
       _openBackstageProfile(context);
     }
+  }
+
+  Future<bool> _navigationAllowed() async {
+    final callback = onBeforeNavigate;
+    if (callback == null) return true;
+    return await callback();
   }
 
   Future<void> _openBackstageProfile(BuildContext context) async {
@@ -283,14 +311,18 @@ class ProfilePublicBottomBar extends StatelessWidget {
     );
   }
 
-  void _handleMainstageTap(BuildContext context, int index) {
+  Future<void> _handleMainstageTap(BuildContext context, int index) async {
+    if (index == currentIndex &&
+        !(index == 4 && profileTapAlwaysOpensOwnProfile)) {
+      return;
+    }
+    if (!await _navigationAllowed()) return;
+    if (!context.mounted) return;
     if (index == 1) {
-      if (currentIndex == 1) return;
       replaceProfileBottomNavigationRoute(context, AppRoutes.overthinkingFeed);
       return;
     }
     if (index == 2) {
-      if (currentIndex == 2) return;
       replaceProfileBottomNavigationRoute(
         context,
         AppRoutes.tableGroupList,
@@ -301,12 +333,10 @@ class ProfilePublicBottomBar extends StatelessWidget {
       return;
     }
     if (index == 3) {
-      if (currentIndex == 3) return;
       replaceProfileBottomNavigationRoute(context, AppRoutes.dmConversations);
       return;
     }
     if (index == 4) {
-      if (currentIndex == 4 && !profileTapAlwaysOpensOwnProfile) return;
       _openProfileForCurrentRole(context);
     }
   }
@@ -331,10 +361,12 @@ class ProfilePublicBottomBar extends StatelessWidget {
             unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
             onTap: (index) {
               if (stageMode == StageMode.mainstage) {
-                _handleMainstageTap(context, index);
+                unawaited(_handleMainstageTap(context, index));
                 return;
               }
-              _handleBackstageTap(context, index, resolvedProfileImageUrl);
+              unawaited(
+                _handleBackstageTap(context, index, resolvedProfileImageUrl),
+              );
             },
             items: stageMode == StageMode.mainstage
                 ? _mainstageItems(context, state)

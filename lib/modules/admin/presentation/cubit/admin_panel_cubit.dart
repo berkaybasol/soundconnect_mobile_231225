@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/result.dart';
 import '../../domain/admin_repository.dart';
 import '../../domain/entities/admin_backline_category_request.dart';
+import '../../domain/entities/admin_collab_report.dart';
 import '../../domain/entities/admin_venue_application.dart';
 import '../../domain/entities/admin_studio_application.dart';
 import 'admin_panel_state.dart';
@@ -15,22 +16,35 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
   int _reloadGeneration = 0;
   int _applicationsGeneration = 0;
 
-  Future<void> initialize() =>
-      _reloadAll(loadStudio: false, loadBacklineCategoryRequests: false);
+  Future<void> initialize() => _reloadAll(
+    loadStudio: false,
+    loadBacklineCategoryRequests: false,
+    loadCollabReports: false,
+  );
 
   Future<void> refresh({
     bool loadStudio = false,
     bool loadBacklineCategoryRequests = false,
+    bool loadCollabReports = false,
   }) => _reloadAll(
     loadStudio: loadStudio,
     loadBacklineCategoryRequests: loadBacklineCategoryRequests,
+    loadCollabReports: loadCollabReports,
   );
 
   Future<void> _reloadAll({
     required bool loadStudio,
     required bool loadBacklineCategoryRequests,
+    required bool loadCollabReports,
   }) async {
-    assert(!(loadStudio && loadBacklineCategoryRequests));
+    assert(
+      <bool>[
+            loadStudio,
+            loadBacklineCategoryRequests,
+            loadCollabReports,
+          ].where((selected) => selected).length <=
+          1,
+    );
     final generation = ++_reloadGeneration;
     _applicationsGeneration += 1;
     emit(
@@ -43,7 +57,12 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
     );
     await _loadSummary(generation);
     if (generation != _reloadGeneration || isClosed) return;
-    if (loadBacklineCategoryRequests) {
+    if (loadCollabReports) {
+      await loadCollabReportsList(
+        state.selectedCollabReportStatus,
+        state.selectedCollabReportReason,
+      );
+    } else if (loadBacklineCategoryRequests) {
       await loadBacklineCategoryRequestsList(
         state.selectedBacklineCategoryRequestStatus,
       );
@@ -249,6 +268,107 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
         loadMore: true,
       );
 
+  Future<void> loadCollabReportsList(
+    AdminCollabReportStatus? status,
+    AdminCollabReportReason? reason, {
+    bool loadMore = false,
+  }) async {
+    if (loadMore &&
+        (state.collabReportsLoadingMore || !state.collabReportsHasNext)) {
+      return;
+    }
+    final generation = ++_applicationsGeneration;
+    final requestedPage = loadMore ? state.collabReportsPage + 1 : 0;
+    emit(
+      state.copyWith(
+        status: loadMore ? state.status : AdminPanelStatus.loading,
+        selectedCollabReportStatus: status,
+        selectedCollabReportReason: reason,
+        applicationsError: null,
+        actionError: null,
+        collabReportsLoadingMore: loadMore,
+      ),
+    );
+    final result = await _adminRepository.getCollabReports(
+      status: status,
+      reason: reason,
+      page: requestedPage,
+    );
+    if (generation != _applicationsGeneration || isClosed) return;
+    if (!result.isSuccess) {
+      emit(
+        state.copyWith(
+          status: AdminPanelStatus.failure,
+          applicationsError: result.error,
+          collabReportsLoadingMore: false,
+        ),
+      );
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: state.summaryError == null
+            ? AdminPanelStatus.idle
+            : AdminPanelStatus.failure,
+        collabReports: loadMore
+            ? _mergeCollabReports(
+                state.collabReports,
+                result.data?.items ?? const <AdminCollabReport>[],
+              )
+            : result.data?.items ?? const <AdminCollabReport>[],
+        collabReportsPage: requestedPage,
+        collabReportsHasNext: result.data?.hasNext ?? false,
+        collabReportsLoadingMore: false,
+        applicationsError: null,
+      ),
+    );
+  }
+
+  Future<void> loadMoreCollabReports() => loadCollabReportsList(
+    state.selectedCollabReportStatus,
+    state.selectedCollabReportReason,
+    loadMore: true,
+  );
+
+  List<AdminCollabReport> _mergeCollabReports(
+    List<AdminCollabReport> current,
+    List<AdminCollabReport> next,
+  ) {
+    final byId = <String, AdminCollabReport>{
+      for (final report in current) report.id: report,
+      for (final report in next) report.id: report,
+    };
+    return List<AdminCollabReport>.unmodifiable(byId.values);
+  }
+
+  Future<void> dismissCollabReport({
+    required String id,
+    required int expectedVersion,
+    required String resolutionNote,
+  }) => _runCollabReportAction(
+    id,
+    () => _adminRepository.reviewCollabReport(
+      id: id,
+      expectedVersion: expectedVersion,
+      decision: AdminCollabReportDecision.dismiss,
+      resolutionNote: resolutionNote,
+    ),
+  );
+
+  Future<void> removeReportedCollabListing({
+    required String id,
+    required int expectedVersion,
+    required String resolutionNote,
+  }) => _runCollabReportAction(
+    id,
+    () => _adminRepository.reviewCollabReport(
+      id: id,
+      expectedVersion: expectedVersion,
+      decision: AdminCollabReportDecision.removeListing,
+      resolutionNote: resolutionNote,
+    ),
+  );
+
   List<AdminBacklineCategoryRequest> _mergeBacklineCategoryRequests(
     List<AdminBacklineCategoryRequest> current,
     List<AdminBacklineCategoryRequest> next,
@@ -418,6 +538,52 @@ class AdminPanelCubit extends Cubit<AdminPanelState> {
     );
     await loadBacklineCategoryRequestsList(
       state.selectedBacklineCategoryRequestStatus,
+    );
+  }
+
+  Future<void> _runCollabReportAction(
+    String id,
+    Future<Result<AdminCollabReport>> Function() action,
+  ) async {
+    final nextActionIds = Set<String>.from(state.actionIds)..add(id);
+    emit(
+      state.copyWith(
+        status: AdminPanelStatus.actionLoading,
+        actionIds: nextActionIds,
+        actionError: null,
+      ),
+    );
+    final result = await action();
+    if (isClosed) return;
+    final updatedActionIds = Set<String>.from(state.actionIds)..remove(id);
+    if (!result.isSuccess) {
+      emit(
+        state.copyWith(
+          status: AdminPanelStatus.failure,
+          actionIds: updatedActionIds,
+          actionError: result.error,
+        ),
+      );
+      if (const <String>{'409', '9317', '9324'}.contains(result.error?.code)) {
+        await loadCollabReportsList(
+          state.selectedCollabReportStatus,
+          state.selectedCollabReportReason,
+        );
+      }
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: updatedActionIds.isEmpty
+            ? AdminPanelStatus.idle
+            : AdminPanelStatus.actionLoading,
+        actionIds: updatedActionIds,
+        actionError: null,
+      ),
+    );
+    await loadCollabReportsList(
+      state.selectedCollabReportStatus,
+      state.selectedCollabReportReason,
     );
   }
 }

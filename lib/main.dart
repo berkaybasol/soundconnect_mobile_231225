@@ -9,6 +9,7 @@ import 'core/audio/audio_player_handler.dart';
 import 'core/diagnostics/app_bloc_observer.dart';
 import 'core/diagnostics/app_diagnostics.dart';
 import 'core/diagnostics/app_error_handlers.dart';
+import 'core/deep_link/app_deep_link.dart';
 import 'core/di/service_locator.dart';
 import 'shared/theme/theme_controller.dart';
 
@@ -17,6 +18,7 @@ void main() {
     WidgetsFlutterBinding.ensureInitialized();
     installFlutterErrorHandler();
     Bloc.observer = const AppBlocObserver();
+    final appLinkSource = PlatformAppLinkSource();
 
     setupDependencies();
     final themeController = await ThemeController.create();
@@ -32,7 +34,6 @@ void main() {
       ),
     );
     serviceLocator.registerSingleton<AudioHandler>(audioHandler);
-    runApp(const SoundConnectApp());
+    runApp(SoundConnectApp(appLinkSource: appLinkSource));
   }, AppDiagnostics.reportUnhandled);
 }
-

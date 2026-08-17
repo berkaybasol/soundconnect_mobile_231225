@@ -361,7 +361,7 @@ class _EmptyProfilesCard extends StatelessWidget {
       radius: 18,
       padding: const EdgeInsets.all(18),
       child: Text(
-        'Bu ilana başvurabilecek bir ${wantedType.label.toLowerCase()} profilin bulunmuyor.',
+        wantedType.missingApplicationProfileMessage,
         textAlign: TextAlign.center,
         style: TextStyle(
           color: Theme.of(context).colorScheme.onSurfaceVariant,

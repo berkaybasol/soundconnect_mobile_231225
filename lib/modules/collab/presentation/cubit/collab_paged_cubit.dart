@@ -72,6 +72,12 @@ abstract class CollabPagedCubit<T> extends Cubit<CollabPagedState<T>> {
   final int pageSize;
   int _generation = 0;
 
+  int get operationGeneration => _generation;
+
+  bool isCurrentOperation(int generation) {
+    return !isClosed && generation == _generation;
+  }
+
   Future<Result<CollabPage<T>>> fetchPage(int page, int size);
   String itemId(T item);
 
@@ -182,14 +188,28 @@ abstract class CollabPagedCubit<T> extends Cubit<CollabPagedState<T>> {
   }
 
   void removeItem(String id) {
+    _generation += 1;
     emit(
       state.copyWith(
         items: List<T>.unmodifiable(
           state.items.where((item) => itemId(item) != id),
         ),
+        page: 0,
+        hasNext: false,
+        isLoadingMore: false,
         totalElements: state.totalElements > 0 ? state.totalElements - 1 : 0,
       ),
     );
+  }
+
+  /// Offset pagination must be rebased after a server-side removal. Otherwise
+  /// requesting the old next page can skip the row that shifted into the
+  /// previous offset window.
+  Future<void> removeItemAndRefresh(String id) async {
+    if (isClosed) return;
+    removeItem(id);
+    await refresh();
+    if (isClosed) return;
   }
 
   bool beginItemAction(String id) {

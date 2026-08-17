@@ -211,6 +211,38 @@ void main() {
       },
     );
 
+    test(
+      'preserves a string Collab conflict code from an HTTP error',
+      () async {
+        final adapter = _RecordingHttpClientAdapter(
+          (_) => _jsonResponse(
+            statusCode: 409,
+            payload: <String, dynamic>{
+              'code': '9317',
+              'message': 'Kayıt değişti; yenileyip tekrar deneyin.',
+            },
+          ),
+        );
+        final dio = _dio(adapter);
+        addTearDown(() => _closeDio(dio, adapter));
+        final client = DioApiClient(
+          dio: dio,
+          tokenStore: _MemoryTokenStore(null),
+        );
+
+        await expectLater(
+          client.get<Object?>('/api/v1/collabs/listing-1'),
+          throwsA(
+            isA<ApiException>().having(
+              (error) => error.error.code,
+              'code',
+              '9317',
+            ),
+          ),
+        );
+      },
+    );
+
     test('401 rejects only the token attached to a private request', () async {
       final String token = _jwt(
         subject: 'user-1',

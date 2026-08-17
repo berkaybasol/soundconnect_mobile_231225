@@ -18,9 +18,16 @@ class CollabSavedListingsCubit extends CollabPagedCubit<CollabListing> {
 
   Future<void> unsave(CollabListing listing) async {
     if (!beginItemAction(listing.id)) return;
+    final generation = operationGeneration;
     final result = await _repository.unsaveListing(listing.id);
-    if (isClosed) return;
-    if (result.isSuccess) removeItem(listing.id);
+    if (!isCurrentOperation(generation)) {
+      if (!isClosed) endItemAction(listing.id);
+      return;
+    }
+    if (result.isSuccess) {
+      await removeItemAndRefresh(listing.id);
+      if (isClosed) return;
+    }
     endItemAction(listing.id, error: result.error);
   }
 }

@@ -12,29 +12,42 @@ import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_actor.dart';
 import '../../domain/entities/collab_application.dart';
 import '../../domain/entities/collab_job.dart';
+import '../collab_deep_link_scroll.dart';
 import '../collab_navigation.dart';
 import '../cubit/collab_async_state.dart';
 import '../cubit/collab_jobs_cubit.dart';
 import '../cubit/collab_my_applications_cubit.dart';
 import '../cubit/collab_paged_cubit.dart';
 import '../theme/collab_visual_theme.dart';
+import '../widgets/collab_action_widgets.dart';
 import '../widgets/collab_discovery_widgets.dart';
 import '../widgets/collab_management_widgets.dart';
+import 'collab_actor_reviews_screen.dart';
 import 'collab_listing_detail_screen.dart';
 
-enum _ApplicationsSection { applications, jobs }
+enum CollabApplicationsSection { applications, jobs }
 
 class CollabMyApplicationsScreen extends StatefulWidget {
   const CollabMyApplicationsScreen({
     this.showBottomNavigation = true,
     this.applicationsCubit,
     this.jobsCubit,
+    this.initialSection = CollabApplicationsSection.applications,
+    this.initialApplicationId,
+    this.initialJobId,
+    this.initialReviewId,
+    this.initialAction,
     super.key,
   });
 
   final bool showBottomNavigation;
   final CollabMyApplicationsCubit? applicationsCubit;
   final CollabJobsCubit? jobsCubit;
+  final CollabApplicationsSection initialSection;
+  final String? initialApplicationId;
+  final String? initialJobId;
+  final String? initialReviewId;
+  final String? initialAction;
 
   @override
   State<CollabMyApplicationsScreen> createState() =>
@@ -48,11 +61,21 @@ class _CollabMyApplicationsScreenState
   late final bool _ownsApplicationsCubit;
   late final bool _ownsJobsCubit;
   late final ScrollController _scrollController;
-  _ApplicationsSection _section = _ApplicationsSection.applications;
+  late CollabApplicationsSection _section;
+  final GlobalKey _initialApplicationKey = GlobalKey();
+  final GlobalKey _initialJobKey = GlobalKey();
+  bool _initialApplicationTargetHandled = false;
+  bool _initialApplicationTargetScheduled = false;
+  bool _initialApplicationRevealDeferred = false;
+  bool _initialJobTargetHandled = false;
+  bool _initialJobTargetScheduled = false;
+  bool _initialJobRevealDeferred = false;
+  bool _initialJobCompletedFallbackAttempted = false;
 
   @override
   void initState() {
     super.initState();
+    _section = widget.initialSection;
     _ownsApplicationsCubit = widget.applicationsCubit == null;
     _ownsJobsCubit = widget.jobsCubit == null;
     _applicationsCubit =
@@ -60,7 +83,16 @@ class _CollabMyApplicationsScreenState
     _jobsCubit = widget.jobsCubit ?? serviceLocator<CollabJobsCubit>();
     _scrollController = ScrollController()..addListener(_onScroll);
     unawaited(_applicationsCubit.loadInitial());
-    unawaited(_jobsCubit.setStatusFilter(CollabJobStatus.active));
+    final action = widget.initialAction?.trim().toUpperCase();
+    final completedTarget =
+        widget.initialReviewId?.trim().isNotEmpty == true ||
+        action == 'REVIEW_RECEIVED' ||
+        action == 'JOB_COMPLETED';
+    unawaited(
+      _jobsCubit.setStatusFilter(
+        completedTarget ? CollabJobStatus.completed : CollabJobStatus.active,
+      ),
+    );
   }
 
   @override
@@ -74,10 +106,22 @@ class _CollabMyApplicationsScreenState
   }
 
   void _onScroll() {
-    if (_scrollController.position.extentAfter >= 320) return;
-    if (_section == _ApplicationsSection.applications) {
+    if (_section == CollabApplicationsSection.applications) {
+      if (_initialApplicationRevealDeferred &&
+          _initialApplicationKey.currentContext != null) {
+        _initialApplicationRevealDeferred = false;
+        _scheduleInitialApplicationTarget(_applicationsCubit.state);
+      }
+      if (_scrollController.position.extentAfter >= 320) return;
+      if (_applicationsCubit.state.loadMoreError != null) return;
       unawaited(_applicationsCubit.loadMore());
     } else {
+      if (_initialJobRevealDeferred && _initialJobKey.currentContext != null) {
+        _initialJobRevealDeferred = false;
+        _scheduleInitialJobTarget(_jobsCubit.state);
+      }
+      if (_scrollController.position.extentAfter >= 320) return;
+      if (_jobsCubit.state.loadMoreError != null) return;
       unawaited(_jobsCubit.loadMore());
     }
   }
@@ -100,21 +144,29 @@ class _CollabMyApplicationsScreenState
             listenWhen: (previous, current) =>
                 (previous.actionError != current.actionError &&
                     current.actionError != null) ||
+                (previous.loadMoreError != current.loadMoreError &&
+                    current.loadMoreError != null) ||
                 (previous.error != current.error &&
                     current.error != null &&
                     current.items.isNotEmpty),
-            listener: (_, state) =>
-                _showMessage((state.actionError ?? state.error)!.message),
+            listener: (_, state) => _showMessage(
+              (state.actionError ?? state.loadMoreError ?? state.error)!
+                  .message,
+            ),
           ),
           BlocListener<CollabJobsCubit, CollabPagedState<CollabJob>>(
             listenWhen: (previous, current) =>
                 (previous.actionError != current.actionError &&
                     current.actionError != null) ||
+                (previous.loadMoreError != current.loadMoreError &&
+                    current.loadMoreError != null) ||
                 (previous.error != current.error &&
                     current.error != null &&
                     current.items.isNotEmpty),
-            listener: (_, state) =>
-                _showMessage((state.actionError ?? state.error)!.message),
+            listener: (_, state) => _showMessage(
+              (state.actionError ?? state.loadMoreError ?? state.error)!
+                  .message,
+            ),
           ),
         ],
         child:
@@ -137,14 +189,16 @@ class _CollabMyApplicationsScreenState
     CollabPagedState<CollabApplication> applicationsState,
     CollabPagedState<CollabJob> jobsState,
   ) {
-    final state = _section == _ApplicationsSection.applications
+    _scheduleInitialApplicationTarget(applicationsState);
+    _scheduleInitialJobTarget(jobsState);
+    final state = _section == CollabApplicationsSection.applications
         ? applicationsState
         : jobsState;
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          onRefresh: _section == _ApplicationsSection.applications
+          onRefresh: _section == CollabApplicationsSection.applications
               ? _applicationsCubit.refresh
               : _jobsCubit.refresh,
           child: CustomScrollView(
@@ -178,7 +232,7 @@ class _CollabMyApplicationsScreenState
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 15),
-                  child: _section == _ApplicationsSection.applications
+                  child: _section == CollabApplicationsSection.applications
                       ? _ApplicationStatusRail(
                           selected: _applicationsCubit.statusFilter,
                           onSelected: (status) => unawaited(
@@ -196,7 +250,7 @@ class _CollabMyApplicationsScreenState
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 17, 16, 11),
                   child: Text(
-                    '${state.totalElements} ${_section == _ApplicationsSection.applications ? 'başvuru' : 'iş'}',
+                    '${state.totalElements} ${_section == CollabApplicationsSection.applications ? 'başvuru' : 'iş'}',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12.5,
@@ -204,7 +258,7 @@ class _CollabMyApplicationsScreenState
                   ),
                 ),
               ),
-              if (_section == _ApplicationsSection.applications)
+              if (_section == CollabApplicationsSection.applications)
                 ..._applicationSlivers(applicationsState)
               else
                 ..._jobSlivers(jobsState),
@@ -234,27 +288,37 @@ class _CollabMyApplicationsScreenState
           itemBuilder: (context, index) {
             final application = state.items[index];
             final busy = state.actionIds.contains(application.id);
-            return _OutgoingApplicationCard(
-              application: application,
-              busy: busy,
-              onSave: () => _applicationsCubit.toggleSaved(application),
-              onDetail: () => _openDetail(application.listing.id),
-              onMessage:
-                  application.listing.publisher.contactUserId.trim().isEmpty
-                  ? null
-                  : () => openCollabActorConversation(
-                      context,
-                      application.listing.publisher,
-                    ),
-              onWithdraw: application.isPending
-                  ? () => _confirmWithdraw(application)
-                  : null,
+            return KeyedSubtree(
+              key: application.id == widget.initialApplicationId?.trim()
+                  ? _initialApplicationKey
+                  : ValueKey<String>('collab-application-${application.id}'),
+              child: _OutgoingApplicationCard(
+                application: application,
+                busy: busy,
+                onSave: application.listing.isOpen
+                    ? () => _applicationsCubit.toggleSaved(application)
+                    : null,
+                onDetail: () => _openDetail(application.listing.id),
+                onMessage:
+                    application.listing.publisher.contactUserId.trim().isEmpty
+                    ? null
+                    : () => openCollabActorConversation(
+                        context,
+                        application.listing.publisher,
+                      ),
+                onWithdraw: application.isPending
+                    ? () => _confirmWithdraw(application)
+                    : null,
+              ),
             );
           },
         ),
       ),
       SliverToBoxAdapter(
         child: CollabPagedFooter(
+          key: const ValueKey<String>(
+            'collab-my-applications-load-more-footer',
+          ),
           loading: state.isLoadingMore,
           hasError: state.loadMoreError != null,
           onRetry: _applicationsCubit.loadMore,
@@ -282,28 +346,34 @@ class _CollabMyApplicationsScreenState
             final job = state.items[index];
             final busy = state.actionIds.contains(job.id);
             final other = _otherActor(job);
-            return _JobCard(
-              job: job,
-              other: other,
-              busy: busy,
-              otherConfirmed: _otherConfirmed(job),
-              onProfile: () => openCollabActorProfile(context, other),
-              onMessage: other.contactUserId.trim().isEmpty
-                  ? null
-                  : () => openCollabActorConversation(context, other),
-              onDetail: () => _openDetail(job.listing.id),
-              onConfirm: !job.isCompleted && !job.confirmedByMe
-                  ? () => _confirmCompletion(job)
-                  : null,
-              onReview: job.isCompleted && !job.reviewedByMe
-                  ? () => _openReview(job)
-                  : null,
+            return KeyedSubtree(
+              key: job.id == widget.initialJobId?.trim()
+                  ? _initialJobKey
+                  : ValueKey<String>('collab-job-${job.id}'),
+              child: _JobCard(
+                job: job,
+                other: other,
+                busy: busy,
+                otherConfirmed: _otherConfirmed(job),
+                onProfile: () => openCollabActorProfile(context, other),
+                onMessage: other.contactUserId.trim().isEmpty
+                    ? null
+                    : () => openCollabActorConversation(context, other),
+                onDetail: () => _openDetail(job.listing.id),
+                onConfirm: !job.isCompleted && !job.confirmedByMe
+                    ? () => _confirmCompletion(job)
+                    : null,
+                onReview: job.isCompleted && !job.reviewedByMe
+                    ? () => _openReview(job)
+                    : null,
+              ),
             );
           },
         ),
       ),
       SliverToBoxAdapter(
         child: CollabPagedFooter(
+          key: const ValueKey<String>('collab-jobs-load-more-footer'),
           loading: state.isLoadingMore,
           hasError: state.loadMoreError != null,
           onRetry: _jobsCubit.loadMore,
@@ -345,6 +415,179 @@ class _CollabMyApplicationsScreenState
       ? job.applicantConfirmedCompletion
       : job.publisherConfirmedCompletion;
 
+  void _scheduleInitialApplicationTarget(
+    CollabPagedState<CollabApplication> state,
+  ) {
+    final targetId = widget.initialApplicationId?.trim() ?? '';
+    if (_initialApplicationTargetHandled ||
+        _initialApplicationTargetScheduled ||
+        _section != CollabApplicationsSection.applications ||
+        targetId.isEmpty ||
+        state.status == CollabLoadStatus.initial ||
+        state.status == CollabLoadStatus.loading ||
+        state.status == CollabLoadStatus.failure) {
+      return;
+    }
+    final targetIndex = state.items.indexWhere(
+      (application) => application.id == targetId,
+    );
+    if (targetIndex >= 0) {
+      if (_initialApplicationRevealDeferred &&
+          _initialApplicationKey.currentContext == null) {
+        return;
+      }
+      _initialApplicationTargetScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final revealed = await revealCollabPagedTarget(
+          controller: _scrollController,
+          targetKey: _initialApplicationKey,
+          targetIndex: targetIndex,
+          itemCount: state.items.length,
+          estimatedItemExtent: 260,
+        );
+        if (!mounted) return;
+        _initialApplicationTargetScheduled = false;
+        _initialApplicationTargetHandled = revealed;
+        _initialApplicationRevealDeferred = !revealed;
+        if (!revealed) {
+          _showMessage(
+            'Hedef başvuru yüklendi ancak otomatik kaydırılamadı. '
+            'Listede elle kaydırarak açabilirsin.',
+          );
+        }
+      });
+      return;
+    }
+    if (state.loadMoreError != null) return;
+    if (state.hasNext && !state.isLoadingMore) {
+      _initialApplicationTargetScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await _applicationsCubit.loadMore();
+        _initialApplicationTargetScheduled = false;
+        if (mounted) {
+          _scheduleInitialApplicationTarget(_applicationsCubit.state);
+        }
+      });
+      return;
+    }
+    if (!state.isLoadingMore) {
+      _initialApplicationTargetHandled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showMessage('Bildirimdeki başvuru artık listede bulunamıyor.');
+        }
+      });
+    }
+  }
+
+  void _scheduleInitialJobTarget(CollabPagedState<CollabJob> state) {
+    final targetId = widget.initialJobId?.trim() ?? '';
+    if (_initialJobTargetHandled ||
+        _initialJobTargetScheduled ||
+        _section != CollabApplicationsSection.jobs ||
+        targetId.isEmpty ||
+        state.status == CollabLoadStatus.initial ||
+        state.status == CollabLoadStatus.loading ||
+        state.status == CollabLoadStatus.failure) {
+      return;
+    }
+
+    final target = state.items.where((job) => job.id == targetId).firstOrNull;
+    if (target != null) {
+      if (widget.initialReviewId?.trim().isNotEmpty == true ||
+          widget.initialAction?.trim().toUpperCase() == 'REVIEW_RECEIVED') {
+        _initialJobTargetHandled = true;
+        _initialJobTargetScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final reviewedActor = target.listing.ownedByMe
+              ? target.publisher
+              : target.applicant;
+          unawaited(
+            Navigator.of(context).push<void>(
+              collabPageRoute(
+                builder: (_) => CollabActorReviewsScreen(
+                  actor: reviewedActor,
+                  initialReviewId: widget.initialReviewId,
+                  showBottomNavigation: widget.showBottomNavigation,
+                ),
+              ),
+            ),
+          );
+        });
+      } else {
+        final targetIndex = state.items.indexOf(target);
+        if (_initialJobRevealDeferred &&
+            _initialJobKey.currentContext == null) {
+          return;
+        }
+        _initialJobTargetScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          final revealed = await revealCollabPagedTarget(
+            controller: _scrollController,
+            targetKey: _initialJobKey,
+            targetIndex: targetIndex,
+            itemCount: state.items.length,
+            estimatedItemExtent: 280,
+          );
+          if (!mounted) return;
+          _initialJobTargetScheduled = false;
+          _initialJobTargetHandled = revealed;
+          _initialJobRevealDeferred = !revealed;
+          if (!revealed) {
+            _showMessage(
+              'Hedef Collab işi yüklendi ancak otomatik kaydırılamadı. '
+              'Listede elle kaydırarak açabilirsin.',
+            );
+          }
+        });
+      }
+      return;
+    }
+
+    if (state.loadMoreError != null) return;
+    if (state.hasNext && !state.isLoadingMore) {
+      _initialJobTargetScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await _jobsCubit.loadMore();
+        _initialJobTargetScheduled = false;
+        if (mounted) _scheduleInitialJobTarget(_jobsCubit.state);
+      });
+      return;
+    }
+
+    final action = widget.initialAction?.trim().toUpperCase();
+    final canFallbackToCompleted =
+        !_initialJobCompletedFallbackAttempted &&
+        _jobsCubit.statusFilter == CollabJobStatus.active &&
+        (action == 'APPLICATION_ACCEPTED' ||
+            action == 'JOB_COMPLETION_REQUESTED');
+    if (canFallbackToCompleted && !state.isLoadingMore) {
+      _initialJobCompletedFallbackAttempted = true;
+      _initialJobTargetScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await _jobsCubit.setStatusFilter(CollabJobStatus.completed);
+        _initialJobTargetScheduled = false;
+        if (mounted) _scheduleInitialJobTarget(_jobsCubit.state);
+      });
+      return;
+    }
+
+    if (!state.isLoadingMore) {
+      _initialJobTargetHandled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showMessage('Bildirimdeki Collab işi artık listede bulunamıyor.');
+        }
+      });
+    }
+  }
+
   Future<void> _openDetail(String listingId) async {
     await Navigator.of(context).push<void>(
       collabPageRoute(
@@ -354,7 +597,7 @@ class _CollabMyApplicationsScreenState
         ),
       ),
     );
-    if (mounted && _section == _ApplicationsSection.applications) {
+    if (mounted && _section == CollabApplicationsSection.applications) {
       await _applicationsCubit.refresh();
     }
   }
@@ -476,8 +719,8 @@ class _Header extends StatelessWidget {
 class _SectionSelector extends StatelessWidget {
   const _SectionSelector({required this.selected, required this.onSelected});
 
-  final _ApplicationsSection selected;
-  final ValueChanged<_ApplicationsSection> onSelected;
+  final CollabApplicationsSection selected;
+  final ValueChanged<CollabApplicationsSection> onSelected;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -486,8 +729,8 @@ class _SectionSelector extends StatelessWidget {
         child: CollabChoiceChip(
           label: 'Başvurularım',
           icon: Icons.outbox_outlined,
-          selected: selected == _ApplicationsSection.applications,
-          onTap: () => onSelected(_ApplicationsSection.applications),
+          selected: selected == CollabApplicationsSection.applications,
+          onTap: () => onSelected(CollabApplicationsSection.applications),
         ),
       ),
       const SizedBox(width: 9),
@@ -495,8 +738,8 @@ class _SectionSelector extends StatelessWidget {
         child: CollabChoiceChip(
           label: 'İşlerim',
           icon: Icons.handshake_outlined,
-          selected: selected == _ApplicationsSection.jobs,
-          onTap: () => onSelected(_ApplicationsSection.jobs),
+          selected: selected == CollabApplicationsSection.jobs,
+          onTap: () => onSelected(CollabApplicationsSection.jobs),
         ),
       ),
     ],
@@ -591,7 +834,7 @@ class _OutgoingApplicationCard extends StatelessWidget {
 
   final CollabApplication application;
   final bool busy;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
   final VoidCallback onDetail;
   final VoidCallback? onMessage;
   final VoidCallback? onWithdraw;
@@ -628,18 +871,19 @@ class _OutgoingApplicationCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: busy ? null : onSave,
-                tooltip: listing.savedByMe
-                    ? 'Kaydedilenlerden çıkar'
-                    : 'İlanı kaydet',
-                icon: Icon(
-                  listing.savedByMe
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_border_rounded,
-                  color: listing.savedByMe ? AppColors.coralLight : null,
+              if (onSave != null)
+                IconButton(
+                  onPressed: busy ? null : onSave,
+                  tooltip: listing.savedByMe
+                      ? 'Kaydedilenlerden çıkar'
+                      : 'İlanı kaydet',
+                  icon: Icon(
+                    listing.savedByMe
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_border_rounded,
+                    color: listing.savedByMe ? AppColors.coralLight : null,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 9),
@@ -887,7 +1131,8 @@ class _ReviewSheetState extends State<_ReviewSheet> {
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
+            child: CollabOutlineAction(
+              key: const ValueKey<String>('collab-review-submit'),
               onPressed: () {
                 final comment = _commentController.text.trim();
                 Navigator.of(context).pop(
@@ -897,8 +1142,8 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                   ),
                 );
               },
-              icon: const Icon(Icons.star_rounded),
-              label: const Text('Değerlendirmeyi gönder'),
+              icon: Icons.star_rounded,
+              label: 'Değerlendirmeyi gönder',
             ),
           ),
         ],

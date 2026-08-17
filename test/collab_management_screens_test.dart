@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_commands.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_page.dart';
@@ -20,6 +21,8 @@ import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/co
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_my_listings_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/screens/collab_saved_listings_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/theme/collab_visual_theme.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/collab_action_widgets.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/collab_discovery_widgets.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 void main() {
@@ -204,7 +207,21 @@ void main() {
       find.byType(TextField),
       'İletişimi güçlü ve hazırlıklıydı.',
     );
-    await tester.tap(find.text('Değerlendirmeyi gönder'));
+    final submit = find.byKey(const ValueKey<String>('collab-review-submit'));
+    expect(submit, findsOneWidget);
+    expect(tester.widget<CollabOutlineAction>(submit).onPressed, isNotNull);
+    final gradientFrame = find.descendant(
+      of: submit,
+      matching: find.byType(CollabGradientFrame),
+    );
+    expect(gradientFrame, findsOneWidget);
+    expect(
+      tester.widget<CollabGradientFrame>(gradientFrame).highlighted,
+      isTrue,
+    );
+    expect(tester.getSize(submit).height, greaterThanOrEqualTo(48));
+
+    await tester.tap(submit);
     await tester.pumpAndSettle();
 
     expect(repository.reviewCalls, 1);
@@ -213,6 +230,147 @@ void main() {
     await applicationsCubit.close();
     await jobsCubit.close();
   });
+
+  testWidgets(
+    'incoming deep link stops at load-more error until manual retry',
+    (tester) async {
+      final listing = _listing('incoming-listing', ownedByMe: true);
+      final repository = _ManagementRepository(
+        incoming: List<CollabApplication>.generate(
+          21,
+          (index) => _application(
+            'incoming-$index',
+            listing: listing,
+            applicant: _numberedApplicant(index),
+          ),
+        ),
+        failIncomingPageOneOnce: true,
+      );
+      final cubit = CollabIncomingApplicationsCubit(repository);
+
+      await tester.pumpWidget(
+        app(
+          CollabIncomingApplicationsScreen(
+            listingId: listing.id,
+            initialApplicationId: 'incoming-20',
+            cubit: cubit,
+            showBottomNavigation: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.incomingPages, <int>[0, 1]);
+      await tester.pump(const Duration(seconds: 5));
+      expect(repository.incomingPages, <int>[0, 1]);
+
+      await _revealAndTapRetry(
+        tester,
+        const ValueKey<String>('collab-incoming-applications-load-more-footer'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.incomingPages, <int>[0, 1, 1]);
+      expect(find.text('Başvuran 20'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await cubit.close();
+    },
+  );
+
+  testWidgets(
+    'outgoing deep link stops at load-more error until manual retry',
+    (tester) async {
+      final repository = _ManagementRepository(
+        outgoing: List<CollabApplication>.generate(
+          21,
+          (index) => _application(
+            'outgoing-$index',
+            listing: _listing('listing-$index', title: 'Hedef ilan $index'),
+            applicant: _me,
+          ),
+        ),
+        failOutgoingPageOneOnce: true,
+      );
+      final applicationsCubit = CollabMyApplicationsCubit(repository);
+      final jobsCubit = CollabJobsCubit(repository);
+
+      await tester.pumpWidget(
+        app(
+          CollabMyApplicationsScreen(
+            applicationsCubit: applicationsCubit,
+            jobsCubit: jobsCubit,
+            initialApplicationId: 'outgoing-20',
+            showBottomNavigation: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.outgoingPages, <int>[0, 1]);
+      await tester.pump(const Duration(seconds: 5));
+      expect(repository.outgoingPages, <int>[0, 1]);
+
+      await _revealAndTapRetry(
+        tester,
+        const ValueKey<String>('collab-my-applications-load-more-footer'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.outgoingPages, <int>[0, 1, 1]);
+      expect(find.text('Hedef ilan 20'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await applicationsCubit.close();
+      await jobsCubit.close();
+    },
+  );
+
+  testWidgets(
+    'historical active job deep link falls back once and reveals completed target',
+    (tester) async {
+      final repository = _ManagementRepository(
+        jobs: List<CollabJob>.generate(
+          21,
+          (index) => _job(
+            'completed-$index',
+            listing: _listing(
+              'job-listing-$index',
+              title: index == 20
+                  ? 'Tamamlanan hedef işi'
+                  : 'Tamamlanan iş $index',
+            ),
+            completed: true,
+          ),
+        ),
+      );
+      final applicationsCubit = CollabMyApplicationsCubit(repository);
+      final jobsCubit = CollabJobsCubit(repository);
+
+      await tester.pumpWidget(
+        app(
+          CollabMyApplicationsScreen(
+            applicationsCubit: applicationsCubit,
+            jobsCubit: jobsCubit,
+            initialSection: CollabApplicationsSection.jobs,
+            initialJobId: 'completed-20',
+            initialAction: 'APPLICATION_ACCEPTED',
+            showBottomNavigation: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.jobRequests, <(CollabJobStatus?, int)>[
+        (CollabJobStatus.active, 0),
+        (CollabJobStatus.completed, 0),
+        (CollabJobStatus.completed, 1),
+      ]);
+      expect(find.text('Tamamlanan hedef işi'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await applicationsCubit.close();
+      await jobsCubit.close();
+    },
+  );
 
   testWidgets('saved listing can be removed from the server page', (
     tester,
@@ -236,6 +394,35 @@ void main() {
   });
 }
 
+Future<void> _revealAndTapRetry(WidgetTester tester, Key footerKey) async {
+  final footer = find.byKey(footerKey);
+  await tester.scrollUntilVisible(
+    footer,
+    350,
+    scrollable: _verticalScrollable(),
+  );
+  await tester.ensureVisible(footer);
+  await tester.pumpAndSettle();
+  expect(footer, findsOneWidget);
+  final retry = find.descendant(
+    of: footer,
+    matching: find.widgetWithText(TextButton, 'Devamını yeniden yükle'),
+  );
+  expect(retry, findsOneWidget);
+  await tester.ensureVisible(retry);
+  await tester.pump();
+  expect(retry.hitTestable(), findsOneWidget);
+  await tester.tap(retry.hitTestable());
+}
+
+Finder _verticalScrollable() => find
+    .byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+      description: 'the vertical Collab page scrollable',
+    )
+    .first;
+
 class _RepositoryStub implements CollabRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -248,6 +435,8 @@ class _ManagementRepository extends _RepositoryStub {
     List<CollabApplication>? incoming,
     List<CollabApplication>? outgoing,
     List<CollabJob>? jobs,
+    this.failIncomingPageOneOnce = false,
+    this.failOutgoingPageOneOnce = false,
   }) : myListings = myListings ?? <CollabListing>[],
        saved = saved ?? <CollabListing>[],
        incoming = incoming ?? <CollabApplication>[],
@@ -259,6 +448,13 @@ class _ManagementRepository extends _RepositoryStub {
   final List<CollabApplication> incoming;
   final List<CollabApplication> outgoing;
   final List<CollabJob> jobs;
+  final bool failIncomingPageOneOnce;
+  final bool failOutgoingPageOneOnce;
+  final List<int> incomingPages = <int>[];
+  final List<int> outgoingPages = <int>[];
+  final List<(CollabJobStatus?, int)> jobRequests = <(CollabJobStatus?, int)>[];
+  bool _incomingPageOneFailed = false;
+  bool _outgoingPageOneFailed = false;
 
   int closeCalls = 0;
   int acceptCalls = 0;
@@ -314,16 +510,25 @@ class _ManagementRepository extends _RepositoryStub {
     CollabApplicationStatus? status,
     int page = 0,
     int size = 20,
-  }) async => Result.success(
-    _page(
-      incoming
-          .where((item) => item.listing.id == listingId)
-          .where((item) => status == null || item.status == status)
-          .toList(),
-      page: page,
-      size: size,
-    ),
-  );
+  }) async {
+    incomingPages.add(page);
+    if (page == 1 && failIncomingPageOneOnce && !_incomingPageOneFailed) {
+      _incomingPageOneFailed = true;
+      return const Result.failure(
+        AppError(code: 'temporary', message: 'Devam sayfası yüklenemedi.'),
+      );
+    }
+    return Result.success(
+      _page(
+        incoming
+            .where((item) => item.listing.id == listingId)
+            .where((item) => status == null || item.status == status)
+            .toList(),
+        page: page,
+        size: size,
+      ),
+    );
+  }
 
   @override
   Future<Result<CollabJob>> acceptApplication(
@@ -366,15 +571,24 @@ class _ManagementRepository extends _RepositoryStub {
     CollabApplicationStatus? status,
     int page = 0,
     int size = 20,
-  }) async => Result.success(
-    _page(
-      outgoing
-          .where((item) => status == null || item.status == status)
-          .toList(),
-      page: page,
-      size: size,
-    ),
-  );
+  }) async {
+    outgoingPages.add(page);
+    if (page == 1 && failOutgoingPageOneOnce && !_outgoingPageOneFailed) {
+      _outgoingPageOneFailed = true;
+      return const Result.failure(
+        AppError(code: 'temporary', message: 'Devam sayfası yüklenemedi.'),
+      );
+    }
+    return Result.success(
+      _page(
+        outgoing
+            .where((item) => status == null || item.status == status)
+            .toList(),
+        page: page,
+        size: size,
+      ),
+    );
+  }
 
   @override
   Future<Result<CollabApplication>> withdrawApplication(
@@ -413,13 +627,16 @@ class _ManagementRepository extends _RepositoryStub {
     CollabJobStatus? status,
     int page = 0,
     int size = 20,
-  }) async => Result.success(
-    _page(
-      jobs.where((item) => status == null || item.status == status).toList(),
-      page: page,
-      size: size,
-    ),
-  );
+  }) async {
+    jobRequests.add((status, page));
+    return Result.success(
+      _page(
+        jobs.where((item) => status == null || item.status == status).toList(),
+        page: page,
+        size: size,
+      ),
+    );
+  }
 
   @override
   Future<Result<CollabJob>> confirmJobCompletion(
@@ -521,6 +738,17 @@ const CollabActor _secondApplicant = CollabActor(
   rating: 4.5,
   reviewCount: 5,
   completedJobCount: 8,
+);
+
+CollabActor _numberedApplicant(int index) => CollabActor(
+  actorId: 'applicant-$index',
+  profileType: CollabProfileKind.musician,
+  sourceProfileId: 'musician-$index',
+  contactUserId: 'applicant-user-$index',
+  displayName: 'Başvuran $index',
+  rating: 4.5,
+  reviewCount: index,
+  completedJobCount: index,
 );
 
 CollabListing _listing(

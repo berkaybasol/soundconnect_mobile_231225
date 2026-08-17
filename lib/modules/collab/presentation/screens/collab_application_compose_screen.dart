@@ -8,6 +8,7 @@ import '../../domain/collab_commands.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_actor.dart';
 import '../../domain/entities/collab_listing.dart';
+import '../collab_navigation.dart';
 import '../theme/collab_visual_theme.dart';
 import '../widgets/collab_action_widgets.dart';
 import '../widgets/collab_discovery_widgets.dart';
@@ -81,6 +82,9 @@ class _CollabApplicationComposeScreenState
 
   Widget _buildScaffold(BuildContext context, {required bool submitting}) {
     final theme = Theme.of(context);
+    final hasMultipleEligibleActors = widget.eligibleActors.length > 1;
+    final isApplyingAsBand = _actor.profileType == CollabProfileKind.band;
+    final showApplicantIdentity = hasMultipleEligibleActors || isApplyingAsBand;
     return Scaffold(
       appBar: AppBar(title: const Text('Başvuru Yap')),
       body: SafeArea(
@@ -100,14 +104,20 @@ class _CollabApplicationComposeScreenState
                     fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 20),
-                _SelectedActorHeader(
-                  actor: _actor,
-                  onChange: submitting || widget.eligibleActors.length < 2
-                      ? null
-                      : _changeActor,
-                ),
-                const SizedBox(height: 22),
+                if (showApplicantIdentity) ...[
+                  const SizedBox(height: 20),
+                  _SelectedActorHeader(
+                    actor: _actor,
+                    contextLabel: isApplyingAsBand
+                        ? 'Bu grup profiliyle başvuruyorsun'
+                        : null,
+                    onChange: hasMultipleEligibleActors && !submitting
+                        ? _changeActor
+                        : null,
+                  ),
+                  const SizedBox(height: 22),
+                ] else
+                  const SizedBox(height: 20),
                 const CollabSectionTitle('İletişim Bilgisi'),
                 const SizedBox(height: 9),
                 TextFormField(
@@ -259,10 +269,15 @@ class _CollabApplicationComposeScreenState
 }
 
 class _SelectedActorHeader extends StatelessWidget {
-  const _SelectedActorHeader({required this.actor, required this.onChange});
+  const _SelectedActorHeader({
+    required this.actor,
+    required this.onChange,
+    this.contextLabel,
+  });
 
   final CollabActor actor;
   final VoidCallback? onChange;
+  final String? contextLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -285,6 +300,17 @@ class _SelectedActorHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (contextLabel case final label?) ...[
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: AppColors.socialPink,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Text(
                   actor.displayName,
                   maxLines: 1,
@@ -331,48 +357,31 @@ class _ApplicationListingSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          _PublisherProfileLink(publisher: listing.publisher),
+          const SizedBox(height: 13),
+          Text(
+            listing.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontSize: 14,
+              height: 1.2,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              CollabIdentityAvatar(
-                initials: listing.publisher.initials,
-                profileKind: listing.publisher.profileType,
-                avatarUrl: listing.publisher.avatarUrl,
-                size: 48,
+              CollabStatusPill(
+                label: listing.cadence.label,
+                color: AppColors.socialPink,
               ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      listing.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 14,
-                        height: 1.2,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        CollabStatusPill(
-                          label: listing.cadence.label,
-                          color: AppColors.socialPink,
-                        ),
-                        CollabStatusPill(
-                          label: _wantedSummary(listing),
-                          color: AppColors.socialOrange,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              CollabStatusPill(
+                label: _wantedSummary(listing),
+                color: AppColors.socialOrange,
               ),
             ],
           ),
@@ -413,6 +422,70 @@ class _ApplicationListingSummary extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PublisherProfileLink extends StatelessWidget {
+  const _PublisherProfileLink({required this.publisher});
+
+  final CollabActor publisher;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      label: '${publisher.displayName} profilini aç',
+      child: InkWell(
+        key: const ValueKey<String>('collab-application-publisher-profile'),
+        onTap: () => openCollabActorProfile(context, publisher),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+          child: Row(
+            children: [
+              CollabIdentityAvatar(
+                initials: publisher.initials,
+                profileKind: publisher.profileType,
+                avatarUrl: publisher.avatarUrl,
+                size: 48,
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      publisher.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${publisher.profileType.label} profilini görüntüle',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -490,7 +563,7 @@ class _DmInfoBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'İlan sahibinin profilinden gerçek DM sohbetini açabilirsin.',
+                  'İlan sahibinin avatarına veya adına dokunarak profilinden DM gönderebilirsin.',
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 10.5,

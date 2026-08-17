@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -13,6 +12,8 @@ import '../collab_navigation.dart';
 import '../cubit/collab_async_state.dart';
 import '../cubit/collab_listing_detail_cubit.dart';
 import '../cubit/collab_listing_detail_state.dart';
+import '../share/collab_share_service.dart';
+import '../share/collab_share_sheet.dart';
 import '../theme/collab_visual_theme.dart';
 import '../widgets/collab_action_widgets.dart';
 import '../widgets/collab_discovery_widgets.dart';
@@ -26,6 +27,7 @@ class CollabListingDetailScreen extends StatefulWidget {
     this.showBottomNavigation = true,
     this.onListingChanged,
     this.detailCubit,
+    this.shareService,
     super.key,
   });
 
@@ -36,6 +38,7 @@ class CollabListingDetailScreen extends StatefulWidget {
   /// Test/embedding seam. Production callers use the route-scoped GetIt
   /// factory and should leave this null.
   final CollabListingDetailCubit? detailCubit;
+  final CollabShareService? shareService;
 
   @override
   State<CollabListingDetailScreen> createState() =>
@@ -76,6 +79,7 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
         listingId: widget.listingId,
         showBottomNavigation: widget.showBottomNavigation,
         onListingChanged: widget.onListingChanged,
+        shareService: widget.shareService ?? PlatformCollabShareService(),
       ),
     );
   }
@@ -85,12 +89,14 @@ class _DetailView extends StatefulWidget {
   const _DetailView({
     required this.listingId,
     required this.showBottomNavigation,
+    required this.shareService,
     this.onListingChanged,
   });
 
   final String listingId;
   final bool showBottomNavigation;
   final ValueChanged<CollabListing>? onListingChanged;
+  final CollabShareService shareService;
 
   @override
   State<_DetailView> createState() => _DetailViewState();
@@ -142,9 +148,10 @@ class _DetailViewState extends State<_DetailView> {
                         )
                       : const Icon(Icons.ios_share_rounded),
                 ),
-              if (state.listing case final listing?)
+              if (state.listing case final listing?
+                  when listing.isOpen && !listing.ownedByMe)
                 IconButton(
-                  onPressed: listing.ownedByMe || state.isSaving
+                  onPressed: state.isSaving
                       ? null
                       : context.read<CollabListingDetailCubit>().toggleSaved,
                   tooltip: listing.savedByMe
@@ -241,15 +248,7 @@ class _DetailViewState extends State<_DetailView> {
           const SizedBox(height: 9),
           _OwnerCard(
             actor: listing.publisher,
-            onTap: () => openCollabActorProfile(context, listing.publisher),
-            onReviews: () => Navigator.of(context).push<void>(
-              collabPageRoute(
-                builder: (_) => CollabActorReviewsScreen(
-                  actor: listing.publisher,
-                  showBottomNavigation: widget.showBottomNavigation,
-                ),
-              ),
-            ),
+            onTap: () => _openOwnerActions(listing.publisher),
           ),
           const SizedBox(height: 18),
           CollabPrimaryAction(
@@ -283,18 +282,20 @@ class _DetailViewState extends State<_DetailView> {
                         ),
                 ),
               ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: _OutlineDetailAction(
-                  label: listing.savedByMe ? 'Kaydedildi' : 'Kaydet',
-                  icon: listing.savedByMe
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_border_rounded,
-                  onPressed: listing.ownedByMe || state.isSaving
-                      ? null
-                      : context.read<CollabListingDetailCubit>().toggleSaved,
+              if (listing.isOpen && !listing.ownedByMe) ...[
+                const SizedBox(width: 9),
+                Expanded(
+                  child: _OutlineDetailAction(
+                    label: listing.savedByMe ? 'Kaydedildi' : 'Kaydet',
+                    icon: listing.savedByMe
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_border_rounded,
+                    onPressed: state.isSaving
+                        ? null
+                        : context.read<CollabListingDetailCubit>().toggleSaved,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
           if (!listing.ownedByMe) ...[
@@ -337,6 +338,30 @@ class _DetailViewState extends State<_DetailView> {
     return Icons.rocket_launch_outlined;
   }
 
+  Future<void> _openOwnerActions(CollabActor actor) async {
+    final action = await showModalBottomSheet<_OwnerAction>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (_) => _OwnerActionsSheet(actor: actor),
+    );
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case _OwnerAction.profile:
+        openCollabActorProfile(context, actor);
+      case _OwnerAction.reviews:
+        await Navigator.of(context).push<void>(
+          collabPageRoute(
+            builder: (_) => CollabActorReviewsScreen(
+              actor: actor,
+              showBottomNavigation: widget.showBottomNavigation,
+            ),
+          ),
+        );
+    }
+  }
+
   Future<void> _openApplicationFlow(CollabListing listing) async {
     final cubit = context.read<CollabListingDetailCubit>();
     await cubit.loadMyActors(
@@ -345,28 +370,33 @@ class _DetailViewState extends State<_DetailView> {
     if (!mounted) return;
     final actors = cubit.state.eligibleActors;
     if (actors.isEmpty) {
-      _showMessage(
-        'Bu ilana başvurabilecek bir ${listing.wantedType.label.toLowerCase()} profilin bulunmuyor.',
-      );
+      _showMessage(listing.wantedType.missingApplicationProfileMessage);
       return;
     }
-    final actor = await Navigator.of(context).push<CollabActor>(
-      collabPageRoute(
-        builder: (_) => CollabProfileSelectionScreen(
-          actors: actors,
-          wantedType: listing.wantedType,
-          showBottomNavigation: false,
+    final CollabActor? actor;
+    if (actors.length == 1) {
+      actor = actors.single;
+    } else {
+      actor = await Navigator.of(context).push<CollabActor>(
+        collabPageRoute(
+          builder: (_) => CollabProfileSelectionScreen(
+            actors: actors,
+            wantedType: listing.wantedType,
+            showBottomNavigation: false,
+          ),
         ),
-      ),
-    );
-    if (!mounted || actor == null) return;
+      );
+    }
+    if (!mounted) return;
+    final selectedActor = actor;
+    if (selectedActor == null) return;
     final submitted = await Navigator.of(context).push<bool>(
       collabPageRoute(
         builder: (_) => BlocProvider<CollabListingDetailCubit>.value(
           value: cubit,
           child: CollabApplicationComposeScreen(
             listing: listing,
-            initialActor: actor,
+            initialActor: selectedActor,
             eligibleActors: actors,
             showBottomNavigation: false,
           ),
@@ -418,26 +448,13 @@ class _DetailViewState extends State<_DetailView> {
 
   Future<void> _share(CollabListing listing) async {
     if (_sharing) return;
+    final target = await showCollabShareSheet(context, listing);
+    if (target == null || !mounted) return;
     setState(() => _sharing = true);
-    final lines = <String>[
-      listing.title,
-      _wantedSummary(listing),
-      listing.city.name,
-      if (listing.cadence == CollabCadence.extra)
-        _dateTimeText(listing.scheduledAt),
-      if (_supportsFee(listing)) _feeText(listing),
-      'SoundConnect Collab',
-    ];
     try {
-      await SharePlus.instance.share(
-        ShareParams(
-          text: lines.join('\n'),
-          subject: listing.title,
-          sharePositionOrigin: const Rect.fromLTWH(0, 0, 1, 1),
-        ),
-      );
+      await widget.shareService.share(context, listing, target);
     } catch (_) {
-      if (mounted) _showMessage('Paylaşım açılamadı.');
+      if (mounted) _showMessage('Paylaşım açılamadı. Lütfen tekrar dene.');
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
@@ -644,132 +661,196 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _OwnerCard extends StatelessWidget {
-  const _OwnerCard({
-    required this.actor,
-    required this.onTap,
-    required this.onReviews,
-  });
+  const _OwnerCard({required this.actor, required this.onTap});
 
   final CollabActor actor;
   final VoidCallback onTap;
-  final VoidCallback onReviews;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: CollabGradientFrame(
-        radius: 18,
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            CollabIdentityAvatar(
-              initials: actor.initials,
-              profileKind: actor.profileType,
-              avatarUrl: actor.avatarUrl,
-              size: 58,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Semantics(
+      button: true,
+      label: '${actor.displayName} ilan sahibi seçeneklerini aç',
+      child: InkWell(
+        key: const ValueKey<String>('collab-owner-card'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: CollabGradientFrame(
+          radius: 18,
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              CollabIdentityAvatar(
+                initials: actor.initials,
+                profileKind: actor.profileType,
+                avatarUrl: actor.avatarUrl,
+                size: 58,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      actor.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      actor.profileType.label,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.star_rounded,
+                          color: AppColors.socialPurple,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            actor.reviewCount == 0
+                                ? 'Henüz değerlendirme yok'
+                                : '${actor.rating.toStringAsFixed(1)} / 5 · ${actor.reviewCount} değerlendirme',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 43,
+                color: theme.dividerColor,
+                margin: const EdgeInsets.symmetric(horizontal: 11),
+              ),
+              Column(
                 children: [
                   Text(
-                    actor.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    '${actor.completedJobCount}',
                     style: TextStyle(
                       color: theme.colorScheme.onSurface,
-                      fontSize: 14.5,
+                      fontSize: 17,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
-                    actor.profileType.label,
+                    'Tamamlanan\nİş',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Semantics(
-                    button: true,
-                    label: 'Collab değerlendirmelerini aç',
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onReviews,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.star_rounded,
-                            color: AppColors.socialPurple,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 5),
-                          Flexible(
-                            child: Text(
-                              actor.reviewCount == 0
-                                  ? 'Henüz yorum yok'
-                                  : '${actor.rating.toStringAsFixed(1)} / 5 · ${actor.reviewCount} yorum',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            size: 16,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ],
-                      ),
+                      fontSize: 9.5,
+                      height: 1.15,
                     ),
                   ),
                 ],
               ),
-            ),
-            Container(
-              width: 1,
-              height: 43,
-              color: theme.dividerColor,
-              margin: const EdgeInsets.symmetric(horizontal: 11),
-            ),
-            Column(
-              children: [
-                Text(
-                  '${actor.completedJobCount}',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  'Tamamlanan\nİş',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 9.5,
-                    height: 1.15,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
+              const SizedBox(width: 2),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+enum _OwnerAction { profile, reviews }
+
+class _OwnerActionsSheet extends StatelessWidget {
+  const _OwnerActionsSheet({required this.actor});
+
+  final CollabActor actor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reviewSummary = actor.reviewCount == 0
+        ? 'Henüz tamamlanan iş değerlendirmesi yok'
+        : '${actor.reviewCount} değerlendirme · ${actor.rating.toStringAsFixed(1)} / 5';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CollabIdentityAvatar(
+                initials: actor.initials,
+                profileKind: actor.profileType,
+                avatarUrl: actor.avatarUrl,
+                size: 46,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      actor.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'İlan sahibi hakkında ne görmek istersin?',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            key: const ValueKey<String>('collab-owner-profile-action'),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: const Icon(Icons.account_circle_outlined),
+            title: const Text('Profili görüntüle'),
+            subtitle: const Text('Profil detayları ve DM seçenekleri'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).pop(_OwnerAction.profile),
+          ),
+          ListTile(
+            key: const ValueKey<String>('collab-owner-reviews-action'),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: const Icon(Icons.star_outline_rounded),
+            title: const Text('Collab değerlendirmelerini gör'),
+            subtitle: Text(reviewSummary),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).pop(_OwnerAction.reviews),
+          ),
+        ],
       ),
     );
   }

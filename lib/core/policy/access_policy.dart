@@ -18,6 +18,14 @@ class AccessPolicy {
     'ROLE_STUDIO',
   };
 
+  /// Table groups always act as the authenticated person. Venue and studio
+  /// accounts must not create or apply to tables, including mixed-role
+  /// sessions that contain either business role.
+  static const Set<String> tableGroupMutationDeniedRoles = {
+    'ROLE_VENUE',
+    'ROLE_STUDIO',
+  };
+
   static bool canAccessMainstage(List<String> roles) {
     return roles.isNotEmpty;
   }
@@ -28,6 +36,12 @@ class AccessPolicy {
 
   static bool canAccessCollab(List<String> roles) {
     return roles.map(_normalizeRole).any(collabRoles.contains);
+  }
+
+  static bool canCreateOrJoinTableGroups(List<String> roles) {
+    return !roles
+        .map(_normalizeRole)
+        .any(tableGroupMutationDeniedRoles.contains);
   }
 
   static String _normalizeRole(String role) {

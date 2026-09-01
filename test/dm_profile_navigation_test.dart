@@ -4,6 +4,25 @@ import 'package:soundconnect_23_12_25codx/modules/dm/domain/entities/dm_profile_
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/dm_profile_navigation.dart';
 
 void main() {
+  test('maps every target type to its authenticated owner profile route', () {
+    expect(
+      ownerProfileRouteFor(DmProfileTargetType.musician),
+      AppRoutes.musicianProfile,
+    );
+    expect(
+      ownerProfileRouteFor(DmProfileTargetType.venue),
+      AppRoutes.venueProfile,
+    );
+    expect(
+      ownerProfileRouteFor(DmProfileTargetType.studio),
+      AppRoutes.studioProfile,
+    );
+    expect(
+      ownerProfileRouteFor(DmProfileTargetType.listener),
+      AppRoutes.listenerProfile,
+    );
+  });
+
   test('maps every supported target to its existing public profile route', () {
     final expectedRoutes = <DmProfileTargetType, String>{
       DmProfileTargetType.musician: AppRoutes.musicianPublicProfile,

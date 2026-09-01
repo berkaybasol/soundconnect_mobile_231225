@@ -7,7 +7,7 @@ import 'entities/table_group_message.dart';
 abstract class TableGroupRepository {
   Future<Result<TableGroup>> createTableGroup(TableGroupCreateRequest request);
   Future<Result<Page<TableGroup>>> listActiveTableGroups({
-    required String cityId,
+    required String? cityId,
     String? districtId,
     String? neighborhoodId,
     int page = 0,

@@ -8,6 +8,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/access_policy.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_pending_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
@@ -146,6 +147,42 @@ void main() {
       isNull,
     );
   });
+
+  test(
+    'table creation denies Venue and Studio roles but keeps personal roles',
+    () {
+      for (final roles in <List<String>>[
+        const <String>['ROLE_VENUE'],
+        const <String>[' studio '],
+        const <String>['ROLE_MUSICIAN', 'VENUE'],
+        const <String>['ROLE_LISTENER', 'ROLE_STUDIO'],
+      ]) {
+        final session = _activeSession(roles);
+        expect(AccessPolicy.canCreateOrJoinTableGroups(roles), isFalse);
+        expect(
+          AppRouteGuard.redirectFor(AppRoutes.tableGroupCreate, session),
+          AppRoutes.tableGroupList,
+        );
+        expect(
+          AppRouteGuard.redirectFor(AppRoutes.tableGroupList, session),
+          isNull,
+        );
+      }
+
+      for (final roles in <List<String>>[
+        const <String>['ROLE_MUSICIAN'],
+        const <String>['LISTENER'],
+        const <String>['ROLE_PRODUCER'],
+      ]) {
+        final session = _activeSession(roles);
+        expect(AccessPolicy.canCreateOrJoinTableGroups(roles), isTrue);
+        expect(
+          AppRouteGuard.redirectFor(AppRoutes.tableGroupCreate, session),
+          isNull,
+        );
+      }
+    },
+  );
 
   test('Studio owner calendar rejects invalid args and non-Studio roles', () {
     final listener = AuthSession.authenticated(
@@ -291,6 +328,19 @@ void main() {
       );
     }
   });
+}
+
+AuthSession _activeSession(List<String> roles) {
+  return AuthSession.authenticated(
+    token: 'table-group-token',
+    userId: 'table-group-user',
+    username: 'table-group-user',
+    accountStatus: 'ACTIVE',
+    roles: roles,
+    permissions: const <String>[],
+    expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+    isAdmin: false,
+  );
 }
 
 void _registerSession(AuthSession session) {

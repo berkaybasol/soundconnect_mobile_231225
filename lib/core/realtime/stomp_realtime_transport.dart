@@ -12,6 +12,7 @@ class RealtimeTransportConfig {
     required this.onProtocolError,
     required this.onTransportError,
     required this.onDisconnect,
+    this.onSocketDone,
   });
 
   final String url;
@@ -20,6 +21,7 @@ class RealtimeTransportConfig {
   final void Function() onProtocolError;
   final void Function() onTransportError;
   final void Function() onDisconnect;
+  final void Function()? onSocketDone;
 }
 
 abstract interface class RealtimeTransport {
@@ -55,6 +57,7 @@ class StompRealtimeTransport implements RealtimeTransport {
           onConnect: (_) => config.onConnect(),
           onStompError: (_) => config.onProtocolError(),
           onWebSocketError: (_) => config.onTransportError(),
+          onWebSocketDone: config.onSocketDone ?? config.onDisconnect,
           onDisconnect: (_) => config.onDisconnect(),
         ),
       );

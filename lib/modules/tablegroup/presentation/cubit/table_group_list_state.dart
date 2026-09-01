@@ -16,6 +16,7 @@ class TableGroupListState {
   final String? selectedDistrictId;
   final String? selectedNeighborhoodId;
   final List<TableGroup> items;
+  final int? totalElements;
   final bool hasNext;
   final int page;
   final Set<String> joiningIds;
@@ -30,6 +31,7 @@ class TableGroupListState {
     required this.selectedDistrictId,
     required this.selectedNeighborhoodId,
     required this.items,
+    required this.totalElements,
     required this.hasNext,
     required this.page,
     required this.joiningIds,
@@ -45,6 +47,7 @@ class TableGroupListState {
       selectedDistrictId = null,
       selectedNeighborhoodId = null,
       items = const [],
+      totalElements = null,
       hasNext = false,
       page = 0,
       joiningIds = const <String>{},
@@ -59,6 +62,7 @@ class TableGroupListState {
     Object? selectedDistrictId = copyWithUnset,
     Object? selectedNeighborhoodId = copyWithUnset,
     List<TableGroup>? items,
+    Object? totalElements = copyWithUnset,
     bool? hasNext,
     int? page,
     Set<String>? joiningIds,
@@ -79,6 +83,9 @@ class TableGroupListState {
           ? this.selectedNeighborhoodId
           : selectedNeighborhoodId as String?,
       items: items ?? this.items,
+      totalElements: identical(totalElements, copyWithUnset)
+          ? this.totalElements
+          : totalElements as int?,
       hasNext: hasNext ?? this.hasNext,
       page: page ?? this.page,
       joiningIds: joiningIds ?? this.joiningIds,

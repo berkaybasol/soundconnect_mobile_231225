@@ -14,10 +14,15 @@ class TableGroup {
   final String? ownerProfileImageUrl;
   final String? venueId;
   final String? venueName;
+  final String? description;
   final int maxPersonCount;
   final List<String> genderPrefs;
   final int ageMin;
   final int ageMax;
+  /// User-selected gathering time. Display this in table surfaces.
+  final DateTime? meetingAt;
+
+  /// Technical lifecycle cutoff returned by the server.
   final DateTime? expiresAt;
   final String status;
   final List<TableGroupParticipant> participants;
@@ -32,10 +37,12 @@ class TableGroup {
     required this.ownerProfileImageUrl,
     required this.venueId,
     required this.venueName,
+    this.description,
     required this.maxPersonCount,
     required this.genderPrefs,
     required this.ageMin,
     required this.ageMax,
+    this.meetingAt,
     required this.expiresAt,
     required this.status,
     required this.participants,

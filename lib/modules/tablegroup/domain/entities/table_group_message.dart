@@ -1,3 +1,5 @@
+import 'table_group_game.dart';
+
 class TableGroupMessage {
   final String messageId;
   final String tableGroupId;
@@ -6,6 +8,7 @@ class TableGroupMessage {
   final String messageType;
   final DateTime? sentAt;
   final DateTime? deletedAt;
+  final TableGroupGame? game;
 
   const TableGroupMessage({
     required this.messageId,
@@ -15,5 +18,6 @@ class TableGroupMessage {
     required this.messageType,
     required this.sentAt,
     required this.deletedAt,
+    this.game,
   });
 }

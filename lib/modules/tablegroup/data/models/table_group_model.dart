@@ -1,5 +1,6 @@
 import '../../domain/entities/table_group.dart';
 import '../../domain/entities/table_group_participant.dart';
+import 'table_group_wire_date.dart';
 
 class TableGroupModel extends TableGroup {
   const TableGroupModel({
@@ -9,10 +10,12 @@ class TableGroupModel extends TableGroup {
     required super.ownerProfileImageUrl,
     required super.venueId,
     required super.venueName,
+    super.description,
     required super.maxPersonCount,
     required super.genderPrefs,
     required super.ageMin,
     required super.ageMax,
+    super.meetingAt,
     required super.expiresAt,
     required super.status,
     required super.participants,
@@ -35,13 +38,19 @@ class TableGroupModel extends TableGroup {
           json['ownerAvatarUrl']?.toString() ??
           json['ownerPhotoUrl']?.toString() ??
           json['profileImageUrl']?.toString(),
-      venueId: json['venueId']?.toString(),
-      venueName: json['venueName']?.toString(),
+      venueId: _trimmedOrNull(json['venueId']),
+      venueName: _trimmedOrNull(json['venueName']),
+      description: _trimmedOrNull(json['description']),
       maxPersonCount: (json['maxPersonCount'] as num?)?.toInt() ?? 0,
       genderPrefs: _stringList(json['genderPrefs']),
       ageMin: (json['ageMin'] as num?)?.toInt() ?? 18,
       ageMax: (json['ageMax'] as num?)?.toInt() ?? 99,
-      expiresAt: _parseDateTime(json['expiresAt']),
+      // During the rolling deploy an older backend only returns expiresAt,
+      // whose historic meaning was the selected gathering time.
+      meetingAt: parseTableGroupExpiryWireDate(
+        json['meetingAt'] ?? json['expiresAt'],
+      ),
+      expiresAt: parseTableGroupExpiryWireDate(json['expiresAt']),
       status: json['status']?.toString() ?? 'ACTIVE',
       participants: _participants(json['participants']),
       city:
@@ -59,10 +68,9 @@ class TableGroupModel extends TableGroup {
     return const [];
   }
 
-  static DateTime? _parseDateTime(Object? value) {
-    final text = value?.toString();
-    if (text == null || text.trim().isEmpty) return null;
-    return DateTime.tryParse(text);
+  static String? _trimmedOrNull(Object? value) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? null : text;
   }
 
   static TableGroupLocation? _location(Object? value) {
@@ -87,7 +95,7 @@ class TableGroupModel extends TableGroup {
       };
       return TableGroupParticipant(
         userId: item['userId']?.toString() ?? '',
-        joinedAt: _parseDateTime(item['joinedAt']),
+        joinedAt: parseTableGroupWireDate(item['joinedAt']),
         status: status,
         joinNote: item['joinNote']?.toString(),
         username:

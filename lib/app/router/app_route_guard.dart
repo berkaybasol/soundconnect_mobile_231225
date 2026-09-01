@@ -99,6 +99,10 @@ class AppRouteGuard {
         !AccessPolicy.canAccessCollab(session.roles)) {
       return startRouteFor(session);
     }
+    if (requested == AppRoutes.tableGroupCreate &&
+        !AccessPolicy.canCreateOrJoinTableGroups(session.roles)) {
+      return AppRoutes.tableGroupList;
+    }
 
     return null;
   }

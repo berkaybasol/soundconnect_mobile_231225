@@ -5,6 +5,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/pagination/page.dart';
 import '../domain/entities/table_group.dart';
 import '../domain/entities/table_group_message.dart';
+import '../domain/table_group_message_timeline.dart';
 import '../domain/table_group_repository.dart';
 import 'models/table_group_create_request.dart';
 import 'table_group_endpoints.dart';
@@ -34,7 +35,7 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
       return Result.failure(
         const AppError(
           code: 'table_group_create_unknown',
-          message: 'Masa olusturulamadi',
+          message: 'Masa oluşturulamadı',
         ),
       );
     }
@@ -42,7 +43,7 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
 
   @override
   Future<Result<Page<TableGroup>>> listActiveTableGroups({
-    required String cityId,
+    required String? cityId,
     String? districtId,
     String? neighborhoodId,
     int page = 0,
@@ -74,10 +75,17 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
           } else {
             hasNext = (map['hasNext'] as bool?) ?? false;
           }
+          final decodedTotalElements = (map['totalElements'] as num?)?.toInt();
+          final totalElements =
+              decodedTotalElements != null &&
+                  decodedTotalElements >= content.length
+              ? decodedTotalElements
+              : null;
           return Page<TableGroup>(
             items: content,
             hasNext: hasNext,
             nextCursor: hasNext ? (currentPage + 1).toString() : null,
+            totalElements: totalElements,
           );
         },
       );
@@ -133,7 +141,7 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
       return Result.failure(
         const AppError(
           code: 'table_group_join_unknown',
-          message: 'Masaya katilim istegi gonderilemedi',
+          message: 'Masaya katılma isteği gönderilemedi',
         ),
       );
     }
@@ -144,7 +152,11 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
     required String tableGroupId,
     required String participantId,
   }) async {
-    return _postVoid(TableGroupEndpoints.approve(tableGroupId, participantId));
+    return _postVoid(
+      TableGroupEndpoints.approve(tableGroupId, participantId),
+      unknownCode: 'table_group_approve_unknown',
+      unknownMessage: 'Katılma isteği onaylanamadı',
+    );
   }
 
   @override
@@ -152,12 +164,20 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
     required String tableGroupId,
     required String participantId,
   }) async {
-    return _postVoid(TableGroupEndpoints.reject(tableGroupId, participantId));
+    return _postVoid(
+      TableGroupEndpoints.reject(tableGroupId, participantId),
+      unknownCode: 'table_group_reject_unknown',
+      unknownMessage: 'Katılma isteği reddedilemedi',
+    );
   }
 
   @override
   Future<Result<void>> leaveTableGroup({required String tableGroupId}) async {
-    return _postVoid(TableGroupEndpoints.leave(tableGroupId));
+    return _postVoid(
+      TableGroupEndpoints.leave(tableGroupId),
+      unknownCode: 'table_group_leave_unknown',
+      unknownMessage: 'Masadan ayrilinamadi',
+    );
   }
 
   @override
@@ -165,12 +185,20 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
     required String tableGroupId,
     required String participantId,
   }) async {
-    return _postVoid(TableGroupEndpoints.kick(tableGroupId, participantId));
+    return _postVoid(
+      TableGroupEndpoints.kick(tableGroupId, participantId),
+      unknownCode: 'table_group_kick_unknown',
+      unknownMessage: 'Katilimci masadan cikarilamadi',
+    );
   }
 
   @override
   Future<Result<void>> cancelTableGroup({required String tableGroupId}) async {
-    return _postVoid(TableGroupEndpoints.cancel(tableGroupId));
+    return _postVoid(
+      TableGroupEndpoints.cancel(tableGroupId),
+      unknownCode: 'table_group_cancel_unknown',
+      unknownMessage: 'Masa sonlandirilamadi',
+    );
   }
 
   @override
@@ -184,15 +212,33 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
         TableGroupEndpoints.chatMessages(tableGroupId),
         query: <String, dynamic>{'page': page, 'size': size},
         decoder: (json) {
-          final map = json as Map<String, dynamic>? ?? const {};
-          final content = (map['content'] as List<dynamic>? ?? const [])
-              .whereType<Map<String, dynamic>>()
-              .map(TableGroupMessageModel.fromJson)
-              .toList();
+          if (json is! Map<String, dynamic>) {
+            throw const FormatException('Invalid chat page payload');
+          }
+          final map = json;
+          final rawContent = map['content'];
+          if (rawContent is! List) {
+            throw const FormatException('Invalid chat page content');
+          }
+          final decoded = rawContent.map((item) {
+            if (item is! Map<String, dynamic>) {
+              throw const FormatException('Invalid chat message payload');
+            }
+            final message = TableGroupMessageModel.fromWireJson(item);
+            if (message.tableGroupId != tableGroupId) {
+              throw const FormatException('Chat message group mismatch');
+            }
+            return message;
+          });
+          final content = mergeTableGroupMessagesChronologically(
+            incoming: decoded,
+          );
           final currentPage = (map['number'] as num?)?.toInt() ?? page;
           final bool hasNext;
           if (map['last'] is bool) {
             hasNext = !(map['last'] as bool);
+          } else if (map['totalPages'] is num) {
+            hasNext = currentPage + 1 < (map['totalPages'] as num).toInt();
           } else {
             hasNext = (map['hasNext'] as bool?) ?? false;
           }
@@ -226,8 +272,16 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
       final response = await _apiClient.post<TableGroupMessage>(
         TableGroupEndpoints.chatMessages(tableGroupId),
         body: <String, dynamic>{'content': content, 'messageType': messageType},
-        decoder: (json) =>
-            TableGroupMessageModel.fromJson(json as Map<String, dynamic>),
+        decoder: (json) {
+          if (json is! Map<String, dynamic>) {
+            throw const FormatException('Invalid sent chat message payload');
+          }
+          final message = TableGroupMessageModel.fromWireJson(json);
+          if (message.tableGroupId != tableGroupId) {
+            throw const FormatException('Sent chat message group mismatch');
+          }
+          return message;
+        },
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -262,7 +316,11 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
     }
   }
 
-  Future<Result<void>> _postVoid(String path) async {
+  Future<Result<void>> _postVoid(
+    String path, {
+    required String unknownCode,
+    required String unknownMessage,
+  }) async {
     try {
       await _apiClient.post<Object?>(
         path,
@@ -274,10 +332,7 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
       return Result.failure(e.error);
     } catch (_) {
       return Result.failure(
-        const AppError(
-          code: 'table_group_action_unknown',
-          message: 'Islem basarisiz',
-        ),
+        AppError(code: unknownCode, message: unknownMessage),
       );
     }
   }

@@ -1,28 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/access_policy.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../dm/data/dm_auth_support.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
-import '../../domain/entities/table_group_participant.dart';
 import '../../domain/entities/table_group.dart';
 import 'table_group_detail_screen.dart';
 import 'table_group_route_args.dart';
 import '../cubit/table_group_list_cubit.dart';
 import '../cubit/table_group_list_state.dart';
+import '../widgets/table_group_overview_style.dart';
 
 part 'table_group_list_screen_widgets.dart';
 
 class TableGroupListScreen extends StatelessWidget {
   final TableGroupListArgs args;
 
-  TableGroupListScreen({
-    super.key,
-    this.args = const TableGroupListArgs(),
-  });
+  TableGroupListScreen({super.key, this.args = const TableGroupListArgs()});
 
   @override
   Widget build(BuildContext context) {
@@ -43,16 +46,18 @@ class _TableGroupListView extends StatefulWidget {
 }
 
 class _TableGroupListViewState extends State<_TableGroupListView> {
+  static const String _allCitiesFilterValue = '__all_cities__';
   final ScrollController _scrollController = ScrollController();
   Offset _fabOffset = Offset.zero;
   String? _currentUserId;
-  bool _resolvingCurrentUser = false;
+  bool _currentUserResolved = false;
+  Future<void>? _currentUserResolutionInFlight;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _ensureCurrentUserId();
+    unawaited(_ensureCurrentUserId());
   }
 
   @override
@@ -71,83 +76,38 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
     }
   }
 
-  Future<void> _ensureCurrentUserId() async {
-    if (_currentUserId != null || _resolvingCurrentUser) return;
-    _resolvingCurrentUser = true;
-    final tokenStore = serviceLocator<TokenStore>();
-    _currentUserId = await resolveCurrentUserId(tokenStore);
-    _resolvingCurrentUser = false;
-  }
-
-  bool _canOpenDetail(TableGroup group) {
-    final currentUserId = _currentUserId?.trim();
-    if (currentUserId == null || currentUserId.isEmpty) return false;
-    if (group.ownerId == currentUserId) return true;
-    for (final participant in group.participants) {
-      if (participant.userId == currentUserId &&
-          participant.status == TableGroupParticipantStatus.accepted) {
-        return true;
+  Future<void> _ensureCurrentUserId() {
+    if (_currentUserResolved) return Future<void>.value();
+    final inFlight = _currentUserResolutionInFlight;
+    if (inFlight != null) return inFlight;
+    final future = _resolveCurrentUserId();
+    _currentUserResolutionInFlight = future;
+    return future.whenComplete(() {
+      if (identical(_currentUserResolutionInFlight, future)) {
+        _currentUserResolutionInFlight = null;
       }
+    });
+  }
+
+  Future<void> _resolveCurrentUserId() async {
+    String? userId;
+    try {
+      final tokenStore = serviceLocator<TokenStore>();
+      userId = await resolveCurrentUserId(tokenStore);
+    } catch (_) {
+      userId = null;
     }
-    return false;
-  }
-
-  TableGroupParticipantStatus? _myParticipantStatus(TableGroup group) {
-    final currentUserId = _currentUserId?.trim();
-    if (currentUserId == null || currentUserId.isEmpty) return null;
-    for (final participant in group.participants) {
-      if (participant.userId == currentUserId) {
-        return participant.status;
-      }
-    }
-    return null;
-  }
-
-  Future<void> _showJoinPendingInfo() async {
     if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Bilgilendirme'),
-        content: Text(
-          "Masaya katılma talebin şu an beklemede. Kabul edildiğinde ya da reddedildiğinde sana hemen haber vereceğiz. Durumu 'Mesajlar > Müzik Birleştirir!' kısmından kontrol edebilirsin.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Tamam'),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _currentUserId = userId?.trim().isNotEmpty == true ? userId : null;
+      _currentUserResolved = true;
+    });
   }
 
-  Future<void> _showApplyRequiredInfo() async {
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Bilgilendirme'),
-        content: Text('Bu masaya katılmak için başvuru göndermelisin.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Tamam'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _openDetailIfAllowed(TableGroup group) async {
+  Future<void> _openDetail(TableGroup group) async {
     await _ensureCurrentUserId();
-    if (!_canOpenDetail(group)) {
-      final myStatus = _myParticipantStatus(group);
-      if (myStatus == TableGroupParticipantStatus.pending) {
-        await _showJoinPendingInfo();
-      } else {
-        await _showApplyRequiredInfo();
-      }
+    if ((_currentUserId ?? '').trim().isEmpty) {
+      _showSessionRequired();
       return;
     }
     if (!mounted) return;
@@ -156,104 +116,62 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
       arguments: TableGroupDetailArgs(
         tableGroupId: group.id,
         bottomBarStageMode: widget.args.bottomBarStageMode,
+        openChat: false,
       ),
     );
     if (!mounted) return;
     context.read<TableGroupListCubit>().reload();
   }
 
-  Future<void> _openJoinSheet(TableGroup group) async {
-    final noteController = TextEditingController();
-    final shouldJoin = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 18,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Masaya katilim notu',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 12),
-              TextField(
-                controller: noteController,
-                maxLength: 256,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Ornek: 21:00 gibi oradayim',
-                  filled: true,
-                  fillColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
-                  hintStyle: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () => Navigator.of(sheetContext).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.gradientC,
-                  foregroundColor: AppColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  padding: EdgeInsets.symmetric(vertical: 13),
-                ),
-                child: Text('Basvuru Gonder'),
-              ),
-              SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.of(sheetContext).pop(false),
-                child: Text(
-                  'Vazgec',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    if (shouldJoin != true || !mounted) return;
-
-    final ok = await context.read<TableGroupListCubit>().joinTableGroup(
-      tableGroupId: group.id,
-      note: noteController.text,
-    );
+  void _showSessionRequired() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
+        content: Text('Oturum bilgisi dogrulanamadi. Lutfen tekrar giris yap.'),
+      ),
+    );
+  }
+
+  void _showPersonalIdentityRequired() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
         content: Text(
-          ok ? 'Katilim istegi gonderildi' : 'Katilim istegi gonderilemedi',
+          'Masa oluşturma ve katılma işlemleri kişisel hesaplarla kullanılabilir.',
         ),
       ),
     );
+  }
+
+  bool get _canCreateOrJoin {
+    try {
+      return AccessPolicy.canCreateOrJoinTableGroups(
+        serviceLocator<AuthSessionManager>().session.roles,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _openCreate() async {
+    if (!_canCreateOrJoin) {
+      _showPersonalIdentityRequired();
+      return;
+    }
+    final result = await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.tableGroupCreate);
+    if (!mounted) return;
+    final cubit = context.read<TableGroupListCubit>();
+    if (result case TableGroupCreateResult(:final cityId)) {
+      if (cubit.state.selectedCityId == null) {
+        await cubit.reload();
+      } else {
+        await cubit.setCity(cityId);
+      }
+    } else if (result == true) {
+      await cubit.reload();
+    }
   }
 
   Future<void> _openFilterSheet() async {
@@ -271,10 +189,10 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
             padding: EdgeInsets.fromLTRB(16, 18, 16, 20),
             child: BlocBuilder<TableGroupListCubit, TableGroupListState>(
               builder: (context, state) {
-                final String? cityValue =
+                final String cityValue =
                     state.cities.any((city) => city.id == state.selectedCityId)
-                    ? state.selectedCityId
-                    : null;
+                    ? state.selectedCityId!
+                    : _allCitiesFilterValue;
                 final String? districtValue =
                     state.districts.any(
                       (district) => district.id == state.selectedDistrictId,
@@ -302,8 +220,10 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
                     ),
                     SizedBox(height: 12),
                     DropdownButtonFormField<String>(
+                      key: const Key('table_group_filter_city'),
                       value: cityValue,
-                      decoration: _filterInputDecoration(context, 'Sehir sec'),
+                      isExpanded: true,
+                      decoration: _filterInputDecoration(context, 'Şehir seç'),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
@@ -313,20 +233,36 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
                       iconEnabledColor: Theme.of(
                         context,
                       ).colorScheme.onSurfaceVariant,
-                      items: state.cities
-                          .map(
-                            (city) => DropdownMenuItem<String>(
-                              value: city.id,
-                              child: Text(city.name),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: _allCitiesFilterValue,
+                          child: Text(
+                            'Tüm şehirler',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        ...state.cities.map(
+                          (city) => DropdownMenuItem<String>(
+                            value: city.id,
+                            child: Text(
+                              city.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          )
-                          .toList(),
+                          ),
+                        ),
+                      ],
                       onChanged: (value) =>
-                          context.read<TableGroupListCubit>().setCity(value),
+                          context.read<TableGroupListCubit>().setCity(
+                            value == _allCitiesFilterValue ? null : value,
+                          ),
                     ),
                     SizedBox(height: 10),
                     DropdownButtonFormField<String?>(
+                      key: const Key('table_group_filter_district'),
                       value: districtValue,
+                      isExpanded: true,
                       decoration: _filterInputDecoration(context, 'Ilce sec'),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
@@ -340,22 +276,34 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
                       items: [
                         DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('Tum Ilceler'),
+                          child: Text(
+                            'Tum Ilceler',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         ...state.districts.map(
                           (district) => DropdownMenuItem<String?>(
                             value: district.id,
-                            child: Text(district.name),
+                            child: Text(
+                              district.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                       ],
-                      onChanged: (value) => context
-                          .read<TableGroupListCubit>()
-                          .setDistrict(value),
+                      onChanged: state.selectedCityId == null
+                          ? null
+                          : (value) => context
+                                .read<TableGroupListCubit>()
+                                .setDistrict(value),
                     ),
                     SizedBox(height: 10),
                     DropdownButtonFormField<String?>(
+                      key: const Key('table_group_filter_neighborhood'),
                       value: neighborhoodValue,
+                      isExpanded: true,
                       decoration: _filterInputDecoration(
                         context,
                         'Mahalle sec',
@@ -372,18 +320,28 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
                       items: [
                         DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('Tum Mahalleler'),
+                          child: Text(
+                            'Tum Mahalleler',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         ...state.neighborhoods.map(
                           (neighborhood) => DropdownMenuItem<String?>(
                             value: neighborhood.id,
-                            child: Text(neighborhood.name),
+                            child: Text(
+                              neighborhood.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                       ],
-                      onChanged: (value) => context
-                          .read<TableGroupListCubit>()
-                          .setNeighborhood(value),
+                      onChanged: state.selectedDistrictId == null
+                          ? null
+                          : (value) => context
+                                .read<TableGroupListCubit>()
+                                .setNeighborhood(value),
                     ),
                     SizedBox(height: 14),
                     ElevatedButton(
@@ -432,42 +390,48 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
   }
 
   String _filterLabel(TableGroupListState state) {
-    if (state.selectedDistrictId == null &&
-        state.selectedNeighborhoodId == null) {
-      return 'Tumu';
+    final neighborhoodId = state.selectedNeighborhoodId;
+    if (neighborhoodId != null) {
+      for (final neighborhood in state.neighborhoods) {
+        if (neighborhood.id == neighborhoodId) return neighborhood.name;
+      }
+      return 'Mahalle';
     }
-    if (state.selectedNeighborhoodId != null) return 'Mahalle';
-    return 'Ilce';
+    final districtId = state.selectedDistrictId;
+    if (districtId != null) {
+      for (final district in state.districts) {
+        if (district.id == districtId) return district.name;
+      }
+      return 'İlçe';
+    }
+    final cityId = state.selectedCityId;
+    if (cityId != null) {
+      for (final city in state.cities) {
+        if (city.id == cityId) return city.name;
+      }
+      return 'Şehir';
+    }
+    return 'Tümü';
   }
 
-  String _formatHour(DateTime? value) {
+  bool _hasActiveFilters(TableGroupListState state) =>
+      state.selectedCityId != null ||
+      state.selectedDistrictId != null ||
+      state.selectedNeighborhoodId != null;
+
+  String _tableCountLabel(TableGroupListState state) {
+    final totalElements = state.totalElements;
+    if (totalElements != null) return '$totalElements masa';
+    final loadedCount = state.items.length;
+    return state.hasNext ? '$loadedCount+ masa' : '$loadedCount masa';
+  }
+
+  String _timeLabel(DateTime? value) {
     if (value == null) return '--:--';
     final local = value.toLocal();
     final hour = local.hour.toString().padLeft(2, '0');
     final minute = local.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
-  }
-
-  String _weekday(DateTime? value) {
-    if (value == null) return 'Bugun';
-    switch (value.toLocal().weekday) {
-      case DateTime.monday:
-        return 'Pazartesi';
-      case DateTime.tuesday:
-        return 'Sali';
-      case DateTime.wednesday:
-        return 'Carsamba';
-      case DateTime.thursday:
-        return 'Persembe';
-      case DateTime.friday:
-        return 'Cuma';
-      case DateTime.saturday:
-        return 'Cumartesi';
-      case DateTime.sunday:
-        return 'Pazar';
-      default:
-        return 'Bugun';
-    }
   }
 
   String? _resolveCurrentUserProfileImage(TableGroupListState state) {
@@ -498,6 +462,11 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<TableGroupListCubit, TableGroupListState>(
+      listenWhen: (previous, current) =>
+          current.status == TableGroupListStatus.failure &&
+          current.error != null &&
+          (previous.status != current.status ||
+              previous.error != current.error),
       listener: (context, state) {
         if (state.status == TableGroupListStatus.failure &&
             state.error != null) {
@@ -508,9 +477,10 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
       },
       builder: (context, state) {
         final loading = state.status == TableGroupListStatus.loading;
+        final canCreateOrJoin = _canCreateOrJoin;
         final currentUserProfileImage = _resolveCurrentUserProfileImage(state);
         final screenSize = MediaQuery.sizeOf(context);
-        final fabSize = Size(130, 126);
+        final fabSize = Size(145, 130);
         final baseFab = Offset(
           screenSize.width - fabSize.width - 16,
           screenSize.height - fabSize.height - 98,
@@ -525,233 +495,304 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
         );
 
         return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: SafeArea(
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(16, 12, 16, 10),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            icon: Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          SizedBox(width: 2),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Müzik Birleştirir!',
-                                  style: TextStyle(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                    fontSize: 30,
-                                    height: 1,
-                                    fontWeight: FontWeight.w700,
+          backgroundColor: TableGroupOverviewStyle.pageBase,
+          body: TableGroupOverviewBackdrop(
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(5, 6, 5, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              height: 48,
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).maybePop(),
+                                    icon: const Icon(
+                                      Icons.arrow_back_ios_new_rounded,
+                                      color: TableGroupOverviewStyle.bodyMuted,
+                                      size: 28,
+                                    ),
                                   ),
+                                  const Spacer(),
+                                  IconButton(
+                                    key: const Key('table_group_open_filters'),
+                                    onPressed: _openFilterSheet,
+                                    icon: ShaderMask(
+                                      shaderCallback: (bounds) =>
+                                          const LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: TableGroupOverviewStyle
+                                                .brandGradient,
+                                          ).createShader(bounds),
+                                      blendMode: BlendMode.srcIn,
+                                      child: const Icon(
+                                        Icons.tune_rounded,
+                                        color: AppColors.white,
+                                        size: 29,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(23, 14, 23, 0),
+                              child: Text(
+                                'Müzik Birleştirir!',
+                                key: Key('table_group_hero_title'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: TableGroupOverviewStyle.warmHeading,
+                                  fontSize: 34,
+                                  height: 1.02,
+                                  fontWeight: FontWeight.w800,
                                 ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Hadi sana bir masa bulalim',
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(23, 6, 23, 0),
+                              child: Text(
+                                'Hadi sana bir masa bulalim',
+                                key: Key('table_group_hero_subtitle'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: TableGroupOverviewStyle.bodyMuted,
+                                  fontSize: 17,
+                                  height: 1.25,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Açık Masalar',
+                                key: Key('table_group_section_title'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: TableGroupOverviewStyle.headingMuted,
+                                  fontSize: 23,
+                                  height: 1.15,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              key: const Key('table_group_count_pill'),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 9,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF111B2A),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: TableGroupOverviewStyle.cardBorder,
+                                ),
+                              ),
+                              child: Text(
+                                _tableCountLabel(state),
+                                key: const Key('table_group_count_label'),
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  color: TableGroupOverviewStyle.primaryText,
+                                  fontSize: 14,
+                                  height: 1.2,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_hasActiveFilters(state))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Filtreler:',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurfaceVariant,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _openFilterSheet,
-                            icon: ShaderMask(
-                              shaderCallback: (bounds) => LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: AppColors.brandGradient,
-                              ).createShader(bounds),
-                              blendMode: BlendMode.srcIn,
-                              child: Icon(
-                                Icons.tune_rounded,
-                                color: AppColors.white,
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Filtreler:',
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Theme.of(context).dividerColor,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _filterLabel(state),
-                                  style: TextStyle(
+                              SizedBox(width: 8),
+                              Flexible(
+                                flex: 3,
+                                child: Container(
+                                  padding: EdgeInsets.fromLTRB(12, 0, 0, 0),
+                                  decoration: BoxDecoration(
                                     color: Theme.of(
                                       context,
-                                    ).colorScheme.onSurface,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                GestureDetector(
-                                  onTap: () {
-                                    context
-                                        .read<TableGroupListCubit>()
-                                        .setDistrict(null);
-                                    context
-                                        .read<TableGroupListCubit>()
-                                        .setNeighborhood(null);
-                                  },
-                                  child: Icon(
-                                    Icons.close_rounded,
-                                    size: 16,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () =>
-                            context.read<TableGroupListCubit>().reload(),
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          physics: AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.fromLTRB(12, 4, 12, 110),
-                          itemCount: loading
-                              ? 1
-                              : state.items.isEmpty
-                              ? 1
-                              : state.items.length +
-                                    (state.status ==
-                                            TableGroupListStatus.loadingMore
-                                        ? 1
-                                        : 0),
-                          itemBuilder: (context, index) {
-                            if (loading) {
-                              return Padding(
-                                padding: EdgeInsets.only(top: 120),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
-
-                            if (state.items.isEmpty) {
-                              return Padding(
-                                padding: EdgeInsets.only(top: 130),
-                                child: Center(
-                                  child: Text(
-                                    'Bu filtrede aktif masa bulunamadi',
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
+                                    ).colorScheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: Theme.of(context).dividerColor,
                                     ),
                                   ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          _filterLabel(state),
+                                          key: const Key(
+                                            'table_group_filter_label',
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 6),
+                                      IconButton(
+                                        key: const Key(
+                                          'table_group_clear_filters',
+                                        ),
+                                        tooltip: 'Tüm filtreleri temizle',
+                                        onPressed: () => context
+                                            .read<TableGroupListCubit>()
+                                            .setCity(null),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 48,
+                                          minHeight: 48,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        icon: Icon(
+                                          Icons.close_rounded,
+                                          size: 16,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: () =>
+                              context.read<TableGroupListCubit>().refresh(),
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            physics: AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 110),
+                            itemCount: loading
+                                ? 1
+                                : state.items.isEmpty
+                                ? 1
+                                : state.items.length +
+                                      (state.status ==
+                                              TableGroupListStatus.loadingMore
+                                          ? 1
+                                          : 0),
+                            itemBuilder: (context, index) {
+                              if (loading) {
+                                return Padding(
+                                  padding: EdgeInsets.only(top: 120),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              }
+
+                              if (state.items.isEmpty) {
+                                return Padding(
+                                  padding: EdgeInsets.only(top: 130),
+                                  child: Center(
+                                    child: Text(
+                                      'Bu filtrede aktif masa bulunamadi',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              if (index >= state.items.length) {
+                                return Padding(
+                                  padding: EdgeInsets.all(14),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              }
+
+                              final group = state.items[index];
+                              return _TableGroupListCard(
+                                group: group,
+                                onOpenDetail: () async {
+                                  await _openDetail(group);
+                                },
+                                meetingTimeText: _timeLabel(
+                                  group.meetingAt ?? group.expiresAt,
                                 ),
                               );
-                            }
-
-                            if (index >= state.items.length) {
-                              return Padding(
-                                padding: EdgeInsets.all(14),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
-
-                            final group = state.items[index];
-                            return _TableGroupListCard(
-                              group: group,
-                              onApply: () => _openJoinSheet(group),
-                              onOpenDetail: () async {
-                                await _openDetailIfAllowed(group);
-                              },
-                              joining: state.joiningIds.contains(group.id),
-                              timeText: _formatHour(group.expiresAt),
-                              dayText: _weekday(group.expiresAt),
-                            );
-                          },
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    ProfilePublicBottomBar(
-                      currentIndex: 2,
-                      profileImageUrl: currentUserProfileImage,
-                      stageMode: widget.args.bottomBarStageMode,
-                    ),
-                  ],
-                ),
-                Positioned(
-                  left: fabLeft,
-                  top: fabTop,
-                  child: _CreateTableFab(
-                    onTap: () async {
-                      final created = await Navigator.of(
-                        context,
-                      ).pushNamed(AppRoutes.tableGroupCreate);
-                      if (created == true && context.mounted) {
-                        context.read<TableGroupListCubit>().reload();
-                      }
-                    },
-                    onDragDelta: (delta) {
-                      setState(() {
-                        _fabOffset += delta;
-                      });
-                    },
+                      ProfilePublicBottomBar(
+                        currentIndex: 2,
+                        profileImageUrl: currentUserProfileImage,
+                        stageMode: widget.args.bottomBarStageMode,
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  if (canCreateOrJoin)
+                    Positioned(
+                      left: fabLeft,
+                      top: fabTop,
+                      child: _CreateTableFab(
+                        onTap: _openCreate,
+                        onDragDelta: (delta) {
+                          setState(() {
+                            _fabOffset += delta;
+                          });
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );

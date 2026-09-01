@@ -112,12 +112,17 @@ import '../../modules/studio/domain/studio_room_repository.dart';
 import '../../modules/setlist/data/setlist_repository_impl.dart';
 import '../../modules/setlist/domain/setlist_repository.dart';
 import '../../modules/tablegroup/data/table_group_repository_impl.dart';
+import '../../modules/tablegroup/data/table_group_venue_option_repository_impl.dart';
 import '../../modules/tablegroup/data/table_group_chat_realtime_client.dart';
+import '../../modules/tablegroup/data/table_group_game_repository_impl.dart';
+import '../../modules/tablegroup/domain/table_group_game_repository.dart';
 import '../../modules/tablegroup/domain/table_group_repository.dart';
+import '../../modules/tablegroup/domain/table_group_venue_option_repository.dart';
 import '../../modules/tablegroup/presentation/cubit/table_group_create_cubit.dart';
 import '../../modules/tablegroup/presentation/cubit/table_group_list_cubit.dart';
 import '../auth/token_store.dart';
 import '../auth/auth_session_manager.dart';
+import '../policy/access_policy.dart';
 import '../auth/auth_session_store.dart';
 import '../deep_link/pending_app_deep_link_store.dart';
 import '../network/api_client.dart';
@@ -336,6 +341,12 @@ void setupDependencies() {
     ..registerLazySingleton<TableGroupRepository>(
       () => TableGroupRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<TableGroupVenueOptionRepository>(
+      () => TableGroupVenueOptionRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<TableGroupGameRepository>(
+      () => TableGroupGameRepositoryImpl(serviceLocator<ApiClient>()),
+    )
     ..registerLazySingleton<TableGroupChatRealtimeClient>(
       () => TableGroupChatRealtimeClient(),
     )
@@ -346,12 +357,20 @@ void setupDependencies() {
       () => TableGroupCreateCubit(
         tableGroupRepository: serviceLocator<TableGroupRepository>(),
         locationRepository: serviceLocator<LocationRepository>(),
+        venueOptionRepository:
+            serviceLocator<TableGroupVenueOptionRepository>(),
+        canCreateOrJoin: () => AccessPolicy.canCreateOrJoinTableGroups(
+          serviceLocator<AuthSessionManager>().session.roles,
+        ),
       ),
     )
     ..registerFactory<TableGroupListCubit>(
       () => TableGroupListCubit(
         tableGroupRepository: serviceLocator<TableGroupRepository>(),
         locationRepository: serviceLocator<LocationRepository>(),
+        canCreateOrJoin: () => AccessPolicy.canCreateOrJoinTableGroups(
+          serviceLocator<AuthSessionManager>().session.roles,
+        ),
       ),
     )
     ..registerFactory<SpotifyPreviewCubit>(

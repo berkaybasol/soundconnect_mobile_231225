@@ -27,10 +27,13 @@ class TableGroupChatRealtimeClient {
 
   final StreamController<TableGroupMessage> _messageController =
       StreamController<TableGroupMessage>.broadcast();
+  final StreamController<void> _connectionController =
+      StreamController<void>.broadcast();
   final StreamController<RealtimeClientError> _errorController =
       StreamController<RealtimeClientError>.broadcast();
 
   Stream<TableGroupMessage> get messageStream => _messageController.stream;
+  Stream<void> get connectionStream => _connectionController.stream;
   Stream<RealtimeClientError> get errorStream => _errorController.stream;
   bool get isConnected => _connected;
   String? get connectedTableGroupId => _connectedTableGroupId;
@@ -51,7 +54,12 @@ class TableGroupChatRealtimeClient {
     if (_connected && _connectedTableGroupId == tableGroupId) return;
     final inFlight = _connectInFlight;
     if (inFlight != null) {
-      await inFlight;
+      try {
+        await inFlight;
+      } catch (_) {
+        // A cancelled or failed previous-group handshake must not prevent this
+        // caller from establishing the requested group session below.
+      }
       if (_connected && _connectedTableGroupId == tableGroupId) return;
     }
 
@@ -93,6 +101,29 @@ class TableGroupChatRealtimeClient {
       if (identical(_pendingConnect, completer)) _pendingConnect = null;
     }
 
+    void handleDisconnect() {
+      if (generation != _generation) return;
+      final wasConnected = _connected;
+      _connected = false;
+      _connectedTableGroupId = null;
+      if (wasConnected) {
+        _emitError(
+          const RealtimeClientError(
+            type: RealtimeClientErrorType.disconnected,
+            message: 'Table-group realtime connection was interrupted.',
+          ),
+        );
+      }
+      if (!completer.isCompleted) {
+        completer.completeError(
+          const RealtimeClientError(
+            type: RealtimeClientErrorType.disconnected,
+            message: 'Table-group realtime disconnected before it was ready.',
+          ),
+        );
+      }
+    }
+
     try {
       final transport = _transportFactory(
         RealtimeTransportConfig(
@@ -103,7 +134,10 @@ class TableGroupChatRealtimeClient {
             try {
               _connected = true;
               _connectedTableGroupId = tableGroupId;
-              _bindSubscriptions(tableGroupId);
+              _bindSubscriptions(tableGroupId, generation);
+              if (!_connectionController.isClosed) {
+                _connectionController.add(null);
+              }
               if (!completer.isCompleted) completer.complete();
               if (identical(_pendingConnect, completer)) {
                 _pendingConnect = null;
@@ -130,29 +164,8 @@ class TableGroupChatRealtimeClient {
               message: 'Table-group realtime connection failed.',
             ),
           ),
-          onDisconnect: () {
-            if (generation != _generation) return;
-            final wasConnected = _connected;
-            _connected = false;
-            _connectedTableGroupId = null;
-            if (wasConnected) {
-              _emitError(
-                const RealtimeClientError(
-                  type: RealtimeClientErrorType.disconnected,
-                  message: 'Table-group realtime connection was interrupted.',
-                ),
-              );
-            }
-            if (!completer.isCompleted) {
-              completer.completeError(
-                const RealtimeClientError(
-                  type: RealtimeClientErrorType.disconnected,
-                  message:
-                      'Table-group realtime disconnected before it was ready.',
-                ),
-              );
-            }
-          },
+          onDisconnect: handleDisconnect,
+          onSocketDone: handleDisconnect,
         ),
       );
       _transport = transport;
@@ -185,13 +198,17 @@ class TableGroupChatRealtimeClient {
     }
   }
 
-  void send({
+  bool send({
     required String tableGroupId,
     required String content,
     String messageType = 'TEXT',
   }) {
     final transport = _transport;
-    if (!_connected || transport == null) return;
+    if (!_connected ||
+        transport == null ||
+        _connectedTableGroupId != tableGroupId) {
+      return false;
+    }
     transport.send(
       destination: '/app/table-group/$tableGroupId/chat',
       body: jsonEncode(<String, dynamic>{
@@ -199,6 +216,7 @@ class TableGroupChatRealtimeClient {
         'messageType': messageType,
       }),
     );
+    return true;
   }
 
   Future<void> disconnect() async {
@@ -225,6 +243,7 @@ class TableGroupChatRealtimeClient {
   Future<void> dispose() async {
     await disconnect();
     await _messageController.close();
+    await _connectionController.close();
     await _errorController.close();
   }
 
@@ -239,23 +258,38 @@ class TableGroupChatRealtimeClient {
     transport?.deactivate();
   }
 
-  void _bindSubscriptions(String tableGroupId) {
+  void _bindSubscriptions(String tableGroupId, int generation) {
     final transport = _transport;
     if (transport == null) return;
+
+    bool isCurrentConnection() {
+      return generation == _generation &&
+          _connected &&
+          _connectedTableGroupId == tableGroupId &&
+          identical(_transport, transport);
+    }
+
     transport.subscribe(
       destination: '/topic/table_group/$tableGroupId',
-      callback: _onFrame,
+      callback: (body) {
+        if (!isCurrentConnection()) return;
+        _onFrame(body, expectedTableGroupId: tableGroupId);
+      },
     );
   }
 
-  void _onFrame(String? body) {
+  void _onFrame(String? body, {required String expectedTableGroupId}) {
     if (body == null || body.trim().isEmpty) return;
     try {
       final decoded = jsonDecode(body);
       if (decoded is! Map<String, dynamic>) {
         throw const FormatException('Expected an object.');
       }
-      _messageController.add(TableGroupMessageModel.fromJson(decoded));
+      final message = TableGroupMessageModel.fromWireJson(decoded);
+      if (message.tableGroupId != expectedTableGroupId) {
+        throw const FormatException('Table-group id mismatch.');
+      }
+      if (!_messageController.isClosed) _messageController.add(message);
     } catch (_) {
       _emitError(
         const RealtimeClientError(

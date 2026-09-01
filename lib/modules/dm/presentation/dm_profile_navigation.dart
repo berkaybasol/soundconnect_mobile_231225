@@ -9,6 +9,14 @@ class DmProfileRoute {
   final PublicProfileArgs arguments;
 }
 
+/// Returns the authenticated user's editable/owner profile surface.
+String ownerProfileRouteFor(DmProfileTargetType type) => switch (type) {
+  DmProfileTargetType.musician => AppRoutes.musicianProfile,
+  DmProfileTargetType.venue => AppRoutes.venueProfile,
+  DmProfileTargetType.studio => AppRoutes.studioProfile,
+  DmProfileTargetType.listener => AppRoutes.listenerProfile,
+};
+
 /// Returns the existing public profile surface for a resolved DM target.
 ///
 /// Listener profiles currently have no public screen, so they intentionally

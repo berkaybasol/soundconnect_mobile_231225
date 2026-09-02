@@ -4,6 +4,7 @@ class TableGroupMessage {
   final String messageId;
   final String tableGroupId;
   final String senderId;
+  final String? clientMessageId;
   final String content;
   final String messageType;
   final DateTime? sentAt;
@@ -14,6 +15,7 @@ class TableGroupMessage {
     required this.messageId,
     required this.tableGroupId,
     required this.senderId,
+    this.clientMessageId,
     required this.content,
     required this.messageType,
     required this.sentAt,

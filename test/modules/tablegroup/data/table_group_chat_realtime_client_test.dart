@@ -28,7 +28,7 @@ void main() {
 
         final errorFuture = client.errorStream.first;
         harness.latest.deliver(
-          '/topic/table_group/group-1',
+          '/topic/table-group.group-1',
           _messageJson(tableGroupId: 'other-group'),
         );
         expect(
@@ -71,11 +71,11 @@ void main() {
         await client.connect(tableGroupId: 'group-2', token: 'token-2');
 
         oldTransport.deliver(
-          '/topic/table_group/group-1',
+          '/topic/table-group.group-1',
           _messageJson(tableGroupId: 'group-1', messageId: 'stale'),
         );
         harness.latest.deliver(
-          '/topic/table_group/group-2',
+          '/topic/table-group.group-2',
           _messageJson(tableGroupId: 'group-2', messageId: 'current'),
         );
         await Future<void>.delayed(Duration.zero);
@@ -84,17 +84,55 @@ void main() {
           'current',
         ]);
         expect(received.single.sentAt?.isUtc, isTrue);
-        expect(
-          client.send(tableGroupId: 'group-1', content: 'wrong destination'),
-          isFalse,
+        expect(harness.latest.sentDestinations, isEmpty);
+      },
+    );
+
+    test(
+      'intentional disconnect ignores every callback from the old transport',
+      () async {
+        final harness = _TransportHarness(<_Activation>[_Activation.connect]);
+        final client = TableGroupChatRealtimeClient(
+          transportFactory: harness.create,
         );
-        expect(
-          client.send(tableGroupId: 'group-2', content: 'current destination'),
-          isTrue,
+        addTearDown(client.dispose);
+        final errors = <RealtimeClientError>[];
+        final messages = <TableGroupMessage>[];
+        var connectionEvents = 0;
+        final errorSubscription = client.errorStream.listen(errors.add);
+        final messageSubscription = client.messageStream.listen(messages.add);
+        final connectionSubscription = client.connectionStream.listen(
+          (_) => connectionEvents += 1,
         );
-        expect(harness.latest.sentDestinations, <String>[
-          '/app/table-group/group-2/chat',
-        ]);
+        addTearDown(errorSubscription.cancel);
+        addTearDown(messageSubscription.cancel);
+        addTearDown(connectionSubscription.cancel);
+
+        await client.connect(tableGroupId: 'group-1', token: 'token-1');
+        await Future<void>.delayed(Duration.zero);
+        final oldTransport = harness.latest;
+
+        await client.disconnect();
+        expect(oldTransport.deactivated, isTrue);
+
+        oldTransport.config.onConnect();
+        oldTransport.config.onProtocolError();
+        oldTransport.config.onTransportError();
+        oldTransport.config.onDisconnect();
+        oldTransport.config.onSocketDone!.call();
+        oldTransport.deliver(
+          '/topic/table-group.group-1',
+          _messageJson(tableGroupId: 'group-1', messageId: 'stale'),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(client.isConnected, isFalse);
+        expect(client.connectedTableGroupId, isNull);
+        expect(connectionEvents, 1);
+        expect(errors, isEmpty);
+        expect(messages, isEmpty);
+        expect(harness.transports, hasLength(1));
+        expect(oldTransport.activateCalls, 1);
       },
     );
 
@@ -166,9 +204,10 @@ String _messageJson({
     'messageId': messageId,
     'tableGroupId': tableGroupId,
     'senderId': 'sender-1',
+    'clientMessageId': 'client-$messageId',
     'content': 'Merhaba',
     'messageType': 'TEXT',
-    'sentAt': '2026-07-14T20:00:00',
+    'sentAt': '2026-07-14T20:00:00Z',
   });
 }
 
@@ -201,10 +240,13 @@ class _FakeRealtimeTransport implements RealtimeTransport {
   final Map<String, RealtimeMessageCallback> subscriptions =
       <String, RealtimeMessageCallback>{};
   final List<String> sentDestinations = <String>[];
+  final List<String> sentBodies = <String>[];
   bool deactivated = false;
+  int activateCalls = 0;
 
   @override
   void activate() {
+    activateCalls += 1;
     if (activation == _Activation.connect) config.onConnect();
   }
 
@@ -222,6 +264,7 @@ class _FakeRealtimeTransport implements RealtimeTransport {
   @override
   void send({required String destination, required String body}) {
     sentDestinations.add(destination);
+    sentBodies.add(body);
   }
 
   @override

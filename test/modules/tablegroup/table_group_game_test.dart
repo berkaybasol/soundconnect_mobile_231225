@@ -671,7 +671,7 @@ void main() {
   });
 
   testWidgets(
-    'vote card hides current user candidate but keeps volunteer option',
+    'vote card allows a normal self vote separately from volunteering',
     (tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
@@ -729,13 +729,14 @@ void main() {
       expect(find.text(TableGroupGameCopy.volunteerOption), findsOneWidget);
       expect(
         find.byKey(const ValueKey<String>('game-vote-owner')),
-        findsNothing,
+        findsOneWidget,
       );
       expect(
         find.byKey(const ValueKey<String>('game-vote-other')),
         findsOneWidget,
       );
       expect(find.text('@mert'), findsWidgets);
+      expect(find.text('@ece (sen)'), findsOneWidget);
       expect(find.text('@mert → @ece'), findsOneWidget);
       expect(
         tester
@@ -746,6 +747,10 @@ void main() {
         contains('@mert hamlesini yaptı'),
       );
       expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byKey(const ValueKey<String>('game-vote-owner')));
+      expect(selectedAction, TableGroupGameAction.vote);
+      expect(selectedTarget, 'owner');
 
       await tester.tap(find.byKey(const ValueKey<String>('game-vote-other')));
       expect(selectedAction, TableGroupGameAction.vote);
@@ -903,7 +908,7 @@ void main() {
     );
   });
 
-  testWidgets('cancellation codes are rendered as friendly Turkish copy', (
+  testWidgets('owner table closure is rendered as friendly Turkish copy', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -913,7 +918,7 @@ void main() {
             message: _gameMessage(
               phase: 'CANCELLED',
               status: 'CANCELLED',
-              cancellationReason: 'CANCELLED_BY_OWNER',
+              cancellationReason: 'TABLE_OWNER_JOINED_ANOTHER_TABLE',
             ),
             currentUserId: 'owner',
             canCancelGame: true,
@@ -930,10 +935,10 @@ void main() {
     );
 
     expect(
-      find.text('Oyun, masa sahibi tarafından iptal edildi.'),
+      find.text('Masa sahibi başka bir masaya katıldığı için oyun sona erdi.'),
       findsOneWidget,
     );
-    expect(find.text('CANCELLED_BY_OWNER'), findsNothing);
+    expect(find.text('TABLE_OWNER_JOINED_ANOTHER_TABLE'), findsNothing);
   });
 
   testWidgets('countdown uses server offset and reports expiry once', (

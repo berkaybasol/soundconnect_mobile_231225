@@ -7,6 +7,7 @@ class TableGroupMessageModel extends TableGroupMessage {
     required super.messageId,
     required super.tableGroupId,
     required super.senderId,
+    super.clientMessageId,
     required super.content,
     required super.messageType,
     required super.sentAt,
@@ -19,6 +20,7 @@ class TableGroupMessageModel extends TableGroupMessage {
       messageId: json['messageId']?.toString() ?? '',
       tableGroupId: json['tableGroupId']?.toString() ?? '',
       senderId: json['senderId']?.toString() ?? '',
+      clientMessageId: _optionalText(json['clientMessageId']),
       content: json['content']?.toString() ?? '',
       messageType: json['messageType']?.toString() ?? 'TEXT',
       sentAt: parseTableGroupWireDate(json['sentAt']),
@@ -34,8 +36,8 @@ class TableGroupMessageModel extends TableGroupMessage {
   /// injecting unusable messages into the conversation.
   factory TableGroupMessageModel.fromWireJson(Map<String, dynamic> json) {
     String requiredText(String key) {
-      final value = json[key]?.toString().trim();
-      if (value == null || value.isEmpty) {
+      final value = json[key];
+      if (value is! String || value.isEmpty || value != value.trim()) {
         throw FormatException('Missing table-group message field: $key');
       }
       return value;
@@ -47,7 +49,11 @@ class TableGroupMessageModel extends TableGroupMessage {
       throw const FormatException('Invalid table-group message sentAt');
     }
 
-    final deletedAtRaw = json['deletedAt']?.toString().trim();
+    final deletedAtValue = json['deletedAt'];
+    if (deletedAtValue != null && deletedAtValue is! String) {
+      throw const FormatException('Invalid table-group message deletedAt');
+    }
+    final deletedAtRaw = deletedAtValue as String?;
     final deletedAt = deletedAtRaw == null || deletedAtRaw.isEmpty
         ? null
         : parseTableGroupWireDate(deletedAtRaw);
@@ -55,7 +61,15 @@ class TableGroupMessageModel extends TableGroupMessage {
       throw const FormatException('Invalid table-group message deletedAt');
     }
 
-    final messageType = requiredText('messageType').toUpperCase();
+    final messageType = requiredText('messageType');
+    if (!const <String>{
+      'TEXT',
+      'SYSTEM',
+      'IMAGE',
+      'GAME',
+    }.contains(messageType)) {
+      throw const FormatException('Invalid table-group message type');
+    }
     final game = _gameOrNull(json['game']);
     if (messageType == 'GAME' && game == null) {
       throw const FormatException('Missing table-group game payload');
@@ -72,10 +86,21 @@ class TableGroupMessageModel extends TableGroupMessage {
       throw const FormatException('Table-group game group mismatch');
     }
 
+    final clientMessageId = _strictOptionalText(
+      json['clientMessageId'],
+      'clientMessageId',
+    );
+    if (messageType == 'TEXT' && clientMessageId == null) {
+      throw const FormatException(
+        'Missing table-group message field: clientMessageId',
+      );
+    }
+
     return TableGroupMessageModel(
       messageId: messageId,
       tableGroupId: tableGroupId,
       senderId: requiredText('senderId'),
+      clientMessageId: clientMessageId,
       content: _requiredContent(json),
       messageType: messageType,
       sentAt: sentAt,
@@ -85,11 +110,24 @@ class TableGroupMessageModel extends TableGroupMessage {
   }
 
   static String _requiredContent(Map<String, dynamic> json) {
-    final value = json['content']?.toString();
-    if (value == null || value.trim().isEmpty) {
+    final value = json['content'];
+    if (value is! String || value.trim().isEmpty) {
       throw const FormatException('Missing table-group message field: content');
     }
     return value;
+  }
+
+  static String? _strictOptionalText(Object? raw, String key) {
+    if (raw == null) return null;
+    if (raw is! String || raw.isEmpty || raw != raw.trim()) {
+      throw FormatException('Invalid table-group message field: $key');
+    }
+    return raw;
+  }
+
+  static String? _optionalText(Object? raw) {
+    final value = raw?.toString().trim();
+    return value == null || value.isEmpty ? null : value;
   }
 
   static TableGroupGameModel? _gameOrNull(Object? raw) {

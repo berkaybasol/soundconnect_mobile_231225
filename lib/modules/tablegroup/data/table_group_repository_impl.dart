@@ -26,7 +26,7 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
         TableGroupEndpoints.create(),
         body: request.toJson(),
         decoder: (json) =>
-            TableGroupModel.fromJson(json as Map<String, dynamic>),
+            TableGroupModel.fromWireJson(json as Map<String, dynamic>),
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -62,32 +62,7 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
       final response = await _apiClient.get<Page<TableGroup>>(
         TableGroupEndpoints.active,
         query: query,
-        decoder: (json) {
-          final map = json as Map<String, dynamic>? ?? const {};
-          final content = (map['content'] as List<dynamic>? ?? const [])
-              .whereType<Map<String, dynamic>>()
-              .map(TableGroupModel.fromJson)
-              .toList();
-          final currentPage = (map['number'] as num?)?.toInt() ?? page;
-          final bool hasNext;
-          if (map['last'] is bool) {
-            hasNext = !(map['last'] as bool);
-          } else {
-            hasNext = (map['hasNext'] as bool?) ?? false;
-          }
-          final decodedTotalElements = (map['totalElements'] as num?)?.toInt();
-          final totalElements =
-              decodedTotalElements != null &&
-                  decodedTotalElements >= content.length
-              ? decodedTotalElements
-              : null;
-          return Page<TableGroup>(
-            items: content,
-            hasNext: hasNext,
-            nextCursor: hasNext ? (currentPage + 1).toString() : null,
-            totalElements: totalElements,
-          );
-        },
+        decoder: (json) => _decodeTableGroupPage(json, fallbackPage: page),
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -103,12 +78,36 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
   }
 
   @override
+  Future<Result<Page<TableGroup>>> listMyActiveTableGroups({
+    int page = 0,
+    int size = 50,
+  }) async {
+    try {
+      final response = await _apiClient.get<Page<TableGroup>>(
+        TableGroupEndpoints.mine,
+        query: <String, dynamic>{'page': page, 'size': size},
+        decoder: (json) => _decodeTableGroupPage(json, fallbackPage: page),
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return Result.failure(
+        const AppError(
+          code: 'table_group_my_active_unknown',
+          message: 'Masa listesi alınamadı',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<TableGroup>> getDetail(String tableGroupId) async {
     try {
       final response = await _apiClient.get<TableGroup>(
         TableGroupEndpoints.detail(tableGroupId),
         decoder: (json) =>
-            TableGroupModel.fromJson(json as Map<String, dynamic>),
+            TableGroupModel.fromWireJson(json as Map<String, dynamic>),
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -176,7 +175,7 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
     return _postVoid(
       TableGroupEndpoints.leave(tableGroupId),
       unknownCode: 'table_group_leave_unknown',
-      unknownMessage: 'Masadan ayrilinamadi',
+      unknownMessage: 'Masadan ayrılamadı',
     );
   }
 
@@ -266,12 +265,25 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
   Future<Result<TableGroupMessage>> sendChatMessage({
     required String tableGroupId,
     required String content,
-    String messageType = 'TEXT',
+    required String clientMessageId,
   }) async {
+    final normalizedClientMessageId = clientMessageId.trim();
+    if (normalizedClientMessageId.isEmpty) {
+      return const Result.failure(
+        AppError(
+          code: 'table_group_chat_client_message_id_invalid',
+          message: 'Mesaj kimliği oluşturulamadı',
+        ),
+      );
+    }
     try {
       final response = await _apiClient.post<TableGroupMessage>(
         TableGroupEndpoints.chatMessages(tableGroupId),
-        body: <String, dynamic>{'content': content, 'messageType': messageType},
+        body: <String, dynamic>{
+          'content': content,
+          'messageType': 'TEXT',
+          'clientMessageId': normalizedClientMessageId,
+        },
         decoder: (json) {
           if (json is! Map<String, dynamic>) {
             throw const FormatException('Invalid sent chat message payload');
@@ -279,6 +291,9 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
           final message = TableGroupMessageModel.fromWireJson(json);
           if (message.tableGroupId != tableGroupId) {
             throw const FormatException('Sent chat message group mismatch');
+          }
+          if (message.clientMessageId != normalizedClientMessageId) {
+            throw const FormatException('Sent chat message client id mismatch');
           }
           return message;
         },
@@ -314,6 +329,43 @@ class TableGroupRepositoryImpl implements TableGroupRepository {
         ),
       );
     }
+  }
+
+  Page<TableGroup> _decodeTableGroupPage(
+    Object? json, {
+    required int fallbackPage,
+  }) {
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('Invalid table-group page payload');
+    }
+    final rawContent = json['content'];
+    if (rawContent is! List) {
+      throw const FormatException('Invalid table-group page content');
+    }
+    final content = rawContent.map((item) {
+      if (item is! Map<String, dynamic>) {
+        throw const FormatException('Invalid table-group payload');
+      }
+      return TableGroupModel.fromWireJson(item);
+    }).toList();
+    final currentPage = (json['number'] as num?)?.toInt() ?? fallbackPage;
+    final bool hasNext;
+    if (json['last'] is bool) {
+      hasNext = !(json['last'] as bool);
+    } else {
+      hasNext = (json['hasNext'] as bool?) ?? false;
+    }
+    final decodedTotalElements = (json['totalElements'] as num?)?.toInt();
+    final totalElements =
+        decodedTotalElements != null && decodedTotalElements >= content.length
+        ? decodedTotalElements
+        : null;
+    return Page<TableGroup>(
+      items: content,
+      hasNext: hasNext,
+      nextCursor: hasNext ? (currentPage + 1).toString() : null,
+      totalElements: totalElements,
+    );
   }
 
   Future<Result<void>> _postVoid(

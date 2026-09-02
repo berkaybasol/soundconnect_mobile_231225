@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../../core/network/network_config.dart';
 import '../../../core/realtime/realtime_client_error.dart';
+import '../../../core/realtime/stomp_destinations.dart';
 import '../../../core/realtime/stomp_realtime_transport.dart';
 import '../domain/entities/app_notification.dart';
 import 'models/app_notification_model.dart';
@@ -245,14 +246,14 @@ class NotificationRealtimeClient {
     }
 
     transport.subscribe(
-      destination: '/topic/notifications/$userId',
+      destination: StompDestinations.notifications(userId),
       callback: (body) {
         if (!isCurrentConnection()) return;
         _onNotificationFrame(body, expectedUserId: userId);
       },
     );
     transport.subscribe(
-      destination: '/topic/notifications/$userId/badge',
+      destination: StompDestinations.notificationsBadge(userId),
       callback: (body) {
         if (!isCurrentConnection()) return;
         _onBadgeFrame(body);

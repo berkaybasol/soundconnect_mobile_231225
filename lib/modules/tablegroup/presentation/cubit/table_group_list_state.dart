@@ -21,6 +21,7 @@ class TableGroupListState {
   final int page;
   final Set<String> joiningIds;
   final AppError? error;
+  final AppError? feedError;
 
   const TableGroupListState({
     required this.status,
@@ -36,6 +37,7 @@ class TableGroupListState {
     required this.page,
     required this.joiningIds,
     this.error,
+    this.feedError,
   });
 
   const TableGroupListState.idle()
@@ -51,7 +53,8 @@ class TableGroupListState {
       hasNext = false,
       page = 0,
       joiningIds = const <String>{},
-      error = null;
+      error = null,
+      feedError = null;
 
   TableGroupListState copyWith({
     TableGroupListStatus? status,
@@ -67,6 +70,7 @@ class TableGroupListState {
     int? page,
     Set<String>? joiningIds,
     Object? error = copyWithUnset,
+    Object? feedError = copyWithUnset,
   }) {
     return TableGroupListState(
       status: status ?? this.status,
@@ -90,6 +94,9 @@ class TableGroupListState {
       page: page ?? this.page,
       joiningIds: joiningIds ?? this.joiningIds,
       error: identical(error, copyWithUnset) ? this.error : error as AppError?,
+      feedError: identical(feedError, copyWithUnset)
+          ? this.feedError
+          : feedError as AppError?,
     );
   }
 }

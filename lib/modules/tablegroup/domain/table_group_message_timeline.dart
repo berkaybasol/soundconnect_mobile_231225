@@ -12,22 +12,35 @@ List<TableGroupMessage> mergeTableGroupMessagesChronologically({
   required Iterable<TableGroupMessage> incoming,
 }) {
   final byId = <String, TableGroupMessage>{};
+  final idByClientKey = <String, String>{};
 
-  for (final message in existing) {
+  void merge(TableGroupMessage message) {
     final id = message.messageId.trim();
-    if (id.isNotEmpty) byId[id] = message;
-  }
-  for (final message in incoming) {
-    final id = message.messageId.trim();
-    if (id.isEmpty) continue;
-    final existingMessage = byId[id];
-    byId[id] = existingMessage == null
+    if (id.isEmpty) return;
+    final clientKey = _clientMessageKey(message);
+    final canonicalId = clientKey == null ? id : idByClientKey[clientKey] ?? id;
+    final existingMessage = byId[canonicalId];
+    byId[canonicalId] = existingMessage == null
         ? message
         : _preferLatestRevision(existingMessage, message);
+    if (clientKey != null) idByClientKey[clientKey] = canonicalId;
+  }
+
+  for (final message in existing) {
+    merge(message);
+  }
+  for (final message in incoming) {
+    merge(message);
   }
 
   final messages = byId.values.toList(growable: false)..sort(_compareMessages);
   return List<TableGroupMessage>.unmodifiable(messages);
+}
+
+String? _clientMessageKey(TableGroupMessage message) {
+  final clientMessageId = message.clientMessageId?.trim();
+  if (clientMessageId == null || clientMessageId.isEmpty) return null;
+  return '${message.senderId.trim()}::$clientMessageId';
 }
 
 /// Returns whether [candidate] is a newer revision of the same structured game

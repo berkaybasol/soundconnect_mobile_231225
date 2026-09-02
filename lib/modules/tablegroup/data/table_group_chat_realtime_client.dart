@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../../core/network/network_config.dart';
 import '../../../core/realtime/realtime_client_error.dart';
+import '../../../core/realtime/stomp_destinations.dart';
 import '../../../core/realtime/stomp_realtime_transport.dart';
 import '../domain/entities/table_group_message.dart';
 import 'models/table_group_message_model.dart';
@@ -198,27 +199,6 @@ class TableGroupChatRealtimeClient {
     }
   }
 
-  bool send({
-    required String tableGroupId,
-    required String content,
-    String messageType = 'TEXT',
-  }) {
-    final transport = _transport;
-    if (!_connected ||
-        transport == null ||
-        _connectedTableGroupId != tableGroupId) {
-      return false;
-    }
-    transport.send(
-      destination: '/app/table-group/$tableGroupId/chat',
-      body: jsonEncode(<String, dynamic>{
-        'content': content,
-        'messageType': messageType,
-      }),
-    );
-    return true;
-  }
-
   Future<void> disconnect() async {
     _generation += 1;
     _connected = false;
@@ -270,7 +250,7 @@ class TableGroupChatRealtimeClient {
     }
 
     transport.subscribe(
-      destination: '/topic/table_group/$tableGroupId',
+      destination: StompDestinations.tableGroup(tableGroupId),
       callback: (body) {
         if (!isCurrentConnection()) return;
         _onFrame(body, expectedTableGroupId: tableGroupId);

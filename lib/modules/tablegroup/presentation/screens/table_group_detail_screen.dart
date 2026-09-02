@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
@@ -23,6 +23,7 @@ import '../../domain/entities/table_group_game.dart';
 import '../../domain/entities/table_group_message.dart';
 import '../../domain/entities/table_group_participant.dart';
 import '../../domain/table_group_lifecycle.dart';
+import '../../domain/table_group_expiry_policy.dart';
 import '../../domain/table_group_game_repository.dart';
 import '../../domain/table_group_message_timeline.dart';
 import '../../domain/table_group_repository.dart';
@@ -52,6 +53,7 @@ class TableGroupDetailScreen extends StatefulWidget {
   final TableGroupChatRealtimeClient? realtimeClient;
   final DateTime Function()? now;
   final bool Function()? canCreateOrJoin;
+  final String Function()? chatRequestIdFactory;
 
   const TableGroupDetailScreen({
     super.key,
@@ -62,6 +64,7 @@ class TableGroupDetailScreen extends StatefulWidget {
     this.realtimeClient,
     this.now,
     this.canCreateOrJoin,
+    this.chatRequestIdFactory,
   });
 
   @override
@@ -74,7 +77,10 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   late final TableGroupGameCubit _gameCubit;
   late final TokenStore _tokenStore;
   late final TableGroupChatRealtimeClient _realtimeClient;
+  late final bool _ownsRealtimeClient;
+  late final String Function() _chatRequestIdFactory;
   late final DateTime Function() _now;
+  late final TableGroupLocalDayRefreshScheduler _dayRefreshScheduler;
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _chatScrollController = ScrollController();
 
@@ -102,6 +108,8 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   String? _chatError;
   String? _realtimeError;
   String? _currentUserId;
+  String? _retryableChatContent;
+  String? _retryableChatClientMessageId;
   TableGroup? _group;
   List<TableGroupMessage> _messages = const [];
   TableGroupGameState _gameState = const TableGroupGameState.idle();
@@ -116,8 +124,16 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     _repository = widget.repository ?? serviceLocator<TableGroupRepository>();
     _showChat = widget.args.openChat;
     _tokenStore = widget.tokenStore ?? serviceLocator<TokenStore>();
+    _ownsRealtimeClient = widget.realtimeClient == null;
     _realtimeClient = widget.realtimeClient ?? TableGroupChatRealtimeClient();
+    _chatRequestIdFactory = widget.chatRequestIdFactory ?? const Uuid().v4;
     _now = widget.now ?? DateTime.now;
+    _dayRefreshScheduler = TableGroupLocalDayRefreshScheduler(
+      now: _now,
+      onRefresh: () {
+        if (mounted) setState(() {});
+      },
+    )..start();
     _gameCubit = TableGroupGameCubit(
       repository:
           widget.gameRepository ?? serviceLocator<TableGroupGameRepository>(),
@@ -137,6 +153,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _dayRefreshScheduler.dispose();
     _expiryTimer?.cancel();
     _gameExpiryRetryTimer?.cancel();
     _chatController.dispose();
@@ -146,13 +163,18 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     _realtimeErrorSubscription?.cancel();
     _gameStateSubscription?.cancel();
     unawaited(_gameCubit.close());
-    unawaited(_realtimeClient.dispose());
+    if (_ownsRealtimeClient) {
+      unawaited(_realtimeClient.dispose());
+    } else {
+      unawaited(_realtimeClient.disconnect());
+    }
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _dayRefreshScheduler.reschedule(refresh: true);
       unawaited(_resumeFromBackground());
     }
   }
@@ -307,7 +329,10 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
         _realtimeError = null;
       }
     });
-    for (final message in incoming.items) {
+    // History is chronological. Feed the newest game first so it is the
+    // authoritative fallback when /games/active is temporarily unavailable;
+    // the cubit deliberately refuses older pages switching game identity.
+    for (final message in incoming.items.reversed) {
       if (message.game != null) _gameCubit.acceptHistoryMessage(message);
     }
     if (followLatest) {
@@ -591,6 +616,8 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       _chatError = null;
       _realtimeError = null;
       _sending = false;
+      _retryableChatContent = null;
+      _retryableChatClientMessageId = null;
       _sessionActionInFlight = false;
       _ownerActionInFlightIds.clear();
       _gameState = const TableGroupGameState.idle();
@@ -615,9 +642,18 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     setState(() {
       _sending = true;
     });
+    final retryingSameContent =
+        _retryableChatContent == content &&
+        _retryableChatClientMessageId != null;
+    final clientMessageId = retryingSameContent
+        ? _retryableChatClientMessageId!
+        : _chatRequestIdFactory();
+    _retryableChatContent = content;
+    _retryableChatClientMessageId = clientMessageId;
     final result = await _repository.sendChatMessage(
       tableGroupId: widget.args.tableGroupId,
       content: content,
+      clientMessageId: clientMessageId,
     );
     if (!mounted) return;
     setState(() {
@@ -628,7 +664,13 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       _showSnack(result.error?.message ?? 'Mesaj gonderilemedi');
       return;
     }
-    _chatController.clear();
+    if (_retryableChatClientMessageId == clientMessageId) {
+      _retryableChatContent = null;
+      _retryableChatClientMessageId = null;
+    }
+    if (_chatController.text.trim() == content) {
+      _chatController.clear();
+    }
     setState(() {
       _messages = mergeTableGroupMessagesChronologically(
         existing: _messages,
@@ -934,9 +976,9 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   Future<void> _leave() async {
     if (_sessionActionInFlight || !_hasActiveChatAccess) return;
     final confirmed = await _confirmSessionAction(
-      title: 'Masadan ayril',
-      message: 'Masadan ayrildiginda bu sohbete erisimin sona erecek.',
-      confirmLabel: 'Ayril',
+      title: 'Masadan ayrıl',
+      message: 'Masadan ayrıldığında bu sohbete erişimin sona erecek.',
+      confirmLabel: 'Ayrıl',
     );
     if (!confirmed || !mounted) return;
     setState(() => _sessionActionInFlight = true);
@@ -946,10 +988,10 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       );
       if (!mounted) return;
       if (!result.isSuccess) {
-        _showSnack(result.error?.message ?? 'Masadan ayrilinamadi');
+        _showSnack(result.error?.message ?? 'Masadan ayrılamadı');
         return;
       }
-      _showSnack('Masadan ayrildin');
+      _showSnack('Masadan ayrıldın');
       Navigator.of(context).pop(true);
     } finally {
       if (mounted) setState(() => _sessionActionInFlight = false);
@@ -1009,9 +1051,6 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   Widget build(BuildContext context) {
     final group = _group;
     final description = _tableDescription(group);
-    final mediaQuery = MediaQuery.of(context);
-    final compactHeader =
-        mediaQuery.size.width < 360 || mediaQuery.textScaler.scale(16) > 24;
     final showOverview =
         group != null && _isSessionActive && (!_isAccepted || !_showChat);
     final showMoreMenu =
@@ -1039,14 +1078,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
             ),
           ),
           actions: [
-            if (showOverview && !compactHeader)
-              IconButton(
-                key: const Key('table_group_detail_share'),
-                tooltip: 'Masa bilgisini paylaş',
-                onPressed: () => _copyShareText(group),
-                icon: const Icon(Icons.share_outlined, size: 28),
-              )
-            else if (!showOverview)
+            if (!showOverview)
               IconButton(
                 tooltip: 'Yenile',
                 onPressed: _loading ? null : _bootstrap,
@@ -1058,11 +1090,6 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                 tooltip: 'Diğer seçenekler',
                 onSelected: _handleDetailMenuAction,
                 itemBuilder: (context) => <PopupMenuEntry<_DetailMenuAction>>[
-                  if (showOverview && compactHeader)
-                    const PopupMenuItem<_DetailMenuAction>(
-                      value: _DetailMenuAction.share,
-                      child: Text('Masa bilgisini paylaş'),
-                    ),
                   if (showOverview)
                     const PopupMenuItem<_DetailMenuAction>(
                       value: _DetailMenuAction.refresh,
@@ -1131,29 +1158,10 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     );
   }
 
-  Future<void> _copyShareText(TableGroup group) async {
-    final description = _tableDescription(group) ?? 'SoundConnect masası';
-    final venue = group.venueName?.trim();
-    final location = _detailLocationLabel(group);
-    final lines = <String>[
-      description,
-      if (venue != null && venue.isNotEmpty) 'Mekân: $venue',
-      'Konum: $location',
-      'Buluşma: ${_timeOf(group.meetingAt ?? group.expiresAt)}',
-      'Masa kodu: ${group.id}',
-    ];
-    await Clipboard.setData(ClipboardData(text: lines.join('\n')));
-    _showSnack('Masa bilgisi panoya kopyalandı');
-  }
-
   void _handleDetailMenuAction(_DetailMenuAction action) {
     switch (action) {
       case _DetailMenuAction.refresh:
         unawaited(_bootstrap());
-        break;
-      case _DetailMenuAction.share:
-        final group = _group;
-        if (group != null) unawaited(_copyShareText(group));
         break;
       case _DetailMenuAction.closeTable:
         unawaited(_cancelTable());
@@ -1365,7 +1373,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
             padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
             child: _DetailStatsStrip(
               group: group,
-              timeText: _timeOf(group.meetingAt ?? group.expiresAt),
+              timeText: _meetingTimeOf(group.meetingAt),
             ),
           ),
         ],
@@ -2187,6 +2195,9 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     return '$hh:$mm';
   }
 
+  String _meetingTimeOf(DateTime? value) =>
+      formatTableGroupMeetingAt(value, now: _now());
+
   List<TableGroupParticipant> get _pendingJoinRequests {
     final group = _group;
     if (group == null) return const <TableGroupParticipant>[];
@@ -2312,6 +2323,16 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   }
 
   Future<void> _approvePendingRequest(TableGroupParticipant participant) async {
+    final displayName = _participantDisplayName(participant);
+    final username = displayName.startsWith('@')
+        ? displayName
+        : '@$displayName';
+    final confirmed = await _confirmSessionAction(
+      title: 'Katılım talebini onayla?',
+      message: "$username'nin masaya katılım talebini onaylıyor musunuz?",
+      confirmLabel: 'Onayla',
+    );
+    if (!confirmed || !mounted) return;
     await _runOwnerAction(
       participantId: participant.userId,
       fn: () => _approve(participant.userId),
@@ -2319,6 +2340,13 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   }
 
   Future<void> _rejectPendingRequest(TableGroupParticipant participant) async {
+    final displayName = _participantDisplayName(participant);
+    final confirmed = await _confirmSessionAction(
+      title: 'Başvuruyu reddet?',
+      message: '$displayName kullanıcısının katılma isteği reddedilecek.',
+      confirmLabel: 'Reddet',
+    );
+    if (!confirmed || !mounted) return;
     await _runOwnerAction(
       participantId: participant.userId,
       fn: () => _reject(participant.userId),
@@ -2398,18 +2426,26 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
             const SizedBox(width: 8),
             if (loading)
               const SizedBox(
-                width: 32,
-                height: 32,
+                width: 48,
+                height: 48,
                 child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
               )
             else ...[
               _requestActionIcon(
+                key: ValueKey<String>(
+                  'table_group_approve-${participant.userId}',
+                ),
+                label: '$displayName kullanıcısını onayla',
                 icon: Icons.check_rounded,
                 color: const Color(0xFF2FB46E),
                 onTap: () => _approvePendingRequest(participant),
               ),
               const SizedBox(width: 6),
               _requestActionIcon(
+                key: ValueKey<String>(
+                  'table_group_reject-${participant.userId}',
+                ),
+                label: '$displayName kullanıcısını reddet',
                 icon: Icons.close_rounded,
                 color: const Color(0xFFE45656),
                 onTap: () => _rejectPendingRequest(participant),
@@ -2422,25 +2458,27 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   }
 
   Widget _requestActionIcon({
+    required Key key,
+    required String label,
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: color, width: 1.25),
-            color: color.withValues(alpha: 0.12),
-          ),
-          child: Icon(icon, color: color, size: 18),
+    return Semantics(
+      key: key,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: IconButton(
+        tooltip: label,
+        onPressed: onTap,
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+        style: IconButton.styleFrom(
+          shape: const CircleBorder(),
+          side: BorderSide(color: color, width: 1.25),
+          backgroundColor: color.withValues(alpha: 0.12),
         ),
+        icon: Icon(icon, color: color, size: 20),
       ),
     );
   }
@@ -2602,7 +2640,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   }
 }
 
-enum _DetailMenuAction { share, refresh, closeTable, leaveTable }
+enum _DetailMenuAction { refresh, closeTable, leaveTable }
 
 class _DetailOverviewAction {
   final String label;
@@ -2786,6 +2824,7 @@ class _DetailStatsStrip extends StatelessWidget {
             icon: Icons.schedule_rounded,
             text: timeText,
             semanticsLabel: 'Buluşma saati $timeText',
+            flexibleText: true,
           );
           final capacityGlyphs = _DetailCapacityGlyphs(
             acceptedCount: group.acceptedCount,
@@ -2820,7 +2859,7 @@ class _DetailStatsStrip extends StatelessWidget {
                   constraints: const BoxConstraints(maxWidth: 130),
                   child: venueStat,
                 ),
-                timeStat,
+                SizedBox(width: constraints.maxWidth, child: timeStat),
                 SizedBox(
                   width: constraints.maxWidth,
                   child: Row(
@@ -2839,7 +2878,7 @@ class _DetailStatsStrip extends StatelessWidget {
             children: [
               Expanded(flex: 4, child: venueStat),
               const _DetailStatDivider(),
-              timeStat,
+              Expanded(flex: 4, child: timeStat),
               const _DetailStatDivider(),
               Expanded(
                 flex: 5,
@@ -3076,8 +3115,8 @@ class _PremiumDescriptionDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final muted = colorScheme.onSurfaceVariant;
+    final foreground = AppColors.white;
+    final muted = AppColors.white.withValues(alpha: 0.72);
 
     return Dialog(
       key: const Key('table_group_description_dialog'),
@@ -3135,7 +3174,7 @@ class _PremiumDescriptionDialog extends StatelessWidget {
                           ),
                           child: Icon(
                             Icons.subject_rounded,
-                            color: colorScheme.onSurface,
+                            color: foreground,
                             size: 22,
                           ),
                         ),
@@ -3148,7 +3187,7 @@ class _PremiumDescriptionDialog extends StatelessWidget {
                             Text(
                               'Masa hakkında',
                               style: TextStyle(
-                                color: colorScheme.onSurface,
+                                color: foreground,
                                 fontSize: 19,
                                 fontWeight: FontWeight.w800,
                                 height: 1.15,
@@ -3182,7 +3221,7 @@ class _PremiumDescriptionDialog extends StatelessWidget {
                         description,
                         key: const Key('table_group_description_dialog_text'),
                         style: TextStyle(
-                          color: colorScheme.onSurface,
+                          color: foreground,
                           fontSize: 15,
                           height: 1.5,
                         ),
@@ -3208,9 +3247,9 @@ class _PremiumDescriptionDialog extends StatelessWidget {
                             height: 48,
                             child: Center(
                               child: Text(
-                                'Tamam',
+                                'Kapat',
                                 style: TextStyle(
-                                  color: colorScheme.onSurface,
+                                  color: foreground,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
@@ -3243,8 +3282,12 @@ class _PremiumConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final muted = colorScheme.onSurfaceVariant;
+    final foreground = AppColors.white;
+    final muted = AppColors.white.withValues(alpha: 0.72);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final maxDialogHeight = screenHeight > 48
+        ? screenHeight - 48
+        : screenHeight;
 
     return Dialog(
       key: const Key('table_group_confirmation_dialog'),
@@ -3252,7 +3295,7 @@ class _PremiumConfirmationDialog extends StatelessWidget {
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 390),
+        constraints: BoxConstraints(maxWidth: 390, maxHeight: maxDialogHeight),
         padding: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
@@ -3282,62 +3325,72 @@ class _PremiumConfirmationDialog extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      padding: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: AppColors.brandGradient,
+                Flexible(
+                  child: SingleChildScrollView(
+                    key: const Key('table_group_confirmation_scroll'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              padding: const EdgeInsets.all(1),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: AppColors.brandGradient,
+                                ),
+                              ),
+                              child: DecoratedBox(
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF101D31),
+                                ),
+                                child: Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: foreground,
+                                  size: 23,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 13),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  title,
+                                  style: TextStyle(
+                                    color: foreground,
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xFF101D31),
-                        ),
-                        child: Icon(
-                          Icons.warning_amber_rounded,
-                          color: colorScheme.onSurface,
-                          size: 23,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w800,
-                            height: 1.2,
+                        const SizedBox(height: 18),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF071321),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFF2A4059)),
+                          ),
+                          child: Text(
+                            message,
+                            style: TextStyle(
+                              color: muted,
+                              fontSize: 13.5,
+                              height: 1.45,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF071321),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF2A4059)),
-                  ),
-                  child: Text(
-                    message,
-                    style: TextStyle(
-                      color: muted,
-                      fontSize: 13.5,
-                      height: 1.45,
+                      ],
                     ),
                   ),
                 ),
@@ -3349,7 +3402,7 @@ class _PremiumConfirmationDialog extends StatelessWidget {
                         key: const Key('table_group_confirmation_cancel'),
                         onPressed: () => Navigator.of(context).pop(false),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: colorScheme.onSurfaceVariant,
+                          foregroundColor: muted,
                           side: const BorderSide(color: Color(0xFF2A4059)),
                           minimumSize: const Size.fromHeight(48),
                           shape: RoundedRectangleBorder(
@@ -3380,24 +3433,29 @@ class _PremiumConfirmationDialog extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
+                        child: SizedBox(
+                          height: 48,
+                          child: FilledButton(
                             key: const Key('table_group_confirmation_confirm'),
-                            onTap: () => Navigator.of(context).pop(true),
-                            borderRadius: BorderRadius.circular(14),
-                            child: SizedBox(
-                              height: 48,
-                              child: Center(
-                                child: Text(
-                                  confirmLabel,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: AppColors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: FilledButton.styleFrom(
+                              foregroundColor: AppColors.white,
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              confirmLabel,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
@@ -3458,8 +3516,8 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final muted = colorScheme.onSurfaceVariant;
+    final foreground = AppColors.white;
+    final muted = AppColors.white.withValues(alpha: 0.72);
 
     return Dialog(
       key: const Key('table_group_join_dialog'),
@@ -3518,7 +3576,7 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                           ),
                           child: Icon(
                             Icons.person_add_alt_1_rounded,
-                            color: colorScheme.onSurface,
+                            color: foreground,
                             size: 22,
                           ),
                         ),
@@ -3531,7 +3589,7 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                             Text(
                               'Katılma isteği',
                               style: TextStyle(
-                                color: colorScheme.onSurface,
+                                color: foreground,
                                 fontSize: 19,
                                 fontWeight: FontWeight.w800,
                                 height: 1.15,
@@ -3551,13 +3609,55 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 14),
+                  Container(
+                    key: const Key('table_group_join_owner_warning'),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.brandGradient.first.withValues(alpha: 0.18),
+                          AppColors.brandGradient.last.withValues(alpha: 0.14),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(
+                        color: AppColors.coralLight.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: AppColors.coralLight,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            'Aktif bir masan varsa bu istek onaylandığında '
+                            'kapanır.',
+                            style: TextStyle(
+                              color: AppColors.white.withValues(alpha: 0.94),
+                              fontSize: 12.5,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Text(
                         'Not',
                         style: TextStyle(
-                          color: colorScheme.onSurface,
+                          color: foreground,
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -3605,6 +3705,8 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                       minLines: 3,
                       maxLines: 4,
                       textCapitalization: TextCapitalization.sentences,
+                      cursorColor: AppColors.coralLight,
+                      style: TextStyle(color: foreground),
                       decoration: InputDecoration(
                         hintText: 'Kısa bir not yazabilirsin…',
                         hintStyle: TextStyle(color: muted, fontSize: 14),
@@ -3652,7 +3754,7 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                           key: const Key('table_group_join_cancel'),
                           onPressed: _cancel,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.onSurfaceVariant,
+                            foregroundColor: muted,
                             side: const BorderSide(color: Color(0xFF2A4059)),
                             minimumSize: const Size.fromHeight(48),
                             shape: RoundedRectangleBorder(

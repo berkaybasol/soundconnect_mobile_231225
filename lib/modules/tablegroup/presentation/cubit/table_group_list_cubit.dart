@@ -36,6 +36,10 @@ class TableGroupListCubit extends Cubit<TableGroupListState> {
     message:
         'Masa oluşturma ve katılma işlemleri kişisel hesaplarla kullanılabilir.',
   );
+  static const AppError _feedLoadError = AppError(
+    code: 'table_group_feed_unknown',
+    message: 'Masalar yüklenemedi. Lütfen tekrar deneyin.',
+  );
 
   Future<Result<List<City>>> _getCitiesShared() {
     final inFlight = _citiesRequest;
@@ -91,6 +95,7 @@ class TableGroupListCubit extends Cubit<TableGroupListState> {
         hasNext: false,
         page: 0,
         error: null,
+        feedError: null,
       ),
     );
     if (!hasCity) {
@@ -249,10 +254,12 @@ class TableGroupListCubit extends Cubit<TableGroupListState> {
     );
     if (isClosed || requestGeneration != _listRequestGeneration) return;
     if (!result.isSuccess || result.data == null) {
+      final error = result.error ?? _feedLoadError;
       emit(
         state.copyWith(
           status: TableGroupListStatus.failure,
-          error: result.error,
+          error: error,
+          feedError: error,
         ),
       );
       return;
@@ -265,6 +272,7 @@ class TableGroupListCubit extends Cubit<TableGroupListState> {
         hasNext: result.data!.hasNext,
         page: 0,
         error: null,
+        feedError: null,
       ),
     );
   }

@@ -63,9 +63,6 @@ class TableGroupCreateRequest {
       'ageMin': ageMin,
       'ageMax': ageMax,
       'meetingAt': meetingAtWire,
-      // Temporary rolling-deploy bridge: an older backend still consumes
-      // the selected gathering time under the expiresAt name.
-      'expiresAt': meetingAtWire,
       'cityId': cityId,
       'districtId': districtId,
       'neighborhoodId': neighborhoodId,

@@ -369,13 +369,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
   Widget _voteChoices(BuildContext context, TableGroupGame game) {
     final viewerId = currentUserId?.trim();
     final candidates = game.players
-        .where(
-          (player) =>
-              player.canAct &&
-              (viewerId == null ||
-                  viewerId.isEmpty ||
-                  player.userId.trim() != viewerId),
-        )
+        .where((player) => player.canAct)
         .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -397,7 +391,10 @@ class TableGroupGameMessageCard extends StatelessWidget {
                 ? null
                 : () => onAction(TableGroupGameAction.vote, candidate.userId),
             style: _outlinedStyle(context),
-            child: Text(_mention(candidate)),
+            child: Text(
+              '${_mention(candidate)}'
+              '${viewerId != null && viewerId.isNotEmpty && candidate.userId.trim() == viewerId ? ' (sen)' : ''}',
+            ),
           ),
         ],
       ],
@@ -510,6 +507,8 @@ class TableGroupGameMessageCard extends StatelessWidget {
       'PLAYER_REMOVED' =>
         'Bir oyuncu masadan çıkarıldığı için oyun iptal edildi.',
       'TABLE_CANCELLED' => 'Masa kapatıldığı için oyun sona erdi.',
+      'TABLE_OWNER_JOINED_ANOTHER_TABLE' =>
+        'Masa sahibi başka bir masaya katıldığı için oyun sona erdi.',
       'TABLE_EXPIRED' => 'Masanın süresi dolduğu için oyun sona erdi.',
       'MAX_ROUNDS_REACHED' =>
         'Beraberlik uzadığı için oyun sonuçsuz sona erdi.',

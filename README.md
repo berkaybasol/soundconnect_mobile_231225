@@ -59,6 +59,20 @@ Debug builds can fall back to the local development default in
 `lib/core/network/network_config.dart`. Non-debug builds require
 `SOUNDCONNECT_BASE_URL` and enforce HTTPS.
 
+## Realtime STOMP Contract
+
+Broker subscriptions use RabbitMQ-compatible `/topic/...` destinations. In
+particular, notifications subscribe to `/topic/notifications.{userId}` (and
+its `.badge` child), while table-group chat subscribes to
+`/topic/table-group.{tableGroupId}`. Slash-based `/notifications/...` and
+`/table_group/...` destinations are invalid with the production broker relay.
+
+TableGroup chat writes use the acknowledged REST endpoint in the first release;
+its STOMP topic is receive-only. Reviewed Pulse `/app` commands remain
+application destinations and must not be rewritten as broker topics. Keep
+destination construction centralized in `lib/core/realtime/stomp_destinations.dart`
+and cover any contract change with the corresponding realtime-client tests.
+
 ## Android Release Signing
 
 Release signing auto-loads `android/key.properties`. Release builds fail fast

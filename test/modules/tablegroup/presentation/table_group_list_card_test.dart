@@ -10,6 +10,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
+import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/pagination/page.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/data/dm_realtime_client.dart';
@@ -21,6 +22,7 @@ import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/neigh
 import 'package:soundconnect_23_12_25codx/modules/location/domain/location_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/entities/table_group.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/entities/table_group_participant.dart';
+import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_expiry_policy.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/cubit/table_group_list_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
@@ -136,7 +138,7 @@ void main() {
     );
 
     final meeting = find.byKey(const Key('table_group_meeting_time-reference'));
-    final expectedMeeting = _clockText(meetingAt);
+    final expectedMeeting = formatTableGroupMeetingAt(meetingAt);
     expect(
       find.descendant(of: meeting, matching: find.text(expectedMeeting)),
       findsOne,
@@ -324,7 +326,7 @@ void main() {
     expect(openedArgs?.openChat, isFalse);
   });
 
-  testWidgets('missing venue and legacy meeting time fallback stay coherent', (
+  testWidgets('missing canonical meeting time never falls back to expiry', (
     tester,
   ) async {
     final legacyTime = DateTime(2030, 5, 14, 21, 15).toUtc();
@@ -363,8 +365,41 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text(_clockText(legacyTime)), findsOneWidget);
+    expect(find.text('--:--'), findsOneWidget);
+    expect(find.text(formatTableGroupMeetingAt(legacyTime)), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('meeting day label refreshes while the list remains open', (
+    tester,
+  ) async {
+    var now = DateTime(2026, 9, 2, 23, 59, 59);
+    await _pumpList(tester, <TableGroup>[
+      _group(
+        id: 'midnight',
+        meetingAt: DateTime(2026, 9, 3, 9),
+        expiresAt: DateTime(2026, 9, 3, 23),
+      ),
+    ], now: () => now);
+
+    expect(find.text('Yarın 09:00'), findsOneWidget);
+    now = DateTime(2026, 9, 3, 0, 0, 1);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Bugün 09:00'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    now = DateTime(2026, 9, 4, 12);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.text('03.09.2026 09:00'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 
   testWidgets('accepted participants fill silhouettes including the owner', (
@@ -462,6 +497,71 @@ void main() {
           : null,
     );
   });
+
+  testWidgets('first feed failure stays inline and retry can recover', (
+    tester,
+  ) async {
+    const feedError = AppError(
+      code: 'table_group_feed_unavailable',
+      message: 'Masalar şu anda yüklenemiyor',
+    );
+    final repository = _SequencedTableRepository(<Result<Page<TableGroup>>>[
+      const Result<Page<TableGroup>>.failure(feedError),
+      Result<Page<TableGroup>>.success(
+        Page<TableGroup>(
+          items: <TableGroup>[_group(id: 'recovered')],
+          hasNext: false,
+          totalElements: 1,
+        ),
+      ),
+    ]);
+
+    await _pumpList(tester, const <TableGroup>[], tableRepository: repository);
+
+    expect(find.byKey(const Key('table_group_feed_error')), findsOneWidget);
+    expect(find.text(feedError.message), findsOneWidget);
+    expect(find.text('Bu filtrede aktif masa bulunamadi'), findsNothing);
+    expect(find.byKey(const Key('table_group_retry_feed')), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+
+    await tester.tap(find.byKey(const Key('table_group_retry_feed')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byKey(const Key('table_group_feed_error')), findsNothing);
+    expect(
+      find.byKey(const Key('table_group_description_title-recovered')),
+      findsOneWidget,
+    );
+    expect(repository.requestedPages, <int>[0, 0]);
+  });
+
+  testWidgets('successful empty feed renders the empty state', (tester) async {
+    await _pumpList(tester, const <TableGroup>[]);
+
+    expect(find.byKey(const Key('table_group_feed_error')), findsNothing);
+    expect(find.text('Bu filtrede aktif masa bulunamadi'), findsOneWidget);
+  });
+
+  testWidgets('metadata failure cannot replace a successful empty feed', (
+    tester,
+  ) async {
+    const metadataError = AppError(
+      code: 'cities_unavailable',
+      message: 'Şehirler yüklenemedi',
+    );
+
+    await _pumpList(
+      tester,
+      const <TableGroup>[],
+      locationRepository: _FailingLocationRepository(metadataError),
+    );
+
+    expect(find.byKey(const Key('table_group_feed_error')), findsNothing);
+    expect(find.text('Bu filtrede aktif masa bulunamadi'), findsOneWidget);
+    expect(find.text(metadataError.message), findsOneWidget);
+    expect(find.byType(SnackBar), findsOneWidget);
+  });
 }
 
 String _clockText(DateTime value) {
@@ -489,15 +589,20 @@ Future<_TableRepository> _pumpList(
   double textScale = 1,
   ValueChanged<TableGroupDetailArgs>? onOpenDetail,
   Map<int, Page<TableGroup>>? pages,
+  _TableRepository? tableRepository,
+  LocationRepository? locationRepository,
+  DateTime Function()? now,
 }) async {
   await serviceLocator.reset();
-  final tableRepository = _TableRepository(groups, pages: pages);
-  final locationRepository = _LocationRepository();
+  final resolvedTableRepository =
+      tableRepository ?? _TableRepository(groups, pages: pages);
+  final resolvedLocationRepository =
+      locationRepository ?? _LocationRepository();
   final tokenStore = _UserTokenStore(userId);
   serviceLocator.registerFactory<TableGroupListCubit>(
     () => TableGroupListCubit(
-      tableGroupRepository: tableRepository,
-      locationRepository: locationRepository,
+      tableGroupRepository: resolvedTableRepository,
+      locationRepository: resolvedLocationRepository,
     ),
   );
   serviceLocator.registerSingleton<AuthSessionManager>(
@@ -538,7 +643,7 @@ Future<_TableRepository> _pumpList(
         ).copyWith(textScaler: TextScaler.linear(textScale)),
         child: child!,
       ),
-      home: TableGroupListScreen(),
+      home: TableGroupListScreen(now: now),
       onGenerateRoute: (settings) {
         if (settings.name != AppRoutes.tableGroupDetail) return null;
         final args = settings.arguments! as TableGroupDetailArgs;
@@ -557,7 +662,7 @@ Future<_TableRepository> _pumpList(
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
-  return tableRepository;
+  return resolvedTableRepository;
 }
 
 TableGroup _group({
@@ -652,6 +757,33 @@ class _LocationRepository extends Fake implements LocationRepository {
   Future<Result<List<Neighborhood>>> getNeighborhoods(
     String districtId,
   ) async => const Result.success(<Neighborhood>[]);
+}
+
+class _FailingLocationRepository extends _LocationRepository {
+  _FailingLocationRepository(this.error);
+
+  final AppError error;
+
+  @override
+  Future<Result<List<City>>> getCities() async => Result.failure(error);
+}
+
+class _SequencedTableRepository extends _TableRepository {
+  _SequencedTableRepository(this.responses) : super(const <TableGroup>[]);
+
+  final List<Result<Page<TableGroup>>> responses;
+
+  @override
+  Future<Result<Page<TableGroup>>> listActiveTableGroups({
+    required String? cityId,
+    String? districtId,
+    String? neighborhoodId,
+    int page = 0,
+    int size = 20,
+  }) async {
+    requestedPages.add(page);
+    return responses.removeAt(0);
+  }
 }
 
 class _DmRepository extends Fake implements DmRepository {

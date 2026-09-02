@@ -92,7 +92,10 @@ class ProfilePublicBottomBar extends StatelessWidget {
     DmBadgeState state,
   ) {
     return [
-      BottomNavigationBarItem(icon: Icon(Icons.circle_outlined), label: 'Bos'),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.circle_outlined),
+        label: 'Nabız',
+      ),
       BottomNavigationBarItem(
         icon: _assetIcon(context, 'assets/confined.png'),
         label: 'Overthinking',
@@ -277,10 +280,10 @@ class ProfilePublicBottomBar extends StatelessWidget {
                       Navigator.of(sheetContext).pop(AppRoutes.tableGroupList),
                 ),
                 const SizedBox(height: 8),
-                _MainstageLauncherTile(
+                const _MainstageLauncherTile(
                   icon: Icons.circle_outlined,
-                  label: 'Bos',
-                  description: 'Yakinda',
+                  label: 'Nabız',
+                  description: 'Yakında',
                   enabled: false,
                   onTap: null,
                 ),

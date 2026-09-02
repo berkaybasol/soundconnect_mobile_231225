@@ -14,6 +14,7 @@ import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../dm/data/dm_auth_support.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/table_group.dart';
+import '../../domain/table_group_expiry_policy.dart';
 import 'table_group_detail_screen.dart';
 import 'table_group_route_args.dart';
 import '../cubit/table_group_list_cubit.dart';
@@ -24,48 +25,72 @@ part 'table_group_list_screen_widgets.dart';
 
 class TableGroupListScreen extends StatelessWidget {
   final TableGroupListArgs args;
+  final DateTime Function() now;
 
-  TableGroupListScreen({super.key, this.args = const TableGroupListArgs()});
+  TableGroupListScreen({
+    super.key,
+    this.args = const TableGroupListArgs(),
+    DateTime Function()? now,
+  }) : now = now ?? DateTime.now;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => serviceLocator<TableGroupListCubit>()..initialize(),
-      child: _TableGroupListView(args: args),
+      child: _TableGroupListView(args: args, now: now),
     );
   }
 }
 
 class _TableGroupListView extends StatefulWidget {
   final TableGroupListArgs args;
+  final DateTime Function() now;
 
-  _TableGroupListView({required this.args});
+  _TableGroupListView({required this.args, required this.now});
 
   @override
   State<_TableGroupListView> createState() => _TableGroupListViewState();
 }
 
-class _TableGroupListViewState extends State<_TableGroupListView> {
+class _TableGroupListViewState extends State<_TableGroupListView>
+    with WidgetsBindingObserver {
   static const String _allCitiesFilterValue = '__all_cities__';
   final ScrollController _scrollController = ScrollController();
   Offset _fabOffset = Offset.zero;
   String? _currentUserId;
   bool _currentUserResolved = false;
   Future<void>? _currentUserResolutionInFlight;
+  late final TableGroupLocalDayRefreshScheduler _dayRefreshScheduler;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
+    _dayRefreshScheduler = TableGroupLocalDayRefreshScheduler(
+      now: widget.now,
+      onRefresh: () {
+        if (mounted) setState(() {});
+      },
+    )..start();
     unawaited(_ensureCurrentUserId());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dayRefreshScheduler.dispose();
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _dayRefreshScheduler.reschedule(refresh: true);
+    }
   }
 
   void _onScroll() {
@@ -427,11 +452,7 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
   }
 
   String _timeLabel(DateTime? value) {
-    if (value == null) return '--:--';
-    final local = value.toLocal();
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    return formatTableGroupMeetingAt(value, now: widget.now());
   }
 
   String? _resolveCurrentUserProfileImage(TableGroupListState state) {
@@ -465,11 +486,13 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
       listenWhen: (previous, current) =>
           current.status == TableGroupListStatus.failure &&
           current.error != null &&
+          !(current.items.isEmpty && current.feedError != null) &&
           (previous.status != current.status ||
               previous.error != current.error),
       listener: (context, state) {
         if (state.status == TableGroupListStatus.failure &&
-            state.error != null) {
+            state.error != null &&
+            !(state.items.isEmpty && state.feedError != null)) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(state.error!.message)));
@@ -732,8 +755,60 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
                               }
 
                               if (state.items.isEmpty) {
+                                final feedError = state.feedError;
+                                if (feedError != null) {
+                                  return Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      24,
+                                      110,
+                                      24,
+                                      0,
+                                    ),
+                                    child: Center(
+                                      child: Column(
+                                        key: const Key(
+                                          'table_group_feed_error',
+                                        ),
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.cloud_off_rounded,
+                                            size: 42,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            feedError.message,
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          FilledButton.icon(
+                                            key: const Key(
+                                              'table_group_retry_feed',
+                                            ),
+                                            onPressed: () => context
+                                                .read<TableGroupListCubit>()
+                                                .refresh(),
+                                            icon: const Icon(
+                                              Icons.refresh_rounded,
+                                            ),
+                                            label: const Text('Tekrar dene'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
                                 return Padding(
-                                  padding: EdgeInsets.only(top: 130),
+                                  padding: const EdgeInsets.only(top: 130),
                                   child: Center(
                                     child: Text(
                                       'Bu filtrede aktif masa bulunamadi',
@@ -763,9 +838,7 @@ class _TableGroupListViewState extends State<_TableGroupListView> {
                                 onOpenDetail: () async {
                                   await _openDetail(group);
                                 },
-                                meetingTimeText: _timeLabel(
-                                  group.meetingAt ?? group.expiresAt,
-                                ),
+                                meetingTimeText: _timeLabel(group.meetingAt),
                               );
                             },
                           ),

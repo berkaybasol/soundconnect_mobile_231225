@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show SemanticsFlag;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,7 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_game_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 
 void main() {
   group('table-group lifecycle contract', () {
@@ -170,6 +172,22 @@ void main() {
           .data,
       description,
     );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const Key('table_group_description_dialog_text')),
+          )
+          .style
+          ?.color,
+      AppColors.white,
+    );
+    expect(find.text('Kapat'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('table_group_description_close')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('table_group_description_dialog_text')),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox());
@@ -267,6 +285,48 @@ void main() {
     await tester.pumpAndSettle();
     final noteInput = find.byKey(const Key('table_group_join_note_input'));
     expect(noteInput, findsOneWidget);
+    final warning = find.byKey(const Key('table_group_join_owner_warning'));
+    expect(warning, findsOneWidget);
+    expect(
+      find.text('Aktif bir masan varsa bu istek onaylandığında kapanır.'),
+      findsOneWidget,
+    );
+    final warningDecoration =
+        tester.widget<Container>(warning).decoration! as BoxDecoration;
+    final warningGradient = warningDecoration.gradient! as LinearGradient;
+    expect(warningDecoration.color, isNull);
+    expect(warningGradient.colors, <Color>[
+      AppColors.brandGradient.first.withValues(alpha: 0.18),
+      AppColors.brandGradient.last.withValues(alpha: 0.14),
+    ]);
+    final warningBorder = warningDecoration.border! as Border;
+    expect(
+      warningBorder.top.color,
+      AppColors.coralLight.withValues(alpha: 0.55),
+    );
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: warning,
+              matching: find.byIcon(Icons.warning_amber_rounded),
+            ),
+          )
+          .color,
+      AppColors.coralLight,
+    );
+    expect(
+      tester.widget<Text>(find.text('Katılma isteği')).style?.color,
+      AppColors.white,
+    );
+    expect(
+      tester
+          .widget<Text>(find.text('Masa sahibine kısa bir not bırakabilirsin.'))
+          .style
+          ?.color,
+      AppColors.white.withValues(alpha: 0.72),
+    );
+    expect(tester.widget<TextField>(noteInput).style?.color, AppColors.white);
 
     await tester.tap(noteInput);
     await tester.enterText(noteInput, 'Bu akşam katılmak isterim.');
@@ -402,7 +462,7 @@ void main() {
 
       final meeting = find.byKey(const Key('table_group_detail_meeting_time'));
       expect(
-        find.descendant(of: meeting, matching: find.text('21:37')),
+        find.descendant(of: meeting, matching: find.text('Bugün 21:37')),
         findsOneWidget,
       );
       expect(find.text('18:00'), findsNothing);
@@ -476,6 +536,46 @@ void main() {
       await tester.pump();
     },
   );
+
+  testWidgets('detail meeting day refreshes across local midnight', (
+    tester,
+  ) async {
+    var now = DateTime(2026, 9, 2, 23, 59, 59);
+    final repository = _DetailRepository(
+      group: _group(
+        status: 'ACTIVE',
+        meetingAt: DateTime(2026, 9, 3, 9),
+        expiresAt: DateTime(2026, 9, 3, 23),
+      ),
+    );
+    final realtimeClient = TableGroupChatRealtimeClient(
+      transportFactory: (_) =>
+          throw StateError('Overview viewer must not connect to chat'),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TableGroupDetailScreen(
+          args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
+          repository: repository,
+          gameRepository: const _NoActiveGameRepository(),
+          tokenStore: const _UserTokenStore('viewer'),
+          realtimeClient: realtimeClient,
+          now: () => now,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Yarın 09:00'), findsOneWidget);
+
+    now = DateTime(2026, 9, 3, 0, 0, 1);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Bugün 09:00'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
 
   testWidgets('accepted list overview defers chat resources until Masaya git', (
     tester,
@@ -650,6 +750,125 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets(
+    'injected realtime client remains reusable after screen disposal',
+    (tester) async {
+      final now = DateTime.utc(2026, 8, 17, 18);
+      final transport = _ImmediateTransportHarness();
+      final realtimeClient = _TrackingTableGroupChatRealtimeClient(
+        transportFactory: transport.create,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TableGroupDetailScreen(
+            args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
+            repository: _DetailRepository(
+              group: _group(
+                status: 'ACTIVE',
+                expiresAt: now.add(const Duration(hours: 1)),
+              ),
+            ),
+            gameRepository: const _NoActiveGameRepository(),
+            tokenStore: const _OwnerTokenStore(),
+            realtimeClient: realtimeClient,
+            now: () => now,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(transport.created, 1);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+
+      expect(transport.latest?.deactivated, isTrue);
+      expect(realtimeClient.disposeCalls, 0);
+      expect(realtimeClient.disconnectCalls, greaterThanOrEqualTo(2));
+    },
+  );
+
+  testWidgets(
+    'failed exact chat retry reuses key and changed text rotates it',
+    (tester) async {
+      final now = DateTime.utc(2026, 8, 17, 18);
+      final repository = _DetailRepository(
+        group: _group(
+          status: 'ACTIVE',
+          expiresAt: now.add(const Duration(hours: 1)),
+        ),
+        sendFailuresRemaining: 2,
+      );
+      final transport = _ImmediateTransportHarness();
+      final realtimeClient = TableGroupChatRealtimeClient(
+        transportFactory: transport.create,
+      );
+      final requestIds = <String>[
+        '10000000-0000-0000-0000-000000000001',
+        '10000000-0000-0000-0000-000000000002',
+        '10000000-0000-0000-0000-000000000003',
+      ];
+      var requestIdIndex = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TableGroupDetailScreen(
+            args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
+            repository: repository,
+            gameRepository: const _NoActiveGameRepository(),
+            tokenStore: const _OwnerTokenStore(),
+            realtimeClient: realtimeClient,
+            chatRequestIdFactory: () => requestIds[requestIdIndex++],
+            now: () => now,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      final input = find.byType(TextField).last;
+      await tester.enterText(input, '  response may be lost  ');
+      await tester.tap(find.text('Gonder').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Gonder').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(repository.sentChatContents, <String>[
+        'response may be lost',
+        'response may be lost',
+      ]);
+      expect(repository.sentClientMessageIds, <String?>[
+        requestIds[0],
+        requestIds[0],
+      ]);
+
+      await tester.enterText(input, 'changed content');
+      await tester.tap(find.text('Gonder').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(input, 'changed content');
+      await tester.tap(find.text('Gonder').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(repository.sentClientMessageIds, <String?>[
+        requestIds[0],
+        requestIds[0],
+        requestIds[1],
+        requestIds[2],
+      ]);
+      expect(requestIdIndex, 3);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+  );
+
   testWidgets('reconnect waits for an in-flight history load then reconciles', (
     tester,
   ) async {
@@ -807,6 +1026,68 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets(
+    'failed active-game lookup falls back to the newest history game',
+    (tester) async {
+      final now = DateTime.utc(2026, 8, 17, 18);
+      final oldGame = _lobbyGameMessage(
+        gameId: 'game-old',
+        sentAt: now.subtract(const Duration(minutes: 2)),
+      );
+      final newestGame = _lobbyGameMessage(
+        gameId: 'game-new',
+        sentAt: now.subtract(const Duration(minutes: 1)),
+      );
+      final repository = _DetailRepository(
+        group: _group(
+          status: 'ACTIVE',
+          expiresAt: now.add(const Duration(hours: 1)),
+          includeGuest: true,
+        ),
+        messages: <TableGroupMessage>[oldGame, newestGame],
+      );
+      final transport = _ImmediateTransportHarness();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TableGroupDetailScreen(
+            args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
+            repository: repository,
+            gameRepository: const _FailingActiveGameRepository(),
+            tokenStore: const _UserTokenStore('guest'),
+            realtimeClient: TableGroupChatRealtimeClient(
+              transportFactory: transport.create,
+            ),
+            now: () => now,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      final newestCard = find.byKey(
+        const ValueKey<String>('table-group-game-game-new'),
+      );
+      final newestJoin = find.descendant(
+        of: newestCard,
+        matching: find.byKey(const ValueKey<String>('table-group-game-join')),
+      );
+      expect(newestJoin, findsOneWidget);
+      expect(tester.widget<FilledButton>(newestJoin).onPressed, isNotNull);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('table-group-game-game-old')),
+          matching: find.text('Bu oyun artık aktif değil.'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+  );
+
   testWidgets('a realtime message survives a stale page-zero completion', (
     tester,
   ) async {
@@ -843,11 +1124,12 @@ void main() {
     await tester.pump();
 
     transport.latest!.deliver(
-      '/topic/table_group/g-1',
+      '/topic/table-group.g-1',
       jsonEncode(<String, dynamic>{
         'messageId': 'from-realtime',
         'tableGroupId': 'g-1',
         'senderId': 'another-user',
+        'clientMessageId': 'client-from-realtime',
         'content': 'realtime korunmali',
         'messageType': 'TEXT',
         'sentAt': '2026-08-17T18:00:01Z',
@@ -959,8 +1241,183 @@ void main() {
     expect(note.maxLines, 2);
     expect(note.overflow, TextOverflow.ellipsis);
 
+    final approve = find.byKey(
+      const ValueKey<String>('table_group_approve-pending-user'),
+    );
+    final reject = find.byKey(
+      const ValueKey<String>('table_group_reject-pending-user'),
+    );
+    expect(tester.getSize(approve), const Size.square(48));
+    expect(tester.getSize(reject), const Size.square(48));
+    expect(
+      tester.getSemantics(approve).label,
+      contains('Pending User kullanıcısını onayla'),
+    );
+
+    await tester.tap(approve);
+    await tester.pumpAndSettle();
+    expect(repository.approveCalls, 0);
+    expect(find.text('Katılım talebini onayla?'), findsOneWidget);
+    expect(
+      find.text("@Pending User'nin masaya katılım talebini onaylıyor musunuz?"),
+      findsOneWidget,
+    );
+    expect(find.textContaining('oyun geçmişi'), findsNothing);
+    expect(
+      tester.widget<Text>(find.text('Katılım talebini onayla?')).style?.color,
+      AppColors.white,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.text(
+              "@Pending User'nin masaya katılım talebini onaylıyor musunuz?",
+            ),
+          )
+          .style
+          ?.color,
+      AppColors.white.withValues(alpha: 0.72),
+    );
+    await tester.tap(find.text('Onayla'));
+    await tester.pumpAndSettle();
+    expect(repository.approveCalls, 1);
+
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+  });
+
+  testWidgets('leave confirmation uses correct Turkish copy', (tester) async {
+    final now = DateTime.utc(2026, 8, 17, 18);
+    final repository = _DetailRepository(
+      group: _group(
+        status: 'ACTIVE',
+        expiresAt: now.add(const Duration(hours: 1)),
+        includeGuest: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TableGroupDetailScreen(
+          args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
+          repository: repository,
+          gameRepository: const _NoActiveGameRepository(),
+          tokenStore: const _UserTokenStore('guest'),
+          realtimeClient: TableGroupChatRealtimeClient(
+            transportFactory: (_) =>
+                throw StateError('Overview must not connect to table chat'),
+          ),
+          now: () => now,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('table_group_detail_more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Masadan ayrıl'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Masadan ayrıl'), findsOneWidget);
+    expect(
+      find.text('Masadan ayrıldığında bu sohbete erişimin sona erecek.'),
+      findsOneWidget,
+    );
+    expect(find.text('Ayrıl'), findsOneWidget);
+    expect(find.textContaining('ayrildiginda'), findsNothing);
+    expect(find.textContaining('erisimin'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('table_group_confirmation_cancel')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('table_group_confirmation_dialog')),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('approval dialog keeps actions accessible at 320dp and 2x text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final semantics = tester.ensureSemantics();
+    final now = DateTime.utc(2026, 8, 17, 18);
+    final repository = _DetailRepository(
+      group: _group(
+        status: 'ACTIVE',
+        expiresAt: now.add(const Duration(hours: 1)),
+        includePending: true,
+        pendingUsername: 'Çok Uzun Erişilebilirlik Testi Kullanıcı Görünen Adı',
+      ),
+    );
+    final transport = _ImmediateTransportHarness();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: TableGroupDetailScreen(
+          args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
+          repository: repository,
+          gameRepository: const _NoActiveGameRepository(),
+          tokenStore: const _OwnerTokenStore(),
+          realtimeClient: TableGroupChatRealtimeClient(
+            transportFactory: transport.create,
+          ),
+          now: () => now,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    final approve = find.byKey(
+      const ValueKey<String>('table_group_approve-pending-user'),
+    );
+    final approveButton = find.descendant(
+      of: approve,
+      matching: find.byType(IconButton),
+    );
+    tester.widget<IconButton>(approveButton).onPressed!();
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(320, 640);
+    await tester.pumpAndSettle();
+
+    final confirm = find.byKey(const Key('table_group_confirmation_confirm'));
+    final cancel = find.byKey(const Key('table_group_confirmation_cancel'));
+    expect(
+      find.byKey(const Key('table_group_confirmation_scroll')),
+      findsOneWidget,
+    );
+    expect(confirm, findsOneWidget);
+    expect(cancel, findsOneWidget);
+    expect(tester.getTopLeft(confirm).dy, greaterThanOrEqualTo(0));
+    expect(tester.getBottomRight(confirm).dy, lessThanOrEqualTo(640));
+    expect(tester.getSize(confirm).height, 48);
+    expect(tester.getSize(cancel).height, greaterThanOrEqualTo(48));
+    final confirmSemantics = tester.getSemantics(confirm);
+    expect(confirmSemantics.hasFlag(SemanticsFlag.isButton), isTrue);
+    expect(confirmSemantics.hasFlag(SemanticsFlag.isFocusable), isTrue);
+    expect(confirmSemantics.label, contains('Onayla'));
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(repository.approveCalls, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    semantics.dispose();
   });
 
   testWidgets('pending owner controls stay visible after chat scrolls latest', (
@@ -1057,7 +1514,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    transport.latest!.deliver('/topic/table_group/g-1', '[]');
+    transport.latest!.deliver('/topic/table-group.g-1', '[]');
     await tester.pump();
     expect(
       find.text('Canli sohbetten gecersiz bir mesaj alindi.'),
@@ -1065,11 +1522,12 @@ void main() {
     );
 
     transport.latest!.deliver(
-      '/topic/table_group/g-1',
+      '/topic/table-group.g-1',
       jsonEncode(<String, dynamic>{
         'messageId': 'valid-after-invalid',
         'tableGroupId': 'g-1',
         'senderId': 'another-user',
+        'clientMessageId': 'client-valid-after-invalid',
         'content': 'gecerli mesaj',
         'messageType': 'TEXT',
         'sentAt': '2026-08-17T18:00:01Z',
@@ -1118,7 +1576,7 @@ void main() {
     await tester.pump();
     expect(repository.chatCalls, 1);
 
-    transport.latest!.deliver('/topic/table_group/g-1', '[]');
+    transport.latest!.deliver('/topic/table-group.g-1', '[]');
     await tester.pump();
     expect(
       find.text('Canli sohbetten gecersiz bir mesaj alindi.'),
@@ -1297,6 +1755,54 @@ TableGroupMessage _expiringGameMessage({
   });
 }
 
+TableGroupMessage _lobbyGameMessage({
+  required String gameId,
+  required DateTime sentAt,
+}) {
+  return TableGroupMessageModel.fromWireJson(<String, dynamic>{
+    'messageId': 'message-$gameId',
+    'tableGroupId': 'g-1',
+    'senderId': 'owner',
+    'content': 'Hesap Kimde oyunu',
+    'messageType': 'GAME',
+    'sentAt': sentAt.toIso8601String(),
+    'deletedAt': null,
+    'game': <String, dynamic>{
+      'schemaVersion': 1,
+      'gameId': gameId,
+      'tableGroupId': 'g-1',
+      'revision': 1,
+      'topic': 'WHO_PAYS',
+      'mode': 'DICE',
+      'status': 'LOBBY',
+      'phase': 'LOBBY',
+      'createdBy': 'owner',
+      'createdByUsername': 'Owner',
+      'round': 0,
+      'joinDeadlineAt': sentAt
+          .add(const Duration(minutes: 3))
+          .toIso8601String(),
+      'actionDeadlineAt': null,
+      'serverTime': sentAt.toIso8601String(),
+      'players': <Object?>[
+        <String, dynamic>{
+          'userId': 'owner',
+          'username': 'Owner',
+          'status': 'ACTIVE',
+          'joinedAt': sentAt.toIso8601String(),
+          'hasActed': false,
+        },
+      ],
+      'revealedActions': <Object?>[],
+      'selectedUserId': null,
+      'selectedUsername': null,
+      'outcome': null,
+      'resultMessage': null,
+      'cancellationReason': null,
+    },
+  });
+}
+
 TableGroup _group({
   required String status,
   required DateTime? expiresAt,
@@ -1305,6 +1811,7 @@ TableGroup _group({
   String? venueName = 'Test Mekani',
   bool includeGuest = false,
   bool includePending = false,
+  String pendingUsername = 'Pending User',
   int extraPendingCount = 0,
   int maxPersonCount = 4,
 }) {
@@ -1342,12 +1849,12 @@ TableGroup _group({
           profilePictureUrl: null,
         ),
       if (includePending)
-        const TableGroupParticipant(
+        TableGroupParticipant(
           userId: 'pending-user',
           joinedAt: null,
           status: TableGroupParticipantStatus.pending,
           joinNote: '21:00 gibi oradayim',
-          username: 'Pending User',
+          username: pendingUsername,
           profilePictureUrl: null,
         ),
       for (var index = 0; index < extraPendingCount; index += 1)
@@ -1370,13 +1877,19 @@ class _DetailRepository implements TableGroupRepository {
   _DetailRepository({
     required this.group,
     this.messages = const <TableGroupMessage>[],
+    this.sendFailuresRemaining = 0,
   });
 
   final TableGroup group;
   final List<TableGroupMessage> messages;
+  int sendFailuresRemaining;
+  final List<String> sentChatContents = <String>[];
+  final List<String?> sentClientMessageIds = <String?>[];
   int chatCalls = 0;
   int kickCalls = 0;
   int joinCalls = 0;
+  int approveCalls = 0;
+  int rejectCalls = 0;
   String? lastKickedParticipantId;
   Completer<Result<pagination.Page<TableGroupMessage>>>? nextChatResponse;
 
@@ -1405,7 +1918,10 @@ class _DetailRepository implements TableGroupRepository {
   Future<Result<void>> approveJoinRequest({
     required String tableGroupId,
     required String participantId,
-  }) async => const Result.success(null);
+  }) async {
+    approveCalls += 1;
+    return const Result.success(null);
+  }
 
   @override
   Future<Result<void>> cancelTableGroup({required String tableGroupId}) async =>
@@ -1455,27 +1971,49 @@ class _DetailRepository implements TableGroupRepository {
   );
 
   @override
+  Future<Result<pagination.Page<TableGroup>>> listMyActiveTableGroups({
+    int page = 0,
+    int size = 50,
+  }) async => const Result.success(
+    pagination.Page<TableGroup>(items: <TableGroup>[], hasNext: false),
+  );
+
+  @override
   Future<Result<void>> rejectJoinRequest({
     required String tableGroupId,
     required String participantId,
-  }) async => const Result.success(null);
+  }) async {
+    rejectCalls += 1;
+    return const Result.success(null);
+  }
 
   @override
   Future<Result<TableGroupMessage>> sendChatMessage({
     required String tableGroupId,
     required String content,
-    String messageType = 'TEXT',
-  }) async => Result.success(
-    TableGroupMessage(
-      messageId: 'm-1',
-      tableGroupId: tableGroupId,
-      senderId: 'owner',
-      content: content,
-      messageType: messageType,
-      sentAt: DateTime.now().toUtc(),
-      deletedAt: null,
-    ),
-  );
+    required String clientMessageId,
+  }) async {
+    sentChatContents.add(content);
+    sentClientMessageIds.add(clientMessageId);
+    if (sendFailuresRemaining > 0) {
+      sendFailuresRemaining -= 1;
+      return const Result.failure(
+        AppError(code: 'network', message: 'Response was lost'),
+      );
+    }
+    return Result.success(
+      TableGroupMessage(
+        messageId: 'm-1',
+        tableGroupId: tableGroupId,
+        senderId: 'owner',
+        clientMessageId: clientMessageId,
+        content: content,
+        messageType: 'TEXT',
+        sentAt: DateTime.now().toUtc(),
+        deletedAt: null,
+      ),
+    );
+  }
 }
 
 class _ExpiryGameRepository extends _NoActiveGameRepository {
@@ -1564,6 +2102,17 @@ class _NoActiveGameRepository implements TableGroupGameRepository {
   }) async => _unavailable;
 }
 
+class _FailingActiveGameRepository extends _NoActiveGameRepository {
+  const _FailingActiveGameRepository();
+
+  @override
+  Future<Result<TableGroupMessage?>> getActiveGame({
+    required String tableGroupId,
+  }) async => const Result<TableGroupMessage?>.failure(
+    AppError(code: 'network', message: 'Temporary active-game failure'),
+  );
+}
+
 class _OwnerTokenStore implements TokenStore {
   const _OwnerTokenStore();
 
@@ -1628,6 +2177,26 @@ class _ImmediateTransportHarness {
     final transport = _ImmediateTransport(config);
     latest = transport;
     return transport;
+  }
+}
+
+class _TrackingTableGroupChatRealtimeClient
+    extends TableGroupChatRealtimeClient {
+  _TrackingTableGroupChatRealtimeClient({required super.transportFactory});
+
+  int disconnectCalls = 0;
+  int disposeCalls = 0;
+
+  @override
+  Future<void> disconnect() {
+    disconnectCalls += 1;
+    return super.disconnect();
+  }
+
+  @override
+  Future<void> dispose() {
+    disposeCalls += 1;
+    return super.dispose();
   }
 }
 

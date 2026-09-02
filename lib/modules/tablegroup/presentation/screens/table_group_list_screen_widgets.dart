@@ -368,15 +368,13 @@ class _TableGroupStatsStrip extends StatelessWidget {
           final useStackedLayout =
               constraints.maxWidth < 255 ||
               MediaQuery.textScalerOf(context).scale(1) > 1.8;
-          final venueAndTime = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: _TableGroupVenueLine(groupId: group.id, venue: venue),
-              ),
-              const _TableGroupStatDivider(),
-              _TableGroupMeetingTime(groupId: group.id, text: meetingTimeText),
-            ],
+          final venueStat = _TableGroupVenueLine(
+            groupId: group.id,
+            venue: venue,
+          );
+          final timeStat = _TableGroupMeetingTime(
+            groupId: group.id,
+            text: meetingTimeText,
           );
           final participantSlots = _TableGroupParticipantSlots(
             groupId: group.id,
@@ -393,7 +391,9 @@ class _TableGroupStatsStrip extends StatelessWidget {
               key: ValueKey<String>('table_group_stats_stacked-${group.id}'),
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                venueAndTime,
+                venueStat,
+                const SizedBox(height: 8),
+                timeStat,
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -414,12 +414,9 @@ class _TableGroupStatsStrip extends StatelessWidget {
           return Row(
             key: ValueKey<String>('table_group_stats_inline-${group.id}'),
             children: [
-              Expanded(
-                flex: 3,
-                child: _TableGroupVenueLine(groupId: group.id, venue: venue),
-              ),
+              Expanded(flex: 3, child: venueStat),
               const _TableGroupStatDivider(),
-              _TableGroupMeetingTime(groupId: group.id, text: meetingTimeText),
+              Expanded(flex: 4, child: timeStat),
               const _TableGroupStatDivider(),
               Expanded(
                 flex: 5,
@@ -545,24 +542,30 @@ class _TableGroupMeetingTime extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      key: ValueKey<String>('table_group_meeting_time-$groupId'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const BrandGradientIcon(Icons.schedule_rounded, size: 19),
-        const SizedBox(width: 7),
-        Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: TableGroupOverviewStyle.bodyMuted,
-            fontSize: 13.5,
-            height: 1.2,
-            fontWeight: FontWeight.w700,
-          ),
+    return Semantics(
+      label: 'Buluşma saati $text',
+      child: ExcludeSemantics(
+        child: Row(
+          key: ValueKey<String>('table_group_meeting_time-$groupId'),
+          children: [
+            const BrandGradientIcon(Icons.schedule_rounded, size: 19),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: TableGroupOverviewStyle.bodyMuted,
+                  fontSize: 13.5,
+                  height: 1.2,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

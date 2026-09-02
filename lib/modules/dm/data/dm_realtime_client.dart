@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../../core/network/network_config.dart';
 import '../../../core/realtime/realtime_client_error.dart';
+import '../../../core/realtime/stomp_destinations.dart';
 import '../../../core/realtime/stomp_realtime_transport.dart';
 import '../domain/entities/dm_message.dart';
 import 'models/dm_message_model.dart';
@@ -226,9 +227,12 @@ class DmRealtimeClient {
   void _bindSubscriptions(String userId) {
     final transport = _transport;
     if (transport == null) return;
-    transport.subscribe(destination: '/topic/dm/$userId', callback: _onDmFrame);
     transport.subscribe(
-      destination: '/topic/dm/$userId/badge',
+      destination: StompDestinations.dm(userId),
+      callback: _onDmFrame,
+    );
+    transport.subscribe(
+      destination: StompDestinations.dmBadge(userId),
       callback: _onBadgeFrame,
     );
   }

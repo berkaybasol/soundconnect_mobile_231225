@@ -19,6 +19,7 @@ class TableGroup {
   final List<String> genderPrefs;
   final int ageMin;
   final int ageMax;
+
   /// User-selected gathering time. Display this in table surfaces.
   final DateTime? meetingAt;
 

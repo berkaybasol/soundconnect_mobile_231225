@@ -13,6 +13,10 @@ abstract class TableGroupRepository {
     int page = 0,
     int size = 20,
   });
+  Future<Result<Page<TableGroup>>> listMyActiveTableGroups({
+    int page = 0,
+    int size = 50,
+  });
   Future<Result<TableGroup>> getDetail(String tableGroupId);
   Future<Result<void>> joinTableGroup({
     required String tableGroupId,
@@ -40,7 +44,7 @@ abstract class TableGroupRepository {
   Future<Result<TableGroupMessage>> sendChatMessage({
     required String tableGroupId,
     required String content,
-    String messageType = 'TEXT',
+    required String clientMessageId,
   });
   Future<Result<int>> getUnreadBadge({required String tableGroupId});
 }

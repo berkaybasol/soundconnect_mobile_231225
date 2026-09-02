@@ -47,8 +47,8 @@ import 'package:soundconnect_23_12_25codx/shared/images/app_cached_network_image
 
 void main() {
   group('table group models', () {
-    test('parses aliases, locations, participant states, and counts', () {
-      final model = TableGroupModel.fromJson(<String, dynamic>{
+    test('fixture parser isolates aliases and tolerant defaults', () {
+      final model = TableGroupModel.fromFixtureJson(<String, dynamic>{
         'id': 17,
         'ownerId': 'owner-1',
         'owner_name': 'Ada',
@@ -101,7 +101,7 @@ void main() {
     test(
       'supplies stable defaults for missing location and malformed dates',
       () {
-        final model = TableGroupModel.fromJson(<String, dynamic>{
+        final model = TableGroupModel.fromFixtureJson(<String, dynamic>{
           'expiresAt': 'bad-date',
           'description': '   ',
           'participants': const <Object?>[],
@@ -151,7 +151,6 @@ void main() {
           'ageMin': 18,
           'ageMax': 35,
           'meetingAt': '2026-07-14T01:02:03.000Z',
-          'expiresAt': '2026-07-14T01:02:03.000Z',
           'cityId': '34',
           'districtId': null,
           'neighborhoodId': 'n-1',
@@ -242,40 +241,92 @@ void main() {
       );
     });
 
-    test('normalizes field-specific legacy and offset dates to UTC', () {
-      expect(
-        parseTableGroupWireDate('2026-07-14T01:02:03'),
-        DateTime.utc(2026, 7, 14, 1, 2, 3),
-      );
+    test('wire boundary requires canonical fields and explicit date zones', () {
+      expect(parseTableGroupWireDate('2026-07-14T01:02:03'), isNull);
       expect(
         parseTableGroupWireDate('2026-07-14T04:02:03+03:00'),
         DateTime.utc(2026, 7, 14, 1, 2, 3),
       );
+      expect(parseTableGroupWireDate('2026-02-30T04:02:03Z'), isNull);
+
+      final model = TableGroupModel.fromWireJson(
+        _tableGroupWireJson(
+          meetingAt: '2026-07-14T04:02:03+03:00',
+          expiresAt: '2026-07-15T01:02:03Z',
+          participants: <Object?>[
+            <String, dynamic>{
+              'userId': 'u-1',
+              'joinedAt': '2026-07-14T04:02:03+03:00',
+              'status': 'ACCEPTED',
+              'joinNote': null,
+              'username': 'Deniz',
+              'profilePictureUrl': null,
+            },
+          ],
+        ),
+      );
+
+      expect(model.expiresAt, DateTime.utc(2026, 7, 15, 1, 2, 3));
+      expect(model.meetingAt, DateTime.utc(2026, 7, 14, 1, 2, 3));
       expect(
-        parseTableGroupExpiryWireDate('2026-07-14T04:02:03'),
+        model.participants.single.joinedAt,
         DateTime.utc(2026, 7, 14, 1, 2, 3),
       );
 
-      final model = TableGroupModel.fromJson(<String, dynamic>{
-        'meetingAt': '2026-07-14T03:02:03Z',
-        'expiresAt': '2026-07-14T04:02:03',
-        'participants': <Object?>[
-          <String, dynamic>{'userId': 'u-1', 'joinedAt': '2026-07-14T04:02:03'},
-        ],
-      });
-      final message = TableGroupMessageModel.fromJson(<String, dynamic>{
-        'sentAt': '2026-07-14T04:02:03',
-        'deletedAt': '2026-07-14T05:02:03',
-      });
-
-      expect(model.expiresAt, DateTime.utc(2026, 7, 14, 1, 2, 3));
-      expect(model.meetingAt, DateTime.utc(2026, 7, 14, 3, 2, 3));
+      final missingMeetingAt = _tableGroupWireJson()..remove('meetingAt');
       expect(
-        model.participants.single.joinedAt,
-        DateTime.utc(2026, 7, 14, 4, 2, 3),
+        () => TableGroupModel.fromWireJson(missingMeetingAt),
+        throwsFormatException,
       );
-      expect(message.sentAt, DateTime.utc(2026, 7, 14, 4, 2, 3));
-      expect(message.deletedAt, DateTime.utc(2026, 7, 14, 5, 2, 3));
+      expect(
+        () => TableGroupModel.fromWireJson(
+          _tableGroupWireJson(meetingAt: '2026-07-14T04:02:03'),
+        ),
+        throwsFormatException,
+      );
+      final aliasedOwner = _tableGroupWireJson()
+        ..remove('ownerUsername')
+        ..['owner_name'] = 'Ada';
+      expect(
+        () => TableGroupModel.fromWireJson(aliasedOwner),
+        throwsFormatException,
+      );
+      final missingCapacity = _tableGroupWireJson()..remove('maxPersonCount');
+      expect(
+        () => TableGroupModel.fromWireJson(missingCapacity),
+        throwsFormatException,
+      );
+      final missingStartAt = _tableGroupWireJson()..remove('startAt');
+      expect(
+        () => TableGroupModel.fromWireJson(missingStartAt),
+        throwsFormatException,
+      );
+      expect(
+        () => TableGroupModel.fromWireJson(
+          _tableGroupWireJson()..['startAt'] = '2026-07-14T01:02:03',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => TableGroupModel.fromWireJson(
+          _tableGroupWireJson()..['description'] = null,
+        ),
+        throwsFormatException,
+      );
+      expect(
+        TableGroupModel.fromWireJson(
+          _tableGroupWireJson()
+            ..['status'] = 'INACTIVE'
+            ..['description'] = null,
+        ).description,
+        isNull,
+      );
+      expect(
+        () => TableGroupModel.fromWireJson(
+          _tableGroupWireJson()..remove('description'),
+        ),
+        throwsFormatException,
+      );
 
       final request = TableGroupCreateRequest(
         venueId: null,
@@ -291,8 +342,49 @@ void main() {
         neighborhoodId: null,
       );
 
-      expect(request.toJson()['expiresAt'], '2026-07-14T01:02:03.000Z');
       expect(request.toJson()['meetingAt'], '2026-07-14T01:02:03.000Z');
+      expect(request.toJson().containsKey('expiresAt'), isFalse);
+    });
+
+    test('wire TEXT messages require canonical string identities and key', () {
+      Map<String, dynamic> messageJson() => <String, dynamic>{
+        'messageId': 'message-1',
+        'tableGroupId': 'group-1',
+        'senderId': 'sender-1',
+        'clientMessageId': 'client-1',
+        'content': 'Merhaba',
+        'messageType': 'TEXT',
+        'sentAt': '2026-07-14T20:00:00Z',
+      };
+
+      expect(
+        TableGroupMessageModel.fromWireJson(messageJson()).clientMessageId,
+        'client-1',
+      );
+      expect(
+        () => TableGroupMessageModel.fromWireJson(
+          messageJson()..remove('clientMessageId'),
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => TableGroupMessageModel.fromWireJson(
+          messageJson()..['clientMessageId'] = 7,
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => TableGroupMessageModel.fromWireJson(
+          messageJson()..['messageType'] = 'text',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => TableGroupMessageModel.fromWireJson(
+          messageJson()..['messageId'] = 1,
+        ),
+        throwsFormatException,
+      );
     });
   });
 
@@ -407,6 +499,63 @@ void main() {
       expect(meetingAt.isAfter(now), isTrue);
       expect(meetingAt.difference(now) <= tableGroupMaximumMeetingLead, isTrue);
     });
+
+    test('formats today, tomorrow, and later calendar days explicitly', () {
+      final now = DateTime(2026, 8, 17, 23, 30);
+
+      expect(
+        formatTableGroupMeetingAt(DateTime(2026, 8, 17, 23, 45), now: now),
+        'Bugün 23:45',
+      );
+      expect(
+        formatTableGroupMeetingAt(DateTime(2026, 8, 18, 22), now: now),
+        'Yarın 22:00',
+      );
+      expect(
+        formatTableGroupMeetingAt(DateTime(2026, 8, 20, 9, 5), now: now),
+        '20.08.2026 09:05',
+      );
+      expect(formatTableGroupMeetingAt(null, now: now), '--:--');
+    });
+
+    test('local-day refresh re-arms from the clock and is disposal-safe', () {
+      var now = DateTime(2026, 9, 2, 23, 59, 59);
+      var refreshes = 0;
+      final timers = <_ManualDayTimer>[];
+      final delays = <Duration>[];
+      final scheduler = TableGroupLocalDayRefreshScheduler(
+        now: () => now,
+        onRefresh: () => refreshes += 1,
+        timerFactory: (delay, callback) {
+          delays.add(delay);
+          final timer = _ManualDayTimer(callback);
+          timers.add(timer);
+          return timer;
+        },
+      );
+
+      scheduler.start();
+      expect(delays, <Duration>[const Duration(seconds: 1)]);
+
+      now = DateTime(2026, 9, 3, 12);
+      scheduler.reschedule(refresh: true);
+      expect(timers.first.isActive, isFalse);
+      expect(refreshes, 1);
+      expect(delays, <Duration>[
+        const Duration(seconds: 1),
+        const Duration(hours: 12),
+      ]);
+
+      now = DateTime(2026, 9, 4);
+      timers.last.fire();
+      expect(refreshes, 2);
+      expect(delays.last, const Duration(days: 1));
+
+      scheduler.dispose();
+      expect(timers.last.isActive, isFalse);
+      timers.last.fire();
+      expect(refreshes, 2);
+    });
   });
 
   group('table group chat timeline', () {
@@ -442,6 +591,37 @@ void main() {
         );
       },
     );
+
+    test('reconciles response and realtime copies by client message id', () {
+      final optimisticCopy = TableGroupMessage(
+        messageId: 'temporary-id',
+        tableGroupId: 'g-1',
+        senderId: 'u-1',
+        clientMessageId: 'client-1',
+        content: 'hello',
+        messageType: 'TEXT',
+        sentAt: DateTime.utc(2026, 7, 14),
+        deletedAt: null,
+      );
+      final serverCopy = TableGroupMessage(
+        messageId: 'server-id',
+        tableGroupId: 'g-1',
+        senderId: 'u-1',
+        clientMessageId: 'client-1',
+        content: 'hello',
+        messageType: 'TEXT',
+        sentAt: DateTime.utc(2026, 7, 14, 0, 1),
+        deletedAt: null,
+      );
+
+      final merged = mergeTableGroupMessagesChronologically(
+        existing: <TableGroupMessage>[optimisticCopy],
+        incoming: <TableGroupMessage>[serverCopy],
+      );
+
+      expect(merged, hasLength(1));
+      expect(merged.single.messageId, 'server-id');
+    });
   });
 
   group('TableGroupRepositoryImpl', () {
@@ -453,12 +633,7 @@ void main() {
             'number': 4,
             'last': false,
             'totalElements': 41,
-            'content': <Object?>[
-              <String, dynamic>{
-                'id': 'g-1',
-                'city': <String, dynamic>{'id': 'city-1', 'name': 'City'},
-              },
-            ],
+            'content': <Object?>[_tableGroupWireJson()],
           };
         });
         final repository = TableGroupRepositoryImpl(apiClient);
@@ -506,6 +681,31 @@ void main() {
       expect(apiClient.lastQuery, <String, dynamic>{'page': 0, 'size': 20});
     });
 
+    test('uses the principal-scoped active-table endpoint', () async {
+      final apiClient = _TableGroupApiClientFake((method, path, query, body) {
+        return <String, dynamic>{
+          'number': 2,
+          'last': false,
+          'totalElements': 151,
+          'content': <Object?>[_tableGroupWireJson()],
+        };
+      });
+      final repository = TableGroupRepositoryImpl(apiClient);
+
+      final result = await repository.listMyActiveTableGroups(
+        page: 2,
+        size: 50,
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.items.single.id, 'g-1');
+      expect(result.data?.nextCursor, '3');
+      expect(result.data?.totalElements, 151);
+      expect(apiClient.lastMethod, 'GET');
+      expect(apiClient.lastPath, TableGroupEndpoints.mine);
+      expect(apiClient.lastQuery, <String, dynamic>{'page': 2, 'size': 50});
+    });
+
     test(
       'trims join note and serializes chat message body over POST',
       () async {
@@ -515,6 +715,7 @@ void main() {
               'messageId': 'm-1',
               'tableGroupId': 'g-1',
               'senderId': 'owner',
+              'clientMessageId': 'client-1',
               'content': 'Hello',
               'messageType': 'TEXT',
               'sentAt': '2026-07-14T00:01:00Z',
@@ -532,26 +733,43 @@ void main() {
         final sent = await repository.sendChatMessage(
           tableGroupId: 'g-1',
           content: 'Hello',
-          messageType: 'TEXT',
+          clientMessageId: 'client-1',
         );
         expect(sent.data?.messageId, 'm-1');
+        expect(sent.data?.clientMessageId, 'client-1');
         expect(apiClient.lastMethod, 'POST');
         expect(apiClient.lastPath, TableGroupEndpoints.chatMessages('g-1'));
         expect(apiClient.lastBody, <String, dynamic>{
           'content': 'Hello',
           'messageType': 'TEXT',
+          'clientMessageId': 'client-1',
         });
       },
     );
 
+    test('refuses a blank chat client id before network dispatch', () async {
+      var networkCalls = 0;
+      final repository = TableGroupRepositoryImpl(
+        _TableGroupApiClientFake((method, path, query, body) {
+          networkCalls += 1;
+          return null;
+        }),
+      );
+
+      final result = await repository.sendChatMessage(
+        tableGroupId: 'g-1',
+        content: 'Hello',
+        clientMessageId: '   ',
+      );
+
+      expect(result.isSuccess, isFalse);
+      expect(result.error?.code, 'table_group_chat_client_message_id_invalid');
+      expect(networkCalls, 0);
+    });
+
     test('create body never accepts a band or acting-as identity', () async {
       final apiClient = _TableGroupApiClientFake((method, path, query, body) {
-        return <String, dynamic>{
-          'id': 'g-1',
-          'ownerId': 'principal-user',
-          'participants': const <Object?>[],
-          'city': const <String, dynamic>{'id': 'city-1', 'name': 'City'},
-        };
+        return _tableGroupWireJson(ownerId: 'principal-user');
       });
       final repository = TableGroupRepositoryImpl(apiClient);
 
@@ -565,6 +783,8 @@ void main() {
       expect(body.containsKey('actingAsType'), isFalse);
       expect(body.containsKey('actingAsId'), isFalse);
       expect(body['description'], 'Tanışma ve sohbet masası');
+      expect(body.containsKey('expiresAt'), isFalse);
+      expect(body['meetingAt'], isA<String>());
     });
 
     test(
@@ -614,14 +834,16 @@ void main() {
                 'messageId': 'm-2',
                 'tableGroupId': mismatched ? 'other-group' : 'g-1',
                 'senderId': 'u-1',
+                'clientMessageId': 'client-m-2',
                 'content': 'newest',
                 'messageType': 'TEXT',
-                'sentAt': '2026-07-14T00:02:00',
+                'sentAt': '2026-07-14T00:02:00Z',
               },
               <String, dynamic>{
                 'messageId': 'm-1',
                 'tableGroupId': 'g-1',
                 'senderId': 'u-2',
+                'clientMessageId': 'client-m-1',
                 'content': 'older',
                 'messageType': 'TEXT',
                 'sentAt': '2026-07-14T00:01:00Z',
@@ -2368,6 +2590,146 @@ void main() {
   });
 
   testWidgets(
+    'create retry preserves ambiguous failures then recovers from rejection',
+    (tester) async {
+      await serviceLocator.reset();
+      var now = DateTime(2026, 8, 17, 22, 59, 59);
+      const timeout = AppError(
+        code: 'network_timeout',
+        message: 'Teslim durumu bilinmiyor',
+      );
+      final repository = _TableGroupRepositoryFake(
+        createResult: const Result<TableGroup>.failure(timeout),
+      );
+      serviceLocator.registerFactory<TableGroupCreateCubit>(
+        () => TableGroupCreateCubit(
+          tableGroupRepository: repository,
+          locationRepository: _LocationRepositoryFake(),
+          venueOptionRepository: const _EmptyVenueOptionRepository(),
+        ),
+      );
+      addTearDown(serviceLocator.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: TableGroupCreateScreen(now: () => now)),
+      );
+      await tester.pumpAndSettle();
+
+      final city = find.byKey(const Key('table_group_custom_city'));
+      await tester.ensureVisible(city);
+      await tester.tap(city);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('City').last);
+      await tester.pumpAndSettle();
+
+      final addFemale = find.byKey(const Key('table_group_seat_female-add'));
+      await tester.ensureVisible(addFemale);
+      await tester.tap(addFemale);
+      await _enterTableGroupDescription(
+        tester,
+        'Yanıt kaybolsa da aynı masa isteği tekrar gönderilecek.',
+      );
+      final submit = find.byKey(const Key('table_group_create_submit'));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.createRequests, hasLength(1));
+      final firstRequest = repository.createRequests.single;
+      expect(firstRequest.meetingAt, DateTime(2026, 8, 17, 23));
+
+      now = DateTime(2026, 8, 17, 23, 0, 1);
+      repository.createResult = const Result<TableGroup>.failure(
+        AppError(code: '409', message: 'Tanımsız conflict envelope'),
+      );
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.createRequests, hasLength(2));
+      expect(repository.createRequests.last, same(firstRequest));
+
+      repository.createResult = const Result<TableGroup>.failure(
+        AppError(code: '503', message: 'Sunucu yanıtı belirsiz'),
+      );
+      await tester.tap(submit);
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.createRequests, hasLength(3));
+      expect(repository.createRequests.last, same(firstRequest));
+      expect(repository.createRequests.last.toJson(), firstRequest.toJson());
+
+      repository.createResult = const Result<TableGroup>.failure(
+        AppError(code: '9104', message: 'Buluşma saati geçmişte kaldı'),
+      );
+      await tester.tap(submit);
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.createRequests, hasLength(4));
+      expect(repository.createRequests.last, same(firstRequest));
+
+      repository.createResult = const Result<TableGroup>.failure(timeout);
+      await tester.tap(submit);
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.createRequests, hasLength(5));
+      final recoveredRequest = repository.createRequests.last;
+      expect(recoveredRequest, isNot(same(firstRequest)));
+      expect(recoveredRequest.meetingAt, DateTime(2026, 8, 18, 23));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets('create preview refreshes its relative day after midnight', (
+    tester,
+  ) async {
+    await serviceLocator.reset();
+    var now = DateTime(2026, 9, 2, 23, 59, 59);
+    serviceLocator.registerFactory<TableGroupCreateCubit>(
+      () => TableGroupCreateCubit(
+        tableGroupRepository: _TableGroupRepositoryFake(),
+        locationRepository: _LocationRepositoryFake(),
+        venueOptionRepository: const _EmptyVenueOptionRepository(),
+      ),
+    );
+    addTearDown(serviceLocator.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(home: TableGroupCreateScreen(now: () => now)),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Yarın 23:00'), findsOneWidget);
+
+    now = DateTime(2026, 9, 3, 0, 0, 1);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Bugün 23:00'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    now = DateTime(2026, 9, 3, 23, 30);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.text('Yarın 23:00'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    now = DateTime(2026, 9, 4);
+    await tester.pump(const Duration(days: 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
     'specific venue is opt-in and disabling it submits no hidden venue',
     (tester) async {
       await serviceLocator.reset();
@@ -3671,6 +4033,35 @@ TableGroupCreateRequest _createRequest({
   );
 }
 
+Map<String, dynamic> _tableGroupWireJson({
+  String id = 'g-1',
+  String ownerId = 'owner-1',
+  String startAt = '2026-07-14T00:00:00Z',
+  String meetingAt = '2026-07-14T01:02:03Z',
+  String expiresAt = '2026-07-15T00:00:00Z',
+  List<Object?> participants = const <Object?>[],
+}) => <String, dynamic>{
+  'id': id,
+  'ownerId': ownerId,
+  'ownerUsername': 'Owner',
+  'ownerProfileImageUrl': null,
+  'venueId': null,
+  'venueName': 'Cafe',
+  'description': 'Tanışma ve sohbet masası',
+  'maxPersonCount': 4,
+  'genderPrefs': const <String>['OTHER'],
+  'ageMin': 18,
+  'ageMax': 99,
+  'startAt': startAt,
+  'meetingAt': meetingAt,
+  'expiresAt': expiresAt,
+  'status': 'ACTIVE',
+  'participants': participants,
+  'city': const <String, dynamic>{'id': 'city-1', 'name': 'City'},
+  'district': null,
+  'neighborhood': null,
+};
+
 Map<String, dynamic> _venueOptionJson({
   required String id,
   required String name,
@@ -4101,6 +4492,8 @@ class _TableGroupRepositoryFake implements TableGroupRepository {
   String? lastNeighborhoodId;
   String? lastJoinNote;
   TableGroupCreateRequest? lastCreateRequest;
+  final List<TableGroupCreateRequest> createRequests =
+      <TableGroupCreateRequest>[];
 
   @override
   Future<Result<Page<TableGroup>>> listActiveTableGroups({
@@ -4120,10 +4513,17 @@ class _TableGroupRepositoryFake implements TableGroupRepository {
   }
 
   @override
+  Future<Result<Page<TableGroup>>> listMyActiveTableGroups({
+    int page = 0,
+    int size = 50,
+  }) => listActiveTableGroups(cityId: null, page: page, size: size);
+
+  @override
   Future<Result<TableGroup>> createTableGroup(
     TableGroupCreateRequest request,
   ) async {
     lastCreateRequest = request;
+    createRequests.add(request);
     return createResult;
   }
 
@@ -4182,14 +4582,15 @@ class _TableGroupRepositoryFake implements TableGroupRepository {
   Future<Result<TableGroupMessage>> sendChatMessage({
     required String tableGroupId,
     required String content,
-    String messageType = 'TEXT',
+    required String clientMessageId,
   }) async => Result.success(
     TableGroupMessage(
       messageId: 'message-1',
       tableGroupId: tableGroupId,
       senderId: 'owner',
+      clientMessageId: clientMessageId,
       content: content,
-      messageType: messageType,
+      messageType: 'TEXT',
       sentAt: null,
       deletedAt: null,
     ),
@@ -4292,4 +4693,30 @@ class _TableGroupApiClientFake extends ApiClient {
     Object? body,
     T Function(Object? json)? decoder,
   }) => _execute('PATCH', path, body: body, decoder: decoder);
+}
+
+class _ManualDayTimer implements Timer {
+  _ManualDayTimer(this._callback);
+
+  final void Function() _callback;
+  bool _isActive = true;
+  int _tick = 0;
+
+  @override
+  bool get isActive => _isActive;
+
+  @override
+  int get tick => _tick;
+
+  void fire() {
+    if (!_isActive) return;
+    _isActive = false;
+    _tick += 1;
+    _callback();
+  }
+
+  @override
+  void cancel() {
+    _isActive = false;
+  }
 }

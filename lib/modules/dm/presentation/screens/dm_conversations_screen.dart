@@ -9,7 +9,6 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../location/domain/location_repository.dart';
 import '../../../profile/domain/entities/musician_search_option.dart';
 import '../../../profile/domain/entities/profile_venue_models.dart';
 import '../../../profile/domain/musician_profile_repository.dart';
@@ -26,6 +25,7 @@ import '../cubit/dm_conversations_cubit.dart';
 import '../cubit/dm_conversations_state.dart';
 import '../cubit/dm_badge_cubit.dart';
 import 'dm_chat_screen.dart';
+import 'dm_music_join_tables.dart';
 import 'dm_tab_labels.dart';
 
 class DmConversationsScreen extends StatelessWidget {
@@ -66,8 +66,6 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
       serviceLocator<VenueProfileRepository>();
   final TableGroupRepository _tableGroupRepository =
       serviceLocator<TableGroupRepository>();
-  final LocationRepository _locationRepository =
-      serviceLocator<LocationRepository>();
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -94,7 +92,8 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchTextChanged);
-    _resolveCurrentUserAndLoadMusicJoin();
+    unawaited(_resolveCurrentUserId());
+    unawaited(_loadMusicJoinTables(force: true));
   }
 
   @override
@@ -124,26 +123,9 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
     _currentUserId = normalized.isEmpty ? null : normalized;
   }
 
-  Future<void> _resolveCurrentUserAndLoadMusicJoin() async {
-    await _resolveCurrentUserId();
-    await _loadMusicJoinTables(force: true);
-  }
-
   Future<void> _loadMusicJoinTables({bool force = false}) async {
     if (_musicJoinLoading) return;
     if (!force && _musicJoinLoaded) return;
-
-    final currentUserId = (_currentUserId ?? '').trim();
-    if (currentUserId.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _musicJoinTables = const <TableGroup>[];
-        _musicJoinLoaded = true;
-        _musicJoinLoading = false;
-        _musicJoinError = null;
-      });
-      return;
-    }
 
     if (!mounted) return;
     setState(() {
@@ -151,69 +133,27 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
       _musicJoinError = null;
     });
 
-    final citiesResult = await _locationRepository.getCities();
+    final result = await loadDmMusicJoinTables(
+      _tableGroupRepository,
+      shouldCancel: () => !mounted,
+    );
     if (!mounted) return;
-    if (!citiesResult.isSuccess || citiesResult.data == null) {
+    if (!result.isSuccess || result.data == null) {
       setState(() {
         _musicJoinLoading = false;
         _musicJoinLoaded = true;
-        _musicJoinError =
-            citiesResult.error?.message ?? 'Masa listesi alinamadi';
+        _musicJoinError = result.error?.message ?? 'Masa listesi alınamadı';
       });
       return;
     }
 
-    final Map<String, TableGroup> relevant = <String, TableGroup>{};
-    for (final city in citiesResult.data!) {
-      int page = 0;
-      bool hasNext = true;
-      int guard = 0;
-      while (hasNext && guard < 25) {
-        final result = await _tableGroupRepository.listActiveTableGroups(
-          cityId: city.id,
-          page: page,
-          size: 50,
-        );
-        if (!result.isSuccess || result.data == null) {
-          hasNext = false;
-          continue;
-        }
-        for (final table in result.data!.items) {
-          if (_isMusicJoinMember(table, currentUserId)) {
-            relevant[table.id] = table;
-          }
-        }
-        hasNext = result.data!.hasNext;
-        page += 1;
-        guard += 1;
-      }
-    }
-
-    final sorted = relevant.values.toList()
-      ..sort((a, b) {
-        final aa = a.expiresAt?.millisecondsSinceEpoch ?? 0;
-        final bb = b.expiresAt?.millisecondsSinceEpoch ?? 0;
-        return bb.compareTo(aa);
-      });
-
     if (!mounted) return;
     setState(() {
-      _musicJoinTables = sorted;
+      _musicJoinTables = result.data!;
       _musicJoinLoading = false;
       _musicJoinLoaded = true;
       _musicJoinError = null;
     });
-  }
-
-  bool _isMusicJoinMember(TableGroup table, String currentUserId) {
-    if (table.ownerId == currentUserId) return true;
-    for (final participant in table.participants) {
-      if (participant.userId == currentUserId &&
-          participant.status == TableGroupParticipantStatus.accepted) {
-        return true;
-      }
-    }
-    return false;
   }
 
   Future<void> _runSearch(String query) async {
@@ -607,11 +547,13 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
           final table = _musicJoinTables[index];
           return _MusicJoinTableTile(
             table: table,
-            onTap: () {
-              Navigator.of(context).pushNamed(
+            onTap: () async {
+              await Navigator.of(context).pushNamed(
                 AppRoutes.tableGroupDetail,
                 arguments: TableGroupDetailArgs(tableGroupId: table.id),
               );
+              if (!mounted) return;
+              await _loadMusicJoinTables(force: true);
             },
           );
         },
@@ -900,7 +842,6 @@ class _MusicJoinTableTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final venueName = (table.venueName ?? '').trim();
     final ownerName = (table.ownerUsername ?? '').trim();
     final subtitle = ownerName.isNotEmpty ? ownerName : 'Masa sahibi';
     final avatar = table.ownerProfileImageUrl?.trim();
@@ -938,9 +879,7 @@ class _MusicJoinTableTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      venueName.isNotEmpty
-                          ? venueName
-                          : 'Müzik Birleştirir! masası',
+                      dmMusicJoinTableTitle(table),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w700),

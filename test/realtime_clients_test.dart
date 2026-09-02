@@ -102,8 +102,8 @@ void main() {
 
         expect(client.isConnected, isTrue);
         expect(harness.transport?.subscriptions.keys, <String>{
-          '/topic/notifications/user-2',
-          '/topic/notifications/user-2/badge',
+          '/topic/notifications.user-2',
+          '/topic/notifications.user-2.badge',
         });
       },
     );
@@ -133,8 +133,8 @@ void main() {
 
         expect(client.isConnected, isTrue);
         expect(harness.transport?.subscriptions.keys, <String>{
-          '/topic/dm/user-2',
-          '/topic/dm/user-2/badge',
+          '/topic/dm.user-2',
+          '/topic/dm.user-2.badge',
         });
       },
     );
@@ -155,14 +155,14 @@ void main() {
         expect(harness.transport?.config.token, 'secret-token');
         expect(harness.transport?.config.url, endsWith('/ws'));
         expect(harness.transport?.subscriptions.keys, <String>{
-          '/topic/dm/user-1',
-          '/topic/dm/user-1/badge',
+          '/topic/dm.user-1',
+          '/topic/dm.user-1.badge',
         });
 
         final message = client.messageStream.first;
         final badge = client.badgeStream.first;
         harness.transport!.deliver(
-          '/topic/dm/user-1',
+          '/topic/dm.user-1',
           jsonEncode(<String, dynamic>{
             'messageId': 'message-1',
             'conversationId': 'conversation-1',
@@ -173,7 +173,7 @@ void main() {
             'sentAt': '2026-07-13T20:00:00Z',
           }),
         );
-        harness.transport!.deliver('/topic/dm/user-1/badge', '7');
+        harness.transport!.deliver('/topic/dm.user-1.badge', '7');
 
         expect((await message).messageId, 'message-1');
         expect((await badge), 7);
@@ -208,14 +208,14 @@ void main() {
         expect(harness.createCalls, 1);
         expect(connectionEvents, 1);
         expect(harness.transport?.subscriptions.keys, <String>{
-          '/topic/notifications/user-2',
-          '/topic/notifications/user-2/badge',
+          '/topic/notifications.user-2',
+          '/topic/notifications.user-2.badge',
         });
 
         final notification = client.notificationStream.first;
         final badge = client.badgeStream.first;
         harness.transport!.deliver(
-          '/topic/notifications/user-2',
+          '/topic/notifications.user-2',
           jsonEncode(<String, dynamic>{
             'id': 'notification-1',
             'recipientId': 'user-2',
@@ -227,7 +227,7 @@ void main() {
             'payload': <String, dynamic>{'conversationId': 'conversation-1'},
           }),
         );
-        harness.transport!.deliver('/topic/notifications/user-2/badge', '8.9');
+        harness.transport!.deliver('/topic/notifications.user-2.badge', '8.9');
 
         expect((await notification).id, 'notification-1');
         expect((await badge), 8);
@@ -261,7 +261,7 @@ void main() {
         await client.connect(userId: 'user-2', token: 'token-2');
 
         oldTransport.deliver(
-          '/topic/notifications/user-1',
+          '/topic/notifications.user-1',
           jsonEncode(<String, dynamic>{
             'id': 'stale-user-1-notification',
             'recipientId': 'user-1',
@@ -272,14 +272,14 @@ void main() {
             'payload': const <String, dynamic>{},
           }),
         );
-        oldTransport.deliver('/topic/notifications/user-1/badge', '91');
+        oldTransport.deliver('/topic/notifications.user-1.badge', '91');
         await Future<void>.delayed(Duration.zero);
 
         expect(notifications, isEmpty);
         expect(badges, isEmpty);
 
         harness.transport!.deliver(
-          '/topic/notifications/user-2',
+          '/topic/notifications.user-2',
           jsonEncode(<String, dynamic>{
             'id': 'current-user-2-notification',
             'recipientId': 'user-2',
@@ -290,7 +290,7 @@ void main() {
             'payload': const <String, dynamic>{},
           }),
         );
-        harness.transport!.deliver('/topic/notifications/user-2/badge', '2');
+        harness.transport!.deliver('/topic/notifications.user-2.badge', '2');
         await Future<void>.delayed(Duration.zero);
 
         expect(notifications, <String>['current-user-2-notification']);
@@ -299,7 +299,7 @@ void main() {
     );
 
     test(
-      'table group decodes chat and sends the canonical application frame',
+      'table group decodes chat on the canonical receive-only topic',
       () async {
         final harness = _TransportHarness(_Activation.connect);
         final client = TableGroupChatRealtimeClient(
@@ -312,16 +312,17 @@ void main() {
         expect(harness.createCalls, 1);
         expect(client.connectedTableGroupId, 'group-1');
         expect(harness.transport?.subscriptions.keys, <String>{
-          '/topic/table_group/group-1',
+          '/topic/table-group.group-1',
         });
 
         final message = client.messageStream.first;
         harness.transport!.deliver(
-          '/topic/table_group/group-1',
+          '/topic/table-group.group-1',
           jsonEncode(<String, dynamic>{
             'messageId': 'group-message-1',
             'tableGroupId': 'group-1',
             'senderId': 'sender-1',
+            'clientMessageId': 'client-group-message-1',
             'content': 'Merhaba',
             'messageType': 'TEXT',
             'sentAt': '2026-07-13T20:00:00Z',
@@ -329,27 +330,8 @@ void main() {
         );
         expect((await message).content, 'Merhaba');
 
-        client.send(
-          tableGroupId: 'group-1',
-          content: '  Keep exact spacing  ',
-          messageType: 'SYSTEM',
-        );
-        expect(harness.transport?.sentFrames, hasLength(1));
-        expect(
-          harness.transport?.sentFrames.single.destination,
-          '/app/table-group/group-1/chat',
-        );
-        expect(
-          jsonDecode(harness.transport!.sentFrames.single.body),
-          <String, dynamic>{
-            'content': '  Keep exact spacing  ',
-            'messageType': 'SYSTEM',
-          },
-        );
-
         await client.disconnect();
-        client.send(tableGroupId: 'group-1', content: 'ignored');
-        expect(harness.transport?.sentFrames, hasLength(1));
+        expect(harness.transport?.sentFrames, isEmpty);
       },
     );
   });
@@ -362,7 +344,7 @@ void main() {
       await client.connect(userId: 'u1', token: 'redacted');
       final error = client.errorStream.first;
 
-      harness.transport!.deliver('/topic/dm/u1', '{invalid');
+      harness.transport!.deliver('/topic/dm.u1', '{invalid');
 
       expect((await error).type, RealtimeClientErrorType.invalidPayload);
     });
@@ -377,7 +359,7 @@ void main() {
       final error = client.errorStream.first;
 
       harness.transport!.deliver(
-        '/topic/notifications/u1/badge',
+        '/topic/notifications.u1.badge',
         'not-a-badge',
       );
 
@@ -393,7 +375,7 @@ void main() {
       await client.connect(tableGroupId: 'g1', token: 'redacted');
       final error = client.errorStream.first;
 
-      harness.transport!.deliver('/topic/table_group/g1', '[]');
+      harness.transport!.deliver('/topic/table-group.g1', '[]');
 
       expect((await error).type, RealtimeClientErrorType.invalidPayload);
     });

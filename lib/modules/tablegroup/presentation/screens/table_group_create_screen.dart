@@ -17,14 +17,35 @@ import 'table_group_route_args.dart';
 
 enum _SeatGender { me, female, male, other }
 
+typedef _TableGroupCreateDraft = ({
+  String? venueId,
+  String? venueName,
+  String description,
+  int maxPersonCount,
+  int femaleCount,
+  int maleCount,
+  int otherCount,
+  int ageMin,
+  int ageMax,
+  int hour,
+  int minute,
+  String cityId,
+  String? districtId,
+  String? neighborhoodId,
+});
+
 class TableGroupCreateScreen extends StatefulWidget {
-  TableGroupCreateScreen({super.key});
+  final DateTime Function() now;
+
+  TableGroupCreateScreen({super.key, DateTime Function()? now})
+    : now = now ?? DateTime.now;
 
   @override
   State<TableGroupCreateScreen> createState() => _TableGroupCreateScreenState();
 }
 
-class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
+class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
+    with WidgetsBindingObserver {
   late final TableGroupCreateCubit _cubit;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _venueController = TextEditingController();
@@ -44,10 +65,14 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
   String? _selectedDistrictId;
   String? _selectedNeighborhoodId;
   bool _settingVenueText = false;
+  _TableGroupCreateDraft? _retryableCreateDraft;
+  TableGroupCreateRequest? _retryableCreateRequest;
+  late final TableGroupLocalDayRefreshScheduler _dayRefreshScheduler;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _cubit = serviceLocator<TableGroupCreateCubit>();
     unawaited(_cubit.loadCities());
     _venueController.addListener(_onVenueChanged);
@@ -56,6 +81,12 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
     _cityFocusNode.addListener(_onFocusChanged);
     _districtFocusNode.addListener(_onFocusChanged);
     _neighborhoodFocusNode.addListener(_onFocusChanged);
+    _dayRefreshScheduler = TableGroupLocalDayRefreshScheduler(
+      now: widget.now,
+      onRefresh: () {
+        if (mounted) setState(() {});
+      },
+    )..start();
   }
 
   void _onFocusChanged() {
@@ -140,6 +171,8 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dayRefreshScheduler.dispose();
     _venueController.removeListener(_onVenueChanged);
     _venueController.dispose();
     _descriptionController.dispose();
@@ -155,6 +188,13 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
     _neighborhoodFocusNode.dispose();
     unawaited(_cubit.close());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _dayRefreshScheduler.reschedule(refresh: true);
+    }
   }
 
   int get _guestCount => _femaleCount + _maleCount + _otherCount;
@@ -205,9 +245,15 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
   }
 
   String _formatCardTime() {
-    final h = _selectedTime.hour.toString().padLeft(2, '0');
-    final m = _selectedTime.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+    final now = widget.now();
+    return formatTableGroupMeetingAt(
+      resolveTableGroupMeetingAt(
+        now: now,
+        hour: _selectedTime.hour,
+        minute: _selectedTime.minute,
+      ),
+      now: now,
+    );
   }
 
   void _requestBackNavigation() {
@@ -574,50 +620,107 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen> {
       return;
     }
 
-    final now = DateTime.now();
-    final meetingAt = resolveTableGroupMeetingAt(
-      now: now,
-      hour: _selectedTime.hour,
-      minute: _selectedTime.minute,
-    );
-    final meetingLead = meetingAt.difference(now);
-    if (meetingLead <= Duration.zero ||
-        meetingLead > tableGroupMaximumMeetingLead) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Buluşma saati en fazla 24 saat sonrası olabilir'),
-        ),
-      );
-      return;
-    }
-
-    final request = TableGroupCreateRequest(
-      venueId: registered ? selectedVenue.id : null,
-      venueName: !_cubit.state.hasSpecificVenue || registered
-          ? null
-          : _venueController.text.trim(),
+    final venueId = registered ? selectedVenue.id : null;
+    final venueName = !_cubit.state.hasSpecificVenue || registered
+        ? null
+        : _venueController.text.trim();
+    final districtId = registered
+        ? selectedVenue.districtId
+        : _selectedDistrictId;
+    final neighborhoodId = registered
+        ? selectedVenue.neighborhoodId
+        : _selectedNeighborhoodId;
+    final draft = (
+      venueId: venueId,
+      venueName: venueName,
       description: _descriptionController.text.trim(),
       maxPersonCount: _totalSeats,
-      genderPrefs: _buildGenderPrefs(),
+      femaleCount: _femaleCount,
+      maleCount: _maleCount,
+      otherCount: _otherCount,
       ageMin: _ageRange.start.round(),
       ageMax: _ageRange.end.round(),
-      meetingAt: meetingAt,
+      hour: _selectedTime.hour,
+      minute: _selectedTime.minute,
       cityId: cityId,
-      districtId: registered ? selectedVenue.districtId : _selectedDistrictId,
-      neighborhoodId: registered
-          ? selectedVenue.neighborhoodId
-          : _selectedNeighborhoodId,
+      districtId: districtId,
+      neighborhoodId: neighborhoodId,
     );
+
+    var request = _retryableCreateDraft == draft
+        ? _retryableCreateRequest
+        : null;
+    if (request == null) {
+      final now = widget.now();
+      final meetingAt = resolveTableGroupMeetingAt(
+        now: now,
+        hour: _selectedTime.hour,
+        minute: _selectedTime.minute,
+      );
+      final meetingLead = meetingAt.difference(now);
+      if (meetingLead <= Duration.zero ||
+          meetingLead > tableGroupMaximumMeetingLead) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Buluşma saati en fazla 24 saat sonrası olabilir'),
+          ),
+        );
+        return;
+      }
+      request = TableGroupCreateRequest(
+        venueId: venueId,
+        venueName: venueName,
+        description: draft.description,
+        maxPersonCount: draft.maxPersonCount,
+        genderPrefs: _buildGenderPrefs(),
+        ageMin: draft.ageMin,
+        ageMax: draft.ageMax,
+        meetingAt: meetingAt,
+        cityId: draft.cityId,
+        districtId: draft.districtId,
+        neighborhoodId: draft.neighborhoodId,
+      );
+      // A committed response can be lost. Keep the exact request snapshot for
+      // semantically identical retries so the backend's replay fingerprint is
+      // preserved even if the selected minute has rolled into tomorrow.
+      _retryableCreateDraft = draft;
+      _retryableCreateRequest = request;
+    }
 
     final ok = await _cubit.createTableGroup(request);
     if (!mounted) return;
-    if (!ok) return;
+    if (!ok) {
+      if (identical(_retryableCreateRequest, request) &&
+          _isDefinitiveCreateRejection(_cubit.state.error?.code)) {
+        _retryableCreateDraft = null;
+        _retryableCreateRequest = null;
+      }
+      return;
+    }
     ScaffoldMessenger.of(
       this.context,
     ).showSnackBar(SnackBar(content: Text('Masa oluşturuldu')));
     Navigator.of(
       this.context,
     ).pop(TableGroupCreateResult(cityId: request.cityId));
+  }
+
+  bool _isDefinitiveCreateRejection(String? rawCode) {
+    final code = rawCode?.trim().toUpperCase();
+    if (code == null || code.isEmpty) return false;
+
+    // These responses prove that this exact request did not commit. Keep the
+    // snapshot for transport/decode ambiguity and every 5xx path so a replay
+    // can still recover a response that was lost after commit.
+    return const <String>{
+      '9100', // VENUE_ID_AND_NAME_CONFLICT
+      '9102', // INVALID_AGE_RANGE
+      '9103', // GENDER_AND_COUNT_MISMATCH
+      '9104', // TABLE_END_DATE_PASSED
+      '9112', // TABLE_GROUP_DURATION_INVALID
+      '9114', // TABLE_GROUP_VENUE_LOCATION_MISMATCH
+      '9127', // TABLE_GROUP_OWNER_ACTIVE_EXISTS
+    }.contains(code);
   }
 
   @override

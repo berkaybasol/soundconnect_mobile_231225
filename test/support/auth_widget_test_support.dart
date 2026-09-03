@@ -12,6 +12,7 @@ import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/username_availability.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/verify_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/check_username_availability_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/login_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/register_usecase.dart';
@@ -94,7 +95,9 @@ class RecordingAuthRepository extends AuthRepository {
       mailQueued: true,
     ),
   );
-  Result<void> verifyResult = const Result.success(null);
+  Result<VerifyCodeResult> verifyResult = const Result.success(
+    VerifyCodeResult(),
+  );
   Result<ResendCodeResult> resendResult = const Result.success(
     ResendCodeResult(otpTtlSeconds: 180, mailQueued: true, cooldownSeconds: 30),
   );
@@ -106,7 +109,7 @@ class RecordingAuthRepository extends AuthRepository {
   Result<String> updateUsernameResult = const Result.success('updated-user');
 
   Completer<Result<RegisterResult>>? registerCompleter;
-  Completer<Result<void>>? verifyCompleter;
+  Completer<Result<VerifyCodeResult>>? verifyCompleter;
   Completer<Result<ResendCodeResult>>? resendCompleter;
   Completer<Result<void>>? requestPasswordResetCompleter;
   Completer<Result<UsernameAvailability>>? usernameAvailabilityCompleter;
@@ -183,7 +186,7 @@ class RecordingAuthRepository extends AuthRepository {
   }
 
   @override
-  Future<Result<void>> verifyCode({
+  Future<Result<VerifyCodeResult>> verifyCode({
     required String email,
     required String code,
   }) async {

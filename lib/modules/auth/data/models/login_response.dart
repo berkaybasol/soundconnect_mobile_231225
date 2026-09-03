@@ -9,6 +9,7 @@ class LoginResponse {
   final List<String> roles;
   final List<String> permissions;
   final bool isAdmin;
+  final bool requiresListenerProfileChoice;
 
   const LoginResponse({
     required this.token,
@@ -18,9 +19,16 @@ class LoginResponse {
     this.roles = const [],
     this.permissions = const [],
     this.isAdmin = false,
+    required this.requiresListenerProfileChoice,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
+    final requiresListenerProfileChoice = json['requiresListenerProfileChoice'];
+    if (requiresListenerProfileChoice is! bool) {
+      throw const FormatException(
+        'requiresListenerProfileChoice must be a boolean',
+      );
+    }
     return LoginResponse(
       token: json['token'] as String? ?? '',
       status: UserStatusParser.fromApi(json['status'] as String?),
@@ -29,6 +37,7 @@ class LoginResponse {
       roles: _stringList(json['roles']),
       permissions: _stringList(json['permissions']),
       isAdmin: json['admin'] == true || json['isAdmin'] == true,
+      requiresListenerProfileChoice: requiresListenerProfileChoice,
     );
   }
 
@@ -40,6 +49,7 @@ class LoginResponse {
     roles: roles,
     permissions: permissions,
     isAdmin: isAdmin,
+    requiresListenerProfileChoice: requiresListenerProfileChoice,
   );
 
   static List<String> _stringList(Object? value) {

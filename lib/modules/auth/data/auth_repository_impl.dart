@@ -8,6 +8,7 @@ import '../domain/entities/password_reset_account.dart';
 import '../domain/entities/register_result.dart';
 import '../domain/entities/resend_code_result.dart';
 import '../domain/entities/username_availability.dart';
+import '../domain/entities/verify_code_result.dart';
 import 'auth_endpoints.dart';
 import 'models/forgot_password_request.dart';
 import 'models/login_request.dart';
@@ -164,24 +165,32 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Result<void>> verifyCode({
+  Future<Result<VerifyCodeResult>> verifyCode({
     required String email,
     required String code,
   }) async {
     try {
-      await _apiClient.post<Object?>(
+      final response = await _apiClient.post<VerifyCodeResult>(
         AuthEndpoints.verifyCode,
         body: VerifyCodeRequest(email: email, code: code).toJson(),
-        decoder: (_) => null,
+        decoder: (json) {
+          if (json == null) return const VerifyCodeResult();
+          if (json is! Map<String, dynamic>) {
+            throw const FormatException('Invalid verification response');
+          }
+          return VerifyCodeResult(
+            listenerSession: LoginResponse.fromJson(json).toEntity(),
+          );
+        },
       );
-      return const Result.success(null);
+      return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
     } catch (e) {
       return Result.failure(
         const AppError(
           code: 'auth_verify_unknown',
-          message: 'Verification failed',
+          message: 'Doğrulama tamamlanamadı. Lütfen tekrar dene.',
         ),
       );
     }

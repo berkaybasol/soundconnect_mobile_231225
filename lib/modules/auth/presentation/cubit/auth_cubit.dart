@@ -4,6 +4,8 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/error/app_error.dart';
 import '../../domain/entities/user_status.dart';
+import '../../domain/entities/login_result.dart';
+import '../../domain/entities/verify_code_result.dart';
 import '../../domain/entities/password_reset_account.dart';
 import '../../domain/entities/username_availability.dart';
 import '../../domain/username_policy.dart';
@@ -92,26 +94,13 @@ class AuthCubit extends Cubit<AuthState> {
     final result = await _loginUseCase(username: username, password: password);
     if (result.isSuccess && result.data != null) {
       final loginResult = result.data!;
-      try {
-        final sessionManager = _sessionManager;
-        if (sessionManager != null) {
-          await sessionManager.startSession(
-            token: loginResult.token,
-            username: loginResult.username,
-            accountStatus: loginResult.status.apiValue,
-          );
-        } else {
-          await _tokenStore.writeToken(loginResult.token);
-        }
-      } catch (_) {
+      final persistenceError = await _persistSession(loginResult);
+      if (persistenceError != null) {
         emit(
           state.copyWith(
             status: AuthStatus.failure,
             action: AuthAction.login,
-            error: const AppError(
-              code: 'auth_session_persist_failed',
-              message: 'Oturum guvenli sekilde baslatilamadi. Tekrar dene.',
-            ),
+            error: persistenceError,
           ),
         );
         return;
@@ -309,15 +298,48 @@ class AuthCubit extends Cubit<AuthState> {
         status: AuthStatus.loading,
         action: AuthAction.verify,
         error: null,
+        loginResult: null,
       ),
     );
     final result = await _verifyCodeUseCase(email: email, code: code);
     if (result.isSuccess) {
+      final verification = result.data ?? const VerifyCodeResult();
+      final listenerSession = verification.listenerSession;
+      if (listenerSession != null &&
+          !verification.requiresListenerProfileChoice) {
+        emit(
+          state.copyWith(
+            status: AuthStatus.failure,
+            action: AuthAction.verify,
+            error: const AppError(
+              code: 'auth_verify_unexpected_session',
+              message: 'Doğrulama oturumu güvenli biçimde başlatılamadı.',
+            ),
+            loginResult: null,
+          ),
+        );
+        return;
+      }
+      if (listenerSession != null) {
+        final persistenceError = await _persistSession(listenerSession);
+        if (persistenceError != null) {
+          emit(
+            state.copyWith(
+              status: AuthStatus.failure,
+              action: AuthAction.verify,
+              error: persistenceError,
+              loginResult: null,
+            ),
+          );
+          return;
+        }
+      }
       emit(
         state.copyWith(
           status: AuthStatus.success,
           action: AuthAction.verify,
           error: null,
+          loginResult: listenerSession,
         ),
       );
       return;
@@ -329,6 +351,29 @@ class AuthCubit extends Cubit<AuthState> {
         error: result.error,
       ),
     );
+  }
+
+  Future<AppError?> _persistSession(LoginResult loginResult) async {
+    try {
+      final sessionManager = _sessionManager;
+      if (sessionManager != null) {
+        await sessionManager.startSession(
+          token: loginResult.token,
+          username: loginResult.username,
+          accountStatus: loginResult.status.apiValue,
+          requiresListenerProfileChoice:
+              loginResult.requiresListenerProfileChoice,
+        );
+      } else {
+        await _tokenStore.writeToken(loginResult.token);
+      }
+      return null;
+    } catch (_) {
+      return const AppError(
+        code: 'auth_session_persist_failed',
+        message: 'Oturum güvenli şekilde başlatılamadı. Tekrar giriş yap.',
+      );
+    }
   }
 
   Future<void> resendCode({required String email}) {

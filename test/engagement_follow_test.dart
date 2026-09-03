@@ -18,6 +18,7 @@ import 'package:soundconnect_23_12_25codx/modules/follow/presentation/cubit/foll
 import 'package:soundconnect_23_12_25codx/modules/follow/presentation/cubit/follow_action_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/follow/presentation/cubit/follow_count_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/follow/presentation/cubit/follow_count_state.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 
 import 'support/recording_api_client.dart';
 
@@ -30,6 +31,7 @@ void main() {
           'id': 7,
           'username': 'ada',
           'profileImageUrl': 'https://cdn/avatar.jpg',
+          'visibilityMode': 'GHOST',
         },
         'anonymousAuthor': true,
         'text': 99,
@@ -48,6 +50,20 @@ void main() {
       expect(item.anonymousAuthor, isTrue);
       expect(item.deleted, isTrue);
       expect(item.createdAt?.toUtc(), DateTime.utc(2026, 7, 13, 8, 30));
+      expect(item.user.visibilityMode, ListenerVisibilityMode.ghost);
+      expect(item.user.isGhost, isTrue);
+      expect(item.isVisibleGhostAuthor, isFalse);
+
+      final masked = CommentItemModel.fromJson(<String, dynamic>{
+        'user': <String, dynamic>{
+          'id': '',
+          'username': 'Anonymous Author',
+          'visibilityMode': 'GHOST',
+        },
+        'anonymousAuthor': true,
+      });
+      expect(masked.user.isGhost, isFalse);
+      expect(masked.isVisibleGhostAuthor, isFalse);
     });
 
     test(

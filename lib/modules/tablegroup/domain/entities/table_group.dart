@@ -1,3 +1,4 @@
+import '../../../profile/domain/entities/listener_visibility_mode.dart';
 import 'table_group_participant.dart';
 
 class TableGroupLocation {
@@ -12,6 +13,7 @@ class TableGroup {
   final String ownerId;
   final String? ownerUsername;
   final String? ownerProfileImageUrl;
+  final ListenerVisibilityMode ownerVisibilityMode;
   final String? venueId;
   final String? venueName;
   final String? description;
@@ -36,6 +38,7 @@ class TableGroup {
     required this.ownerId,
     required this.ownerUsername,
     required this.ownerProfileImageUrl,
+    this.ownerVisibilityMode = ListenerVisibilityMode.standard,
     required this.venueId,
     required this.venueName,
     this.description,
@@ -58,4 +61,6 @@ class TableGroup {
             participant.status == TableGroupParticipantStatus.accepted,
       )
       .length;
+
+  bool get isOwnerGhost => ownerVisibilityMode.isGhost;
 }

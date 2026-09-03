@@ -1,3 +1,5 @@
+import '../../../profile/domain/entities/listener_visibility_mode.dart';
+
 enum TableGroupGameTopic { whoPays, unknown }
 
 enum TableGroupGameMode { rockPaperScissors, dice, vote, unknown }
@@ -39,6 +41,7 @@ class TableGroupGamePlayer {
     required this.status,
     required this.joinedAt,
     required this.hasActed,
+    this.visibilityMode = ListenerVisibilityMode.standard,
   });
 
   final String userId;
@@ -46,11 +49,13 @@ class TableGroupGamePlayer {
   final TableGroupGamePlayerStatus status;
   final DateTime? joinedAt;
   final bool hasActed;
+  final ListenerVisibilityMode visibilityMode;
 
   bool get hasJoined =>
       status != TableGroupGamePlayerStatus.left &&
       status != TableGroupGamePlayerStatus.unknown;
   bool get canAct => status == TableGroupGamePlayerStatus.active;
+  bool get isGhost => visibilityMode.isGhost;
 }
 
 class TableGroupGameRevealedAction {
@@ -83,6 +88,7 @@ class TableGroupGame {
     required this.phase,
     required this.createdBy,
     required this.createdByUsername,
+    this.createdByVisibilityMode = ListenerVisibilityMode.standard,
     required this.round,
     required this.joinDeadlineAt,
     required this.actionDeadlineAt,
@@ -91,6 +97,7 @@ class TableGroupGame {
     required this.revealedActions,
     required this.selectedUserId,
     required this.selectedUsername,
+    this.selectedUserVisibilityMode = ListenerVisibilityMode.standard,
     required this.outcome,
     required this.resultMessage,
     required this.cancellationReason,
@@ -106,6 +113,7 @@ class TableGroupGame {
   final TableGroupGamePhase phase;
   final String createdBy;
   final String? createdByUsername;
+  final ListenerVisibilityMode createdByVisibilityMode;
   final int round;
   final DateTime? joinDeadlineAt;
   final DateTime? actionDeadlineAt;
@@ -114,6 +122,7 @@ class TableGroupGame {
   final List<TableGroupGameRevealedAction> revealedActions;
   final String? selectedUserId;
   final String? selectedUsername;
+  final ListenerVisibilityMode selectedUserVisibilityMode;
   final TableGroupGameOutcome? outcome;
   final String? resultMessage;
   final String? cancellationReason;
@@ -125,6 +134,11 @@ class TableGroupGame {
   bool get isLobby =>
       status == TableGroupGameStatus.lobby ||
       phase == TableGroupGamePhase.lobby;
+
+  bool get isCreatorGhost => createdByVisibilityMode.isGhost;
+  // The contextual marker is authoritative. Keeping the badge visible even
+  // for a malformed/partial terminal snapshot is the privacy-safe fallback.
+  bool get isSelectedUserGhost => selectedUserVisibilityMode.isGhost;
 
   bool get supportsWhoPaysInteraction =>
       schemaVersion == 1 &&

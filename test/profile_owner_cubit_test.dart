@@ -231,7 +231,7 @@ const _publicVenue = VenuePublicProfile(
   weeklyEvents: [],
 );
 
-class _ListenerRepositoryFake implements ListenerProfileRepository {
+class _ListenerRepositoryFake extends ListenerProfileRepository {
   _ListenerRepositoryFake(this.result);
 
   Result<ListenerProfile> result;

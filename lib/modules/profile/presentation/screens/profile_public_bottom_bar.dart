@@ -264,7 +264,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
                 _MainstageLauncherTile(
                   assetName: 'assets/confined.png',
                   label: 'Overthinking',
-                  description: 'Mainstage akisina gec',
+                  description: 'Overthinking akışına geç',
                   enabled: true,
                   onTap: () => Navigator.of(
                     sheetContext,

@@ -8,6 +8,7 @@ class LoginResult {
   final List<String> roles;
   final List<String> permissions;
   final bool isAdmin;
+  final bool requiresListenerProfileChoice;
 
   const LoginResult({
     required this.token,
@@ -17,5 +18,6 @@ class LoginResult {
     this.roles = const [],
     this.permissions = const [],
     this.isAdmin = false,
+    this.requiresListenerProfileChoice = false,
   });
 }

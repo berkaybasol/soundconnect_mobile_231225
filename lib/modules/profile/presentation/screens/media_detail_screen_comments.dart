@@ -49,12 +49,24 @@ class _CommentBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '@${comment.user.username}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '@${comment.user.username}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (comment.isVisibleGhostAuthor) ...[
+                      const SizedBox(width: 7),
+                      const GhostProfileBadge(),
+                    ],
+                  ],
                 ),
                 SizedBox(height: 4),
                 Text(

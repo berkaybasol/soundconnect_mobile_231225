@@ -12,6 +12,7 @@ import '../../../../core/realtime/realtime_client_error.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../dm/data/dm_auth_support.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
@@ -1330,13 +1331,21 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                             ),
                           ),
                           const SizedBox(height: 3),
-                          const Text(
-                            'Masa sahibi',
-                            style: TextStyle(
-                              color: TableGroupOverviewStyle.tertiaryText,
-                              fontSize: 14,
-                              height: 1.1,
-                            ),
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 7,
+                            runSpacing: 4,
+                            children: [
+                              const Text(
+                                'Masa sahibi',
+                                style: TextStyle(
+                                  color: TableGroupOverviewStyle.tertiaryText,
+                                  fontSize: 14,
+                                  height: 1.1,
+                                ),
+                              ),
+                              if (group.isOwnerGhost) const GhostProfileBadge(),
+                            ],
                           ),
                           const SizedBox(height: 5),
                           Row(
@@ -1397,6 +1406,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
           joinNote: null,
           username: group.ownerUsername,
           profilePictureUrl: group.ownerProfileImageUrl,
+          visibilityMode: group.ownerVisibilityMode,
         ),
       );
     }
@@ -1468,15 +1478,26 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    username.startsWith('@') ? username : '@$username',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: TableGroupOverviewStyle.headingMuted,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          username.startsWith('@') ? username : '@$username',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: TableGroupOverviewStyle.headingMuted,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if ((isOwner && group.isOwnerGhost) ||
+                          (!isOwner && participant.isGhost)) ...[
+                        const SizedBox(width: 7),
+                        const GhostProfileBadge(),
+                      ],
+                    ],
                   ),
                   if (isOwner) ...[
                     const SizedBox(height: 2),
@@ -2045,6 +2066,12 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                                   ),
                                 ),
                               ),
+                            if (_isGhostParticipant(p))
+                              const Positioned(
+                                right: 0,
+                                top: 0,
+                                child: GhostProfileBadge(showLabel: false),
+                              ),
                           ],
                         ),
                       ),
@@ -2225,6 +2252,15 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     return shortId;
   }
 
+  bool _isGhostParticipant(TableGroupParticipant? participant) {
+    if (participant == null) return false;
+    final group = _group;
+    return participant.isGhost ||
+        (group != null &&
+            group.isOwnerGhost &&
+            participant.userId == group.ownerId);
+  }
+
   String _displayNameForSender(
     TableGroupParticipant? sender,
     String senderUserId,
@@ -2399,13 +2435,25 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      if (participant.isGhost) ...[
+                        const SizedBox(width: 7),
+                        const GhostProfileBadge(),
+                      ],
+                    ],
                   ),
                   if (joinNote != null && joinNote.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -2616,21 +2664,40 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl == null
-                ? Text(
-                    _initialsFrom(
-                      _displayNameForSender(sender, message.senderId),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  )
-                : null,
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainer,
+                  backgroundImage: avatarUrl != null
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null
+                      ? Text(
+                          _initialsFrom(
+                            _displayNameForSender(sender, message.senderId),
+                          ),
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : null,
+                ),
+                if (_isGhostParticipant(sender))
+                  const Positioned(
+                    right: -3,
+                    bottom: -2,
+                    child: GhostProfileBadge(showLabel: false),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(width: 6),
           Flexible(child: bubble),
@@ -3099,7 +3166,15 @@ class _TableGroupProfileTargetSheet extends StatelessWidget {
                     }, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             title: Text(item.displayName),
-            subtitle: Text(item.type.displayLabel),
+            subtitle: item.isGhostListener
+                ? Row(
+                    children: [
+                      Text(item.type.displayLabel),
+                      const SizedBox(width: 7),
+                      const GhostProfileBadge(),
+                    ],
+                  )
+                : Text(item.type.displayLabel),
             onTap: () => Navigator.of(context).pop(item),
           );
         },

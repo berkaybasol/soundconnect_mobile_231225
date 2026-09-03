@@ -1,4 +1,5 @@
 import '../../domain/entities/table_group_game.dart';
+import '../../../profile/domain/entities/listener_visibility_context.dart';
 import 'table_group_wire_date.dart';
 
 class TableGroupGameModel extends TableGroupGame {
@@ -13,6 +14,7 @@ class TableGroupGameModel extends TableGroupGame {
     required super.phase,
     required super.createdBy,
     required super.createdByUsername,
+    super.createdByVisibilityMode,
     required super.round,
     required super.joinDeadlineAt,
     required super.actionDeadlineAt,
@@ -21,6 +23,7 @@ class TableGroupGameModel extends TableGroupGame {
     required super.revealedActions,
     required super.selectedUserId,
     required super.selectedUsername,
+    super.selectedUserVisibilityMode,
     required super.outcome,
     required super.resultMessage,
     required super.cancellationReason,
@@ -61,6 +64,10 @@ class TableGroupGameModel extends TableGroupGame {
       phase: _phase(requiredText('phase')),
       createdBy: requiredText('createdBy'),
       createdByUsername: _optionalText(json['createdByUsername']),
+      createdByVisibilityMode: parseContextualListenerVisibilityMode(
+        json['createdByVisibilityMode'],
+        rejectUnknown: true,
+      ),
       round: round,
       joinDeadlineAt: _optionalDate(json, 'joinDeadlineAt'),
       actionDeadlineAt: _optionalDate(json, 'actionDeadlineAt'),
@@ -69,6 +76,10 @@ class TableGroupGameModel extends TableGroupGame {
       revealedActions: _revealedActions(json['revealedActions']),
       selectedUserId: _optionalText(json['selectedUserId']),
       selectedUsername: _optionalText(json['selectedUsername']),
+      selectedUserVisibilityMode: parseContextualListenerVisibilityMode(
+        json['selectedUserVisibilityMode'],
+        rejectUnknown: true,
+      ),
       outcome: _outcome(json['outcome']),
       resultMessage: _optionalText(json['resultMessage']),
       cancellationReason: _optionalText(json['cancellationReason']),
@@ -183,6 +194,10 @@ class TableGroupGameModel extends TableGroupGame {
           status: _playerStatus(status),
           joinedAt: joinedAt,
           hasActed: hasActed,
+          visibilityMode: parseContextualListenerVisibilityMode(
+            item['visibilityMode'],
+            rejectUnknown: true,
+          ),
         );
       }),
     );

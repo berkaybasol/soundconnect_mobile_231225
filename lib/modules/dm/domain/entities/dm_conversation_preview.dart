@@ -1,3 +1,5 @@
+import '../../../profile/domain/entities/listener_visibility_mode.dart';
+
 class DmConversationPreview {
   final String conversationId;
   final String otherUserId;
@@ -8,6 +10,7 @@ class DmConversationPreview {
   final String? lastMessageSenderId;
   final DateTime? lastMessageAt;
   final bool? lastMessageRead;
+  final ListenerVisibilityMode otherUserVisibilityMode;
 
   const DmConversationPreview({
     required this.conversationId,
@@ -19,5 +22,8 @@ class DmConversationPreview {
     required this.lastMessageSenderId,
     required this.lastMessageAt,
     required this.lastMessageRead,
+    this.otherUserVisibilityMode = ListenerVisibilityMode.standard,
   });
+
+  bool get isOtherUserGhost => otherUserVisibilityMode.isGhost;
 }

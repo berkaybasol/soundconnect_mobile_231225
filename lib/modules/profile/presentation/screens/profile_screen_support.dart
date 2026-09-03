@@ -87,6 +87,7 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   required String ownerType,
   required String ownerId,
   String? profilePhotoTargetId,
+  int? profilePhotoExpectedVersion,
   String cropTitle = 'Profil fotografini kirp',
   Color cropToolbarColor = const Color(0xFF0B1321),
   Color cropAccentColor = const Color(0xFFF47C7C),
@@ -121,6 +122,7 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
     attachmentIntent: ProfileUploadAttachmentIntent.profilePicture(
       profileType: ownerType,
       targetId: profilePhotoTargetId,
+      expectedVersion: profilePhotoExpectedVersion,
     ),
   );
   if (!result.isSuccess || result.data == null) {

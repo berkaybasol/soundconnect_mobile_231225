@@ -20,4 +20,6 @@ class CommentItem {
     required this.replyCount,
     required this.createdAt,
   });
+
+  bool get isVisibleGhostAuthor => !anonymousAuthor && user.isGhost;
 }

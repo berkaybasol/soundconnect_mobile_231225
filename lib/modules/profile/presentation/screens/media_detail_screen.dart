@@ -8,6 +8,7 @@ import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../../engagement/domain/entities/comment_item.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';

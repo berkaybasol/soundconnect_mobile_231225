@@ -45,6 +45,7 @@ class _TableGroupListCard extends StatelessWidget {
       meetingTimeText == '--:--'
           ? 'Buluşma saati belirtilmemiş'
           : 'Buluşma saati $meetingTimeText',
+      if (group.isOwnerGhost) 'Masa sahibi hayalet profil kullanıyor',
       'Detayları aç',
     ].join('. ');
 
@@ -104,6 +105,7 @@ class _TableGroupListCard extends StatelessWidget {
                                     imageUrl: avatarUrl,
                                     initials: initials,
                                     size: avatarSize,
+                                    isGhost: group.isOwnerGhost,
                                   ),
                                 ),
                                 Positioned(
@@ -270,47 +272,64 @@ class _OwnerAvatar extends StatelessWidget {
     required this.imageUrl,
     required this.initials,
     required this.size,
+    required this.isGhost,
   });
 
   final String groupId;
   final String? imageUrl;
   final String initials;
   final double size;
+  final bool isGhost;
 
   @override
   Widget build(BuildContext context) {
     final imageSize = size - 3;
-    return Container(
+    return SizedBox(
       key: ValueKey<String>('table_group_owner_avatar-$groupId'),
       width: size,
       height: size,
-      padding: const EdgeInsets.all(1.5),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B2CFF).withValues(alpha: 0.14),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            padding: const EdgeInsets.all(1.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF8B2CFF).withValues(alpha: 0.14),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: AppCachedNetworkImage(
+                key: ValueKey<String>('table_group_owner_image-$groupId'),
+                imageUrl: imageUrl,
+                width: imageSize,
+                height: imageSize,
+                cacheWidth: (imageSize * 3).round(),
+                cacheHeight: (imageSize * 3).round(),
+                placeholderBuilder: (context) => _fallback(),
+                errorBuilder: (context) => _fallback(),
+              ),
+            ),
           ),
+          if (isGhost)
+            const Positioned(
+              right: -5,
+              bottom: -3,
+              child: GhostProfileBadge(showLabel: false),
+            ),
         ],
-      ),
-      child: ClipOval(
-        child: AppCachedNetworkImage(
-          key: ValueKey<String>('table_group_owner_image-$groupId'),
-          imageUrl: imageUrl,
-          width: imageSize,
-          height: imageSize,
-          cacheWidth: (imageSize * 3).round(),
-          cacheHeight: (imageSize * 3).round(),
-          placeholderBuilder: (context) => _fallback(),
-          errorBuilder: (context) => _fallback(),
-        ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_res
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/verify_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/login_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/register_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/request_password_reset_usecase.dart';
@@ -183,7 +184,7 @@ void main() {
 
     test('verify failure emits failure with verify action', () async {
       final _FakeAuthRepository repository = _FakeAuthRepository(
-        verifyResponse: const Result<void>.failure(
+        verifyResponse: const Result<VerifyCodeResult>.failure(
           AppError(code: '400', message: 'Invalid code'),
         ),
       );
@@ -345,7 +346,7 @@ class _FakeAuthRepository extends AuthRepository {
   _FakeAuthRepository({
     Result<LoginResult>? loginResponse,
     Result<RegisterResult>? registerResponse,
-    Result<void>? verifyResponse,
+    Result<VerifyCodeResult>? verifyResponse,
     Result<ResendCodeResult>? resendResponse,
     Result<void>? requestPasswordResetResponse,
     Result<void>? resetPasswordResponse,
@@ -363,7 +364,9 @@ class _FakeAuthRepository extends AuthRepository {
                mailQueued: true,
              ),
            ),
-       _verifyResponse = verifyResponse ?? const Result<void>.success(null),
+       _verifyResponse =
+           verifyResponse ??
+           const Result<VerifyCodeResult>.success(VerifyCodeResult()),
        _resendResponse =
            resendResponse ??
            const Result<ResendCodeResult>.success(
@@ -383,7 +386,7 @@ class _FakeAuthRepository extends AuthRepository {
 
   final Result<LoginResult> _loginResponse;
   final Result<RegisterResult> _registerResponse;
-  final Result<void> _verifyResponse;
+  final Result<VerifyCodeResult> _verifyResponse;
   final Result<ResendCodeResult> _resendResponse;
   final Result<void> _requestPasswordResetResponse;
   final Result<void> _resetPasswordResponse;
@@ -418,7 +421,7 @@ class _FakeAuthRepository extends AuthRepository {
       _resendResponse;
 
   @override
-  Future<Result<void>> verifyCode({
+  Future<Result<VerifyCodeResult>> verifyCode({
     required String email,
     required String code,
   }) async => _verifyResponse;

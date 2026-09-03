@@ -9,6 +9,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../profile/domain/entities/musician_search_option.dart';
 import '../../../profile/domain/entities/profile_venue_models.dart';
 import '../../../profile/domain/musician_profile_repository.dart';
@@ -712,6 +713,7 @@ class _ConversationTile extends StatelessWidget {
               otherUserId: item.otherUserId,
               otherUsername: item.otherUsername,
               otherUserProfilePicture: item.otherUserProfilePicture,
+              otherUserVisibilityMode: item.otherUserVisibilityMode,
             ),
           );
           if (context.mounted) {
@@ -749,17 +751,27 @@ class _ConversationTile extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            item.otherUsername.trim().isNotEmpty
-                                ? item.otherUsername
-                                : 'Kullanici',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: hasUnread
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                            ),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  item.otherUsername.trim().isNotEmpty
+                                      ? item.otherUsername
+                                      : 'Kullanici',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: hasUnread
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (item.isOtherUserGhost) ...[
+                                const SizedBox(width: 7),
+                                const GhostProfileBadge(),
+                              ],
+                            ],
                           ),
                         ),
                         SizedBox(width: 8),
@@ -885,13 +897,25 @@ class _MusicJoinTableTile extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        if (table.isOwnerGhost) ...[
+                          const SizedBox(width: 7),
+                          const GhostProfileBadge(),
+                        ],
+                      ],
                     ),
                   ],
                 ),

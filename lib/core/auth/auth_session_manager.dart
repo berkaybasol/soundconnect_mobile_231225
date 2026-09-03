@@ -56,7 +56,11 @@ class AuthSessionManager extends ChangeNotifier {
       token = null;
     }
 
-    final restored = _sessionFromToken(token, metadata: metadata);
+    final restored = _sessionFromToken(
+      token,
+      metadata: metadata,
+      requireListenerChoiceWhenMetadataMissing: !isPreview,
+    );
     _setSession(restored);
     if (!restored.isAuthenticated && !isPreview) {
       await _clearCredentialsBestEffort();
@@ -68,6 +72,7 @@ class AuthSessionManager extends ChangeNotifier {
     required String token,
     required String? username,
     required String accountStatus,
+    bool requiresListenerProfileChoice = false,
   }) async {
     // Credential stores belong to the terminating session until its cleanup
     // completes. Otherwise a late clear could erase a newly committed login.
@@ -77,6 +82,7 @@ class AuthSessionManager extends ChangeNotifier {
     final metadata = AuthSessionMetadata(
       username: username,
       accountStatus: accountStatus,
+      requiresListenerProfileChoice: requiresListenerProfileChoice,
     );
     final next = _sessionFromToken(token, metadata: metadata);
     if (!next.isAuthenticated) {
@@ -129,6 +135,7 @@ class AuthSessionManager extends ChangeNotifier {
     final metadata = AuthSessionMetadata(
       username: username,
       accountStatus: current.accountStatus,
+      requiresListenerProfileChoice: current.requiresListenerProfileChoice,
     );
     await _sessionStore.write(metadata);
 
@@ -150,6 +157,126 @@ class AuthSessionManager extends ChangeNotifier {
         permissions: current.permissions,
         expiresAt: expiresAt,
         isAdmin: current.isAdmin,
+        requiresListenerProfileChoice: current.requiresListenerProfileChoice,
+      ),
+    );
+    return true;
+  }
+
+  /// Commits the local half of the server-authoritative listener onboarding
+  /// transition. Identity checks prevent a late response from mutating a newer
+  /// login that replaced the session while secure storage was writing.
+  Future<bool> completeListenerProfileChoice({
+    String? expectedUserId,
+    String? expectedToken,
+  }) async {
+    final current = _session;
+    final currentToken = current.token?.trim();
+    final currentUserId = current.userId?.trim();
+    if (!current.isAuthenticated ||
+        currentToken == null ||
+        currentToken.isEmpty ||
+        !current.hasAnyRole(const <String>['ROLE_LISTENER', 'LISTENER'])) {
+      throw StateError('An authenticated listener session is required');
+    }
+
+    final requestedUserId = expectedUserId?.trim();
+    final requestedToken = expectedToken?.trim();
+    if ((requestedUserId != null &&
+            requestedUserId.isNotEmpty &&
+            requestedUserId != currentUserId) ||
+        (requestedToken != null &&
+            requestedToken.isNotEmpty &&
+            requestedToken != currentToken)) {
+      return false;
+    }
+    if (!current.requiresListenerProfileChoice) return true;
+
+    await _sessionStore.write(
+      AuthSessionMetadata(
+        username: current.username,
+        accountStatus: current.accountStatus,
+        requiresListenerProfileChoice: false,
+      ),
+    );
+
+    if (_session.token?.trim() != currentToken ||
+        _session.userId?.trim() != currentUserId) {
+      await _restoreCurrentSessionMetadata();
+      return false;
+    }
+
+    _setSession(
+      AuthSession.authenticated(
+        token: currentToken,
+        userId: current.userId,
+        username: current.username,
+        accountStatus: current.accountStatus,
+        roles: current.roles,
+        permissions: current.permissions,
+        expiresAt: current.expiresAt!,
+        isAdmin: current.isAdmin,
+        requiresListenerProfileChoice: false,
+      ),
+    );
+    return true;
+  }
+
+  /// Repairs stale or missing local onboarding metadata after the listener
+  /// owner projection reports that no visibility choice has been completed.
+  /// The server remains authoritative; the identity fence prevents a delayed
+  /// storage write from changing a newer login.
+  Future<bool> requireListenerProfileChoice({
+    String? expectedUserId,
+    String? expectedToken,
+  }) async {
+    final current = _session;
+    final currentToken = current.token?.trim();
+    final currentUserId = current.userId?.trim();
+    if (!current.isAuthenticated ||
+        currentToken == null ||
+        currentToken.isEmpty ||
+        !current.hasAnyRole(const <String>['ROLE_LISTENER', 'LISTENER'])) {
+      throw StateError('An authenticated listener session is required');
+    }
+
+    final requestedUserId = expectedUserId?.trim();
+    final requestedToken = expectedToken?.trim();
+    if ((requestedUserId != null &&
+            requestedUserId.isNotEmpty &&
+            requestedUserId != currentUserId) ||
+        (requestedToken != null &&
+            requestedToken.isNotEmpty &&
+            requestedToken != currentToken)) {
+      return false;
+    }
+    if (current.requiresListenerProfileChoice) return true;
+
+    await _sessionStore.write(
+      AuthSessionMetadata(
+        username: current.username,
+        accountStatus: current.accountStatus,
+        requiresListenerProfileChoice: true,
+      ),
+    );
+
+    if (_session.token?.trim() != currentToken ||
+        _session.userId?.trim() != currentUserId) {
+      await _restoreCurrentSessionMetadata();
+      return false;
+    }
+
+    _setSession(
+      AuthSession.authenticated(
+        token: currentToken,
+        userId: current.userId,
+        username: current.username,
+        accountStatus: current.accountStatus,
+        roles: current.roles,
+        permissions: current.permissions,
+        expiresAt: current.expiresAt!,
+        isAdmin: current.isAdmin,
+        requiresListenerProfileChoice: true,
       ),
     );
     return true;
@@ -165,6 +292,7 @@ class AuthSessionManager extends ChangeNotifier {
       AuthSessionMetadata(
         username: current.username,
         accountStatus: current.accountStatus,
+        requiresListenerProfileChoice: current.requiresListenerProfileChoice,
       ),
     );
   }
@@ -226,6 +354,7 @@ class AuthSessionManager extends ChangeNotifier {
   AuthSession _sessionFromToken(
     String? token, {
     AuthSessionMetadata? metadata,
+    bool requireListenerChoiceWhenMetadataMissing = true,
   }) {
     final raw = token?.trim() ?? '';
     final claims = JwtClaims.tryParse(
@@ -253,6 +382,14 @@ class AuthSessionManager extends ChangeNotifier {
         normalizedPermissions.any(
           (permission) => permission.startsWith('MANAGE_'),
         );
+    final isListener =
+        normalizedRoles.contains('ROLE_LISTENER') ||
+        normalizedRoles.contains('LISTENER');
+    final requiresListenerProfileChoice =
+        isListener &&
+        ((metadata == null || !metadata.hasListenerProfileChoiceMarker)
+            ? requireListenerChoiceWhenMetadataMissing
+            : metadata.requiresListenerProfileChoice);
 
     return AuthSession.authenticated(
       token: raw,
@@ -263,6 +400,7 @@ class AuthSessionManager extends ChangeNotifier {
       permissions: permissions,
       expiresAt: claims.expiresAt,
       isAdmin: inferredAdmin,
+      requiresListenerProfileChoice: requiresListenerProfileChoice,
     );
   }
 

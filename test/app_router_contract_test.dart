@@ -12,6 +12,7 @@ import 'package:soundconnect_23_12_25codx/core/policy/access_policy.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_pending_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
 
 void main() {
   tearDown(() async {
@@ -146,6 +147,77 @@ void main() {
       AppRouteGuard.redirectFor(AppRoutes.accountSettings, adminSession),
       isNull,
     );
+  });
+
+  test(
+    'listener profile choice is mandatory only while selection is pending',
+    () {
+      const guest = AuthSession.guest();
+      final musician = _activeSession(const <String>['ROLE_MUSICIAN']);
+      final listener = _activeSession(const <String>['ROLE_LISTENER']);
+      final pendingListener = _activeSession(const <String>[
+        'ROLE_LISTENER',
+      ], requiresListenerProfileChoice: true);
+
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.listenerProfileChoice, guest),
+        AppRoutes.login,
+      );
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.listenerProfileChoice, musician),
+        AppRoutes.home,
+      );
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.listenerProfileChoice, listener),
+        AppRoutes.listenerProfile,
+      );
+      expect(
+        AppRouteGuard.redirectFor(
+          AppRoutes.listenerProfileChoice,
+          pendingListener,
+        ),
+        isNull,
+      );
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.listenerProfile, pendingListener),
+        AppRoutes.listenerProfileChoice,
+      );
+      expect(
+        AppRouteGuard.startRouteFor(pendingListener),
+        AppRoutes.listenerProfileChoice,
+      );
+    },
+  );
+
+  test('listener public profile requires auth and a non-empty profile id', () {
+    const guest = AuthSession.guest();
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.listenerPublicProfile, guest),
+      AppRoutes.login,
+    );
+
+    final listener = _activeSession(const <String>['ROLE_LISTENER']);
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.listenerPublicProfile, listener),
+      isNull,
+    );
+    _registerSession(listener);
+
+    final validRoute = AppRouter.onGenerateRoute(
+      const RouteSettings(
+        name: AppRoutes.listenerPublicProfile,
+        arguments: PublicProfileArgs(profileId: 'listener-profile-id'),
+      ),
+    );
+    final invalidRoute = AppRouter.onGenerateRoute(
+      const RouteSettings(
+        name: AppRoutes.listenerPublicProfile,
+        arguments: PublicProfileArgs(profileId: '   '),
+      ),
+    );
+
+    expect(validRoute.settings.name, AppRoutes.listenerPublicProfile);
+    expect(invalidRoute.settings.name, AppRoutes.listenerProfile);
   });
 
   test(
@@ -330,7 +402,10 @@ void main() {
   });
 }
 
-AuthSession _activeSession(List<String> roles) {
+AuthSession _activeSession(
+  List<String> roles, {
+  bool requiresListenerProfileChoice = false,
+}) {
   return AuthSession.authenticated(
     token: 'table-group-token',
     userId: 'table-group-user',
@@ -340,6 +415,7 @@ AuthSession _activeSession(List<String> roles) {
     permissions: const <String>[],
     expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
     isAdmin: false,
+    requiresListenerProfileChoice: requiresListenerProfileChoice,
   );
 }
 

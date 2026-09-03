@@ -6,6 +6,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../domain/entities/profile_search_result.dart';
 import '../../domain/profile_search_repository.dart';
 import '../navigation/profile_search_navigation.dart';
@@ -102,7 +103,6 @@ class _BackstageProfileSearchSheetState
 
   void _openResult(ProfileSearchResult item) {
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final destination = resolveProfileSearchDestination(
       result: item,
       currentUserId: serviceLocator<AuthSessionManager>().session.userId,
@@ -122,7 +122,10 @@ class _BackstageProfileSearchSheetState
         );
         return;
       case ProfileSearchResultType.listener:
-        _showComingSoon(messenger, 'Dinleyici profili yakında açılacak.');
+        navigator.pushNamed(
+          destination!.route,
+          arguments: PublicProfileArgs(profileId: item.targetId),
+        );
         return;
       case ProfileSearchResultType.band:
         navigator.pushNamed(
@@ -148,12 +151,6 @@ class _BackstageProfileSearchSheetState
       case ProfileSearchResultType.unknown:
         return;
     }
-  }
-
-  void _showComingSoon(ScaffoldMessengerState messenger, String message) {
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -295,15 +292,27 @@ class _ProfileSearchResultTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    _subtitle(item),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _subtitle(item),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (item.isGhostListener) ...[
+                        const SizedBox(width: 7),
+                        const GhostProfileBadge(),
+                      ],
+                    ],
                   ),
                 ],
               ),

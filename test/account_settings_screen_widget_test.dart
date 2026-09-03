@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/account_settings_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/listener_profile_repository.dart';
 
 import 'support/auth_widget_test_support.dart';
@@ -126,6 +128,148 @@ void main() {
     expect(profileRepository.lastDescription, 'Yeni profil açıklaması');
     expect(find.text('Yeni profil açıklaması'), findsOneWidget);
   });
+
+  testWidgets(
+    'requires destructive confirmation before enabling listener ghost mode',
+    (tester) async {
+      final profileRepository = _ListenerProfileRepositoryFake();
+      serviceLocator.registerSingleton<ListenerProfileRepository>(
+        profileRepository,
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('account-settings-listener-visibility')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('listener-ghost-profile-switch')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hayalet profile geç?'), findsOneWidget);
+      expect(find.textContaining('kalıcı olarak kaldırılır'), findsOneWidget);
+      expect(
+        find.textContaining('Takip ettiklerin ve mesajların kalır'),
+        findsOneWidget,
+      );
+      expect(profileRepository.visibilityUpdates, isEmpty);
+
+      await tester.tap(find.byKey(const Key('confirm-enable-ghost-profile')));
+      await tester.pumpAndSettle();
+
+      expect(profileRepository.visibilityUpdates, const [
+        ListenerVisibilityMode.ghost,
+      ]);
+      expect(profileRepository.lastExpectedVersion, 4);
+      expect(
+        find.byKey(const Key('account-settings-profile-description')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('account-settings-ghost-content-notice')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('shows visibility throttling guidance in account settings', (
+    tester,
+  ) async {
+    const backendMessage =
+        'Görünürlük ayarını çok sık değiştirdin. Lütfen biraz sonra tekrar dene.';
+    final profileRepository = _ListenerProfileRepositoryFake()
+      ..visibilityUpdateError = const AppError(
+        code: '1306',
+        message: backendMessage,
+      );
+    serviceLocator.registerSingleton<ListenerProfileRepository>(
+      profileRepository,
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('listener-ghost-profile-switch')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-enable-ghost-profile')));
+    await tester.pumpAndSettle();
+
+    expect(profileRepository.visibilityUpdates, const [
+      ListenerVisibilityMode.ghost,
+    ]);
+    expect(
+      find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.text(backendMessage),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.byKey(const Key('listener-ghost-profile-switch')),
+          )
+          .value,
+      isFalse,
+    );
+  });
+
+  testWidgets(
+    'visibility mutation closes the editor and locks profile mutations',
+    (tester) async {
+      final profileRepository = _ListenerProfileRepositoryFake();
+      final pending = Completer<Result<ListenerProfile>>();
+      profileRepository.visibilityCompleter = pending;
+      serviceLocator.registerSingleton<ListenerProfileRepository>(
+        profileRepository,
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('account-settings-profile-description')),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const Key('account-settings-description-field')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('listener-ghost-profile-switch')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm-enable-ghost-profile')));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('account-settings-description-field')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<SwitchListTile>(
+              find.byKey(const Key('listener-ghost-profile-switch')),
+            )
+            .onChanged,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<InkWell>(
+              find.descendant(
+                of: find.byKey(const Key('account-settings-profile-photo')),
+                matching: find.byType(InkWell),
+              ),
+            )
+            .onTap,
+        isNull,
+      );
+
+      pending.complete(Result.success(profileRepository._profile));
+      await tester.pumpAndSettle();
+      expect(profileRepository.visibilityUpdates, const [
+        ListenerVisibilityMode.ghost,
+      ]);
+    },
+  );
 
   testWidgets('normalizes the username and refreshes session metadata', (
     tester,
@@ -303,8 +447,15 @@ void main() {
   });
 }
 
-class _ListenerProfileRepositoryFake implements ListenerProfileRepository {
+class _ListenerProfileRepositoryFake extends ListenerProfileRepository {
   String? lastDescription;
+  ListenerVisibilityMode visibilityMode = ListenerVisibilityMode.standard;
+  AppError? visibilityUpdateError;
+  Completer<Result<ListenerProfile>>? visibilityCompleter;
+  int version = 4;
+  final List<ListenerVisibilityMode> visibilityUpdates =
+      <ListenerVisibilityMode>[];
+  int? lastExpectedVersion;
 
   ListenerProfile get _profile => ListenerProfile(
     id: 'listener-profile-id',
@@ -312,8 +463,13 @@ class _ListenerProfileRepositoryFake implements ListenerProfileRepository {
     username: 'old-name',
     bio: lastDescription ?? 'Eski açıklama',
     profilePictureUrl: null,
-    followerCount: 0,
-    followingCount: 0,
+    followerCount: visibilityMode.isGhost ? null : 0,
+    followingCount: visibilityMode.isGhost ? null : 0,
+    visibilityMode: visibilityMode,
+    version: version,
+    profileContentVisible: !visibilityMode.isGhost,
+    profileContentEditable: !visibilityMode.isGhost,
+    canReceiveFollowers: !visibilityMode.isGhost,
   );
 
   @override
@@ -326,6 +482,21 @@ class _ListenerProfileRepositoryFake implements ListenerProfileRepository {
     ListenerProfileSaveRequest request,
   ) async {
     lastDescription = request.description ?? lastDescription;
+    return Result.success(_profile);
+  }
+
+  @override
+  Future<Result<ListenerProfile>> updateVisibility(
+    ListenerVisibilityUpdateRequest request,
+  ) async {
+    visibilityUpdates.add(request.visibilityMode);
+    lastExpectedVersion = request.expectedVersion;
+    final updateError = visibilityUpdateError;
+    if (updateError != null) return Result.failure(updateError);
+    visibilityMode = request.visibilityMode;
+    version += 1;
+    final completer = visibilityCompleter;
+    if (completer != null) return completer.future;
     return Result.success(_profile);
   }
 }

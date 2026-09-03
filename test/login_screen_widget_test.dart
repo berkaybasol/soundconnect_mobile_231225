@@ -15,6 +15,7 @@ import 'package:soundconnect_23_12_25codx/modules/auth/domain/auth_repository.da
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/verify_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/login_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/register_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/request_password_reset_usecase.dart';
@@ -490,11 +491,11 @@ class _RecordingAuthRepository extends AuthRepository {
   }
 
   @override
-  Future<Result<void>> verifyCode({
+  Future<Result<VerifyCodeResult>> verifyCode({
     required String email,
     required String code,
   }) async {
-    return const Result<void>.failure(
+    return const Result<VerifyCodeResult>.failure(
       AppError(code: 'not_used', message: 'Not used'),
     );
   }

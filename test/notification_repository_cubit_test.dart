@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
@@ -13,6 +14,9 @@ import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
 import 'package:soundconnect_23_12_25codx/core/pagination/page.dart'
     as pagination;
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/collab_route_args.dart';
+import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_user_profile_resolver.dart';
+import 'package:soundconnect_23_12_25codx/modules/dm/domain/entities/dm_profile_target.dart';
+import 'package:soundconnect_23_12_25codx/modules/dm/presentation/screens/dm_chat_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/models/app_notification_model.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_endpoints.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_realtime_client.dart';
@@ -22,6 +26,7 @@ import 'package:soundconnect_23_12_25codx/modules/notification/domain/notificati
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/notification_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
 
@@ -1148,6 +1153,185 @@ void main() {
     expect(args.jobId, 'job-1');
     expect(args.reviewId, 'review-1');
   });
+
+  testWidgets(
+    'ghost DM payload bypasses stale resolver identity and propagates mode',
+    (tester) async {
+      await serviceLocator.reset();
+      addTearDown(serviceLocator.reset);
+      final resolver = _RecordingDmProfileResolver(<DmProfileTarget>[
+        const DmProfileTarget(
+          type: DmProfileTargetType.listener,
+          id: 'listener-profile-1',
+          displayName: 'stale-standard-name',
+          imageUrl: 'https://stale.example/avatar.jpg',
+        ),
+      ]);
+      serviceLocator.registerSingleton<DmUserProfileResolver>(resolver);
+      final notification = _notification(
+        'ghost-dm',
+        type: 'DM_MESSAGE',
+        payload: const <String, dynamic>{
+          'module': 'DM',
+          'conversationId': 'conversation-1',
+          'senderId': 'listener-user-1',
+          'senderUsername': 'payload-ghost-name',
+          'senderVisibilityMode': 'GHOST',
+        },
+      );
+      final repository = _NotificationRepositoryFake(
+        pages: <int, Result<pagination.Page<AppNotification>>>{
+          0: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[notification],
+              hasNext: false,
+            ),
+          ),
+        },
+      );
+      final realtime = NotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.dispose();
+      });
+      RouteSettings? pushedSettings;
+
+      await tester.pumpWidget(
+        BlocProvider<NotificationCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            home: const NotificationScreen(),
+            onGenerateRoute: (settings) {
+              pushedSettings = settings;
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (_) => const SizedBox.shrink(),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('notification-ghost-badge-ghost-dm')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('ghost-dm'));
+      await tester.pumpAndSettle();
+
+      expect(resolver.calls, 0);
+      expect(pushedSettings?.name, AppRoutes.dmChat);
+      final args = pushedSettings?.arguments as DmChatScreenArgs;
+      expect(args.conversationId, 'conversation-1');
+      expect(args.otherUserId, 'listener-user-1');
+      expect(args.otherUsername, 'payload-ghost-name');
+      expect(args.otherUserProfilePicture, isNull);
+      expect(args.otherUserVisibilityMode, ListenerVisibilityMode.ghost);
+    },
+  );
+
+  testWidgets(
+    'ghost follower sheet uses sanitized identity and shows ghost badge',
+    (tester) async {
+      await serviceLocator.reset();
+      addTearDown(serviceLocator.reset);
+      final resolver = _RecordingDmProfileResolver(<DmProfileTarget>[
+        const DmProfileTarget(
+          type: DmProfileTargetType.listener,
+          id: 'listener-profile-1',
+          displayName: 'stale-standard-name',
+          imageUrl: null,
+        ),
+        const DmProfileTarget(
+          type: DmProfileTargetType.venue,
+          id: 'venue-profile-1',
+          displayName: 'Venue profile',
+          imageUrl: null,
+        ),
+      ]);
+      serviceLocator.registerSingleton<DmUserProfileResolver>(resolver);
+      final notification = _notification(
+        'ghost-follower',
+        type: 'SOCIAL_NEW_FOLLOWER',
+        payload: const <String, dynamic>{
+          'module': 'SOCIAL',
+          'action': 'NEW_FOLLOWER',
+          'followerId': 'listener-user-1',
+          'followerUsername': 'payload-ghost-name',
+          'followerVisibilityMode': 'GHOST',
+        },
+      );
+      final repository = _NotificationRepositoryFake(
+        pages: <int, Result<pagination.Page<AppNotification>>>{
+          0: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[notification],
+              hasNext: false,
+            ),
+          ),
+        },
+      );
+      final realtime = NotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.dispose();
+      });
+      RouteSettings? pushedSettings;
+
+      await tester.pumpWidget(
+        BlocProvider<NotificationCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            home: const NotificationScreen(),
+            onGenerateRoute: (settings) {
+              pushedSettings = settings;
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (_) => const SizedBox.shrink(),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('notification-ghost-badge-ghost-follower')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('ghost-follower'));
+      await tester.pumpAndSettle();
+
+      expect(resolver.calls, 1);
+      expect(find.text('payload-ghost-name'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('social-target-ghost-badge-listener-profile-1'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('payload-ghost-name'));
+      await tester.pumpAndSettle();
+
+      expect(pushedSettings?.name, AppRoutes.listenerPublicProfile);
+      final args = pushedSettings?.arguments as PublicProfileArgs;
+      expect(args.profileId, 'listener-profile-1');
+    },
+  );
 }
 
 AppNotification _notification(
@@ -1214,6 +1398,22 @@ class _NotificationApiClientFake extends ApiClient {
     Object? body,
     T Function(Object? json)? decoder,
   }) => throw UnimplementedError();
+}
+
+class _RecordingDmProfileResolver implements DmUserProfileResolver {
+  _RecordingDmProfileResolver(this.targets);
+
+  final List<DmProfileTarget> targets;
+  int calls = 0;
+
+  @override
+  Future<List<DmProfileTarget>> resolveByUserId({
+    required String userId,
+    String? usernameHint,
+  }) async {
+    calls += 1;
+    return targets;
+  }
 }
 
 class _NotificationRepositoryFake implements NotificationRepository {

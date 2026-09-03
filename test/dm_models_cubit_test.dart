@@ -19,6 +19,7 @@ import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_chat_
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_chat_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_conversations_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_conversations_state.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 
 void main() {
   group('DM models', () {
@@ -48,6 +49,7 @@ void main() {
         'otherUserUsername': '  deniz  ',
         'lastMessageRead': 'YES',
         'lastMessageAt': '2026-07-13T10:00:00Z',
+        'otherUserVisibilityMode': 'GHOST',
       });
       final numeric = DmConversationPreviewModel.fromJson(<String, dynamic>{
         'username': 'ada',
@@ -55,14 +57,18 @@ void main() {
       });
       final unknown = DmConversationPreviewModel.fromJson(<String, dynamic>{
         'lastMessageRead': 'sometimes',
+        'otherUserVisibilityMode': 'FUTURE_MODE',
       });
 
       expect(alias.otherUsername, 'deniz');
       expect(alias.lastMessageRead, isTrue);
       expect(alias.lastMessageAt, DateTime.utc(2026, 7, 13, 10));
+      expect(alias.otherUserVisibilityMode, ListenerVisibilityMode.ghost);
+      expect(alias.isOtherUserGhost, isTrue);
       expect(numeric.lastMessageRead, isTrue);
       expect(unknown.otherUsername, 'Kullanici');
       expect(unknown.lastMessageRead, isNull);
+      expect(unknown.otherUserVisibilityMode, ListenerVisibilityMode.ghost);
     });
   });
 

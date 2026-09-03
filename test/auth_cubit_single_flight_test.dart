@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/verify_code_result.dart';
 
 import 'support/auth_widget_test_support.dart';
 
@@ -41,7 +42,7 @@ void main() {
 
   test('verify and resend share one OTP action flight', () async {
     final repository = RecordingAuthRepository();
-    final pending = Completer<Result<void>>();
+    final pending = Completer<Result<VerifyCodeResult>>();
     repository.verifyCompleter = pending;
     final cubit = createAuthCubit(repository);
     addTearDown(cubit.close);
@@ -59,7 +60,7 @@ void main() {
     expect(repository.verifyCalls, 1);
     expect(repository.resendCalls, 0);
 
-    pending.complete(const Result.success(null));
+    pending.complete(const Result.success(VerifyCodeResult()));
     await Future.wait(<Future<void>>[verify, duplicateVerify, competingResend]);
 
     repository.verifyCompleter = null;

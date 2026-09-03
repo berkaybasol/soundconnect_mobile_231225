@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/data/dm_user_profile_resolver_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/entities/dm_profile_target.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 
 void main() {
   group('DmUserProfileResolverImpl', () {
@@ -33,6 +34,7 @@ void main() {
                 'type': 'LISTENER',
                 'profileId': 'listener-1',
                 'displayName': 'Dinleyici',
+                'visibilityMode': 'GHOST',
               },
               <String, dynamic>{
                 'type': 'STUDIO',
@@ -57,8 +59,32 @@ void main() {
           DmProfileTargetType.listener,
           DmProfileTargetType.studio,
         ]);
+        expect(result[2].visibilityMode, ListenerVisibilityMode.ghost);
+        expect(result[2].isGhostListener, isTrue);
       },
     );
+
+    test('fails an unsupported contextual visibility marker closed', () async {
+      final apiClient = _FakeApiClient((_) async {
+        return <String, dynamic>{
+          'profiles': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'type': 'LISTENER',
+              'profileId': 'listener-1',
+              'displayName': 'Dinleyici',
+              'visibilityMode': 'FUTURE_MODE',
+            },
+          ],
+        };
+      });
+      final resolver = DmUserProfileResolverImpl(apiClient: apiClient);
+
+      final result = await resolver.resolveByUserId(userId: 'user-1');
+
+      expect(result, hasLength(1));
+      expect(result.single.visibilityMode, ListenerVisibilityMode.ghost);
+      expect(result.single.isGhostListener, isTrue);
+    });
 
     test('de-duplicates concurrent requests for the same user', () async {
       final response = Completer<Object?>();
@@ -73,6 +99,57 @@ void main() {
       response.complete(<String, dynamic>{'profiles': <Object>[]});
       expect(await first, isEmpty);
       expect(await second, isEmpty);
+    });
+
+    test('never positive-caches standard or ghost listener targets', () async {
+      final apiClient = _FakeApiClient((path) async {
+        final ghost = path.endsWith('/ghost');
+        return <String, dynamic>{
+          'profiles': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'type': 'LISTENER',
+              'profileId': ghost ? 'ghost-profile' : 'standard-profile',
+              'displayName': ghost ? 'Ghost listener' : 'Listener',
+              if (ghost) 'visibilityMode': 'GHOST',
+            },
+          ],
+        };
+      });
+      final resolver = DmUserProfileResolverImpl(apiClient: apiClient);
+
+      await resolver.resolveByUserId(userId: 'standard');
+      await resolver.resolveByUserId(userId: 'standard');
+      await resolver.resolveByUserId(userId: 'ghost');
+      await resolver.resolveByUserId(userId: 'ghost');
+
+      expect(
+        apiClient.paths.where((path) => path.endsWith('/standard')),
+        hasLength(2),
+      );
+      expect(
+        apiClient.paths.where((path) => path.endsWith('/ghost')),
+        hasLength(2),
+      );
+    });
+
+    test('keeps positive caching for non-listener targets', () async {
+      final apiClient = _FakeApiClient((_) async {
+        return <String, dynamic>{
+          'profiles': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'type': 'MUSICIAN',
+              'profileId': 'musician-1',
+              'displayName': 'Ada',
+            },
+          ],
+        };
+      });
+      final resolver = DmUserProfileResolverImpl(apiClient: apiClient);
+
+      await resolver.resolveByUserId(userId: 'musician-user');
+      await resolver.resolveByUserId(userId: 'musician-user');
+
+      expect(apiClient.paths, hasLength(1));
     });
 
     test('keeps a bounded least-recently-used cache', () async {

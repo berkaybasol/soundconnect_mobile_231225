@@ -13,6 +13,7 @@ import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_res
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/verify_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/login_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/register_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/request_password_reset_usecase.dart';
@@ -257,7 +258,9 @@ void main() {
       () async {
         final AuthCubit cubit = _cubit(
           _ScriptedAuthRepository(
-            verifyResult: const Result<void>.success(null),
+            verifyResult: const Result<VerifyCodeResult>.success(
+              VerifyCodeResult(),
+            ),
           ),
           _MemoryTokenStore(),
         );
@@ -268,6 +271,153 @@ void main() {
         expect(cubit.state.status, AuthStatus.success);
         expect(cubit.state.action, AuthAction.verify);
         expect(cubit.state.error, isNull);
+      },
+    );
+
+    test(
+      'listener verification persists an authenticated session before success',
+      () async {
+        final token = _jwt(
+          subject: 'verified-listener-id',
+          roles: const <String>['ROLE_LISTENER'],
+        );
+        final managerTokenStore = _MemoryTokenStore();
+        final metadataStore = _MemorySessionStore();
+        final sessionManager = AuthSessionManager(
+          tokenStore: managerTokenStore,
+          sessionStore: metadataStore,
+        );
+        addTearDown(sessionManager.dispose);
+        final fallbackTokenStore = _MemoryTokenStore();
+        final cubit = _cubit(
+          _ScriptedAuthRepository(
+            verifyResult: Result<VerifyCodeResult>.success(
+              VerifyCodeResult(
+                listenerSession: LoginResult(
+                  token: token,
+                  status: UserStatus.active,
+                  userId: 'verified-listener-id',
+                  username: 'berna',
+                  roles: const <String>['ROLE_LISTENER'],
+                  requiresListenerProfileChoice: true,
+                ),
+              ),
+            ),
+          ),
+          fallbackTokenStore,
+          sessionManager: sessionManager,
+        );
+        addTearDown(cubit.close);
+
+        await cubit.verifyCode(email: 'listener@example.com', code: '012345');
+
+        expect(cubit.state.status, AuthStatus.success);
+        expect(cubit.state.action, AuthAction.verify);
+        expect(cubit.state.error, isNull);
+        expect(cubit.state.loginResult?.token, token);
+        expect(sessionManager.session.isAuthenticated, isTrue);
+        expect(sessionManager.session.isActive, isTrue);
+        expect(sessionManager.session.userId, 'verified-listener-id');
+        expect(sessionManager.session.username, 'berna');
+        expect(sessionManager.session.roles, contains('ROLE_LISTENER'));
+        expect(managerTokenStore.value, token);
+        expect(metadataStore.value?.username, 'berna');
+        expect(metadataStore.value?.accountStatus, 'ACTIVE');
+        expect(metadataStore.value?.requiresListenerProfileChoice, isTrue);
+        expect(fallbackTokenStore.writeCount, 0);
+      },
+    );
+
+    test(
+      'verification rejects a non-listener session without persisting it',
+      () async {
+        final managerTokenStore = _MemoryTokenStore();
+        final metadataStore = _MemorySessionStore();
+        final sessionManager = AuthSessionManager(
+          tokenStore: managerTokenStore,
+          sessionStore: metadataStore,
+        );
+        addTearDown(sessionManager.dispose);
+        final fallbackTokenStore = _MemoryTokenStore();
+        final cubit = _cubit(
+          _ScriptedAuthRepository(
+            verifyResult: Result<VerifyCodeResult>.success(
+              VerifyCodeResult(
+                listenerSession: LoginResult(
+                  token: _jwt(
+                    subject: 'musician-id',
+                    roles: const <String>['ROLE_MUSICIAN'],
+                  ),
+                  status: UserStatus.active,
+                  userId: 'musician-id',
+                  username: 'musician',
+                  roles: const <String>['ROLE_MUSICIAN'],
+                ),
+              ),
+            ),
+          ),
+          fallbackTokenStore,
+          sessionManager: sessionManager,
+        );
+        addTearDown(cubit.close);
+
+        await cubit.verifyCode(email: 'musician@example.com', code: '012345');
+
+        expect(cubit.state.status, AuthStatus.failure);
+        expect(cubit.state.action, AuthAction.verify);
+        expect(cubit.state.error?.code, 'auth_verify_unexpected_session');
+        expect(cubit.state.loginResult, isNull);
+        expect(sessionManager.session.isAuthenticated, isFalse);
+        expect(managerTokenStore.value, isNull);
+        expect(managerTokenStore.writeCount, 0);
+        expect(metadataStore.value, isNull);
+        expect(fallbackTokenStore.writeCount, 0);
+      },
+    );
+
+    test(
+      'listener verification persistence failure clears partial credentials',
+      () async {
+        final token = _jwt(
+          subject: 'verified-listener-id',
+          roles: const <String>['ROLE_LISTENER'],
+        );
+        final managerTokenStore = _MemoryTokenStore(failWrite: true);
+        final metadataStore = _MemorySessionStore();
+        final sessionManager = AuthSessionManager(
+          tokenStore: managerTokenStore,
+          sessionStore: metadataStore,
+        );
+        addTearDown(sessionManager.dispose);
+        final cubit = _cubit(
+          _ScriptedAuthRepository(
+            verifyResult: Result<VerifyCodeResult>.success(
+              VerifyCodeResult(
+                listenerSession: LoginResult(
+                  token: token,
+                  status: UserStatus.active,
+                  username: 'berna',
+                  roles: const <String>['ROLE_LISTENER'],
+                  requiresListenerProfileChoice: true,
+                ),
+              ),
+            ),
+          ),
+          _MemoryTokenStore(),
+          sessionManager: sessionManager,
+        );
+        addTearDown(cubit.close);
+
+        await cubit.verifyCode(email: 'listener@example.com', code: '012345');
+
+        expect(cubit.state.status, AuthStatus.failure);
+        expect(cubit.state.action, AuthAction.verify);
+        expect(cubit.state.error?.code, 'auth_session_persist_failed');
+        expect(cubit.state.loginResult, isNull);
+        expect(sessionManager.session.isAuthenticated, isFalse);
+        expect(managerTokenStore.value, isNull);
+        expect(managerTokenStore.clearCount, 1);
+        expect(metadataStore.value, isNull);
       },
     );
 
@@ -475,7 +625,7 @@ class _ScriptedAuthRepository extends AuthRepository {
   _ScriptedAuthRepository({
     Result<LoginResult>? loginResult,
     Result<RegisterResult>? registerResult,
-    Result<void>? verifyResult,
+    Result<VerifyCodeResult>? verifyResult,
     Result<ResendCodeResult>? resendResult,
     Result<void>? requestPasswordResetResult,
     Result<void>? resetPasswordResult,
@@ -492,7 +642,7 @@ class _ScriptedAuthRepository extends AuthRepository {
            ),
        _verifyResult =
            verifyResult ??
-           const Result<void>.failure(
+           const Result<VerifyCodeResult>.failure(
              AppError(code: 'unused', message: 'Unused verify'),
            ),
        _resendResult =
@@ -518,7 +668,7 @@ class _ScriptedAuthRepository extends AuthRepository {
 
   final Result<LoginResult> _loginResult;
   final Result<RegisterResult> _registerResult;
-  final Result<void> _verifyResult;
+  final Result<VerifyCodeResult> _verifyResult;
   final Result<ResendCodeResult> _resendResult;
   final Result<void> _requestPasswordResetResult;
   final Result<void> _resetPasswordResult;
@@ -570,7 +720,7 @@ class _ScriptedAuthRepository extends AuthRepository {
       _resendResult;
 
   @override
-  Future<Result<void>> verifyCode({
+  Future<Result<VerifyCodeResult>> verifyCode({
     required String email,
     required String code,
   }) async => _verifyResult;

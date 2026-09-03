@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/profile_search_result.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/navigation/profile_search_navigation.dart';
 
 void main() {
@@ -30,6 +31,7 @@ void main() {
         ProfileSearchResultType.band: AppRoutes.bandPublicProfile,
         ProfileSearchResultType.studio: AppRoutes.studioPublicProfile,
         ProfileSearchResultType.venue: AppRoutes.venuePublicProfile,
+        ProfileSearchResultType.listener: AppRoutes.listenerPublicProfile,
       };
 
       for (final entry in expectedRoutes.entries) {
@@ -51,6 +53,28 @@ void main() {
 
       expect(destination?.route, AppRoutes.bandPublicProfile);
       expect(destination?.opensOwnerProfile, isFalse);
+    });
+
+    test('fails unknown listener visibility closed', () {
+      final ghost = ProfileSearchResult.fromJson(<String, dynamic>{
+        'type': 'LISTENER',
+        'targetId': 'listener-1',
+        'userId': 'user-1',
+        'title': 'listener',
+        'visibilityMode': 'GHOST',
+      });
+      final unknown = ProfileSearchResult.fromJson(<String, dynamic>{
+        'type': 'LISTENER',
+        'targetId': 'listener-2',
+        'userId': 'user-2',
+        'title': 'listener',
+        'visibilityMode': 'FUTURE_MODE',
+      });
+
+      expect(ghost.visibilityMode, ListenerVisibilityMode.ghost);
+      expect(ghost.isGhostListener, isTrue);
+      expect(unknown.visibilityMode, ListenerVisibilityMode.ghost);
+      expect(unknown.isGhostListener, isTrue);
     });
   });
 }

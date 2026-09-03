@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../engagement/domain/entities/comment_item.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/comment_thread_state.dart';
@@ -1069,18 +1070,28 @@ class OverthinkingDetailScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  anonymousLocked
-                                      ? 'Kimliğini açıklamak istemeyen yazar'
-                                      : '@${currentPost.authorUsername}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        anonymousLocked
+                                            ? 'Kimliğini açıklamak istemeyen yazar'
+                                            : '@${currentPost.authorUsername}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    if (currentPost.isVisibleGhostAuthor) ...[
+                                      const SizedBox(width: 7),
+                                      const GhostProfileBadge(),
+                                    ],
+                                  ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -1460,29 +1471,44 @@ class _AuthorAvatar extends StatelessWidget {
     final showImage =
         post.canViewAuthor &&
         (post.authorAvatarUrl?.trim().isNotEmpty ?? false);
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: lockedAnonymous
-              ? [AppColors.coralAlt, AppColors.gradientC]
-              : AppColors.brandGradient,
-        ),
+    return SizedBox(
+      width: 46,
+      height: 46,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: lockedAnonymous
+                    ? [AppColors.coralAlt, AppColors.gradientC]
+                    : AppColors.brandGradient,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            alignment: Alignment.center,
+            child: showImage
+                ? Image.network(post.authorAvatarUrl!.trim(), fit: BoxFit.cover)
+                : lockedAnonymous
+                ? Image.asset(
+                    'assets/who.png',
+                    width: 42,
+                    height: 42,
+                    fit: BoxFit.cover,
+                  )
+                : Icon(Icons.person_outline, color: AppColors.white, size: 20),
+          ),
+          if (post.isVisibleGhostAuthor)
+            const Positioned(
+              right: -2,
+              bottom: -1,
+              child: GhostProfileBadge(showLabel: false),
+            ),
+        ],
       ),
-      clipBehavior: Clip.antiAlias,
-      alignment: Alignment.center,
-      child: showImage
-          ? Image.network(post.authorAvatarUrl!.trim(), fit: BoxFit.cover)
-          : lockedAnonymous
-          ? Image.asset(
-              'assets/who.png',
-              width: 42,
-              height: 42,
-              fit: BoxFit.cover,
-            )
-          : Icon(Icons.person_outline, color: AppColors.white, size: 20),
     );
   }
 }
@@ -2070,13 +2096,25 @@ class _CommentRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '@$username',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '@$username',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    if (comment.isVisibleGhostAuthor) ...[
+                      const SizedBox(width: 7),
+                      const GhostProfileBadge(),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(

@@ -91,6 +91,7 @@ class DmConversationsCubit extends Cubit<DmConversationsState> {
         lastMessageSenderId: incoming.senderId,
         lastMessageAt: incoming.sentAt,
         lastMessageRead: lastRead,
+        otherUserVisibilityMode: existing.otherUserVisibilityMode,
       );
       items[index] = updated;
       items.sort(_comparePreviewByLastMessage);

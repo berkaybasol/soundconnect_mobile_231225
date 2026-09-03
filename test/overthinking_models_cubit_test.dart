@@ -18,6 +18,7 @@ import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/entities/o
 import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/overthinking_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/presentation/cubit/overthinking_feed_state.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 
 void main() {
   group('overthinking models', () {
@@ -27,6 +28,7 @@ void main() {
         'authorAvatarUrl': '  ',
         'anonymous': true,
         'canViewAuthor': 'true',
+        'authorVisibilityMode': 'GHOST',
         'title': 'Title',
         'spotifyTrackUrl': ' https://track ',
         'likeCount': 4.9,
@@ -44,12 +46,26 @@ void main() {
       expect(model.likeCount, 4);
       expect(model.commentCount, 2);
       expect(model.likedByMe, isTrue);
+      expect(model.authorVisibilityMode, ListenerVisibilityMode.standard);
+      expect(model.isVisibleGhostAuthor, isFalse);
+
+      final visibleGhost = OverthinkingPostModel.fromJson(<String, dynamic>{
+        'id': 'visible',
+        'authorId': 'listener-1',
+        'authorUsername': 'ghost_listener',
+        'canViewAuthor': true,
+        'authorVisibilityMode': 'GHOST',
+      });
+      expect(visibleGhost.authorVisibilityMode, ListenerVisibilityMode.ghost);
+      expect(visibleGhost.isVisibleGhostAuthor, isTrue);
     });
 
     test('reveal request parses valid dates and defaults invalid values', () {
       final parsed = OverthinkingRevealRequestModel.fromJson(<String, dynamic>{
         'id': 'r-1',
         'postId': 3,
+        'requesterAvatarUrl': ' https://cdn.example/ghost.jpg ',
+        'requesterVisibilityMode': 'GHOST',
         'createdAt': '2026-07-13T12:00:00Z',
       });
       final invalid = OverthinkingRevealRequestModel.fromJson(<String, dynamic>{
@@ -59,7 +75,11 @@ void main() {
       expect(parsed.postId, '3');
       expect(parsed.status, 'PENDING');
       expect(parsed.createdAt, DateTime.utc(2026, 7, 13, 12));
+      expect(parsed.requesterAvatarUrl, 'https://cdn.example/ghost.jpg');
+      expect(parsed.requesterVisibilityMode, ListenerVisibilityMode.ghost);
+      expect(parsed.isRequesterGhost, isTrue);
       expect(invalid.createdAt, isNull);
+      expect(invalid.requesterVisibilityMode, ListenerVisibilityMode.standard);
     });
   });
 

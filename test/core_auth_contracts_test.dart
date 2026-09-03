@@ -167,14 +167,17 @@ void main() {
       const AuthSessionMetadata metadata = AuthSessionMetadata(
         username: 'display-name',
         accountStatus: 'ACTIVE',
+        requiresListenerProfileChoice: true,
       );
 
       final Map<String, dynamic> json = metadata.toJson();
       final AuthSessionMetadata restored = AuthSessionMetadata.fromJson(json);
 
-      expect(json['version'], 1);
+      expect(json['version'], 2);
       expect(restored.username, 'display-name');
       expect(restored.accountStatus, 'ACTIVE');
+      expect(restored.requiresListenerProfileChoice, isTrue);
+      expect(restored.hasListenerProfileChoiceMarker, isTrue);
     });
 
     test('coerces non-null metadata values to strings', () {
@@ -184,11 +187,78 @@ void main() {
 
       expect(metadata.username, '42');
       expect(metadata.accountStatus, 'true');
+      expect(metadata.requiresListenerProfileChoice, isFalse);
+      expect(metadata.hasListenerProfileChoiceMarker, isFalse);
+    });
+
+    test('does not trust a choice marker from an unknown future schema', () {
+      final metadata = AuthSessionMetadata.fromJson(const <String, dynamic>{
+        'version': 3,
+        'accountStatus': 'ACTIVE',
+        'requiresListenerProfileChoice': false,
+      });
+
+      expect(metadata.hasListenerProfileChoiceMarker, isFalse);
     });
   });
 
   group('AuthSessionManager edge decisions', () {
     final DateTime now = DateTime.utc(2026, 7, 13, 12);
+
+    test(
+      'fails closed for listener metadata without a valid choice marker',
+      () async {
+        final token = _token(<String, Object?>{
+          'sub': 'listener-user',
+          'exp': _seconds(now, 600),
+          'roles': <String>['ROLE_LISTENER'],
+        });
+        for (final version in const <int>[1, 3]) {
+          final manager = AuthSessionManager(
+            tokenStore: _MemoryTokenStore(token),
+            sessionStore: _MemorySessionStore(
+              AuthSessionMetadata.fromJson(<String, dynamic>{
+                'version': version,
+                'accountStatus': 'ACTIVE',
+                'requiresListenerProfileChoice': false,
+              }),
+            ),
+            clock: () => now,
+          );
+          addTearDown(manager.dispose);
+
+          expect(
+            (await manager.restore()).requiresListenerProfileChoice,
+            isTrue,
+            reason: 'schema $version must not bypass listener onboarding',
+          );
+        }
+      },
+    );
+
+    test(
+      'token preview does not invent a listener onboarding requirement',
+      () async {
+        final token = _token(<String, Object?>{
+          'sub': 'listener-user',
+          'exp': _seconds(now, 600),
+          'roles': <String>['ROLE_LISTENER'],
+        });
+        final manager = AuthSessionManager(
+          tokenStore: _MemoryTokenStore(null),
+          sessionStore: _MemorySessionStore(null),
+          clock: () => now,
+        );
+        addTearDown(manager.dispose);
+
+        expect(
+          (await manager.restore(
+            tokenOverride: Future.value(token),
+          )).requiresListenerProfileChoice,
+          isFalse,
+        );
+      },
+    );
 
     test(
       'restores signed identity and infers admin from manage permission',
@@ -221,6 +291,65 @@ void main() {
         expect(session.isAdmin, isTrue);
         expect(tokenStore.clearCount, 0);
         expect(sessionStore.clearCount, 0);
+      },
+    );
+
+    test(
+      'persists and completes listener profile choice across restores',
+      () async {
+        final String token = _token(<String, Object?>{
+          'sub': 'listener-user',
+          'exp': _seconds(now, 600),
+          'roles': <String>['ROLE_LISTENER'],
+        });
+        final tokenStore = _MemoryTokenStore(token);
+        final sessionStore = _MemorySessionStore(
+          const AuthSessionMetadata(
+            username: 'listener',
+            accountStatus: 'ACTIVE',
+            requiresListenerProfileChoice: true,
+          ),
+        );
+        final manager = AuthSessionManager(
+          tokenStore: tokenStore,
+          sessionStore: sessionStore,
+          clock: () => now,
+        );
+        addTearDown(manager.dispose);
+
+        final restored = await manager.restore();
+        expect(restored.requiresListenerProfileChoice, isTrue);
+
+        expect(
+          await manager.completeListenerProfileChoice(
+            expectedUserId: 'listener-user',
+            expectedToken: token,
+          ),
+          isTrue,
+        );
+        expect(manager.session.requiresListenerProfileChoice, isFalse);
+        expect(sessionStore.value?.requiresListenerProfileChoice, isFalse);
+
+        expect(
+          await manager.requireListenerProfileChoice(
+            expectedUserId: 'listener-user',
+            expectedToken: token,
+          ),
+          isTrue,
+        );
+        expect(manager.session.requiresListenerProfileChoice, isTrue);
+        expect(sessionStore.value?.requiresListenerProfileChoice, isTrue);
+
+        final restartedManager = AuthSessionManager(
+          tokenStore: tokenStore,
+          sessionStore: sessionStore,
+          clock: () => now,
+        );
+        addTearDown(restartedManager.dispose);
+        expect(
+          (await restartedManager.restore()).requiresListenerProfileChoice,
+          isTrue,
+        );
       },
     );
 

@@ -1,8 +1,11 @@
+import '../../../profile/domain/entities/listener_visibility_mode.dart';
+
 class OverthinkingPost {
   final String id;
   final String? authorId;
   final String authorUsername;
   final String? authorAvatarUrl;
+  final ListenerVisibilityMode authorVisibilityMode;
   final bool anonymous;
   final bool canViewAuthor;
   final String visibilityType;
@@ -26,6 +29,7 @@ class OverthinkingPost {
     required this.authorId,
     required this.authorUsername,
     required this.authorAvatarUrl,
+    this.authorVisibilityMode = ListenerVisibilityMode.standard,
     required this.anonymous,
     required this.canViewAuthor,
     required this.visibilityType,
@@ -45,11 +49,18 @@ class OverthinkingPost {
     required this.likedByMe,
   });
 
+  bool get hasVisibleAuthor =>
+      canViewAuthor && (authorId?.trim().isNotEmpty ?? false);
+
+  bool get isVisibleGhostAuthor =>
+      hasVisibleAuthor && authorVisibilityMode.isGhost;
+
   OverthinkingPost copyWith({
     String? id,
     Object? authorId = _unset,
     String? authorUsername,
     Object? authorAvatarUrl = _unset,
+    ListenerVisibilityMode? authorVisibilityMode,
     bool? anonymous,
     bool? canViewAuthor,
     String? visibilityType,
@@ -77,6 +88,7 @@ class OverthinkingPost {
       authorAvatarUrl: identical(authorAvatarUrl, _unset)
           ? this.authorAvatarUrl
           : authorAvatarUrl as String?,
+      authorVisibilityMode: authorVisibilityMode ?? this.authorVisibilityMode,
       anonymous: anonymous ?? this.anonymous,
       canViewAuthor: canViewAuthor ?? this.canViewAuthor,
       visibilityType: visibilityType ?? this.visibilityType,

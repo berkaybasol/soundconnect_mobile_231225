@@ -6,7 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/verify_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/otp_verify_screen.dart';
@@ -64,6 +67,8 @@ void main() {
             const Scaffold(body: Text('venue-pending-target')),
         AppRoutes.studioPending: (_) =>
             const Scaffold(body: Text('studio-pending-target')),
+        AppRoutes.listenerProfileChoice: (_) =>
+            const Scaffold(body: Text('listener-choice-target')),
       },
     );
   }
@@ -116,7 +121,7 @@ void main() {
   ) async {
     _disposeOtpAfterTest(tester);
     const failure = AppError(code: 'otp_invalid', message: 'Code rejected');
-    final completer = Completer<Result<void>>();
+    final completer = Completer<Result<VerifyCodeResult>>();
     repository.verifyCompleter = completer;
     await tester.pumpWidget(
       app(args: const OtpVerifyArgs(email: 'valid@example.com')),
@@ -146,7 +151,7 @@ void main() {
     'rapid verify taps make one request and lock resend until completion',
     (tester) async {
       _disposeOtpAfterTest(tester);
-      final completer = Completer<Result<void>>();
+      final completer = Completer<Result<VerifyCodeResult>>();
       repository.verifyCompleter = completer;
       await tester.pumpWidget(
         app(args: const OtpVerifyArgs(email: 'valid@example.com')),
@@ -179,7 +184,7 @@ void main() {
     tester,
   ) async {
     _disposeOtpAfterTest(tester);
-    final completer = Completer<Result<void>>();
+    final completer = Completer<Result<VerifyCodeResult>>();
     repository.verifyCompleter = completer;
     await tester.pumpWidget(
       app(
@@ -200,7 +205,7 @@ void main() {
     expect(find.byType(OtpVerifyScreen), findsOneWidget);
     expect(find.text('register-source'), findsNothing);
 
-    completer.complete(const Result.success(null));
+    completer.complete(const Result.success(VerifyCodeResult()));
     await tester.pumpAndSettle();
 
     expect(find.text('login-target'), findsOneWidget);
@@ -232,12 +237,24 @@ void main() {
   for (final scenario in <({String role, String target})>[
     (role: 'ROLE_VENUE', target: 'venue-pending-target'),
     (role: 'ROLE_STUDIO', target: 'login-target'),
-    (role: 'ROLE_LISTENER', target: 'login-target'),
+    (role: 'ROLE_LISTENER', target: 'listener-choice-target'),
   ]) {
     testWidgets(
       'verify success routes ${scenario.role} to ${scenario.target}',
       (tester) async {
         _disposeOtpAfterTest(tester);
+        if (scenario.role == 'ROLE_LISTENER') {
+          repository.verifyResult = const Result.success(
+            VerifyCodeResult(
+              listenerSession: LoginResult(
+                token: 'listener-token',
+                status: UserStatus.active,
+                roles: ['ROLE_LISTENER'],
+                requiresListenerProfileChoice: true,
+              ),
+            ),
+          );
+        }
         await tester.pumpWidget(
           app(
             args: OtpVerifyArgs(
@@ -258,6 +275,63 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'server listener session wins over a stale Venue route argument',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      repository.verifyResult = const Result.success(
+        VerifyCodeResult(
+          listenerSession: LoginResult(
+            token: 'listener-token',
+            status: UserStatus.active,
+            roles: <String>['ROLE_LISTENER'],
+            requiresListenerProfileChoice: true,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        app(
+          args: const OtpVerifyArgs(
+            email: 'listener@example.com',
+            role: 'ROLE_VENUE',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '123456');
+
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('listener-choice-target'), findsOneWidget);
+      expect(find.text('venue-pending-target'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a Listener route argument cannot forge an authenticated choice flow',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      repository.verifyResult = const Result.success(VerifyCodeResult());
+      await tester.pumpWidget(
+        app(
+          args: const OtpVerifyArgs(
+            email: 'listener@example.com',
+            role: 'ROLE_LISTENER',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '123456');
+
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('login-target'), findsOneWidget);
+      expect(find.text('listener-choice-target'), findsNothing);
+    },
+  );
 
   testWidgets(
     'Studio verify success explains login and never assumes pending status',

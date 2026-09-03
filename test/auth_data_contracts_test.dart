@@ -167,6 +167,7 @@ void main() {
         'roles': <Object?>[' ROLE_VENUE ', '', 9],
         'permissions': 'READ_PROFILE, MANAGE_EVENTS, ',
         'isAdmin': true,
+        'requiresListenerProfileChoice': false,
       });
       final entity = response.toEntity();
 
@@ -186,6 +187,7 @@ void main() {
     test('login accepts legacy admin flag and safe null defaults', () {
       final LoginResponse legacy = LoginResponse.fromJson(<String, dynamic>{
         'admin': true,
+        'requiresListenerProfileChoice': false,
       });
 
       expect(legacy.token, '');
@@ -293,6 +295,7 @@ void main() {
             'status': 'ACTIVE',
             'userId': 'user-1',
             'roles': <String>['ROLE_LISTENER'],
+            'requiresListenerProfileChoice': false,
           },
         );
         final AuthRepositoryImpl repository = AuthRepositoryImpl(client);
@@ -474,8 +477,34 @@ void main() {
           'code': '012345',
         });
         expect(result.isSuccess, isTrue);
+        expect(result.data?.listenerSession, isNull);
       },
     );
+
+    test('verify decodes an authoritative listener session', () async {
+      final client = _RecordingApiClient(
+        response: <String, dynamic>{
+          'token': 'listener-token',
+          'status': 'ACTIVE',
+          'userId': 'listener-id',
+          'username': 'berna',
+          'roles': <String>['ROLE_LISTENER'],
+          'permissions': <String>['SEND_MESSAGE'],
+          'admin': false,
+          'requiresListenerProfileChoice': true,
+        },
+      );
+
+      final result = await AuthRepositoryImpl(
+        client,
+      ).verifyCode(email: 'listener@example.com', code: '654321');
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.requiresListenerProfileChoice, isTrue);
+      expect(result.data?.listenerSession?.token, 'listener-token');
+      expect(result.data?.listenerSession?.username, 'berna');
+      expect(result.data?.listenerSession?.roles, <String>['ROLE_LISTENER']);
+    });
 
     test('resend posts email and decodes cooldown information', () async {
       final _RecordingApiClient client = _RecordingApiClient(

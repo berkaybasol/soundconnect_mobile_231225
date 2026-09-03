@@ -8,6 +8,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/entities/user_status.dart';
+import '../../domain/entities/verify_code_result.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import 'login_screen.dart';
@@ -105,6 +106,9 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
             return;
           }
           final registrationStatus = state.registerResult?.status;
+          final listenerVerification = VerifyCodeResult(
+            listenerSession: state.loginResult,
+          );
           final hasServerRegistrationStatus = registrationStatus != null;
           final isVenuePending =
               registrationStatus == UserStatus.pendingVenueRequest ||
@@ -123,6 +127,13 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
             if (!mounted || !navigator.mounted || route?.isCurrent != true) {
               return;
             }
+            if (listenerVerification.requiresListenerProfileChoice) {
+              navigator.pushNamedAndRemoveUntil(
+                AppRoutes.listenerProfileChoice,
+                (route) => false,
+              );
+              return;
+            }
             if (isVenuePending) {
               navigator.pushNamedAndRemoveUntil(
                 AppRoutes.venuePending,
@@ -130,10 +141,10 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               );
               return;
             }
-            // OTP verification does not create an authenticated session. A Studio
-            // application may also be approved or rejected while the OTP screen is
-            // open, so only the subsequent password-authenticated login response is
-            // allowed to select pending, approved, or rejected navigation.
+            // The remaining account types do not receive an authenticated OTP
+            // session. A Studio application may also be approved or rejected while
+            // this screen is open, so only the subsequent password-authenticated
+            // login response may select pending, approved, or rejected navigation.
             navigator.pushNamedAndRemoveUntil(
               AppRoutes.login,
               (route) => false,

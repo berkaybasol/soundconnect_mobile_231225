@@ -18,6 +18,7 @@ import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/city.
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/district.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/neighborhood.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/location_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/data/models/table_group_create_request.dart';
@@ -261,9 +262,10 @@ void main() {
               'joinNote': null,
               'username': 'Deniz',
               'profilePictureUrl': null,
+              'visibilityMode': 'GHOST',
             },
           ],
-        ),
+        )..['ownerVisibilityMode'] = 'GHOST',
       );
 
       expect(model.expiresAt, DateTime.utc(2026, 7, 15, 1, 2, 3));
@@ -272,6 +274,9 @@ void main() {
         model.participants.single.joinedAt,
         DateTime.utc(2026, 7, 14, 1, 2, 3),
       );
+      expect(model.ownerVisibilityMode, ListenerVisibilityMode.ghost);
+      expect(model.isOwnerGhost, isTrue);
+      expect(model.participants.single.isGhost, isTrue);
 
       final missingMeetingAt = _tableGroupWireJson()..remove('meetingAt');
       expect(
@@ -324,6 +329,12 @@ void main() {
       expect(
         () => TableGroupModel.fromWireJson(
           _tableGroupWireJson()..remove('description'),
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => TableGroupModel.fromWireJson(
+          _tableGroupWireJson()..['ownerVisibilityMode'] = 'FUTURE_MODE',
         ),
         throwsFormatException,
       );

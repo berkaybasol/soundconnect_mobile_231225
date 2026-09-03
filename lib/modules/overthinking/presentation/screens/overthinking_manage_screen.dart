@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/overthinking_post.dart';
 import '../../domain/entities/overthinking_reveal_request.dart';
@@ -484,15 +485,60 @@ class _RevealRequestCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            incoming
-                ? '@${request.requesterUsername} bu paylaşımda kimliğini görmek istiyor.'
-                : _statusText(request.status),
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              height: 1.35,
+          if (incoming)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _RevealRequesterAvatar(request: request),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '@${request.requesterUsername}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (request.isRequesterGhost) ...[
+                            const SizedBox(width: 7),
+                            GhostProfileBadge(
+                              key: ValueKey<String>(
+                                'reveal-requester-ghost-${request.id}',
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Bu paylaşımda kimliğini görmek istiyor.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(
+              _statusText(request.status),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
             ),
-          ),
           const SizedBox(height: 12),
           footer,
         ],
@@ -506,6 +552,53 @@ class _RevealRequestCard extends StatelessWidget {
       'REJECTED' => 'Kimlik görüntüleme isteğin reddedildi.',
       _ => 'Kimlik görüntüleme isteğin beklemede.',
     };
+  }
+}
+
+class _RevealRequesterAvatar extends StatelessWidget {
+  const _RevealRequesterAvatar({required this.request});
+
+  final OverthinkingRevealRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarUrl = request.requesterAvatarUrl?.trim();
+    final fallback = request.requesterUsername.trim().isEmpty
+        ? '?'
+        : request.requesterUsername.trim().characters.first.toUpperCase();
+
+    return Container(
+      key: ValueKey<String>('reveal-requester-avatar-${request.id}'),
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(colors: AppColors.brandGradient),
+      ),
+      clipBehavior: Clip.antiAlias,
+      alignment: Alignment.center,
+      child: avatarUrl == null || avatarUrl.isEmpty
+          ? Text(
+              fallback,
+              style: const TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            )
+          : Image.network(
+              avatarUrl,
+              width: 38,
+              height: 38,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Text(
+                fallback,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+    );
   }
 }
 

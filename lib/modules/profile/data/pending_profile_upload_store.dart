@@ -76,6 +76,7 @@ class PendingProfileUpload {
       'profileType': attachmentIntent.profileType,
       'targetId': attachmentIntent.targetId,
       'title': attachmentIntent.title,
+      'expectedVersion': attachmentIntent.expectedVersion,
     },
     'completedMediaId': completedMediaId,
     'sourceUrl': sourceUrl,
@@ -114,6 +115,14 @@ class PendingProfileUpload {
     final profileType = attachment['profileType']?.toString();
     final targetId = attachment['targetId']?.toString();
     final title = attachment['title']?.toString();
+    final rawExpectedVersion = attachment['expectedVersion'];
+    final expectedVersion = rawExpectedVersion == null
+        ? null
+        : int.tryParse(rawExpectedVersion.toString());
+    if (rawExpectedVersion != null &&
+        (expectedVersion == null || expectedVersion < 0)) {
+      return null;
+    }
     final intent = switch (attachmentType) {
       ProfileUploadAttachmentType.none =>
         const ProfileUploadAttachmentIntent.none(),
@@ -125,6 +134,7 @@ class PendingProfileUpload {
         ProfileUploadAttachmentIntent.profilePicture(
           profileType: profileType ?? '',
           targetId: targetId,
+          expectedVersion: expectedVersion,
         ),
       ProfileUploadAttachmentType.track => ProfileUploadAttachmentIntent.track(
         ownerType: profileType ?? '',

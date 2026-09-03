@@ -18,6 +18,7 @@ import '../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../modules/event/presentation/screens/guest_event_home_screen.dart';
 import '../modules/profile/presentation/screens/backstage_profiles_home_screen.dart';
 import '../modules/profile/presentation/screens/listener_profile_screen.dart';
+import '../modules/auth/presentation/screens/listener_profile_choice_screen.dart';
 import '../modules/profile/domain/profile_media_upload_repository.dart';
 import '../modules/location/presentation/cubit/location_cubit.dart';
 import '../modules/notification/presentation/cubit/notification_cubit.dart';
@@ -32,10 +33,28 @@ enum AppLaunchTarget {
   login,
   home,
   listener,
+  listenerProfileChoice,
   admin,
   venuePending,
   studioPending,
   studioRejected,
+}
+
+bool shouldStartAuthenticatedSessionServices(AuthSession session) =>
+    session.isActive && !session.requiresListenerProfileChoice;
+
+String? resolveSessionChangeNavigationRoute({
+  required bool wasAuthenticated,
+  required bool wasListenerChoiceRequired,
+  required AuthSession current,
+}) {
+  if (wasAuthenticated && !current.isAuthenticated) return AppRoutes.login;
+  if (current.isAuthenticated &&
+      current.requiresListenerProfileChoice &&
+      !wasListenerChoiceRequired) {
+    return AppRoutes.listenerProfileChoice;
+  }
+  return null;
 }
 
 AppLaunchTarget resolveLaunchTarget(String? token, {DateTime? now}) {
@@ -52,6 +71,7 @@ AppLaunchTarget resolveSessionLaunchTarget(AuthSession session) {
     AppRoutes.studioRejected => AppLaunchTarget.studioRejected,
     AppRoutes.adminDashboard => AppLaunchTarget.admin,
     AppRoutes.listenerProfile => AppLaunchTarget.listener,
+    AppRoutes.listenerProfileChoice => AppLaunchTarget.listenerProfileChoice,
     AppRoutes.home => AppLaunchTarget.home,
     _ => AppLaunchTarget.login,
   };
@@ -86,6 +106,8 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
       GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<Uri>? _appLinkSubscription;
   bool _wasAuthenticated = false;
+  bool _wasListenerChoiceRequired = false;
+  bool _observedInitialSessionState = false;
   bool _sessionRestoreCompleted = false;
   bool _processingPendingLink = false;
   bool _processPendingLinkAgain = false;
@@ -247,15 +269,29 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
   }
 
   void _onSessionChanged() {
-    final isAuthenticated = _sessionManager.session.isAuthenticated;
-    final shouldReturnToLogin = _wasAuthenticated && !isAuthenticated;
+    final session = _sessionManager.session;
+    final isAuthenticated = session.isAuthenticated;
+    final listenerChoiceRequired =
+        isAuthenticated && session.requiresListenerProfileChoice;
+    if (!_observedInitialSessionState) {
+      _observedInitialSessionState = true;
+      _wasAuthenticated = isAuthenticated;
+      _wasListenerChoiceRequired = listenerChoiceRequired;
+      return;
+    }
+    final destination = resolveSessionChangeNavigationRoute(
+      wasAuthenticated: _wasAuthenticated,
+      wasListenerChoiceRequired: _wasListenerChoiceRequired,
+      current: session,
+    );
     _wasAuthenticated = isAuthenticated;
-    if (!shouldReturnToLogin) return;
+    _wasListenerChoiceRequired = listenerChoiceRequired;
+    if (destination == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _navigatorKey.currentState?.pushNamedAndRemoveUntil(
-        AppRoutes.login,
-        (route) => false,
-      );
+      final navigator = _navigatorKey.currentState;
+      if (navigator == null) return;
+      if (_routeObserver.currentRouteName == destination) return;
+      navigator.pushNamedAndRemoveUntil(destination, (route) => false);
     });
   }
 
@@ -297,6 +333,8 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
                         AppLaunchTarget.home =>
                           const BackstageProfilesHomeScreen(),
                         AppLaunchTarget.listener => ListenerProfileScreen(),
+                        AppLaunchTarget.listenerProfileChoice =>
+                          const ListenerProfileChoiceScreen(),
                         AppLaunchTarget.admin => const AdminDashboardScreen(),
                         AppLaunchTarget.venuePending => VenuePendingScreen(),
                         AppLaunchTarget.studioPending => VenuePendingScreen(
@@ -367,6 +405,7 @@ class _NotificationBootstrap extends StatefulWidget {
 class _NotificationBootstrapState extends State<_NotificationBootstrap>
     with WidgetsBindingObserver {
   late final AuthSessionManager _sessionManager;
+  int _syncGeneration = 0;
 
   @override
   void initState() {
@@ -379,6 +418,7 @@ class _NotificationBootstrapState extends State<_NotificationBootstrap>
 
   @override
   void dispose() {
+    _syncGeneration += 1;
     WidgetsBinding.instance.removeObserver(this);
     _sessionManager.removeListener(_syncNotifications);
     super.dispose();
@@ -387,16 +427,24 @@ class _NotificationBootstrapState extends State<_NotificationBootstrap>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed ||
-        !_sessionManager.session.isActive) {
+        !shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
       return;
     }
     unawaited(serviceLocator<NotificationCubit>().reconcileAfterResume());
   }
 
   Future<void> _syncNotifications() async {
+    final generation = ++_syncGeneration;
     final cubit = serviceLocator<NotificationCubit>();
-    if (_sessionManager.session.isActive) {
+    if (shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
       await cubit.ensureStarted();
+      if (generation != _syncGeneration ||
+          !shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
+        if (!shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
+          await cubit.stop();
+        }
+        return;
+      }
       unawaited(
         serviceLocator<ProfileMediaUploadRepository>().resumePendingUploads(),
       );

@@ -6,6 +6,7 @@ import '../../modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../modules/auth/presentation/screens/account_settings_screen.dart';
 import '../../modules/auth/presentation/screens/forgot_password_screen.dart';
 import '../../modules/auth/presentation/screens/login_screen.dart';
+import '../../modules/auth/presentation/screens/listener_profile_choice_screen.dart';
 import '../../modules/auth/presentation/screens/register_screen.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
 import '../../modules/auth/presentation/screens/venue_application_screen.dart';
@@ -23,6 +24,8 @@ import '../../modules/profile/presentation/screens/backstage_profiles_home_scree
 import '../../modules/profile/presentation/screens/band_profile_screen.dart';
 import '../../modules/profile/presentation/screens/my_bands_screen.dart';
 import '../../modules/profile/presentation/screens/listener_profile_screen.dart';
+import '../../modules/profile/presentation/screens/listener_public_profile_screen.dart';
+import '../../modules/profile/presentation/screens/profile_route_args.dart';
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/studio_profile_screen.dart';
@@ -189,6 +192,22 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => ListenerProfileScreen(),
+        );
+      case AppRoutes.listenerProfileChoice:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ListenerProfileChoiceScreen(),
+        );
+      case AppRoutes.listenerPublicProfile:
+        final args = _arguments<PublicProfileArgs>(settings);
+        if (args?.profileId?.trim().isEmpty ?? true) {
+          return onGenerateRoute(
+            RouteSettings(name: AppRouteGuard.startRouteFor(session)),
+          );
+        }
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ListenerPublicProfileScreen(),
         );
       case AppRoutes.overthinkingFeed:
         final args = _arguments<OverthinkingFeedArgs>(settings);

@@ -32,7 +32,7 @@ class ProfileMenuLogo extends StatelessWidget {
 Future<void> showProfileQuickMenu(
   BuildContext context, {
   required ProfileQuickMenuAction onSettings,
-  required ProfileQuickMenuAction onManagement,
+  ProfileQuickMenuAction? onManagement,
   ProfileQuickMenuAction? onProfileContact,
   Key? settingsTileKey,
   Key? profileContactTileKey,
@@ -81,11 +81,12 @@ Future<void> showProfileQuickMenu(
                         title: const Text('Profil ve iletişim bilgileri'),
                         onTap: () async => closeThen(onProfileContact),
                       ),
-                    ListTile(
-                      leading: const Icon(Icons.dashboard_customize_outlined),
-                      title: const Text('Yönetim Paneli'),
-                      onTap: () async => closeThen(onManagement),
-                    ),
+                    if (onManagement != null)
+                      ListTile(
+                        leading: const Icon(Icons.dashboard_customize_outlined),
+                        title: const Text('Yönetim Paneli'),
+                        onTap: () async => closeThen(onManagement),
+                      ),
                     ListTile(
                       key: profileMenuThemeTileKey,
                       leading: const Icon(Icons.palette_outlined),

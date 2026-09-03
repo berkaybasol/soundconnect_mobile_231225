@@ -1,4 +1,5 @@
 import '../../domain/entities/dm_conversation_preview.dart';
+import '../../../profile/domain/entities/listener_visibility_context.dart';
 
 class DmConversationPreviewModel extends DmConversationPreview {
   const DmConversationPreviewModel({
@@ -11,6 +12,7 @@ class DmConversationPreviewModel extends DmConversationPreview {
     required super.lastMessageSenderId,
     required super.lastMessageAt,
     required super.lastMessageRead,
+    super.otherUserVisibilityMode,
   });
 
   factory DmConversationPreviewModel.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,9 @@ class DmConversationPreviewModel extends DmConversationPreview {
       lastMessageSenderId: json['lastMessageSenderId']?.toString(),
       lastMessageAt: _toDate(json['lastMessageAt']),
       lastMessageRead: _toBool(json['lastMessageRead']),
+      otherUserVisibilityMode: parseContextualListenerVisibilityMode(
+        json['otherUserVisibilityMode'],
+      ),
     );
   }
 

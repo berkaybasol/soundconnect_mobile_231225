@@ -3,21 +3,37 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuthSessionMetadata {
+  static const int currentSchemaVersion = 2;
+
   final String? username;
   final String? accountStatus;
+  final bool requiresListenerProfileChoice;
+  final bool hasListenerProfileChoiceMarker;
 
-  const AuthSessionMetadata({this.username, this.accountStatus});
+  const AuthSessionMetadata({
+    this.username,
+    this.accountStatus,
+    this.requiresListenerProfileChoice = false,
+    bool? hasListenerProfileChoiceMarker,
+  }) : hasListenerProfileChoiceMarker = hasListenerProfileChoiceMarker ?? true;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-    'version': 1,
+    'version': currentSchemaVersion,
     'username': username,
     'accountStatus': accountStatus,
+    'requiresListenerProfileChoice': requiresListenerProfileChoice,
   };
 
   factory AuthSessionMetadata.fromJson(Map<String, dynamic> json) {
+    final version = json['version'];
+    final rawChoiceMarker = json['requiresListenerProfileChoice'];
+    final hasValidChoiceMarker =
+        version == currentSchemaVersion && rawChoiceMarker is bool;
     return AuthSessionMetadata(
       username: json['username']?.toString(),
       accountStatus: json['accountStatus']?.toString(),
+      requiresListenerProfileChoice: rawChoiceMarker == true,
+      hasListenerProfileChoiceMarker: hasValidChoiceMarker,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../domain/entities/table_group_game.dart';
 import '../../domain/entities/table_group_message.dart';
 import '../table_group_game_copy.dart';
@@ -391,9 +392,14 @@ class TableGroupGameMessageCard extends StatelessWidget {
                 ? null
                 : () => onAction(TableGroupGameAction.vote, candidate.userId),
             style: _outlinedStyle(context),
-            child: Text(
-              '${_mention(candidate)}'
-              '${viewerId != null && viewerId.isNotEmpty && candidate.userId.trim() == viewerId ? ' (sen)' : ''}',
+            child: _mentionWidget(
+              candidate,
+              suffix:
+                  viewerId != null &&
+                      viewerId.isNotEmpty &&
+                      candidate.userId.trim() == viewerId
+                  ? ' (sen)'
+                  : '',
             ),
           ),
         ],
@@ -430,9 +436,9 @@ class TableGroupGameMessageCard extends StatelessWidget {
           .map(
             (player) => Semantics(
               key: ValueKey<String>('game-player-status-${player.userId}'),
-              label: player.hasActed
-                  ? '${_mention(player)} hamlesini yaptı'
-                  : '${_mention(player)} henüz hamle yapmadı',
+              label:
+                  '${player.hasActed ? '${_mention(player)} hamlesini yaptı' : '${_mention(player)} henüz hamle yapmadı'}'
+                  '${player.isGhost ? ', hayalet profil' : ''}',
               excludeSemantics: true,
               child: _playerPill(
                 context,
@@ -466,7 +472,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
           for (final reveal in game.revealedActions)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Text(_revealText(game, reveal)),
+              child: _revealLine(context, game, reveal),
             ),
         ],
       ),
@@ -486,6 +492,16 @@ class TableGroupGameMessageCard extends StatelessWidget {
             context,
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
+        if (game.isSelectedUserGhost) ...[
+          const SizedBox(height: 7),
+          Center(
+            child: GhostProfileBadge(
+              key: ValueKey<String>(
+                'game-selected-ghost-${game.selectedUserId}',
+              ),
+            ),
+          ),
+        ],
         if (game.revealedActions.isNotEmpty) ...[
           const SizedBox(height: 12),
           _reveals(context, game),
@@ -529,24 +545,89 @@ class TableGroupGameMessageCard extends StatelessWidget {
     );
   }
 
-  String _revealText(TableGroupGame game, TableGroupGameRevealedAction reveal) {
-    final actor = _mentionById(game, reveal.actorUserId);
-    return switch (reveal.action) {
-      'ROCK' => '$actor → ✊ Taş',
-      'PAPER' => '$actor → ✋ Kağıt',
-      'SCISSORS' => '$actor → ✌️ Makas',
-      'ROLL' => '$actor → 🎲 ${reveal.value ?? '?'}',
-      'VOLUNTEER' => '$actor → ${TableGroupGameCopy.volunteerOption}',
-      'VOTE' => '$actor → ${_mentionById(game, reveal.targetUserId)}',
-      _ => '$actor → ${reveal.action}',
+  Widget _revealLine(
+    BuildContext context,
+    TableGroupGame game,
+    TableGroupGameRevealedAction reveal,
+  ) {
+    final actionText = switch (reveal.action) {
+      'ROCK' => ' → ✊ Taş',
+      'PAPER' => ' → ✋ Kağıt',
+      'SCISSORS' => ' → ✌️ Makas',
+      'ROLL' => ' → 🎲 ${reveal.value ?? '?'}',
+      'VOLUNTEER' => ' → ${TableGroupGameCopy.volunteerOption}',
+      'VOTE' => ' → ',
+      _ => ' → ${reveal.action}',
     };
+    return Semantics(
+      label: _revealSemanticLabel(game, reveal),
+      excludeSemantics: true,
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 0,
+        runSpacing: 3,
+        children: [
+          _mentionByIdWidget(game, reveal.actorUserId),
+          Text(actionText, style: Theme.of(context).textTheme.bodyMedium),
+          if (reveal.action == 'VOTE')
+            _mentionByIdWidget(game, reveal.targetUserId),
+        ],
+      ),
+    );
   }
 
-  String _mentionById(TableGroupGame game, String? userId) {
+  Widget _mentionByIdWidget(TableGroupGame game, String? userId) {
     final normalized = userId?.trim() ?? '';
-    if (normalized.isEmpty) return '@?';
+    if (normalized.isEmpty) return const Text('@?');
     final player = game.playerFor(normalized);
-    return player == null ? '@${_shortId(normalized)}' : _mention(player);
+    return player == null
+        ? Text('@${_shortId(normalized)}')
+        : _mentionWidget(player);
+  }
+
+  Widget _mentionWidget(TableGroupGamePlayer player, {String suffix = ''}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('${_mention(player)}$suffix'),
+        if (player.isGhost) ...[
+          const SizedBox(width: 4),
+          GhostProfileBadge(
+            key: ValueKey<String>('game-mention-ghost-${player.userId}'),
+            showLabel: false,
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _revealSemanticLabel(
+    TableGroupGame game,
+    TableGroupGameRevealedAction reveal,
+  ) {
+    final actor = game.playerFor(reveal.actorUserId);
+    final actorMention = actor == null
+        ? '@${_shortId(reveal.actorUserId)}'
+        : _mention(actor);
+    final actorGhost = actor?.isGhost == true ? ', hayalet profil' : '';
+    if (reveal.action != 'VOTE') {
+      final action = switch (reveal.action) {
+        'ROCK' => 'Taş',
+        'PAPER' => 'Kağıt',
+        'SCISSORS' => 'Makas',
+        'ROLL' => 'Zar ${reveal.value ?? '?'}',
+        'VOLUNTEER' => TableGroupGameCopy.volunteerOption,
+        _ => reveal.action,
+      };
+      return '$actorMention$actorGhost, $action';
+    }
+    final target = game.playerFor(reveal.targetUserId);
+    final targetId = reveal.targetUserId?.trim() ?? '';
+    final targetMention = target == null
+        ? '@${targetId.isEmpty ? '?' : _shortId(targetId)}'
+        : _mention(target);
+    final targetGhost = target?.isGhost == true ? ', hayalet profil' : '';
+    return '$actorMention$actorGhost, oy verdi: $targetMention$targetGhost';
   }
 
   String _mention(TableGroupGamePlayer player) {
@@ -586,6 +667,13 @@ class TableGroupGameMessageCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (player.isGhost) ...[
+            const SizedBox(width: 5),
+            GhostProfileBadge(
+              key: ValueKey<String>('game-player-ghost-${player.userId}'),
+              showLabel: false,
+            ),
+          ],
         ],
       ),
     );

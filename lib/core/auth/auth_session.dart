@@ -7,6 +7,7 @@ class AuthSession {
   final List<String> permissions;
   final DateTime? expiresAt;
   final bool isAdmin;
+  final bool requiresListenerProfileChoice;
 
   const AuthSession._({
     required this.token,
@@ -17,6 +18,7 @@ class AuthSession {
     required this.permissions,
     required this.expiresAt,
     required this.isAdmin,
+    required this.requiresListenerProfileChoice,
   });
 
   const AuthSession.guest()
@@ -29,6 +31,7 @@ class AuthSession {
         permissions: const [],
         expiresAt: null,
         isAdmin: false,
+        requiresListenerProfileChoice: false,
       );
 
   factory AuthSession.authenticated({
@@ -40,6 +43,7 @@ class AuthSession {
     required List<String> permissions,
     required DateTime expiresAt,
     required bool isAdmin,
+    bool requiresListenerProfileChoice = false,
   }) {
     return AuthSession._(
       token: token,
@@ -50,6 +54,7 @@ class AuthSession {
       permissions: List.unmodifiable(permissions),
       expiresAt: expiresAt,
       isAdmin: isAdmin,
+      requiresListenerProfileChoice: requiresListenerProfileChoice,
     );
   }
 

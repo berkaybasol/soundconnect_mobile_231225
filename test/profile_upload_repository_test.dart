@@ -599,6 +599,234 @@ void main() {
     );
 
     test(
+      'Listener profile picture recovery uses dedicated PATCH contract',
+      () async {
+        final store = MemoryPendingProfileUploadStore(<PendingProfileUpload>[
+          PendingProfileUpload(
+            sessionKey: 'account-1',
+            assetId: 'listener-photo',
+            ownerType: 'LISTENER_PROFILE',
+            ownerId: 'listener-1',
+            mediaKind: 'IMAGE',
+            deadline: DateTime.utc(2030),
+            retryIndex: 0,
+            phase: PendingProfileUploadPhase.attaching,
+            attachmentIntent:
+                const ProfileUploadAttachmentIntent.profilePicture(
+                  profileType: 'LISTENER_PROFILE',
+                  expectedVersion: 6,
+                ),
+            completedMediaId: 'listener-photo',
+          ),
+        ]);
+        final api = RecordingApiClient((request) {
+          expect(request.method, RecordedHttpMethod.patch);
+          expect(request.path, '/api/v1/user/listener-profiles/me/avatar');
+          expect(request.body, <String, dynamic>{
+            'profilePictureMediaId': 'listener-photo',
+            'expectedVersion': 6,
+          });
+          return <String, dynamic>{};
+        });
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          pendingStore: store,
+          sessionKeyProvider: () => 'account-1',
+        );
+
+        await repository.resumePendingUploads();
+
+        expect(api.requests, hasLength(1));
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
+      'stale listener avatar replay is rejected and deletes verified asset',
+      () async {
+        final store = MemoryPendingProfileUploadStore(<PendingProfileUpload>[
+          PendingProfileUpload(
+            sessionKey: 'account-1',
+            assetId: 'rejected-listener-photo',
+            ownerType: 'LISTENER_PROFILE',
+            ownerId: 'listener-1',
+            mediaKind: 'IMAGE',
+            deadline: DateTime.utc(2030),
+            retryIndex: 0,
+            phase: PendingProfileUploadPhase.attaching,
+            attachmentIntent:
+                const ProfileUploadAttachmentIntent.profilePicture(
+                  profileType: 'LISTENER_PROFILE',
+                  expectedVersion: 8,
+                ),
+            completedMediaId: 'rejected-listener-photo',
+          ),
+        ]);
+        final api = RecordingApiClient((request) {
+          if (request.path == '/api/v1/user/listener-profiles/me/avatar') {
+            expect(request.body, <String, dynamic>{
+              'profilePictureMediaId': 'rejected-listener-photo',
+              'expectedVersion': 8,
+            });
+            throw ApiException(
+              const AppError(code: '1304', message: 'stale version'),
+            );
+          }
+          if (request.path == '/api/v1/user/media/rejected-listener-photo') {
+            expect(request.method, RecordedHttpMethod.delete);
+            expect(request.query, <String, dynamic>{
+              'actingAsType': 'LISTENER_PROFILE',
+              'actingAsId': 'listener-1',
+            });
+            return null;
+          }
+          throw StateError('Unexpected path: ${request.path}');
+        });
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          pendingStore: store,
+          sessionKeyProvider: () => 'account-1',
+        );
+
+        await repository.resumePendingUploads();
+
+        expect(
+          api.requests.map((request) => request.method),
+          <RecordedHttpMethod>[
+            RecordedHttpMethod.patch,
+            RecordedHttpMethod.delete,
+          ],
+        );
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
+      'listener avatar cleanup keeps durable intent until deletion succeeds',
+      () async {
+        final store = MemoryPendingProfileUploadStore(<PendingProfileUpload>[
+          PendingProfileUpload(
+            sessionKey: 'account-1',
+            assetId: 'listener-photo-to-retry',
+            ownerType: 'LISTENER_PROFILE',
+            ownerId: 'listener-1',
+            mediaKind: 'IMAGE',
+            deadline: DateTime.utc(2030),
+            retryIndex: 0,
+            phase: PendingProfileUploadPhase.attaching,
+            attachmentIntent:
+                const ProfileUploadAttachmentIntent.profilePicture(
+                  profileType: 'LISTENER_PROFILE',
+                  expectedVersion: 9,
+                ),
+            completedMediaId: 'listener-photo-to-retry',
+          ),
+        ]);
+        var deletionFails = true;
+        var deletionAttempts = 0;
+        final api = RecordingApiClient((request) {
+          if (request.path == '/api/v1/user/listener-profiles/me/avatar') {
+            throw ApiException(
+              const AppError(code: '1302', message: 'invalid avatar'),
+            );
+          }
+          if (request.path == '/api/v1/user/media/listener-photo-to-retry') {
+            deletionAttempts += 1;
+            if (deletionFails) {
+              throw ApiException(
+                const AppError(code: 'network', message: 'offline'),
+              );
+            }
+            return null;
+          }
+          throw StateError('Unexpected path: ${request.path}');
+        });
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          pendingStore: store,
+          sessionKeyProvider: () => 'account-1',
+        );
+
+        await repository.resumePendingUploads();
+
+        expect(deletionAttempts, 1);
+        expect(await store.readAll(), hasLength(1));
+
+        deletionFails = false;
+        await repository.resumePendingUploads();
+
+        expect(deletionAttempts, 2);
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
+      'rejects a new listener avatar upload without a CAS version',
+      () async {
+        final api = RecordingApiClient(
+          (_) => throw StateError('request must not be dispatched'),
+        );
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          sessionKeyProvider: () => 'account-1',
+        );
+
+        final result = await repository.uploadAsset(
+          source: ProfileUploadSource.bytes(<int>[1, 2, 3]),
+          ownerType: 'LISTENER_PROFILE',
+          ownerId: 'listener-1',
+          mediaKind: 'IMAGE',
+          mimeType: 'image/jpeg',
+          originalFileName: 'avatar.jpg',
+          attachmentIntent: const ProfileUploadAttachmentIntent.profilePicture(
+            profileType: 'LISTENER_PROFILE',
+          ),
+        );
+
+        expect(result.error?.code, 'profile_upload_intent_invalid');
+        expect(api.requests, isEmpty);
+      },
+    );
+
+    test(
+      'retires a legacy listener avatar intent without issuing stale PATCH',
+      () async {
+        final store = MemoryPendingProfileUploadStore(<PendingProfileUpload>[
+          PendingProfileUpload(
+            sessionKey: 'account-1',
+            assetId: 'legacy-listener-photo',
+            ownerType: 'LISTENER_PROFILE',
+            ownerId: 'listener-1',
+            mediaKind: 'IMAGE',
+            deadline: DateTime.utc(2030),
+            retryIndex: 0,
+            phase: PendingProfileUploadPhase.attaching,
+            attachmentIntent:
+                const ProfileUploadAttachmentIntent.profilePicture(
+                  profileType: 'LISTENER_PROFILE',
+                ),
+            completedMediaId: 'legacy-listener-photo',
+          ),
+        ]);
+        final api = RecordingApiClient((request) {
+          expect(request.method, RecordedHttpMethod.delete);
+          expect(request.path, '/api/v1/user/media/legacy-listener-photo');
+          return null;
+        });
+        final repository = ProfileMediaUploadRepositoryImpl(
+          api,
+          pendingStore: store,
+          sessionKeyProvider: () => 'account-1',
+        );
+
+        await repository.resumePendingUploads();
+
+        expect(api.requests, hasLength(1));
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
       'Studio audio recovery checks and attaches to Studio tracks',
       () async {
         final store = MemoryPendingProfileUploadStore(<PendingProfileUpload>[

@@ -1,4 +1,14 @@
-enum ProfileSearchResultType { musician, listener, band, studio, venue, unknown }
+import 'listener_visibility_context.dart';
+import 'listener_visibility_mode.dart';
+
+enum ProfileSearchResultType {
+  musician,
+  listener,
+  band,
+  studio,
+  venue,
+  unknown,
+}
 
 class ProfileSearchResult {
   final ProfileSearchResultType type;
@@ -7,6 +17,7 @@ class ProfileSearchResult {
   final String title;
   final String? subtitle;
   final String? imageUrl;
+  final ListenerVisibilityMode visibilityMode;
 
   const ProfileSearchResult({
     required this.type,
@@ -15,7 +26,11 @@ class ProfileSearchResult {
     required this.title,
     required this.subtitle,
     required this.imageUrl,
+    this.visibilityMode = ListenerVisibilityMode.standard,
   });
+
+  bool get isGhostListener =>
+      type == ProfileSearchResultType.listener && visibilityMode.isGhost;
 
   factory ProfileSearchResult.fromJson(Map<String, dynamic> json) {
     final rawType = json['type']?.toString().trim().toUpperCase();
@@ -34,6 +49,9 @@ class ProfileSearchResult {
       title: json['title']?.toString().trim() ?? '',
       subtitle: json['subtitle']?.toString().trim(),
       imageUrl: json['imageUrl']?.toString(),
+      visibilityMode: parseContextualListenerVisibilityMode(
+        json['visibilityMode'],
+      ),
     );
   }
 

@@ -1,4 +1,6 @@
 import '../../domain/entities/overthinking_post.dart';
+import '../../../profile/domain/entities/listener_visibility_context.dart';
+import '../../../profile/domain/entities/listener_visibility_mode.dart';
 
 class OverthinkingPostModel extends OverthinkingPost {
   const OverthinkingPostModel({
@@ -6,6 +8,7 @@ class OverthinkingPostModel extends OverthinkingPost {
     required super.authorId,
     required super.authorUsername,
     required super.authorAvatarUrl,
+    super.authorVisibilityMode,
     required super.anonymous,
     required super.canViewAuthor,
     required super.visibilityType,
@@ -33,6 +36,7 @@ class OverthinkingPostModel extends OverthinkingPost {
           json['authorUsername']?.toString() ??
           'Kimliğini açıklamak istemeyen yazar',
       authorAvatarUrl: _nullableText(json['authorAvatarUrl']),
+      authorVisibilityMode: _authorVisibilityMode(json),
       anonymous: json['anonymous'] == true,
       canViewAuthor: json['canViewAuthor'] == true,
       visibilityType: json['visibilityType']?.toString() ?? 'VISIBLE',
@@ -56,5 +60,15 @@ class OverthinkingPostModel extends OverthinkingPost {
   static String? _nullableText(Object? value) {
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? null : text;
+  }
+
+  static ListenerVisibilityMode _authorVisibilityMode(
+    Map<String, dynamic> json,
+  ) {
+    final authorId = _nullableText(json['authorId']);
+    if (json['canViewAuthor'] != true || authorId == null) {
+      return ListenerVisibilityMode.standard;
+    }
+    return parseContextualListenerVisibilityMode(json['authorVisibilityMode']);
   }
 }

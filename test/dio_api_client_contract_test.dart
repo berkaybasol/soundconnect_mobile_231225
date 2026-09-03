@@ -302,6 +302,114 @@ void main() {
     });
 
     test(
+      'listener public projection sends JWT and rejects its session on 401',
+      () async {
+        final token = _jwt(
+          subject: 'listener-user',
+          roles: const <String>['ROLE_LISTENER'],
+        );
+        final tokenStore = _MemoryTokenStore(token);
+        final sessionStore = _MemorySessionStore(
+          const AuthSessionMetadata(accountStatus: 'ACTIVE'),
+        );
+        var sessionEndedCount = 0;
+        final sessionManager = AuthSessionManager(
+          tokenStore: tokenStore,
+          sessionStore: sessionStore,
+          onSessionEnded: () async => sessionEndedCount += 1,
+        );
+        addTearDown(sessionManager.dispose);
+        await sessionManager.restore();
+        final adapter = _RecordingHttpClientAdapter(
+          (_) => _jsonResponse(
+            statusCode: 401,
+            payload: const <String, dynamic>{
+              'code': 401,
+              'message': 'Unauthorized',
+              'details': <String>[],
+            },
+          ),
+        );
+        final dio = _dio(adapter);
+        addTearDown(() => _closeDio(dio, adapter));
+        final client = DioApiClient(
+          dio: dio,
+          tokenStore: tokenStore,
+          sessionManager: sessionManager,
+        );
+
+        await expectLater(
+          client.get<Object?>('/api/v1/public/listener-profiles/profile-1'),
+          throwsA(isA<ApiException>()),
+        );
+
+        expect(
+          adapter.requests.single.headers['Authorization'],
+          'Bearer $token',
+        );
+        expect(sessionManager.session.isAuthenticated, isFalse);
+        expect(sessionEndedCount, 1);
+        expect(tokenStore.value, isNull);
+        expect(sessionStore.value, isNull);
+      },
+    );
+
+    test(
+      '1308 repairs listener onboarding metadata without logging out',
+      () async {
+        final token = _jwt(
+          subject: 'listener-user',
+          roles: const <String>['ROLE_LISTENER'],
+        );
+        final tokenStore = _MemoryTokenStore(token);
+        final sessionStore = _MemorySessionStore(
+          const AuthSessionMetadata(
+            accountStatus: 'ACTIVE',
+            requiresListenerProfileChoice: false,
+          ),
+        );
+        final sessionManager = AuthSessionManager(
+          tokenStore: tokenStore,
+          sessionStore: sessionStore,
+        );
+        addTearDown(sessionManager.dispose);
+        await sessionManager.restore();
+        final adapter = _RecordingHttpClientAdapter(
+          (_) => _jsonResponse(
+            statusCode: 428,
+            payload: const <String, dynamic>{
+              'code': 1308,
+              'message': 'Listener profile visibility choice is required',
+            },
+          ),
+        );
+        final dio = _dio(adapter);
+        addTearDown(() => _closeDio(dio, adapter));
+        final client = DioApiClient(
+          dio: dio,
+          tokenStore: tokenStore,
+          sessionManager: sessionManager,
+        );
+
+        await expectLater(
+          client.get<Object?>('/api/v1/private/profile'),
+          throwsA(
+            isA<ApiException>().having(
+              (error) => error.error.code,
+              'code',
+              '1308',
+            ),
+          ),
+        );
+
+        expect(sessionManager.session.isAuthenticated, isTrue);
+        expect(sessionManager.session.requiresListenerProfileChoice, isTrue);
+        expect(sessionStore.value?.requiresListenerProfileChoice, isTrue);
+        expect(tokenStore.value, token);
+      },
+    );
+
+    test(
       'session fence rejects A recovery after token read crosses into B',
       () async {
         final tokenA = _jwt(
@@ -374,6 +482,64 @@ void main() {
         expect(adapter.requests, isEmpty);
       },
     );
+
+    test('late 1308 from account A cannot mark account B as pending', () async {
+      final tokenA = _jwt(
+        subject: 'account-A',
+        roles: const <String>['ROLE_LISTENER'],
+      );
+      final tokenB = _jwt(
+        subject: 'account-B',
+        roles: const <String>['ROLE_LISTENER'],
+      );
+      final tokenStore = _MemoryTokenStore(tokenA);
+      final sessionStore = _MemorySessionStore(
+        const AuthSessionMetadata(accountStatus: 'ACTIVE'),
+      );
+      final sessionManager = AuthSessionManager(
+        tokenStore: tokenStore,
+        sessionStore: sessionStore,
+      );
+      addTearDown(sessionManager.dispose);
+      await sessionManager.restore();
+      final requestArrived = Completer<void>();
+      final releaseResponse = Completer<void>();
+      final adapter = _RecordingHttpClientAdapter((_) async {
+        requestArrived.complete();
+        await releaseResponse.future;
+        return _jsonResponse(
+          statusCode: 428,
+          payload: const <String, dynamic>{
+            'code': 1308,
+            'message': 'Choice required',
+          },
+        );
+      });
+      final dio = _dio(adapter);
+      addTearDown(() => _closeDio(dio, adapter));
+      final client = DioApiClient(
+        dio: dio,
+        tokenStore: tokenStore,
+        sessionManager: sessionManager,
+      );
+
+      final request = expectLater(
+        client.get<Object?>('/api/v1/private/profile'),
+        throwsA(isA<ApiException>()),
+      );
+      await requestArrived.future;
+      await sessionManager.startSession(
+        token: tokenB,
+        username: 'account-B',
+        accountStatus: 'ACTIVE',
+      );
+      releaseResponse.complete();
+      await request;
+
+      expect(sessionManager.session.userId, 'account-B');
+      expect(sessionManager.session.requiresListenerProfileChoice, isFalse);
+      expect(sessionStore.value?.requiresListenerProfileChoice, isFalse);
+    });
   });
 }
 
@@ -408,7 +574,8 @@ ResponseBody _jsonResponse({required int statusCode, required Object payload}) {
   );
 }
 
-typedef _ResponseFactory = ResponseBody Function(RequestOptions options);
+typedef _ResponseFactory =
+    FutureOr<ResponseBody> Function(RequestOptions options);
 
 class _RecordingHttpClientAdapter implements HttpClientAdapter {
   _RecordingHttpClientAdapter(this._responseFactory);

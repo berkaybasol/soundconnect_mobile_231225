@@ -11,6 +11,7 @@ import '../../../../core/policy/access_policy.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../dm/data/dm_auth_support.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/table_group.dart';

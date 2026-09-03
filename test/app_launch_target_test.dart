@@ -54,6 +54,49 @@ void main() {
         );
       },
     );
+
+    test('restores an unfinished listener choice to the chooser', () {
+      final session = AuthSession.authenticated(
+        token: 'token',
+        userId: 'listener-user',
+        username: 'listener',
+        accountStatus: 'ACTIVE',
+        roles: const <String>['ROLE_LISTENER'],
+        permissions: const <String>[],
+        expiresAt: DateTime.utc(2030),
+        isAdmin: false,
+        requiresListenerProfileChoice: true,
+      );
+
+      expect(
+        resolveSessionLaunchTarget(session),
+        AppLaunchTarget.listenerProfileChoice,
+      );
+      expect(shouldStartAuthenticatedSessionServices(session), isFalse);
+      expect(
+        resolveSessionChangeNavigationRoute(
+          wasAuthenticated: true,
+          wasListenerChoiceRequired: false,
+          current: session,
+        ),
+        '/listener-profile-choice',
+      );
+    });
+
+    test('starts session services after the listener choice is complete', () {
+      final session = AuthSession.authenticated(
+        token: 'token',
+        userId: 'listener-user',
+        username: 'listener',
+        accountStatus: 'ACTIVE',
+        roles: const <String>['ROLE_LISTENER'],
+        permissions: const <String>[],
+        expiresAt: DateTime.utc(2030),
+        isAdmin: false,
+      );
+
+      expect(shouldStartAuthenticatedSessionServices(session), isTrue);
+    });
   });
 }
 

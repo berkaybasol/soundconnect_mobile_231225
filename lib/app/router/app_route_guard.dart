@@ -64,6 +64,19 @@ class AppRouteGuard {
       return requested == AppRoutes.login ? null : AppRoutes.login;
     }
 
+    final isListener = session.hasAnyRole(const <String>[
+      'ROLE_LISTENER',
+      'LISTENER',
+    ]);
+    if (isListener && session.requiresListenerProfileChoice) {
+      return requested == AppRoutes.listenerProfileChoice
+          ? null
+          : AppRoutes.listenerProfileChoice;
+    }
+    if (isListener && requested == AppRoutes.listenerProfileChoice) {
+      return AppRoutes.listenerProfile;
+    }
+
     if (_anonymousRoutes.contains(requested) ||
         requested == AppRoutes.venuePending ||
         requested == AppRoutes.studioPending ||
@@ -87,7 +100,8 @@ class AppRouteGuard {
         !session.hasAnyRole(const ['ROLE_STUDIO', 'STUDIO'])) {
       return startRouteFor(session);
     }
-    if (requested == AppRoutes.listenerProfile &&
+    if ((requested == AppRoutes.listenerProfile ||
+            requested == AppRoutes.listenerProfileChoice) &&
         !session.hasAnyRole(const ['ROLE_LISTENER', 'LISTENER'])) {
       return startRouteFor(session);
     }
@@ -117,7 +131,9 @@ class AppRouteGuard {
       return AppRoutes.home;
     }
     if (session.hasAnyRole(const ['ROLE_LISTENER', 'LISTENER'])) {
-      return AppRoutes.listenerProfile;
+      return session.requiresListenerProfileChoice
+          ? AppRoutes.listenerProfileChoice
+          : AppRoutes.listenerProfile;
     }
     return AppRoutes.login;
   }

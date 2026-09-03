@@ -11,6 +11,7 @@ import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/listener_profile_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/listener_profile_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
@@ -83,21 +84,26 @@ void main() {
     expect(sessionStore.clearCalls, 1);
   });
 
-  testWidgets('listener can log out while the profile is loading', (
+  testWidgets('listener owner never renders a preview identity while loading', (
     tester,
   ) async {
+    _registerDmBadgeCubit(tokenStore);
     _registerListenerRepository(_PendingListenerProfileRepository());
 
     await tester.pumpWidget(MaterialApp(home: ListenerProfileScreen()));
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.byKey(sessionLogoutButtonKey), findsOneWidget);
+    expect(find.text('berkaybasol'), findsNothing);
+    expect(find.text('Çalma Listeleri'), findsNothing);
+    expect(find.byKey(const Key('listener-profile-loading')), findsOneWidget);
+    await _openListenerMenu(tester);
+    expect(find.byKey(sessionLogoutMenuTileKey), findsOneWidget);
   });
 
-  testWidgets('listener can log out when profile loading fails', (
+  testWidgets('listener owner exposes retry state when loading fails', (
     tester,
   ) async {
+    _registerDmBadgeCubit(tokenStore);
     _registerListenerRepository(
       _FixedListenerProfileRepository(
         const Result.failure(
@@ -110,14 +116,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Profil getirilemedi'), findsOneWidget);
-    expect(find.byKey(sessionLogoutButtonKey), findsOneWidget);
+    expect(find.text('berkaybasol'), findsNothing);
+    expect(find.text('Çalma Listeleri'), findsNothing);
+    expect(find.byKey(const Key('listener-profile-retry')), findsOneWidget);
+    await _openListenerMenu(tester);
+    expect(find.byKey(sessionLogoutMenuTileKey), findsOneWidget);
   });
 
   testWidgets('listener can log out after the profile loads', (tester) async {
-    GetIt.instance.registerSingleton<DmBadgeCubit>(
-      DmBadgeCubit(_NoopDmRepository(), tokenStore),
-      dispose: (value) => value.close(),
-    );
+    _registerDmBadgeCubit(tokenStore);
     _registerListenerRepository(
       _FixedListenerProfileRepository(
         const Result.success(
@@ -138,16 +145,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('listener'), findsWidgets);
-    expect(find.byKey(sessionLogoutButtonKey), findsOneWidget);
+    expect(find.text('Çalma Listeleri'), findsOneWidget);
+    expect(find.text('Çankaya, Ankara'), findsNothing);
+    expect(find.byKey(const Key('listener-enable-ghost')), findsNothing);
+    await tester.drag(
+      find.byKey(const Key('listener-owner-profile-content')),
+      const Offset(0, -420),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Paylaşımlar'), findsOneWidget);
+    expect(find.text('Ankara Indie Night'), findsOneWidget);
+    await _openListenerMenu(tester);
+    expect(find.byKey(sessionLogoutMenuTileKey), findsOneWidget);
   });
 
   testWidgets('listener reloads its username after returning from settings', (
     tester,
   ) async {
-    GetIt.instance.registerSingleton<DmBadgeCubit>(
-      DmBadgeCubit(_NoopDmRepository(), tokenStore),
-      dispose: (value) => value.close(),
-    );
+    _registerDmBadgeCubit(tokenStore);
     final repository = _SequenceListenerProfileRepository(
       const ListenerProfile(
         id: 'listener-profile-1',
@@ -189,6 +204,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('old-name'), findsWidgets);
 
+    await _openListenerMenu(tester);
     await tester.tap(find.byKey(const Key('listener-account-settings')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('return-from-settings')));
@@ -198,6 +214,125 @@ void main() {
     expect(find.text('new-name'), findsWidgets);
     expect(find.text('old-name'), findsNothing);
   });
+
+  testWidgets('listener standard mode confirmation uses premium dialog', (
+    tester,
+  ) async {
+    _registerDmBadgeCubit(tokenStore);
+    final repository = _VisibilityListenerProfileRepository();
+    _registerListenerRepository(repository);
+
+    await tester.pumpWidget(const MaterialApp(home: ListenerProfileScreen()));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Sosyal Profile Dön'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sosyal Profile Dön'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('listener-standard-mode-dialog')),
+      findsOneWidget,
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      find.byKey(const Key('listener-standard-mode-dialog-icon')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('listener-standard-mode-restore-notice')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('listener-standard-mode-dialog')),
+        matching: find.byType(GradientOutlineButton),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('GÖRÜNÜRLÜK TERCİHİ'), findsOneWidget);
+    expect(find.text('Sosyal profile dönülsün mü?'), findsOneWidget);
+    expect(
+      find.text('Daha önce kaldırılan takipçiler geri yüklenmez.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('listener-cancel-disable-ghost')))
+          .height,
+      greaterThanOrEqualTo(48),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('listener-confirm-disable-ghost')))
+          .height,
+      greaterThanOrEqualTo(48),
+    );
+
+    await tester.tap(find.byKey(const Key('listener-cancel-disable-ghost')));
+    await tester.pumpAndSettle();
+    expect(repository.visibilityUpdateCalls, 0);
+
+    await tester.tap(find.text('Sosyal Profile Dön'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('listener-confirm-disable-ghost')));
+    await tester.pumpAndSettle();
+
+    expect(repository.visibilityUpdateCalls, 1);
+    expect(
+      repository.lastVisibilityRequest?.visibilityMode,
+      ListenerVisibilityMode.standard,
+    );
+  });
+
+  testWidgets('premium standard mode dialog fits narrow large-text screens', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    _registerDmBadgeCubit(tokenStore);
+    _registerListenerRepository(_VisibilityListenerProfileRepository());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: const ListenerProfileScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Sosyal Profile Dön'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sosyal Profile Dön'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('listener-standard-mode-dialog')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(
+      find.byKey(const Key('listener-confirm-disable-ghost')),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(
+      tester
+          .getSize(find.byKey(const Key('listener-confirm-disable-ghost')))
+          .height,
+      greaterThanOrEqualTo(48),
+    );
+  });
+}
+
+void _registerDmBadgeCubit(MemoryTokenStore tokenStore) {
+  GetIt.instance.registerSingleton<DmBadgeCubit>(
+    DmBadgeCubit(_NoopDmRepository(), tokenStore),
+    dispose: (value) => value.close(),
+  );
 }
 
 Widget _logoutButtonApp() {
@@ -211,13 +346,19 @@ Future<void> _openLogoutDialog(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
+Future<void> _openListenerMenu(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('listener-owner-menu')));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
 void _registerListenerRepository(ListenerProfileRepository repository) {
   GetIt.instance.registerFactory<ListenerProfileCubit>(
     () => ListenerProfileCubit(repository),
   );
 }
 
-class _PendingListenerProfileRepository implements ListenerProfileRepository {
+class _PendingListenerProfileRepository extends ListenerProfileRepository {
   final Completer<Result<ListenerProfile>> _completer = Completer();
 
   @override
@@ -229,7 +370,7 @@ class _PendingListenerProfileRepository implements ListenerProfileRepository {
   ) => _completer.future;
 }
 
-class _FixedListenerProfileRepository implements ListenerProfileRepository {
+class _FixedListenerProfileRepository extends ListenerProfileRepository {
   const _FixedListenerProfileRepository(this.result);
 
   final Result<ListenerProfile> result;
@@ -243,7 +384,7 @@ class _FixedListenerProfileRepository implements ListenerProfileRepository {
   ) async => result;
 }
 
-class _SequenceListenerProfileRepository implements ListenerProfileRepository {
+class _SequenceListenerProfileRepository extends ListenerProfileRepository {
   _SequenceListenerProfileRepository(this.first, this.next);
 
   final ListenerProfile first;
@@ -260,6 +401,46 @@ class _SequenceListenerProfileRepository implements ListenerProfileRepository {
   Future<Result<ListenerProfile>> updateMyProfile(
     ListenerProfileSaveRequest request,
   ) async => Result.success(next);
+}
+
+class _VisibilityListenerProfileRepository extends ListenerProfileRepository {
+  ListenerProfile profile = const ListenerProfile(
+    id: 'listener-profile-ghost',
+    userId: 'listener-user-ghost',
+    username: 'listener',
+    bio: null,
+    profilePictureUrl: null,
+    followerCount: null,
+    followingCount: null,
+    visibilityMode: ListenerVisibilityMode.ghost,
+    version: 3,
+  );
+  int visibilityUpdateCalls = 0;
+  ListenerVisibilityUpdateRequest? lastVisibilityRequest;
+
+  @override
+  Future<Result<ListenerProfile>> getMyProfile() async =>
+      Result.success(profile);
+
+  @override
+  Future<Result<ListenerProfile>> updateVisibility(
+    ListenerVisibilityUpdateRequest request,
+  ) async {
+    visibilityUpdateCalls += 1;
+    lastVisibilityRequest = request;
+    profile = const ListenerProfile(
+      id: 'listener-profile-ghost',
+      userId: 'listener-user-ghost',
+      username: 'listener',
+      bio: null,
+      profilePictureUrl: null,
+      followerCount: 0,
+      followingCount: 0,
+      visibilityMode: ListenerVisibilityMode.standard,
+      version: 4,
+    );
+    return Result.success(profile);
+  }
 }
 
 class _NoopDmRepository implements DmRepository {

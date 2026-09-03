@@ -74,13 +74,27 @@ class _CommentTile extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          '@${comment.user.username}',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '@${comment.user.username}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (comment.isVisibleGhostAuthor) ...[
+                              const SizedBox(width: 7),
+                              const GhostProfileBadge(),
+                            ],
+                          ],
                         ),
                       ),
                       Text(
@@ -196,15 +210,30 @@ class _CommentTile extends StatelessWidget {
                                         Row(
                                           children: [
                                             Expanded(
-                                              child: Text(
-                                                '@${reply.user.username}',
-                                                style: TextStyle(
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.onSurface,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
+                                              child: Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      '@${reply.user.username}',
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.onSurface,
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (reply
+                                                      .isVisibleGhostAuthor) ...[
+                                                    const SizedBox(width: 7),
+                                                    const GhostProfileBadge(),
+                                                  ],
+                                                ],
                                               ),
                                             ),
                                             Text(

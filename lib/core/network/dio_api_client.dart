@@ -30,6 +30,15 @@ bool isPublicApiRequest(String method, String rawPath) {
   }
   if (normalizedMethod != 'GET') return false;
 
+  // These read routes live under the public URL namespace but expose mutable
+  // listener identity/visibility projections only to authenticated app
+  // sessions. Classifying them as private ensures the JWT is attached and an
+  // authoritative 401 invalidates the rejected session.
+  if (_isPathOrDescendant(path, '/api/v1/public/listener-profiles') ||
+      _isPathOrDescendant(path, '/api/v1/public/profiles')) {
+    return false;
+  }
+
   return path.startsWith('/api/v1/public/') ||
       path == '/api/v1/public' ||
       _isPathOrDescendant(path, '/api/v1/cities') ||
@@ -108,6 +117,9 @@ class DioApiClient implements ApiClient {
           handler.next(options);
         },
         onError: (error, handler) async {
+          if (_codeFromErrorPayload(error.response?.data) == '1308') {
+            await _requireListenerChoiceForRequest(error.requestOptions);
+          }
           if (error.response?.statusCode == 401) {
             await _rejectUnauthorizedRequest(error.requestOptions);
           }
@@ -228,6 +240,9 @@ class DioApiClient implements ApiClient {
         if (baseResponse.code == 401) {
           await _rejectUnauthorizedRequest(response.requestOptions);
         }
+        if (baseResponse.code?.toString() == '1308') {
+          await _requireListenerChoiceForRequest(response.requestOptions);
+        }
         throw ApiException(
           AppError(
             code: (baseResponse.code ?? response.statusCode ?? 0).toString(),
@@ -271,6 +286,23 @@ class DioApiClient implements ApiClient {
     if (_isPublicRequest(options)) return;
     final rejectedToken = options.extra[_requestTokenKey]?.toString();
     await _sessionManager?.rejectUnauthorizedToken(rejectedToken);
+  }
+
+  Future<void> _requireListenerChoiceForRequest(RequestOptions options) async {
+    if (_isPublicRequest(options)) return;
+    final manager = _sessionManager;
+    final requestToken = options.extra[_requestTokenKey]?.toString().trim();
+    if (manager == null || requestToken == null || requestToken.isEmpty) return;
+    final expectedUserId = JwtClaims.tryParse(requestToken)?.subject?.trim();
+    if (expectedUserId == null || expectedUserId.isEmpty) return;
+    try {
+      await manager.requireListenerProfileChoice(
+        expectedUserId: expectedUserId,
+        expectedToken: requestToken,
+      );
+    } catch (_) {
+      // Session recovery is best effort and must never hide the API failure.
+    }
   }
 
   String? _messageFromErrorPayload(Object? payload) {

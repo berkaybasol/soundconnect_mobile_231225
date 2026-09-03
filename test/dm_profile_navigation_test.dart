@@ -28,6 +28,7 @@ void main() {
       DmProfileTargetType.musician: AppRoutes.musicianPublicProfile,
       DmProfileTargetType.venue: AppRoutes.venuePublicProfile,
       DmProfileTargetType.studio: AppRoutes.studioPublicProfile,
+      DmProfileTargetType.listener: AppRoutes.listenerPublicProfile,
     };
 
     for (final entry in expectedRoutes.entries) {
@@ -42,18 +43,5 @@ void main() {
       expect(route?.routeName, entry.value);
       expect(route?.arguments.profileId, '${entry.key.name}-1');
     }
-  });
-
-  test('listener target explicitly has no public navigation capability', () {
-    final route = dmProfileRouteFor(
-      const DmProfileTarget(
-        type: DmProfileTargetType.listener,
-        id: 'listener-1',
-        displayName: 'Dinleyici',
-        imageUrl: null,
-      ),
-    );
-
-    expect(route, isNull);
   });
 }

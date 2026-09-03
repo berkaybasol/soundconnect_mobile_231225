@@ -105,10 +105,20 @@ void main() {
       },
     );
 
-    test('simple profile models provide stable defaults and aliases', () {
+    test('simple profile models enforce listener contracts and aliases', () {
       final listener = ListenerProfileModel.fromJson(<String, dynamic>{
-        'id': 3,
-        'followerCount': 12.8,
+        'id': '3',
+        'userId': 'user-3',
+        'username': 'listener',
+        'visibilityMode': 'STANDARD',
+        'version': 0,
+        'followerCount': 12,
+        'followingCount': 0,
+        'profileContentVisible': true,
+        'profileContentEditable': true,
+        'avatarEditable': true,
+        'canReceiveFollowers': true,
+        'visibilityChoiceCompleted': true,
       });
       final band = BandSummaryModel.fromJson(<String, dynamic>{
         'id': 'band-1',
@@ -117,7 +127,7 @@ void main() {
       });
 
       expect(listener.id, '3');
-      expect(listener.userId, isEmpty);
+      expect(listener.userId, 'user-3');
       expect(listener.followerCount, 12);
       expect(listener.followingCount, 0);
       expect(band.name, 'Echoes');

@@ -24,12 +24,14 @@ class ProfileUploadAttachmentIntent {
   final String? profileType;
   final String? targetId;
   final String? title;
+  final int? expectedVersion;
 
   const ProfileUploadAttachmentIntent._({
     required this.type,
     this.profileType,
     this.targetId,
     this.title,
+    this.expectedVersion,
   });
 
   const ProfileUploadAttachmentIntent.none()
@@ -51,10 +53,12 @@ class ProfileUploadAttachmentIntent {
   const ProfileUploadAttachmentIntent.profilePicture({
     required String profileType,
     String? targetId,
+    int? expectedVersion,
   }) : this._(
          type: ProfileUploadAttachmentType.profilePicture,
          profileType: profileType,
          targetId: targetId,
+         expectedVersion: expectedVersion,
        );
 
   const ProfileUploadAttachmentIntent.track({

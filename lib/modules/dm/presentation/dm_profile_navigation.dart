@@ -17,19 +17,14 @@ String ownerProfileRouteFor(DmProfileTargetType type) => switch (type) {
   DmProfileTargetType.listener => AppRoutes.listenerProfile,
 };
 
-/// Returns the existing public profile surface for a resolved DM target.
-///
-/// Listener profiles currently have no public screen, so they intentionally
-/// return `null`. Callers must keep non-profile actions (such as messaging)
-/// available without guessing another profile type.
+/// Returns the public profile surface for a resolved DM target.
 DmProfileRoute? dmProfileRouteFor(DmProfileTarget target) {
   final routeName = switch (target.type) {
     DmProfileTargetType.musician => AppRoutes.musicianPublicProfile,
     DmProfileTargetType.venue => AppRoutes.venuePublicProfile,
     DmProfileTargetType.studio => AppRoutes.studioPublicProfile,
-    DmProfileTargetType.listener => null,
+    DmProfileTargetType.listener => AppRoutes.listenerPublicProfile,
   };
-  if (routeName == null) return null;
   return DmProfileRoute(
     routeName: routeName,
     arguments: PublicProfileArgs(profileId: target.id),

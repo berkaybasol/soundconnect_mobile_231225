@@ -6,16 +6,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
+import '../../../collab/presentation/collab_route_args.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
 import '../../../dm/presentation/dm_profile_navigation.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
-import '../../../collab/presentation/collab_route_args.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../overthinking/domain/overthinking_repository.dart';
 import '../../../overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../../overthinking/presentation/screens/overthinking_manage_screen.dart';
+import '../../../profile/domain/entities/listener_visibility_context.dart';
 import '../../../profile/presentation/screens/band_invite_decision_screen.dart';
 import '../../../profile/presentation/screens/band_profile_screen.dart';
 import '../../../profile/presentation/screens/musician_profile_screen.dart';
@@ -242,6 +244,14 @@ class _NotificationTileState extends State<_NotificationTile> {
                             ),
                           ),
                         ),
+                        if (_isGhostContextualIdentity) ...[
+                          const SizedBox(width: 7),
+                          GhostProfileBadge(
+                            key: ValueKey(
+                              'notification-ghost-badge-${notification.id}',
+                            ),
+                          ),
+                        ],
                         if (unread) ...[
                           const SizedBox(width: 8),
                           Container(
@@ -341,6 +351,18 @@ class _NotificationTileState extends State<_NotificationTile> {
     return module == 'DM' || notification.type.startsWith('DM');
   }
 
+  bool get _isGhostContextualIdentity {
+    final Object? rawVisibility;
+    if (_isDmNotification(notification)) {
+      rawVisibility = notification.payload['senderVisibilityMode'];
+    } else if (_isSocialNotification(notification)) {
+      rawVisibility = notification.payload['followerVisibilityMode'];
+    } else {
+      return false;
+    }
+    return parseContextualListenerVisibilityMode(rawVisibility).isGhost;
+  }
+
   bool _isCollabNotification(AppNotification notification) {
     final module = notification.payload['module']?.toString().trim() ?? '';
     return module == 'COLLAB' || notification.type.startsWith('COLLAB_');
@@ -413,6 +435,25 @@ class _NotificationTileState extends State<_NotificationTile> {
     final senderUsername =
         notification.payload['senderUsername']?.toString().trim() ?? '';
     final senderAvatarUrl = _senderAvatarUrl(notification.payload);
+    final senderVisibilityMode = parseContextualListenerVisibilityMode(
+      notification.payload['senderVisibilityMode'],
+    );
+    final conversationId = _cleanNullable(
+      notification.payload['conversationId']?.toString(),
+    );
+
+    if (senderVisibilityMode.isGhost) {
+      // Ghost notification payloads are sanitized by the backend at publish
+      // and read time. Do not allow a stale resolver/cache result to replace
+      // that authoritative identity or visibility marker.
+      return DmChatScreenArgs(
+        conversationId: conversationId,
+        otherUserId: senderId,
+        otherUsername: _cleanNullable(senderUsername),
+        otherUserProfilePicture: _cleanNullable(senderAvatarUrl),
+        otherUserVisibilityMode: senderVisibilityMode,
+      );
+    }
 
     try {
       final targets = await serviceLocator<DmUserProfileResolver>()
@@ -420,12 +461,11 @@ class _NotificationTileState extends State<_NotificationTile> {
       final target = _preferredDmTarget(targets);
       if (target != null) {
         return DmChatScreenArgs(
-          conversationId: _cleanNullable(
-            notification.payload['conversationId']?.toString(),
-          ),
+          conversationId: conversationId,
           otherUserId: senderId,
           otherUsername: target.displayName,
           otherUserProfilePicture: _cleanNullable(target.imageUrl),
+          otherUserVisibilityMode: target.visibilityMode,
         );
       }
     } catch (_) {
@@ -433,12 +473,11 @@ class _NotificationTileState extends State<_NotificationTile> {
     }
 
     return DmChatScreenArgs(
-      conversationId: _cleanNullable(
-        notification.payload['conversationId']?.toString(),
-      ),
+      conversationId: conversationId,
       otherUserId: senderId,
       otherUsername: _cleanNullable(senderUsername),
       otherUserProfilePicture: _cleanNullable(senderAvatarUrl),
+      otherUserVisibilityMode: senderVisibilityMode,
     );
   }
 
@@ -648,6 +687,10 @@ class _NotificationTileState extends State<_NotificationTile> {
     if (followerId.isEmpty) return;
     final followerUsername =
         payload['followerUsername']?.toString().trim() ?? '';
+    final followerAvatarUrl = _followerAvatarUrl(payload);
+    final followerVisibilityMode = parseContextualListenerVisibilityMode(
+      payload['followerVisibilityMode'],
+    );
     final resolver = serviceLocator<DmUserProfileResolver>();
     final resolvedTargets = await resolver.resolveByUserId(
       userId: followerId,
@@ -655,6 +698,23 @@ class _NotificationTileState extends State<_NotificationTile> {
     );
     if (!context.mounted) return;
     final targets = resolvedTargets
+        .map(
+          (target) =>
+              followerVisibilityMode.isGhost &&
+                  target.type == DmProfileTargetType.listener
+              ? DmProfileTarget(
+                  type: target.type,
+                  id: target.id,
+                  displayName: followerUsername.isEmpty
+                      ? target.displayName
+                      : followerUsername,
+                  imageUrl: followerAvatarUrl.isEmpty
+                      ? target.imageUrl
+                      : followerAvatarUrl,
+                  visibilityMode: followerVisibilityMode,
+                )
+              : target,
+        )
         .where((target) => dmProfileRouteFor(target) != null)
         .toList(growable: false);
     if (targets.isEmpty) return;
@@ -728,6 +788,20 @@ class _NotificationTileState extends State<_NotificationTile> {
       'senderAvatarUrl',
       'senderProfilePictureUrl',
       'senderProfilePicture',
+      'profilePictureUrl',
+      'avatarUrl',
+    ]) {
+      final value = payload[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  String _followerAvatarUrl(Map<String, dynamic> payload) {
+    for (final key in const [
+      'followerAvatarUrl',
+      'followerProfilePictureUrl',
+      'followerProfilePicture',
       'profilePictureUrl',
       'avatarUrl',
     ]) {
@@ -996,7 +1070,23 @@ class _SocialProfileTargetSheet extends StatelessWidget {
                       DmProfileTargetType.listener => Icons.headphones_outlined,
                     }),
             ),
-            title: Text(item.displayName),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    item.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (item.isGhostListener) ...[
+                  const SizedBox(width: 7),
+                  GhostProfileBadge(
+                    key: ValueKey('social-target-ghost-badge-${item.id}'),
+                  ),
+                ],
+              ],
+            ),
             subtitle: Text(item.type.displayLabel),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).pop(item),

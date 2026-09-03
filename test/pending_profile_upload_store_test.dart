@@ -8,6 +8,64 @@ const _storageKey = 'soundconnect.pending_profile_uploads.v1';
 const _corruptKey = 'soundconnect.pending_profile_uploads.v1.corrupt';
 
 void main() {
+  group('PendingProfileUpload attachment serialization', () {
+    test('round-trips listener avatar expectedVersion', () {
+      final pending = PendingProfileUpload(
+        sessionKey: 'account-1',
+        assetId: 'listener-avatar',
+        ownerType: 'LISTENER_PROFILE',
+        ownerId: 'listener-1',
+        mediaKind: 'IMAGE',
+        deadline: DateTime.utc(2030),
+        retryIndex: 0,
+        phase: PendingProfileUploadPhase.attaching,
+        attachmentIntent: const ProfileUploadAttachmentIntent.profilePicture(
+          profileType: 'LISTENER_PROFILE',
+          expectedVersion: 12,
+        ),
+        completedMediaId: 'listener-avatar',
+      );
+
+      final encoded = pending.toJson();
+      final attachment = encoded['attachment'] as Map<String, dynamic>;
+      final restored = PendingProfileUpload.fromJson(encoded);
+
+      expect(attachment['expectedVersion'], 12);
+      expect(restored, isNotNull);
+      expect(restored!.attachmentIntent.expectedVersion, 12);
+    });
+
+    test(
+      'accepts a legacy non-listener queue item without expectedVersion',
+      () {
+        final pending = PendingProfileUpload(
+          sessionKey: 'account-1',
+          assetId: 'studio-avatar',
+          ownerType: 'STUDIO_PROFILE',
+          ownerId: 'studio-1',
+          mediaKind: 'IMAGE',
+          deadline: DateTime.utc(2030),
+          retryIndex: 0,
+          phase: PendingProfileUploadPhase.attaching,
+          attachmentIntent: const ProfileUploadAttachmentIntent.profilePicture(
+            profileType: 'STUDIO_PROFILE',
+          ),
+          completedMediaId: 'studio-avatar',
+        );
+        final legacyJson = pending.toJson();
+        (legacyJson['attachment'] as Map<String, dynamic>).remove(
+          'expectedVersion',
+        );
+
+        final restored = PendingProfileUpload.fromJson(legacyJson);
+
+        expect(restored, isNotNull);
+        expect(restored!.attachmentIntent.expectedVersion, isNull);
+        expect(restored.attachmentIntent.profileType, 'STUDIO_PROFILE');
+      },
+    );
+  });
+
   group('SharedPreferencesPendingProfileUploadStore', () {
     test(
       'quarantines only corrupt payload and keeps preferences usable',

@@ -1,5 +1,6 @@
 import '../../domain/entities/table_group.dart';
 import '../../domain/entities/table_group_participant.dart';
+import '../../../profile/domain/entities/listener_visibility_context.dart';
 import 'table_group_wire_date.dart';
 
 class TableGroupModel extends TableGroup {
@@ -8,6 +9,7 @@ class TableGroupModel extends TableGroup {
     required super.ownerId,
     required super.ownerUsername,
     required super.ownerProfileImageUrl,
+    super.ownerVisibilityMode,
     required super.venueId,
     required super.venueName,
     super.description,
@@ -57,6 +59,10 @@ class TableGroupModel extends TableGroup {
         json['ownerProfileImageUrl'],
         'ownerProfileImageUrl',
       ),
+      ownerVisibilityMode: parseContextualListenerVisibilityMode(
+        json['ownerVisibilityMode'],
+        rejectUnknown: true,
+      ),
       venueId: _optionalWireText(json['venueId'], 'venueId'),
       venueName: _optionalWireText(json['venueName'], 'venueName'),
       // Pre-release local databases may contain terminal rows whose historical
@@ -93,6 +99,9 @@ class TableGroupModel extends TableGroup {
           json['ownerAvatarUrl']?.toString() ??
           json['ownerPhotoUrl']?.toString() ??
           json['profileImageUrl']?.toString(),
+      ownerVisibilityMode: parseContextualListenerVisibilityMode(
+        json['ownerVisibilityMode'],
+      ),
       venueId: _fixtureText(json['venueId']),
       venueName: _fixtureText(json['venueName']),
       description: _fixtureText(json['description']),
@@ -241,6 +250,10 @@ class TableGroupModel extends TableGroup {
         item['profilePictureUrl'],
         'profilePictureUrl',
       ),
+      visibilityMode: parseContextualListenerVisibilityMode(
+        item['visibilityMode'],
+        rejectUnknown: true,
+      ),
     );
   }
 
@@ -289,6 +302,9 @@ class TableGroupModel extends TableGroup {
             item['profilePictureUrl']?.toString() ??
             item['profileImageUrl']?.toString() ??
             item['avatarUrl']?.toString(),
+        visibilityMode: parseContextualListenerVisibilityMode(
+          item['visibilityMode'],
+        ),
       );
     }).toList();
   }

@@ -65,6 +65,10 @@ ProfileSearchDestination? resolveProfileSearchDestination({
       route: AppRoutes.venuePublicProfile,
       opensOwnerProfile: false,
     ),
-    ProfileSearchResultType.listener || ProfileSearchResultType.unknown => null,
+    ProfileSearchResultType.listener => const ProfileSearchDestination(
+      route: AppRoutes.listenerPublicProfile,
+      opensOwnerProfile: false,
+    ),
+    ProfileSearchResultType.unknown => null,
   };
 }

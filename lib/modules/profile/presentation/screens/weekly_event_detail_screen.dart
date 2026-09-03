@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/domain/entities/comment_item.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';

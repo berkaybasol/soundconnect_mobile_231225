@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/ghost_profile_badge.dart';
+import '../../../profile/domain/entities/listener_visibility_context.dart';
+import '../../../profile/domain/entities/listener_visibility_mode.dart';
 import '../../domain/dm_user_profile_resolver.dart';
 import '../../domain/entities/dm_message.dart';
 import '../../domain/entities/dm_profile_target.dart';
@@ -18,6 +23,7 @@ class DmChatScreenArgs {
   final String? currentUserId;
   final String? otherMusicianProfileId;
   final String? conversationId;
+  final ListenerVisibilityMode otherUserVisibilityMode;
 
   DmChatScreenArgs({
     required this.otherUserId,
@@ -26,6 +32,7 @@ class DmChatScreenArgs {
     this.currentUserId,
     this.otherMusicianProfileId,
     this.conversationId,
+    this.otherUserVisibilityMode = ListenerVisibilityMode.standard,
   });
 }
 
@@ -54,6 +61,7 @@ class _DmChatViewState extends State<_DmChatView> {
   DmChatScreenArgs? _args;
   int _lastMessageCount = 0;
   String? _lastNewestMessageId;
+  bool _identityHydrationStarted = false;
 
   @override
   void didChangeDependencies() {
@@ -73,6 +81,9 @@ class _DmChatViewState extends State<_DmChatView> {
           currentUserId: rawArgs['currentUserId']?.toString(),
           otherMusicianProfileId: rawArgs['otherMusicianProfileId']?.toString(),
           conversationId: rawArgs['conversationId']?.toString(),
+          otherUserVisibilityMode: parseContextualListenerVisibilityMode(
+            rawArgs['otherUserVisibilityMode'],
+          ),
         );
       }
     }
@@ -82,6 +93,39 @@ class _DmChatViewState extends State<_DmChatView> {
       otherUserId: args.otherUserId,
       currentUserId: args.currentUserId,
     );
+    if (!_identityHydrationStarted) {
+      _identityHydrationStarted = true;
+      unawaited(_hydrateGhostIdentity(args));
+    }
+  }
+
+  Future<void> _hydrateGhostIdentity(DmChatScreenArgs args) async {
+    if (args.otherUserVisibilityMode.isGhost) return;
+    if (!serviceLocator.isRegistered<DmUserProfileResolver>()) return;
+    final targets = await serviceLocator<DmUserProfileResolver>()
+        .resolveByUserId(
+          userId: args.otherUserId,
+          usernameHint: args.otherUsername,
+        );
+    DmProfileTarget? ghostTarget;
+    for (final target in targets) {
+      if (target.isGhostListener) {
+        ghostTarget = target;
+        break;
+      }
+    }
+    final resolvedGhostTarget = ghostTarget;
+    if (!mounted || resolvedGhostTarget == null) return;
+    setState(() {
+      _args = DmChatScreenArgs(
+        otherUserId: args.otherUserId,
+        otherUsername: resolvedGhostTarget.displayName,
+        otherUserProfilePicture: resolvedGhostTarget.imageUrl,
+        currentUserId: args.currentUserId,
+        conversationId: args.conversationId,
+        otherUserVisibilityMode: resolvedGhostTarget.visibilityMode,
+      );
+    });
   }
 
   @override
@@ -132,12 +176,26 @@ class _DmChatViewState extends State<_DmChatView> {
                   children: [
                     Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
                     SizedBox(height: 2),
-                    Text(
-                      'Dogrudan mesaj',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Doğrudan mesaj',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        if (args?.otherUserVisibilityMode.isGhost == true) ...[
+                          const SizedBox(width: 7),
+                          const GhostProfileBadge(),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -674,7 +732,15 @@ class _ProfileTargetSheet extends StatelessWidget {
                     }, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             title: Text(item.displayName),
-            subtitle: Text(item.type.displayLabel),
+            subtitle: item.isGhostListener
+                ? Row(
+                    children: [
+                      Text(item.type.displayLabel),
+                      const SizedBox(width: 7),
+                      const GhostProfileBadge(),
+                    ],
+                  )
+                : Text(item.type.displayLabel),
             onTap: () => Navigator.of(context).pop(item),
           );
         },

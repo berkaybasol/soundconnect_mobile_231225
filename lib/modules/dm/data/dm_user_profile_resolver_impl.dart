@@ -1,14 +1,16 @@
 import 'dart:collection';
 
 import '../../../core/network/api_client.dart';
+import '../../profile/domain/entities/listener_visibility_context.dart';
 import '../domain/dm_user_profile_resolver.dart';
 import '../domain/entities/dm_profile_target.dart';
 
 typedef DmProfileResolverClock = DateTime Function();
 
 /// Resolves a user's public profile targets through the canonical backend
-/// resolver. Results are cached briefly because the same user can appear in
-/// conversations, notifications and table-group messages at the same time.
+/// resolver. Stable non-listener results are cached briefly because the same
+/// user can appear in several surfaces at once. Listener results only share
+/// concurrent in-flight work; their mutable visibility is always refetched.
 class DmUserProfileResolverImpl implements DmUserProfileResolver {
   DmUserProfileResolverImpl({
     required ApiClient apiClient,
@@ -69,7 +71,16 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
         decoder: _decodeTargets,
       );
       final immutableTargets = List<DmProfileTarget>.unmodifiable(targets);
-      _writeCache(userId, immutableTargets, _cacheTtl);
+      // Listener visibility is mutable and changes how every contextual
+      // identity must be projected. Keeping either a STANDARD or GHOST
+      // listener target in the positive cache can leak stale actions/badges.
+      // In-flight calls are still coalesced, while stable non-listener target
+      // collections retain the bounded TTL cache.
+      if (!immutableTargets.any(
+        (target) => target.type == DmProfileTargetType.listener,
+      )) {
+        _writeCache(userId, immutableTargets, _cacheTtl);
+      }
       return immutableTargets;
     } catch (_) {
       // The domain contract predates Result<T>. Preserve its safe empty-list
@@ -114,6 +125,9 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
       id: id,
       displayName: displayName,
       imageUrl: imageUrl.isEmpty ? null : imageUrl,
+      visibilityMode: parseContextualListenerVisibilityMode(
+        json['visibilityMode'],
+      ),
     );
   }
 

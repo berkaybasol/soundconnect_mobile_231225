@@ -8,10 +8,12 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../../data/models/venue_profile_save_request.dart';
+import '../../domain/entities/listener_visibility_mode.dart';
 import '../../domain/listener_profile_repository.dart';
 import '../../domain/musician_profile_repository.dart';
 import '../../domain/studio_profile_repository.dart';
 import '../../domain/venue_profile_repository.dart';
+import '../listener_visibility_error_message.dart';
 import 'profile_screen_support.dart';
 
 enum _AccountProfileKind { musician, venue, studio, listener }
@@ -35,12 +37,20 @@ class _AccountProfileSettingsSectionState
   String? _profileImageUrl;
   String _description = '';
   int? _studioVersion;
+  int? _listenerVersion;
+  ListenerVisibilityMode _listenerVisibilityMode =
+      ListenerVisibilityMode.standard;
+  bool _listenerProfileContentEditable = true;
   bool _available = true;
   bool _loading = true;
   bool _editingDescription = false;
   bool _savingDescription = false;
   bool _uploadingPhoto = false;
+  bool _updatingListenerVisibility = false;
   String? _loadError;
+
+  bool get _profileMutationBusy =>
+      _savingDescription || _uploadingPhoto || _updatingListenerVisibility;
 
   @override
   void initState() {
@@ -149,6 +159,9 @@ class _AccountProfileSettingsSectionState
           profileId: profile.id,
           imageUrl: profile.profilePictureUrl,
           description: profile.bio,
+          listenerVersion: profile.version,
+          listenerVisibilityMode: profile.visibilityMode,
+          listenerProfileContentEditable: profile.profileContentEditable,
         );
     }
   }
@@ -168,12 +181,22 @@ class _AccountProfileSettingsSectionState
     required String profileId,
     required String? imageUrl,
     required String? description,
+    int? listenerVersion,
+    ListenerVisibilityMode? listenerVisibilityMode,
+    bool? listenerProfileContentEditable,
   }) {
     final normalizedDescription = description?.trim() ?? '';
     setState(() {
       _profileId = profileId;
       _profileImageUrl = imageUrl?.trim();
       _description = normalizedDescription;
+      if (listenerVersion != null) _listenerVersion = listenerVersion;
+      if (listenerVisibilityMode != null) {
+        _listenerVisibilityMode = listenerVisibilityMode;
+      }
+      if (listenerProfileContentEditable != null) {
+        _listenerProfileContentEditable = listenerProfileContentEditable;
+      }
       if (!_editingDescription) {
         _descriptionController.text = normalizedDescription;
       }
@@ -198,7 +221,13 @@ class _AccountProfileSettingsSectionState
   Future<void> _changePhoto() async {
     final kind = _kind;
     final profileId = _profileId;
-    if (kind == null || profileId == null || _uploadingPhoto) return;
+    if (kind == null || profileId == null || _profileMutationBusy) return;
+    if (kind == _AccountProfileKind.listener && _listenerVersion == null) {
+      _showMessage(
+        'Profilin güncel sürümü alınamadı. Sayfayı yenileyip tekrar dene.',
+      );
+      return;
+    }
     setState(() => _uploadingPhoto = true);
     try {
       final upload = await pickCropAndUploadProfilePhoto(
@@ -214,6 +243,9 @@ class _AccountProfileSettingsSectionState
         profilePhotoTargetId: kind == _AccountProfileKind.venue
             ? _venueId
             : null,
+        profilePhotoExpectedVersion: kind == _AccountProfileKind.listener
+            ? _listenerVersion
+            : null,
         cropTitle: 'Profil fotoğrafını kırp',
       );
       if (upload == null || !mounted) return;
@@ -224,7 +256,11 @@ class _AccountProfileSettingsSectionState
         _showMessage(failure);
         return;
       }
-      setState(() => _profileImageUrl = upload.preferredUrl);
+      // Listener attachment reloads the authoritative owner projection above.
+      // Do not replace its URL with an upload-host URL that may be temporary.
+      if (kind != _AccountProfileKind.listener) {
+        setState(() => _profileImageUrl = upload.preferredUrl);
+      }
       _showMessage('Profil fotoğrafın güncellendi.');
     } catch (error) {
       if (mounted) {
@@ -261,19 +297,31 @@ class _AccountProfileSettingsSectionState
         // Stüdyo medya yükleme akışı fotoğrafı profile kendisi bağlıyor.
         return null;
       case _AccountProfileKind.listener:
+        // Listener profile-picture uploads are attached atomically by the
+        // durable upload pipeline through the dedicated avatar endpoint. Read
+        // the owner projection back so the optimistic visibility version is
+        // rebased before the next settings mutation.
         final result = await serviceLocator<ListenerProfileRepository>()
-            .updateMyProfile(
-              ListenerProfileSaveRequest(profilePictureMediaId: assetId),
-            );
-        return result.isSuccess
-            ? null
-            : result.error?.message ?? 'Profil fotoğrafı güncellenemedi.';
+            .getMyProfile();
+        final profile = result.data;
+        if (!result.isSuccess || profile == null) {
+          return 'Profil fotoğrafı güncellendi ancak güncel profil bilgisi alınamadı. Sayfayı yenileyip tekrar kontrol et.';
+        }
+        if (mounted) {
+          setState(() {
+            _listenerVersion = profile.version;
+            _listenerVisibilityMode = profile.visibilityMode;
+            _listenerProfileContentEditable = profile.profileContentEditable;
+            _profileImageUrl = profile.profilePictureUrl;
+          });
+        }
+        return null;
     }
   }
 
   Future<void> _saveDescription() async {
     final kind = _kind;
-    if (kind == null || _savingDescription) return;
+    if (kind == null || _profileMutationBusy) return;
     final description = _descriptionController.text.trim();
     setState(() => _savingDescription = true);
     try {
@@ -329,17 +377,31 @@ class _AccountProfileSettingsSectionState
         }
         return result.error?.message ?? 'Açıklama güncellenemedi.';
       case _AccountProfileKind.listener:
+        if (!_listenerProfileContentEditable) {
+          return 'Hayalet profil açıkken profil açıklaması düzenlenemez.';
+        }
         final result = await serviceLocator<ListenerProfileRepository>()
             .updateMyProfile(
               ListenerProfileSaveRequest(description: description),
             );
-        return result.isSuccess
-            ? null
-            : result.error?.message ?? 'Açıklama güncellenemedi.';
+        final profile = result.data;
+        if (!result.isSuccess || profile == null) {
+          return result.error?.message ?? 'Açıklama güncellenemedi.';
+        }
+        if (mounted) {
+          setState(() {
+            _listenerVersion = profile.version;
+            _listenerVisibilityMode = profile.visibilityMode;
+            _listenerProfileContentEditable = profile.profileContentEditable;
+            _profileImageUrl = profile.profilePictureUrl;
+          });
+        }
+        return null;
     }
   }
 
   void _startEditingDescription() {
+    if (_profileMutationBusy) return;
     _descriptionController.text = _description;
     setState(() => _editingDescription = true);
   }
@@ -348,6 +410,109 @@ class _AccountProfileSettingsSectionState
     FocusManager.instance.primaryFocus?.unfocus();
     _descriptionController.text = _description;
     setState(() => _editingDescription = false);
+  }
+
+  Future<void> _changeListenerVisibility(bool enableGhost) async {
+    if (_kind != _AccountProfileKind.listener ||
+        _profileMutationBusy ||
+        _listenerVersion == null) {
+      return;
+    }
+
+    if (enableGhost) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Hayalet profile geç?'),
+          content: const Text(
+            'Mevcut takipçilerin kalıcı olarak kaldırılır ve bu işlem geri alınamaz.\n\n'
+            'Profil içeriklerin silinmez; saklanır, görünmez olur ve Hayalet Profil açıkken düzenlenemez. Yeni takipçi alamazsın. Takip ettiklerin ve mesajların kalır.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              key: const Key('confirm-enable-ghost-profile'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Hayalet profile geç'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    if (_profileMutationBusy) return;
+
+    final requestedMode = enableGhost
+        ? ListenerVisibilityMode.ghost
+        : ListenerVisibilityMode.standard;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _updatingListenerVisibility = true;
+      _editingDescription = false;
+      _descriptionController.text = _description;
+    });
+    try {
+      final result = await serviceLocator<ListenerProfileRepository>()
+          .updateVisibility(
+            ListenerVisibilityUpdateRequest(
+              visibilityMode: requestedMode,
+              expectedVersion: _listenerVersion!,
+            ),
+          );
+      if (!mounted) return;
+      final profile = result.data;
+      if (!result.isSuccess || profile == null) {
+        final code = result.error?.code.trim().toUpperCase();
+        if (code == '1304' || code == 'LISTENER_PROFILE_VERSION_CONFLICT') {
+          final refreshed = await _reloadListenerAfterConflict();
+          if (!mounted) return;
+          _showMessage(
+            refreshed
+                ? 'Görünürlük başka bir oturumda değişti. Güncel ayarı yükledik; kontrol edip tekrar dene.'
+                : 'Görünürlük başka bir oturumda değişti. Profili yenileyip tekrar dene.',
+          );
+          return;
+        }
+        _showMessage(listenerVisibilityErrorMessage(result.error));
+        return;
+      }
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() {
+        _listenerVersion = profile.version;
+        _listenerVisibilityMode = profile.visibilityMode;
+        _listenerProfileContentEditable = profile.profileContentEditable;
+        _profileImageUrl = profile.profilePictureUrl;
+        _description = profile.bio?.trim() ?? _description;
+        _editingDescription = false;
+      });
+      _showMessage(
+        profile.isGhost
+            ? 'Hayalet Profil açıldı.'
+            : 'Profilin yeniden görünür.',
+      );
+    } finally {
+      if (mounted) setState(() => _updatingListenerVisibility = false);
+    }
+  }
+
+  Future<bool> _reloadListenerAfterConflict() async {
+    final result = await serviceLocator<ListenerProfileRepository>()
+        .getMyProfile();
+    if (!mounted || !result.isSuccess || result.data == null) return false;
+    final profile = result.data!;
+    setState(() {
+      _listenerVersion = profile.version;
+      _listenerVisibilityMode = profile.visibilityMode;
+      _listenerProfileContentEditable = profile.profileContentEditable;
+      _profileImageUrl = profile.profilePictureUrl;
+      _description = profile.bio?.trim() ?? _description;
+      _editingDescription = false;
+    });
+    return true;
   }
 
   @override
@@ -380,7 +545,7 @@ class _AccountProfileSettingsSectionState
             key: const Key('account-settings-profile-photo'),
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: _uploadingPhoto ? null : _changePhoto,
+              onTap: _profileMutationBusy ? null : _changePhoto,
               child: _ProfileAvatar(
                 imageUrl: _profileImageUrl,
                 uploading: _uploadingPhoto,
@@ -388,41 +553,68 @@ class _AccountProfileSettingsSectionState
             ),
           ),
           const SizedBox(height: 14),
-          InkWell(
-            key: const Key('account-settings-profile-description'),
-            borderRadius: BorderRadius.circular(12),
-            onTap: _savingDescription || _editingDescription
-                ? null
-                : _startEditingDescription,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: Text(
-                      _description.isEmpty
-                          ? 'Açıklama eklemek için dokun'
-                          : _description,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        height: 1.45,
+          if (_kind == _AccountProfileKind.listener) ...[
+            _ListenerVisibilityCard(
+              isGhost: _listenerVisibilityMode.isGhost,
+              updating: _profileMutationBusy,
+              onChanged: _changeListenerVisibility,
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (_kind != _AccountProfileKind.listener ||
+              _listenerProfileContentEditable)
+            InkWell(
+              key: const Key('account-settings-profile-description'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: _profileMutationBusy || _editingDescription
+                  ? null
+                  : _startEditingDescription,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _description.isEmpty
+                            ? 'Açıklama eklemek için dokun'
+                            : _description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.45,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 7),
-                  Icon(
-                    Icons.edit_rounded,
-                    size: 15,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ],
+                    const SizedBox(width: 7),
+                    Icon(
+                      Icons.edit_rounded,
+                      size: 15,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          if (_kind == _AccountProfileKind.listener &&
+              !_listenerProfileContentEditable)
+            Padding(
+              key: const Key('account-settings-ghost-content-notice'),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Text(
+                'Profil içeriğin güvende. Hayalet Profil açıkken görünmez ve düzenlenemez; görünür profile döndüğünde yeniden burada olur.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+            ),
           if (_editingDescription)
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
@@ -436,7 +628,7 @@ class _AccountProfileSettingsSectionState
                     maxLines: 6,
                     maxLength: 1024,
                     textInputAction: TextInputAction.newline,
-                    enabled: !_savingDescription,
+                    enabled: !_profileMutationBusy,
                     decoration: InputDecoration(
                       hintText: 'Profilini birkaç cümleyle anlat',
                       filled: true,
@@ -453,7 +645,7 @@ class _AccountProfileSettingsSectionState
                     children: [
                       Expanded(
                         child: TextButton(
-                          onPressed: _savingDescription
+                          onPressed: _profileMutationBusy
                               ? null
                               : _cancelEditingDescription,
                           child: const Text('İptal'),
@@ -466,7 +658,7 @@ class _AccountProfileSettingsSectionState
                           key: const Key(
                             'account-settings-save-description-button',
                           ),
-                          onPressed: _savingDescription
+                          onPressed: _profileMutationBusy
                               ? null
                               : _saveDescription,
                           loading: _savingDescription,
@@ -483,6 +675,52 @@ class _AccountProfileSettingsSectionState
           const SizedBox(height: 24),
         ],
       ],
+    );
+  }
+}
+
+class _ListenerVisibilityCard extends StatelessWidget {
+  const _ListenerVisibilityCard({
+    required this.isGhost,
+    required this.updating,
+    required this.onChanged,
+  });
+
+  final bool isGhost;
+  final bool updating;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Material(
+        key: const Key('account-settings-listener-visibility'),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: isGhost
+                ? AppColors.brandGradient.last.withValues(alpha: 0.5)
+                : Theme.of(context).dividerColor,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SwitchListTile.adaptive(
+          key: const Key('listener-ghost-profile-switch'),
+          value: isGhost,
+          onChanged: updating ? null : onChanged,
+          secondary: Icon(
+            isGhost ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+          ),
+          title: const Text('Hayalet Profil'),
+          subtitle: Text(
+            isGhost
+                ? 'Profil içeriğin gizli; takip ettiklerin ve mesajların aktif.'
+                : 'SoundConnect’i kullanırken profil içeriğini ve takipçilerini gizle.',
+          ),
+        ),
+      ),
     );
   }
 }

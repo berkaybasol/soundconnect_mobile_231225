@@ -17,6 +17,7 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/table_
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/widgets/table_group_game_countdown.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/widgets/table_group_game_launcher_sheet.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/widgets/table_group_game_message_card.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 
 void main() {
   group('table-group game wire model', () {
@@ -50,6 +51,49 @@ void main() {
         TableGroupGamePlayerStatus.active,
       );
       expect(message.game?.revealedActions.single.action, 'VOLUNTEER');
+    });
+
+    test('decodes contextual ghost identity for game actors', () {
+      final message = TableGroupMessageModel.fromWireJson(
+        _gameMessageJson(
+          status: 'COMPLETED',
+          phase: 'COMPLETED',
+          outcome: 'ASSIGNED',
+          createdByVisibilityMode: 'GHOST',
+          selectedUserVisibilityMode: 'GHOST',
+          players: <Object?>[
+            _player('owner', 'ghost_listener', visibilityMode: 'GHOST'),
+          ],
+        ),
+      );
+
+      expect(
+        message.game?.createdByVisibilityMode,
+        ListenerVisibilityMode.ghost,
+      );
+      expect(message.game?.isCreatorGhost, isTrue);
+      expect(message.game?.isSelectedUserGhost, isTrue);
+      expect(message.game?.players.single.isGhost, isTrue);
+    });
+
+    test('rejects unknown non-null contextual visibility markers', () {
+      final payload = _gameMessageJson();
+      final game = payload['game'] as Map<String, dynamic>;
+      game['createdByVisibilityMode'] = 'FUTURE_MODE';
+
+      expect(
+        () => TableGroupMessageModel.fromWireJson(payload),
+        throwsFormatException,
+      );
+    });
+
+    test('keeps a ghost selection marker visible on a partial snapshot', () {
+      final message = TableGroupMessageModel.fromWireJson(
+        _gameMessageJson(selectedUserVisibilityMode: 'GHOST'),
+      );
+
+      expect(message.game?.selectedUserId, isNull);
+      expect(message.game?.isSelectedUserGhost, isTrue);
     });
 
     test('rejects a game payload belonging to another table', () {
@@ -685,7 +729,7 @@ void main() {
         status: 'IN_PROGRESS',
         players: <Object?>[
           _player('owner', 'ece'),
-          _player('other', 'mert', hasActed: true),
+          _player('other', 'mert', hasActed: true, visibilityMode: 'GHOST'),
         ],
         revealedActions: <Object?>[
           <String, dynamic>{
@@ -737,7 +781,15 @@ void main() {
       );
       expect(find.text('@mert'), findsWidgets);
       expect(find.text('@ece (sen)'), findsOneWidget);
-      expect(find.text('@mert → @ece'), findsOneWidget);
+      expect(find.text(' → '), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('game-player-ghost-other')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('game-mention-ghost-other')),
+        findsWidgets,
+      );
       expect(
         tester
             .getSemantics(
@@ -745,6 +797,14 @@ void main() {
             )
             .label,
         contains('@mert hamlesini yaptı'),
+      );
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(const ValueKey<String>('game-player-status-other')),
+            )
+            .label,
+        contains('hayalet profil'),
       );
       expect(tester.takeException(), isNull);
 
@@ -814,6 +874,10 @@ void main() {
               status: 'COMPLETED',
               outcome: 'VOLUNTEER',
               resultMessage: result,
+              selectedUserVisibilityMode: 'GHOST',
+              players: <Object?>[
+                _player('owner', 'ece', visibilityMode: 'GHOST'),
+              ],
             ),
             currentUserId: 'owner',
             canCancelGame: true,
@@ -830,6 +894,10 @@ void main() {
     );
 
     expect(find.text(result), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('game-selected-ghost-owner')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('an unsupported future game schema is rendered read-only', (
@@ -974,6 +1042,7 @@ Map<String, dynamic> _player(
   String username, {
   String status = 'ACTIVE',
   bool hasActed = false,
+  String? visibilityMode,
 }) {
   return <String, dynamic>{
     'userId': userId,
@@ -981,6 +1050,7 @@ Map<String, dynamic> _player(
     'status': status,
     'joinedAt': '2026-08-30T17:59:00Z',
     'hasActed': hasActed,
+    if (visibilityMode != null) 'visibilityMode': visibilityMode,
   };
 }
 
@@ -996,6 +1066,8 @@ Map<String, dynamic> _gameMessageJson({
   String? outcome,
   String? resultMessage,
   String? cancellationReason,
+  String? createdByVisibilityMode,
+  String? selectedUserVisibilityMode,
   List<Object?>? players,
   List<Object?>? revealedActions,
 }) {
@@ -1018,6 +1090,8 @@ Map<String, dynamic> _gameMessageJson({
       'phase': phase,
       'createdBy': 'owner',
       'createdByUsername': 'ece',
+      if (createdByVisibilityMode != null)
+        'createdByVisibilityMode': createdByVisibilityMode,
       'round': 1,
       'joinDeadlineAt': '2026-08-30T18:03:00Z',
       'actionDeadlineAt': '2026-08-30T18:00:20Z',
@@ -1026,6 +1100,8 @@ Map<String, dynamic> _gameMessageJson({
       'revealedActions': revealedActions ?? <Object?>[],
       'selectedUserId': status == 'COMPLETED' ? 'owner' : null,
       'selectedUsername': status == 'COMPLETED' ? 'ece' : null,
+      if (selectedUserVisibilityMode != null)
+        'selectedUserVisibilityMode': selectedUserVisibilityMode,
       'outcome': outcome,
       'resultMessage': resultMessage,
       'cancellationReason': cancellationReason,
@@ -1045,6 +1121,8 @@ TableGroupMessage _gameMessage({
   String? outcome,
   String? resultMessage,
   String? cancellationReason,
+  String? createdByVisibilityMode,
+  String? selectedUserVisibilityMode,
   List<Object?>? players,
   List<Object?>? revealedActions,
 }) {
@@ -1061,6 +1139,8 @@ TableGroupMessage _gameMessage({
       outcome: outcome,
       resultMessage: resultMessage,
       cancellationReason: cancellationReason,
+      createdByVisibilityMode: createdByVisibilityMode,
+      selectedUserVisibilityMode: selectedUserVisibilityMode,
       players: players,
       revealedActions: revealedActions,
     ),

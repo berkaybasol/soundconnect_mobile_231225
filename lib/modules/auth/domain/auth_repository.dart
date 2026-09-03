@@ -5,6 +5,7 @@ import 'entities/register_result.dart';
 import 'entities/resend_code_result.dart';
 import 'entities/password_reset_account.dart';
 import 'entities/username_availability.dart';
+import 'entities/verify_code_result.dart';
 
 abstract class AuthRepository {
   Future<Result<LoginResult>> login({
@@ -29,7 +30,7 @@ abstract class AuthRepository {
     String? studioPhone,
   });
 
-  Future<Result<void>> verifyCode({
+  Future<Result<VerifyCodeResult>> verifyCode({
     required String email,
     required String code,
   });

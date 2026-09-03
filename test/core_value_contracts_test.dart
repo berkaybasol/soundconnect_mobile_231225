@@ -178,6 +178,24 @@ void main() {
       );
     });
 
+    test('authenticates mutable listener identity projections', () {
+      expect(
+        isPublicApiRequest(
+          'GET',
+          '/api/v1/public/listener-profiles/listener-1?view=compact',
+        ),
+        isFalse,
+      );
+      expect(
+        isPublicApiRequest('GET', '/api/v1/public/profiles/by-user/user-1'),
+        isFalse,
+      );
+      expect(
+        isPublicApiRequest('GET', '/api/v1/public/musician-profiles/id-1'),
+        isTrue,
+      );
+    });
+
     test('never treats write methods to discovery routes as public', () {
       expect(isPublicApiRequest('POST', '/api/v1/events'), isFalse);
       expect(isPublicApiRequest('PUT', '/api/v1/venues/item-1'), isFalse);

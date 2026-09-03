@@ -566,7 +566,26 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
       _assertActiveSession(pending);
     } on ApiException catch (error) {
       if (!_isRecoverableRequestCode(error.error.code)) {
-        await _pendingStore.remove(pending.key);
+        if (_isListenerProfilePictureIntent(pending.attachmentIntent)) {
+          // Delete before clearing the durable upload record. If deletion is
+          // ambiguous or fails, the original pending record survives and a
+          // later resume safely retries attachment/cleanup; a crash can never
+          // leave the verified image without a recovery owner.
+          _assertActiveSession(pending);
+          final deletion = await deleteOwnedAsset(
+            assetId: media.uuid,
+            ownerType: pending.ownerType,
+            ownerId: pending.ownerId,
+          );
+          final deletionCode = deletion.error?.code.trim() ?? '';
+          if (deletion.isSuccess ||
+              deletionCode == '1800' ||
+              deletionCode == '1823') {
+            await _pendingStore.remove(pending.key);
+          }
+        } else {
+          await _pendingStore.remove(pending.key);
+        }
       }
       _emit(
         pending,
@@ -580,6 +599,14 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
     onStageChanged?.call(ProfileUploadStage.completed);
     _emit(pending, ProfileUploadStage.completed, media: media);
     return media;
+  }
+
+  bool _isListenerProfilePictureIntent(ProfileUploadAttachmentIntent intent) {
+    if (intent.type != ProfileUploadAttachmentType.profilePicture) {
+      return false;
+    }
+    final profileType = intent.profileType?.trim().toUpperCase();
+    return profileType == 'LISTENER' || profileType == 'LISTENER_PROFILE';
   }
 
   Future<ProfileUploadedMedia> _completeOnce(PendingProfileUpload pending) {
@@ -637,6 +664,19 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
         return;
       case ProfileUploadAttachmentType.profilePicture:
         final profileType = intent.profileType!.trim().toUpperCase();
+        final listenerProfile =
+            profileType == 'LISTENER' || profileType == 'LISTENER_PROFILE';
+        final expectedVersion = intent.expectedVersion;
+        if (listenerProfile &&
+            (expectedVersion == null || expectedVersion < 0)) {
+          throw ApiException(
+            const AppError(
+              code: 'listener_avatar_expected_version_missing',
+              message:
+                  'Dinleyici fotoğrafı güvenle bağlanamadı; profili yenileyip tekrar deneyin.',
+            ),
+          );
+        }
         final endpoint = switch (profileType) {
           'MUSICIAN' ||
           'MUSICIAN_PROFILE' => '/api/v1/user/musician-profiles/update',
@@ -644,13 +684,20 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
           'VENUE' || 'VENUE_PROFILE' =>
             '/api/v1/user/venue-profiles/me/${intent.targetId}/detail',
           'STUDIO' || 'STUDIO_PROFILE' => '/api/v1/user/studio-profiles/update',
+          'LISTENER' ||
+          'LISTENER_PROFILE' => '/api/v1/user/listener-profiles/me/avatar',
           _ => throw StateError('Unsupported profile picture owner'),
         };
         _assertActiveSession(pending);
         await _apiClient.request<Object?>(
-          ApiHttpMethod.put,
+          listenerProfile ? ApiHttpMethod.patch : ApiHttpMethod.put,
           endpoint,
-          body: {'profilePicture': mediaId},
+          body: listenerProfile
+              ? <String, dynamic>{
+                  'profilePictureMediaId': mediaId,
+                  'expectedVersion': expectedVersion,
+                }
+              : <String, dynamic>{'profilePicture': mediaId},
           requestContext: _requestContext(pending),
           decoder: (json) => json,
         );
@@ -729,6 +776,10 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
 
   AppError? _validateIntent(ProfileUploadAttachmentIntent intent) {
     final profileType = intent.profileType?.trim() ?? '';
+    final normalizedProfileType = profileType.toUpperCase();
+    final listenerProfile =
+        normalizedProfileType == 'LISTENER' ||
+        normalizedProfileType == 'LISTENER_PROFILE';
     return switch (intent.type) {
       ProfileUploadAttachmentType.none => null,
       ProfileUploadAttachmentType.draft => null,
@@ -736,7 +787,10 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
       ProfileUploadAttachmentType.profilePicture
           when profileType.isNotEmpty &&
               (!profileType.toUpperCase().startsWith('VENUE') ||
-                  (intent.targetId?.trim().isNotEmpty ?? false)) =>
+                  (intent.targetId?.trim().isNotEmpty ?? false)) &&
+              (!listenerProfile ||
+                  (intent.expectedVersion != null &&
+                      intent.expectedVersion! >= 0)) =>
         null,
       ProfileUploadAttachmentType.track
           when profileType.isNotEmpty &&

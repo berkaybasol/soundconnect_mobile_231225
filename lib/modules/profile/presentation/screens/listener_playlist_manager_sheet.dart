@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../../shared/images/app_cached_network_image.dart';
-import '../../../../shared/theme/app_colors.dart';
 import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
 import '../../../spotify/domain/spotify_playlist_uri.dart';
 
@@ -16,7 +17,9 @@ class ListenerPlaylistSaveResult {
     this.latestPlaylists,
   });
 
-  const ListenerPlaylistSaveResult.success() : this._(succeeded: true);
+  const ListenerPlaylistSaveResult.success({
+    List<SpotifyPlaylistPreview>? latestPlaylists,
+  }) : this._(succeeded: true, latestPlaylists: latestPlaylists);
 
   const ListenerPlaylistSaveResult.failure(String message)
     : this._(succeeded: false, message: message);
@@ -33,9 +36,8 @@ class ListenerPlaylistSaveResult {
   final bool succeeded;
   final String? message;
 
-  /// Non-null only when the server rejected a stale optimistic version and
-  /// the owner profile was refreshed. Replacing the local drafts prevents a
-  /// second tap from silently overwriting another session's playlist update.
+  /// Carries the server-authoritative snapshots after a successful save or a
+  /// stale-version refresh. The sheet never invents Spotify metadata locally.
   final List<SpotifyPlaylistPreview>? latestPlaylists;
 }
 
@@ -77,14 +79,18 @@ class ListenerPlaylistManagerSheet extends StatefulWidget {
 class _ListenerPlaylistManagerSheetState
     extends State<ListenerPlaylistManagerSheet> {
   static const int _maximumPlaylists = 4;
+  static const Duration _autoSaveDelay = Duration(milliseconds: 900);
 
   final TextEditingController _urlController = TextEditingController();
   final FocusNode _urlFocusNode = FocusNode();
   late final List<_PlaylistDraft> _drafts;
+  late List<String> _lastSavedUrls;
+  Timer? _autoSaveTimer;
   int? _editingIndex;
   String? _inputError;
   String? _saveError;
   bool _saving = false;
+  _PlaylistSyncState _syncState = _PlaylistSyncState.idle;
 
   @override
   void initState() {
@@ -99,10 +105,14 @@ class _ListenerPlaylistManagerSheetState
           ),
         )
         .toList(growable: true);
+    _lastSavedUrls = ordered
+        .map((playlist) => playlist.spotifyUrl)
+        .toList(growable: false);
   }
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
     _urlController.dispose();
     _urlFocusNode.dispose();
     super.dispose();
@@ -112,7 +122,10 @@ class _ListenerPlaylistManagerSheetState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return PopScope(
-      canPop: !_saving,
+      canPop: !_saving && !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_requestClose());
+      },
       child: SafeArea(
         top: false,
         child: Padding(
@@ -176,7 +189,7 @@ class _ListenerPlaylistManagerSheetState
                                   tooltip: 'Kapat',
                                   onPressed: _saving
                                       ? null
-                                      : () => Navigator.of(context).pop(),
+                                      : () => unawaited(_requestClose()),
                                   icon: const Icon(Icons.close_rounded),
                                 ),
                               ],
@@ -189,6 +202,22 @@ class _ListenerPlaylistManagerSheetState
                             child: _buildUrlEditor(),
                           ),
                         ),
+                        if (_syncState != _PlaylistSyncState.idle)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                              child: _PlaylistSyncNotice(
+                                state: _syncState,
+                                errorMessage: _saveError,
+                                onRetry:
+                                    _syncState == _PlaylistSyncState.error &&
+                                        _hasUnsavedChanges &&
+                                        !_saving
+                                    ? () => unawaited(_flushAutoSave())
+                                    : null,
+                              ),
+                            ),
+                          ),
                         if (_drafts.isEmpty)
                           const SliverFillRemaining(
                             hasScrollBody: false,
@@ -213,51 +242,29 @@ class _ListenerPlaylistManagerSheetState
                               itemBuilder: (context, index) => Padding(
                                 key: ValueKey(_drafts[index].spotifyUrl),
                                 padding: const EdgeInsets.only(bottom: 10),
-                                child: _PlaylistDraftTile(
-                                  draft: _drafts[index],
+                                child: ReorderableDragStartListener(
+                                  key: Key(
+                                    'listener-playlist-drag-area-$index',
+                                  ),
                                   index: index,
                                   enabled: !_saving,
-                                  onEdit: () => _beginEdit(index),
-                                  onDelete: () => _remove(index),
-                                  onMoveUp: index == 0
-                                      ? null
-                                      : () => _move(index, index - 1),
-                                  onMoveDown: index == _drafts.length - 1
-                                      ? null
-                                      : () => _move(index, index + 1),
+                                  child: _PlaylistDraftTile(
+                                    draft: _drafts[index],
+                                    index: index,
+                                    enabled: !_saving,
+                                    onEdit: () => _beginEdit(index),
+                                    onDelete: () => _remove(index),
+                                    onMoveUp: index == 0
+                                        ? null
+                                        : () => _move(index, index - 1),
+                                    onMoveDown: index == _drafts.length - 1
+                                        ? null
+                                        : () => _move(index, index + 1),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF0D1421),
-                      border: Border(top: BorderSide(color: Color(0xFF202B3A))),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (_saveError != null) ...[
-                          Text(
-                            _saveError!,
-                            key: const Key('listener-playlist-save-error'),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFFFF8A92),
-                              fontSize: 11,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                        _SavePlaylistsButton(
-                          saving: _saving,
-                          onPressed: _saving ? null : _save,
-                        ),
                       ],
                     ),
                   ),
@@ -380,6 +387,7 @@ class _ListenerPlaylistManagerSheetState
       _saveError = null;
     });
     _urlFocusNode.unfocus();
+    _scheduleAutoSave();
   }
 
   void _beginEdit(int index) {
@@ -416,6 +424,7 @@ class _ListenerPlaylistManagerSheetState
       _inputError = null;
       _saveError = null;
     });
+    _scheduleAutoSave();
   }
 
   void _reorder(int oldIndex, int newIndex) {
@@ -433,45 +442,68 @@ class _ListenerPlaylistManagerSheetState
       _inputError = null;
       _saveError = null;
     });
+    _scheduleAutoSave();
   }
 
-  Future<void> _save() async {
-    if (_saving) return;
-    if (_editingIndex != null || _urlController.text.trim().isNotEmpty) {
-      _commitUrl();
-      if (_inputError != null) return;
+  List<String> get _draftUrls =>
+      _drafts.map((draft) => draft.spotifyUrl).toList(growable: false);
+
+  bool get _hasUnsavedChanges => !_sameUrls(_draftUrls, _lastSavedUrls);
+
+  void _scheduleAutoSave() {
+    _autoSaveTimer?.cancel();
+    if (!_hasUnsavedChanges) {
+      setState(() {
+        _syncState = _PlaylistSyncState.idle;
+        _saveError = null;
+      });
+      return;
     }
     setState(() {
-      _saving = true;
+      _syncState = _PlaylistSyncState.pending;
       _saveError = null;
     });
-    final result = await widget.onSave(
-      _drafts.map((draft) => draft.spotifyUrl).toList(growable: false),
-    );
+    _autoSaveTimer = Timer(_autoSaveDelay, () => unawaited(_flushAutoSave()));
+  }
+
+  Future<void> _flushAutoSave({bool closeAfterSuccess = false}) async {
+    if (_saving) return;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+    if (!_hasUnsavedChanges) {
+      if (closeAfterSuccess && mounted) Navigator.of(context).pop();
+      return;
+    }
+    final submittedUrls = _draftUrls;
+    setState(() {
+      _saving = true;
+      _syncState = _PlaylistSyncState.saving;
+      _saveError = null;
+    });
+    final result = await widget.onSave(submittedUrls);
     if (!mounted) return;
     if (result.succeeded) {
-      setState(() => _saving = false);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop(true);
+      setState(() {
+        _saving = false;
+        _syncState = _PlaylistSyncState.saved;
+        _saveError = null;
+        _replaceDraftsFromServer(result.latestPlaylists);
+        _lastSavedUrls = _draftUrls;
       });
+      if (closeAfterSuccess) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.of(context).pop(true);
+        });
+      }
       return;
     }
     final latestPlaylists = result.latestPlaylists;
     setState(() {
       _saving = false;
+      _syncState = _PlaylistSyncState.error;
       if (latestPlaylists != null) {
-        final ordered = [...latestPlaylists]
-          ..sort((a, b) => a.position.compareTo(b.position));
-        _drafts
-          ..clear()
-          ..addAll(
-            ordered.map(
-              (playlist) => _PlaylistDraft(
-                spotifyUrl: playlist.spotifyUrl,
-                preview: playlist,
-              ),
-            ),
-          );
+        _replaceDraftsFromServer(latestPlaylists);
+        _lastSavedUrls = _draftUrls;
         _editingIndex = null;
         _urlController.clear();
         _inputError = null;
@@ -482,6 +514,183 @@ class _ListenerPlaylistManagerSheetState
           : message;
     });
     if (latestPlaylists != null) _urlFocusNode.unfocus();
+  }
+
+  void _replaceDraftsFromServer(List<SpotifyPlaylistPreview>? latestPlaylists) {
+    if (latestPlaylists == null) return;
+    final ordered = [...latestPlaylists]
+      ..sort((a, b) => a.position.compareTo(b.position));
+    _drafts
+      ..clear()
+      ..addAll(
+        ordered.map(
+          (playlist) => _PlaylistDraft(
+            spotifyUrl: playlist.spotifyUrl,
+            preview: playlist,
+          ),
+        ),
+      );
+  }
+
+  Future<void> _requestClose() async {
+    if (_saving) return;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+    if (!_hasUnsavedChanges) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    if (_saveError == null) {
+      await _flushAutoSave(closeAfterSuccess: true);
+      return;
+    }
+
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF111A2A),
+        title: const Text('Kaydedilmemiş değişiklikler'),
+        content: const Text(
+          'Değişiklikler kaydedilemedi. Çıkarsan son düzenlemelerin silinir.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Değişiklikleri Sil'),
+          ),
+        ],
+      ),
+    );
+    if (discard == true && mounted) Navigator.of(context).pop(false);
+  }
+}
+
+bool _sameUrls(List<String> first, List<String> second) {
+  if (first.length != second.length) return false;
+  for (var index = 0; index < first.length; index++) {
+    if (first[index] != second[index]) return false;
+  }
+  return true;
+}
+
+enum _PlaylistSyncState { idle, pending, saving, saved, error }
+
+class _PlaylistSyncNotice extends StatelessWidget {
+  const _PlaylistSyncNotice({
+    required this.state,
+    required this.errorMessage,
+    required this.onRetry,
+  });
+
+  final _PlaylistSyncState state;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final (message, foreground, background, border) = switch (state) {
+      _PlaylistSyncState.pending => (
+        'Değişiklikler otomatik kaydedilecek',
+        const Color(0xFFD7B5F7),
+        const Color(0x172E1F43),
+        const Color(0x553E2B55),
+      ),
+      _PlaylistSyncState.saving => (
+        'Kaydediliyor…',
+        const Color(0xFFD7B5F7),
+        const Color(0x172E1F43),
+        const Color(0x553E2B55),
+      ),
+      _PlaylistSyncState.saved => (
+        'Kaydedildi',
+        const Color(0xFF68D9A5),
+        const Color(0x1420A76A),
+        const Color(0x4436C98B),
+      ),
+      _PlaylistSyncState.error => (
+        errorMessage?.trim().isNotEmpty == true
+            ? errorMessage!.trim()
+            : 'Çalma listeleri güncellenemedi.',
+        const Color(0xFFFF9AA1),
+        const Color(0x18E55C68),
+        const Color(0x55E55C68),
+      ),
+      _PlaylistSyncState.idle => (
+        '',
+        const Color(0xFF9CA7B8),
+        Colors.transparent,
+        Colors.transparent,
+      ),
+    };
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      child: Container(
+        key: ValueKey(state),
+        constraints: const BoxConstraints(minHeight: 36),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            if (state == _PlaylistSyncState.saving)
+              SizedBox.square(
+                key: const Key('listener-playlist-saving'),
+                dimension: 15,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.8,
+                  color: foreground,
+                ),
+              )
+            else
+              Icon(
+                state == _PlaylistSyncState.saved
+                    ? Icons.cloud_done_outlined
+                    : state == _PlaylistSyncState.error
+                    ? Icons.cloud_off_outlined
+                    : Icons.cloud_upload_outlined,
+                size: 17,
+                color: foreground,
+              ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                key: state == _PlaylistSyncState.error
+                    ? const Key('listener-playlist-save-error')
+                    : null,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 10.5,
+                  height: 1.3,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(width: 6),
+              TextButton(
+                key: const Key('listener-playlist-save-retry'),
+                onPressed: onRetry,
+                style: TextButton.styleFrom(
+                  foregroundColor: foreground,
+                  minimumSize: const Size(48, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('Tekrar Dene'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -597,16 +806,12 @@ class _PlaylistDraftTile extends StatelessWidget {
               ),
             ],
           ),
-          ReorderableDragStartListener(
-            index: index,
-            enabled: enabled,
-            child: SizedBox.square(
-              key: Key('listener-playlist-drag-$index'),
-              dimension: 48,
-              child: const Icon(
-                Icons.drag_indicator_rounded,
-                color: Color(0xFF8490A3),
-              ),
+          SizedBox.square(
+            key: Key('listener-playlist-drag-$index'),
+            dimension: 48,
+            child: const Icon(
+              Icons.drag_indicator_rounded,
+              color: Color(0xFF8490A3),
             ),
           ),
         ],
@@ -705,52 +910,6 @@ class _PlaylistManagerEmpty extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SavePlaylistsButton extends StatelessWidget {
-  const _SavePlaylistsButton({required this.saving, required this.onPressed});
-
-  final bool saving;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: onPressed == null
-            ? const LinearGradient(
-                colors: [Color(0xFF384150), Color(0xFF29313E)],
-              )
-            : LinearGradient(colors: AppColors.brandGradient),
-        borderRadius: BorderRadius.circular(17),
-      ),
-      child: FilledButton(
-        key: const Key('listener-playlist-save'),
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
-          backgroundColor: Colors.transparent,
-          disabledBackgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(17),
-          ),
-        ),
-        child: saving
-            ? const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Text(
-                'Değişiklikleri Kaydet',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
       ),
     );
   }

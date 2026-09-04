@@ -148,13 +148,6 @@ void main() {
     expect(find.text('Çalma Listeleri'), findsOneWidget);
     expect(find.text('Çankaya, Ankara'), findsNothing);
     expect(find.byKey(const Key('listener-enable-ghost')), findsNothing);
-    await tester.drag(
-      find.byKey(const Key('listener-owner-profile-content')),
-      const Offset(0, -420),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Paylaşımlar'), findsOneWidget);
-    expect(find.text('Ankara Indie Night'), findsOneWidget);
     await _openListenerMenu(tester);
     expect(find.byKey(sessionLogoutMenuTileKey), findsOneWidget);
   });

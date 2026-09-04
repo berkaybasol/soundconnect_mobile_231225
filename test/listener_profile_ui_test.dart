@@ -156,13 +156,14 @@ void main() {
   testWidgets('standard owner fixtures require an explicit preview flag', (
     tester,
   ) async {
+    var editPlaylistCalls = 0;
     await tester.pumpWidget(
       _testApp(
         ListenerProfileOwnerContent(
           profile: _owner,
           onEditProfile: () {},
           onEditAvatar: () {},
-          onEditPlaylists: () {},
+          onEditPlaylists: () => editPlaylistCalls++,
           onPlaylistTap: (_) {},
           onPreviewAction: (_) {},
         ),
@@ -181,7 +182,27 @@ void main() {
       findsNothing,
     );
     expect(find.text('Çalma Listeleri'), findsOneWidget);
-    expect(find.text('Müziğini profiline taşı'), findsOneWidget);
+    expect(find.text('Müziğini profiline taşı'), findsNothing);
+    final emptyPlaylistAdd = find.byKey(
+      const Key('listener-playlist-empty-add'),
+    );
+    expect(emptyPlaylistAdd, findsOneWidget);
+    expect(tester.getSize(emptyPlaylistAdd), const Size.square(62));
+    expect(
+      tester.getSize(find.widgetWithText(TextButton, 'Ekle')).height,
+      greaterThanOrEqualTo(48),
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Çalma listesi ekle' &&
+            widget.properties.onTap != null,
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(emptyPlaylistAdd);
+    expect(editPlaylistCalls, 1);
     expect(find.text('Paylaşımlar'), findsNothing);
     expect(find.text('Ankara Indie Night'), findsNothing);
   });
@@ -285,7 +306,15 @@ void main() {
 
       expect(find.text('Çalma Listeleri'), findsOneWidget);
       expect(find.text('Today’s Top Hits'), findsOneWidget);
-      expect(find.text('Spotify'), findsOneWidget);
+      expect(find.text('Spotify'), findsNothing);
+      expect(
+        find.byKey(const Key('listener-playlist-heading-spotify-icon')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('listener-playlist-card-spotify-icon-0')),
+        findsOneWidget,
+      );
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -296,8 +325,18 @@ void main() {
       );
       expect(
         tester.getSize(find.byKey(const Key('listener-playlist-0'))).width,
-        76,
+        170,
       );
+      expect(
+        tester.getSize(find.byKey(const Key('listener-playlist-0'))).height,
+        62,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('listener-playlist-artwork-0'))),
+        const Size.square(36),
+      );
+      await tester.ensureVisible(find.byKey(const Key('listener-playlist-0')));
+      await tester.pump();
       final playlistSemantics = tester.getSemantics(
         find.bySemanticsLabel('Today’s Top Hits, Spotify’da aç'),
       );
@@ -381,6 +420,15 @@ void main() {
         tester.getSize(find.byKey(const Key('listener-playlist-drag-0'))),
         const Size.square(48),
       );
+      final fullCardDrag = tester.widget<ReorderableDragStartListener>(
+        find.byKey(const Key('listener-playlist-drag-area-0')),
+      );
+      expect(fullCardDrag.index, 0);
+      expect(fullCardDrag.enabled, isTrue);
+      expect(
+        tester.getSize(find.byKey(const Key('listener-playlist-drag-area-0'))),
+        tester.getSize(find.byKey(const Key('listener-playlist-draft-0'))),
+      );
 
       await tester.enterText(
         find.byKey(const Key('listener-playlist-url-input')),
@@ -394,12 +442,17 @@ void main() {
         find.byKey(const Key('listener-playlist-url-input')),
         '',
       );
-      await tester.tap(find.byKey(const Key('listener-playlist-save')));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
       expect(submitted, <String>[
         'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
       ]);
       expect(find.text('Spotify şu anda yanıt vermiyor.'), findsOneWidget);
+      expect(
+        find.byKey(const Key('listener-playlist-save-retry')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('listener-playlist-save')), findsNothing);
     },
   );
 
@@ -419,7 +472,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Çalma Listelerim'), findsOneWidget);
-    expect(find.byKey(const Key('listener-playlist-save')), findsOneWidget);
+    expect(find.byKey(const Key('listener-playlist-save')), findsNothing);
     await tester.scrollUntilVisible(
       find.byKey(const Key('listener-playlist-drag-0')),
       160,
@@ -436,8 +489,16 @@ void main() {
   });
 
   testWidgets(
-    'playlist manager cannot dismiss in flight and closes after success',
+    'playlist manager cannot dismiss in flight and closes explicitly after success',
     (tester) async {
+      const newlyAdded = SpotifyPlaylistPreview(
+        id: 'playlist-link-2',
+        spotifyPlaylistId: '0vvXsWCC9xrXsKd4FyS8kM',
+        title: 'Yeni Liste',
+        coverImageUrl: 'https://i.scdn.co/image/new-cover',
+        spotifyUrl: 'https://open.spotify.com/playlist/0vvXsWCC9xrXsKd4FyS8kM',
+        position: 1,
+      );
       final saveCompleter = Completer<ListenerPlaylistSaveResult>();
       await tester.pumpWidget(
         _testApp(
@@ -460,8 +521,14 @@ void main() {
       await tester.tap(find.byKey(const Key('open-playlist-manager')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      await tester.tap(find.byKey(const Key('listener-playlist-save')));
+      await tester.enterText(
+        find.byKey(const Key('listener-playlist-url-input')),
+        newlyAdded.spotifyUrl,
+      );
+      await tester.tap(find.byKey(const Key('listener-playlist-url-commit')));
+      await tester.pump(const Duration(seconds: 1));
       await tester.pump();
+      expect(find.byKey(const Key('listener-playlist-saving')), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pump();
@@ -469,10 +536,30 @@ void main() {
       await tester.pump();
       expect(find.text('Çalma Listelerim'), findsOneWidget);
 
-      saveCompleter.complete(const ListenerPlaylistSaveResult.success());
+      saveCompleter.complete(
+        const ListenerPlaylistSaveResult.success(
+          latestPlaylists: <SpotifyPlaylistPreview>[_playlist, newlyAdded],
+        ),
+      );
       await tester.pump();
+      await tester.pump(Duration.zero);
       await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Çalma Listelerim'), findsOneWidget);
+      expect(find.text('Yeni Liste'), findsOneWidget);
+      expect(find.byKey(const Key('listener-playlist-saving')), findsNothing);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byKey(const Key('listener-playlist-manager-close')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      await tester.tap(
+        find.byKey(const Key('listener-playlist-manager-close')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
       expect(find.text('Çalma Listelerim'), findsNothing);
       expect(tester.takeException(), isNull);
     },
@@ -509,11 +596,18 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byKey(const Key('listener-playlist-save')));
+      await tester.enterText(
+        find.byKey(const Key('listener-playlist-url-input')),
+        latest.spotifyUrl,
+      );
+      await tester.tap(find.byKey(const Key('listener-playlist-url-commit')));
+      await tester.pump(const Duration(seconds: 1));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
 
-      expect(submissions.single, <String>[_playlist.spotifyUrl]);
+      expect(submissions.single, <String>[
+        _playlist.spotifyUrl,
+        latest.spotifyUrl,
+      ]);
       expect(find.text('Today’s Top Hits'), findsNothing);
       expect(find.text('Güncel Liste'), findsOneWidget);
       expect(
@@ -521,10 +615,17 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const Key('listener-playlist-save')));
+      await tester.enterText(
+        find.byKey(const Key('listener-playlist-url-input')),
+        _playlist.spotifyUrl,
+      );
+      await tester.tap(find.byKey(const Key('listener-playlist-url-commit')));
+      await tester.pump(const Duration(seconds: 1));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(submissions.last, <String>[latest.spotifyUrl]);
+      expect(submissions.last, <String>[
+        latest.spotifyUrl,
+        _playlist.spotifyUrl,
+      ]);
       expect(find.text('Çalma Listelerim'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -759,11 +860,6 @@ void main() {
         tester.getCenter(standardAvatarEditTarget) + const Offset(20, 0),
       );
       expect(avatarEditCalls, 1);
-      expect(
-        tester.getSize(find.widgetWithText(TextButton, 'Ekle')).height,
-        greaterThanOrEqualTo(48),
-      );
-
       for (var index = 0; index < 8; index++) {
         await tester.drag(
           find.byKey(const Key('listener-owner-profile-content')),

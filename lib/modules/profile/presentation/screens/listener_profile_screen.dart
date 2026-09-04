@@ -349,14 +349,16 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
         final result = cubit.state;
         if (result.status == ListenerProfileStatus.success &&
             result.action == ListenerProfileAction.updatePlaylists) {
-          return const ListenerPlaylistSaveResult.success();
+          return ListenerPlaylistSaveResult.success(
+            latestPlaylists: result.profile?.playlists,
+          );
         }
         if (_isVersionConflict(result.error?.code) &&
             result.profile != null &&
             result.profile!.version != profile.version) {
           return ListenerPlaylistSaveResult.conflict(
             message:
-                'Profil başka bir oturumda değişti. Güncel çalma listelerini yükledik; kontrol edip yeniden kaydet.',
+                'Profil başka bir oturumda değişti. Güncel çalma listelerini yükledik; yapmak istediğin değişikliği yeniden uygula.',
             latestPlaylists: result.profile!.playlists,
           );
         }

@@ -3,6 +3,7 @@ import '../../../core/error/result.dart';
 import 'entities/listener_profile.dart';
 import 'entities/listener_public_profile.dart';
 import 'entities/listener_visibility_mode.dart';
+import '../../spotify/domain/spotify_playlist_uri.dart';
 
 abstract class ListenerProfileRepository {
   const ListenerProfileRepository();
@@ -51,6 +52,43 @@ abstract class ListenerProfileRepository {
         message: 'Profil fotoğrafı güncellenemiyor.',
       ),
     );
+  }
+
+  Future<Result<ListenerProfile>> replacePlaylists(
+    ListenerPlaylistsReplaceRequest request,
+  ) async {
+    return const Result.failure(
+      AppError(
+        code: 'listener_playlists_update_unsupported',
+        message: 'Çalma listeleri güncellenemiyor.',
+      ),
+    );
+  }
+}
+
+class ListenerPlaylistsReplaceRequest {
+  final List<String> spotifyUrls;
+  final int expectedVersion;
+
+  const ListenerPlaylistsReplaceRequest({
+    required this.spotifyUrls,
+    required this.expectedVersion,
+  });
+
+  Map<String, dynamic>? toValidatedJson() {
+    if (expectedVersion < 0 || spotifyUrls.length > 4) return null;
+    final normalized = <String>[];
+    final ids = <String>{};
+    for (final rawUrl in spotifyUrls) {
+      final url = normalizeSpotifyPlaylistUrl(rawUrl);
+      final id = spotifyPlaylistIdFromUrl(url);
+      if (url == null || id == null || !ids.add(id)) return null;
+      normalized.add(url);
+    }
+    return <String, dynamic>{
+      'spotifyUrls': List<String>.unmodifiable(normalized),
+      'expectedVersion': expectedVersion,
+    };
   }
 }
 

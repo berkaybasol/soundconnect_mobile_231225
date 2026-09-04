@@ -1,15 +1,3 @@
-class ListenerPlaylistPreview {
-  const ListenerPlaylistPreview({
-    required this.badge,
-    required this.title,
-    required this.trackCount,
-  });
-
-  final String badge;
-  final String title;
-  final int trackCount;
-}
-
 class ListenerEventSharePreview {
   const ListenerEventSharePreview({
     required this.meta,
@@ -53,13 +41,11 @@ class ListenerOverthinkingSharePreview {
 class ListenerProfilePreviewData {
   const ListenerProfilePreviewData({
     required this.fallbackBio,
-    required this.playlists,
     required this.eventShare,
     required this.overthinkingShare,
   });
 
   final String fallbackBio;
-  final List<ListenerPlaylistPreview> playlists;
   final ListenerEventSharePreview eventShare;
   final ListenerOverthinkingSharePreview overthinkingShare;
 }
@@ -67,20 +53,6 @@ class ListenerProfilePreviewData {
 const listenerOwnerPreviewData = ListenerProfilePreviewData(
   fallbackBio:
       'Yeni gruplar, canlı performanslar ve gece eve dönerken iyi giden şarkılar.',
-  playlists: <ListenerPlaylistPreview>[
-    ListenerPlaylistPreview(
-      badge: '02:00',
-      title: 'Gece Eve Dönüş',
-      trackCount: 48,
-    ),
-    ListenerPlaylistPreview(badge: 'ANK', title: 'Ankara Alt', trackCount: 72),
-    ListenerPlaylistPreview(
-      badge: 'YENİ',
-      title: 'Yeni Sesler',
-      trackCount: 31,
-    ),
-    ListenerPlaylistPreview(badge: 'YOL', title: 'Uzun Yol', trackCount: 56),
-  ],
   eventShare: ListenerEventSharePreview(
     meta: 'Bir plan paylaştı · 2 saat önce',
     message:

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +19,7 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listen
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/listener_profile_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/listener_profile_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_ghost_profile_content.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_playlist_manager_sheet.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_owner_content.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_preview_data.dart';
@@ -25,6 +28,7 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/l
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_public_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/modules/spotify/domain/entities/spotify_playlist_preview.dart';
 
 void main() {
   testWidgets('ghost public profile exposes only identity and direct message', (
@@ -159,6 +163,7 @@ void main() {
           onEditProfile: () {},
           onEditAvatar: () {},
           onEditPlaylists: () {},
+          onPlaylistTap: (_) {},
           onPreviewAction: (_) {},
         ),
       ),
@@ -175,7 +180,8 @@ void main() {
       find.byKey(const Key('listener-owner-ghost-status-card')),
       findsNothing,
     );
-    expect(find.text('Çalma Listeleri'), findsNothing);
+    expect(find.text('Çalma Listeleri'), findsOneWidget);
+    expect(find.text('Müziğini profiline taşı'), findsOneWidget);
     expect(find.text('Paylaşımlar'), findsNothing);
     expect(find.text('Ankara Indie Night'), findsNothing);
   });
@@ -237,6 +243,7 @@ void main() {
           isFollowing: false,
           followBusy: false,
           onRefresh: () async {},
+          onPlaylistTap: (_) {},
           onFollow: () {},
           onMessage: () {},
         ),
@@ -254,6 +261,274 @@ void main() {
     expect(find.text('Çalma Listeleri'), findsNothing);
     expect(find.text('Paylaşımlar'), findsNothing);
   });
+
+  testWidgets(
+    'owner playlist section shows square Spotify metadata and opens it',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      SpotifyPlaylistPreview? opened;
+      await tester.pumpWidget(
+        _testApp(
+          ListenerProfileOwnerContent(
+            profile: _ownerWithPlaylists,
+            previewData: listenerOwnerPreviewData,
+            showPreviewSections: true,
+            onEditProfile: () {},
+            onEditAvatar: () {},
+            onEditPlaylists: () {},
+            onPlaylistTap: (playlist) => opened = playlist,
+            onPreviewAction: (_) {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Çalma Listeleri'), findsOneWidget);
+      expect(find.text('Today’s Top Hits'), findsOneWidget);
+      expect(find.text('Spotify'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              RegExp(r'^\d+ şarkı$').hasMatch(widget.data?.trim() ?? ''),
+        ),
+        findsNothing,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('listener-playlist-0'))).width,
+        76,
+      );
+      final playlistSemantics = tester.getSemantics(
+        find.bySemanticsLabel('Today’s Top Hits, Spotify’da aç'),
+      );
+      expect(
+        playlistSemantics.getSemanticsData().hasAction(SemanticsAction.tap),
+        isTrue,
+      );
+
+      await tester.tap(find.byKey(const Key('listener-playlist-0')));
+      expect(opened?.spotifyPlaylistId, '37i9dQZF1DXcBWIGoYBM5M');
+      semantics.dispose();
+    },
+  );
+
+  testWidgets(
+    'public playlist section is omitted when empty and shown when set',
+    (tester) async {
+      SpotifyPlaylistPreview? opened;
+      await tester.pumpWidget(
+        _testApp(
+          ListenerPublicProfileContent(
+            profile: _publicWithPlaylists,
+            isFollowing: false,
+            followBusy: false,
+            onRefresh: () async {},
+            onPlaylistTap: (playlist) => opened = playlist,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Çalma Listeleri'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('listener-playlist-0')));
+      await tester.tap(find.byKey(const Key('listener-playlist-0')));
+      expect(opened, same(_playlist));
+
+      await tester.pumpWidget(
+        _testApp(
+          ListenerPublicProfileContent(
+            profile: _public,
+            isFollowing: false,
+            followBusy: false,
+            onRefresh: () async {},
+            onPlaylistTap: (_) {},
+          ),
+        ),
+      );
+      expect(find.text('Çalma Listeleri'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'playlist manager validates duplicates and keeps save errors inline',
+    (tester) async {
+      List<String>? submitted;
+      await tester.pumpWidget(
+        _testApp(
+          ListenerPlaylistManagerSheet(
+            initialPlaylists: const <SpotifyPlaylistPreview>[],
+            onSave: (spotifyUrls) async {
+              submitted = spotifyUrls;
+              return const ListenerPlaylistSaveResult.failure(
+                'Spotify şu anda yanıt vermiyor.',
+              );
+            },
+          ),
+        ),
+      );
+
+      const sharedUrl =
+          'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=test';
+      await tester.enterText(
+        find.byKey(const Key('listener-playlist-url-input')),
+        sharedUrl,
+      );
+      await tester.tap(find.byKey(const Key('listener-playlist-url-commit')));
+      await tester.pump();
+      expect(find.textContaining('1/4'), findsOneWidget);
+      expect(find.text('Spotify çalma listesi'), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('listener-playlist-drag-0'))),
+        const Size.square(48),
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('listener-playlist-url-input')),
+        sharedUrl,
+      );
+      await tester.tap(find.byKey(const Key('listener-playlist-url-commit')));
+      await tester.pump();
+      expect(find.text('Bu çalma listesi zaten profilinde.'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('listener-playlist-url-input')),
+        '',
+      );
+      await tester.tap(find.byKey(const Key('listener-playlist-save')));
+      await tester.pumpAndSettle();
+      expect(submitted, <String>[
+        'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+      ]);
+      expect(find.text('Spotify şu anda yanıt vermiyor.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('playlist manager remains usable at 320px and 200% text', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _scaledTestApp(
+        ListenerPlaylistManagerSheet(
+          initialPlaylists: const <SpotifyPlaylistPreview>[_playlist],
+          onSave: (_) async => const ListenerPlaylistSaveResult.success(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Çalma Listelerim'), findsOneWidget);
+    expect(find.byKey(const Key('listener-playlist-save')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('listener-playlist-drag-0')),
+      160,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('listener-playlist-manager-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('listener-playlist-drag-0')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'playlist manager cannot dismiss in flight and closes after success',
+    (tester) async {
+      final saveCompleter = Completer<ListenerPlaylistSaveResult>();
+      await tester.pumpWidget(
+        _testApp(
+          Builder(
+            builder: (context) => Center(
+              child: FilledButton(
+                key: const Key('open-playlist-manager'),
+                onPressed: () => showListenerPlaylistManagerSheet(
+                  context: context,
+                  initialPlaylists: const <SpotifyPlaylistPreview>[_playlist],
+                  onSave: (_) => saveCompleter.future,
+                ),
+                child: const Text('Aç'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('open-playlist-manager')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.byKey(const Key('listener-playlist-save')));
+      await tester.pump();
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pump();
+      expect(find.text('Çalma Listelerim'), findsOneWidget);
+
+      saveCompleter.complete(const ListenerPlaylistSaveResult.success());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Çalma Listelerim'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'playlist manager reloads authoritative drafts after a version conflict',
+    (tester) async {
+      const latest = SpotifyPlaylistPreview(
+        id: 'playlist-link-2',
+        spotifyPlaylistId: '0vvXsWCC9xrXsKd4FyS8kM',
+        title: 'Güncel Liste',
+        coverImageUrl: 'https://i.scdn.co/image/current-cover',
+        spotifyUrl: 'https://open.spotify.com/playlist/0vvXsWCC9xrXsKd4FyS8kM',
+        position: 0,
+      );
+      final submissions = <List<String>>[];
+      await tester.pumpWidget(
+        _testApp(
+          ListenerPlaylistManagerSheet(
+            initialPlaylists: const <SpotifyPlaylistPreview>[_playlist],
+            onSave: (spotifyUrls) async {
+              submissions.add(List<String>.of(spotifyUrls));
+              if (submissions.length == 1) {
+                return const ListenerPlaylistSaveResult.conflict(
+                  message:
+                      'Profil başka bir oturumda değişti. Güncel çalma listelerini yükledik.',
+                  latestPlaylists: <SpotifyPlaylistPreview>[latest],
+                );
+              }
+              return const ListenerPlaylistSaveResult.failure('Test sonu');
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('listener-playlist-save')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(submissions.single, <String>[_playlist.spotifyUrl]);
+      expect(find.text('Today’s Top Hits'), findsNothing);
+      expect(find.text('Güncel Liste'), findsOneWidget);
+      expect(
+        find.textContaining('Güncel çalma listelerini yükledik'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('listener-playlist-save')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(submissions.last, <String>[latest.spotifyUrl]);
+      expect(find.text('Çalma Listelerim'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'ghost follow race refreshes stale standard projection after backend 1206',
@@ -392,6 +667,7 @@ void main() {
           onEditProfile: () {},
           onEditAvatar: () {},
           onEditPlaylists: () {},
+          onPlaylistTap: (_) {},
           onPreviewAction: (_) {},
         ),
       ),
@@ -439,6 +715,7 @@ void main() {
           isFollowing: false,
           followBusy: false,
           onRefresh: () async {},
+          onPlaylistTap: (_) {},
           onFollow: () {},
           onMessage: () {},
         ),
@@ -464,6 +741,7 @@ void main() {
             onEditProfile: () {},
             onEditAvatar: () => avatarEditCalls += 1,
             onEditPlaylists: () {},
+            onPlaylistTap: (_) {},
             onPreviewAction: (_) {},
           ),
         ),
@@ -482,7 +760,7 @@ void main() {
       );
       expect(avatarEditCalls, 1);
       expect(
-        tester.getSize(find.widgetWithText(TextButton, 'Düzenle')).height,
+        tester.getSize(find.widgetWithText(TextButton, 'Ekle')).height,
         greaterThanOrEqualTo(48),
       );
 
@@ -603,6 +881,25 @@ const _ownerWithLongIdentity = ListenerProfile(
   profileContentEditable: true,
   avatarEditable: true,
   canReceiveFollowers: true,
+  playlists: <SpotifyPlaylistPreview>[_playlist],
+);
+
+const _ownerWithPlaylists = ListenerProfile(
+  id: 'profile-1',
+  userId: 'user-1',
+  username: 'listener',
+  bio: 'Gerçek bio',
+  profilePictureMediaId: null,
+  profilePictureUrl: null,
+  followerCount: 4,
+  followingCount: 6,
+  visibilityMode: ListenerVisibilityMode.standard,
+  version: 2,
+  profileContentVisible: true,
+  profileContentEditable: true,
+  avatarEditable: true,
+  canReceiveFollowers: true,
+  playlists: <SpotifyPlaylistPreview>[_playlist],
 );
 
 const _public = ListenerPublicProfile(
@@ -634,6 +931,32 @@ const _publicWithLongIdentity = ListenerPublicProfile(
   restricted: false,
   canFollow: true,
   canMessage: true,
+  playlists: <SpotifyPlaylistPreview>[_playlist],
+);
+
+const _publicWithPlaylists = ListenerPublicProfile(
+  id: 'profile-1',
+  userId: 'user-1',
+  username: 'listener',
+  visibilityMode: ListenerVisibilityMode.standard,
+  bio: 'Gerçek public bio',
+  profilePictureMediaId: null,
+  profilePictureUrl: null,
+  followerCount: 8,
+  followingCount: 3,
+  restricted: false,
+  canFollow: true,
+  canMessage: true,
+  playlists: <SpotifyPlaylistPreview>[_playlist],
+);
+
+const _playlist = SpotifyPlaylistPreview(
+  id: 'playlist-link-1',
+  spotifyPlaylistId: '37i9dQZF1DXcBWIGoYBM5M',
+  title: 'Today’s Top Hits',
+  coverImageUrl: 'https://i.scdn.co/image/playlist-cover',
+  spotifyUrl: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+  position: 0,
 );
 
 const _ghostPublic = ListenerPublicProfile(

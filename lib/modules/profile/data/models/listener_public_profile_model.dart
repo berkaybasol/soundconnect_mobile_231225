@@ -1,5 +1,6 @@
 import '../../domain/entities/listener_public_profile.dart';
 import '../../domain/entities/listener_visibility_mode.dart';
+import '../../../spotify/data/models/spotify_playlist_preview_model.dart';
 import 'listener_profile_model_support.dart';
 
 class ListenerPublicProfileModel extends ListenerPublicProfile {
@@ -16,6 +17,7 @@ class ListenerPublicProfileModel extends ListenerPublicProfile {
     required super.restricted,
     required super.canFollow,
     required super.canMessage,
+    required super.playlists,
   });
 
   factory ListenerPublicProfileModel.fromJson(Object? value) {
@@ -32,6 +34,7 @@ class ListenerPublicProfileModel extends ListenerPublicProfile {
     final restricted = listenerRequiredBool(json, 'restricted');
     final canFollow = listenerRequiredBool(json, 'canFollow');
     final canMessage = listenerRequiredBool(json, 'canMessage');
+    final playlists = spotifyPlaylistPreviewsFromJson(json['playlists']);
 
     _validatePublicProjection(
       visibilityMode: visibilityMode,
@@ -41,6 +44,7 @@ class ListenerPublicProfileModel extends ListenerPublicProfile {
       restricted: restricted,
       canFollow: canFollow,
       canMessage: canMessage,
+      playlists: playlists,
     );
 
     return ListenerPublicProfileModel(
@@ -62,6 +66,7 @@ class ListenerPublicProfileModel extends ListenerPublicProfile {
       restricted: restricted,
       canFollow: canFollow,
       canMessage: canMessage,
+      playlists: playlists,
     );
   }
 
@@ -73,6 +78,7 @@ class ListenerPublicProfileModel extends ListenerPublicProfile {
     required bool restricted,
     required bool canFollow,
     required bool canMessage,
+    required List<Object> playlists,
   }) {
     if (!canMessage) {
       throw const FormatException('Listener profiles must remain messageable');
@@ -86,6 +92,11 @@ class ListenerPublicProfileModel extends ListenerPublicProfile {
       if (!restricted || canFollow) {
         throw const FormatException(
           'Ghost public projection has inconsistent capabilities',
+        );
+      }
+      if (playlists.isNotEmpty) {
+        throw const FormatException(
+          'Ghost public projection must omit playlists',
         );
       }
       return;

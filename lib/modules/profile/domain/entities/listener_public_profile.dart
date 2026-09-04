@@ -1,4 +1,5 @@
 import 'listener_visibility_mode.dart';
+import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
 
 /// Public-safe listener projection.
 ///
@@ -18,6 +19,7 @@ class ListenerPublicProfile {
   final bool restricted;
   final bool canFollow;
   final bool canMessage;
+  final List<SpotifyPlaylistPreview> playlists;
 
   const ListenerPublicProfile({
     required this.id,
@@ -32,6 +34,7 @@ class ListenerPublicProfile {
     required this.restricted,
     required this.canFollow,
     required this.canMessage,
+    this.playlists = const <SpotifyPlaylistPreview>[],
   });
 
   bool get isGhost => visibilityMode == ListenerVisibilityMode.ghost;

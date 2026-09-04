@@ -18,11 +18,13 @@ import '../cubit/listener_profile_cubit.dart';
 import '../cubit/listener_profile_state.dart';
 import '../listener_visibility_error_message.dart';
 import 'listener_ghost_profile_content.dart';
+import 'listener_playlist_manager_sheet.dart';
 import 'listener_profile_owner_content.dart';
 import 'listener_profile_preview_data.dart';
 import 'listener_profile_theme.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_screen_support.dart';
+import 'spotify_playlist_launcher.dart';
 
 class ListenerProfileScreen extends StatelessWidget {
   const ListenerProfileScreen({
@@ -175,7 +177,9 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
         actionBusy: actionBusy,
         onEditProfile: () => unawaited(_openSettings()),
         onEditAvatar: () => _openAvatarActions(profile),
-        onEditPlaylists: () => _showUnavailableMessage('Çalma listeleri'),
+        onEditPlaylists: () => unawaited(_openPlaylistManager(profile)),
+        onPlaylistTap: (playlist) =>
+            unawaited(launchSpotifyPlaylist(context, playlist.spotifyUrl)),
         onPreviewAction: _showUnavailableMessage,
       ),
     );
@@ -332,6 +336,41 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     );
     if (confirmed != true || !mounted) return;
     await context.read<ListenerProfileCubit>().updateAvatar(null);
+  }
+
+  Future<void> _openPlaylistManager(ListenerProfile profile) async {
+    if (!profile.profileContentEditable) return;
+    final cubit = context.read<ListenerProfileCubit>();
+    await showListenerPlaylistManagerSheet(
+      context: context,
+      initialPlaylists: profile.playlists,
+      onSave: (spotifyUrls) async {
+        await cubit.replacePlaylists(spotifyUrls);
+        final result = cubit.state;
+        if (result.status == ListenerProfileStatus.success &&
+            result.action == ListenerProfileAction.updatePlaylists) {
+          return const ListenerPlaylistSaveResult.success();
+        }
+        if (_isVersionConflict(result.error?.code) &&
+            result.profile != null &&
+            result.profile!.version != profile.version) {
+          return ListenerPlaylistSaveResult.conflict(
+            message:
+                'Profil başka bir oturumda değişti. Güncel çalma listelerini yükledik; kontrol edip yeniden kaydet.',
+            latestPlaylists: result.profile!.playlists,
+          );
+        }
+        return ListenerPlaylistSaveResult.failure(
+          result.error?.message ??
+              'Çalma listeleri güncellenemedi. Lütfen tekrar dene.',
+        );
+      },
+    );
+  }
+
+  bool _isVersionConflict(String? rawCode) {
+    final code = rawCode?.trim().toUpperCase();
+    return code == '1304' || code == 'LISTENER_PROFILE_VERSION_CONFLICT';
   }
 
   void _showUnavailableMessage(String label) {

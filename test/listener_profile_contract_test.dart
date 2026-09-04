@@ -14,6 +14,8 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/listener_profil
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/listener_profile_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/listener_profile_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/listener_visibility_error_message.dart';
+import 'package:soundconnect_23_12_25codx/modules/spotify/data/models/spotify_playlist_preview_model.dart';
+import 'package:soundconnect_23_12_25codx/modules/spotify/domain/spotify_playlist_uri.dart';
 
 import 'support/recording_api_client.dart';
 
@@ -90,6 +92,82 @@ void main() {
   });
 
   group('listener profile wire models', () {
+    test('normalizes only genuine Spotify playlist links', () {
+      expect(
+        normalizeSpotifyPlaylistUrl(
+          ' https://open.spotify.com/intl-tr/playlist/37i9dQZF1DXcBWIGoYBM5M?si=secret ',
+        ),
+        'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+      );
+      expect(
+        spotifyPlaylistIdFromUrl(
+          'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+        ),
+        '37i9dQZF1DXcBWIGoYBM5M',
+      );
+      for (final invalid in <String>[
+        'http://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+        'https://open.spotify.com.evil.test/playlist/37i9dQZF1DXcBWIGoYBM5M',
+        'https://user@open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+        'https://open.spotify.com:444/playlist/37i9dQZF1DXcBWIGoYBM5M',
+        'https://open.spotify.com/track/37i9dQZF1DXcBWIGoYBM5M',
+        'https://open.spotify.com/intl-tur/playlist/37i9dQZF1DXcBWIGoYBM5M',
+        'https://open.spotify.com//playlist/37i9dQZF1DXcBWIGoYBM5M',
+        'https://open.spotify.com/%70laylist/37i9dQZF1DXcBWIGoYBM5M',
+        'javascript:alert(1)',
+      ]) {
+        expect(normalizeSpotifyPlaylistUrl(invalid), isNull, reason: invalid);
+      }
+    });
+
+    test('parses authoritative ordered playlist metadata', () {
+      final playlist = SpotifyPlaylistPreviewModel.fromJson(_playlistJson());
+      final owner = ListenerProfileModel.fromJson(
+        _ownerJson(mode: ListenerVisibilityMode.standard, version: 4),
+      );
+      final publicProfile = ListenerPublicProfileModel.fromJson(
+        _publicJson(mode: ListenerVisibilityMode.standard),
+      );
+
+      expect(playlist.title, 'Today’s Top Hits');
+      expect(playlist.position, 0);
+      expect(
+        owner.playlists.single.spotifyPlaylistId,
+        playlist.spotifyPlaylistId,
+      );
+      expect(
+        publicProfile.playlists.single.coverImageUrl,
+        playlist.coverImageUrl,
+      );
+
+      final oversizedTitle = _playlistJson()
+        ..['title'] = List<String>.filled(256, 'x').join();
+      expect(
+        () => SpotifyPlaylistPreviewModel.fromJson(oversizedTitle),
+        throwsFormatException,
+      );
+
+      final untrustedArtwork = _playlistJson()
+        ..['coverImageUrl'] = 'https://cdn.example.com/playlist-cover';
+      expect(
+        () => SpotifyPlaylistPreviewModel.fromJson(untrustedArtwork),
+        throwsFormatException,
+      );
+    });
+
+    test('rejects playlist metadata leaks from ghost projections', () {
+      final owner = _ownerJson(mode: ListenerVisibilityMode.ghost, version: 4)
+        ..['playlists'] = <Object>[_playlistJson()];
+      final publicProfile = _publicJson(mode: ListenerVisibilityMode.ghost)
+        ..['playlists'] = <Object>[_playlistJson()];
+
+      expect(() => ListenerProfileModel.fromJson(owner), throwsFormatException);
+      expect(
+        () => ListenerPublicProfileModel.fromJson(publicProfile),
+        throwsFormatException,
+      );
+    });
+
     test('an unchosen domain profile defaults to restricted capabilities', () {
       const profile = ListenerProfile(
         id: 'profile-1',
@@ -139,6 +217,7 @@ void main() {
     test('treats an unchosen standard storage default as restricted', () {
       final json = _ownerJson(mode: ListenerVisibilityMode.standard, version: 0)
         ..['visibilityChoiceCompleted'] = false
+        ..['playlists'] = <Object>[]
         ..remove('bio')
         ..remove('followerCount')
         ..remove('followingCount')
@@ -288,6 +367,35 @@ void main() {
       });
     });
 
+    test(
+      'PUT playlists sends canonical ordered urls and expected version',
+      () async {
+        final api = RecordingApiClient(
+          (_) => _ownerJson(mode: ListenerVisibilityMode.standard, version: 7),
+        );
+        final repository = ListenerProfileRepositoryImpl(api);
+
+        final result = await repository.replacePlaylists(
+          const ListenerPlaylistsReplaceRequest(
+            spotifyUrls: <String>[
+              'https://open.spotify.com/intl-tr/playlist/37i9dQZF1DXcBWIGoYBM5M?si=share',
+            ],
+            expectedVersion: 6,
+          ),
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(api.lastRequest.method, RecordedHttpMethod.put);
+        expect(api.lastRequest.path, ListenerProfileEndpoints.playlists);
+        expect(api.lastRequest.body, <String, dynamic>{
+          'spotifyUrls': <String>[
+            'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+          ],
+          'expectedVersion': 6,
+        });
+      },
+    );
+
     test('does not dispatch invalid public id or stale version', () async {
       final api = RecordingApiClient((_) => throw StateError('not called'));
       final repository = ListenerProfileRepositoryImpl(api);
@@ -305,10 +413,17 @@ void main() {
           expectedVersion: -1,
         ),
       );
+      final playlistsResult = await repository.replacePlaylists(
+        const ListenerPlaylistsReplaceRequest(
+          spotifyUrls: <String>['https://evil.test/playlist/not-spotify'],
+          expectedVersion: 1,
+        ),
+      );
 
       expect(publicResult.error?.code, 'listener_profile_validation');
       expect(visibilityResult.error?.code, 'listener_profile_validation');
       expect(avatarResult.error?.code, 'listener_profile_validation');
+      expect(playlistsResult.error?.code, 'listener_playlist_validation');
       expect(api.requests, isEmpty);
     });
   });
@@ -336,14 +451,16 @@ void main() {
         await cubit.loadMyProfile();
 
         final avatar = cubit.updateAvatar(null);
+        final playlists = cubit.replacePlaylists(const <String>[]);
         final visibility = cubit.updateVisibility(ListenerVisibilityMode.ghost);
-        await Future.wait(<Future<void>>[avatar, visibility]);
+        await Future.wait(<Future<void>>[avatar, playlists, visibility]);
 
-        expect(repository.calls, <String>['avatar', 'visibility']);
+        expect(repository.calls, <String>['avatar', 'playlists', 'visibility']);
         expect(repository.lastAvatarMediaId, isNull);
         expect(repository.lastAvatarExpectedVersion, 3);
-        expect(repository.lastVisibilityRequest?.expectedVersion, 4);
-        expect(cubit.state.profile?.version, 5);
+        expect(repository.lastPlaylistsRequest?.expectedVersion, 4);
+        expect(repository.lastVisibilityRequest?.expectedVersion, 5);
+        expect(cubit.state.profile?.version, 6);
         expect(cubit.state.profile?.isGhost, isTrue);
         expect(cubit.state.action, ListenerProfileAction.updateVisibility);
       },
@@ -387,6 +504,7 @@ Map<String, dynamic> _ownerJson({
     'avatarEditable': true,
     'canReceiveFollowers': !ghost,
     'visibilityChoiceCompleted': true,
+    'playlists': ghost ? <Object>[] : <Object>[_playlistJson()],
   };
 }
 
@@ -405,8 +523,18 @@ Map<String, dynamic> _publicJson({required ListenerVisibilityMode mode}) {
     'restricted': ghost,
     'canFollow': !ghost,
     'canMessage': true,
+    'playlists': ghost ? <Object>[] : <Object>[_playlistJson()],
   };
 }
+
+Map<String, dynamic> _playlistJson() => <String, dynamic>{
+  'id': 'playlist-link-1',
+  'spotifyPlaylistId': '37i9dQZF1DXcBWIGoYBM5M',
+  'title': 'Today’s Top Hits',
+  'coverImageUrl': 'https://i.scdn.co/image/playlist-cover',
+  'spotifyUrl': 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+  'position': 0,
+};
 
 class _ListenerRepositoryFake implements ListenerProfileRepository {
   _ListenerRepositoryFake({this.conflictVisibility = false});
@@ -418,6 +546,7 @@ class _ListenerRepositoryFake implements ListenerProfileRepository {
   String? lastAvatarMediaId;
   int? lastAvatarExpectedVersion;
   ListenerVisibilityUpdateRequest? lastVisibilityRequest;
+  ListenerPlaylistsReplaceRequest? lastPlaylistsRequest;
   ListenerProfile current = _ownerProfile(version: 3);
 
   @override
@@ -426,6 +555,16 @@ class _ListenerRepositoryFake implements ListenerProfileRepository {
     if (conflictVisibility && ownerLoads > 1) {
       current = _ownerProfile(version: 9);
     }
+    return Result.success(current);
+  }
+
+  @override
+  Future<Result<ListenerProfile>> replacePlaylists(
+    ListenerPlaylistsReplaceRequest request,
+  ) async {
+    calls.add('playlists');
+    lastPlaylistsRequest = request;
+    current = _ownerProfile(version: current.version + 1);
     return Result.success(current);
   }
 

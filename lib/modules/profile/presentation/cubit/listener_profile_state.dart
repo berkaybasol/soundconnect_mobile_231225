@@ -7,7 +7,12 @@ enum ListenerProfileStatus { idle, loading, saving, success, failure }
 
 enum ListenerProfileView { owner, public }
 
-enum ListenerProfileAction { load, updateVisibility, updateAvatar }
+enum ListenerProfileAction {
+  load,
+  updateVisibility,
+  updateAvatar,
+  updatePlaylists,
+}
 
 class ListenerProfileState {
   final ListenerProfileStatus status;

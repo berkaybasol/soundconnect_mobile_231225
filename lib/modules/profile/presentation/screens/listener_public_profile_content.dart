@@ -5,6 +5,8 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../domain/entities/listener_public_profile.dart';
+import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
+import 'listener_playlist_section.dart';
 import 'profile_screen_support.dart';
 
 const _publicDeepSurface = Color(0xFF070B13);
@@ -19,6 +21,7 @@ class ListenerPublicProfileContent extends StatelessWidget {
     required this.isFollowing,
     required this.followBusy,
     required this.onRefresh,
+    required this.onPlaylistTap,
     this.onFollow,
     this.onMessage,
   });
@@ -27,6 +30,7 @@ class ListenerPublicProfileContent extends StatelessWidget {
   final bool isFollowing;
   final bool followBusy;
   final Future<void> Function() onRefresh;
+  final ValueChanged<SpotifyPlaylistPreview> onPlaylistTap;
   final VoidCallback? onFollow;
   final VoidCallback? onMessage;
 
@@ -58,7 +62,7 @@ class ListenerPublicProfileContent extends StatelessWidget {
         child: ListView(
           key: const Key('listener-public-standard-content'),
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 34),
+          padding: const EdgeInsets.fromLTRB(0, 24, 0, 34),
           children: [
             Center(
               child: ConstrainedBox(
@@ -114,15 +118,28 @@ class ListenerPublicProfileContent extends StatelessWidget {
                     ],
                     if (onFollow != null || onMessage != null) ...[
                       const SizedBox(height: 22),
-                      _PublicProfileActions(
-                        isFollowing: isFollowing,
-                        followBusy: followBusy,
-                        onFollow: onFollow,
-                        onMessage: onMessage,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _PublicProfileActions(
+                          isFollowing: isFollowing,
+                          followBusy: followBusy,
+                          onFollow: onFollow,
+                          onMessage: onMessage,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 28),
-                    const Divider(height: 1, color: _publicBorder),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Divider(height: 1, color: _publicBorder),
+                    ),
+                    if (profile.playlists.isNotEmpty) ...[
+                      const SizedBox(height: 22),
+                      ListenerPlaylistSection(
+                        playlists: profile.playlists,
+                        onPlaylistTap: onPlaylistTap,
+                      ),
+                    ],
                   ],
                 ),
               ),

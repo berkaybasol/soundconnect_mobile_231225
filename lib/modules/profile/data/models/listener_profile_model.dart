@@ -1,5 +1,6 @@
 import '../../domain/entities/listener_profile.dart';
 import '../../domain/entities/listener_visibility_mode.dart';
+import '../../../spotify/data/models/spotify_playlist_preview_model.dart';
 import 'listener_profile_model_support.dart';
 
 class ListenerProfileModel extends ListenerProfile {
@@ -20,6 +21,7 @@ class ListenerProfileModel extends ListenerProfile {
     required super.avatarEditable,
     required super.canReceiveFollowers,
     required super.visibilityChoiceCompleted,
+    required super.playlists,
   });
 
   factory ListenerProfileModel.fromJson(Object? value) {
@@ -50,6 +52,7 @@ class ListenerProfileModel extends ListenerProfile {
       json,
       'visibilityChoiceCompleted',
     );
+    final playlists = spotifyPlaylistPreviewsFromJson(json['playlists']);
 
     _validateOwnerProjection(
       visibilityMode: visibilityMode,
@@ -61,6 +64,7 @@ class ListenerProfileModel extends ListenerProfile {
       profileContentEditable: profileContentEditable,
       avatarEditable: avatarEditable,
       canReceiveFollowers: canReceiveFollowers,
+      playlists: playlists,
     );
 
     return ListenerProfileModel(
@@ -89,6 +93,7 @@ class ListenerProfileModel extends ListenerProfile {
       avatarEditable: avatarEditable,
       canReceiveFollowers: canReceiveFollowers,
       visibilityChoiceCompleted: visibilityChoiceCompleted,
+      playlists: playlists,
     );
   }
 
@@ -102,6 +107,7 @@ class ListenerProfileModel extends ListenerProfile {
     required bool profileContentEditable,
     required bool avatarEditable,
     required bool canReceiveFollowers,
+    required List<Object> playlists,
   }) {
     if (!avatarEditable) {
       throw const FormatException('Listener avatar must remain editable');
@@ -114,6 +120,11 @@ class ListenerProfileModel extends ListenerProfile {
       if (bio != null || followerCount != null || followingCount != null) {
         throw const FormatException(
           'Restricted listener owner projection must omit showcase and graph fields',
+        );
+      }
+      if (playlists.isNotEmpty) {
+        throw const FormatException(
+          'Restricted listener owner projection must omit playlists',
         );
       }
       if (profileContentVisible ||

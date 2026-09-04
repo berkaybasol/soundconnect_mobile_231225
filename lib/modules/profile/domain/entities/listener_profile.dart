@@ -1,4 +1,5 @@
 import 'listener_visibility_mode.dart';
+import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
 
 /// Listener self-view returned by the owner-only API.
 ///
@@ -23,6 +24,7 @@ class ListenerProfile {
   final bool avatarEditable;
   final bool canReceiveFollowers;
   final bool visibilityChoiceCompleted;
+  final List<SpotifyPlaylistPreview> playlists;
 
   const ListenerProfile({
     required this.id,
@@ -41,6 +43,7 @@ class ListenerProfile {
     this.avatarEditable = true,
     bool? canReceiveFollowers,
     bool visibilityChoiceCompleted = true,
+    this.playlists = const <SpotifyPlaylistPreview>[],
   }) : visibilityChoiceCompleted = visibilityChoiceCompleted,
        profileContentVisible =
            profileContentVisible ??

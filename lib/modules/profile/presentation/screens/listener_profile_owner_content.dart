@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../domain/entities/listener_profile.dart';
+import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
+import 'listener_playlist_section.dart';
 import 'listener_profile_preview_data.dart';
 import 'profile_screen_support.dart';
 
@@ -21,6 +22,7 @@ class ListenerProfileOwnerContent extends StatelessWidget {
     required this.onEditProfile,
     required this.onEditAvatar,
     required this.onEditPlaylists,
+    required this.onPlaylistTap,
     required this.onPreviewAction,
     this.previewData,
     this.showPreviewSections = false,
@@ -31,6 +33,7 @@ class ListenerProfileOwnerContent extends StatelessWidget {
   final VoidCallback onEditProfile;
   final VoidCallback onEditAvatar;
   final VoidCallback onEditPlaylists;
+  final ValueChanged<SpotifyPlaylistPreview> onPlaylistTap;
   final ValueChanged<String> onPreviewAction;
   final ListenerProfilePreviewData? previewData;
   final bool showPreviewSections;
@@ -114,15 +117,14 @@ class ListenerProfileOwnerContent extends StatelessWidget {
               onPressed: actionBusy ? null : onEditProfile,
             ),
           ),
+          const SizedBox(height: 20),
+          ListenerPlaylistSection(
+            playlists: profile.playlists,
+            onPlaylistTap: onPlaylistTap,
+            onEdit: actionBusy ? null : onEditPlaylists,
+            showWhenEmpty: true,
+          ),
           if (showPreviewSections && preview != null) ...[
-            const SizedBox(height: 20),
-            _ListenerSectionHeader(
-              title: 'Çalma Listeleri',
-              actionLabel: 'Düzenle',
-              onAction: onEditPlaylists,
-            ),
-            const SizedBox(height: 8),
-            _ListenerPlaylistRow(items: preview.playlists),
             const SizedBox(height: 14),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
@@ -459,191 +461,24 @@ class _InitialsAvatar extends StatelessWidget {
 }
 
 class _ListenerSectionHeader extends StatelessWidget {
-  const _ListenerSectionHeader({
-    required this.title,
-    this.actionLabel,
-    this.onAction,
-  });
+  const _ListenerSectionHeader({required this.title});
 
   final String title;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final heading = Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-            ),
-          );
-          final label = actionLabel;
-          if (label == null) return heading;
-
-          final action = TextButton(
-            onPressed: onAction,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.coralAlt,
-              minimumSize: const Size(48, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-          );
-          final textScale = MediaQuery.textScalerOf(context).scale(1);
-          if (textScale > 1.35 || constraints.maxWidth < 280) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                heading,
-                Align(alignment: Alignment.centerRight, child: action),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: heading),
-              const SizedBox(width: 8),
-              action,
-            ],
-          );
-        },
+      child: Text(
+        title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          fontSize: 15,
+        ),
       ),
-    );
-  }
-}
-
-class _ListenerPlaylistRow extends StatelessWidget {
-  const _ListenerPlaylistRow({required this.items});
-
-  final List<ListenerPlaylistPreview> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const Key('listener-playlist-row'),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var index = 0; index < items.length; index++)
-            Expanded(
-              child: _ListenerPlaylistTile(item: items[index], index: index),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ListenerPlaylistTile extends StatelessWidget {
-  const _ListenerPlaylistTile({required this.item, required this.index});
-
-  final ListenerPlaylistPreview item;
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = <List<Color>>[
-      [AppColors.coral, AppColors.socialPurple],
-      [AppColors.coralAlt, AppColors.socialPurple],
-      [AppColors.socialPink, AppColors.spotifyGreenDark],
-      [AppColors.coral, AppColors.socialPurple],
-    ][index % 4];
-
-    return Column(
-      children: [
-        SizedBox.square(
-          dimension: 60,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(colors: palette),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            palette.first.withValues(alpha: 0.34),
-                            _listenerSurface,
-                          ],
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          item.badge,
-                          style: const TextStyle(
-                            color: AppColors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: -3,
-                bottom: -1,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _listenerDeepSurface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _listenerDeepSurface, width: 2),
-                  ),
-                  child: FaIcon(
-                    FontAwesomeIcons.spotify,
-                    key: Key('listener-playlist-spotify-$index'),
-                    color: AppColors.spotifyGreenBright,
-                    size: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 7),
-        Text(
-          item.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${item.trackCount} şarkı',
-          style: const TextStyle(color: _listenerMuted, fontSize: 9),
-        ),
-      ],
     );
   }
 }

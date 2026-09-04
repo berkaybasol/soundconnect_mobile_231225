@@ -108,6 +108,18 @@ class ListenerProfileCubit extends Cubit<ListenerProfileState> {
     );
   }
 
+  Future<void> replacePlaylists(List<String> spotifyUrls) {
+    return _enqueueOwnerMutation(
+      ListenerProfileAction.updatePlaylists,
+      (profile) => _repository.replacePlaylists(
+        ListenerPlaylistsReplaceRequest(
+          spotifyUrls: spotifyUrls,
+          expectedVersion: profile.version,
+        ),
+      ),
+    );
+  }
+
   Future<void> _enqueueOwnerMutation(
     ListenerProfileAction action,
     Future<Result<ListenerProfile>> Function(ListenerProfile profile) request,

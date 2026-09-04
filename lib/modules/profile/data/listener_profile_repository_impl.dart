@@ -170,6 +170,41 @@ class ListenerProfileRepositoryImpl implements ListenerProfileRepository {
       );
     }
   }
+
+  @override
+  Future<Result<ListenerProfile>> replacePlaylists(
+    ListenerPlaylistsReplaceRequest request,
+  ) async {
+    final body = request.toValidatedJson();
+    if (body == null) {
+      return const Result.failure(
+        AppError(
+          code: 'listener_playlist_validation',
+          message:
+              'En fazla 4 farklı ve geçerli Spotify çalma listesi ekleyebilirsin.',
+        ),
+      );
+    }
+    try {
+      final response = await _apiClient.put<ListenerProfile>(
+        ListenerProfileEndpoints.playlists,
+        body: body,
+        decoder: ListenerProfileModel.fromJson,
+      );
+      return Result.success(response);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } on FormatException {
+      return const Result.failure(_invalidOwnerResponse);
+    } catch (_) {
+      return const Result.failure(
+        AppError(
+          code: 'listener_playlists_update_unknown',
+          message: 'Çalma listeleri güncellenemedi.',
+        ),
+      );
+    }
+  }
 }
 
 const _invalidOwnerResponse = AppError(

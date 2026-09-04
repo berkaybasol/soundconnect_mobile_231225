@@ -5,6 +5,7 @@ class ListenerProfileEndpoints {
   static const String update = '$userBase/update';
   static const String avatar = '$userBase/me/avatar';
   static const String visibility = '$userBase/me/visibility';
+  static const String playlists = '$userBase/me/playlists';
 
   static String publicDetail(String profileId) =>
       '$publicBase/${Uri.encodeComponent(profileId)}';

@@ -18,6 +18,7 @@ import 'listener_ghost_profile_content.dart';
 import 'listener_profile_theme.dart';
 import 'listener_public_profile_content.dart';
 import 'profile_route_args.dart';
+import 'spotify_playlist_launcher.dart';
 
 class ListenerPublicProfileScreen extends StatelessWidget {
   const ListenerPublicProfileScreen({super.key});
@@ -145,6 +146,9 @@ class _ListenerPublicProfileViewState
                   isFollowing: followState.isFollowing,
                   followBusy: followState.status == FollowActionStatus.loading,
                   onRefresh: _refresh,
+                  onPlaylistTap: (playlist) => unawaited(
+                    launchSpotifyPlaylist(context, playlist.spotifyUrl),
+                  ),
                   onFollow: canFollow
                       ? () => unawaited(_toggleFollow(profile))
                       : null,

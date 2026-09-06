@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_router.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
@@ -13,6 +15,10 @@ import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/acco
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/listener_profile_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_profile_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_calendar_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_calendar.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_profile.dart';
 
 import 'support/auth_widget_test_support.dart';
 
@@ -59,6 +65,103 @@ void main() {
       ),
     );
   }
+
+  for (final route in [AppRoutes.settings, AppRoutes.accountSettings]) {
+    testWidgets('$route preserves account controls without calendar settings', (
+      tester,
+    ) async {
+      final calendar = _MusicianCalendarRepositoryFake();
+      serviceLocator.registerSingleton<MusicianCalendarRepository>(calendar);
+      await tester.pumpWidget(
+        BlocProvider<AuthCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    route,
+                    arguments: const {
+                      'bandId': 'legacy-band',
+                      'focusEventSettings': true,
+                    },
+                  ),
+                  child: const Text('Ayarları aç'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Ayarları aç'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hesap Ayarları'), findsOneWidget);
+      expect(
+        find.byKey(const Key('account-settings-username-tile')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('account-settings-password-reminder')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('account-settings-delete-account-reminder')),
+        findsOneWidget,
+      );
+      expect(find.text('Etkinlik Ayarları'), findsNothing);
+      expect(find.text('Grup Ayarları'), findsNothing);
+      expect(
+        find.byKey(const Key('musician-calendar-visibility-switch')),
+        findsNothing,
+      );
+      expect(calendar.settingsReads, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'musician account settings do not expose or load a global calendar preference',
+    (tester) async {
+      final calendar = _MusicianCalendarRepositoryFake();
+      serviceLocator.registerSingleton<MusicianCalendarRepository>(calendar);
+      serviceLocator.registerSingleton<MusicianProfileRepository>(
+        _MusicianProfileRepositoryFake(),
+      );
+      await sessionManager.startSession(
+        token: _jwt(subject: 'musician-user', roles: const ['ROLE_MUSICIAN']),
+        username: 'musician',
+        accountStatus: 'ACTIVE',
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('musician-calendar-visibility-switch')),
+        findsNothing,
+      );
+      expect(find.text('Etkinlik Ayarları'), findsNothing);
+      expect(calendar.settingsReads, 0);
+      expect(find.textContaining('Davetleri incelemek'), findsNothing);
+      await sessionManager.logout();
+    },
+  );
+
+  testWidgets('listener account settings never load the musician calendar', (
+    tester,
+  ) async {
+    final calendar = _MusicianCalendarRepositoryFake();
+    serviceLocator.registerSingleton<MusicianCalendarRepository>(calendar);
+    serviceLocator.registerSingleton<ListenerProfileRepository>(
+      _ListenerProfileRepositoryFake(),
+    );
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('musician-calendar-visibility-switch')),
+      findsNothing,
+    );
+    expect(calendar.settingsReads, 0);
+  });
 
   testWidgets('account settings opens directly to the compact username row', (
     tester,
@@ -499,6 +602,43 @@ class _ListenerProfileRepositoryFake extends ListenerProfileRepository {
     if (completer != null) return completer.future;
     return Result.success(_profile);
   }
+}
+
+class _MusicianCalendarRepositoryFake extends Fake
+    implements MusicianCalendarRepository {
+  int settingsReads = 0;
+  @override
+  Future<Result<MusicianCalendarSettings>> getSettings() async {
+    settingsReads++;
+    return const Result.success(
+      MusicianCalendarSettings(visible: false, version: 2),
+    );
+  }
+}
+
+class _MusicianProfileRepositoryFake extends Fake
+    implements MusicianProfileRepository {
+  @override
+  Future<Result<MusicianProfile>> getMyProfile() async => const Result.success(
+    MusicianProfile(
+      id: 'musician-profile',
+      userId: 'musician-user',
+      username: 'musician',
+      stageName: null,
+      bio: null,
+      profilePicture: null,
+      instagramUrl: null,
+      youtubeUrl: null,
+      soundcloudUrl: null,
+      spotifyEmbedUrl: null,
+      spotifyArtistId: null,
+      spotifyTrackIds: [],
+      spotifyTracks: [],
+      instruments: [],
+      activeVenues: [],
+      bands: [],
+    ),
+  );
 }
 
 Finder _usernameField() {

@@ -4,6 +4,7 @@ class VenueEventSummary {
   final String? posterImage;
   final String performerName;
   final String? musicianProfileId;
+  final String? bandId;
   final String performerType;
   final DateTime? eventDate;
   final String? startTime;
@@ -15,6 +16,7 @@ class VenueEventSummary {
     required this.posterImage,
     required this.performerName,
     required this.musicianProfileId,
+    this.bandId,
     required this.performerType,
     required this.eventDate,
     required this.startTime,

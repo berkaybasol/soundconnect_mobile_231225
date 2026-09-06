@@ -139,12 +139,12 @@ class SessionLogoutMenuTile extends StatelessWidget {
           child: InkWell(
             key: sessionLogoutMenuTileKey,
             onTap: onTap,
-            child: SizedBox(
-              height: 50,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 50),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
                 children: [
+                  const SizedBox(width: 12),
                   ShaderMask(
                     blendMode: BlendMode.srcIn,
                     shaderCallback: (bounds) => LinearGradient(
@@ -157,13 +157,21 @@ class SessionLogoutMenuTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 11),
-                  Text(
-                    'Çıkış yap',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: colors.onSurface,
-                      fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Text(
+                        'Çıkış yap',
+                        textAlign: TextAlign.center,
+                        softWrap: true,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: colors.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 12),
                 ],
               ),
             ),

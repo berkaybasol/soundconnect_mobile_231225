@@ -4,73 +4,31 @@ enum _BandVenueApplicationListMode { outgoing, incoming }
 
 extension _BandManagementPanelVenueConnectionHub
     on _BandManagementPanelScreenState {
-  Future<void> _openVenueConnectionHub() {
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.navBlueDeep,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Text(
-                  'Mekan Bağlantılarını Yönet',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _actionCard(
-                context: sheetContext,
-                icon: Icons.add_business_outlined,
-                title: 'Mekan Bağlantısı Oluştur',
-                message: 'Yeni bir mekana bağlantı isteği gönder.',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _editBandVenues();
-                },
-              ),
-              const SizedBox(height: 12),
-              _actionCard(
-                context: sheetContext,
-                icon: Icons.inbox_outlined,
-                title: 'Gelen Mekan İstekleri',
-                message: 'Mekanlardan gelen bağlantı istekleri burada.',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _showBandVenueApplicationList(
-                    mode: _BandVenueApplicationListMode.incoming,
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _actionCard(
-                context: sheetContext,
-                icon: Icons.send_outlined,
-                title: 'Gönderdiğim İstekler',
-                message: 'Mekanlara gönderdiğin başvurular burada.',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _showBandVenueApplicationList(
-                    mode: _BandVenueApplicationListMode.outgoing,
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _openVenueConnectionHub() async {
+    final originRoute = ModalRoute.of(context);
+    final bandId = _profile.id;
+    final destination = await showVenueConnectionManagementHub(context);
+    if (!mounted ||
+        destination == null ||
+        _profile.id != bandId ||
+        originRoute?.isCurrent == false) {
+      return;
+    }
+    switch (destination) {
+      case VenueConnectionManagementDestination.create:
+        await _editBandVenues();
+        break;
+      case VenueConnectionManagementDestination.incoming:
+        await _showBandVenueApplicationList(
+          mode: _BandVenueApplicationListMode.incoming,
+        );
+        break;
+      case VenueConnectionManagementDestination.outgoing:
+        await _showBandVenueApplicationList(
+          mode: _BandVenueApplicationListMode.outgoing,
+        );
+        break;
+    }
   }
 
   Future<void> _showBandVenueApplicationList({

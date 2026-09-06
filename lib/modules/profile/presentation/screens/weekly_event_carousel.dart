@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/event_poster_fallback.dart';
 import '../../domain/entities/venue_event_detail.dart';
+import '../../domain/band_repository.dart';
 import '../../domain/musician_profile_repository.dart';
 import '../../domain/venue_event_repository.dart';
 import 'weekly_event_detail_screen.dart';
@@ -47,7 +49,7 @@ class WeeklyEventCarousel extends StatelessWidget {
           height: 88,
           child: Center(
             child: Text(
-              'Bu hafta icin etkinlik bulunamadi.',
+              'Bu hafta için etkinlik bulunamadı.',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -57,8 +59,16 @@ class WeeklyEventCarousel extends StatelessWidget {
       );
     }
 
+    // Reserve space for two title lines and the two metadata rows when the
+    // system uses larger text, while preserving the normal profile layout.
+    final extraTextHeight =
+        (MediaQuery.textScalerOf(context).scale(14) - 14).clamp(
+          0.0,
+          double.infinity,
+        ) *
+        6;
     return SizedBox(
-      height: compactTitle ? 244 : 256,
+      height: (compactTitle ? 244 : 260) + extraTextHeight,
       child: ListView.separated(
         padding: padding,
         scrollDirection: Axis.horizontal,
@@ -66,28 +76,12 @@ class WeeklyEventCarousel extends StatelessWidget {
         separatorBuilder: (_, __) => SizedBox(width: 10),
         itemBuilder: (context, index) {
           final event = items[index];
-          return _WeeklyEventCard(event: event, compactTitle: compactTitle);
+          return _WeeklyEventCard(
+            key: ValueKey<String>('weekly-event-${event.id}'),
+            event: event,
+            compactTitle: compactTitle,
+          );
         },
-      ),
-    );
-  }
-
-  Widget _placeholder(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Theme.of(context).colorScheme.surfaceContainer,
-            Theme.of(context).colorScheme.surfaceContainerHighest,
-          ],
-        ),
-      ),
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.image_outlined,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
   }

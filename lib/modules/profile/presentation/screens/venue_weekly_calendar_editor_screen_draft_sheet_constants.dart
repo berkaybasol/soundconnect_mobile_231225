@@ -25,7 +25,6 @@ const List<int> _venueEventDraftTimePickerHours = <int>[
   21,
   22,
   23,
-  24,
 ];
 
 const List<int> _venueEventDraftTimePickerMinutes = <int>[

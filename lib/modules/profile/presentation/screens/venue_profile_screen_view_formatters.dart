@@ -38,6 +38,8 @@ extension _VenueProfileViewStateFormatters on _MusicianPublicProfileViewState {
             title: item.title,
             artistName: item.performerName,
             artistProfileId: item.musicianProfileId,
+            bandProfileId: item.bandId,
+            performerType: item.performerType,
             venueName: profile.venueName,
             venueId: profile.venueId,
             city: profile.cityName ?? '',
@@ -47,8 +49,9 @@ extension _VenueProfileViewStateFormatters on _MusicianPublicProfileViewState {
             startTime: item.startTime ?? '-',
             endTime: item.endTime ?? '-',
             imageAssetPath: item.posterImage,
-            description:
-                profile.description ?? '${item.performerType} performansi',
+            // Profile summaries do not include event descriptions. The detail
+            // screen loads the authored description from the event endpoint.
+            description: '',
           ),
         )
         .toList();
@@ -65,6 +68,8 @@ extension _VenueProfileViewStateFormatters on _MusicianPublicProfileViewState {
           ? 'Sanatci'
           : item.performerName,
       artistProfileId: item.musicianProfileId,
+      bandProfileId: item.bandId,
+      performerType: item.performerType,
       venueName: profile.venueName,
       venueId: profile.venueId,
       city: profile.cityName ?? '',
@@ -78,9 +83,7 @@ extension _VenueProfileViewStateFormatters on _MusicianPublicProfileViewState {
       imageAssetPath: item.posterImage?.trim().isEmpty == true
           ? null
           : item.posterImage?.trim(),
-      description: item.description?.trim().isNotEmpty == true
-          ? item.description!.trim()
-          : '${item.performerName.trim().isEmpty ? 'Sanatci' : item.performerName} performansi',
+      description: item.description?.trim() ?? '',
     );
   }
 

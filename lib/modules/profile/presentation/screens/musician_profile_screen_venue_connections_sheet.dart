@@ -109,6 +109,20 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               const SizedBox(height: 14),
               _buildMusicianVenueManagementCard(
                 context: context,
+                icon: Icons.event_available_outlined,
+                title: 'Etkinlik Yönetimi',
+                message: 'Davetlerini, etkinliklerini ve geçmişini yönet.',
+                onTap: musicianProfile.id.trim().isEmpty
+                    ? null
+                    : () => openEventManagement(
+                        context,
+                        targetType: EventPerformerTargetType.musician,
+                        targetId: musicianProfile.id,
+                      ),
+              ),
+              const SizedBox(height: 14),
+              _buildMusicianVenueManagementCard(
+                context: context,
                 icon: Icons.mode_comment_outlined,
                 title: 'Yorumlar ve Geri Bildirimler',
                 message: 'Yorum yönetimi yakında burada açılacak.',
@@ -134,87 +148,41 @@ Future<void> _showMusicianVenueConnectionHub({
   required BuildContext context,
   required String musicianProfileId,
   required VoidCallback? onCreateVenueConnection,
-}) {
-  return showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: AppColors.navBlueDeep,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (sheetContext) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Text(
-                  'Mekan Bağlantılarını Yönet',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildMusicianVenueManagementCard(
-                context: sheetContext,
-                icon: Icons.add_business_outlined,
-                title: 'Mekan Bağlantısı Oluştur',
-                message: 'Yeni bir mekana bağlantı isteği gönder.',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  if (onCreateVenueConnection != null) {
-                    onCreateVenueConnection();
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Mekan bağlantısı şu an başlatılamıyor.'),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildMusicianVenueManagementCard(
-                context: sheetContext,
-                icon: Icons.inbox_outlined,
-                title: 'Gelen Mekan İstekleri',
-                message: 'Mekanlardan gelen bağlantı istekleri burada.',
-                onTap: () async {
-                  Navigator.of(sheetContext).pop();
-                  await _showMusicianVenueApplicationList(
-                    context: context,
-                    musicianProfileId: musicianProfileId,
-                    mode: _MusicianVenueApplicationListMode.incoming,
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildMusicianVenueManagementCard(
-                context: sheetContext,
-                icon: Icons.send_outlined,
-                title: 'Gönderdiğim İstekler',
-                message: 'Mekanlara gönderdiğin başvurular burada.',
-                onTap: () async {
-                  Navigator.of(sheetContext).pop();
-                  await _showMusicianVenueApplicationList(
-                    context: context,
-                    musicianProfileId: musicianProfileId,
-                    mode: _MusicianVenueApplicationListMode.outgoing,
-                  );
-                },
-              ),
-            ],
+}) async {
+  final originRoute = ModalRoute.of(context);
+  final destination = await showVenueConnectionManagementHub(context);
+  if (destination == null ||
+      !context.mounted ||
+      originRoute?.isCurrent == false) {
+    return;
+  }
+  switch (destination) {
+    case VenueConnectionManagementDestination.create:
+      if (onCreateVenueConnection != null) {
+        onCreateVenueConnection();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mekan bağlantısı şu an başlatılamıyor.'),
           ),
-        ),
+        );
+      }
+      break;
+    case VenueConnectionManagementDestination.incoming:
+      await _showMusicianVenueApplicationList(
+        context: context,
+        musicianProfileId: musicianProfileId,
+        mode: _MusicianVenueApplicationListMode.incoming,
       );
-    },
-  );
+      break;
+    case VenueConnectionManagementDestination.outgoing:
+      await _showMusicianVenueApplicationList(
+        context: context,
+        musicianProfileId: musicianProfileId,
+        mode: _MusicianVenueApplicationListMode.outgoing,
+      );
+      break;
+  }
 }
 
 Widget _buildMusicianVenueManagementCard({

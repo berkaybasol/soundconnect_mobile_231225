@@ -8,29 +8,36 @@ class _HeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imagePath = event.imageAssetPath?.trim();
     return SizedBox(
       height: 260,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          InkWell(
-            onTap: onImageTap,
-            child: event.imageAssetPath != null
-                ? _isNetworkLikePath(event.imageAssetPath)
-                      ? AppCachedNetworkImage(
-                          imageUrl: event.imageAssetPath,
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.cover,
-                          cacheProfile: AppImageCacheProfile.original,
-                          errorBuilder: (context) => _imageFallback(context),
-                        )
-                      : Image.asset(
-                          event.imageAssetPath!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _imageFallback(context),
-                        )
-                : _imageFallback(context),
+          Semantics(
+            button: true,
+            label: 'Afişi görüntüle',
+            child: InkWell(
+              excludeFromSemantics: true,
+              onTap: onImageTap,
+              child: _isNetworkLikePath(imagePath)
+                  ? AppCachedNetworkImage(
+                      imageUrl: imagePath,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      cacheProfile: AppImageCacheProfile.original,
+                      placeholderBuilder: (context) => _imageFallback(event),
+                      errorBuilder: (context) => _imageFallback(event),
+                    )
+                  : imagePath?.startsWith('assets/') == true
+                  ? Image.asset(
+                      imagePath!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _imageFallback(event),
+                    )
+                  : _imageFallback(event),
+            ),
           ),
           IgnorePointer(
             child: DecoratedBox(
@@ -61,7 +68,10 @@ class _HeroHeader extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      '${event.eventDate} - ${event.startTime} - ${event.endTime}',
+                      [
+                        event.eventDate,
+                        _eventTimeRange(event),
+                      ].where((value) => value.trim().isNotEmpty).join(' - '),
                       style: TextStyle(
                         color: AppColors.white,
                         fontSize: 12,
@@ -92,6 +102,7 @@ class _HeroHeader extends StatelessWidget {
               color: AppColors.pureBlack.withValues(alpha: 0.28),
               borderRadius: BorderRadius.circular(999),
               child: IconButton(
+                tooltip: 'Geri',
                 onPressed: () => Navigator.of(context).pop(),
                 icon: Icon(
                   Icons.arrow_back_ios_new_rounded,
@@ -106,15 +117,28 @@ class _HeroHeader extends StatelessWidget {
   }
 }
 
-Widget _imageFallback(BuildContext context) {
-  return Container(
-    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-    alignment: Alignment.center,
-    child: Icon(
-      Icons.image_outlined,
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      size: 42,
-    ),
+String _eventClockLabel(String value) {
+  final trimmed = value.trim();
+  if (trimmed == '-') return '';
+  final match = RegExp(
+    r'^(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$',
+  ).firstMatch(trimmed);
+  return match?.group(1) ?? trimmed;
+}
+
+String _eventTimeRange(WeeklyCalendarEvent event) => [
+  event.startTime,
+  event.endTime,
+].map(_eventClockLabel).where((value) => value.isNotEmpty).join(' - ');
+
+Widget _imageFallback(WeeklyCalendarEvent event, {bool showDetails = false}) {
+  return EventPosterFallback(
+    title: event.title,
+    dateLabel: [
+      event.eventDate,
+      _eventClockLabel(event.startTime),
+    ].where((value) => value.trim().isNotEmpty).join(' • '),
+    showDetails: showDetails,
   );
 }
 
@@ -143,6 +167,7 @@ class _ActionButton extends StatelessWidget {
   final bool isLoading;
 
   _ActionButton({
+    super.key,
     required this.icon,
     required this.label,
     required this.onPressed,
@@ -151,26 +176,47 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: isLoading ? null : onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        side: BorderSide(color: Theme.of(context).dividerColor),
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        padding: EdgeInsets.symmetric(vertical: 12),
+    // Match the musician/venue profile's Management Panel button exactly.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(colors: AppColors.brandGradient),
       ),
-      icon: isLoading
-          ? SizedBox(
-              width: 17,
-              height: 17,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Theme.of(context).colorScheme.onSurface,
+      child: Padding(
+        padding: const EdgeInsets.all(.7),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: TextButton.icon(
+              onPressed: isLoading ? null : onPressed,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.white,
+                backgroundColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
               ),
-            )
-          : Icon(icon, size: 17),
-      label: Text(label),
+              icon: isLoading
+                  ? Builder(
+                      builder: (iconContext) => SizedBox.square(
+                        dimension: IconTheme.of(iconContext).size ?? 18,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.white,
+                        ),
+                      ),
+                    )
+                  : Icon(icon, color: AppColors.white),
+              label: Text(
+                label,
+                style: const TextStyle(color: AppColors.white),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

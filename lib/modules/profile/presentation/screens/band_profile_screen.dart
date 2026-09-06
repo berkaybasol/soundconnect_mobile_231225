@@ -34,6 +34,7 @@ import '../../../spotify/domain/spotify_repository.dart';
 import '../../domain/band_representative_contact_policy.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'band_management_panel_screen.dart';
+import 'band_profile_calendar_slot.dart';
 import 'profile_common_widgets.dart';
 import 'profile_count_row.dart';
 import 'profile_audio_transport.dart';
@@ -165,7 +166,8 @@ class _BandProfileViewState extends State<_BandProfileView> {
     if (profile == null || currentUserId.isEmpty) return false;
     for (final member in profile.members) {
       if (member.userId.trim() == currentUserId) {
-        return member.isFounder;
+        return member.isFounder &&
+            member.status.trim().toUpperCase() == 'ACTIVE';
       }
     }
     return false;
@@ -455,6 +457,11 @@ class _BandProfileViewState extends State<_BandProfileView> {
                   actionLabel: 'Tumu',
                 ),
                 _BandVenuesRow(items: _activeVenues),
+                BandProfileCalendarSlot(
+                  bandId: profile.id,
+                  refreshToken: profile,
+                  compactTitle: !_canManageBand,
+                ),
                 SizedBox(height: 12),
                 ProfileMediaTabs(
                   tabs: [

@@ -64,6 +64,8 @@ import '../../modules/overthinking/data/overthinking_repository_impl.dart';
 import '../../modules/overthinking/domain/overthinking_repository.dart';
 import '../../modules/overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import '../../modules/profile/data/musician_profile_repository_impl.dart';
+import '../../modules/profile/data/musician_calendar_repository_impl.dart';
+import '../../modules/profile/data/band_calendar_repository_factory.dart';
 import '../../modules/profile/data/listener_profile_repository_impl.dart';
 import '../../modules/profile/data/band_repository_impl.dart';
 import '../../modules/profile/data/musician_search_repository_impl.dart';
@@ -78,8 +80,11 @@ import '../../modules/profile/data/studio_profile_repository_impl.dart';
 import '../../modules/profile/data/track_management_repository_impl.dart';
 import '../../modules/profile/data/venue_directory_repository_impl.dart';
 import '../../modules/profile/data/venue_event_repository_impl.dart';
+import '../../modules/profile/data/event_performer_request_repository_impl.dart';
+import '../../modules/profile/data/event_profile_publication_repository_impl.dart';
 import '../../modules/profile/data/venue_profile_repository_impl.dart';
 import '../../modules/profile/domain/musician_profile_repository.dart';
+import '../../modules/profile/domain/musician_calendar_repository.dart';
 import '../../modules/profile/domain/listener_profile_repository.dart';
 import '../../modules/profile/domain/band_repository.dart';
 import '../../modules/profile/domain/musician_search_repository.dart';
@@ -92,6 +97,8 @@ import '../../modules/profile/domain/studio_profile_repository.dart';
 import '../../modules/profile/domain/track_management_repository.dart';
 import '../../modules/profile/domain/venue_directory_repository.dart';
 import '../../modules/profile/domain/venue_event_repository.dart';
+import '../../modules/profile/domain/event_performer_request_repository.dart';
+import '../../modules/profile/domain/event_profile_publication_repository.dart';
 import '../../modules/profile/domain/venue_profile_repository.dart';
 import '../../modules/profile/presentation/cubit/musician_profile_cubit.dart';
 import '../../modules/profile/presentation/cubit/listener_profile_cubit.dart';
@@ -244,6 +251,25 @@ void setupDependencies() {
     ..registerLazySingleton<MusicianProfileRepository>(
       () => MusicianProfileRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<MusicianCalendarRepository>(
+      () => MusicianCalendarRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+      ),
+      dispose: (repository) => repository.dispose(),
+    )
+    ..registerLazySingleton<BandCalendarRepositoryFactory>(
+      () => BandCalendarRepositoryFactory(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+        refreshes: serviceLocator<MusicianCalendarRepository>().changes,
+        onSettingsConfirmed:
+            serviceLocator<MusicianCalendarRepository>().invalidate,
+      ),
+      dispose: (factory) => factory.dispose(),
+    )
     ..registerLazySingleton<ListenerProfileRepository>(
       () => ListenerProfileRepositoryImpl(serviceLocator<ApiClient>()),
     )
@@ -297,7 +323,29 @@ void setupDependencies() {
       () => MusicianSearchRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<VenueEventRepository>(
-      () => VenueEventRepositoryImpl(serviceLocator<ApiClient>()),
+      () => VenueEventRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+      ),
+    )
+    ..registerLazySingleton<EventPerformerRequestRepository>(
+      () => EventPerformerRequestRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+        onDecision: () =>
+            serviceLocator<MusicianCalendarRepository>().invalidate(),
+      ),
+    )
+    ..registerLazySingleton<EventProfilePublicationRepository>(
+      () => EventProfilePublicationRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+        onPublicationChanged: () =>
+            serviceLocator<MusicianCalendarRepository>().invalidate(),
+      ),
     )
     ..registerLazySingleton<TrackManagementRepository>(
       () => TrackManagementRepositoryImpl(serviceLocator<ApiClient>()),

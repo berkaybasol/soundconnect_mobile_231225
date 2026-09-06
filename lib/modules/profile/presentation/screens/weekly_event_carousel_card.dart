@@ -4,26 +4,64 @@ class _WeeklyEventCard extends StatefulWidget {
   final WeeklyCalendarEvent event;
   final bool compactTitle;
 
-  _WeeklyEventCard({required this.event, required this.compactTitle});
+  _WeeklyEventCard({
+    super.key,
+    required this.event,
+    required this.compactTitle,
+  });
 
   @override
   State<_WeeklyEventCard> createState() => _WeeklyEventCardState();
 }
 
 class _WeeklyEventCardState extends State<_WeeklyEventCard> {
+  static const int _maxResolvedCacheEntries = 256;
   static final Map<String, String?> _resolvedPosterCache = <String, String?>{};
   static final Map<String, String?> _resolvedArtistCache = <String, String?>{};
-  static final Map<String, VenueEventDetail> _eventPayloadCache =
-      <String, VenueEventDetail>{};
 
   Future<String?>? _posterFuture;
   Future<String>? _artistFuture;
+  Future<VenueEventDetail>? _eventPayloadFuture;
 
   @override
   void initState() {
     super.initState();
     _posterFuture = _resolvePosterImage();
     _artistFuture = _resolveArtistName();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WeeklyEventCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldEvent = oldWidget.event;
+    final event = widget.event;
+    if (oldEvent.id != event.id ||
+        oldEvent.imageAssetPath != event.imageAssetPath) {
+      _eventPayloadFuture = null;
+      _resolvedPosterCache.remove(event.id);
+      _posterFuture = _resolvePosterImage();
+    }
+    if (oldEvent.id != event.id ||
+        oldEvent.artistName != event.artistName ||
+        oldEvent.performerType != event.performerType ||
+        oldEvent.artistProfileId != event.artistProfileId ||
+        oldEvent.bandProfileId != event.bandProfileId) {
+      _eventPayloadFuture = null;
+      _artistFuture = _resolveArtistName();
+    }
+  }
+
+  static void _cacheResolvedValue(
+    Map<String, String?> cache,
+    String key,
+    String value,
+  ) {
+    cache
+      ..remove(key)
+      ..[key] = value;
+    while (cache.length > _maxResolvedCacheEntries) {
+      cache.remove(cache.keys.first);
+    }
   }
 
   @override
@@ -78,9 +116,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                         builder: (context, snapshot) {
                           final resolved = snapshot.data?.trim();
                           if (resolved == null || resolved.isEmpty) {
-                            return WeeklyEventCarousel(
-                              items: [],
-                            )._placeholder(context);
+                            return EventPosterFallback(title: event.title);
                           }
                           if (_isNetworkImage(resolved)) {
                             return AppCachedNetworkImage(
@@ -88,23 +124,21 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                               width: double.infinity,
                               height: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (context) => WeeklyEventCarousel(
-                                items: [],
-                              )._placeholder(context),
+                              placeholderBuilder: (_) =>
+                                  EventPosterFallback(title: event.title),
+                              errorBuilder: (_) =>
+                                  EventPosterFallback(title: event.title),
                             );
                           }
                           if (_isAssetImage(resolved)) {
                             return Image.asset(
                               resolved,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => WeeklyEventCarousel(
-                                items: [],
-                              )._placeholder(context),
+                              errorBuilder: (_, __, ___) =>
+                                  EventPosterFallback(title: event.title),
                             );
                           }
-                          return WeeklyEventCarousel(
-                            items: [],
-                          )._placeholder(context);
+                          return EventPosterFallback(title: event.title);
                         },
                       ),
                     ),
@@ -130,6 +164,9 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                       child: Container(
                         padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
                         decoration: BoxDecoration(
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(16),
+                          ),
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
@@ -207,7 +244,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                                 final artistName =
                                     snapshot.data?.trim().isNotEmpty == true
                                     ? snapshot.data!.trim()
-                                    : _fallbackArtistName();
+                                    : _fallbackArtistName(event);
                                 return Text(
                                   artistName,
                                   maxLines: 1,

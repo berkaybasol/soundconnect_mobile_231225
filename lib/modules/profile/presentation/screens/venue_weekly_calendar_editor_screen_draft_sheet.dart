@@ -2,15 +2,22 @@ part of 'venue_weekly_calendar_editor_screen.dart';
 
 class _VenueEventDraftSheet extends StatefulWidget {
   final VenueOwnerProfile ownerProfile;
+  final Future<Result<void>> Function(VenueEventDraft) onSave;
 
-  _VenueEventDraftSheet({required this.ownerProfile});
+  const _VenueEventDraftSheet({
+    required this.ownerProfile,
+    required this.onSave,
+  });
+
+  String get profileName => ownerProfile.venueName;
+  String? get profileImage => ownerProfile.profilePictureUrl;
 
   @override
   State<_VenueEventDraftSheet> createState() => _VenueEventDraftSheetState();
 }
 
 class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
-  final _musicianSearchRepository = serviceLocator<MusicianSearchRepository>();
+  final _profileSearchRepository = serviceLocator<ProfileSearchRepository>();
   static List<int> get _timePickerHours => _venueEventDraftTimePickerHours;
   static List<int> get _timePickerMinutes => _venueEventDraftTimePickerMinutes;
 
@@ -20,20 +27,23 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   final _titleFocusNode = FocusNode();
   final _performerFocusNode = FocusNode();
   final _descriptionFocusNode = FocusNode();
+  final _performerResultsKey = GlobalKey();
   final ImagePicker _imagePicker = ImagePicker();
   DateTime? _selectedDate = DateTime.now();
   TimeOfDay? _startTime = TimeOfDay(hour: 20, minute: 0);
   TimeOfDay? _endTime = TimeOfDay(hour: 22, minute: 0);
-  String? _selectedMusicianId;
-  String? _selectedMusicianLabel;
-  String? _selectedMusicianSecondaryLabel;
-  String? _selectedMusicianImageUrl;
+  ProfileSearchResult? _selectedPerformer;
   String? _posterAssetId;
   String? _posterPreviewPath;
   bool _posterUploading = false;
+  bool _submitting = false;
+  bool _uncertainSubmission = false;
+  bool _confirmingClose = false;
+  bool get _formLocked => _submitting || _uncertainSubmission;
   bool _searchLoading = false;
   String? _searchError;
-  List<MusicianSearchOption> _searchResults = [];
+  String? _formError;
+  List<ProfileSearchResult> _searchResults = [];
   Timer? _searchDebounce;
   int _searchToken = 0;
 
@@ -71,8 +81,10 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   @override
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
+    final scheme = baseTheme.colorScheme;
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     final sheetTheme = baseTheme.copyWith(
-      colorScheme: baseTheme.colorScheme.copyWith(
+      colorScheme: scheme.copyWith(
         primary: AppColors.brandGradient[1],
         secondary: AppColors.brandGradient[2],
       ),
@@ -82,9 +94,18 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
         selectionHandleColor: AppColors.brandGradient[1],
       ),
       inputDecorationTheme: baseTheme.inputDecorationTheme.copyWith(
-        prefixIconColor: Theme.of(context).colorScheme.onSurfaceVariant,
-        suffixIconColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        prefixIconColor: scheme.onSurfaceVariant,
+        suffixIconColor: scheme.onSurfaceVariant,
         filled: false,
+        labelStyle: TextStyle(
+          color: scheme.onSurfaceVariant,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        hintStyle: TextStyle(
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
+          fontSize: 13,
+        ),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
@@ -93,36 +114,67 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: AppColors.brandGradient[1],
-        linearTrackColor: Theme.of(context).dividerColor,
+        linearTrackColor: baseTheme.dividerColor,
       ),
     );
 
     return Theme(
       data: sheetTheme,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildDraftSheetHeaderCard(),
-              SizedBox(height: 14),
-              _buildDraftSheetBasicInfoSection(),
-              SizedBox(height: 12),
-              _buildDraftSheetPerformerSection(),
-              SizedBox(height: 12),
-              _buildDraftSheetDateTimeSection(),
-              SizedBox(height: 12),
-              _buildDraftSheetDescriptionSection(),
-              SizedBox(height: 16),
-              _buildDraftSheetSaveButton(),
-            ],
+      child: PopScope<void>(
+        canPop: !_posterUploading && !_submitting && !_uncertainSubmission,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && !_posterUploading && !_submitting) _closeDraft();
+        },
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: FractionallySizedBox(
+            heightFactor: 0.95,
+            alignment: Alignment.bottomCenter,
+            child: Material(
+              color: scheme.surface,
+              surfaceTintColor: Colors.transparent,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(26),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 14, 16),
+                      child: _buildDraftSheetHeaderCard(),
+                    ),
+                    Divider(height: 1, color: baseTheme.dividerColor),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                        child: AbsorbPointer(
+                          absorbing: _formLocked,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildDraftSheetBasicInfoSection(),
+                              const SizedBox(height: 24),
+                              _buildDraftSheetPerformerSection(),
+                              const SizedBox(height: 24),
+                              _buildDraftSheetDateTimeSection(),
+                              const SizedBox(height: 24),
+                              _buildDraftSheetDescriptionSection(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (!keyboardVisible) _buildDraftSheetSaveButton(),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

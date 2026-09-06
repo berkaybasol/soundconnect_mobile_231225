@@ -64,49 +64,60 @@ Future<void> showProfileQuickMenu(
               left: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 8),
-                    ListTile(
-                      key: settingsTileKey,
-                      leading: const Icon(Icons.settings_outlined),
-                      title: const Text('Ayarlar'),
-                      onTap: () async => closeThen(onSettings),
+                child: CustomScrollView(
+                  slivers: [
+                    SliverList.list(
+                      children: [
+                        const SizedBox(height: 8),
+                        ListTile(
+                          key: settingsTileKey,
+                          leading: const Icon(Icons.settings_outlined),
+                          title: const Text('Ayarlar'),
+                          onTap: () async => closeThen(onSettings),
+                        ),
+                        if (onProfileContact != null)
+                          ListTile(
+                            key: profileContactTileKey,
+                            leading: const Icon(Icons.badge_outlined),
+                            title: const Text('Profil ve iletişim bilgileri'),
+                            onTap: () async => closeThen(onProfileContact),
+                          ),
+                        if (onManagement != null)
+                          ListTile(
+                            leading: const Icon(
+                              Icons.dashboard_customize_outlined,
+                            ),
+                            title: const Text('Yönetim Paneli'),
+                            onTap: () async => closeThen(onManagement),
+                          ),
+                        ListTile(
+                          key: profileMenuThemeTileKey,
+                          leading: const Icon(Icons.palette_outlined),
+                          title: const Text('Tema'),
+                          onTap: () async => closeThen(
+                            () => showProfileMenuThemePicker(context),
+                          ),
+                        ),
+                        ListTile(
+                          key: profileMenuSupportTileKey,
+                          leading: const Icon(Icons.support_agent_rounded),
+                          title: const Text('Destek'),
+                          onTap: () async =>
+                              closeThen(() => showProfileMenuSupport(context)),
+                        ),
+                      ],
                     ),
-                    if (onProfileContact != null)
-                      ListTile(
-                        key: profileContactTileKey,
-                        leading: const Icon(Icons.badge_outlined),
-                        title: const Text('Profil ve iletişim bilgileri'),
-                        onTap: () async => closeThen(onProfileContact),
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: SessionLogoutMenuTile(
+                          onTap: () async {
+                            Navigator.of(dialogContext).pop();
+                            await confirmAndLogoutSession(context);
+                          },
+                        ),
                       ),
-                    if (onManagement != null)
-                      ListTile(
-                        leading: const Icon(Icons.dashboard_customize_outlined),
-                        title: const Text('Yönetim Paneli'),
-                        onTap: () async => closeThen(onManagement),
-                      ),
-                    ListTile(
-                      key: profileMenuThemeTileKey,
-                      leading: const Icon(Icons.palette_outlined),
-                      title: const Text('Tema'),
-                      onTap: () async =>
-                          closeThen(() => showProfileMenuThemePicker(context)),
-                    ),
-                    ListTile(
-                      key: profileMenuSupportTileKey,
-                      leading: const Icon(Icons.support_agent_rounded),
-                      title: const Text('Destek'),
-                      onTap: () async =>
-                          closeThen(() => showProfileMenuSupport(context)),
-                    ),
-                    const Spacer(),
-                    SessionLogoutMenuTile(
-                      onTap: () async {
-                        Navigator.of(dialogContext).pop();
-                        await confirmAndLogoutSession(context);
-                      },
                     ),
                   ],
                 ),

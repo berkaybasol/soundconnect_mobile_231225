@@ -5,12 +5,19 @@ class _MetaChip extends StatelessWidget {
   final String text;
   final String? imageUrl;
   final VoidCallback? onTap;
+  final VoidCallback? onInfoTap;
+  final bool singleLine;
+  final bool centerContent;
 
-  _MetaChip({
+  const _MetaChip({
+    super.key,
     required this.icon,
     required this.text,
     this.imageUrl,
     this.onTap,
+    this.onInfoTap,
+    this.singleLine = false,
+    this.centerContent = false,
   });
 
   @override
@@ -25,7 +32,10 @@ class _MetaChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: onInfoTap == null ? 8 : 0,
+          ),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(999),
@@ -37,44 +47,72 @@ class _MetaChip extends StatelessWidget {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: centerContent
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
             children: [
               _MetaLeadingVisual(
                 icon: icon,
                 imageUrl: hasImage ? resolvedImage : null,
               ),
               SizedBox(width: 6),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 220),
-                child: isInteractive
-                    ? ShaderMask(
-                        blendMode: BlendMode.srcIn,
-                        shaderCallback: (bounds) {
-                          return LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: AppColors.brandGradient,
-                          ).createShader(bounds);
-                        },
-                        child: Text(
-                          text,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppColors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+              Flexible(
+                child: Tooltip(
+                  message: singleLine ? text : '',
+                  excludeFromSemantics: true,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 220),
+                    child: isInteractive
+                        ? ShaderMask(
+                            blendMode: BlendMode.srcIn,
+                            shaderCallback: (bounds) {
+                              return LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: AppColors.brandGradient,
+                              ).createShader(bounds);
+                            },
+                            child: Text(
+                              text,
+                              maxLines: singleLine ? 1 : null,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            text,
+                            maxLines: singleLine ? 1 : null,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      )
-                    : Text(
-                        text,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                  ),
+                ),
               ),
+              if (onInfoTap != null)
+                IconButton(
+                  key: const Key('event-performer-verification-info'),
+                  tooltip: 'Katılım bilgisi',
+                  onPressed: onInfoTap,
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  visualDensity: VisualDensity.standard,
+                  padding: EdgeInsets.zero,
+                  icon: Icon(
+                    Icons.info_outline_rounded,
+                    size: 17,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               if (isInteractive) ...[
                 SizedBox(width: 6),
                 ShaderMask(

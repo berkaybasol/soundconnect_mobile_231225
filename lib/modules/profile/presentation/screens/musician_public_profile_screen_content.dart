@@ -137,6 +137,11 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                 SizedBox(height: 18),
                 _SectionHeader(title: 'Çaldığı Mekanlar', actionLabel: 'Tümü'),
                 _VenueCarousel(items: _resolveVenues()),
+                MusicianProfileCalendarSlot(
+                  profileId: profile.id,
+                  refreshToken: profile,
+                  compactTitle: true,
+                ),
                 SizedBox(height: 12),
                 _MediaTabs(),
                 _MediaContent(

@@ -16,6 +16,8 @@ import '../../domain/entities/discovery_event.dart';
 import '../../domain/event_discovery_repository.dart';
 import '../../../profile/presentation/screens/weekly_event_detail_screen.dart';
 
+part 'guest_event_home_screen_event_card_navigation.dart';
+
 class GuestEventHomeScreen extends StatefulWidget {
   GuestEventHomeScreen({super.key});
 
@@ -177,13 +179,16 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
   }
 
   Future<Result<List<DiscoveryEvent>>> _fetchEvents() {
-    if (_selectedNeighborhoodId != null && _selectedNeighborhoodId!.isNotEmpty) {
+    if (_selectedNeighborhoodId != null &&
+        _selectedNeighborhoodId!.isNotEmpty) {
       return _eventDiscoveryRepository.getEventsByNeighborhood(
         _selectedNeighborhoodId!,
       );
     }
     if (_selectedDistrictId != null && _selectedDistrictId!.isNotEmpty) {
-      return _eventDiscoveryRepository.getEventsByDistrict(_selectedDistrictId!);
+      return _eventDiscoveryRepository.getEventsByDistrict(
+        _selectedDistrictId!,
+      );
     }
     if (_selectedCityId != null && _selectedCityId!.isNotEmpty) {
       return _eventDiscoveryRepository.getEventsByCity(_selectedCityId!);
@@ -281,7 +286,9 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: Theme.of(context).dividerColor),
                     boxShadow: [
@@ -473,7 +480,10 @@ class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                           sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate((context, index) {
+                            delegate: SliverChildBuilderDelegate((
+                              context,
+                              index,
+                            ) {
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: _EventCard(item: _events[index]),
@@ -662,7 +672,9 @@ class _InlineFilterPanel extends StatelessWidget {
           _GradientActionButton(
             label: 'Ara',
             icon: Icons.search,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
             onPressed: onSearchTap,
           ),
         ],
@@ -781,7 +793,10 @@ class _GradientDropdownFieldState extends State<_GradientDropdownField> {
             hintStyle: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
             isDense: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.8),
@@ -845,33 +860,6 @@ class _EventCard extends StatelessWidget {
     return '$day.$month.${date.year}';
   }
 
-  void _openDetail(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => WeeklyEventDetailScreen(
-          event: WeeklyCalendarEvent(
-            id: item.id,
-            title: item.title,
-            artistName: item.performerName,
-            artistProfileId: item.musicianProfileId,
-            venueName: item.venueName,
-            venueId: item.venueId,
-            city: item.venueCity ?? '-',
-            district: item.venueDistrict ?? '-',
-            neighborhood: item.venueNeighborhood ?? '-',
-            eventDate: _dateLabel(),
-            startTime: item.startTime == null ? '--:--' : _formatTime(item.startTime!),
-            endTime: item.endTime == null ? '--:--' : _formatTime(item.endTime!),
-            imageAssetPath: item.posterImageUrl,
-            description: item.description.trim().isEmpty
-                ? 'Etkinlik açıklaması bulunmuyor.'
-                : item.description,
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final location = [
@@ -881,6 +869,7 @@ class _EventCard extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
+      // DiscoveryEvent exposes only a consent-safe linked performer identity.
       onTap: () => _openDetail(context),
       child: Container(
         padding: const EdgeInsets.all(1.2),
@@ -906,7 +895,9 @@ class _EventCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 19,
-                    backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
                     backgroundImage: _isNetworkImage(item.venueImageUrl)
                         ? NetworkImage(item.venueImageUrl!)
                         : null,
@@ -938,7 +929,9 @@ class _EventCard extends StatelessWidget {
                         Text(
                           location.isEmpty ? '-' : location,
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
@@ -946,7 +939,10 @@ class _EventCard extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
                       gradient: LinearGradient(colors: AppColors.brandGradient),
@@ -967,7 +963,9 @@ class _EventCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 16,
-                    backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
                     backgroundImage: _isNetworkImage(item.performerImageUrl)
                         ? NetworkImage(item.performerImageUrl!)
                         : null,
@@ -976,7 +974,9 @@ class _EventCard extends StatelessWidget {
                         : Icon(
                             Icons.person_outline,
                             size: 16,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                   ),
                   const SizedBox(width: 8),
@@ -1023,14 +1023,20 @@ class _EventCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainer,
                             borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: Theme.of(context).dividerColor),
+                            border: Border.all(
+                              color: Theme.of(context).dividerColor,
+                            ),
                           ),
                           child: Text(
                             member,
                             style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -1194,10 +1200,7 @@ class _ErrorState extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: onAction,
-                child: Text(actionLabel),
-              ),
+              OutlinedButton(onPressed: onAction, child: Text(actionLabel)),
             ],
           ),
         ),
@@ -1316,7 +1319,9 @@ class _GradientActionButton extends StatelessWidget {
                           style: TextStyle(
                             color: isEnabled
                                 ? Theme.of(context).colorScheme.onSurface
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                           ),
                         ),

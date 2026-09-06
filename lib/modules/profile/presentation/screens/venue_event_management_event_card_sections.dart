@@ -1,257 +1,126 @@
 part of 'venue_event_management_event_card.dart';
 
-class _VenueCalendarEventPosterStack extends StatelessWidget {
-  final bool hasPoster;
-  final String? posterUrl;
-  final String dateLabel;
+class _VenueCalendarEventArtwork extends StatelessWidget {
+  final String? posterImage;
+  final String title;
+  final bool history;
+
+  const _VenueCalendarEventArtwork({
+    required this.posterImage,
+    required this.title,
+    required this.history,
+  });
+
+  bool get _hasPoster {
+    final raw = posterImage?.trim();
+    if (raw == null || raw.isEmpty) return false;
+    final uri = Uri.tryParse(raw);
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 70,
+      height: 82,
+      padding: const EdgeInsets.all(0.8),
+      decoration: BoxDecoration(
+        gradient: history
+            ? LinearGradient(
+                colors: [scheme.outlineVariant, scheme.outlineVariant],
+              )
+            : LinearGradient(colors: AppColors.brandGradient),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8.2),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_hasPoster)
+              AppCachedNetworkImage(
+                imageUrl: posterImage!.trim(),
+                width: 68,
+                height: 80,
+                fit: BoxFit.cover,
+                cacheWidth: 210,
+                cacheHeight: 246,
+                placeholderBuilder: (_) => EventPosterFallback(title: title),
+                errorBuilder: (_) => EventPosterFallback(title: title),
+              )
+            else
+              EventPosterFallback(title: title),
+            if (history)
+              ColoredBox(color: AppColors.navBlueDeep.withValues(alpha: 0.24)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _VenueCalendarMenuAction { delete }
+
+class _VenueCalendarEventMenuButton extends StatelessWidget {
   final bool saving;
   final VoidCallback onDelete;
 
-  _VenueCalendarEventPosterStack({
-    required this.hasPoster,
-    required this.posterUrl,
-    required this.dateLabel,
+  const _VenueCalendarEventMenuButton({
     required this.saving,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: hasPoster
-                ? AppCachedNetworkImage(
-                    imageUrl: posterUrl,
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Theme.of(context).colorScheme.surfaceContainer,
-                          AppColors.navBlueDeep,
-                        ],
-                      ),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        size: 28,
-                      ),
-                    ),
-                  ),
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.navBlueDeep.withValues(alpha: 0.18),
-                    Colors.transparent,
-                    AppColors.navBlueDeep.withValues(alpha: 0.34),
-                  ],
-                  stops: [0, 0.42, 1],
-                ),
+    final scheme = Theme.of(context).colorScheme;
+    return PopupMenuButton<_VenueCalendarMenuAction>(
+      enabled: !saving,
+      tooltip: 'Etkinlik seçenekleri',
+      onSelected: (action) {
+        if (action == _VenueCalendarMenuAction.delete) onDelete();
+      },
+      color: scheme.surfaceContainerHighest,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      position: PopupMenuPosition.under,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.onSurface.withValues(alpha: .12)),
+      ),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _VenueCalendarMenuAction.delete,
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.coral,
+                size: 19,
               ),
-            ),
-          ),
-          Positioned(
-            left: -12,
-            right: -12,
-            top: -18,
-            child: IgnorePointer(
-              child: Container(
-                height: 96,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.white.withValues(alpha: 0.16),
-                      AppColors.coralLight.withValues(alpha: 0.10),
-                      Colors.transparent,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(40),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            child: Container(
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.pureBlack.withValues(alpha: 0.30),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -24,
-            top: 26,
-            child: IgnorePointer(
-              child: Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.white.withValues(alpha: 0.14),
-                      Colors.transparent,
-                    ],
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Etkinliği sil',
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-          Positioned(
-            right: -18,
-            top: 54,
-            child: IgnorePointer(
-              child: Container(
-                width: 74,
-                height: 74,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.coralLight.withValues(alpha: 0.12),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -30,
-            right: -30,
-            bottom: -22,
-            child: IgnorePointer(
-              child: Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment(0, 1),
-                    radius: 1.15,
-                    colors: [
-                      AppColors.coralAlt.withValues(alpha: 0.36),
-                      AppColors.coralLight.withValues(alpha: 0.18),
-                      Colors.transparent,
-                    ],
-                    stops: [0, 0.48, 1],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              height: 82,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    AppColors.pureBlack.withValues(alpha: 0.50),
-                    AppColors.navBlueDeep.withValues(alpha: 0.24),
-                    Colors.transparent,
-                  ],
-                  stops: [0, 0.42, 1],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.navBlueDeep.withValues(alpha: 0.86),
-                    AppColors.navBlueDeep.withValues(alpha: 0.54),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: Text(
-                dateLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: AppColors.navBlueDeep.withValues(alpha: 0.62),
-                borderRadius: BorderRadius.only(topLeft: Radius.circular(14)),
-                border: Border.all(
-                  color: AppColors.white.withValues(alpha: 0.08),
-                ),
-              ),
-              child: IconButton(
-                tooltip: 'Sil',
-                padding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-                onPressed: saving ? null : onDelete,
-                icon: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) {
-                    return LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: AppColors.brandGradient,
-                    ).createShader(bounds);
-                  },
-                  child: Icon(
-                    Icons.delete_outline_rounded,
-                    color: AppColors.white,
-                    size: 21,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
+      ],
+      child: SizedBox.square(
+        dimension: 44,
+        child: Icon(
+          Icons.more_horiz_rounded,
+          color: scheme.onSurfaceVariant,
+          size: 20,
+        ),
       ),
     );
   }

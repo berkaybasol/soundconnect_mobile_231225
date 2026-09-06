@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/profile_menu_actions.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/session_logout_action.dart';
 
 void main() {
   testWidgets('shared profile menu logo uses the SoundConnect asset', (
@@ -51,14 +52,54 @@ void main() {
     expect(find.text('Profil ve iletişim bilgileri'), findsNothing);
     expect(find.text('Yönetim Paneli'), findsOneWidget);
   });
+
+  testWidgets('event invitations are no longer a quick-menu entry', (
+    tester,
+  ) async {
+    await _pumpMenuLauncher(tester);
+    await tester.tap(find.byKey(const Key('open-profile-quick-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Etkinlik Onayları'), findsNothing);
+    expect(find.text('Etkinlik Davetleri'), findsNothing);
+    expect(find.text('Yönetim Paneli'), findsOneWidget);
+  });
+
+  testWidgets('shared profile menu remains scrollable on a short viewport', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 300));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpMenuLauncher(
+      tester,
+      onProfileContact: () async {},
+      textScaler: const TextScaler.linear(1.8),
+    );
+
+    await tester.tap(find.byKey(const Key('open-profile-quick-menu')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.byKey(sessionLogoutMenuTileKey),
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.byKey(sessionLogoutMenuTileKey).hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpMenuLauncher(
   WidgetTester tester, {
   ProfileQuickMenuAction? onProfileContact,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   return tester.pumpWidget(
     MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: Builder(
         builder: (context) {
           return Scaffold(

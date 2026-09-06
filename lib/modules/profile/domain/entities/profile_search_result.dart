@@ -44,22 +44,27 @@ class ProfileSearchResult {
     };
     return ProfileSearchResult(
       type: type,
-      targetId: json['targetId']?.toString() ?? '',
-      userId: json['userId']?.toString(),
+      targetId: json['targetId']?.toString().trim() ?? '',
+      userId: _nonBlank(json['userId']),
       title: json['title']?.toString().trim() ?? '',
       subtitle: json['subtitle']?.toString().trim(),
-      imageUrl: json['imageUrl']?.toString(),
+      imageUrl: _nonBlank(json['imageUrl']),
       visibilityMode: parseContextualListenerVisibilityMode(
         json['visibilityMode'],
       ),
     );
   }
 
+  static String? _nonBlank(Object? value) {
+    final normalized = value?.toString().trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
+  }
+
   String get typeLabel {
     return switch (type) {
       ProfileSearchResultType.musician => 'Müzisyen',
       ProfileSearchResultType.listener => 'Dinleyici',
-      ProfileSearchResultType.band => 'Band',
+      ProfileSearchResultType.band => 'Grup',
       ProfileSearchResultType.studio => 'Stüdyo',
       ProfileSearchResultType.venue => 'Mekan',
       ProfileSearchResultType.unknown => 'Profil',

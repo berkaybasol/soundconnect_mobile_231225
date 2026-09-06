@@ -4,12 +4,15 @@ extension _WeeklyEventDetailScreenStateActions
     on _WeeklyEventDetailScreenState {
   Future<void> _loadProfileContext() async {
     final futures = <Future<void>>[];
-    final artistProfileId = widget.event.artistProfileId?.trim();
+    final artistProfileId = widget.event.linkedArtistProfileId;
+    final bandProfileId = widget.event.linkedBandProfileId;
     final venueId = widget.event.venueId?.trim();
 
     futures.add(_loadShareUrl());
 
-    if (artistProfileId != null && artistProfileId.isNotEmpty) {
+    if (bandProfileId != null && bandProfileId.isNotEmpty) {
+      futures.add(_loadBandProfile(bandProfileId));
+    } else if (artistProfileId != null && artistProfileId.isNotEmpty) {
       futures.add(_loadArtistProfile(artistProfileId));
     }
     if (venueId != null && venueId.isNotEmpty) {
@@ -18,6 +21,7 @@ extension _WeeklyEventDetailScreenStateActions
 
     if (futures.isEmpty) return;
     await Future.wait(futures);
+    if (!mounted) return;
     await _loadComments();
   }
 
@@ -25,23 +29,40 @@ extension _WeeklyEventDetailScreenStateActions
     try {
       final result = await _venueEventRepository.getDetail(widget.event.id);
       final payload = result.data;
-      if (!mounted) return;
-      final shareUrl = payload?.shareUrl?.trim() ?? '';
-      if (shareUrl.isEmpty) return;
+      if (!mounted || !result.isSuccess || payload == null) return;
       _updateState(() {
-        _shareUrl = shareUrl;
+        // Summaries may omit description; only the event detail is authoritative.
+        _loadedDescription = payload.description?.trim() ?? '';
       });
     } catch (_) {
-      // Share butonu fallback metinle yine calisabilir.
+      // Keep the supplied description if the public detail is unavailable.
     }
   }
 
   Future<void> _loadArtistProfile(String profileId) async {
-    final repository = serviceLocator<MusicianProfileRepository>();
-    final result = await repository.getPublicProfileByProfileId(profileId);
+    try {
+      final repository = serviceLocator<MusicianProfileRepository>();
+      final result = await repository.getPublicProfileByProfileId(profileId);
+      if (!mounted ||
+          !result.isSuccess ||
+          result.data == null ||
+          result.data!.id.trim() != profileId ||
+          widget.event.linkedArtistProfileId != profileId) {
+        return;
+      }
+      _updateState(() => _artistProfile = result.data);
+    } catch (_) {
+      // An unavailable public preview must not break the event. Ownership can
+      // still be verified from the signed-in profile when its chip is tapped.
+    }
+  }
+
+  Future<void> _loadBandProfile(String bandId) async {
+    final repository = serviceLocator<BandRepository>();
+    final result = await repository.getPublicBandById(bandId);
     if (!mounted || !result.isSuccess || result.data == null) return;
     _updateState(() {
-      _artistProfile = result.data;
+      _bandProfile = result.data;
     });
   }
 
@@ -107,17 +128,83 @@ extension _WeeklyEventDetailScreenStateActions
     _commentController.clear();
   }
 
-  void _openArtistProfile() {
-    final profileId = widget.event.artistProfileId?.trim();
-    if (profileId == null || profileId.isEmpty) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        settings: RouteSettings(
-          arguments: PublicProfileArgs(profileId: profileId),
-        ),
-        builder: (_) => musician_public.MusicianPublicProfileScreen(),
-      ),
-    );
+  Future<void> _openArtistProfile() async {
+    if (!mounted ||
+        _isOpeningArtistProfile ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        !widget.event.hasLinkedPerformerProfile) {
+      return;
+    }
+    final event = widget.event;
+    final bandId = event.linkedBandProfileId;
+    final profileId = event.linkedArtistProfileId;
+    final manager = serviceLocator.isRegistered<AuthSessionManager>()
+        ? serviceLocator<AuthSessionManager>()
+        : null;
+    final session = manager?.session;
+    bool canNavigate() =>
+        mounted &&
+        identical(manager?.session, session) &&
+        widget.event.id == event.id &&
+        widget.event.linkedArtistProfileId == profileId &&
+        widget.event.linkedBandProfileId == bandId &&
+        ModalRoute.of(context)?.isCurrent == true;
+    _isOpeningArtistProfile = true;
+    try {
+      if (bandId != null && bandId.isNotEmpty) {
+        await Navigator.of(context).pushNamed(
+          AppRoutes.bandPublicProfile,
+          arguments: BandProfileScreenArgs(
+            bandId: bandId,
+            viewMode: BandProfileViewMode.public,
+          ),
+        );
+        return;
+      }
+      if (profileId == null || profileId.isEmpty) return;
+      var opensOwnProfile = false;
+      final viewerId = session?.userId?.trim() ?? '';
+      if (session?.isAuthenticated == true &&
+          session?.isActive == true &&
+          viewerId.isNotEmpty &&
+          session!.hasAnyRole(const ['MUSICIAN', 'ROLE_MUSICIAN'])) {
+        final publicProfile = _artistProfile;
+        if (publicProfile?.id.trim() == profileId &&
+            publicProfile!.userId.trim().isNotEmpty) {
+          opensOwnProfile = publicProfile.userId.trim() == viewerId;
+        } else {
+          // The chip can be tapped before its public preview has loaded. Resolve
+          // ownership by stable IDs, never by a handle or the event's name.
+          final result = await serviceLocator<MusicianProfileRepository>()
+              .getMyProfile();
+          if (!canNavigate()) return;
+          final ownProfile = result.data;
+          if (!result.isSuccess ||
+              ownProfile == null ||
+              ownProfile.id.trim().isEmpty ||
+              ownProfile.userId.trim() != viewerId) {
+            throw StateError('Profile ownership could not be verified');
+          }
+          opensOwnProfile = ownProfile.id.trim() == profileId;
+        }
+      }
+      if (!mounted || !canNavigate()) return;
+      await Navigator.of(context).pushNamed(
+        opensOwnProfile
+            ? AppRoutes.musicianProfile
+            : AppRoutes.musicianPublicProfile,
+        arguments: opensOwnProfile
+            ? null
+            : PublicProfileArgs(profileId: profileId),
+      );
+    } catch (_) {
+      if (!mounted || !canNavigate()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil açılamadı. Lütfen tekrar dene.')),
+      );
+    } finally {
+      _isOpeningArtistProfile = false;
+    }
   }
 
   void _openVenueProfile() {
@@ -134,29 +221,52 @@ extension _WeeklyEventDetailScreenStateActions
   }
 
   Future<void> _shareEvent() async {
-    if (_isSharing) return;
-    final shareUrl = _shareUrl?.trim();
-    final shareText = shareUrl != null && shareUrl.isNotEmpty
-        ? '${widget.event.title}\n$shareUrl'
-        : '${widget.event.title}\n'
-              '${widget.event.eventDate} ${widget.event.startTime} - ${widget.event.endTime}\n'
-              '@${widget.event.venueName}';
+    if (!mounted || _isSharing || ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
+    FocusScope.of(context).unfocus();
     _updateState(() {
       _isSharing = true;
     });
     try {
-      await SharePlus.instance.share(
-        ShareParams(
-          text: shareText,
-          subject: widget.event.title,
-          sharePositionOrigin: Rect.fromLTWH(0, 0, 1, 1),
+      // Re-read public data before exporting: a stale screen must not imply a
+      // withdrawn performer link or share a deleted event as if still current.
+      final result = await _venueEventRepository.getDetail(widget.event.id);
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      final detail = result.data;
+      if (!result.isSuccess ||
+          detail == null ||
+          detail.id.trim().isEmpty ||
+          detail.id != widget.event.id) {
+        throw StateError('Event detail is unavailable');
+      }
+      final data = EventShareData.fromDetail(
+        detail,
+        venueAvatarUrl: _venueProfile?.venueId == detail.venueId
+            ? _venueProfile?.profilePictureUrl
+            : null,
+      );
+      final prepared = await _eventShareService.prepare(context, data);
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      final target = await showEventShareSheet(context, prepared);
+      if (target == null ||
+          !mounted ||
+          ModalRoute.of(context)?.isCurrent == false) {
+        return;
+      }
+      await _eventShareService.share(context, prepared, target);
+    } catch (_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFF202A3D),
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            'Paylaşım hazırlanamadı. Lütfen tekrar dene.',
+            style: TextStyle(color: AppColors.white),
+          ),
         ),
       );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Paylasim acilamadi.')));
     } finally {
       if (mounted) {
         _updateState(() {
@@ -246,7 +356,14 @@ extension _WeeklyEventDetailScreenStateActions
   }
 
   void _openPosterFullScreen() {
-    final imagePath = widget.event.imageAssetPath;
+    final imagePath = widget.event.imageAssetPath?.trim();
+    Widget fallback() => Padding(
+      padding: const EdgeInsets.all(24),
+      child: AspectRatio(
+        aspectRatio: 0.75,
+        child: _imageFallback(widget.event, showDetails: true),
+      ),
+    );
     showGeneralDialog<void>(
       context: context,
       barrierLabel: 'Poster',
@@ -262,24 +379,23 @@ extension _WeeklyEventDetailScreenStateActions
                   minScale: 1,
                   maxScale: 4,
                   child: Center(
-                    child: imagePath != null
-                        ? _isNetworkLikePath(imagePath)
-                              ? AppCachedNetworkImage(
-                                  imageUrl: imagePath,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  fit: BoxFit.contain,
-                                  cacheProfile: AppImageCacheProfile.original,
-                                  errorBuilder: (context) =>
-                                      _imageFallback(context),
-                                )
-                              : Image.asset(
-                                  imagePath,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) =>
-                                      _imageFallback(context),
-                                )
-                        : _imageFallback(context),
+                    child: _isNetworkLikePath(imagePath)
+                        ? AppCachedNetworkImage(
+                            imageUrl: imagePath,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.contain,
+                            cacheProfile: AppImageCacheProfile.original,
+                            placeholderBuilder: (_) => fallback(),
+                            errorBuilder: (_) => fallback(),
+                          )
+                        : imagePath?.startsWith('assets/') == true
+                        ? Image.asset(
+                            imagePath!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => fallback(),
+                          )
+                        : fallback(),
                   ),
                 ),
               ),

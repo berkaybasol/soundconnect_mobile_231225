@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/event_performer_identity.dart';
 import '../../domain/entities/discovery_event.dart';
 
 class DiscoveryEventModel extends DiscoveryEvent {
@@ -8,6 +9,7 @@ class DiscoveryEventModel extends DiscoveryEvent {
     required super.title,
     required super.performerName,
     required super.musicianProfileId,
+    super.bandId,
     required super.performerType,
     required super.performerImageUrl,
     required super.bandMembers,
@@ -25,54 +27,61 @@ class DiscoveryEventModel extends DiscoveryEvent {
   });
 
   factory DiscoveryEventModel.fromJson(Map<String, dynamic> json) {
+    final performerIdentity = EventPerformerIdentity.fromWire(
+      performerType: json['performerType'],
+      musicianProfileId: json['musicianProfileId'],
+      bandId: json['bandId'],
+    );
     return DiscoveryEventModel(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Etkinlik',
       performerName: json['performerName']?.toString() ?? 'Performer',
-      musicianProfileId: json['musicianProfileId']?.toString(),
-      performerType: json['performerType']?.toString() ?? 'MUSICIAN',
-      performerImageUrl: _firstNonBlank(
-        json,
-        const <String>[
-          'performerImageUrl',
-          'performerProfileImage',
-          'performerProfilePicture',
-          'musicianProfilePicture',
-          'artistProfilePicture',
-        ],
-      ),
+      musicianProfileId: performerIdentity.musicianProfileId,
+      bandId: performerIdentity.bandId,
+      performerType: performerIdentity.performerType,
+      performerImageUrl: _firstNonBlank(json, const <String>[
+        'performerImageUrl',
+        'performerProfileImage',
+        'performerProfilePicture',
+        'musicianProfilePicture',
+        'artistProfilePicture',
+      ]),
       bandMembers: _parseBandMembers(json['bandMembers']),
       venueId: json['venueId']?.toString(),
       venueName: json['venueName']?.toString() ?? 'Mekan',
-      venueImageUrl: _firstNonBlank(
-        json,
-        const <String>[
-          'venueImageUrl',
-          'venueProfilePicture',
-          'venueProfileImage',
-          'venueProfilePictureUrl',
-        ],
-      ),
+      venueImageUrl: _firstNonBlank(json, const <String>[
+        'venueImageUrl',
+        'venueProfilePicture',
+        'venueProfileImage',
+        'venueProfilePictureUrl',
+      ]),
       venueCity: json['venueCity']?.toString(),
       venueDistrict: json['venueDistrict']?.toString(),
       venueNeighborhood: json['venueNeighborhood']?.toString(),
       eventDate: DateTime.tryParse(json['eventDate']?.toString() ?? ''),
       startTime: _parseTime(json['startTime']?.toString()),
       endTime: _parseTime(json['endTime']?.toString()),
-      posterImageUrl: _firstNonBlank(
-        json,
-        const <String>['posterImage', 'posterImageUrl', 'imageUrl'],
-      ),
+      posterImageUrl: _firstNonBlank(json, const <String>[
+        'posterImage',
+        'posterImageUrl',
+        'imageUrl',
+      ]),
       description: json['description']?.toString() ?? '',
     );
   }
 
   static List<String> _parseBandMembers(Object? raw) {
     if (raw is List) {
-      return raw.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      return raw
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
     }
     if (raw is Set) {
-      return raw.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      return raw
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
     }
     return const <String>[];
   }
@@ -94,10 +103,7 @@ class DiscoveryEventModel extends DiscoveryEvent {
     return TimeOfDay(hour: hour, minute: minute);
   }
 
-  static String? _firstNonBlank(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
+  static String? _firstNonBlank(Map<String, dynamic> json, List<String> keys) {
     for (final key in keys) {
       final value = json[key]?.toString();
       if (value != null && value.trim().isNotEmpty) {

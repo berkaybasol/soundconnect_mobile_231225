@@ -11,25 +11,64 @@ class ProfileSearchRepositoryImpl implements ProfileSearchRepository {
   ProfileSearchRepositoryImpl(this._apiClient);
 
   @override
-  Future<Result<List<ProfileSearchResult>>> searchProfiles(String query) async {
+  Future<Result<List<ProfileSearchResult>>> searchProfiles(
+    String query, {
+    Set<ProfileSearchResultType>? types,
+  }) async {
     try {
+      final normalizedQuery = query.trim();
+      final allowedTypes = types ?? const <ProfileSearchResultType>{};
+      final apiTypes =
+          (types ?? const <ProfileSearchResultType>{})
+              .map(_apiType)
+              .whereType<String>()
+              .toList(growable: false)
+            ..sort();
       final response = await _apiClient.get<List<ProfileSearchResult>>(
         '/api/v1/public/search/profiles',
-        query: {'q': query, 'limit': 20},
+        query: {
+          'q': normalizedQuery,
+          'limit': 20,
+          if (apiTypes.isNotEmpty) 'types': apiTypes.join(','),
+        },
         decoder: (json) {
-          final list = json is List ? json : const [];
-          return list
-              .whereType<Map<String, dynamic>>()
-              .map(ProfileSearchResult.fromJson)
-              .where((item) =>
-                  item.targetId.isNotEmpty &&
-                  item.type != ProfileSearchResultType.unknown)
-              .toList();
+          if (json is! List<dynamic>) {
+            throw const FormatException('Expected a profile search list.');
+          }
+          final results = <ProfileSearchResult>[];
+          final seen = <(ProfileSearchResultType, String)>{};
+          for (final raw in json) {
+            if (raw is! Map<String, dynamic>) {
+              throw const FormatException('Invalid profile search item.');
+            }
+            final item = ProfileSearchResult.fromJson(raw);
+            if (item.targetId.isEmpty ||
+                item.title.isEmpty ||
+                item.type == ProfileSearchResultType.unknown) {
+              throw const FormatException(
+                'Profile search identity is missing.',
+              );
+            }
+            if (allowedTypes.isNotEmpty && !allowedTypes.contains(item.type)) {
+              continue;
+            }
+            if (seen.add((item.type, item.targetId))) {
+              results.add(item);
+            }
+          }
+          return List<ProfileSearchResult>.unmodifiable(results);
         },
       );
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
+    } on FormatException {
+      return const Result.failure(
+        AppError(
+          code: 'profile_search_malformed_response',
+          message: 'Profil araması geçersiz bir yanıt döndürdü.',
+        ),
+      );
     } catch (_) {
       return Result.failure(
         const AppError(
@@ -38,5 +77,16 @@ class ProfileSearchRepositoryImpl implements ProfileSearchRepository {
         ),
       );
     }
+  }
+
+  String? _apiType(ProfileSearchResultType type) {
+    return switch (type) {
+      ProfileSearchResultType.musician => 'MUSICIAN',
+      ProfileSearchResultType.listener => 'LISTENER',
+      ProfileSearchResultType.band => 'BAND',
+      ProfileSearchResultType.studio => 'STUDIO',
+      ProfileSearchResultType.venue => 'VENUE',
+      ProfileSearchResultType.unknown => null,
+    };
   }
 }

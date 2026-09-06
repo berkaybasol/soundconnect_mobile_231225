@@ -22,6 +22,9 @@ import '../../domain/musician_profile_repository.dart';
 import '../../domain/musician_search_repository.dart';
 import '../../domain/venue_directory_repository.dart';
 import 'profile_route_args.dart';
+import 'event_invitation_navigation.dart';
+import 'venue_connection_management_hub.dart';
+import '../../domain/entities/event_performer_request.dart';
 import 'profile_venue_request_sheet.dart';
 import 'profile_venue_support.dart';
 
@@ -155,6 +158,21 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                 title: 'Mekan Bağlantılarını Yönet',
                 message: 'Mekan bağlantıları ve başvuru akışları burada.',
                 onTap: _submitting ? null : _openVenueConnectionHub,
+              ),
+              SizedBox(height: 14),
+              _actionCard(
+                context: context,
+                icon: Icons.event_available_outlined,
+                title: 'Etkinlik Yönetimi',
+                message:
+                    'Grubunun davetlerini, etkinliklerini ve geçmişini yönet.',
+                onTap: _submitting || _profile.id.trim().isEmpty
+                    ? null
+                    : () => openEventManagement(
+                        context,
+                        targetType: EventPerformerTargetType.band,
+                        targetId: _profile.id,
+                      ),
               ),
               SizedBox(height: 14),
               _actionCard(

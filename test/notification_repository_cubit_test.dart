@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
@@ -17,6 +19,8 @@ import 'package:soundconnect_23_12_25codx/modules/collab/presentation/collab_rou
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_user_profile_resolver.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/entities/dm_profile_target.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/screens/dm_chat_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/engagement/domain/engagement_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/models/app_notification_model.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_endpoints.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_realtime_client.dart';
@@ -27,8 +31,23 @@ import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubi
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/notification_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/event_performer_request.dart';
+
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_detail.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/event_performer_request_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_profile_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_calendar_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/data/band_calendar_repository_factory.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/venue_event_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_performer_requests_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/weekly_event_detail_screen.dart';
+
+import 'support/event_invitation_navigation_fakes.dart';
+
+part 'notification_repository_cubit_test_cubit.dart';
 
 void main() {
   test(
@@ -162,743 +181,7 @@ void main() {
     });
   });
 
-  group('NotificationCubit', () {
-    test('refreshes and paginates while preserving server order', () async {
-      final repository = _NotificationRepositoryFake(
-        pages: <int, Result<pagination.Page<AppNotification>>>{
-          0: Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[_notification('n-1')],
-              hasNext: true,
-            ),
-          ),
-          1: Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[_notification('n-2')],
-              hasNext: false,
-            ),
-          ),
-        },
-        unread: const Result.success(4),
-      );
-      final realtime = NotificationRealtimeClient();
-      final cubit = NotificationCubit(
-        repository,
-        _MemoryTokenStore(),
-        realtimeClient: realtime,
-      );
-      addTearDown(() async {
-        await cubit.close();
-        await realtime.dispose();
-      });
-
-      await cubit.refresh();
-      await cubit.loadMore();
-
-      expect(cubit.state.status, NotificationStatus.success);
-      expect(cubit.state.items.map((item) => item.id), <String>['n-1', 'n-2']);
-      expect(cubit.state.unreadCount, 4);
-      expect(cubit.state.page, 1);
-      expect(cubit.state.hasNext, isFalse);
-      expect(repository.requestedPages, <int>[0, 1]);
-    });
-
-    test('deduplicates shifted offset pages by notification id', () async {
-      final repository = _NotificationRepositoryFake(
-        pages: <int, Result<pagination.Page<AppNotification>>>{
-          0: Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[
-                _notification('n-1'),
-                _notification('n-2'),
-              ],
-              hasNext: true,
-            ),
-          ),
-          1: Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[
-                _notification('n-2'),
-                _notification('n-3'),
-                _notification('n-3'),
-              ],
-              hasNext: false,
-            ),
-          ),
-        },
-      );
-      final realtime = NotificationRealtimeClient();
-      final cubit = NotificationCubit(
-        repository,
-        _MemoryTokenStore(),
-        realtimeClient: realtime,
-      );
-      addTearDown(() async {
-        await cubit.close();
-        await realtime.dispose();
-      });
-
-      await cubit.refresh();
-      await cubit.loadMore();
-
-      expect(cubit.state.items.map((item) => item.id), <String>[
-        'n-1',
-        'n-2',
-        'n-3',
-      ]);
-      expect(cubit.state.page, 1);
-      expect(cubit.state.hasNext, isFalse);
-    });
-
-    test('keeps loaded data when a later page fails', () async {
-      const error = AppError(code: 'offline', message: 'Offline');
-      final repository = _NotificationRepositoryFake(
-        pages: <int, Result<pagination.Page<AppNotification>>>{
-          0: Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[_notification('n-1')],
-              hasNext: true,
-            ),
-          ),
-          1: const Result.failure(error),
-        },
-      );
-      final realtime = NotificationRealtimeClient();
-      final cubit = NotificationCubit(
-        repository,
-        _MemoryTokenStore(),
-        realtimeClient: realtime,
-      );
-      addTearDown(() async {
-        await cubit.close();
-        await realtime.dispose();
-      });
-
-      await cubit.refresh();
-      await cubit.loadMore();
-
-      expect(cubit.state.status, NotificationStatus.success);
-      expect(cubit.state.items.single.id, 'n-1');
-      expect(cubit.state.page, 0);
-      expect(cubit.state.errorMessage, 'Offline');
-    });
-
-    test(
-      'marks only matching DM notifications and keeps the remaining unread',
-      () async {
-        final repository = _NotificationRepositoryFake(
-          pages: <int, Result<pagination.Page<AppNotification>>>{
-            0: Result.success(
-              pagination.Page<AppNotification>(
-                items: <AppNotification>[
-                  _notification(
-                    'dm-1',
-                    type: 'DM_MESSAGE',
-                    payload: <String, dynamic>{'conversationId': 'c-1'},
-                  ),
-                  _notification(
-                    'dm-2',
-                    type: 'OTHER',
-                    payload: <String, dynamic>{
-                      'module': 'DM',
-                      'conversationId': 'c-1',
-                    },
-                  ),
-                  _notification(
-                    'other',
-                    payload: <String, dynamic>{'conversationId': 'c-2'},
-                  ),
-                ],
-                hasNext: false,
-              ),
-            ),
-          },
-          unread: const Result.success(1),
-        );
-        final realtime = NotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          _MemoryTokenStore(),
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.dispose();
-        });
-        await cubit.refresh();
-
-        cubit.markDmConversationAsReadLocally(' c-1 ');
-
-        expect(cubit.state.items[0].read, isTrue);
-        expect(cubit.state.items[1].read, isTrue);
-        expect(cubit.state.items[2].read, isFalse);
-        expect(cubit.state.unreadCount, 1);
-      },
-    );
-
-    test(
-      'successful delete adjusts unread count but failed delete does not',
-      () async {
-        const error = AppError(code: 'delete_failed', message: 'Delete failed');
-        final first = _notification('n-1');
-        final second = _notification('n-2');
-        final repository = _NotificationRepositoryFake(
-          pages: <int, Result<pagination.Page<AppNotification>>>{
-            0: Result.success(
-              pagination.Page<AppNotification>(
-                items: <AppNotification>[first, second],
-                hasNext: false,
-              ),
-            ),
-          },
-          unread: const Result.success(2),
-        );
-        final realtime = NotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          _MemoryTokenStore(),
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.dispose();
-        });
-        await cubit.refresh();
-
-        await cubit.deleteNotification(first);
-        repository.deleteResult = const Result.failure(error);
-        await cubit.deleteNotification(second);
-
-        expect(cubit.state.items.map((item) => item.id), <String>['n-2']);
-        expect(cubit.state.unreadCount, 1);
-        expect(cubit.state.errorMessage, 'Delete failed');
-      },
-    );
-
-    test(
-      'a newer refresh response cannot be overwritten by an older one',
-      () async {
-        final repository = _ControlledNotificationRepository();
-        final realtime = _TestNotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          _MemoryTokenStore(),
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-
-        final olderRefresh = cubit.refresh();
-        await _eventually(() => repository.listRequests.length == 1);
-        final newerRefresh = cubit.refresh();
-        await _eventually(() => repository.listRequests.length == 2);
-        repository.listRequests[1].complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[_notification('newer')],
-              hasNext: false,
-            ),
-          ),
-        );
-        await newerRefresh;
-        repository.listRequests[0].complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[_notification('older')],
-              hasNext: false,
-            ),
-          ),
-        );
-        await olderRefresh;
-
-        expect(cubit.state.items.single.id, 'newer');
-      },
-    );
-
-    test(
-      'refresh preserves a realtime item received while REST is pending',
-      () async {
-        final repository = _ControlledNotificationRepository();
-        final realtime = _TestNotificationRealtimeClient();
-        final tokenStore = _MemoryTokenStore()..value = _jwt('user-1');
-        final cubit = NotificationCubit(
-          repository,
-          tokenStore,
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-
-        final start = cubit.ensureStarted();
-        await _eventually(() => repository.listRequests.length == 1);
-        realtime.emitNotification(_notification('realtime'));
-        await Future<void>.delayed(Duration.zero);
-        repository.listRequests.single.complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[_notification('server')],
-              hasNext: false,
-            ),
-          ),
-        );
-        await start;
-
-        expect(cubit.state.items.map((item) => item.id), <String>[
-          'realtime',
-          'server',
-        ]);
-        expect(cubit.state.unreadCount, 2);
-      },
-    );
-
-    test(
-      'refresh never reports fewer unread items than its server page',
-      () async {
-        final repository = _ControlledNotificationRepository()
-          ..unreadRequest = Completer<Result<int>>();
-        final realtime = _TestNotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          _MemoryTokenStore()..value = _jwt('user-1'),
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-
-        final start = cubit.ensureStarted();
-        await _eventually(() => repository.listRequests.length == 1);
-        repository.listRequests.single.complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[_notification('committed-unread')],
-              hasNext: false,
-            ),
-          ),
-        );
-        await _eventually(() => repository.unreadCalls == 1);
-        repository.unreadRequest!.complete(const Result.success(0));
-        await start;
-
-        expect(cubit.state.items.single.id, 'committed-unread');
-        expect(cubit.state.unreadCount, 1);
-      },
-    );
-
-    test(
-      'badge arriving during unread REST wins over its stale response',
-      () async {
-        final repository = _ControlledNotificationRepository()
-          ..unreadRequest = Completer<Result<int>>();
-        final realtime = _TestNotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          _MemoryTokenStore()..value = _jwt('user-1'),
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-
-        final start = cubit.ensureStarted();
-        await _eventually(() => repository.listRequests.length == 1);
-        repository.listRequests.single.complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[_notification('now-read', read: true)],
-              hasNext: false,
-            ),
-          ),
-        );
-        await _eventually(() => repository.unreadCalls == 1);
-        realtime.emitBadge(0);
-        await Future<void>.delayed(Duration.zero);
-        repository.unreadRequest!.complete(const Result.success(1));
-        await start;
-
-        expect(cubit.state.items.single.read, isTrue);
-        expect(cubit.state.unreadCount, 0);
-      },
-    );
-
-    test('a mutation finishing after stop cannot revive user data', () async {
-      final notification = _notification('n-1');
-      final repository = _NotificationRepositoryFake(
-        pages: <int, Result<pagination.Page<AppNotification>>>{
-          0: Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[notification],
-              hasNext: false,
-            ),
-          ),
-        },
-        unread: const Result.success(1),
-      );
-      final realtime = _TestNotificationRealtimeClient();
-      final cubit = NotificationCubit(
-        repository,
-        _MemoryTokenStore(),
-        realtimeClient: realtime,
-      );
-      addTearDown(() async {
-        await cubit.close();
-        await realtime.closeStreams();
-      });
-      await cubit.refresh();
-      repository.markReadRequest = Completer<Result<void>>();
-
-      final mark = cubit.markAsRead(notification);
-      await cubit.stop();
-      repository.markReadRequest!.complete(const Result.success(null));
-      await mark;
-
-      expect(cubit.state.initialized, isFalse);
-      expect(cubit.state.items, isEmpty);
-      expect(cubit.state.unreadCount, 0);
-    });
-
-    test(
-      'a mutation from the previous active user cannot alter the new user',
-      () async {
-        final firstUserItem = _notification('shared-id');
-        final secondUserItem = _notification('shared-id');
-        final repository = _NotificationRepositoryFake(
-          pages: <int, Result<pagination.Page<AppNotification>>>{
-            0: Result.success(
-              pagination.Page<AppNotification>(
-                items: <AppNotification>[firstUserItem],
-                hasNext: false,
-              ),
-            ),
-          },
-          unread: const Result.success(1),
-        );
-        final tokenStore = _MemoryTokenStore()..value = _jwt('user-1');
-        final realtime = _TestNotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          tokenStore,
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-        await cubit.ensureStarted();
-        repository.markReadRequest = Completer<Result<void>>();
-        final oldMutation = cubit.markAsRead(firstUserItem);
-
-        repository.pages[0] = Result.success(
-          pagination.Page<AppNotification>(
-            items: <AppNotification>[secondUserItem],
-            hasNext: false,
-          ),
-        );
-        tokenStore.value = _jwt('user-2');
-        await cubit.ensureStarted();
-        repository.markReadRequest!.complete(const Result.success(null));
-        await oldMutation;
-        realtime.emitNotification(
-          _notification('wrong-recipient', recipientId: 'user-1'),
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        expect(cubit.state.items.single.id, 'shared-id');
-        expect(cubit.state.items.single.read, isFalse);
-        expect(cubit.state.unreadCount, 1);
-      },
-    );
-
-    test(
-      'an in-flight refresh from the previous user never emits into the new session',
-      () async {
-        final firstUserItem = _notification(
-          'user-a-item',
-          recipientId: 'user-a',
-        );
-        final secondUserItem = _notification(
-          'user-b-item',
-          recipientId: 'user-b',
-        );
-        final repository = _ControlledNotificationRepository()
-          ..unreadResult = const Result.success(1);
-        final tokenStore = _MemoryTokenStore()..value = _jwt('user-a');
-        final realtime = _TestNotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          tokenStore,
-          realtimeClient: realtime,
-        );
-        var recordPostSwitchStates = false;
-        var leakedFirstUserState = false;
-        final stateSubscription = cubit.stream.listen((state) {
-          if (!recordPostSwitchStates) return;
-          if (state.unreadCount == 91 ||
-              state.items.any((item) => item.id == firstUserItem.id)) {
-            leakedFirstUserState = true;
-          }
-        });
-        addTearDown(() async {
-          await stateSubscription.cancel();
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-
-        final initialStart = cubit.ensureStarted();
-        await _eventually(() => repository.listRequests.length == 1);
-        repository.listRequests.single.complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[firstUserItem],
-              hasNext: false,
-            ),
-          ),
-        );
-        await initialStart;
-
-        repository.unreadResult = const Result.success(91);
-        realtime.emitBadge(91);
-        await _eventually(() => repository.listRequests.length == 2);
-
-        tokenStore.value = _jwt('user-b');
-        final switchUser = cubit.ensureStarted();
-        await _eventually(
-          () => cubit.state.items.isEmpty && cubit.state.unreadCount == 0,
-        );
-        recordPostSwitchStates = true;
-        repository.unreadResult = const Result.success(2);
-        repository.listRequests[1].complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[firstUserItem],
-              hasNext: false,
-            ),
-          ),
-        );
-        await _eventually(() => repository.listRequests.length == 3);
-        repository.listRequests[2].complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[secondUserItem],
-              hasNext: false,
-            ),
-          ),
-        );
-        await switchUser;
-
-        expect(leakedFirstUserState, isFalse);
-        expect(cubit.state.items.single.id, 'user-b-item');
-        expect(cubit.state.unreadCount, 2);
-      },
-    );
-
-    test(
-      'badge frames reconcile item state without a notification frame',
-      () async {
-        final original = _notification('n-1');
-        final repository = _ControlledNotificationRepository();
-        final realtime = _TestNotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          _MemoryTokenStore()..value = _jwt('user-1'),
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-
-        final start = cubit.ensureStarted();
-        await _eventually(() => repository.listRequests.length == 1);
-        repository.listRequests.single.complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[original],
-              hasNext: false,
-            ),
-          ),
-        );
-        await start;
-
-        realtime.emitBadge(0);
-        await _eventually(() => repository.listRequests.length == 2);
-        repository.listRequests[1].complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[original.copyWith(read: true)],
-              hasNext: false,
-            ),
-          ),
-        );
-        await _eventually(() => cubit.state.items.single.read);
-
-        expect(cubit.state.unreadCount, 0);
-      },
-    );
-
-    test(
-      'badge arriving during reconciliation queues one follow-up refresh',
-      () async {
-        final original = _notification('n-1');
-        final repository = _ControlledNotificationRepository();
-        final realtime = _TestNotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          _MemoryTokenStore()..value = _jwt('user-1'),
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-
-        final start = cubit.ensureStarted();
-        await _eventually(() => repository.listRequests.length == 1);
-        repository.listRequests.single.complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[original],
-              hasNext: false,
-            ),
-          ),
-        );
-        await start;
-
-        realtime.emitBadge(1);
-        await _eventually(() => repository.listRequests.length == 2);
-        realtime.emitBadge(0);
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-        expect(repository.listRequests, hasLength(2));
-
-        repository.listRequests[1].complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[original],
-              hasNext: false,
-            ),
-          ),
-        );
-        await _eventually(() => repository.listRequests.length == 3);
-        repository.listRequests[2].complete(
-          Result.success(
-            pagination.Page<AppNotification>(items: const [], hasNext: false),
-          ),
-        );
-        await _eventually(() => cubit.state.items.isEmpty);
-
-        expect(repository.listRequests, hasLength(3));
-        expect(cubit.state.unreadCount, 0);
-      },
-    );
-
-    test(
-      'mark-all refresh keeps a notification arriving in flight unread',
-      () async {
-        final old = _notification('old');
-        final fresh = _notification('fresh');
-        final repository = _ControlledNotificationRepository()
-          ..markAllRequest = Completer<Result<int>>();
-        final realtime = _TestNotificationRealtimeClient();
-        final cubit = NotificationCubit(
-          repository,
-          _MemoryTokenStore()..value = _jwt('user-1'),
-          realtimeClient: realtime,
-        );
-        addTearDown(() async {
-          await cubit.close();
-          await realtime.closeStreams();
-        });
-
-        final start = cubit.ensureStarted();
-        await _eventually(() => repository.listRequests.length == 1);
-        repository.listRequests.single.complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[old],
-              hasNext: false,
-            ),
-          ),
-        );
-        await start;
-
-        final markAll = cubit.markAllAsRead();
-        realtime.emitNotification(fresh);
-        await Future<void>.delayed(Duration.zero);
-        repository.unreadResult = const Result.success(1);
-        repository.markAllRequest!.complete(const Result.success(1));
-        await _eventually(() => repository.listRequests.length == 2);
-        repository.listRequests[1].complete(
-          Result.success(
-            pagination.Page<AppNotification>(
-              items: <AppNotification>[fresh, old.copyWith(read: true)],
-              hasNext: false,
-            ),
-          ),
-        );
-        await markAll;
-
-        expect(cubit.state.items.first.id, 'fresh');
-        expect(cubit.state.items.first.read, isFalse);
-        expect(cubit.state.items.last.read, isTrue);
-        expect(cubit.state.unreadCount, 1);
-      },
-    );
-
-    test('clear-all refresh keeps a notification arriving in flight', () async {
-      final old = _notification('old');
-      final fresh = _notification('fresh');
-      final repository = _ControlledNotificationRepository()
-        ..clearAllRequest = Completer<Result<int>>();
-      final realtime = _TestNotificationRealtimeClient();
-      final cubit = NotificationCubit(
-        repository,
-        _MemoryTokenStore()..value = _jwt('user-1'),
-        realtimeClient: realtime,
-      );
-      addTearDown(() async {
-        await cubit.close();
-        await realtime.closeStreams();
-      });
-
-      final start = cubit.ensureStarted();
-      await _eventually(() => repository.listRequests.length == 1);
-      repository.listRequests.single.complete(
-        Result.success(
-          pagination.Page<AppNotification>(
-            items: <AppNotification>[old],
-            hasNext: false,
-          ),
-        ),
-      );
-      await start;
-
-      final clearAll = cubit.clearAllNotifications();
-      realtime.emitNotification(fresh);
-      await Future<void>.delayed(Duration.zero);
-      repository.unreadResult = const Result.success(1);
-      repository.clearAllRequest!.complete(const Result.success(1));
-      await _eventually(() => repository.listRequests.length == 2);
-      repository.listRequests[1].complete(
-        Result.success(
-          pagination.Page<AppNotification>(
-            items: <AppNotification>[fresh],
-            hasNext: false,
-          ),
-        ),
-      );
-      await clearAll;
-
-      expect(cubit.state.items.single.id, 'fresh');
-      expect(cubit.state.items.single.read, isFalse);
-      expect(cubit.state.unreadCount, 1);
-    });
-  });
+  _registerNotificationCubitTests();
 
   testWidgets('notification target opens before mark-as-read completes', (
     tester,
@@ -1332,6 +615,389 @@ void main() {
       expect(args.profileId, 'listener-profile-1');
     },
   );
+
+  testWidgets(
+    'legacy approval notification resolves personal scope independently of calendar',
+    (tester) async {
+      await serviceLocator.reset();
+      addTearDown(serviceLocator.reset);
+      _registerInvitationAccess();
+      serviceLocator.registerSingleton<EventPerformerRequestRepository>(
+        _EmptyEventPerformerRequestRepository(),
+      );
+      final notification = _notification(
+        'event-performer-request',
+        type: 'EVENT_PERFORMER_APPROVAL_REQUESTED',
+        payload: const <String, dynamic>{
+          'module': 'EVENT_PERFORMER',
+          'action': 'APPROVAL_REQUESTED',
+          'requestId': 'request-1',
+          'eventId': 'event-1',
+        },
+      );
+      final repository = _NotificationRepositoryFake(
+        pages: <int, Result<pagination.Page<AppNotification>>>{
+          0: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[notification],
+              hasNext: false,
+            ),
+          ),
+        },
+      );
+      final realtime = NotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.dispose();
+      });
+
+      await tester.pumpWidget(
+        BlocProvider<NotificationCubit>.value(
+          value: cubit,
+          child: const MaterialApp(home: NotificationScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('event-performer-request'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Etkinlik Davetleri'), findsOneWidget);
+      expect(find.text('Bekleyen etkinlik daveti yok'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'approved performer notification trusts fresh detail instead of stale payload ids',
+    (tester) async {
+      final event = await _openPerformerEventNotification(
+        tester,
+        type: 'EVENT_PERFORMER_APPROVED',
+        action: 'APPROVED',
+        detail: const VenueEventDetail(
+          id: 'event-1',
+          shareUrl: null,
+          posterImage: null,
+          performerName: 'Güncel Sanatçı',
+          musicianProfileId: 'musician-fresh',
+          bandId: null,
+          performerType: 'MUSICIAN',
+          title: 'Güncel Etkinlik',
+          venueId: null,
+        ),
+      );
+
+      expect(event.artistProfileId, 'musician-fresh');
+      expect(event.bandProfileId, isNull);
+    },
+  );
+
+  testWidgets(
+    'rejected performer notification never revives stale payload profile ids',
+    (tester) async {
+      final event = await _openPerformerEventNotification(
+        tester,
+        type: 'EVENT_PERFORMER_REJECTED',
+        action: 'REJECTED',
+        detail: const VenueEventDetail(
+          id: 'event-1',
+          shareUrl: null,
+          posterImage: null,
+          performerName: 'Sahbaz',
+          musicianProfileId: null,
+          bandId: null,
+          performerType: 'MANUAL',
+          title: 'Güncel Etkinlik',
+          venueId: null,
+        ),
+      );
+
+      expect(event.artistProfileId, isNull);
+      expect(event.bandProfileId, isNull);
+      expect(event.hasLinkedPerformerProfile, isFalse);
+    },
+  );
+
+  for (final description in <String?>[
+    null,
+    '   ',
+    '  Kapılar 19.30’da açılır.  ',
+    'MANUAL performansı',
+  ]) {
+    testWidgets(
+      'event notification uses only authored description: $description',
+      (tester) async {
+        final event = await _openPerformerEventNotification(
+          tester,
+          type: 'EVENT_PERFORMER_APPROVED',
+          action: 'APPROVED',
+          detail: VenueEventDetail(
+            id: 'event-1',
+            shareUrl: null,
+            posterImage: null,
+            performerName: 'Sanatçı',
+            musicianProfileId: null,
+            performerType: 'MANUAL',
+            title: 'Güncel Etkinlik',
+            description: description,
+          ),
+        );
+
+        expect(event.description, description?.trim() ?? '');
+        expect(event.description, isNot('Message'));
+      },
+    );
+  }
+
+  for (final scope in [
+    (
+      type: 'MUSICIAN',
+      field: 'musicianProfileId',
+      id: 'musician-1',
+      target: EventPerformerTargetType.musician,
+    ),
+    (
+      type: 'BAND',
+      field: 'bandId',
+      id: 'band-1',
+      target: EventPerformerTargetType.band,
+    ),
+  ]) {
+    testWidgets(
+      '${scope.type} OFF notification opens the exact invitation inbox',
+      (tester) async {
+        final requests = await _openApprovalNotification(
+          tester,
+          {'performerType': scope.type, scope.field: scope.id},
+          personalVisible: scope.target == EventPerformerTargetType.band,
+          bandVisible: scope.target == EventPerformerTargetType.musician,
+        );
+        expect(
+          find.byKey(const Key('event-invitations-calendar-disabled')),
+          findsNothing,
+        );
+        expect(find.byType(EventPerformerRequestsScreen), findsOneWidget);
+        expect(requests.reads, 1);
+        expect(requests.targetType, scope.target);
+        expect(requests.targetId, scope.id);
+      },
+    );
+    testWidgets(
+      '${scope.type} approval notification preserves exact performer target',
+      (tester) async {
+        await _openApprovalNotification(tester, {
+          'performerType': scope.type,
+          scope.field: scope.id,
+        });
+        final screen = tester.widget<EventPerformerRequestsScreen>(
+          find.byType(EventPerformerRequestsScreen),
+        );
+        expect(screen.targetType, scope.target);
+        expect(screen.targetId, scope.id);
+        expect(find.text('Bekleyen etkinlik daveti yok'), findsOneWidget);
+      },
+    );
+  }
+  for (final payload in <Map<String, dynamic>>[
+    {
+      'performerType': 'BAND',
+      'bandId': 'band-1',
+      'musicianProfileId': 'musician-1',
+    },
+    {'performerType': 'BAND', 'bandId': 'band-1', 'targetType': 'MUSICIAN'},
+    {'performerType': 'BAND'},
+    {'performerType': 'MUSICIAN', 'musicianProfileId': 123},
+    {'performerType': 'BAND', 'bandId': 'band-1', 'targetId': 'band-other'},
+  ]) {
+    testWidgets('contradictory invitation payload is not routed: $payload', (
+      tester,
+    ) async {
+      await _openApprovalNotification(tester, payload);
+      expect(find.byType(EventPerformerRequestsScreen), findsNothing);
+      expect(
+        find.text('Davetin ait olduğu profil doğrulanamadı.'),
+        findsOneWidget,
+      );
+    });
+  }
+
+  testWidgets(
+    'approved notification fails closed when fresh detail ids contradict its type',
+    (tester) async {
+      final event = await _openPerformerEventNotification(
+        tester,
+        type: 'EVENT_PERFORMER_APPROVED',
+        action: 'APPROVED',
+        detail: const VenueEventDetail(
+          id: 'event-1',
+          shareUrl: null,
+          posterImage: null,
+          performerName: 'Sahbaz',
+          musicianProfileId: 'musician-fresh',
+          bandId: 'band-fresh',
+          performerType: 'BAND',
+          title: 'Güncel Etkinlik',
+          venueId: null,
+        ),
+      );
+
+      expect(event.artistProfileId, isNull);
+      expect(event.bandProfileId, isNull);
+      expect(event.hasLinkedPerformerProfile, isFalse);
+    },
+  );
+}
+
+Future<InvitationRequests> _openApprovalNotification(
+  WidgetTester tester,
+  Map<String, dynamic> target, {
+  bool personalVisible = true,
+  bool bandVisible = true,
+}) async {
+  await serviceLocator.reset();
+  addTearDown(serviceLocator.reset);
+  _registerInvitationAccess(
+    personalVisible: personalVisible,
+    bandVisible: bandVisible,
+  );
+  final invitations = InvitationRequests();
+  serviceLocator.registerSingleton<EventPerformerRequestRepository>(
+    invitations,
+  );
+  final repository = _NotificationRepositoryFake(
+    pages: {
+      0: Result.success(
+        pagination.Page<AppNotification>(
+          items: [
+            _notification(
+              'scoped-invitation',
+              type: 'EVENT_PERFORMER_APPROVAL_REQUESTED',
+              payload: {
+                'module': 'EVENT_PERFORMER',
+                'action': 'APPROVAL_REQUESTED',
+                ...target,
+              },
+            ),
+          ],
+          hasNext: false,
+        ),
+      ),
+    },
+  );
+  final realtime = NotificationRealtimeClient();
+  final cubit = NotificationCubit(
+    repository,
+    _MemoryTokenStore(),
+    realtimeClient: realtime,
+  );
+  addTearDown(() async {
+    await cubit.close();
+    await realtime.dispose();
+  });
+  await tester.pumpWidget(
+    BlocProvider<NotificationCubit>.value(
+      value: cubit,
+      child: const MaterialApp(home: NotificationScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('scoped-invitation'));
+  await tester.pumpAndSettle();
+  return invitations;
+}
+
+void _registerInvitationAccess({
+  bool personalVisible = true,
+  bool bandVisible = true,
+}) {
+  final session = InvitationSession();
+  final personal = InvitationCalendar(visible: personalVisible);
+  final band = InvitationCalendar(visible: bandVisible);
+  serviceLocator.registerSingleton<AuthSessionManager>(session);
+  serviceLocator.registerSingleton<MusicianProfileRepository>(
+    InvitationProfileRepository(),
+  );
+  serviceLocator.registerSingleton<BandRepository>(InvitationBands());
+  serviceLocator.registerSingleton<MusicianCalendarRepository>(personal);
+  serviceLocator.registerSingleton<BandCalendarRepositoryFactory>(
+    InvitationBandCalendars(band),
+  );
+  addTearDown(() async {
+    session.dispose();
+    await personal.dispose();
+    await band.dispose();
+  });
+}
+
+Future<WeeklyCalendarEvent> _openPerformerEventNotification(
+  WidgetTester tester, {
+  required String type,
+  required String action,
+  required VenueEventDetail detail,
+}) async {
+  await serviceLocator.reset();
+  addTearDown(serviceLocator.reset);
+  serviceLocator.registerSingleton<VenueEventRepository>(
+    _PerformerNotificationVenueEventRepository(detail),
+  );
+  serviceLocator.registerSingleton<EngagementRepository>(
+    _PerformerNotificationEngagementRepository(),
+  );
+  serviceLocator.registerSingleton<MusicianProfileRepository>(
+    _PerformerNotificationMusicianRepository(),
+  );
+
+  final notification = _notification(
+    'event-performer-${type.toLowerCase()}',
+    type: type,
+    payload: <String, dynamic>{
+      'module': 'EVENT_PERFORMER',
+      'action': action,
+      'eventId': detail.id,
+      'musicianProfileId': 'musician-stale',
+      'bandId': 'band-stale',
+      'performerName': 'Eski Sanatçı',
+      'venueId': 'stale-unapproved-venue',
+    },
+  );
+  final repository = _NotificationRepositoryFake(
+    pages: <int, Result<pagination.Page<AppNotification>>>{
+      0: Result.success(
+        pagination.Page<AppNotification>(
+          items: <AppNotification>[notification],
+          hasNext: false,
+        ),
+      ),
+    },
+  );
+  final realtime = NotificationRealtimeClient();
+  final cubit = NotificationCubit(
+    repository,
+    _MemoryTokenStore(),
+    realtimeClient: realtime,
+  );
+  addTearDown(() async {
+    await cubit.close();
+    await realtime.dispose();
+  });
+
+  await tester.pumpWidget(
+    BlocProvider<NotificationCubit>.value(
+      value: cubit,
+      child: const MaterialApp(home: NotificationScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(notification.title));
+  await tester.pumpAndSettle();
+
+  return tester
+      .widget<WeeklyEventDetailScreen>(find.byType(WeeklyEventDetailScreen))
+      .event;
 }
 
 AppNotification _notification(
@@ -1462,6 +1128,89 @@ class _NotificationRepositoryFake implements NotificationRepository {
   Future<Result<void>> markAsRead({required String notificationId}) async {
     return markReadRequest?.future ?? const Result.success(null);
   }
+}
+
+class _EmptyEventPerformerRequestRepository
+    implements EventPerformerRequestRepository {
+  @override
+  Future<Result<void>> reconsider(
+    String requestId, {
+    required bool showOnProfile,
+  }) => throw UnimplementedError(
+    'Unexpected reconsideration in notification test.',
+  );
+
+  @override
+  Future<Result<EventPerformerRequestPage>> listMine({
+    EventPerformerRequestStatus status = EventPerformerRequestStatus.pending,
+    int page = 0,
+    int size = 20,
+    EventPerformerTargetType? targetType,
+    String? targetId,
+  }) async => Result.success(
+    EventPerformerRequestPage(
+      items: const <EventPerformerRequest>[],
+      page: page,
+      size: size,
+      totalElements: 0,
+      totalPages: 0,
+      hasNext: false,
+    ),
+  );
+
+  @override
+  Future<Result<void>> accept(
+    String requestId, {
+    bool showOnProfile = false,
+  }) async => const Result.success(null);
+
+  @override
+  Future<Result<void>> reject(String requestId) async =>
+      const Result.success(null);
+}
+
+class _PerformerNotificationVenueEventRepository
+    implements VenueEventRepository {
+  final VenueEventDetail detail;
+
+  _PerformerNotificationVenueEventRepository(this.detail);
+
+  @override
+  Future<Result<VenueEventDetail>> getDetail(String eventId) async =>
+      Result.success(detail);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PerformerNotificationEngagementRepository
+    implements EngagementRepository {
+  @override
+  Future<Result<CommentPage>> listComments({
+    required String targetType,
+    required String targetId,
+    int page = 0,
+    int size = 20,
+  }) async => const Result.success(CommentPage(items: [], totalElements: 0));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PerformerNotificationMusicianRepository
+    implements MusicianProfileRepository {
+  @override
+  Future<Result<MusicianProfile>> getPublicProfileByProfileId(
+    String profileId,
+  ) async => const Result.failure(
+    AppError(
+      code: 'not_needed',
+      message: 'Profile rendering is not under test.',
+    ),
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _ControlledNotificationRepository implements NotificationRepository {

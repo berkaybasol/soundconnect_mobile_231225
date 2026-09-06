@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/error/result.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../collab/presentation/collab_route_args.dart';
@@ -18,15 +19,22 @@ import '../../../overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../../overthinking/presentation/screens/overthinking_manage_screen.dart';
 import '../../../profile/domain/entities/listener_visibility_context.dart';
+import '../../../profile/domain/entities/event_performer_request.dart';
+import '../../../profile/domain/entities/venue_event_detail.dart';
+import '../../../profile/domain/venue_event_repository.dart';
 import '../../../profile/presentation/screens/band_invite_decision_screen.dart';
 import '../../../profile/presentation/screens/band_profile_screen.dart';
+import '../../../profile/presentation/screens/event_invitation_navigation.dart';
 import '../../../profile/presentation/screens/musician_profile_screen.dart';
 import '../../../profile/presentation/screens/profile_route_args.dart';
 import '../../../profile/presentation/screens/studio_profile_screen.dart';
+import '../../../profile/presentation/screens/weekly_event_detail_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_detail_screen.dart';
 import '../../domain/entities/app_notification.dart';
 import '../cubit/notification_cubit.dart';
 import '../cubit/notification_state.dart';
+
+part 'notification_screen_support_widgets.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -322,6 +330,10 @@ class _NotificationTileState extends State<_NotificationTile> {
         await _openCollabTarget(context, notification);
         return;
       }
+      if (_isEventPerformerNotification(notification)) {
+        await _openEventPerformerTarget(context, notification);
+        return;
+      }
       if (_isArtistVenueNotification(notification)) {
         await _openArtistVenueTarget(context, notification.payload);
         return;
@@ -499,6 +511,196 @@ class _NotificationTileState extends State<_NotificationTile> {
     final module = notification.payload['module']?.toString().trim() ?? '';
     return module == 'ARTIST_VENUE' ||
         notification.type.startsWith('ARTIST_VENUE');
+  }
+
+  bool _isEventPerformerNotification(AppNotification notification) {
+    final module =
+        notification.payload['module']?.toString().trim().toUpperCase() ?? '';
+    final type = notification.type.trim().toUpperCase();
+    return module == 'EVENT_PERFORMER' || type.startsWith('EVENT_PERFORMER_');
+  }
+
+  Future<void> _openEventPerformerTarget(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
+    final type = notification.type.trim().toUpperCase();
+    final action =
+        notification.payload['action']?.toString().trim().toUpperCase() ?? '';
+    if (type == 'EVENT_PERFORMER_APPROVAL_REQUESTED' ||
+        action == 'APPROVAL_REQUESTED') {
+      final target = _performerInvitationTarget(notification);
+      if (target == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Davetin ait olduğu profil doğrulanamadı.'),
+          ),
+        );
+        return;
+      }
+      await openEventInvitations(
+        context,
+        targetType: target.type,
+        targetId: target.id,
+      );
+      return;
+    }
+
+    final eventId = notification.payload['eventId']?.toString().trim() ?? '';
+    if (eventId.isEmpty) {
+      final target = _performerInvitationTarget(notification);
+      if (target == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Davetin ait olduğu profil doğrulanamadı.'),
+          ),
+        );
+        return;
+      }
+      await openEventInvitations(
+        context,
+        targetType: target.type,
+        targetId: target.id,
+      );
+      return;
+    }
+
+    Result<VenueEventDetail> result;
+    try {
+      result = await serviceLocator<VenueEventRepository>().getDetail(eventId);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Etkinlik ayrıntıları açılamadı.')),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    final detail = result.data;
+    if (!result.isSuccess || detail == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.error?.message ?? 'Etkinlik ayrıntıları açılamadı.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // The event detail is the current authorization source of truth. Never
+    // revive a performer link from a potentially stale notification payload.
+    final performerIdentity = detail.performerIdentity;
+    final musicianId = performerIdentity.musicianProfileId;
+    final bandId = performerIdentity.bandId;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => WeeklyEventDetailScreen(
+          event: WeeklyCalendarEvent(
+            id: eventId,
+            title:
+                _firstNonBlank(detail.title, notification.title) ?? 'Etkinlik',
+            artistName:
+                _firstNonBlank(
+                  detail.performerName,
+                  notification.payload['performerName']?.toString(),
+                ) ??
+                'Sanatçı',
+            artistProfileId: musicianId,
+            bandProfileId: bandId,
+            performerType: performerIdentity.performerType,
+            venueName:
+                _firstNonBlank(
+                  detail.venueName,
+                  notification.payload['venueName']?.toString(),
+                ) ??
+                'Mekan',
+            // Only live event data may authorize a venue link; an old
+            // notification can still contain a pending or rejected target.
+            venueId: _cleanNullable(detail.venueId),
+            city: detail.venueCity ?? '-',
+            district: detail.venueDistrict ?? '-',
+            neighborhood: detail.venueNeighborhood ?? '-',
+            eventDate: _notificationEventDate(detail.eventDate),
+            startTime: _shortEventTime(detail.startTime) ?? '-',
+            endTime: _shortEventTime(detail.endTime) ?? '-',
+            imageAssetPath: detail.posterImage,
+            description: detail.description?.trim() ?? '',
+          ),
+        ),
+      ),
+    );
+  }
+
+  ({EventPerformerTargetType? type, String? id})? _performerInvitationTarget(
+    AppNotification notification,
+  ) {
+    final payload = notification.payload;
+    const identityFields = [
+      'performerType',
+      'targetType',
+      'musicianProfileId',
+      'bandId',
+      'targetId',
+    ];
+    // Truly legacy notifications resolve to the authenticated musician's own
+    // profile in the shared navigation guard, never to an aggregate band inbox.
+    if (identityFields.every((field) => payload[field] == null)) {
+      return (type: null, id: null);
+    }
+    if (identityFields.any(
+      (field) => payload[field] != null && payload[field] is! String,
+    )) {
+      return null;
+    }
+    final declared = _cleanNullable(
+      payload['performerType'] as String?,
+    )?.toUpperCase();
+    final alternate = _cleanNullable(
+      payload['targetType'] as String?,
+    )?.toUpperCase();
+    if (declared != null && alternate != null && declared != alternate) {
+      return null;
+    }
+    final type = declared ?? alternate;
+    final musicianId = _cleanNullable(payload['musicianProfileId'] as String?);
+    final bandId = _cleanNullable(payload['bandId'] as String?);
+    final targetId = _cleanNullable(payload['targetId'] as String?);
+    if (type == 'MUSICIAN' &&
+        musicianId != null &&
+        bandId == null &&
+        (targetId == null || targetId == musicianId)) {
+      return (type: EventPerformerTargetType.musician, id: musicianId);
+    }
+    if (type == 'BAND' &&
+        bandId != null &&
+        musicianId == null &&
+        (targetId == null || targetId == bandId)) {
+      return (type: EventPerformerTargetType.band, id: bandId);
+    }
+    return null;
+  }
+
+  String? _firstNonBlank(String? first, String? second) {
+    final normalizedFirst = first?.trim() ?? '';
+    if (normalizedFirst.isNotEmpty) return normalizedFirst;
+    final normalizedSecond = second?.trim() ?? '';
+    return normalizedSecond.isEmpty ? null : normalizedSecond;
+  }
+
+  String _notificationEventDate(DateTime? date) {
+    if (date == null) return '-';
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.${date.year}';
+  }
+
+  String? _shortEventTime(String? raw) {
+    final value = raw?.trim() ?? '';
+    if (value.isEmpty) return null;
+    final pieces = value.split(':');
+    if (pieces.length < 2) return value;
+    return '${pieces[0].padLeft(2, '0')}:${pieces[1].padLeft(2, '0')}';
   }
 
   bool _isOverthinkingNotification(AppNotification notification) {
@@ -911,231 +1113,3 @@ const Map<String, String> _turkishNotificationTextFixes = {
   'Yeni bir takipçin var.': 'Yeni bir takipçin var.',
   'Yeni bir takipcin var.': 'Yeni bir takipçin var.',
 };
-
-class _NotificationTypeIcon extends StatelessWidget {
-  final AppNotification notification;
-  final bool unread;
-
-  const _NotificationTypeIcon({
-    required this.notification,
-    required this.unread,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final avatarUrl = _notificationAvatarUrl;
-    if ((_isDmNotification ||
-            _isSocialNotification ||
-            _isArtistVenueNotification) &&
-        avatarUrl.isNotEmpty) {
-      return Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: unread
-              ? LinearGradient(colors: AppColors.brandGradient)
-              : null,
-        ),
-        padding: unread ? const EdgeInsets.all(2) : EdgeInsets.zero,
-        child: ClipOval(
-          child: Image.network(
-            avatarUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _fallbackIcon(context),
-          ),
-        ),
-      );
-    }
-    return _iconContainer(context, _iconForType);
-  }
-
-  bool get _isDmNotification {
-    final module = notification.payload['module']?.toString().trim() ?? '';
-    return module == 'DM' || notification.type.startsWith('DM');
-  }
-
-  bool get _isSocialNotification {
-    final module = notification.payload['module']?.toString().trim() ?? '';
-    return module == 'SOCIAL' || notification.type.startsWith('SOCIAL');
-  }
-
-  bool get _isArtistVenueNotification {
-    final module = notification.payload['module']?.toString().trim() ?? '';
-    return module == 'ARTIST_VENUE' ||
-        notification.type.startsWith('ARTIST_VENUE');
-  }
-
-  String get type => notification.type;
-
-  String get _notificationAvatarUrl {
-    for (final key in const [
-      'actorAvatarUrl',
-      'actorProfilePictureUrl',
-      'actorProfilePicture',
-      'senderAvatarUrl',
-      'senderProfilePictureUrl',
-      'senderProfilePicture',
-      'applicantAvatarUrl',
-      'applicantProfilePictureUrl',
-      'applicantProfilePicture',
-      'venueAvatarUrl',
-      'venueProfilePictureUrl',
-      'venueProfilePicture',
-      'followerAvatarUrl',
-      'followerProfilePictureUrl',
-      'followerProfilePicture',
-      'profilePictureUrl',
-      'avatarUrl',
-    ]) {
-      final value = notification.payload[key]?.toString().trim() ?? '';
-      if (value.isNotEmpty) return value;
-    }
-    return '';
-  }
-
-  Widget _fallbackIcon(BuildContext context) {
-    return _iconContainer(context, _iconForType);
-  }
-
-  IconData get _iconForType {
-    return switch (type) {
-      final value when value.startsWith('OVERTHINKING') =>
-        Icons.psychology_alt_outlined,
-      final value when value.startsWith('BAND') => Icons.album_outlined,
-      final value when value.startsWith('TABLE') => Icons.groups_2_outlined,
-      final value when value.startsWith('MEDIA') => Icons.play_circle_outline,
-      final value when value.startsWith('DM') => Icons.forum_outlined,
-      final value when value.startsWith('STUDIO') =>
-        Icons.calendar_month_outlined,
-      final value when value.startsWith('COLLAB') => Icons.handshake_outlined,
-      final value when value.startsWith('ARTIST_VENUE') =>
-        Icons.handshake_outlined,
-      final value when value.startsWith('SOCIAL') =>
-        Icons.person_add_alt_outlined,
-      _ => Icons.notifications_none_outlined,
-    };
-  }
-
-  Widget _iconContainer(BuildContext context, IconData icon) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: unread
-            ? LinearGradient(colors: AppColors.brandGradient)
-            : null,
-        color: unread
-            ? null
-            : Theme.of(context).colorScheme.surfaceContainerHighest,
-      ),
-      child: Icon(
-        icon,
-        color: unread ? Colors.white : Theme.of(context).colorScheme.onSurface,
-        size: 21,
-      ),
-    );
-  }
-}
-
-class _SocialProfileTargetSheet extends StatelessWidget {
-  final List<DmProfileTarget> items;
-
-  const _SocialProfileTargetSheet({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: ListView.separated(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              backgroundImage: _hasImage(item.imageUrl)
-                  ? NetworkImage(item.imageUrl!.trim())
-                  : null,
-              child: _hasImage(item.imageUrl)
-                  ? null
-                  : Icon(switch (item.type) {
-                      DmProfileTargetType.musician =>
-                        Icons.person_outline_rounded,
-                      DmProfileTargetType.venue => Icons.storefront_outlined,
-                      DmProfileTargetType.studio => Icons.graphic_eq_outlined,
-                      DmProfileTargetType.listener => Icons.headphones_outlined,
-                    }),
-            ),
-            title: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    item.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (item.isGhostListener) ...[
-                  const SizedBox(width: 7),
-                  GhostProfileBadge(
-                    key: ValueKey('social-target-ghost-badge-${item.id}'),
-                  ),
-                ],
-              ],
-            ),
-            subtitle: Text(item.type.displayLabel),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).pop(item),
-          );
-        },
-      ),
-    );
-  }
-
-  bool _hasImage(String? value) {
-    final url = value?.trim() ?? '';
-    return url.startsWith('http://') || url.startsWith('https://');
-  }
-}
-
-class _NotificationLoadingList extends StatelessWidget {
-  const _NotificationLoadingList();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
-  }
-}
-
-class _EmptyNotifications extends StatelessWidget {
-  const _EmptyNotifications();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 120, 24, 24),
-      children: [
-        Icon(
-          Icons.notifications_none_outlined,
-          size: 48,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'Bildirim yok',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
-}

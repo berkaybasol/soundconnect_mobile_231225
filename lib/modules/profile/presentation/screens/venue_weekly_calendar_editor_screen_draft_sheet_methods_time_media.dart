@@ -4,17 +4,13 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
     on _VenueEventDraftSheetState {
   Future<void> _pickTime({required bool isStart}) async {
     final current = isStart
-        ? (_startTime ?? TimeOfDay(hour: 20, minute: 0))
-        : (_endTime ?? TimeOfDay(hour: 22, minute: 0));
-    final initialHour = current.hour == 0 ? 24 : current.hour;
-    int selectedHour = initialHour;
+        ? (_startTime ?? const TimeOfDay(hour: 20, minute: 0))
+        : (_endTime ?? const TimeOfDay(hour: 22, minute: 0));
+    int selectedHour = current.hour;
     int selectedMinute = current.minute.clamp(0, 59);
-    if (initialHour == 24 && selectedMinute != 0) {
-      selectedMinute = 0;
-    }
     final hourController = FixedExtentScrollController(
       initialItem: _VenueEventDraftSheetState._timePickerHours.indexOf(
-        initialHour,
+        selectedHour,
       ),
     );
     final minuteController = FixedExtentScrollController(
@@ -24,183 +20,221 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
     );
     final picked = await showModalBottomSheet<TimeOfDay>(
       context: context,
-      backgroundColor: AppColors.navBlueDeep,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GradientText(
-                  text: isStart ? 'Baslangic Saati' : 'Bitis Saati',
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: AppColors.brandGradient,
-                  ),
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Saati ve dakikayi kaydirarak sec.',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.4,
-                  ),
-                ),
-                SizedBox(height: 18),
-                Container(
-                  height: 216,
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: CupertinoPicker(
-                          scrollController: hourController,
-                          itemExtent: 48,
-                          useMagnifier: true,
-                          magnification: 1.08,
-                          selectionOverlay: _pickerSelectionOverlay(),
-                          onSelectedItemChanged: (index) {
-                            setSheetState(() {
-                              selectedHour = _VenueEventDraftSheetState
-                                  ._timePickerHours[index];
-                              if (selectedHour == 24 && selectedMinute == 30) {
-                                selectedMinute = 0;
-                                minuteController.jumpToItem(0);
-                              }
-                            });
-                          },
-                          children: _VenueEventDraftSheetState._timePickerHours
-                              .map(
-                                (hour) => Center(
-                                  child: Text(
-                                    hour.toString().padLeft(2, '0'),
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final scheme = Theme.of(context).colorScheme;
+          final selectedLabel =
+              '${selectedHour.toString().padLeft(2, '0')}:'
+              '${selectedMinute.toString().padLeft(2, '0')}';
+          return Material(
+            color: scheme.surface,
+            surfaceTintColor: Colors.transparent,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.32),
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Text(
-                          ':',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: _gradientIcon(
+                              isStart
+                                  ? Icons.schedule_outlined
+                                  : Icons.timer_outlined,
+                              size: 19,
+                            ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: CupertinoPicker(
-                          scrollController: minuteController,
-                          itemExtent: 48,
-                          useMagnifier: true,
-                          magnification: 1.08,
-                          selectionOverlay: _pickerSelectionOverlay(),
-                          onSelectedItemChanged: (index) {
-                            setSheetState(() {
-                              final nextMinute = _VenueEventDraftSheetState
-                                  ._timePickerMinutes[index];
-                              selectedMinute = selectedHour == 24
-                                  ? 0
-                                  : nextMinute;
-                              if (selectedHour == 24 && nextMinute != 0) {
-                                minuteController.jumpToItem(0);
-                              }
-                            });
-                          },
-                          children: _VenueEventDraftSheetState
-                              ._timePickerMinutes
-                              .map(
-                                (minute) => Center(
-                                  child: Text(
-                                    minute.toString().padLeft(2, '0'),
-                                    style: TextStyle(
-                                      color: selectedHour == 24 && minute == 30
-                                          ? Theme.of(context)
-                                                .colorScheme
-                                                .onSurfaceVariant
-                                                .withValues(alpha: 0.45)
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isStart ? 'Başlangıç saati' : 'Bitiş saati',
+                                style: TextStyle(
+                                  color: scheme.onSurface,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
                                 ),
-                              )
-                              .toList(),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                selectedLabel,
+                                style: TextStyle(
+                                  color: scheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Kapat',
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: scheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      height: 190,
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 14),
-                Text(
-                  selectedHour == 24 && selectedMinute == 0
-                      ? 'Secilen saat: 24.00'
-                      : 'Secilen saat: ${selectedHour.toString().padLeft(2, '0')}.${selectedMinute.toString().padLeft(2, '0')}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(
-                    TimeOfDay(
-                      hour: selectedHour == 24 ? 0 : selectedHour,
-                      minute: selectedMinute,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: hourController,
+                              itemExtent: 44,
+                              useMagnifier: true,
+                              magnification: 1.08,
+                              selectionOverlay: _pickerSelectionOverlay(),
+                              onSelectedItemChanged: (index) {
+                                setSheetState(() {
+                                  selectedHour = _VenueEventDraftSheetState
+                                      ._timePickerHours[index];
+                                });
+                              },
+                              children: _VenueEventDraftSheetState
+                                  ._timePickerHours
+                                  .map(
+                                    (hour) => Center(
+                                      child: Text(
+                                        hour.toString().padLeft(2, '0'),
+                                        style: TextStyle(
+                                          color: scheme.onSurface,
+                                          fontSize: 23,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              ':',
+                              style: TextStyle(
+                                color: scheme.onSurface,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: CupertinoPicker(
+                              scrollController: minuteController,
+                              itemExtent: 44,
+                              useMagnifier: true,
+                              magnification: 1.08,
+                              selectionOverlay: _pickerSelectionOverlay(),
+                              onSelectedItemChanged: (index) {
+                                setSheetState(() {
+                                  selectedMinute = _VenueEventDraftSheetState
+                                      ._timePickerMinutes[index];
+                                });
+                              },
+                              children: _VenueEventDraftSheetState
+                                  ._timePickerMinutes
+                                  .map(
+                                    (minute) => Center(
+                                      child: Text(
+                                        minute.toString().padLeft(2, '0'),
+                                        style: TextStyle(
+                                          color: scheme.onSurface,
+                                          fontSize: 23,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    foregroundColor: Theme.of(context).colorScheme.onSurface,
-                    side: BorderSide(color: Theme.of(context).dividerColor),
-                    minimumSize: Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text('Vazgeç'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: _gradientActionButton(
+                            label: 'Saati Seç',
+                            icon: Icons.check_rounded,
+                            onTap: () => Navigator.of(sheetContext).pop(
+                              TimeOfDay(
+                                hour: selectedHour,
+                                minute: selectedMinute,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  child: Text(
-                    'Saati Sec',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
-    if (picked == null) return;
+    hourController.dispose();
+    minuteController.dispose();
+    if (!mounted || picked == null) return;
     _updateState(() {
+      _formError = null;
       if (isStart) {
         _startTime = picked;
       } else {
@@ -216,11 +250,12 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
       imageQuality: 92,
       maxWidth: 2048,
     );
-    if (picked == null) return;
+    if (!mounted || picked == null) return;
 
     _updateState(() {
       _posterUploading = true;
       _posterPreviewPath = picked.path;
+      _formError = null;
     });
 
     try {
@@ -245,10 +280,8 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
       _updateState(() {
         _posterAssetId = null;
         _posterPreviewPath = null;
+        _formError = 'Afiş yüklenemedi: $e';
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Afis yuklenemedi: $e')));
     } finally {
       if (mounted) {
         _updateState(() => _posterUploading = false);

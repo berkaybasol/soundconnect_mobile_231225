@@ -1,82 +1,114 @@
 part of 'venue_event_management_event_card.dart';
 
-class _VenueCalendarEventFooter extends StatelessWidget {
-  final String performerName;
+class _VenueCalendarEventInfo extends StatelessWidget {
   final String title;
+  final String performerName;
+  final String dateLabel;
+  final String timeLabel;
+  final bool history;
 
-  _VenueCalendarEventFooter({required this.performerName, required this.title});
+  const _VenueCalendarEventInfo({
+    required this.title,
+    required this.performerName,
+    required this.dateLabel,
+    required this.timeLabel,
+    required this.history,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.navBlueDeep,
-            Theme.of(
-              context,
-            ).colorScheme.surfaceContainer.withValues(alpha: 0.98),
+    final scheme = Theme.of(context).colorScheme;
+    final primaryColor = history
+        ? scheme.onSurface.withValues(alpha: 0.82)
+        : scheme.onSurface;
+    final secondaryColor = scheme.onSurfaceVariant.withValues(
+      alpha: history ? 0.78 : 1,
+    );
+    final artist = performerName.trim().isEmpty ? 'Sanatçı' : performerName;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: primaryColor,
+            fontSize: 15,
+            height: 1.18,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.15,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          artist,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: secondaryColor,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 9),
+        Wrap(
+          spacing: 10,
+          runSpacing: 5,
+          children: [
+            _VenueCalendarMeta(
+              icon: Icons.calendar_today_outlined,
+              text: dateLabel,
+              history: history,
+            ),
+            _VenueCalendarMeta(
+              icon: Icons.schedule_outlined,
+              text: timeLabel,
+              history: history,
+            ),
           ],
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppColors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(child: _InfoInlineBlock(text: performerName)),
-              ],
-            ),
-          ),
-          SizedBox(height: 10),
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-              height: 1.25,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _InfoInlineBlock extends StatelessWidget {
+class _VenueCalendarMeta extends StatelessWidget {
+  final IconData icon;
   final String text;
+  final bool history;
 
-  _InfoInlineBlock({required this.text});
+  const _VenueCalendarMeta({
+    required this.icon,
+    required this.text,
+    required this.history,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurface,
-        fontSize: 10.5,
-        fontWeight: FontWeight.w700,
-      ),
+    final scheme = Theme.of(context).colorScheme;
+    final color = history
+        ? scheme.onSurfaceVariant.withValues(alpha: 0.72)
+        : AppColors.coralLight;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 13),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: scheme.onSurfaceVariant,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

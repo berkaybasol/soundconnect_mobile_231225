@@ -229,6 +229,10 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   editable: venueEditable,
                   onAddTap: onEditVenues,
                 ),
+                MusicianProfileCalendarSlot(
+                  profileId: profile.id,
+                  refreshToken: profile,
+                ),
                 const SizedBox(height: 12),
                 ProfileMediaTabs(
                   tabs: [

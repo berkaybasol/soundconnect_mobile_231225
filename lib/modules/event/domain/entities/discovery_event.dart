@@ -5,6 +5,7 @@ class DiscoveryEvent {
   final String title;
   final String performerName;
   final String? musicianProfileId;
+  final String? bandId;
   final String performerType;
   final String? performerImageUrl;
   final List<String> bandMembers;
@@ -25,6 +26,7 @@ class DiscoveryEvent {
     required this.title,
     required this.performerName,
     required this.musicianProfileId,
+    this.bandId,
     required this.performerType,
     required this.performerImageUrl,
     required this.bandMembers,

@@ -36,6 +36,7 @@ import 'profile_public_bottom_bar.dart';
 import 'profile_public_video_tab.dart';
 import 'profile_route_args.dart';
 import 'profile_screen_support.dart';
+import 'musician_profile_calendar_slot.dart';
 
 part 'musician_public_profile_screen_audio_cards.dart';
 part 'musician_public_profile_screen_content.dart';

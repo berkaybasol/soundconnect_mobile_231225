@@ -89,8 +89,8 @@ class VenueManagementPanelScreen extends StatelessWidget {
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.calendar_month_outlined,
-                title: 'Etkinlik Yonetimi',
-                message: 'Etkinlik takvimini yonet',
+                title: 'Etkinlik Yönetimi',
+                message: 'Etkinlik takvimini yönet.',
                 onTap: () async {
                   final changed = await openWeeklyCalendar(context);
                   if (changed == true && context.mounted) {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -184,7 +185,13 @@ class _CollabSavedListingsScreenState extends State<CollabSavedListingsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text(message),
+        ),
+      );
   }
 }
 

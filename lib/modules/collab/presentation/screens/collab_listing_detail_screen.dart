@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -128,8 +129,10 @@ class _DetailViewState extends State<_DetailView> {
         BlocListener<CollabListingDetailCubit, CollabListingDetailState>(
           listenWhen: (previous, current) =>
               !previous.reportSubmitted && current.reportSubmitted,
-          listener: (_, _) =>
-              _showMessage('Bildirimin alındı. Teşekkür ederiz.'),
+          listener: (_, _) => _showMessage(
+            'Bildirimin alındı. Teşekkür ederiz.',
+            tone: AppSnackBarTone.success,
+          ),
         ),
       ],
       child: BlocBuilder<CollabListingDetailCubit, CollabListingDetailState>(
@@ -370,7 +373,10 @@ class _DetailViewState extends State<_DetailView> {
     if (!mounted) return;
     final actors = cubit.state.eligibleActors;
     if (actors.isEmpty) {
-      _showMessage(listing.wantedType.missingApplicationProfileMessage);
+      _showMessage(
+        listing.wantedType.missingApplicationProfileMessage,
+        tone: AppSnackBarTone.warning,
+      );
       return;
     }
     final CollabActor? actor;
@@ -404,7 +410,7 @@ class _DetailViewState extends State<_DetailView> {
       ),
     );
     if (mounted && submitted == true) {
-      _showMessage('Başvurun gönderildi.');
+      _showMessage('Başvurun gönderildi.', tone: AppSnackBarTone.success);
     }
   }
 
@@ -460,10 +466,13 @@ class _DetailViewState extends State<_DetailView> {
     }
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }
 
@@ -1016,8 +1025,12 @@ class _ReportSheetState extends State<_ReportSheet> {
                 );
                 if (!input.isValid) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Diğer nedeni için açıklama yazmalısın.'),
+                    appSnackBar(
+                      context,
+                      tone: AppSnackBarTone.warning,
+                      content: const Text(
+                        'Diğer nedeni için açıklama yazmalısın.',
+                      ),
                     ),
                   );
                   return;

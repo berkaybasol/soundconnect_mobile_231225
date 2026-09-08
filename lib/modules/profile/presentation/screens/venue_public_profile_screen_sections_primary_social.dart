@@ -14,17 +14,25 @@ class _SocialButtonRow extends StatelessWidget {
         : 'https://$trimmed';
     final uri = Uri.tryParse(normalized);
     if (uri == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gecersiz link')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: Text('Geçersiz bağlantı'),
+        ),
+      );
       return;
     }
 
     final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!success && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Link acilamadi')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text('Link açılamadı'),
+        ),
+      );
     }
   }
 

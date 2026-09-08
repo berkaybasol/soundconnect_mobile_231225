@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:audio_service/audio_service.dart';
@@ -19,6 +20,7 @@ import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
@@ -30,6 +32,7 @@ import '../cubit/profile_media_cubit.dart';
 import 'media_detail_screen.dart';
 import 'profile_audio_transport.dart';
 import 'profile_common_widgets.dart';
+import 'profile_carousels.dart';
 import 'profile_count_row.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
 import 'profile_public_bottom_bar.dart';
@@ -180,7 +183,7 @@ class _MusicianPublicProfileViewState
           if (state.status == MusicianProfileStatus.idle &&
               (_targetProfileId == null || _targetProfileId!.isEmpty)) {
             return const Scaffold(
-              body: Center(child: Text('Profil hedefi bulunamadi')),
+              body: Center(child: Text('Profil hedefi bulunamadı')),
             );
           }
 
@@ -217,9 +220,9 @@ class _MusicianPublicProfileViewState
           final media = context.watch<ProfileMediaCubit>().state.media;
           final venueState = context.watch<ArtistVenueConnectionsCubit>().state;
           final venueItems =
-              venueState.status == ArtistVenueConnectionsStatus.loading
-              ? null
-              : venueState.venues;
+              venueState.status == ArtistVenueConnectionsStatus.success
+              ? venueState.venues
+              : null;
           final followState = context.watch<FollowCountCubit>().state;
           final followersCount = followState.status == FollowCountStatus.loading
               ? null

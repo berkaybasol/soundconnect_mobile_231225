@@ -164,7 +164,7 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
                         if (state.comments.isEmpty) {
                           return Center(
                             child: Text(
-                              'Henuz yorum yok.',
+                              'Henüz yorum yok.',
                               style: TextStyle(
                                 color: Theme.of(
                                   context,

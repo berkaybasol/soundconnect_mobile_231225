@@ -534,7 +534,7 @@ class _EngagementRepositoryFake implements EngagementRepository {
   }) => throw UnimplementedError();
 
   @override
-  Future<Result<List<CommentItem>>> listReplies(String commentId) =>
+  Future<Result<List<CommentItem>>> listReplies(String commentId, {String? eventId}) =>
       throw UnimplementedError();
 }
 

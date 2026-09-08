@@ -65,8 +65,8 @@ void main() {
         ),
       );
 
-      expect(find.text('Henuz fotograf eklemediniz'), findsOneWidget);
-      expect(find.text('Henuz fotograf eklenmedi.'), findsOneWidget);
+      expect(find.text('Henüz fotoğraf eklemediniz'), findsOneWidget);
+      expect(find.text('Henüz fotoğraf eklenmedi.'), findsOneWidget);
       await tester.tap(find.byIcon(Icons.add_photo_alternate_outlined));
       await tester.pump();
       expect(uploadCalls, 1);
@@ -79,7 +79,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Henuz fotograf eklenmedi.'), findsOneWidget);
+      expect(find.text('Henüz fotoğraf eklenmedi.'), findsOneWidget);
       expect(find.byIcon(Icons.add_photo_alternate_outlined), findsNothing);
     });
 
@@ -99,9 +99,9 @@ void main() {
         ),
       );
 
-      expect(find.text('Fotograf yukleniyor %42'), findsOneWidget);
+      expect(find.text('Fotoğraf yükleniyor %42'), findsOneWidget);
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      await tester.tap(find.text('Fotograf yukleniyor %42'));
+      await tester.tap(find.text('Fotoğraf yükleniyor %42'));
       await tester.pump();
       expect(uploadCalls, 0);
     });
@@ -151,7 +151,7 @@ void main() {
         'https://example.test/thumb.jpg',
         'https://example.test/fallback.jpg',
       ]);
-      expect(find.text('Henuz fotograf eklenmedi.'), findsNothing);
+      expect(find.text('Henüz fotoğraf eklenmedi.'), findsNothing);
     });
   });
 }

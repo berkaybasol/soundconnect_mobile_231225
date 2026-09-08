@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -454,6 +455,7 @@ class _CollabMyApplicationsScreenState
           _showMessage(
             'Hedef başvuru yüklendi ancak otomatik kaydırılamadı. '
             'Listede elle kaydırarak açabilirsin.',
+            tone: AppSnackBarTone.warning,
           );
         }
       });
@@ -476,7 +478,10 @@ class _CollabMyApplicationsScreenState
       _initialApplicationTargetHandled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _showMessage('Bildirimdeki başvuru artık listede bulunamıyor.');
+          _showMessage(
+            'Bildirimdeki başvuru artık listede bulunamıyor.',
+            tone: AppSnackBarTone.warning,
+          );
         }
       });
     }
@@ -541,6 +546,7 @@ class _CollabMyApplicationsScreenState
             _showMessage(
               'Hedef Collab işi yüklendi ancak otomatik kaydırılamadı. '
               'Listede elle kaydırarak açabilirsin.',
+              tone: AppSnackBarTone.warning,
             );
           }
         });
@@ -582,7 +588,10 @@ class _CollabMyApplicationsScreenState
       _initialJobTargetHandled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _showMessage('Bildirimdeki Collab işi artık listede bulunamıyor.');
+          _showMessage(
+            'Bildirimdeki Collab işi artık listede bulunamıyor.',
+            tone: AppSnackBarTone.warning,
+          );
         }
       });
     }
@@ -664,15 +673,21 @@ class _CollabMyApplicationsScreenState
     if (input == null || !mounted) return;
     await _jobsCubit.review(job, input);
     if (mounted && _jobsCubit.state.actionError == null) {
-      _showMessage('Puanın ve yorumun kaydedildi.');
+      _showMessage(
+        'Puanın ve yorumun kaydedildi.',
+        tone: AppSnackBarTone.success,
+      );
     }
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }
 

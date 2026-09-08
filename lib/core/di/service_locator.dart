@@ -79,6 +79,7 @@ import '../../modules/profile/data/profile_search_repository_impl.dart';
 import '../../modules/profile/data/studio_profile_repository_impl.dart';
 import '../../modules/profile/data/track_management_repository_impl.dart';
 import '../../modules/profile/data/venue_directory_repository_impl.dart';
+import '../../modules/profile/data/venue_artist_directory_repository_impl.dart';
 import '../../modules/profile/data/venue_event_repository_impl.dart';
 import '../../modules/profile/data/event_performer_request_repository_impl.dart';
 import '../../modules/profile/data/event_profile_publication_repository_impl.dart';
@@ -96,6 +97,7 @@ import '../../modules/profile/domain/profile_search_repository.dart';
 import '../../modules/profile/domain/studio_profile_repository.dart';
 import '../../modules/profile/domain/track_management_repository.dart';
 import '../../modules/profile/domain/venue_directory_repository.dart';
+import '../../modules/profile/domain/venue_artist_directory_repository.dart';
 import '../../modules/profile/domain/venue_event_repository.dart';
 import '../../modules/profile/domain/event_performer_request_repository.dart';
 import '../../modules/profile/domain/event_profile_publication_repository.dart';
@@ -303,6 +305,9 @@ void setupDependencies() {
     )
     ..registerLazySingleton<VenueDirectoryRepository>(
       () => VenueDirectoryRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<VenueArtistDirectoryRepository>(
+      () => VenueArtistDirectoryRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<ProfileSearchRepository>(
       () => ProfileSearchRepositoryImpl(serviceLocator<ApiClient>()),

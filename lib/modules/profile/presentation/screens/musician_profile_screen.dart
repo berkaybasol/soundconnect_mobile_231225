@@ -1,10 +1,16 @@
+import '../../../artist_venue/domain/artist_venue_application_page.dart';
+import '../../../artist_venue/domain/artist_venue_failure_policy.dart';
+import 'application_paging_footer.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/error/result.dart';
+import '../navigation/profile_action_session.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_state.dart';
@@ -20,6 +26,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../domain/entities/media_asset.dart';
 import '../../domain/entities/artist_venue_application.dart';

@@ -126,7 +126,9 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
   Future<void> _openVenueManagementPanel(BuildContext context) async {
     final ownerProfile = context.read<VenueProfileCubit>().state.ownerProfile;
     if (ownerProfile == null) return;
-    final changed = await Navigator.of(context).push<bool>(
+    final session = ProfileActionSession(roles: const ['VENUE', 'ROLE_VENUE']);
+    if (!session.isCurrent) return;
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => VenueManagementPanelScreen(
           ownerProfile: ownerProfile,
@@ -144,7 +146,7 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
         ),
       ),
     );
-    if (changed == true && context.mounted) {
+    if (context.mounted && session.isCurrent) {
       await context.read<VenueProfileCubit>().loadOwner(
         venueId: ownerProfile.venueId,
       );

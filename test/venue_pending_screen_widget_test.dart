@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -98,6 +100,73 @@ void main() {
     expect(sessionStore.clearCalls, 1);
     expect(find.text('login-target'), findsOneWidget);
   });
+
+  testWidgets('WhatsApp platform errors show the existing failure message', (
+    tester,
+  ) async {
+    _useLargeSurface(tester);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(launcherChannel, (_) async {
+          throw PlatformException(code: 'launcher-unavailable');
+        });
+    await tester.pumpWidget(app());
+    await tester.tap(find.byType(InkWell).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('WhatsApp bağlantısı açılamadı.'), findsOneWidget);
+    expect(find.byIcon(Icons.error_outline_rounded), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final thrown in [false, true]) {
+    for (final disposed in [false, true]) {
+      testWidgets(
+        'late WhatsApp ${thrown ? 'error' : 'false'} is ignored after ${disposed ? 'dispose' : 'covering route'}',
+        (tester) async {
+          _useLargeSurface(tester);
+          final response = Completer<bool>();
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(
+                launcherChannel,
+                (_) => response.future,
+              );
+          await tester.pumpWidget(app());
+          final navigator = Navigator.of(
+            tester.element(find.byType(VenuePendingScreen)),
+          );
+          await tester.tap(find.byType(InkWell).first);
+          await tester.pump();
+
+          if (disposed) {
+            await tester.pumpWidget(const MaterialApp(home: Scaffold()));
+          } else {
+            unawaited(
+              navigator.push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const Scaffold(body: Text('another-screen')),
+                ),
+              ),
+            );
+          }
+          await tester.pumpAndSettle();
+          if (thrown) {
+            response.completeError(
+              PlatformException(code: 'launcher-unavailable'),
+            );
+          } else {
+            response.complete(false);
+          }
+          await tester.pumpAndSettle();
+
+          expect(find.byType(SnackBar), findsNothing);
+          expect(tester.takeException(), isNull);
+          if (!disposed) {
+            expect(find.text('another-screen'), findsOneWidget);
+          }
+        },
+      );
+    }
+  }
 }
 
 void _useLargeSurface(WidgetTester tester) {

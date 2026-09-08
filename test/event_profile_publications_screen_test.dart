@@ -235,6 +235,90 @@ void main() {
     },
   );
 
+  for (final emptyAtLimit in [false, true]) {
+    testWidgets(
+      'publication page cap preserves navigation without claiming exhaustion (empty: $emptyAtLimit)',
+      (tester) async {
+        final repository = _Repository()
+          ..onRead = (call) async => Result.success(
+            EventProfilePublicationPage(
+              items: emptyAtLimit && call.page == 100 ? const [] : [_item()],
+              page: call.page,
+              size: 20,
+              totalElements: 2040,
+              totalPages: 102,
+              hasNext: true,
+            ),
+          );
+        await _mount(tester, repository: repository, showPeriods: true);
+        final savedNext = tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Sonraki'))
+            .onPressed!;
+        for (var page = 1; page <= 100; page++) {
+          savedNext();
+          await tester.pumpAndSettle();
+        }
+        expect(
+          repository.reads.map((call) => call.page),
+          List.generate(101, (i) => i),
+        );
+        expect(
+          tester
+              .widget<TextButton>(find.widgetWithText(TextButton, 'Sonraki'))
+              .onPressed,
+          isNull,
+        );
+        expect(
+          find.byKey(const Key('event-publication-page-limit')),
+          findsOneWidget,
+        );
+        expect(find.text('Bu bölümde etkinlik yok.'), findsNothing);
+        expect(
+          find.byKey(const Key('publication-event')),
+          emptyAtLimit ? findsNothing : findsOneWidget,
+        );
+
+        // A callback captured on an earlier page cannot bypass the API limit.
+        savedNext();
+        await tester.pumpAndSettle();
+        expect(repository.reads, hasLength(101));
+
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Önceki'))
+            .onPressed!();
+        await tester.pumpAndSettle();
+        expect(repository.reads.last.page, 99);
+        expect(
+          find.byKey(const Key('event-publication-page-limit')),
+          findsNothing,
+        );
+        savedNext();
+        await tester.pumpAndSettle();
+
+        final refresh = tester
+            .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+            .show();
+        await tester.pumpAndSettle();
+        await refresh;
+        expect(repository.reads.last.page, 0);
+        expect(
+          find.byKey(const Key('event-publication-page-limit')),
+          findsNothing,
+        );
+        await tester.tap(find.byKey(const Key('event-period-future')));
+        await tester.pumpAndSettle();
+        expect(repository.reads.last.page, 0);
+        expect(
+          repository.reads.last.period,
+          EventProfilePublicationPeriod.future,
+        );
+        expect(repository.reads.every((call) => call.page <= 100), isTrue);
+        expect(repository.writes, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('empty filtered pages preserve next and previous navigation', (
     tester,
   ) async {

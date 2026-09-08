@@ -88,7 +88,7 @@ class ProfileActionButtons extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: Text('Mesaj Gonder'),
+              child: Text('Mesaj Gönder'),
             ),
           ),
         ],
@@ -136,15 +136,16 @@ class ProfileSectionHeader extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          Spacer(),
           if (actionLabel != null)
             InkWell(
               onTap: actionOnTap,

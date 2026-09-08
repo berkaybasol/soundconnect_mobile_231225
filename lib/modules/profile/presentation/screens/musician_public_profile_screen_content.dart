@@ -28,7 +28,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   });
 
   List<VenueConnection> _resolveVenues() {
-    if (activeVenues != null && activeVenues!.isNotEmpty) {
+    if (activeVenues != null) {
       return activeVenues!;
     }
     if (profile.activeVenueConnections.isNotEmpty) {
@@ -67,11 +67,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: GradientText(
-            text: 'SoundConnect',
-            gradient: LinearGradient(colors: AppColors.brandGradient),
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
+          title: const ProfileBrandTitle(),
           leading: BackButton(),
           centerTitle: true,
         ),

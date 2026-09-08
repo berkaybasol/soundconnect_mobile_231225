@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -6,8 +7,18 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/turkish_alphabetical.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/event_poster_fallback.dart';
+import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../../../shared/widgets/app_snack_bar.dart';
+import '../../../auth/presentation/widgets/registration_options_sheet.dart';
+import '../../data/event_discovery_search_repository_impl.dart';
+import '../../data/venue_suggestion_repository_impl.dart';
+import '../../domain/event_discovery_date_policy.dart';
+import '../../domain/event_discovery_search_repository.dart';
+import '../../domain/venue_suggestion_repository.dart';
 import '../../../location/domain/entities/city.dart';
 import '../../../location/domain/entities/district.dart';
 import '../../../location/domain/entities/neighborhood.dart';
@@ -15,17 +26,37 @@ import '../../../location/domain/location_repository.dart';
 import '../../domain/entities/discovery_event.dart';
 import '../../domain/event_discovery_repository.dart';
 import '../../../profile/presentation/screens/weekly_event_detail_screen.dart';
+import 'venue_suggestion_sheet.dart';
 
 part 'guest_event_home_screen_event_card_navigation.dart';
+part 'guest_event_home_screen_discovery.dart';
+part 'guest_event_home_screen_discovery_widgets.dart';
 
-class GuestEventHomeScreen extends StatefulWidget {
-  GuestEventHomeScreen({super.key});
+/// Set GUEST_DISCOVERY_V2=false to restore the untouched legacy experience.
+class GuestEventHomeScreen extends StatelessWidget {
+  const GuestEventHomeScreen({super.key});
 
   @override
-  State<GuestEventHomeScreen> createState() => _GuestEventHomeScreenState();
+  Widget build(BuildContext context) {
+    const updated = bool.fromEnvironment(
+      'GUEST_DISCOVERY_V2',
+      defaultValue: true,
+    );
+    return updated
+        ? const GuestEventDiscoveryScreen()
+        : const _LegacyGuestEventHomeScreen();
+  }
 }
 
-class _GuestEventHomeScreenState extends State<GuestEventHomeScreen> {
+class _LegacyGuestEventHomeScreen extends StatefulWidget {
+  const _LegacyGuestEventHomeScreen();
+
+  @override
+  State<_LegacyGuestEventHomeScreen> createState() =>
+      _GuestEventHomeScreenState();
+}
+
+class _GuestEventHomeScreenState extends State<_LegacyGuestEventHomeScreen> {
   final LocationRepository _locationRepository =
       serviceLocator<LocationRepository>();
   final EventDiscoveryRepository _eventDiscoveryRepository =
@@ -1338,8 +1369,13 @@ class _GradientActionButton extends StatelessWidget {
 class _GuestTableAccessFab extends StatefulWidget {
   final Future<void> Function() onTap;
   final ValueChanged<Offset> onDragDelta;
+  final bool showHint;
 
-  const _GuestTableAccessFab({required this.onTap, required this.onDragDelta});
+  const _GuestTableAccessFab({
+    required this.onTap,
+    required this.onDragDelta,
+    this.showHint = true,
+  });
 
   @override
   State<_GuestTableAccessFab> createState() => _GuestTableAccessFabState();
@@ -1388,32 +1424,36 @@ class _GuestTableAccessFabState extends State<_GuestTableAccessFab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Theme.of(context).dividerColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.pureBlack.withValues(alpha: 0.14),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Text(
-                'Masa açmak için\ndokunun',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 12,
-                  height: 1.15,
-                  fontWeight: FontWeight.w500,
+            if (widget.showHint)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                textAlign: TextAlign.center,
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Theme.of(context).dividerColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.pureBlack.withValues(alpha: 0.14),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'Masa açmak için\ndokunun',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 12,
+                    height: 1.15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
             Container(
               width: 72,
               height: 72,

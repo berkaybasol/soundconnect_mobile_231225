@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
@@ -13,6 +14,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_border_action_button.dart';
@@ -342,7 +344,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
           content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
       );
@@ -357,7 +361,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       listener: (context, state) {
         if (state.status == StudioProfileStatus.failure) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
               content: Text(state.error?.message ?? 'Studio profili alinamadi'),
             ),
           );
@@ -511,7 +517,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
     final actionState = actionCubit.state;
     if (actionState.status == FollowActionStatus.failure) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
           content: Text(
             actionState.error?.message ?? 'Takip durumu güncellenemedi.',
           ),
@@ -525,11 +533,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
   PreferredSizeWidget _appBar() {
     return AppBar(
       leading: const BackButton(),
-      title: GradientText(
-        text: 'SoundConnect',
-        gradient: LinearGradient(colors: AppColors.brandGradient),
-        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-      ),
+      title: const ProfileBrandTitle(),
       centerTitle: true,
     );
   }
@@ -617,7 +621,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
     StudioProfileCubit profileCubit,
   ) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.error,
         content: const Text('Profil henüz yüklenemedi; tekrar dene.'),
         action: SnackBarAction(
           label: 'Tekrar Dene',

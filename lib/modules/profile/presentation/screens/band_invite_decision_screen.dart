@@ -1,30 +1,64 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/auth/auth_session.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/entities/band_member_summary.dart';
 import '../../domain/entities/band_profile.dart';
-import '../../domain/musician_profile_repository.dart';
-import '../../domain/musician_search_repository.dart';
+import '../../domain/entities/band_received_invitation.dart';
+import '../navigation/band_member_profile_resolver.dart';
 import 'band_profile_screen.dart';
-import 'profile_route_args.dart';
+import 'band_member_caption.dart';
 
 class BandInviteDecisionScreenArgs {
   final String bandId;
   final String? bandName;
   final String? title;
   final String? message;
+  final String? expectedSessionKey;
+  final String? invitationId;
 
   const BandInviteDecisionScreenArgs({
     required this.bandId,
     this.bandName,
     this.title,
     this.message,
+    this.expectedSessionKey,
+    this.invitationId,
   });
+
+  // Previously stored notifications keep their original copy on the server.
+  // Normalize only the old template suffix, preserving names and custom text.
+  String get displayTitle => _replaceLegacySuffix(
+    title,
+    ' seni banda davet etti',
+    ' seni gruba davet etti',
+  );
+
+  String get displayMessage => _replaceLegacySuffix(
+    message,
+    ' tarafından band daveti aldın.',
+    ' tarafından davet aldın.',
+  );
+
+  static String _replaceLegacySuffix(
+    String? text,
+    String oldSuffix,
+    String newSuffix,
+  ) {
+    final value = text?.trim() ?? '';
+    return value.endsWith(oldSuffix)
+        ? '${value.substring(0, value.length - oldSuffix.length)}$newSuffix'
+        : value;
+  }
 }
 
 class BandInviteDecisionScreen extends StatefulWidget {
@@ -37,12 +71,30 @@ class BandInviteDecisionScreen extends StatefulWidget {
       _BandInviteDecisionScreenState();
 }
 
-class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen> {
+class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen>
+    with WidgetsBindingObserver {
+  late final AuthSessionManager? _sessions =
+      serviceLocator.isRegistered<AuthSessionManager>()
+      ? serviceLocator<AuthSessionManager>()
+      : null;
+  late final AuthSession? _entrySession = _sessions?.session;
+  bool get _validSession =>
+      _entrySession != null &&
+      identical(_sessions?.session, _entrySession) &&
+      _entrySession.isAuthenticated &&
+      _entrySession.isActive &&
+      (_entrySession.userId?.trim().isNotEmpty ?? false) &&
+      _entrySession.hasAnyRole(const ['ROLE_MUSICIAN', 'MUSICIAN']) &&
+      (widget.args.expectedSessionKey == null ||
+          widget.args.expectedSessionKey == _entrySession.userId);
+
+  void _sessionChanged() {
+    if (mounted) setState(() {});
+  }
+
   late final BandRepository _bandRepository = serviceLocator<BandRepository>();
-  late final MusicianProfileRepository _musicianProfileRepository =
-      serviceLocator<MusicianProfileRepository>();
-  late final MusicianSearchRepository _musicianSearchRepository =
-      serviceLocator<MusicianSearchRepository>();
+  late final BandMemberProfileResolver _memberProfileResolver =
+      BandMemberProfileResolver();
   final Map<String, String> _resolvedProfileIdsByUserId = {};
   final Map<String, String> _resolvedAvatarUrlsByUserId = {};
   final Set<String> _resolvingUserIds = {};
@@ -50,18 +102,106 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen> {
   bool _loadingProfile = false;
   bool _submitting = false;
   String? _errorText;
+  BandReceivedInvitation? _currentInvitation;
+  bool _checkingInvitation = true;
+  String? _invitationError;
+  int _invitationGeneration = 0;
+
+  bool get _currentInviteMatches =>
+      !_checkingInvitation &&
+      _invitationError == null &&
+      widget.args.invitationId?.isNotEmpty == true &&
+      _currentInvitation?.invitationId == widget.args.invitationId;
 
   String get _bandName {
     final profileName = _profile?.name.trim() ?? '';
     if (profileName.isNotEmpty) return profileName;
     final payloadName = widget.args.bandName?.trim() ?? '';
-    return payloadName.isEmpty ? 'Band' : payloadName;
+    return payloadName.isEmpty ? 'Grup' : payloadName;
   }
 
   @override
   void initState() {
     super.initState();
-    _loadBandPreview();
+    // Capture identity before any async read or user action.
+    final valid = _validSession;
+    _sessions?.addListener(_sessionChanged);
+    WidgetsBinding.instance.addObserver(this);
+    if (valid) {
+      unawaited(_checkInvitation());
+      unawaited(_loadBandPreview());
+    }
+  }
+
+  @override
+  void dispose() {
+    _sessions?.removeListener(_sessionChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _validSession && !_submitting) {
+      unawaited(_checkInvitation());
+    }
+  }
+
+  Future<void> _checkInvitation() async {
+    if (!mounted || !_validSession) return;
+    final generation = ++_invitationGeneration;
+    setState(() {
+      _checkingInvitation = true;
+      _invitationError = null;
+    });
+    try {
+      final result = await _bandRepository.getCurrentReceivedInvitation(
+        bandId: widget.args.bandId,
+        expectedSessionKey: _entrySession!.userId!,
+      );
+      if (!mounted || !_validSession || generation != _invitationGeneration) {
+        return;
+      }
+      setState(() {
+        _checkingInvitation = false;
+        _currentInvitation = result.isSuccess ? result.data : null;
+        if (!result.isSuccess || result.data == null) {
+          _invitationError = const {'9206', '9220'}.contains(result.error?.code)
+              ? 'Bu davet artık geçerli değil.'
+              : result.error?.message ?? 'Güncel davet yüklenemedi.';
+        }
+      });
+    } catch (_) {
+      if (!mounted || !_validSession || generation != _invitationGeneration) {
+        return;
+      }
+      setState(() {
+        _checkingInvitation = false;
+        _currentInvitation = null;
+        _invitationError = 'Güncel davet yüklenemedi. Tekrar dene.';
+      });
+    }
+  }
+
+  void _openCurrentInvitation() {
+    final current = _currentInvitation;
+    if (!_validSession ||
+        _checkingInvitation ||
+        current?.invitationId?.isNotEmpty != true) {
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => BandInviteDecisionScreen(
+          args: BandInviteDecisionScreenArgs(
+            bandId: current!.bandId,
+            bandName: current.bandName,
+            invitationId: current.invitationId,
+            expectedSessionKey: _entrySession!.userId,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadBandPreview() async {
@@ -70,92 +210,114 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen> {
       _errorText = null;
     });
 
-    final result = await _bandRepository.getPublicBandById(widget.args.bandId);
-    if (!mounted) return;
-
-    setState(() {
-      _loadingProfile = false;
+    try {
+      final result = await _bandRepository.getPublicBandById(
+        widget.args.bandId,
+      );
+      if (!mounted || !_validSession) return;
+      setState(() {
+        _loadingProfile = false;
+        if (result.isSuccess && result.data != null) {
+          _profile = result.data!;
+        } else {
+          _errorText = result.error?.message ?? 'Grup bilgileri yüklenemedi.';
+        }
+      });
       if (result.isSuccess && result.data != null) {
-        _profile = result.data!;
-      } else {
-        _errorText = result.error?.message ?? 'Band bilgileri yüklenemedi.';
+        await _hydrateMembers(result.data!.members);
       }
-    });
-
-    if (result.isSuccess && result.data != null) {
-      await _hydrateMembers(result.data!.members);
+    } catch (_) {
+      if (!mounted || !_validSession) return;
+      setState(() {
+        _loadingProfile = false;
+        _errorText = 'Grup bilgileri yüklenemedi.';
+      });
     }
   }
 
-  Future<void> _acceptInvite() async {
-    setState(() => _submitting = true);
-    final result = await _bandRepository.acceptInvite(
-      bandId: widget.args.bandId,
-    );
-    if (!mounted) return;
-    setState(() => _submitting = false);
+  Future<void> _acceptInvite() => _respondToInvitation(accept: true);
 
-    if (!result.isSuccess) {
-      _showMessage(result.error?.message ?? 'Band daveti kabul edilemedi.');
+  Future<void> _rejectInvite() => _respondToInvitation(accept: false);
+
+  Future<void> _respondToInvitation({required bool accept}) async {
+    if (!_validSession ||
+        !_currentInviteMatches ||
+        _submitting ||
+        ModalRoute.of(context)?.isCurrent != true) {
       return;
     }
-
-    _showMessage('Band daveti kabul edildi.');
-    await Navigator.of(context).pushReplacementNamed(
-      AppRoutes.bandMemberProfile,
-      arguments: BandProfileScreenArgs(
-        bandId: widget.args.bandId,
-        viewMode: BandProfileViewMode.member,
-      ),
-    );
-  }
-
-  Future<void> _rejectInvite() async {
     setState(() => _submitting = true);
-    final result = await _bandRepository.rejectInvite(
-      bandId: widget.args.bandId,
-    );
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    if (!result.isSuccess) {
-      _showMessage(result.error?.message ?? 'Band daveti reddedilemedi.');
-      return;
+    final failure = accept
+        ? 'Grup daveti kabul edilemedi.'
+        : 'Grup daveti reddedilemedi.';
+    try {
+      final result = accept
+          ? await _bandRepository.acceptInvite(
+              bandId: widget.args.bandId,
+              expectedSessionKey: _entrySession!.userId,
+              invitationId: widget.args.invitationId,
+            )
+          : await _bandRepository.rejectInvite(
+              bandId: widget.args.bandId,
+              expectedSessionKey: _entrySession!.userId,
+              invitationId: widget.args.invitationId,
+            );
+      if (!mounted || !_validSession) return;
+      if (!result.isSuccess) {
+        await _checkInvitation();
+        if (!mounted || !_validSession) return;
+        _showMessage(result.error?.message ?? failure);
+        return;
+      }
+      setState(() => _submitting = false);
+      _showMessage(
+        accept ? 'Band daveti kabul edildi.' : 'Band daveti reddedildi.',
+        tone: AppSnackBarTone.success,
+      );
+      if (accept) {
+        Navigator.of(context).pushReplacementNamed(
+          AppRoutes.bandMemberProfile,
+          arguments: BandProfileScreenArgs(
+            bandId: widget.args.bandId,
+            viewMode: BandProfileViewMode.member,
+          ),
+        );
+      } else {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      if (!mounted || !_validSession) return;
+      await _checkInvitation();
+      if (!mounted || !_validSession) return;
+      _showMessage(failure);
+    } finally {
+      if (mounted && _validSession) setState(() => _submitting = false);
     }
-
-    _showMessage('Band daveti reddedildi.');
-    Navigator.of(context).pop();
   }
 
   Future<void> _openMemberProfile(BandMemberSummary member) async {
-    final profileId = await _resolveProfileId(member) ?? '';
-    if (!mounted) return;
-    if (profileId.isEmpty) {
-      _showMessage('Bu üye için profil bilgisi bulunamadı.');
-      return;
-    }
-    await Navigator.of(context).pushNamed(
-      AppRoutes.musicianPublicProfile,
-      arguments: PublicProfileArgs(profileId: profileId),
+    if (!_validSession || _submitting) return;
+    final bandId = _profile?.id;
+    await _memberProfileResolver.open(
+      context,
+      member,
+      isMemberCurrent: () =>
+          _profile?.id == bandId &&
+          (_profile?.members.any(
+                (current) =>
+                    current.userId == member.userId &&
+                    current.profileId == member.profileId,
+              ) ??
+              false),
     );
+    if (mounted && _validSession) await _checkInvitation();
   }
 
   Future<void> _hydrateMembers(List<BandMemberSummary> members) async {
     for (final member in members) {
+      if (!mounted || !_validSession) return;
       await _resolveMemberMetadata(member);
     }
-  }
-
-  Future<String?> _resolveProfileId(BandMemberSummary member) async {
-    final direct = member.profileId?.trim() ?? '';
-    if (direct.isNotEmpty) return direct;
-
-    final cached = _resolvedProfileIdsByUserId[member.userId]?.trim() ?? '';
-    if (cached.isNotEmpty) return cached;
-
-    await _resolveMemberMetadata(member);
-    final resolved = _resolvedProfileIdsByUserId[member.userId]?.trim() ?? '';
-    return resolved.isEmpty ? null : resolved;
   }
 
   String? _effectiveAvatar(BandMemberSummary member) {
@@ -168,7 +330,6 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen> {
   Future<void> _resolveMemberMetadata(BandMemberSummary member) async {
     final userId = member.userId.trim();
     if (userId.isEmpty || _resolvingUserIds.contains(userId)) return;
-
     final hasProfileId =
         (member.profileId?.trim().isNotEmpty ?? false) ||
         (_resolvedProfileIdsByUserId[userId]?.trim().isNotEmpty ?? false);
@@ -179,66 +340,22 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen> {
 
     _resolvingUserIds.add(userId);
     try {
-      String? resolvedProfileId = member.profileId?.trim();
-      String? resolvedAvatar = member.profilePictureUrl?.trim();
-      if (resolvedAvatar != null && resolvedAvatar.isEmpty) {
-        resolvedAvatar = null;
+      final profile = await _memberProfileResolver.resolve(member);
+      if (!mounted || profile == null) return;
+      if (!(_profile?.members.any(
+            (current) =>
+                current.userId == member.userId &&
+                current.profileId == member.profileId,
+          ) ??
+          false)) {
+        return;
       }
-
-      Future<void> bindProfileById(String? candidate) async {
-        final id = candidate?.trim() ?? '';
-        if (id.isEmpty) return;
-        final result = await _musicianProfileRepository
-            .getPublicProfileByProfileId(id);
-        if (!result.isSuccess || result.data == null) return;
-        final profile = result.data!;
-        if (profile.id.trim().isNotEmpty) {
-          resolvedProfileId = profile.id.trim();
-        }
-        final photo = (profile.profilePicture ?? '').trim();
-        if (photo.isNotEmpty) {
-          resolvedAvatar = photo;
-        }
-      }
-
-      await bindProfileById(resolvedProfileId);
-      if ((resolvedProfileId ?? '').isEmpty) {
-        await bindProfileById(member.userId);
-      }
-
-      if ((resolvedProfileId ?? '').isEmpty) {
-        final query = member.username.trim();
-        if (query.isNotEmpty) {
-          final search = await _musicianSearchRepository.search(query);
-          if (search.isSuccess &&
-              search.data != null &&
-              search.data!.isNotEmpty) {
-            final usernameLower = query.toLowerCase();
-            final exact = search.data!.firstWhere(
-              (item) =>
-                  item.displayName.trim().toLowerCase() == usernameLower ||
-                  (item.secondaryLabel?.trim().toLowerCase() ?? '') ==
-                      '@$usernameLower',
-              orElse: () => search.data!.first,
-            );
-            resolvedProfileId = exact.profileId.trim();
-            final searchAvatar = (exact.profilePictureUrl ?? '').trim();
-            if (searchAvatar.isNotEmpty) {
-              resolvedAvatar = searchAvatar;
-            }
-            await bindProfileById(resolvedProfileId);
-          }
-        }
-      }
-
       final changed = _upsertResolvedMember(
         userId: userId,
-        profileId: resolvedProfileId,
-        avatarUrl: resolvedAvatar,
+        profileId: profile.id,
+        avatarUrl: profile.profilePicture,
       );
-      if (changed && mounted) {
-        setState(() {});
-      }
+      if (changed) setState(() {});
     } finally {
       _resolvingUserIds.remove(userId);
     }
@@ -266,122 +383,182 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen> {
     return changed;
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_validSession) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Grup Daveti')),
+        body: const Center(
+          child: Text('Davetini görmek için sayfayı hesabından yeniden aç.'),
+        ),
+      );
+    }
+    if (!_currentInviteMatches) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Grup Daveti')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: _checkingInvitation
+                ? const CircularProgressIndicator()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _invitationError ??
+                            'Bu davet artık geçerli değil. Güncel daveti açarak devam edebilirsin.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      if (_currentInvitation?.invitationId?.isNotEmpty == true)
+                        GradientOutlineButton(
+                          label: 'Güncel daveti aç',
+                          onPressed: _openCurrentInvitation,
+                        )
+                      else
+                        GradientOutlineButton(
+                          label: 'Tekrar dene',
+                          onPressed: _checkInvitation,
+                        ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () {
+                          if (_validSession) {
+                            Navigator.of(
+                              context,
+                            ).pushReplacementNamed(AppRoutes.myBands);
+                          }
+                        },
+                        child: const Text('Gelen davetleri aç'),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      );
+    }
     final colors = Theme.of(context).colorScheme;
-    final title = widget.args.title?.trim() ?? '';
-    final message = widget.args.message?.trim() ?? '';
+    final title = widget.args.displayTitle;
+    final message = widget.args.displayMessage;
     final profile = _profile;
     final members = (profile?.members ?? const <BandMemberSummary>[])
         .where((member) => member.status.trim().toUpperCase() == 'ACTIVE')
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Band Daveti'), centerTitle: true),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _BandInviteHero(
-                        bandName: _bandName,
-                        imageUrl: profile?.profilePictureUrl,
-                        title: title.isEmpty
-                            ? '$_bandName seni banda davet etti'
-                            : title,
-                        message: message,
-                      ),
-                      const SizedBox(height: 16),
-                      if (_loadingProfile)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(18),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      else if (_errorText != null)
-                        _InlineInfoMessage(
-                          icon: Icons.info_outline_rounded,
-                          message: _errorText!,
-                        )
-                      else ...[
-                        Text(
-                          'Mevcut Üyeler',
-                          style: TextStyle(
-                            color: colors.onSurface,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
+    return PopScope(
+      canPop: !_submitting,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Grup Daveti'), centerTitle: true),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _BandInviteHero(
+                          bandName: _bandName,
+                          imageUrl: profile?.profilePictureUrl,
+                          title: title.isEmpty
+                              ? '$_bandName seni gruba davet etti'
+                              : title,
+                          message: message,
                         ),
-                        const SizedBox(height: 10),
-                        if (members.isEmpty)
-                          const _InlineInfoMessage(
-                            icon: Icons.groups_outlined,
-                            message: 'Bu band için aktif üye bilgisi yok.',
+                        const SizedBox(height: 16),
+                        if (_loadingProfile)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(18),
+                              child: CircularProgressIndicator(),
+                            ),
                           )
-                        else
-                          ...members.map(
-                            (member) => _BandInviteMemberTile(
-                              member: member,
-                              avatarUrl: _effectiveAvatar(member),
-                              onTap: () => _openMemberProfile(member),
+                        else if (_errorText != null)
+                          _InlineInfoMessage(
+                            icon: Icons.info_outline_rounded,
+                            message: _errorText!,
+                          )
+                        else ...[
+                          Text(
+                            'Mevcut Üyeler',
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
+                          const SizedBox(height: 10),
+                          if (members.isEmpty)
+                            const _InlineInfoMessage(
+                              icon: Icons.groups_outlined,
+                              message: 'Bu grup için aktif üye bilgisi yok.',
+                            )
+                          else
+                            ...members.map(
+                              (member) => _BandInviteMemberTile(
+                                member: member,
+                                avatarUrl: _effectiveAvatar(member),
+                                onTap: () => _openMemberProfile(member),
+                              ),
+                            ),
+                        ],
                       ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHighest.withValues(
+                      alpha: 0.88,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Theme.of(context).dividerColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Bu daveti kabul edersen $_bandName üyeliğin aktif olur.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      GradientOutlineButton(
+                        onPressed: _submitting ? null : _acceptInvite,
+                        label: 'Kabul et',
+                        loading: _submitting,
+                        leading: const Icon(Icons.check_rounded),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: _submitting ? null : _rejectInvite,
+                        icon: const Icon(Icons.close_rounded),
+                        label: const Text('Reddet'),
+                      ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withValues(alpha: 0.88),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Theme.of(context).dividerColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Bu daveti kabul edersen $_bandName üyeliğin aktif olur.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: colors.onSurfaceVariant,
-                        height: 1.35,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    GradientOutlineButton(
-                      onPressed: _submitting ? null : _acceptInvite,
-                      label: 'Kabul et',
-                      loading: _submitting,
-                      leading: const Icon(Icons.check_rounded),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: _submitting ? null : _rejectInvite,
-                      icon: const Icon(Icons.close_rounded),
-                      label: const Text('Reddet'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -543,12 +720,10 @@ class _BandInviteMemberTile extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        subtitle: Text(
-          member.localizedRoleLabel,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: colors.onSurfaceVariant),
-        ),
+        subtitle: member.isFounder || member.displayTitle != null
+            ? BandMemberCaption(member: member)
+            : null,
+        isThreeLine: member.isFounder && member.displayTitle != null,
         trailing: const Icon(Icons.chevron_right_rounded),
       ),
     );

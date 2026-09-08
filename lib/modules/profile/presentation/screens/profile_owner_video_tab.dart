@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
@@ -119,7 +120,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                     ),
                     SizedBox(height: 10),
                     Text(
-                      hasAny ? 'Video ekle' : 'Henuz video eklemediniz',
+                      hasAny ? 'Video ekle' : 'Henüz video eklemediniz',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
@@ -127,7 +128,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'SoundConnect uzerinden video yuklemek icin dokun.',
+                      'SoundConnect üzerinden video yüklemek için dokun.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -138,7 +139,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                       SizedBox(height: 10),
                       Text(
                         _videoUploadStatus ??
-                            'Video yukleniyor %${(_videoUploadProgress * 100).round()}',
+                            'Video yükleniyor %${(_videoUploadProgress * 100).round()}',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
@@ -166,7 +167,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
             Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'Henuz video eklemediniz.',
+                'Henüz video eklemediniz.',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/theme/app_colors.dart';
@@ -168,10 +169,13 @@ Future<void> showProfileTrackUploadSheet({
                 // Liste yenileme hatası kritik değildir.
               }
               if (!sheetContext.mounted) return;
-              Navigator.of(sheetContext).pop();
-              messenger.showSnackBar(
-                SnackBar(content: Text('Şarkı başarıyla eklendi.')),
+              final feedback = appSnackBar(
+                sheetContext,
+                tone: AppSnackBarTone.success,
+                content: Text('Şarkı başarıyla eklendi.'),
               );
+              Navigator.of(sheetContext).pop();
+              messenger.showSnackBar(feedback);
             } catch (e) {
               if (!sheetContext.mounted) return;
               final message = profileAudioUploadFailureMessage(e);
@@ -179,7 +183,13 @@ Future<void> showProfileTrackUploadSheet({
                 infoText = message;
                 infoError = true;
               });
-              messenger.showSnackBar(SnackBar(content: Text(message)));
+              messenger.showSnackBar(
+                appSnackBar(
+                  sheetContext,
+                  tone: AppSnackBarTone.error,
+                  content: Text(message),
+                ),
+              );
             } finally {
               if (sheetContext.mounted) {
                 setSheetState(() => uploading = false);

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
@@ -125,10 +126,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _showError(String message) {
+  void _showError(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.warning,
+  }) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 
   bool _isValidEmail(String value) {
@@ -937,7 +941,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           });
         } else if (state.status == AuthStatus.failure) {
           final message = state.error?.message ?? 'Kayıt başarısız.';
-          _showError(message);
+          _showError(message, tone: AppSnackBarTone.error);
         }
       },
       builder: (context, state) {

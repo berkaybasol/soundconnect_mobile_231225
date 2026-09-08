@@ -6,6 +6,7 @@ abstract class MusicianProfileRepository {
   Future<Result<MusicianProfile>> getMyProfile();
   Future<Result<MusicianProfile>> getPublicProfileByProfileId(String profileId);
   Future<Result<MusicianProfile>> updateMyProfile(
-    MusicianProfileSaveRequest request,
-  );
+    MusicianProfileSaveRequest request, {
+    String? expectedSessionKey,
+  });
 }

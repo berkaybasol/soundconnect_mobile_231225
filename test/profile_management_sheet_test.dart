@@ -2,15 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/artist_venue/domain/artist_venue_connection_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/artist_venue/domain/artist_venue_application_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_repository.dart';
-import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/artist_venue_application.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/band_management_panel_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/musician_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/profile_management_sheet.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/venue_connection_management_hub.dart';
 
 import 'support/event_invitation_navigation_fakes.dart';
 
@@ -18,6 +22,7 @@ void main() {
   setUp(() async {
     await serviceLocator.reset();
     serviceLocator.registerSingleton<BandRepository>(InvitationBands());
+    serviceLocator.registerSingleton<AuthSessionManager>(_Sessions());
   });
   tearDown(() => serviceLocator.reset());
 
@@ -35,14 +40,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Mekan Bağlantılarını Yönet'));
-      await tester.tap(find.text('Mekan Bağlantılarını Yönet'));
+      await tester.ensureVisible(find.text('Mekan Bağlantıları'));
+      await tester.tap(find.text('Mekan Bağlantıları'));
       await tester.pumpAndSettle();
       final select = tester
-          .widget<InkWell>(
+          .widget<GradientOutlineButton>(
             find.byKey(const Key('venue-connection-management-create')),
           )
-          .onTap!;
+          .onPressed!;
       select();
       select();
       await tester.pumpAndSettle();
@@ -54,7 +59,7 @@ void main() {
   );
 
   for (final band in [false, true]) {
-    for (final direction in ['incoming', 'outgoing']) {
+    for (final direction in ['connections', 'incoming', 'outgoing']) {
       testWidgets(
         '${band ? 'band' : 'musician'} $direction connection selection opens its existing scoped application list',
         (tester) async {
@@ -73,8 +78,8 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          await tester.ensureVisible(find.text('Mekan Bağlantılarını Yönet'));
-          await tester.tap(find.text('Mekan Bağlantılarını Yönet'));
+          await tester.ensureVisible(find.text('Mekan Bağlantıları'));
+          await tester.tap(find.text('Mekan Bağlantıları'));
           await tester.pumpAndSettle();
           expect(applications.scopes, isEmpty);
           await tester.tap(
@@ -84,6 +89,7 @@ void main() {
           expect(applications.scopes, [
             band ? 'band:band-1' : 'musician:musician-1',
           ]);
+          expect(applications.connectionFilters, [direction == 'connections']);
           expect(
             find.byWidgetPredicate(
               (widget) => widget is ProfileManagementSheet,
@@ -92,8 +98,10 @@ void main() {
           );
           expect(
             find.text(
-              direction == 'incoming'
-                  ? 'Gelen Mekan İstekleri'
+              direction == 'connections'
+                  ? 'Bağlantılarım'
+                  : direction == 'incoming'
+                  ? 'Gelen İstekler'
                   : 'Gönderdiğim İstekler',
             ),
             findsOneWidget,
@@ -126,14 +134,14 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          await tester.ensureVisible(find.text('Mekan Bağlantılarını Yönet'));
-          await tester.tap(find.text('Mekan Bağlantılarını Yönet'));
+          await tester.ensureVisible(find.text('Mekan Bağlantıları'));
+          await tester.tap(find.text('Mekan Bağlantıları'));
           await tester.pumpAndSettle();
           final venueStyle = _sheetStyle(tester, const [
-            'Mekan Bağlantısı Oluştur',
-            'Gelen Mekan İstekleri',
+            'Bağlantılarım',
+            'Gelen İstekler',
             'Gönderdiğim İstekler',
-          ]);
+          ], hasCreate: true);
           Navigator.of(tester.element(find.byType(BottomSheet))).pop();
           await tester.pumpAndSettle();
 
@@ -273,6 +281,58 @@ void main() {
   );
 
   for (final viewport in [const Size(320, 800), const Size(740, 320)]) {
+    for (final artistConnections in [false, true]) {
+      testWidgets(
+        'connection hub primary action remains accessible at $viewport, venue=$artistConnections',
+        (tester) async {
+          tester.view.physicalSize = viewport;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          VenueConnectionManagementDestination? result;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.navy,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(2)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () async {
+                      result = await showVenueConnectionManagementHub(
+                        context,
+                        artistConnections: artistConnections,
+                      );
+                    },
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          final create = find.byKey(
+            const Key('venue-connection-management-create'),
+          );
+          await tester.ensureVisible(create);
+          await tester.pumpAndSettle();
+          expect(create.hitTestable(), findsOneWidget);
+          expect(
+            find.text(artistConnections ? 'Sanatçı ekle' : 'Mekan ekle'),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+          await tester.tap(create);
+          await tester.pumpAndSettle();
+          expect(result, VenueConnectionManagementDestination.create);
+        },
+      );
+    }
     testWidgets(
       'shared sheet keeps all compact rows accessible at $viewport and 200 percent text',
       (tester) async {
@@ -300,8 +360,9 @@ void main() {
 
 (Color?, ShapeBorder?, List<TextStyle?>) _sheetStyle(
   WidgetTester tester,
-  List<String> labels,
-) {
+  List<String> labels, {
+  bool hasCreate = false,
+}) {
   final sheetFinder = find.byType(BottomSheet);
   expect(sheetFinder, findsOneWidget);
   expect(
@@ -319,7 +380,7 @@ void main() {
   );
   expect(
     find.descendant(of: sheetFinder, matching: find.byType(Text)),
-    findsNWidgets(4),
+    findsNWidgets(hasCreate ? 5 : 4),
   );
   expect(
     find.descendant(
@@ -353,13 +414,13 @@ const _options = <ProfileManagementSheetOption<String>>[
     key: Key('option-one'),
     value: 'one',
     icon: Icons.add_business_outlined,
-    label: 'Mekan Bağlantısı Oluştur',
+    label: 'Bağlantılarım',
   ),
   ProfileManagementSheetOption(
     key: Key('option-two'),
     value: 'two',
     icon: Icons.inbox_outlined,
-    label: 'Gelen Mekan İstekleri',
+    label: 'Gelen İstekler',
   ),
   ProfileManagementSheetOption(
     key: Key('option-three'),
@@ -376,21 +437,46 @@ class _Harness {
 
 class _Applications extends Fake implements ArtistVenueConnectionRepository {
   final scopes = <String>[];
+  final connectionFilters = <bool>[];
   @override
-  Future<Result<List<ArtistVenueApplication>>> listMusicianVenueApplications(
-    String musicianProfileId,
-  ) async {
-    scopes.add('musician:$musicianProfileId');
-    return const Result.success([]);
+  Future<Result<ArtistVenueApplicationPage>> listApplicationPage({
+    required ArtistVenueApplicationTarget target,
+    required String targetId,
+    required bool incoming,
+    bool connectionsOnly = false,
+    int page = 0,
+    int size = 20,
+    String? expectedSessionKey,
+  }) async {
+    scopes.add('${target.name}:$targetId');
+    connectionFilters.add(connectionsOnly);
+    return Result.success(
+      ArtistVenueApplicationPage(
+        items: const [],
+        page: page,
+        size: size,
+        totalElements: 0,
+        totalPages: 0,
+        last: true,
+      ),
+    );
   }
+}
 
+class _Sessions extends ChangeNotifier implements AuthSessionManager {
   @override
-  Future<Result<List<ArtistVenueApplication>>> listBandVenueApplications(
-    String bandId,
-  ) async {
-    scopes.add('band:$bandId');
-    return const Result.success([]);
-  }
+  final AuthSession session = AuthSession.authenticated(
+    token: 'token',
+    userId: 'owner-1',
+    username: 'musician',
+    accountStatus: 'ACTIVE',
+    roles: const ['ROLE_MUSICIAN'],
+    permissions: const [],
+    expiresAt: DateTime(2100),
+    isAdmin: false,
+  );
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 Future<_Harness> _mount(
@@ -413,7 +499,7 @@ Future<_Harness> _mount(
           harness.open = () => unawaited(
             showProfileManagementSheet<String>(
               context,
-              title: 'Mekan Bağlantılarını Yönet',
+              title: 'Mekan Bağlantıları',
               options: options,
             ).then(harness.results.add),
           );

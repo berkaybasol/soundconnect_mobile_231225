@@ -18,6 +18,9 @@ class _MusicianPublicProfileViewState
   String? _viewerUserId;
   String? _currentProfileUserId;
   bool _photoUploading = false;
+  final _profileActionSession = ProfileActionSession(
+    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+  );
   String? _uploadedProfilePhotoUrl;
   final ImagePicker _imagePicker = ImagePicker();
   bool _openManagementPanelOnLoad = false;
@@ -132,9 +135,9 @@ class _MusicianPublicProfileViewState
           final media = context.watch<ProfileMediaCubit>().state.media;
           final venueState = context.watch<ArtistVenueConnectionsCubit>().state;
           final venueItems =
-              venueState.status == ArtistVenueConnectionsStatus.loading
-              ? null
-              : venueState.venues;
+              venueState.status == ArtistVenueConnectionsStatus.success
+              ? venueState.venues
+              : null;
           final followState = context.watch<FollowCountCubit>().state;
           final followersCount = followState.status == FollowCountStatus.loading
               ? null
@@ -175,9 +178,13 @@ class _MusicianPublicProfileViewState
   void _openManagementPanelAfterLoad(MusicianProfile profile) {
     if (!_openManagementPanelOnLoad || _managementPanelOpened) return;
     _managementPanelOpened = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      Navigator.of(context).push(
+      final session = ProfileActionSession(
+        roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+      );
+      if (!session.isCurrent) return;
+      await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => MusicianManagementPanelScreen(
             musicianProfile: profile,
@@ -185,6 +192,7 @@ class _MusicianPublicProfileViewState
           ),
         ),
       );
+      if (mounted && session.isCurrent) await _refreshProfile();
     });
   }
 
@@ -194,13 +202,18 @@ class _MusicianPublicProfileViewState
       return;
     }
     _incomingVenueApplicationsOpened = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      _showMusicianVenueApplicationList(
+      final session = ProfileActionSession(
+        roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+      );
+      if (!session.isCurrent) return;
+      await _showMusicianVenueApplicationList(
         context: context,
         musicianProfileId: profile.id,
         mode: _MusicianVenueApplicationListMode.incoming,
       );
+      if (mounted && session.isCurrent) await _refreshProfile();
     });
   }
 }

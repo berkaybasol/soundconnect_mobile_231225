@@ -59,11 +59,16 @@ class MusicianProfileRepositoryImpl implements MusicianProfileRepository {
 
   @override
   Future<Result<MusicianProfile>> updateMyProfile(
-    MusicianProfileSaveRequest request,
-  ) async {
+    MusicianProfileSaveRequest request, {
+    String? expectedSessionKey,
+  }) async {
     try {
-      final response = await _apiClient.put<MusicianProfile>(
+      final response = await _apiClient.request<MusicianProfile>(
+        ApiHttpMethod.put,
         MusicianProfileEndpoints.update,
+        requestContext: expectedSessionKey == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: expectedSessionKey),
         body: request.toJson(),
         decoder: (json) =>
             MusicianProfileModel.fromJson(json as Map<String, dynamic>),

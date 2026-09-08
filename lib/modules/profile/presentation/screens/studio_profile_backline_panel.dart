@@ -125,7 +125,13 @@ class _StudioBacklinePanelState extends State<_StudioBacklinePanel> {
                   if (value == _selectedFilter) return;
                   if (value != 'Tümü' && _categories.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                      appSnackBar(
+                        context,
+                        tone: _catalogError != null
+                            ? AppSnackBarTone.error
+                            : _isCatalogLoading
+                            ? AppSnackBarTone.info
+                            : AppSnackBarTone.warning,
                         content: Text(
                           _catalogError ??
                               (_isCatalogLoading

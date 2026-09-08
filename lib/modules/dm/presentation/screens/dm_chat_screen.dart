@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -227,7 +228,11 @@ class _DmChatViewState extends State<_DmChatView> {
                     if (state.status == DmChatStatus.failure &&
                         state.error != null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(state.error!.message)),
+                        appSnackBar(
+                          context,
+                          tone: AppSnackBarTone.error,
+                          content: Text(state.error!.message),
+                        ),
                       );
                     }
                     final conversationId =
@@ -434,8 +439,10 @@ class _DmChatViewState extends State<_DmChatView> {
         .toList(growable: false);
     if (navigable.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text(
             'Bu kullanıcı için görüntülenebilir profil bulunamadı.',
           ),
         ),

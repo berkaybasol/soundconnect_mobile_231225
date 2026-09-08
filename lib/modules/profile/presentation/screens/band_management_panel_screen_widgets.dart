@@ -2,15 +2,20 @@ part of 'band_management_panel_screen.dart';
 
 class _MemberCard extends StatelessWidget {
   final BandMemberSummary member;
-  final VoidCallback onOpenProfile;
+  final VoidCallback? onOpenProfile;
   final String? avatarOverrideUrl;
-  final VoidCallback? onRemove;
+  final VoidCallback? onOptions;
+  final bool hasOptions;
+  final bool savingTitle;
 
   _MemberCard({
+    super.key,
     required this.member,
     required this.onOpenProfile,
     required this.avatarOverrideUrl,
-    required this.onRemove,
+    required this.onOptions,
+    required this.hasOptions,
+    this.savingTitle = false,
   });
 
   @override
@@ -20,92 +25,77 @@ class _MemberCard extends StatelessWidget {
     );
     return Container(
       margin: EdgeInsets.only(bottom: 10),
-      padding: EdgeInsets.all(12),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: onOpenProfile,
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    _MemberAvatar(imageUrl: avatarUrl),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            member.username,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.w700,
-                            ),
+      child: Material(
+        color: Colors.transparent,
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                key: ValueKey('band-member-identity-${member.userId}'),
+                borderRadius: BorderRadius.circular(12),
+                onTap: onOpenProfile,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      _MemberAvatar(imageUrl: avatarUrl),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          key: ValueKey(
+                            'band-member-identity-copy-${member.userId}',
                           ),
-                          SizedBox(height: 4),
-                          Text(
-                            member.localizedRoleLabel,
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                              fontSize: 12,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              member.username,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                        ],
+                            if (member.isFounder ||
+                                member.displayTitle != null) ...[
+                              const SizedBox(height: 4),
+                              BandMemberCaption(member: member),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          SizedBox(width: 4),
-          if (member.isFounder)
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppColors.white.withValues(alpha: 0.16),
-                    ),
-                  ),
-                  child: Text(
-                    'Kurucu',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Kurucu kaldırılamaz',
-                  onPressed: null,
-                  icon: Icon(
-                    Icons.delete_outline_rounded,
-                    color: Colors.redAccent.withValues(alpha: 0.45),
-                  ),
-                ),
-              ],
-            )
-          else
-            IconButton(
-              tooltip: 'Üyeyi çıkar',
-              onPressed: onRemove,
-              icon: Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-            ),
-        ],
+            if (hasOptions) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                key: ValueKey('member-options-${member.userId}'),
+                tooltip: 'Üye seçenekleri',
+                onPressed: onOptions,
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                icon: savingTitle
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        Icons.more_horiz_rounded,
+                        size: 22,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -207,20 +197,24 @@ class _GradientOutline extends StatelessWidget {
   final Widget child;
   final double radius;
   final double strokeWidth;
+  final bool paintOverChild;
 
   _GradientOutline({
     required this.child,
     required this.radius,
     required this.strokeWidth,
+    this.paintOverChild = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _GradientOutlinePainter(
-        radius: radius,
-        strokeWidth: strokeWidth,
-      ),
+      painter: paintOverChild
+          ? null
+          : _GradientOutlinePainter(radius: radius, strokeWidth: strokeWidth),
+      foregroundPainter: paintOverChild
+          ? _GradientOutlinePainter(radius: radius, strokeWidth: strokeWidth)
+          : null,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: child,

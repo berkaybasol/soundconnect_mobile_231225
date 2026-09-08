@@ -86,8 +86,10 @@ class _BacklineItemDetailScreen extends StatelessWidget {
     final uri = profilePhoneUri(phone);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Stüdyonun geçerli telefon bilgisi bulunmuyor.'),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Stüdyonun geçerli telefon bilgisi bulunmuyor.'),
         ),
       );
       return;
@@ -95,7 +97,11 @@ class _BacklineItemDetailScreen extends StatelessWidget {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Telefon uygulaması açılamadı.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text('Telefon uygulaması açılamadı.'),
+        ),
       );
     }
   }
@@ -104,17 +110,25 @@ class _BacklineItemDetailScreen extends StatelessWidget {
     final uri = profileWhatsAppUri(phone);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Stüdyonun geçerli WhatsApp numarası bulunmuyor.'),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text(
+            'Stüdyonun geçerli WhatsApp numarası bulunmuyor.',
+          ),
         ),
       );
       return;
     }
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('WhatsApp açılamadı.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text('WhatsApp açılamadı.'),
+        ),
+      );
     }
   }
 
@@ -125,7 +139,11 @@ class _BacklineItemDetailScreen extends StatelessWidget {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mesajlaşma şu anda kullanılamıyor.')),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.warning,
+        content: const Text('Mesajlaşma şu anda kullanılamıyor.'),
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
@@ -10,6 +11,7 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/entities/event_performer_request.dart';
 import '../../domain/entities/event_profile_publication.dart';
 import '../../domain/event_profile_publication_repository.dart';
+import '../../domain/musician_calendar_repository.dart';
 
 class EventProfilePublicationsScreen extends StatefulWidget {
   const EventProfilePublicationsScreen({
@@ -39,8 +41,12 @@ class EventProfilePublicationsScreen extends StatefulWidget {
 class _EventProfilePublicationsScreenState
     extends State<EventProfilePublicationsScreen>
     with WidgetsBindingObserver {
+  static const _maximumPage = 100;
   EventProfilePublicationRepository? _repository;
   AuthSessionManager? _manager;
+  StreamSubscription<void>? _calendarChanges;
+  Timer? _invalidationRefreshTimer;
+  bool _invalidationRefreshPending = false;
   String? _loadedSession;
   int _generation = 0;
   int _page = 0;
@@ -50,6 +56,7 @@ class _EventProfilePublicationsScreenState
   List<EventProfilePublication> _items = const [];
   final Set<String> _updating = {};
   late EventProfilePublicationPeriod _period;
+  bool get _atPageLimit => _hasNext && _page >= _maximumPage;
 
   String? get _session {
     if (widget.sessionKeyProvider != null) return widget.sessionKeyProvider!();
@@ -71,6 +78,10 @@ class _EventProfilePublicationsScreenState
   }
 
   void _bind() {
+    unawaited(_calendarChanges?.cancel());
+    _invalidationRefreshTimer?.cancel();
+    _invalidationRefreshTimer = null;
+    _invalidationRefreshPending = false;
     _manager?.removeListener(_sessionChanged);
     _manager = serviceLocator.isRegistered<AuthSessionManager>()
         ? serviceLocator<AuthSessionManager>()
@@ -81,7 +92,39 @@ class _EventProfilePublicationsScreenState
         (serviceLocator.isRegistered<EventProfilePublicationRepository>()
             ? serviceLocator<EventProfilePublicationRepository>()
             : null);
+    _calendarChanges = serviceLocator.isRegistered<MusicianCalendarRepository>()
+        ? serviceLocator<MusicianCalendarRepository>().changes.listen(
+            (_) => _calendarInvalidated(),
+          )
+        : null;
     unawaited(_load(0, force: true));
+  }
+
+  void _calendarInvalidated() {
+    if (!mounted || _session == null || _loadedSession != _session) return;
+    _invalidationRefreshPending = true;
+    _scheduleInvalidationRefresh();
+  }
+
+  void _scheduleInvalidationRefresh() {
+    if (!mounted ||
+        !_invalidationRefreshPending ||
+        _invalidationRefreshTimer != null) {
+      return;
+    }
+    // A burst of membership/publication invalidations needs one refresh. If a
+    // write is pending, its response must settle before reloading the list.
+    _invalidationRefreshTimer = Timer(Duration.zero, () {
+      _invalidationRefreshTimer = null;
+      if (!mounted || !_invalidationRefreshPending) return;
+      if (_session == null || _loadedSession != _session) {
+        _invalidationRefreshPending = false;
+        _sessionChanged();
+        return;
+      }
+      if (_loading || _updating.isNotEmpty) return;
+      unawaited(_load(0));
+    });
   }
 
   @override
@@ -103,6 +146,9 @@ class _EventProfilePublicationsScreenState
 
   void _sessionChanged() {
     if (!mounted || _loadedSession == _session) return;
+    _invalidationRefreshPending = false;
+    _invalidationRefreshTimer?.cancel();
+    _invalidationRefreshTimer = null;
     ++_generation;
     setState(() {
       _items = const [];
@@ -121,6 +167,8 @@ class _EventProfilePublicationsScreenState
   @override
   void dispose() {
     ++_generation;
+    unawaited(_calendarChanges?.cancel());
+    _invalidationRefreshTimer?.cancel();
     _manager?.removeListener(_sessionChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -131,8 +179,14 @@ class _EventProfilePublicationsScreenState
       item.targetId == widget.targetId.trim();
 
   Future<void> _load(int page, {bool force = false}) async {
-    if (!mounted || (!force && (_loading || _updating.isNotEmpty))) return;
+    if (!mounted ||
+        page < 0 ||
+        page > _maximumPage ||
+        (!force && (_loading || _updating.isNotEmpty))) {
+      return;
+    }
     final generation = ++_generation;
+    _invalidationRefreshPending = false;
     final session = _session;
     final repository = _repository;
     setState(() {
@@ -202,6 +256,8 @@ class _EventProfilePublicationsScreenState
         _loading = false;
         _error = 'Etkinlikler alınamadı. Tekrar dene.';
       });
+    } finally {
+      _scheduleInvalidationRefresh();
     }
   }
 
@@ -261,7 +317,9 @@ class _EventProfilePublicationsScreenState
           );
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.success,
             content: Text(
               updated.visible
                   ? _period == EventProfilePublicationPeriod.future
@@ -277,9 +335,13 @@ class _EventProfilePublicationsScreenState
         final message =
             result.error?.message ??
             'Değişiklik doğrulanamadı. Güncel durum yenileniyor.';
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: Text(message),
+          ),
+        );
         await _load(_page, force: true);
       }
     } catch (_) {
@@ -289,13 +351,18 @@ class _EventProfilePublicationsScreenState
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Değişiklik doğrulanamadı. Güncel durum yenileniyor.'),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text(
+            'Değişiklik doğrulanamadı. Güncel durum yenileniyor.',
+          ),
         ),
       );
       await _load(_page, force: true);
     } finally {
       if (mounted) widget.onBusyChanged?.call(false);
+      _scheduleInvalidationRefresh();
     }
   }
 
@@ -403,7 +470,7 @@ class _EventProfilePublicationsScreenState
                   icon: const Icon(Icons.refresh),
                   label: const Text('Tekrar dene'),
                 ),
-              ] else if (_items.isEmpty)
+              ] else if (_items.isEmpty && !_atPageLimit)
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Text(
@@ -437,12 +504,21 @@ class _EventProfilePublicationsScreenState
                     ),
                     Text('${_page + 1}'),
                     TextButton(
-                      onPressed: _hasNext && _updating.isEmpty
+                      onPressed: _hasNext && !_atPageLimit && _updating.isEmpty
                           ? () => _load(_page + 1)
                           : null,
                       child: const Text('Sonraki'),
                     ),
                   ],
+                ),
+              if (!_loading && _error == null && _atPageLimit)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Text(
+                    'Bu listenin görüntüleme sınırına ulaştın.',
+                    key: Key('event-publication-page-limit'),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
             ],
           ),

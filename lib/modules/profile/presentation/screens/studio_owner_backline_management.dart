@@ -287,6 +287,9 @@ class _StudioBacklineInventoryScreenState
                 onTap: _isCatalogLoading || _assignableCategories.isEmpty
                     ? () => _showMessage(
                         _catalogError ?? 'Kategori listesi henüz hazır değil.',
+                        tone: _catalogError != null
+                            ? AppSnackBarTone.error
+                            : AppSnackBarTone.warning,
                       )
                     : _showAddEquipmentInfo,
               ),
@@ -503,11 +506,11 @@ class _StudioBacklineInventoryScreenState
       StudioEquipmentAvailabilityBucket.maintenance,
   };
 
-  void _showMessage(String message) {
+  void _showMessage(String message, {required AppSnackBarTone tone}) {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 
   Future<void> _selectCategory() async {
@@ -632,9 +635,13 @@ class _StudioBacklineInventoryScreenState
       _loadSummary(),
     ]);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${item.name} envantere eklendi.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: Text('${item.name} envantere eklendi.'),
+      ),
+    );
   }
 
   Future<void> _manageEquipment(_StudioBacklineInventoryItem item) async {
@@ -660,7 +667,11 @@ class _StudioBacklineInventoryScreenState
       ]);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${item.name} envanterden kaldırıldı.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
+          content: Text('${item.name} envanterden kaldırıldı.'),
+        ),
       );
       return;
     }
@@ -671,9 +682,13 @@ class _StudioBacklineInventoryScreenState
       _loadSummary(),
     ]);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${updatedItem.name} güncellendi.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: Text('${updatedItem.name} güncellendi.'),
+      ),
+    );
   }
 
   static String _statusFilterLabel(_BacklineInventoryStatusFilter status) {

@@ -97,7 +97,7 @@ class _BandAudioTab extends StatelessWidget {
                       ),
                       SizedBox(height: 10),
                       Text(
-                        items.isEmpty ? 'Henuz ses eklemediniz' : 'Ses ekle',
+                        items.isEmpty ? 'Henüz ses eklemediniz' : 'Ses ekle',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
@@ -105,7 +105,7 @@ class _BandAudioTab extends StatelessWidget {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'SoundConnect uzerinden sarki yuklemek icin dokun.',
+                        'SoundConnect üzerinden şarkı yüklemek için dokun.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -120,7 +120,7 @@ class _BandAudioTab extends StatelessWidget {
             ],
             if (items.isEmpty)
               Text(
-                'Band henuz ses eklemedi.',
+                'Grup henüz ses eklemedi.',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

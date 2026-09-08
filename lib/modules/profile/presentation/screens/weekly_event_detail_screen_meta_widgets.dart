@@ -1,5 +1,57 @@
 part of 'weekly_event_detail_screen.dart';
 
+class _ProfileIdentityRow extends StatelessWidget {
+  final _MetaChip performer;
+  final _MetaChip venue;
+
+  const _ProfileIdentityRow({required this.performer, required this.venue});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 8.0;
+        final performerSize = performer.preferredSize(context);
+        final venueSize = venue.preferredSize(context);
+        var performerWidth = performerSize.width;
+        var venueWidth = venueSize.width;
+        final available = constraints.hasBoundedWidth
+            ? (constraints.maxWidth - gap).clamp(0.0, double.infinity)
+            : performerWidth + venueWidth;
+
+        // Short names keep their natural width. Only competing long names
+        // share the remaining space, so neither identity pushes off this row.
+        if (performerWidth + venueWidth > available) {
+          final half = available / 2;
+          if (performerWidth <= half) {
+            venueWidth = available - performerWidth;
+          } else if (venueWidth <= half) {
+            performerWidth = available - venueWidth;
+          } else {
+            performerWidth = half;
+            venueWidth = available - half;
+          }
+        }
+
+        return SizedBox(
+          width: constraints.hasBoundedWidth ? double.infinity : null,
+          height: performerSize.height > venueSize.height
+              ? performerSize.height
+              : venueSize.height,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: performerWidth, child: performer),
+              const SizedBox(width: gap),
+              SizedBox(width: venueWidth, child: venue),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _MetaChip extends StatelessWidget {
   final IconData icon;
   final String text;
@@ -20,6 +72,56 @@ class _MetaChip extends StatelessWidget {
     this.centerContent = false,
   });
 
+  static const _horizontalPadding = 10.0;
+  static const _verticalPadding = 8.0;
+  static const _borderWidth = 1.0;
+  static const _leadingSize = 20.0;
+  static const _contentGap = 6.0;
+  static const _chevronSize = 14.0;
+  static const _infoTargetSize = 48.0;
+
+  TextStyle _labelStyle(BuildContext context) {
+    final theme = Theme.of(context);
+    return (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
+      color: onTap != null ? AppColors.white : theme.colorScheme.onSurface,
+      fontSize: 12,
+      fontWeight: MediaQuery.boldTextOf(context)
+          ? FontWeight.bold
+          : onTap != null
+          ? FontWeight.w600
+          : FontWeight.w500,
+    );
+  }
+
+  Size preferredSize(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: _labelStyle(context)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout();
+    final labelSize = painter.size;
+    painter.dispose();
+    final suffixWidth =
+        (onInfoTap != null ? _infoTargetSize : 0) +
+        (onTap != null ? _contentGap + _chevronSize : 0);
+    return Size(
+      // Round up to avoid subpixel clipping of an otherwise fitting name.
+      labelSize.width.ceilToDouble() +
+          _horizontalPadding * 2 +
+          _borderWidth * 2 +
+          _leadingSize +
+          _contentGap +
+          suffixWidth,
+      (labelSize.height + _verticalPadding * 2 + _borderWidth * 2).clamp(
+        onInfoTap != null ? _infoTargetSize + _borderWidth * 2 : 48.0,
+        double.infinity,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final resolvedImage = imageUrl?.trim();
@@ -33,13 +135,14 @@ class _MetaChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: onInfoTap == null ? 8 : 0,
+            horizontal: _horizontalPadding,
+            vertical: onInfoTap == null ? _verticalPadding : 0,
           ),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
+              width: _borderWidth,
               color: isInteractive
                   ? AppColors.white.withValues(alpha: 0.14)
                   : Theme.of(context).dividerColor,
@@ -51,17 +154,27 @@ class _MetaChip extends StatelessWidget {
                 ? MainAxisAlignment.center
                 : MainAxisAlignment.start,
             children: [
-              _MetaLeadingVisual(
-                icon: icon,
-                imageUrl: hasImage ? resolvedImage : null,
+              SizedBox(
+                width: singleLine ? _leadingSize : null,
+                height: singleLine ? _leadingSize : null,
+                child: Center(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: _MetaLeadingVisual(
+                    icon: icon,
+                    imageUrl: hasImage ? resolvedImage : null,
+                  ),
+                ),
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: _contentGap),
               Flexible(
                 child: Tooltip(
                   message: singleLine ? text : '',
                   excludeFromSemantics: true,
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 220),
+                    constraints: BoxConstraints(
+                      maxWidth: singleLine ? double.infinity : 220,
+                    ),
                     child: isInteractive
                         ? ShaderMask(
                             blendMode: BlendMode.srcIn,
@@ -76,22 +189,14 @@ class _MetaChip extends StatelessWidget {
                               text,
                               maxLines: singleLine ? 1 : null,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppColors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: _labelStyle(context),
                             ),
                           )
                         : Text(
                             text,
                             maxLines: singleLine ? 1 : null,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: _labelStyle(context),
                           ),
                   ),
                 ),
@@ -102,8 +207,8 @@ class _MetaChip extends StatelessWidget {
                   tooltip: 'Katılım bilgisi',
                   onPressed: onInfoTap,
                   constraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
+                    minWidth: _infoTargetSize,
+                    minHeight: _infoTargetSize,
                   ),
                   visualDensity: VisualDensity.standard,
                   padding: EdgeInsets.zero,
@@ -114,7 +219,7 @@ class _MetaChip extends StatelessWidget {
                   ),
                 ),
               if (isInteractive) ...[
-                SizedBox(width: 6),
+                const SizedBox(width: _contentGap),
                 ShaderMask(
                   blendMode: BlendMode.srcIn,
                   shaderCallback: (bounds) {
@@ -127,7 +232,7 @@ class _MetaChip extends StatelessWidget {
                   child: Icon(
                     Icons.chevron_right_rounded,
                     color: AppColors.white,
-                    size: 14,
+                    size: _chevronSize,
                   ),
                 ),
               ],

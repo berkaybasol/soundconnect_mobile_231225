@@ -363,6 +363,8 @@ void _selfProfileNavigationTests(_MusicianRepository Function() repository) {
     testWidgets('musician viewing band preserves public band policy', (
       tester,
     ) async {
+      (serviceLocator<BandRepository>() as _BandRepository).result =
+          Result.success(_navigationBand(userId: 'other-founder'));
       final routes = <RouteSettings>[];
       await _openDetail(
         tester,
@@ -443,10 +445,23 @@ AuthSession _detailSession({
   isAdmin: false,
 );
 
-class _DetailSessionManager extends Fake implements AuthSessionManager {
-  AuthSession current;
+class _DetailSessionManager extends Fake
+    with ChangeNotifier
+    implements AuthSessionManager {
+  AuthSession _current;
 
-  _DetailSessionManager(this.current);
+  _DetailSessionManager(this._current);
+
+  AuthSession get current => _current;
+
+  bool get hasSessionListeners => hasListeners;
+
+  set current(AuthSession value) {
+    _current = value;
+    notifyListeners();
+  }
+
+  void setWithoutNotification(AuthSession value) => _current = value;
 
   @override
   AuthSession get session => current;

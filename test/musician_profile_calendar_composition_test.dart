@@ -38,12 +38,13 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/w
 void main() {
   late _CalendarRepository calendar;
   late _BadgeCubit badge;
+  late _ConnectionRepository connections;
 
   setUp(() async {
     await serviceLocator.reset();
     calendar = _CalendarRepository();
     badge = _BadgeCubit();
-    final connections = _ConnectionRepository();
+    connections = _ConnectionRepository();
     final followers = _FollowRepository();
     final profiles = _ProfileRepository();
     serviceLocator
@@ -78,6 +79,30 @@ void main() {
 
   for (final owner in [true, false]) {
     final label = owner ? 'owner profile' : 'public profile';
+
+    testWidgets('$label uses the correct authoritative connection source', (
+      tester,
+    ) async {
+      connections.response = const Result.success([]);
+      await _pumpProfile(tester, owner: owner);
+      await tester.pumpAndSettle();
+      // Public profiles intentionally do not call the private request API.
+      expect(find.text('Bağlı Sahne'), owner ? findsNothing : findsOneWidget);
+      expect(connections.reads, owner ? 1 : 0);
+      expect(find.text('Çaldığı Mekanlar'), findsOneWidget);
+    });
+
+    testWidgets(
+      '$label falls back to embedded public venues only when connection lookup fails',
+      (tester) async {
+        connections.response = const Result.failure(
+          AppError(code: '1102', message: 'Private endpoint'),
+        );
+        await _pumpProfile(tester, owner: owner);
+        await tester.pumpAndSettle();
+        _expectVenues();
+      },
+    );
 
     testWidgets('$label keeps venues through per-event publication changes', (
       tester,
@@ -243,11 +268,16 @@ class _MediaRepository extends Fake implements ProfileMediaRepository {
 
 class _ConnectionRepository extends Fake
     implements ArtistVenueConnectionRepository {
+  Result<List<VenueConnection>> response = const Result.success([_venue]);
+  int reads = 0;
   @override
   Future<Result<List<VenueConnection>>> getVenueConnectionsByStatus(
     String musicianProfileId, {
     required String status,
-  }) async => const Result.success([_venue]);
+  }) async {
+    reads++;
+    return response;
+  }
 }
 
 class _FollowRepository extends Fake implements FollowRepository {

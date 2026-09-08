@@ -1,6 +1,6 @@
 part of 'musician_profile_screen.dart';
 
-enum _MusicianVenueApplicationListMode { outgoing, incoming }
+enum _MusicianVenueApplicationListMode { connections, outgoing, incoming }
 
 class MusicianManagementPanelScreen extends StatelessWidget {
   final MusicianProfile musicianProfile;
@@ -98,8 +98,8 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.hub_outlined,
-                title: 'Mekan Bağlantılarını Yönet',
-                message: 'Mekan bağlantıları ve başvuru akışları burada.',
+                title: 'Mekan Bağlantıları',
+                message: 'Bağlantılarını ve isteklerini yönet.',
                 onTap: () => _showMusicianVenueConnectionHub(
                   context: context,
                   musicianProfileId: musicianProfile.id,
@@ -150,20 +150,34 @@ Future<void> _showMusicianVenueConnectionHub({
   required VoidCallback? onCreateVenueConnection,
 }) async {
   final originRoute = ModalRoute.of(context);
+  final session = ProfileActionSession(
+    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+  );
+  if (!session.isCurrent) return;
   final destination = await showVenueConnectionManagementHub(context);
   if (destination == null ||
       !context.mounted ||
+      !session.isCurrent ||
       originRoute?.isCurrent == false) {
     return;
   }
   switch (destination) {
+    case VenueConnectionManagementDestination.connections:
+      await _showMusicianVenueApplicationList(
+        context: context,
+        musicianProfileId: musicianProfileId,
+        mode: _MusicianVenueApplicationListMode.connections,
+      );
+      break;
     case VenueConnectionManagementDestination.create:
       if (onCreateVenueConnection != null) {
         onCreateVenueConnection();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mekan bağlantısı şu an başlatılamıyor.'),
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.warning,
+            content: const Text('Mekan bağlantısı şu an başlatılamıyor.'),
           ),
         );
       }
@@ -197,9 +211,13 @@ Widget _buildMusicianVenueManagementCard({
     onTap:
         onTap ??
         () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.info,
+              content: Text(message),
+            ),
+          );
         },
     borderRadius: BorderRadius.circular(18),
     child: _MusicianVenueGradientOutline(
@@ -365,27 +383,77 @@ class _MusicianVenueApplicationsSheet extends StatefulWidget {
 
 class _MusicianVenueApplicationsSheetState
     extends State<_MusicianVenueApplicationsSheet> {
+  final _session = ProfileActionSession(
+    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+  );
+  int _loadGeneration = 0;
   final _artistVenueRepository =
       serviceLocator<ArtistVenueConnectionRepository>();
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  int _nextPage = 0;
+  int _totalElements = 0;
+  String? _pageError;
   bool _loading = true;
   bool _actionLoading = false;
+  bool _accessRevoked = false;
   String? _error;
   List<ArtistVenueApplication> _items = [];
 
   bool get _showOutgoing =>
       widget.mode == _MusicianVenueApplicationListMode.outgoing;
+  bool get _showConnections =>
+      widget.mode == _MusicianVenueApplicationListMode.connections;
 
   @override
   void initState() {
     super.initState();
+    _session.manager?.addListener(_onSessionChanged);
     _load();
   }
 
   @override
+  void dispose() {
+    _session.manager?.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    _loadGeneration++;
+    if (!mounted) return;
+    setState(() {
+      _items = [];
+      _hasMore = false;
+      _loadingMore = false;
+      _pageError = null;
+      _loading = false;
+      _actionLoading = false;
+      _error = 'Hesabın değişti. İstekleri yeniden aç.';
+    });
+  }
+
+  void _revokeAccess(String message) {
+    _loadGeneration++;
+    if (!mounted) return;
+    setState(() {
+      _accessRevoked = true;
+      _items = [];
+      _hasMore = false;
+      _loading = false;
+      _loadingMore = false;
+      _actionLoading = false;
+      _pageError = null;
+      _error = message;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final title = _showOutgoing
+    final title = _showConnections
+        ? 'Bağlantılarım'
+        : _showOutgoing
         ? 'Gönderdiğim İstekler'
-        : 'Gelen Mekan İstekleri';
+        : 'Gelen İstekler';
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -425,7 +493,9 @@ class _MusicianVenueApplicationsSheetState
                     : _items.isEmpty
                     ? Center(
                         child: Text(
-                          _showOutgoing
+                          _showConnections
+                              ? 'Henüz bağlı olduğun bir mekan yok.'
+                              : _showOutgoing
                               ? 'Gönderdiğin mekan isteği bulunmuyor.'
                               : 'Gelen mekan isteği bulunmuyor.',
                           style: TextStyle(
@@ -446,6 +516,21 @@ class _MusicianVenueApplicationsSheetState
                         ),
                       ),
               ),
+              ApplicationPagingFooter(
+                loading: _loadingMore,
+                hasMore: _hasMore && !_loading,
+                error: _pageError,
+                onMore: _actionLoading || !_session.isCurrent
+                    ? null
+                    : () => _load(append: true),
+                onRetry: !_session.isCurrent || _actionLoading || _accessRevoked
+                    ? null
+                    : _error != null
+                    ? () => _load()
+                    : _pageError != null
+                    ? () => _load(append: true)
+                    : null,
+              ),
             ],
           ),
         ),
@@ -453,31 +538,85 @@ class _MusicianVenueApplicationsSheetState
     );
   }
 
-  Future<void> _load() async {
-    if (!mounted) return;
+  Future<void> _load({bool append = false}) async {
+    if (!mounted || _accessRevoked) return;
+    if (!_session.isCurrent) {
+      _onSessionChanged();
+      return;
+    }
+    if (append && (_loading || _loadingMore || _actionLoading || !_hasMore)) {
+      return;
+    }
+    final generation = ++_loadGeneration;
+    final page = append ? _nextPage : 0;
     setState(() {
-      _loading = true;
-      _error = null;
+      if (append) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _loadingMore = false;
+        _error = null;
+      }
+      _pageError = null;
     });
     try {
-      final result = await _artistVenueRepository.listMusicianVenueApplications(
-        widget.musicianProfileId,
+      final result = await _artistVenueRepository.listApplicationPage(
+        target: ArtistVenueApplicationTarget.musician,
+        targetId: widget.musicianProfileId,
+        incoming: !_showOutgoing,
+        connectionsOnly: _showConnections,
+        page: page,
+        expectedSessionKey: _session.userId,
       );
-      final response = result.data ?? <ArtistVenueApplication>[];
-      final filtered = response.where((item) {
-        if (_showOutgoing) return item.requestByType == 'ARTIST';
-        return item.requestByType == 'VENUE';
-      }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      if (!mounted) return;
+      if (!mounted || !_session.isCurrent || generation != _loadGeneration) {
+        return;
+      }
+      if (!result.isSuccess || result.data == null) {
+        if (artistVenueAccessLost(result.error)) {
+          _revokeAccess(
+            result.error?.message ?? 'Bu isteklere erişim iznin kalmadı.',
+          );
+          return;
+        }
+        throw result.error?.message ?? 'İstekler getirilemedi.';
+      }
+      final response = result.data!;
+      final overlaps =
+          append &&
+          response.items.any(
+            (item) => _items.any((loaded) => loaded.id == item.id),
+          );
+      if (append && (response.totalElements != _totalElements || overlaps)) {
+        await _load();
+        return;
+      }
+      final unique = {
+        if (append)
+          for (final item in _items) item.id: item,
+        for (final item in response.items) item.id: item,
+      };
       setState(() {
-        _items = filtered;
+        _items = unique.values.toList(growable: false);
+        _totalElements = response.totalElements;
+        _nextPage = response.page + 1;
+        _hasMore = !response.last;
         _loading = false;
+        _loadingMore = false;
       });
-    } catch (e) {
-      if (!mounted) return;
+    } catch (error) {
+      if (!mounted || !_session.isCurrent || generation != _loadGeneration) {
+        return;
+      }
       setState(() {
         _loading = false;
-        _error = 'Mekan istekleri getirilemedi: $e';
+        _loadingMore = false;
+        if (append) {
+          _pageError = 'İstekler getirilemedi: $error';
+        } else {
+          _items = [];
+          _hasMore = false;
+          _error = 'İstekler getirilemedi: $error';
+        }
       });
     }
   }
@@ -486,8 +625,10 @@ class _MusicianVenueApplicationsSheetState
     final venueName = item.venueName.trim().isNotEmpty
         ? item.venueName.trim()
         : 'Mekan';
-    final canAccept = !_showOutgoing && item.status == 'PENDING';
-    final canReject = !_showOutgoing && item.status == 'PENDING';
+    final canAccept =
+        !_showConnections && !_showOutgoing && item.status == 'PENDING';
+    final canReject =
+        !_showConnections && !_showOutgoing && item.status == 'PENDING';
     final canCancel = _showOutgoing && item.status == 'PENDING';
     final canDisconnect = item.status == 'ACCEPTED';
 
@@ -509,6 +650,7 @@ class _MusicianVenueApplicationsSheetState
                   onTap: item.venueId.isEmpty
                       ? null
                       : () {
+                          if (!_session.isCurrent) return;
                           Navigator.of(context).pushNamed(
                             AppRoutes.venuePublicProfile,
                             arguments: VenuePublicProfileArgs(
@@ -576,7 +718,7 @@ class _MusicianVenueApplicationsSheetState
                   border: Border.all(color: _statusColor(item.status)),
                 ),
                 child: Text(
-                  _statusLabel(item.status),
+                  _showConnections ? 'Bağlı' : _statusLabel(item.status),
                   style: TextStyle(
                     color: _statusColor(item.status),
                     fontSize: 12,
@@ -586,37 +728,39 @@ class _MusicianVenueApplicationsSheetState
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          _showOutgoing
-              ? Text(
-                  'Hedef mekan: $venueName',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                )
-              : RichText(
-                  text: TextSpan(
+          if (!_showConnections) ...[
+            const SizedBox(height: 8),
+            _showOutgoing
+                ? Text(
+                    'Hedef mekan: $venueName',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                     ),
-                    children: [
-                      const TextSpan(text: 'Mekan notu: '),
-                      TextSpan(
-                        text:
-                            item.message != null &&
-                                item.message!.trim().isNotEmpty
-                            ? item.message!.trim()
-                            : 'Mekan notu yok',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  )
+                : RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
                       ),
-                    ],
+                      children: [
+                        const TextSpan(text: 'Mekan notu: '),
+                        TextSpan(
+                          text:
+                              item.message != null &&
+                                  item.message!.trim().isNotEmpty
+                              ? item.message!.trim()
+                              : 'Mekan notu yok',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+          ],
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -630,8 +774,10 @@ class _MusicianVenueApplicationsSheetState
                       ? null
                       : () => _runAction(
                           methodLabel: 'Mekan isteği onaylandı.',
-                          action: () =>
-                              _artistVenueRepository.acceptRequest(item.id),
+                          action: () => _artistVenueRepository.acceptRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                 ),
               if (canReject)
@@ -642,8 +788,10 @@ class _MusicianVenueApplicationsSheetState
                       ? null
                       : () => _runAction(
                           methodLabel: 'Mekan isteği reddedildi.',
-                          action: () =>
-                              _artistVenueRepository.rejectRequest(item.id),
+                          action: () => _artistVenueRepository.rejectRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                 ),
               if (canCancel)
@@ -652,8 +800,10 @@ class _MusicianVenueApplicationsSheetState
                       ? null
                       : () => _runAction(
                           methodLabel: 'Mekan isteği iptal edildi.',
-                          action: () =>
-                              _artistVenueRepository.cancelRequest(item.id),
+                          action: () => _artistVenueRepository.cancelRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                   child: const Text('İptal et'),
                 ),
@@ -663,8 +813,10 @@ class _MusicianVenueApplicationsSheetState
                       ? null
                       : () => _runAction(
                           methodLabel: 'Bağlantı kaldırıldı.',
-                          action: () =>
-                              _artistVenueRepository.disconnect(item.id),
+                          action: () => _artistVenueRepository.disconnect(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                   child: const Text('Bağlantıyı kaldır'),
                 ),
@@ -718,24 +870,50 @@ class _MusicianVenueApplicationsSheetState
 
   Future<void> _runAction({
     required String methodLabel,
-    required Future<dynamic> Function() action,
+    required Future<Result<void>> Function() action,
   }) async {
-    if (!mounted) return;
+    if (!mounted ||
+        !_session.isCurrent ||
+        _accessRevoked ||
+        _actionLoading ||
+        _loading ||
+        _loadingMore) {
+      return;
+    }
+    _loadGeneration++;
     setState(() => _actionLoading = true);
     try {
-      await action();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(methodLabel)));
+      final result = await action();
+      if (!mounted || !_session.isCurrent) return;
+      if (!result.isSuccess) {
+        if (artistVenueAccessLost(result.error)) {
+          _revokeAccess(
+            result.error?.message ?? 'Bu isteklere erişim iznin kalmadı.',
+          );
+        } else if (artistVenueDecisionChanged(result.error)) {
+          await _load();
+        }
+        throw result.error?.message ?? 'İşlem başarısız.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
+          content: Text(methodLabel),
+        ),
+      );
       await _load();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('İşlem başarısız: $e')));
+      if (!mounted || !_session.isCurrent) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text('İşlem başarısız: $e'),
+        ),
+      );
     } finally {
-      if (mounted) {
+      if (mounted && _session.isCurrent) {
         setState(() => _actionLoading = false);
       }
     }

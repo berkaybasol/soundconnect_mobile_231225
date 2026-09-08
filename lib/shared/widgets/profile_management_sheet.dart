@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import 'gradient_outline_button.dart';
 
 class ProfileManagementSheetOption<T extends Object> {
   const ProfileManagementSheetOption({
@@ -20,6 +21,7 @@ Future<T?> showProfileManagementSheet<T extends Object>(
   BuildContext context, {
   required String title,
   required List<ProfileManagementSheetOption<T>> options,
+  ProfileManagementSheetOption<T>? primaryAction,
 }) async {
   if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) {
     return null;
@@ -42,6 +44,7 @@ Future<T?> showProfileManagementSheet<T extends Object>(
       builder: (sheetContext) => ProfileManagementSheet<T>(
         title: title,
         options: entries,
+        primaryAction: primaryAction,
         onSelected: (value) {
           if (finished ||
               !sheetContext.mounted ||
@@ -65,10 +68,12 @@ class ProfileManagementSheet<T extends Object> extends StatelessWidget {
     required this.title,
     required this.options,
     required this.onSelected,
+    this.primaryAction,
   });
   final String title;
   final List<ProfileManagementSheetOption<T>> options;
   final ValueChanged<T> onSelected;
+  final ProfileManagementSheetOption<T>? primaryAction;
 
   @override
   Widget build(BuildContext context) {
@@ -150,6 +155,16 @@ class ProfileManagementSheet<T extends Object> extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
+            ],
+            if (primaryAction case final action?) ...[
+              const SizedBox(height: 20),
+              GradientOutlineButton(
+                key: action.key,
+                label: action.label,
+                leading: Icon(action.icon, size: 22),
+                strokeWidth: 1,
+                onPressed: () => onSelected(action.value),
               ),
             ],
           ],

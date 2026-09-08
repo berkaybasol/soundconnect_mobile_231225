@@ -6,9 +6,13 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
     if (parsed == null) return;
     final ok = await launchUrl(parsed, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Link acilamadi')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text('Link açılamadı'),
+        ),
+      );
     }
   }
 
@@ -265,7 +269,7 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                                         ),
                                         if (editable)
                                           IconButton(
-                                            tooltip: 'Kaldir',
+                                            tooltip: 'Kaldır',
                                             onPressed: () => removeTrack(track),
                                             icon: Icon(
                                               Icons.delete_outline,

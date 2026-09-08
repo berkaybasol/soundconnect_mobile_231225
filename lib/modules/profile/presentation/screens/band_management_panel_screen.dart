@@ -1,19 +1,30 @@
+import '../../../artist_venue/domain/artist_venue_application_page.dart';
+import '../../../artist_venue/domain/artist_venue_failure_policy.dart';
+import 'application_paging_footer.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
 import '../../../../core/network/network_config.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../../shared/widgets/profile_management_sheet.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../location/domain/location_repository.dart';
 import '../../../setlist/presentation/screens/band_setlist_builder_screen.dart';
 import '../../domain/band_repository.dart';
+import '../../domain/band_member_title_policy.dart';
 import '../../domain/entities/band_member_summary.dart';
+import '../../domain/entities/band_pending_invitation.dart';
 import '../../domain/entities/band_profile.dart';
 import '../../domain/entities/artist_venue_application.dart';
 import '../../domain/entities/profile_venue_models.dart';
@@ -21,7 +32,10 @@ import '../../domain/entities/musician_search_option.dart';
 import '../../domain/musician_profile_repository.dart';
 import '../../domain/musician_search_repository.dart';
 import '../../domain/venue_directory_repository.dart';
+import '../navigation/band_member_profile_resolver.dart';
+import '../navigation/profile_action_session.dart';
 import 'profile_route_args.dart';
+import 'band_member_caption.dart';
 import 'event_invitation_navigation.dart';
 import 'venue_connection_management_hub.dart';
 import '../../domain/entities/event_performer_request.dart';
@@ -32,6 +46,8 @@ part 'band_management_panel_screen_widgets.dart';
 part 'band_management_panel_screen_member_actions.dart';
 part 'band_management_panel_screen_member_picker.dart';
 part 'band_management_panel_screen_members_workspace.dart';
+part 'band_management_panel_screen_member_title_editor.dart';
+part 'band_management_panel_screen_pending_invitations.dart';
 part 'band_management_panel_screen_ui_helpers.dart';
 part 'band_management_panel_screen_venue_actions.dart';
 part 'band_management_panel_screen_venue_connections_sheet.dart';
@@ -62,11 +78,21 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
   late BandProfile _profile = widget.profile;
   bool _loading = false;
   bool _submitting = false;
+  int _profileLoadGeneration = 0;
   String? _errorText;
+  final ValueNotifier<int> _profileRevision = ValueNotifier(0);
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
     setState(updater);
+    _profileRevision.value++;
+  }
+
+  @override
+  void dispose() {
+    ++_profileLoadGeneration;
+    _profileRevision.dispose();
+    super.dispose();
   }
 
   @override
@@ -155,8 +181,8 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
               _actionCard(
                 context: context,
                 icon: Icons.hub_outlined,
-                title: 'Mekan Bağlantılarını Yönet',
-                message: 'Mekan bağlantıları ve başvuru akışları burada.',
+                title: 'Mekan Bağlantıları',
+                message: 'Bağlantılarını ve isteklerini yönet.',
                 onTap: _submitting ? null : _openVenueConnectionHub,
               ),
               SizedBox(height: 14),
@@ -237,15 +263,23 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
         _submitting = false;
         _errorText = result.error?.message ?? 'Band silinemedi.';
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_errorText!)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text(_errorText!),
+        ),
+      );
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${_profile.name} silindi.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: Text('${_profile.name} silindi.'),
+      ),
+    );
     Navigator.of(context).pop(true);
   }
 }

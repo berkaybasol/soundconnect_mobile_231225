@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_state.dart';
@@ -98,7 +98,13 @@ class _ListenerPublicProfileViewState
         if (message.isEmpty) return;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(message)));
+          ..showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
+              content: Text(message),
+            ),
+          );
       },
       child: Scaffold(
         appBar: _publicAppBar(),
@@ -211,7 +217,9 @@ class _ListenerPublicProfileViewState
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
             content: Text(
               message.isEmpty ? 'Takip işlemi tamamlanamadı.' : message,
             ),
@@ -257,14 +265,7 @@ bool _followFailureRequiresProfileRefresh(String? rawCode) {
 }
 
 PreferredSizeWidget _publicAppBar() {
-  return AppBar(
-    title: GradientText(
-      text: 'SoundConnect',
-      gradient: LinearGradient(colors: AppColors.brandGradient),
-      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-    ),
-    centerTitle: true,
-  );
+  return AppBar(title: const ProfileBrandTitle(), centerTitle: true);
 }
 
 class _PublicProfileFailure extends StatelessWidget {

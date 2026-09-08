@@ -108,7 +108,7 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
             ),
             if (ownerMode)
               IconButton(
-                tooltip: 'Katalogdan kaldir',
+                tooltip: 'Katalogdan kaldır',
                 onPressed: actionsEnabled ? onRemove : null,
                 icon: Icon(
                   Icons.delete_outline,

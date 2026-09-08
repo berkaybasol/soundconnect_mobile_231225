@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
@@ -159,9 +160,13 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
             (state.action == AuthAction.verify ||
                 state.action == AuthAction.resend)) {
           final message = state.error?.message ?? 'Doğrulama başarısız.';
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
+              content: Text(message),
+            ),
+          );
         }
       },
       builder: (context, state) {
@@ -228,16 +233,20 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                       : () {
                           if (effectiveEmail.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('E-posta boş olamaz.'),
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text('E-posta boş olamaz.'),
                               ),
                             );
                             return;
                           }
                           if (!_isValidEmail(effectiveEmail)) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Geçerli bir e-posta gir.'),
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text('Geçerli bir e-posta gir.'),
                               ),
                             );
                             return;
@@ -245,14 +254,20 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                           final code = _codeController.text.trim();
                           if (code.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Kod boş olamaz.')),
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text('Kod boş olamaz.'),
+                              ),
                             );
                             return;
                           }
                           if (_remainingSeconds <= 0) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text(
                                   'Kodun süresi doldu. Tekrar gönder.',
                                 ),
                               ),
@@ -261,8 +276,10 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                           }
                           if (!_isValidCode(code)) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Kod 6 haneli olmalı.'),
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text('Kod 6 haneli olmalı.'),
                               ),
                             );
                             return;
@@ -285,16 +302,20 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                       : () {
                           if (effectiveEmail.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('E-posta boş olamaz.'),
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text('E-posta boş olamaz.'),
                               ),
                             );
                             return;
                           }
                           if (!_isValidEmail(effectiveEmail)) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Geçerli bir e-posta gir.'),
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text('Geçerli bir e-posta gir.'),
                               ),
                             );
                             return;

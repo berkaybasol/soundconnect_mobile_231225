@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -327,7 +328,10 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
         return;
       }
       if (selfUserId.isNotEmpty && userId == selfUserId) {
-        _showSnack('Kendinize mesaj atamazsiniz');
+        _showSnack(
+          'Kendinize mesaj atamazsiniz',
+          tone: AppSnackBarTone.warning,
+        );
         return;
       }
       final username = (data.username ?? '').trim();
@@ -358,7 +362,7 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
       return;
     }
     if (selfUserId.isNotEmpty && ownerId == selfUserId) {
-      _showSnack('Kendinize mesaj atamazsiniz');
+      _showSnack('Kendinize mesaj atamazsiniz', tone: AppSnackBarTone.warning);
       return;
     }
     Navigator.of(context).pushNamed(
@@ -373,10 +377,13 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
     );
   }
 
-  void _showSnack(String message) {
+  void _showSnack(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 
   void _exitMessages() {

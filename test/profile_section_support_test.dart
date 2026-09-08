@@ -10,13 +10,13 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: ProfileSectionHeader(title: 'Baslik', actionLabel: 'Duzenle'),
+            body: ProfileSectionHeader(title: 'Baslik', actionLabel: 'Düzenle'),
           ),
         ),
       );
 
       expect(find.text('Baslik'), findsOneWidget);
-      expect(find.text('Duzenle'), findsOneWidget);
+      expect(find.text('Düzenle'), findsOneWidget);
     });
 
     testWidgets('renders action buttons in non-owner mode', (tester) async {
@@ -36,7 +36,7 @@ void main() {
       );
 
       expect(find.text('Takip Et'), findsOneWidget);
-      expect(find.text('Mesaj Gonder'), findsOneWidget);
+      expect(find.text('Mesaj Gönder'), findsOneWidget);
     });
 
     testWidgets('hides action buttons in owner mode', (tester) async {
@@ -56,7 +56,7 @@ void main() {
       );
 
       expect(find.text('Takip Et'), findsNothing);
-      expect(find.text('Mesaj Gonder'), findsNothing);
+      expect(find.text('Mesaj Gönder'), findsNothing);
     });
   });
 }

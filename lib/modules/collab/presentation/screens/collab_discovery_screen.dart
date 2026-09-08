@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/utils/turkish_alphabetical.dart';
@@ -469,19 +470,28 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
 
   bool _citiesReadyOrExplain() {
     if (!_catalogsLoading && _cityCatalogError == null) return true;
-    _showMessage(_cityCatalogError ?? 'Şehir seçenekleri yükleniyor.');
+    _showMessage(
+      _cityCatalogError ?? 'Şehir seçenekleri yükleniyor.',
+      tone: _cityCatalogError != null
+          ? AppSnackBarTone.error
+          : AppSnackBarTone.info,
+    );
     if (_cityCatalogError != null) unawaited(_loadCatalogs());
     return false;
   }
 
   bool _specialtiesReadyOrExplain() {
     if (_catalogsLoading) {
-      _showMessage('Enstrüman seçenekleri yükleniyor.');
+      _showMessage(
+        'Enstrüman seçenekleri yükleniyor.',
+        tone: AppSnackBarTone.info,
+      );
       return false;
     }
     if (_instrumentCatalogError != null) {
       _showMessage(
         '$_instrumentCatalogError Branş seçenekleriyle devam edebilirsin.',
+        tone: AppSnackBarTone.warning,
       );
       unawaited(_loadCatalogs());
     }
@@ -746,9 +756,9 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     if (result == CollabCreateListingResult.published) {
       await _cubit.refresh();
       if (!mounted) return;
-      _showMessage('İlanın yayınlandı.');
+      _showMessage('İlanın yayınlandı.', tone: AppSnackBarTone.success);
     } else {
-      _showMessage('Taslağın kaydedildi.');
+      _showMessage('Taslağın kaydedildi.', tone: AppSnackBarTone.success);
     }
   }
 
@@ -762,10 +772,13 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     );
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }
 

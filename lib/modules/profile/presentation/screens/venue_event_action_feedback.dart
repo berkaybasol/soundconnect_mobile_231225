@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../../shared/widgets/app_snack_bar.dart';
 
 Future<bool> confirmVenueEventDeletion(
   BuildContext context,
@@ -103,38 +104,13 @@ void showVenueEventFeedback(
   String message, {
   bool isError = false,
 }) {
-  final scheme = Theme.of(context).colorScheme;
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: scheme.surfaceContainerHighest,
-        elevation: 0,
-        margin: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: scheme.onSurface.withValues(alpha: .12)),
-        ),
-        content: Row(
-          children: [
-            Icon(
-              isError
-                  ? Icons.error_outline_rounded
-                  : Icons.check_circle_outline_rounded,
-              color: isError ? AppColors.coral : AppColors.brandGradient.last,
-              size: 21,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: TextStyle(color: scheme.onSurface, height: 1.4),
-              ),
-            ),
-          ],
-        ),
+      appSnackBar(
+        context,
+        content: Text(message),
+        tone: isError ? AppSnackBarTone.error : AppSnackBarTone.success,
       ),
     );
 }

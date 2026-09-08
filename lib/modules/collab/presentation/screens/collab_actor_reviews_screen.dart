@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -225,6 +226,7 @@ class _CollabActorReviewsScreenState extends State<CollabActorReviewsScreen> {
           _showMessage(
             'Hedef değerlendirme yüklendi ancak otomatik kaydırılamadı. '
             'Listede elle kaydırarak açabilirsin.',
+            tone: AppSnackBarTone.warning,
           );
         }
       });
@@ -245,17 +247,23 @@ class _CollabActorReviewsScreenState extends State<CollabActorReviewsScreen> {
       _initialTargetHandled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _showMessage('Bildirimdeki değerlendirme artık bulunamıyor.');
+          _showMessage(
+            'Bildirimdeki değerlendirme artık bulunamıyor.',
+            tone: AppSnackBarTone.warning,
+          );
         }
       });
     }
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }
 

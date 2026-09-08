@@ -426,6 +426,7 @@ class _NewBacklineInventoryItemSheetState
     if (leafCategoryId == null || leafCategoryId.isEmpty) {
       _showMessage(
         'Seçilen alt kategori güncel değil. Kategorileri yenileyip tekrar dene.',
+        tone: AppSnackBarTone.warning,
       );
       return;
     }
@@ -591,16 +592,21 @@ class _NewBacklineInventoryItemSheetState
 
   void _showPhotoLimitMessage() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('En fazla 5 ekipman fotoğrafı ekleyebilirsin.'),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.warning,
+        content: const Text('En fazla 5 ekipman fotoğrafı ekleyebilirsin.'),
       ),
     );
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }

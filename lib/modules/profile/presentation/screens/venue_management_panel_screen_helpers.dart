@@ -12,9 +12,13 @@ Widget _buildManagementActionCard({
     onTap:
         onTap ??
         () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.info,
+              content: Text(message),
+            ),
+          );
         },
     borderRadius: BorderRadius.circular(18),
     child: _GradientOutline(

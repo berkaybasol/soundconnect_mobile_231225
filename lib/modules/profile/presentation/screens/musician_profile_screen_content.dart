@@ -17,7 +17,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final bool socialEditable;
   final ValueChanged<ProfileSocialPlatform>? onAddSocialLink;
   final bool descriptionEditable;
-  final Future<void> Function(String)? onSaveDescription;
+  final Future<bool> Function(String)? onSaveDescription;
   final bool ownerMode;
   final VoidCallback? onEditProfilePressed;
   final bool venueEditable;
@@ -50,7 +50,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   });
 
   List<VenueConnection> _resolveVenues() {
-    if (activeVenues != null && activeVenues!.isNotEmpty) {
+    if (activeVenues != null) {
       return activeVenues!;
     }
     if (profile.activeVenueConnections.isNotEmpty) {
@@ -89,11 +89,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: GradientText(
-            text: 'SoundConnect',
-            gradient: LinearGradient(colors: AppColors.brandGradient),
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
+          title: const ProfileBrandTitle(),
           leading: const BackButton(),
           centerTitle: true,
           actions: ownerMode
@@ -156,7 +152,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   bioSection: EditableBioSection(
                     bio: profile.bio,
                     editable: descriptionEditable,
-                    onSave: onSaveDescription,
+                    onSave: null,
+                    onSaveConfirmed: onSaveDescription,
                     addLabel: 'Kendini birkaç cümleyle anlat',
                     hintText:
                         'Müziğini, tarzını ve seni anlatan birkaç şey yaz...',
@@ -180,8 +177,15 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                     context,
                                   ).colorScheme.surfaceContainerHighest,
                                   child: TextButton.icon(
-                                    onPressed: () {
-                                      Navigator.of(context).push(
+                                    onPressed: () async {
+                                      final session = ProfileActionSession(
+                                        roles: const [
+                                          'MUSICIAN',
+                                          'ROLE_MUSICIAN',
+                                        ],
+                                      );
+                                      if (!session.isCurrent) return;
+                                      await Navigator.of(context).push(
                                         MaterialPageRoute<void>(
                                           builder: (_) =>
                                               MusicianManagementPanelScreen(
@@ -191,6 +195,10 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                               ),
                                         ),
                                       );
+                                      if (context.mounted &&
+                                          session.isCurrent) {
+                                        await onRefresh();
+                                      }
                                     },
                                     style: TextButton.styleFrom(
                                       foregroundColor: AppColors.white,

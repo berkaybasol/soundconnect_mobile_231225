@@ -160,6 +160,12 @@ class _MusicianPublicProfileViewState
                   : followState.followingCount;
               final actionState = context.watch<FollowActionCubit>().state;
               return _MusicianPublicProfileContent(
+                onViewArtists: () => openVenueArtists(
+                  context,
+                  venueId: ownerProfile.venueId,
+                  venueName: ownerProfile.venueName,
+                  venueImageUrl: ownerProfile.profilePictureUrl,
+                ),
                 profile: profile,
                 media: media,
                 followersCount: followersCount,
@@ -197,9 +203,13 @@ class _MusicianPublicProfileViewState
   void _scheduleIncomingApplicationsSheet(VenueOwnerProfile ownerProfile) {
     if (!_openIncomingApplicationsOnLoad || _incomingApplicationsOpened) return;
     _incomingApplicationsOpened = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      showModalBottomSheet<void>(
+      final session = ProfileActionSession(
+        roles: const ['VENUE', 'ROLE_VENUE'],
+      );
+      if (!session.isCurrent) return;
+      await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         backgroundColor: AppColors.navBlueDeep,
@@ -211,6 +221,7 @@ class _MusicianPublicProfileViewState
           mode: ApplicationListMode.incoming,
         ),
       );
+      if (mounted && session.isCurrent) await _refreshProfile();
     });
   }
 }

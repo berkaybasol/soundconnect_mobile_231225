@@ -218,7 +218,9 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     await _loadCalendarData(showLoading: false);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
         content: Text('${reservation.userName} rezervasyonu onaylandı.'),
       ),
     );
@@ -274,9 +276,13 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     }
     await _loadCalendarData(showLoading: false);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Rezervasyon iptal edildi.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: const Text('Rezervasyon iptal edildi.'),
+      ),
+    );
   }
 
   Future<void> _confirmReservationRejection(
@@ -331,7 +337,11 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     await _loadCalendarData(showLoading: false);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Rezervasyon talebi reddedildi.')),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: const Text('Rezervasyon talebi reddedildi.'),
+      ),
     );
   }
 
@@ -542,7 +552,11 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     await _loadCalendarData(showLoading: false);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Rezervasyonun iptal edildi.')),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: const Text('Rezervasyonun iptal edildi.'),
+      ),
     );
   }
 
@@ -664,7 +678,9 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     await _loadCalendarData(showLoading: false);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
         content: Text(
           reservation.status.isConfirmed
               ? 'Rezervasyonun onaylandı.'

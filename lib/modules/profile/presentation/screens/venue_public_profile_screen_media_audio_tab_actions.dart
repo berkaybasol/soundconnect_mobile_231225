@@ -65,7 +65,7 @@ extension _VenuePublicProfileAudioTabActions on _AudioTab {
                 ),
                 SizedBox(height: 12),
                 Text(
-                  'Sanatcinin Spotify Katalogu ',
+                  'Sanatçının Spotify Katalogu ',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,

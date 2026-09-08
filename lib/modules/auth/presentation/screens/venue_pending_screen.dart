@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -33,14 +34,25 @@ class VenuePendingScreen extends StatelessWidget {
   });
 
   Future<void> _openWhatsAppSupport(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final opened = await launchUrl(
-      _whatsAppSupportUri,
-      mode: LaunchMode.externalApplication,
-    );
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        _whatsAppSupportUri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      // Missing handlers and platform failures have the same recoverable UI.
+    }
+    if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
     if (!opened) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('WhatsApp bağlantısı açılamadı.')),
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text('WhatsApp bağlantısı açılamadı.'),
+        ),
       );
     }
   }

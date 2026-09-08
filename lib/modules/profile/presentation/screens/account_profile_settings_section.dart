@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
@@ -212,10 +213,13 @@ class _AccountProfileSettingsSectionState
     });
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 
   Future<void> _changePhoto() async {
@@ -261,7 +265,10 @@ class _AccountProfileSettingsSectionState
       if (kind != _AccountProfileKind.listener) {
         setState(() => _profileImageUrl = upload.preferredUrl);
       }
-      _showMessage('Profil fotoğrafın güncellendi.');
+      _showMessage(
+        'Profil fotoğrafın güncellendi.',
+        tone: AppSnackBarTone.success,
+      );
     } catch (error) {
       if (mounted) {
         _showMessage(error.toString().replaceFirst('Exception: ', ''));
@@ -335,7 +342,7 @@ class _AccountProfileSettingsSectionState
         _description = description;
         _editingDescription = false;
       });
-      _showMessage('Açıklaman güncellendi.');
+      _showMessage('Açıklaman güncellendi.', tone: AppSnackBarTone.success);
     } finally {
       if (mounted) setState(() => _savingDescription = false);
     }
@@ -474,6 +481,7 @@ class _AccountProfileSettingsSectionState
             refreshed
                 ? 'Görünürlük başka bir oturumda değişti. Güncel ayarı yükledik; kontrol edip tekrar dene.'
                 : 'Görünürlük başka bir oturumda değişti. Profili yenileyip tekrar dene.',
+            tone: AppSnackBarTone.warning,
           );
           return;
         }
@@ -493,6 +501,7 @@ class _AccountProfileSettingsSectionState
         profile.isGhost
             ? 'Hayalet Profil açıldı.'
             : 'Profilin yeniden görünür.',
+        tone: AppSnackBarTone.success,
       );
     } finally {
       if (mounted) setState(() => _updatingListenerVisibility = false);

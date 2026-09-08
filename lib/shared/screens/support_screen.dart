@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -29,11 +30,23 @@ class SupportScreen extends StatelessWidget {
     try {
       final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!opened && context.mounted) {
-        messenger.showSnackBar(SnackBar(content: Text(failureMessage)));
+        messenger.showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: Text(failureMessage),
+          ),
+        );
       }
     } on Object {
       if (context.mounted) {
-        messenger.showSnackBar(SnackBar(content: Text(failureMessage)));
+        messenger.showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: Text(failureMessage),
+          ),
+        );
       }
     }
   }

@@ -1,20 +1,30 @@
 part of 'band_management_panel_screen.dart';
 
-enum _BandVenueApplicationListMode { outgoing, incoming }
+enum _BandVenueApplicationListMode { connections, outgoing, incoming }
 
 extension _BandManagementPanelVenueConnectionHub
     on _BandManagementPanelScreenState {
   Future<void> _openVenueConnectionHub() async {
     final originRoute = ModalRoute.of(context);
+    final session = ProfileActionSession(
+      roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+    );
+    if (!session.isCurrent) return;
     final bandId = _profile.id;
     final destination = await showVenueConnectionManagementHub(context);
     if (!mounted ||
+        !session.isCurrent ||
         destination == null ||
         _profile.id != bandId ||
         originRoute?.isCurrent == false) {
       return;
     }
     switch (destination) {
+      case VenueConnectionManagementDestination.connections:
+        await _showBandVenueApplicationList(
+          mode: _BandVenueApplicationListMode.connections,
+        );
+        break;
       case VenueConnectionManagementDestination.create:
         await _editBandVenues();
         break;
@@ -60,19 +70,67 @@ class _BandVenueApplicationsSheet extends StatefulWidget {
 
 class _BandVenueApplicationsSheetState
     extends State<_BandVenueApplicationsSheet> {
+  final _session = ProfileActionSession(
+    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+  );
+  int _loadGeneration = 0;
   final _repository = serviceLocator<ArtistVenueConnectionRepository>();
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  int _nextPage = 0;
+  int _totalElements = 0;
+  String? _pageError;
   bool _loading = true;
   bool _actionLoading = false;
+  bool _accessRevoked = false;
   String? _error;
   List<ArtistVenueApplication> _items = const [];
 
   bool get _showOutgoing =>
       widget.mode == _BandVenueApplicationListMode.outgoing;
+  bool get _showConnections =>
+      widget.mode == _BandVenueApplicationListMode.connections;
 
   @override
   void initState() {
     super.initState();
+    _session.manager?.addListener(_onSessionChanged);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _session.manager?.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    _loadGeneration++;
+    if (!mounted) return;
+    setState(() {
+      _items = const [];
+      _hasMore = false;
+      _loadingMore = false;
+      _pageError = null;
+      _loading = false;
+      _actionLoading = false;
+      _error = 'Hesabın değişti. İstekleri yeniden aç.';
+    });
+  }
+
+  void _revokeAccess(String message) {
+    _loadGeneration++;
+    if (!mounted) return;
+    setState(() {
+      _accessRevoked = true;
+      _items = [];
+      _hasMore = false;
+      _loading = false;
+      _loadingMore = false;
+      _actionLoading = false;
+      _pageError = null;
+      _error = message;
+    });
   }
 
   @override
@@ -88,9 +146,11 @@ class _BandVenueApplicationsSheetState
             children: [
               Center(
                 child: Text(
-                  _showOutgoing
+                  _showConnections
+                      ? 'Bağlantılarım'
+                      : _showOutgoing
                       ? 'Gönderdiğim İstekler'
-                      : 'Gelen Mekan İstekleri',
+                      : 'Gelen İstekler',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
@@ -101,6 +161,21 @@ class _BandVenueApplicationsSheetState
               const SizedBox(height: 14),
               if (_actionLoading) const LinearProgressIndicator(),
               Expanded(child: _buildBody()),
+              ApplicationPagingFooter(
+                loading: _loadingMore,
+                hasMore: _hasMore && !_loading,
+                error: _pageError,
+                onMore: _actionLoading || !_session.isCurrent
+                    ? null
+                    : () => _load(append: true),
+                onRetry: !_session.isCurrent || _actionLoading || _accessRevoked
+                    ? null
+                    : _error != null
+                    ? () => _load()
+                    : _pageError != null
+                    ? () => _load(append: true)
+                    : null,
+              ),
             ],
           ),
         ),
@@ -124,7 +199,9 @@ class _BandVenueApplicationsSheetState
     if (_items.isEmpty) {
       return Center(
         child: Text(
-          _showOutgoing
+          _showConnections
+              ? 'Henüz bağlı olduğun bir mekan yok.'
+              : _showOutgoing
               ? 'Gönderdiğin mekan isteği bulunmuyor.'
               : 'Gelen mekan isteği bulunmuyor.',
           style: TextStyle(
@@ -161,10 +238,13 @@ class _BandVenueApplicationsSheetState
             borderRadius: BorderRadius.circular(12),
             onTap: item.venueId.isEmpty
                 ? null
-                : () => Navigator.of(context).pushNamed(
-                    AppRoutes.venuePublicProfile,
-                    arguments: VenuePublicProfileArgs(venueId: item.venueId),
-                  ),
+                : () {
+                    if (!_session.isCurrent) return;
+                    Navigator.of(context).pushNamed(
+                      AppRoutes.venuePublicProfile,
+                      arguments: VenuePublicProfileArgs(venueId: item.venueId),
+                    );
+                  },
             child: Row(
               children: [
                 CircleAvatar(
@@ -201,7 +281,7 @@ class _BandVenueApplicationsSheetState
               ],
             ),
           ),
-          if (item.message?.trim().isNotEmpty == true) ...[
+          if (!_showConnections && item.message?.trim().isNotEmpty == true) ...[
             const SizedBox(height: 10),
             Text(
               item.message!.trim(),
@@ -216,23 +296,29 @@ class _BandVenueApplicationsSheetState
             spacing: 8,
             runSpacing: 8,
             children: [
-              if (!_showOutgoing && pending)
+              if (!_showConnections && !_showOutgoing && pending)
                 ElevatedButton(
                   onPressed: _actionLoading
                       ? null
                       : () => _runAction(
                           successMessage: 'Mekan isteği onaylandı.',
-                          action: () => _repository.acceptRequest(item.id),
+                          action: () => _repository.acceptRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                   child: const Text('Onayla'),
                 ),
-              if (!_showOutgoing && pending)
+              if (!_showConnections && !_showOutgoing && pending)
                 OutlinedButton(
                   onPressed: _actionLoading
                       ? null
                       : () => _runAction(
                           successMessage: 'Mekan isteği reddedildi.',
-                          action: () => _repository.rejectRequest(item.id),
+                          action: () => _repository.rejectRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                   child: const Text('Reddet'),
                 ),
@@ -242,7 +328,10 @@ class _BandVenueApplicationsSheetState
                       ? null
                       : () => _runAction(
                           successMessage: 'Mekan isteği iptal edildi.',
-                          action: () => _repository.cancelRequest(item.id),
+                          action: () => _repository.cancelRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                   child: const Text('İptal et'),
                 ),
@@ -252,7 +341,10 @@ class _BandVenueApplicationsSheetState
                       ? null
                       : () => _runAction(
                           successMessage: 'Bağlantı kaldırıldı.',
-                          action: () => _repository.disconnect(item.id),
+                          action: () => _repository.disconnect(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                   child: const Text('Bağlantıyı kaldır'),
                 ),
@@ -271,7 +363,7 @@ class _BandVenueApplicationsSheetState
         ? Theme.of(context).colorScheme.onSurfaceVariant
         : const Color(0xFFE7B65A);
     final label = status == 'ACCEPTED'
-        ? 'Onaylandı'
+        ? (_showConnections ? 'Bağlı' : 'Onaylandı')
         : status == 'REJECTED'
         ? 'Reddedildi'
         : 'Beklemede';
@@ -293,55 +385,136 @@ class _BandVenueApplicationsSheetState
     );
   }
 
-  Future<void> _load() async {
-    if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final result = await _repository.listBandVenueApplications(widget.bandId);
-    if (!mounted) return;
-    if (!result.isSuccess || result.data == null) {
-      setState(() {
-        _loading = false;
-        _error = result.error?.message ?? 'Mekan istekleri getirilemedi.';
-      });
+  Future<void> _load({bool append = false}) async {
+    if (!mounted || _accessRevoked) return;
+    if (!_session.isCurrent) {
+      _onSessionChanged();
       return;
     }
-    final expectedType = _showOutgoing ? 'BAND' : 'VENUE';
+    if (append && (_loading || _loadingMore || _actionLoading || !_hasMore)) {
+      return;
+    }
+    final generation = ++_loadGeneration;
+    final page = append ? _nextPage : 0;
     setState(() {
-      _items = result.data!
-          .where(
-            (item) => item.requestByType.trim().toUpperCase() == expectedType,
-          )
-          .toList(growable: false);
-      _loading = false;
+      if (append) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _loadingMore = false;
+        _error = null;
+      }
+      _pageError = null;
     });
+    try {
+      final result = await _repository.listApplicationPage(
+        target: ArtistVenueApplicationTarget.band,
+        targetId: widget.bandId,
+        incoming: !_showOutgoing,
+        connectionsOnly: _showConnections,
+        page: page,
+        expectedSessionKey: _session.userId,
+      );
+      if (!mounted || !_session.isCurrent || generation != _loadGeneration) {
+        return;
+      }
+      if (!result.isSuccess || result.data == null) {
+        if (artistVenueAccessLost(result.error)) {
+          _revokeAccess(
+            result.error?.message ?? 'Bu isteklere erişim iznin kalmadı.',
+          );
+          return;
+        }
+        throw result.error?.message ?? 'İstekler getirilemedi.';
+      }
+      final response = result.data!;
+      final overlaps =
+          append &&
+          response.items.any(
+            (item) => _items.any((loaded) => loaded.id == item.id),
+          );
+      if (append && (response.totalElements != _totalElements || overlaps)) {
+        await _load();
+        return;
+      }
+      final unique = {
+        if (append)
+          for (final item in _items) item.id: item,
+        for (final item in response.items) item.id: item,
+      };
+      setState(() {
+        _items = unique.values.toList(growable: false);
+        _totalElements = response.totalElements;
+        _nextPage = response.page + 1;
+        _hasMore = !response.last;
+        _loading = false;
+        _loadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted || !_session.isCurrent || generation != _loadGeneration) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _loadingMore = false;
+        if (append) {
+          _pageError = 'İstekler getirilemedi: $error';
+        } else {
+          _items = [];
+          _hasMore = false;
+          _error = 'İstekler getirilemedi: $error';
+        }
+      });
+    }
   }
 
   Future<void> _runAction({
     required String successMessage,
-    required Future<dynamic> Function() action,
+    required Future<Result<void>> Function() action,
   }) async {
-    if (_actionLoading) return;
+    if (!mounted ||
+        !_session.isCurrent ||
+        _accessRevoked ||
+        _actionLoading ||
+        _loading ||
+        _loadingMore) {
+      return;
+    }
+    _loadGeneration++;
     setState(() => _actionLoading = true);
     try {
       final result = await action();
-      if (result is Result && !result.isSuccess) {
+      if (!mounted || !_session.isCurrent) return;
+      if (!result.isSuccess) {
+        if (artistVenueAccessLost(result.error)) {
+          _revokeAccess(
+            result.error?.message ?? 'Bu isteklere erişim iznin kalmadı.',
+          );
+        } else if (artistVenueDecisionChanged(result.error)) {
+          await _load();
+        }
         throw result.error?.message ?? 'İşlem başarısız.';
       }
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(successMessage)));
+      if (!mounted || !_session.isCurrent) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
+          content: Text(successMessage),
+        ),
+      );
       await _load();
     } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('İşlem başarısız: $error')));
+      if (!mounted || !_session.isCurrent) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text('İşlem başarısız: $error'),
+        ),
+      );
     } finally {
-      if (mounted) setState(() => _actionLoading = false);
+      if (mounted && _session.isCurrent) setState(() => _actionLoading = false);
     }
   }
 

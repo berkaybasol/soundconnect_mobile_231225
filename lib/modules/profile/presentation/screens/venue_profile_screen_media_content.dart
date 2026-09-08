@@ -41,7 +41,7 @@ class _MediaContentState extends State<_MediaContent> {
     setState(() {
       _photoUploading = true;
       _photoUploadProgress = 0;
-      _photoUploadStatus = 'Fotograf hazirlaniyor';
+      _photoUploadStatus = 'Fotoğraf hazırlanıyor';
     });
 
     try {
@@ -60,13 +60,13 @@ class _MediaContentState extends State<_MediaContent> {
         onStageChanged: (stage) {
           if (!mounted) return;
           final label = switch (stage) {
-            ProfileUploadStage.initializing => 'Yukleme hazirlaniyor',
-            ProfileUploadStage.uploading => 'Fotograf yukleniyor',
-            ProfileUploadStage.verifying => 'Fotograf dogrulaniyor',
-            ProfileUploadStage.attaching => 'Fotograf galeriye ekleniyor',
+            ProfileUploadStage.initializing => 'Yükleme hazırlanıyor',
+            ProfileUploadStage.uploading => 'Fotoğraf yükleniyor',
+            ProfileUploadStage.verifying => 'Fotoğraf doğrulanıyor',
+            ProfileUploadStage.attaching => 'Fotoğraf galeriye ekleniyor',
             ProfileUploadStage.backgroundProcessing =>
-              'Fotograf arka planda hazirlaniyor',
-            ProfileUploadStage.completed => 'Fotograf hazir',
+              'Fotoğraf arka planda hazırlanıyor',
+            ProfileUploadStage.completed => 'Fotoğraf hazır',
           };
           setState(() => _photoUploadStatus = label);
         },
@@ -79,7 +79,7 @@ class _MediaContentState extends State<_MediaContent> {
       );
       final assetId = uploaded.uuid.trim();
       if (assetId.isEmpty) {
-        throw Exception('Medya kimligi alinamadi');
+        throw Exception('Medya kimliği alınamadı');
       }
 
       if (!context.mounted) return;
@@ -88,14 +88,22 @@ class _MediaContentState extends State<_MediaContent> {
         profileId: widget.galleryOwnerId,
       );
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Fotograf eklendi')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
+          content: const Text('Fotoğraf eklendi'),
+        ),
+      );
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Fotograf eklenemedi: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text('Fotoğraf eklenemedi: $e'),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {

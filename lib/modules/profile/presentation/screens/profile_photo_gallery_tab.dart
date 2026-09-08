@@ -49,7 +49,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
           child: MediaDetailScreen(
             title: (item.title?.trim().isNotEmpty ?? false)
                 ? item.title!.trim()
-                : 'Fotograf',
+                : 'Fotoğraf',
             isVideo: false,
             isImage: true,
             imageUrl: imageUrl,
@@ -109,10 +109,10 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
               Text(
                 uploading
                     ? uploadStatusLabel ??
-                          'Fotograf yukleniyor %${(uploadProgress * 100).round()}'
+                          'Fotoğraf yükleniyor %${(uploadProgress * 100).round()}'
                     : items.isEmpty
-                    ? 'Henuz fotograf eklemediniz'
-                    : 'Fotograf ekle',
+                    ? 'Henüz fotoğraf eklemediniz'
+                    : 'Fotoğraf ekle',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
@@ -121,8 +121,8 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
               SizedBox(height: 4),
               Text(
                 uploading
-                    ? 'Dosyayi guvenle hazirlarken bu ekranda kalabilirsin.'
-                    : 'SoundConnect uzerinden galeri fotografi yuklemek icin dokun.',
+                    ? 'Dosyayı güvenle hazırlarken bu ekranda kalabilirsin.'
+                    : 'SoundConnect üzerinden galeri fotoğrafı yüklemek için dokun.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -160,7 +160,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(20, ownerMode ? 0 : 20, 20, 20),
             child: Text(
-              'Henuz fotograf eklenmedi.',
+              'Henüz fotoğraf eklenmedi.',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

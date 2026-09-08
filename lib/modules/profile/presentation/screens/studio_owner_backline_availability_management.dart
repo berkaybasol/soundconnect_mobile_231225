@@ -695,7 +695,9 @@ class _BacklineDateAvailabilityCalendarState
       setState(() => _isLoading = false);
       if (result.error?.code == '9821' || result.error?.code == '9804') {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.warning,
             content: Text(
               result.error?.message ??
                   'Takvim başka bir işlemde değişti. Güncel veriler yüklendi.',
@@ -737,7 +739,11 @@ class _BacklineDateAvailabilityCalendarState
     await _loadVisibleMonth();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Müsaitlik takvimi güncellendi.')),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: const Text('Müsaitlik takvimi güncellendi.'),
+      ),
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -88,9 +89,13 @@ class _OverthinkingFeedViewState extends State<_OverthinkingFeedView> {
       ),
     );
     if (created == true && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Paylasim olusturuldu')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
+          content: const Text('Paylasim olusturuldu'),
+        ),
+      );
     }
   }
 
@@ -136,9 +141,13 @@ class _OverthinkingFeedViewState extends State<_OverthinkingFeedView> {
       listener: (context, state) {
         if (state.status == OverthinkingFeedStatus.failure &&
             state.error != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.error!.message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
+              content: Text(state.error!.message),
+            ),
+          );
         }
       },
       builder: (context, state) {
@@ -272,16 +281,22 @@ class _OverthinkingCreateScreenState extends State<OverthinkingCreateScreen> {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     if (title.isEmpty || content.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Baslik ve metin zorunlu')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Baslik ve metin zorunlu'),
+        ),
+      );
       return;
     }
     if (_selectedTrack != null &&
         (_selectedTrack!.spotifyUrl?.trim().isEmpty ?? true)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Secilen sarkinin Spotify baglantisi bulunamadi'),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Secilen sarkinin Spotify baglantisi bulunamadi'),
         ),
       );
       return;
@@ -306,7 +321,11 @@ class _OverthinkingCreateScreenState extends State<OverthinkingCreateScreen> {
     }
     final error = context.read<OverthinkingFeedCubit>().state.error;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error?.message ?? 'Paylasim olusturulamadi')),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.error,
+        content: Text(error?.message ?? 'Paylasim olusturulamadi'),
+      ),
     );
   }
 
@@ -1016,7 +1035,9 @@ class OverthinkingDetailScreen extends StatelessWidget {
     );
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
+        context,
+        tone: ok ? AppSnackBarTone.success : AppSnackBarTone.error,
         content: Text(
           ok
               ? 'Goruntuleme istegi gonderildi'
@@ -1530,9 +1551,13 @@ class _MusicChipState extends State<_MusicChip> {
     if (uri == null) return;
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Spotify acilamadi.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text('Spotify acilamadi.'),
+        ),
+      );
     }
   }
 

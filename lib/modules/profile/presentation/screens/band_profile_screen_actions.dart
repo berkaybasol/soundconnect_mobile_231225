@@ -2,54 +2,88 @@ part of 'band_profile_screen.dart';
 
 extension _BandProfileViewStateActions on _BandProfileViewState {
   Future<void> _loadBandProfile({bool showLoading = true}) async {
+    if (_leavingBand) return;
     final bandId = _bandId;
     if (bandId == null || bandId.isEmpty) return;
+    final generation = ++_profileLoadGeneration;
+    bool isCurrent() =>
+        mounted && generation == _profileLoadGeneration && bandId == _bandId;
 
     _updateState(() {
       if (showLoading) _loading = true;
       _errorText = null;
     });
 
-    final result = await () async {
-      if (_viewMode == BandProfileViewMode.public) {
+    try {
+      final result = await () async {
+        if (_viewMode == BandProfileViewMode.public) {
+          return _bandRepository.getPublicBandById(bandId);
+        }
+        try {
+          final ownerResult = await _bandRepository.getBandById(bandId);
+          if (!isCurrent()) return null;
+          if (ownerResult.isSuccess && ownerResult.data != null) {
+            return ownerResult;
+          }
+        } catch (_) {
+          if (!isCurrent()) return null;
+        }
         return _bandRepository.getPublicBandById(bandId);
-      }
-      final ownerResult = await _bandRepository.getBandById(bandId);
-      if (ownerResult.isSuccess && ownerResult.data != null) {
-        return ownerResult;
-      }
-      return _bandRepository.getPublicBandById(bandId);
-    }();
+      }();
+      if (!isCurrent()) return;
 
-    if (!mounted) return;
+      final profile = result?.data;
+      if (result == null ||
+          !result.isSuccess ||
+          profile == null ||
+          profile.id.trim() != bandId.trim()) {
+        _updateState(() {
+          _loading = false;
+          _profile = null;
+          _errorText = result?.error?.message ?? 'Band profili getirilemedi.';
+        });
+        return;
+      }
 
-    if (!result.isSuccess || result.data == null) {
       _updateState(() {
         _loading = false;
-        _errorText = result.error?.message ?? 'Band profili getirilemedi.';
+        _profile = profile;
+        _activeVenues = const [];
       });
-      return;
+      unawaited(_hydrateMemberMetadata(profile.members));
+
+      Future<void> loadOptional(Future<void> Function() loader) async {
+        if (!isCurrent()) return;
+        try {
+          await loader();
+        } catch (_) {
+          // Secondary profile sections must not hide a valid membership or
+          // prevent its actions when an unrelated service is unavailable.
+        }
+      }
+
+      await loadOptional(() => _loadActiveVenues(profile.id));
+      await loadOptional(() => _loadFollowersCount(profile.id));
+      await loadOptional(() => _loadBandFollowStatus(profile.id));
+      await loadOptional(() => _loadSpotifyCatalog(profile));
+      await loadOptional(
+        () => context.read<ProfileMediaCubit>().loadMedia(
+          profileType: 'BAND',
+          profileId: profile.id,
+        ),
+      );
+    } catch (_) {
+      if (!isCurrent()) return;
+      _updateState(() {
+        _loading = false;
+        _profile = null;
+        _errorText = 'Band profili getirilemedi. Lütfen tekrar dene.';
+      });
     }
-
-    _updateState(() {
-      _loading = false;
-      _profile = result.data;
-      _activeVenues = const [];
-    });
-    unawaited(_hydrateMemberMetadata(result.data!.members));
-
-    await _loadActiveVenues(result.data!.id);
-    await _loadFollowersCount(result.data!.id);
-    await _loadBandFollowStatus(result.data!.id);
-    await _loadSpotifyCatalog(result.data!);
-    if (!mounted) return;
-    await context.read<ProfileMediaCubit>().loadMedia(
-      profileType: 'BAND',
-      profileId: result.data!.id,
-    );
   }
 
   Future<void> _loadSpotifyCatalog(BandProfile profile) async {
+    final generation = _profileLoadGeneration;
     final trackIds = profile.spotifyTrackIds;
     if (trackIds.isEmpty) {
       if (!mounted) return;
@@ -61,26 +95,32 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     }
 
     _updateState(() => _spotifyLoading = true);
-    final result = await _spotifyRepository.getTracksByIds(trackIds);
-    if (!mounted) return;
-
-    _updateState(() {
-      _spotifyLoading = false;
-      _spotifyTracks = result.isSuccess && result.data != null
-          ? result.data!
-          : const [];
-    });
+    try {
+      final result = await _spotifyRepository.getTracksByIds(trackIds);
+      if (!mounted || generation != _profileLoadGeneration) return;
+      _updateState(() {
+        _spotifyTracks = result.isSuccess && result.data != null
+            ? result.data!
+            : const [];
+      });
+    } finally {
+      if (mounted && generation == _profileLoadGeneration) {
+        _updateState(() => _spotifyLoading = false);
+      }
+    }
   }
 
   Future<void> _loadFollowersCount(String bandId) async {
+    final generation = _profileLoadGeneration;
     final result = await _bandFollowRepository.getFollowersCount(bandId);
-    if (!mounted) return;
+    if (!mounted || generation != _profileLoadGeneration) return;
     _updateState(() {
       _followersCount = result.data;
     });
   }
 
   Future<void> _loadBandFollowStatus(String bandId) async {
+    final generation = _profileLoadGeneration;
     if ((_currentUserId ?? '').trim().isEmpty) return;
     final profile = _profile;
     if (profile != null &&
@@ -89,7 +129,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     }
 
     final result = await _bandFollowRepository.isFollowingBand(bandId);
-    if (!mounted) return;
+    if (!mounted || generation != _profileLoadGeneration) return;
     if (result.isSuccess && result.data != null) {
       _updateState(() {
         _isFollowingBand = result.data!;
@@ -101,7 +141,11 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     if (_bandFollowLoading) return;
     if ((_currentUserId ?? '').trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Takip etmek icin giris yapmalisin.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Takip etmek için giriş yapmalısın.'),
+        ),
       );
       return;
     }
@@ -117,11 +161,13 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     if (!result.isSuccess) {
       _updateState(() => _bandFollowLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
           content: Text(
             result.error?.message ??
                 (wasFollowing
-                    ? 'Band takipten cikarilamadi.'
+                    ? 'Band takipten çıkarılamadı.'
                     : 'Band takip edilemedi.'),
           ),
         ),
@@ -141,9 +187,11 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
         content: Text(
-          wasFollowing ? 'Band takipten cikarildi.' : 'Band takip edildi.',
+          wasFollowing ? 'Band takipten çıkarıldı.' : 'Band takip edildi.',
         ),
       ),
     );
@@ -156,7 +204,11 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     if (!_canManageBand) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bu işlem için yetkin yok.')),
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.warning,
+            content: const Text('Bu işlem için yetkin yok.'),
+          ),
         );
       }
       return false;
@@ -173,9 +225,13 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
 
     if (!result.isSuccess || result.data == null) {
       final message = result.error?.message ?? failureMessage;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text(message),
+        ),
+      );
       return false;
     }
 
@@ -189,7 +245,11 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   Future<void> _saveDescription(String value) async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu işlem için yetkin yok.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Bu işlem için yetkin yok.'),
+        ),
       );
       return;
     }
@@ -205,7 +265,9 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
 
     if (!result.isSuccess || result.data == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
           content: Text(result.error?.message ?? 'Açıklama kaydedilemedi.'),
         ),
       );
@@ -216,15 +278,23 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       _profile = result.data;
     });
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Açıklama güncellendi.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: const Text('Açıklama güncellendi.'),
+      ),
+    );
   }
 
   Future<void> _editProfilePhoto() async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu işlem için yetkin yok.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Bu işlem için yetkin yok.'),
+        ),
       );
       return;
     }
@@ -250,7 +320,9 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
 
       if (!result.isSuccess || result.data == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
             content: Text(
               result.error?.message ?? 'Profil fotoğrafı güncellenemedi.',
             ),
@@ -265,7 +337,11 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotoğrafı güncellendi.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
+          content: const Text('Profil fotoğrafı güncellendi.'),
+        ),
       );
     } finally {
       if (mounted) {
@@ -277,7 +353,11 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   Future<void> _addSocialLink(ProfileSocialPlatform platform) async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu işlem için yetkin yok.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Bu işlem için yetkin yok.'),
+        ),
       );
       return;
     }
@@ -309,7 +389,9 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
 
     if (!result.isSuccess || result.data == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
           content: Text(result.error?.message ?? 'Sosyal link kaydedilemedi.'),
         ),
       );
@@ -320,41 +402,56 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       _profile = result.data;
     });
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${platform.label} güncellendi.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: Text('${platform.label} güncellendi.'),
+      ),
+    );
   }
 
   Future<void> _openBandManagementPanel(BuildContext context) async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yönetim paneline erişim yok.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Yönetim paneline erişim yok.'),
+        ),
       );
       return;
     }
     final profile = _profile;
     if (profile == null) return;
 
+    final session = _membershipSessionManager?.session;
     final deleted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => BandManagementPanelScreen(profile: profile),
       ),
     );
 
-    if (!context.mounted) return;
+    if (!context.mounted ||
+        !identical(_membershipSessionManager?.session, session) ||
+        _bandId != profile.id ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
     if (deleted == true) {
       Navigator.of(context).pop(true);
       return;
     }
-    await _loadActiveVenues(profile.id);
+    await _loadBandProfile(showLoading: false);
   }
 
   Future<void> _loadActiveVenues(String bandId) async {
+    final generation = _profileLoadGeneration;
     final result = await _artistVenueRepository.getVenueConnectionsByBandStatus(
       bandId,
       status: 'ACCEPTED',
     );
-    if (!mounted) return;
+    if (!mounted || generation != _profileLoadGeneration) return;
 
     final List<VenueConnection> connections =
         result.isSuccess && result.data != null
@@ -381,116 +478,57 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
   }
 
   Future<void> _openMemberProfile(BandMemberSummary member) async {
-    final String profileId = await _resolveMemberProfileId(member) ?? '';
-    if (!mounted) return;
-    if (profileId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu üye için profil bilgisi bulunamadı.')),
-      );
-      return;
-    }
-
-    await Navigator.of(context).pushNamed(
-      AppRoutes.musicianPublicProfile,
-      arguments: PublicProfileArgs(profileId: profileId),
+    final bandId = _profile?.id;
+    await _memberProfileResolver.open(
+      context,
+      member,
+      isMemberCurrent: () =>
+          _profile?.id == bandId &&
+          (_profile?.members.any(
+                (current) =>
+                    current.userId == member.userId &&
+                    current.profileId == member.profileId,
+              ) ??
+              false),
     );
   }
 
-  Future<String?> _resolveMemberProfileId(BandMemberSummary member) async {
-    final String direct = member.profileId?.trim() ?? '';
-    if (direct.isNotEmpty) return direct;
-
-    final String cached =
-        _resolvedMemberProfileIdsByUserId[member.userId]?.trim() ?? '';
-    if (cached.isNotEmpty) return cached;
-
-    await _resolveSingleMemberMetadata(member);
-    final String resolved =
-        _resolvedMemberProfileIdsByUserId[member.userId]?.trim() ?? '';
-    return resolved.isEmpty ? null : resolved;
-  }
-
   Future<void> _hydrateMemberMetadata(List<BandMemberSummary> members) async {
-    if (members.isEmpty) return;
     for (final member in members) {
+      if (!mounted) return;
       await _resolveSingleMemberMetadata(member);
     }
   }
 
   Future<void> _resolveSingleMemberMetadata(BandMemberSummary member) async {
-    final String userId = member.userId.trim();
+    final userId = member.userId.trim();
     if (userId.isEmpty || _resolvingMemberUserIds.contains(userId)) return;
-
-    final bool hasProfileId =
+    final hasProfileId =
         (member.profileId?.trim().isNotEmpty ?? false) ||
         (_resolvedMemberProfileIdsByUserId[userId]?.trim().isNotEmpty ?? false);
-    final bool hasAvatar =
+    final hasAvatar =
         (member.profilePictureUrl?.trim().isNotEmpty ?? false) ||
         (_resolvedMemberAvatarUrlsByUserId[userId]?.trim().isNotEmpty ?? false);
     if (hasProfileId && hasAvatar) return;
 
     _resolvingMemberUserIds.add(userId);
     try {
-      String? resolvedProfileId = member.profileId?.trim();
-      String? resolvedAvatar = member.profilePictureUrl?.trim();
-      if (resolvedAvatar != null && resolvedAvatar.isEmpty) {
-        resolvedAvatar = null;
+      final profile = await _memberProfileResolver.resolve(member);
+      if (!mounted || profile == null) return;
+      if (!(_profile?.members.any(
+            (current) =>
+                current.userId == member.userId &&
+                current.profileId == member.profileId,
+          ) ??
+          false)) {
+        return;
       }
-
-      Future<void> bindByProfileId(String? candidate) async {
-        final String id = candidate?.trim() ?? '';
-        if (id.isEmpty) return;
-        final result = await _musicianProfileRepository
-            .getPublicProfileByProfileId(id);
-        if (!result.isSuccess || result.data == null) return;
-        final profile = result.data!;
-        if (profile.id.trim().isNotEmpty) {
-          resolvedProfileId = profile.id.trim();
-        }
-        final String photo = (profile.profilePicture ?? '').trim();
-        if (photo.isNotEmpty) {
-          resolvedAvatar = photo;
-        }
-      }
-
-      await bindByProfileId(resolvedProfileId);
-      if ((resolvedProfileId ?? '').isEmpty) {
-        await bindByProfileId(member.userId);
-      }
-
-      if ((resolvedProfileId ?? '').isEmpty) {
-        final String query = member.username.trim();
-        if (query.isNotEmpty) {
-          final search = await _musicianSearchRepository.search(query);
-          if (search.isSuccess &&
-              search.data != null &&
-              search.data!.isNotEmpty) {
-            final String usernameLower = query.toLowerCase();
-            final exact = search.data!.firstWhere(
-              (item) =>
-                  item.displayName.trim().toLowerCase() == usernameLower ||
-                  (item.secondaryLabel?.trim().toLowerCase() ?? '') ==
-                      '@$usernameLower',
-              orElse: () => search.data!.first,
-            );
-            resolvedProfileId = exact.profileId.trim();
-            final String searchAvatar = (exact.profilePictureUrl ?? '').trim();
-            if (searchAvatar.isNotEmpty) {
-              resolvedAvatar = searchAvatar;
-            }
-            await bindByProfileId(resolvedProfileId);
-          }
-        }
-      }
-
-      final bool changed = _upsertResolvedMember(
+      final changed = _upsertResolvedMember(
         userId: userId,
-        profileId: resolvedProfileId,
-        avatarUrl: resolvedAvatar,
+        profileId: profile.id,
+        avatarUrl: profile.profilePicture,
       );
-      if (changed && mounted) {
-        _updateState(() {});
-      }
+      if (changed) _updateState(() {});
     } finally {
       _resolvingMemberUserIds.remove(userId);
     }

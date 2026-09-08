@@ -45,9 +45,11 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
         _processingPollTimer = null;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.warning,
               content: Text(
-                'Video isleme beklenenden uzun surdu. Biraz sonra tekrar kontrol et.',
+                'Video işleme beklenenden uzun sürdü. Biraz sonra tekrar kontrol et.',
               ),
             ),
           );
@@ -104,7 +106,11 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     if ((pickedPath == null && pickedBytes == null) || pickedName.isEmpty) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Once bir video dosyasi sec.')),
+        appSnackBar(
+          messenger.context,
+          tone: AppSnackBarTone.warning,
+          content: Text('Önce bir video dosyası seç.'),
+        ),
       );
       return;
     }
@@ -113,10 +119,10 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     _updateState(() {
       _videoUploading = true;
       _videoUploadProgress = 0;
-      _videoUploadStatus = 'Video hazirlaniyor';
+      _videoUploadStatus = 'Video hazırlanıyor';
     });
 
-    var step = 'dosya hazirlama';
+    var step = 'dosya hazırlama';
     try {
       final source = await createProfileUploadSource(
         filePath: file.readStream == null ? pickedPath : null,
@@ -139,13 +145,13 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
         ),
         onStageChanged: (stage) {
           final label = switch (stage) {
-            ProfileUploadStage.initializing => 'Yukleme hazirlaniyor',
-            ProfileUploadStage.uploading => 'Video yukleniyor',
+            ProfileUploadStage.initializing => 'Yükleme hazırlanıyor',
+            ProfileUploadStage.uploading => 'Video yükleniyor',
             ProfileUploadStage.verifying => 'Video dogrulaniyor',
             ProfileUploadStage.attaching => 'Video profile ekleniyor',
             ProfileUploadStage.backgroundProcessing =>
-              'Video arka planda hazirlaniyor',
-            ProfileUploadStage.completed => 'Video isleme alindi',
+              'Video arka planda hazırlanıyor',
+            ProfileUploadStage.completed => 'Video işleme alındı',
           };
           _updateState(() => _videoUploadStatus = label);
         },
@@ -159,7 +165,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
 
       final assetId = completed.uuid.trim();
       if (assetId.isEmpty) {
-        throw Exception('Yukleme sonrasi assetId alinmadi');
+        throw Exception('Yükleme sonrasında medya kimliği alınamadı');
       }
 
       step = 'refresh';
@@ -174,16 +180,22 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
 
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
+          messenger.context,
+          tone: AppSnackBarTone.success,
           content: Text(
-            'Video yuklendi, isleniyor. Kisa sure sonra gorunecek.',
+            'Video yüklendi, işleniyor. Kısa süre sonra görünecek.',
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Yukleme basarisiz ($step): $e')),
+        appSnackBar(
+          messenger.context,
+          tone: AppSnackBarTone.error,
+          content: Text('Yükleme başarısız ($step): $e'),
+        ),
       );
     } finally {
       if (mounted) {
@@ -211,8 +223,8 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
         children: [
           Text(
             _processingVideoIds.length == 1
-                ? 'Video isleniyor'
-                : '${_processingVideoIds.length} video isleniyor',
+                ? 'Video işleniyor'
+                : '${_processingVideoIds.length} video işleniyor',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w700,
@@ -220,7 +232,7 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
           ),
           SizedBox(height: 6),
           Text(
-            'Isleme tamamlaninca video otomatik olarak gorunecek.',
+            'İşleme tamamlanınca video otomatik olarak görünecek.',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 12,

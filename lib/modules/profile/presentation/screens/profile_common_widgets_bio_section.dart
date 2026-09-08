@@ -4,6 +4,7 @@ class EditableBioSection extends StatefulWidget {
   final String? bio;
   final bool editable;
   final Future<void> Function(String)? onSave;
+  final Future<bool> Function(String)? onSaveConfirmed;
   final String emptyText;
   final String addLabel;
   final String hintText;
@@ -13,6 +14,7 @@ class EditableBioSection extends StatefulWidget {
     required this.bio,
     required this.editable,
     required this.onSave,
+    this.onSaveConfirmed,
     this.emptyText = 'Henüz bir açıklama eklenmedi.',
     this.addLabel = 'Profiline birkaç cümle ekle',
     this.hintText = 'Kendinden biraz bahset...',
@@ -36,10 +38,17 @@ class _EditableBioSectionState extends State<EditableBioSection> {
   }
 
   Future<void> _handleSave() async {
-    if (widget.onSave == null) return;
+    if (_saving || (widget.onSave == null && widget.onSaveConfirmed == null)) {
+      return;
+    }
     setState(() => _saving = true);
     try {
-      await widget.onSave!(_draft);
+      final confirmed = widget.onSaveConfirmed;
+      if (confirmed != null) {
+        if (!await confirmed(_draft)) return;
+      } else {
+        await widget.onSave!(_draft);
+      }
       if (!mounted) return;
       setState(() => _isEditing = false);
     } finally {

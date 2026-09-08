@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -63,9 +64,13 @@ class _AdminDashboardViewState extends State<_AdminDashboardView> {
         if (state.status == AdminPanelStatus.failure &&
             message != null &&
             message.trim().isNotEmpty) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
+              content: Text(message),
+            ),
+          );
         }
       },
       builder: (context, state) {

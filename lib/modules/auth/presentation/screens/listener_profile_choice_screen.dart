@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -195,7 +196,13 @@ class _ListenerProfileChoiceViewState
                 : 'Profil bilgilerin alınamadı. Lütfen tekrar dene.');
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
+        ..showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: Text(message),
+          ),
+        );
       return;
     }
 
@@ -232,8 +239,10 @@ class _ListenerProfileChoiceViewState
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: const Text(
               'Tercihin sunucuda doğrulanamadı. Profil bilgilerini yenileyip tekrar dene.',
             ),
           ),
@@ -284,7 +293,13 @@ class _ListenerProfileChoiceViewState
     });
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text(message),
+        ),
+      );
   }
 
   void _select(ListenerVisibilityMode choice) {
@@ -311,8 +326,10 @@ class _ListenerProfileChoiceViewState
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Oturum kapatılamadı. Lütfen tekrar dene.'),
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: const Text('Oturum kapatılamadı. Lütfen tekrar dene.'),
           ),
         );
       return;

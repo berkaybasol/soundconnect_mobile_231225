@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/profile_contact_uri.dart';
@@ -77,9 +78,13 @@ class StudioProfileWebsiteLink extends StatelessWidget {
       opened = false;
     }
     if (!opened && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Bağlantı açılamadı.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text('Bağlantı açılamadı.'),
+        ),
+      );
     }
   }
 

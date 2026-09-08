@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
@@ -143,8 +144,10 @@ class ProfilePublicBottomBar extends StatelessWidget {
       if (!context.mounted) return;
       if (!AccessPolicy.canAccessCollab(_rolesFromToken(token))) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.warning,
+            content: const Text(
               'Collab yalnız Müzisyen, Mekan ve Stüdyo profilleriyle kullanılabilir.',
             ),
           ),
@@ -200,8 +203,10 @@ class ProfilePublicBottomBar extends StatelessWidget {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Bu rol icin profil ekrani henuz hazir degil.'),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.info,
+        content: const Text('Bu rol için profil ekranı henüz hazır değil.'),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
@@ -68,10 +69,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     return username;
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.warning,
+  }) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 
   void _startEditingUsername() {
@@ -96,7 +100,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       return;
     }
     if (username == _currentUsername) {
-      _showMessage('Bu kullanıcı adını zaten kullanıyorsun.');
+      _showMessage(
+        'Bu kullanıcı adını zaten kullanıyorsun.',
+        tone: AppSnackBarTone.info,
+      );
       return;
     }
     context.read<AuthCubit>().updateUsername(username: username);
@@ -118,11 +125,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
           });
           _showMessage(
             'Kullanıcı adın @$canonicalUsername olarak güncellendi.',
+            tone: AppSnackBarTone.success,
           );
         } else if (state.status == AuthStatus.failure) {
           _showMessage(
             state.error?.message ??
                 'Kullanıcı adı güncellenemedi. Lütfen tekrar dene.',
+            tone: AppSnackBarTone.error,
           );
         }
       },

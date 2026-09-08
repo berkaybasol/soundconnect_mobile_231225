@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
-import 'package:soundconnect_23_12_25codx/modules/engagement/data/engagement_endpoints.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/data/engagement_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/data/models/comment_item_model.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/engagement_repository.dart';
@@ -72,7 +71,7 @@ void main() {
         final client = RecordingApiClient((request) {
           expect(
             request.path,
-            EngagementEndpoints.listComments('EVENT', 'event-1'),
+            '/api/v1/events/event-1/comments',
           );
           return <String, dynamic>{
             'content': <Object?>[
@@ -337,7 +336,7 @@ class _EngagementRepositoryFake implements EngagementRepository {
       const Result.success(null);
 
   @override
-  Future<Result<List<CommentItem>>> listReplies(String commentId) async =>
+  Future<Result<List<CommentItem>>> listReplies(String commentId, {String? eventId}) async =>
       const Result.success(<CommentItem>[]);
 }
 

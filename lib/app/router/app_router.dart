@@ -26,6 +26,8 @@ import '../../modules/profile/presentation/screens/my_bands_screen.dart';
 import '../../modules/profile/presentation/screens/listener_profile_screen.dart';
 import '../../modules/profile/presentation/screens/listener_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/profile_route_args.dart';
+import '../../modules/profile/presentation/navigation/profile_route_gate.dart';
+import '../../modules/profile/presentation/navigation/profile_route_resolver.dart';
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/studio_profile_screen.dart';
@@ -38,6 +40,22 @@ import 'app_routes.dart';
 import 'app_route_guard.dart';
 
 class AppRouter {
+  static Route<dynamic> _publicProfileRoute(
+    RouteSettings settings,
+    ProfileRouteKind kind,
+    WidgetBuilder publicBuilder,
+  ) {
+    final target = ProfileRouteTarget.fromArguments(kind, settings.arguments);
+    return MaterialPageRoute(
+      settings: RouteSettings(
+        name: settings.name,
+        arguments: target.publicArguments,
+      ),
+      builder: (_) =>
+          ProfileRouteGate(target: target, publicBuilder: publicBuilder),
+    );
+  }
+
   static T? _arguments<T>(RouteSettings settings) {
     final value = settings.arguments;
     return value is T ? value : null;
@@ -137,14 +155,16 @@ class AppRouter {
           builder: (_) => BandProfileScreen(),
         );
       case AppRoutes.bandPublicProfile:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => BandProfileScreen(),
+        return _publicProfileRoute(
+          settings,
+          ProfileRouteKind.band,
+          (_) => BandProfileScreen(),
         );
       case AppRoutes.musicianPublicProfile:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => MusicianPublicProfileScreen(),
+        return _publicProfileRoute(
+          settings,
+          ProfileRouteKind.musician,
+          (_) => MusicianPublicProfileScreen(),
         );
       case AppRoutes.venueProfile:
         return MaterialPageRoute(
@@ -152,9 +172,10 @@ class AppRouter {
           builder: (_) => VenueProfileScreen(),
         );
       case AppRoutes.venuePublicProfile:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => VenuePublicProfileScreen(),
+        return _publicProfileRoute(
+          settings,
+          ProfileRouteKind.venue,
+          (_) => VenuePublicProfileScreen(),
         );
       case AppRoutes.studioProfile:
         final args = settings.arguments is StudioProfileScreenArgs
@@ -166,9 +187,10 @@ class AppRouter {
               StudioProfileScreen(openContactEditor: args.openContactEditor),
         );
       case AppRoutes.studioPublicProfile:
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const StudioPublicProfileScreen(),
+        return _publicProfileRoute(
+          settings,
+          ProfileRouteKind.studio,
+          (_) => const StudioPublicProfileScreen(),
         );
       case AppRoutes.studioReservationCalendar:
         final args = _arguments<StudioReservationCalendarArgs>(settings);
@@ -205,9 +227,10 @@ class AppRouter {
             RouteSettings(name: AppRouteGuard.startRouteFor(session)),
           );
         }
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => const ListenerPublicProfileScreen(),
+        return _publicProfileRoute(
+          settings,
+          ProfileRouteKind.listener,
+          (_) => const ListenerPublicProfileScreen(),
         );
       case AppRoutes.overthinkingFeed:
         final args = _arguments<OverthinkingFeedArgs>(settings);

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/utils/turkish_alphabetical.dart';
@@ -193,7 +194,7 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
               state.conflictListing != null) {
             unawaited(_showConflictChoice());
           } else if (state.error != null) {
-            _showMessage(state.error!.message);
+            _showMessage(state.error!.message, tone: AppSnackBarTone.error);
           } else if (state.validationErrors.isNotEmpty) {
             _showMessage(state.validationErrors.first);
           }
@@ -278,8 +279,10 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
                 cadence: input.cadence,
                 editable: !fieldsLocked,
                 onCadenceChanged: _changeCadence,
-                onComingSoonTap: () =>
-                    _showMessage('Param Güvende yakında kullanıma açılacak.'),
+                onComingSoonTap: () => _showMessage(
+                  'Param Güvende yakında kullanıma açılacak.',
+                  tone: AppSnackBarTone.info,
+                ),
               ),
               1 => _buildInformationStep(state, input),
               _ => _PreviewStep(
@@ -789,10 +792,13 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
     );
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.warning,
+  }) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }
 

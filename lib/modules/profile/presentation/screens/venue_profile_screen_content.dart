@@ -27,6 +27,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final List<WeeklyCalendarEvent> weeklyEvents;
   final String galleryOwnerId;
   final Future<void> Function() onRefresh;
+  final VoidCallback onViewArtists;
 
   _MusicianPublicProfileContent({
     required this.profile,
@@ -55,6 +56,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.weeklyEvents,
     required this.galleryOwnerId,
     required this.onRefresh,
+    required this.onViewArtists,
   });
 
   List<VenueActiveMusician> _resolveVenues() {
@@ -106,11 +108,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: GradientText(
-            text: 'SoundConnect',
-            gradient: LinearGradient(colors: AppColors.brandGradient),
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
+          title: const ProfileBrandTitle(),
           leading: BackButton(),
           centerTitle: true,
           actions: ownerMode
@@ -211,7 +209,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                       color: AppColors.white,
                                     ),
                                     label: Text(
-                                      'Yonetim Paneli',
+                                      'Yönetim Paneli',
                                       style: TextStyle(color: AppColors.white),
                                     ),
                                   ),
@@ -223,13 +221,13 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                       : null,
                 ),
                 SizedBox(height: 18),
-                ProfileSectionHeader(title: 'Haftalik Takvim'),
+                ProfileSectionHeader(title: 'Haftalık Takvim'),
                 WeeklyEventCarousel(items: weeklyEvents),
                 SizedBox(height: 12),
                 ProfileSectionHeader(
-                  title: 'Aktif Sanatcilar',
-                  actionLabel: venueEditable ? 'Duzenle' : 'Tumu',
-                  actionOnTap: venueEditable ? onEditVenues : null,
+                  title: 'Aktif Sanatçılar',
+                  actionLabel: venueEditable ? 'Düzenle' : 'Tümü',
+                  actionOnTap: venueEditable ? onEditVenues : onViewArtists,
                 ),
                 ActiveMusicianCarousel(
                   items: _resolveVenues(),
@@ -245,7 +243,13 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                         children: [
                           Icon(Icons.photo_library_outlined, size: 18),
                           SizedBox(width: 6),
-                          Text('Fotograflar'),
+                          Flexible(
+                            child: Text(
+                              'Fotoğraflar',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -255,7 +259,13 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                         children: [
                           Icon(Icons.play_circle_outline, size: 18),
                           SizedBox(width: 6),
-                          Text('Video'),
+                          Flexible(
+                            child: Text(
+                              'Video',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                     ),

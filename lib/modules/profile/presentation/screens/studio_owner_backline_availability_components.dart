@@ -312,8 +312,10 @@ class _BacklineAvailabilityRangeSheetState
   void _submit() {
     if (_maximumQuantity == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text(
             'Bu grup seçili aralığın her gününde bulunmuyor. Daha kısa bir aralık seçin.',
           ),
         ),
@@ -348,7 +350,9 @@ class _BacklineAvailabilityRangeSheetState
     if (minimum == 0) {
       final existsOnSomeDays = widget.stats.maximumFor(source) > 0;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
           content: Text(
             existsOnSomeDays
                 ? 'Bu grup bazı günlerde bulunmuyor. Daha kısa bir tarih aralığı seçin.'

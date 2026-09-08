@@ -65,7 +65,7 @@ extension _VenueProfileViewStateFormatters on _MusicianPublicProfileViewState {
       id: item.id,
       title: item.title,
       artistName: item.performerName.trim().isEmpty
-          ? 'Sanatci'
+          ? 'Sanatçı'
           : item.performerName,
       artistProfileId: item.musicianProfileId,
       bandProfileId: item.bandId,

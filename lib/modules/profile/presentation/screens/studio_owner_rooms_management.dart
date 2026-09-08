@@ -79,7 +79,11 @@ class _StudioRoomsManagementScreenState
   Future<void> _createRoom() async {
     if (_rooms.length >= _maximumStudioRoomCount) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('En fazla 10 oda oluşturabilirsin.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('En fazla 10 oda oluşturabilirsin.'),
+        ),
       );
       return;
     }
@@ -96,9 +100,13 @@ class _StudioRoomsManagementScreenState
     if (!mounted || room == null) return;
     await _loadRooms(showLoading: false);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${room.name} oluşturuldu.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: Text('${room.name} oluşturuldu.'),
+      ),
+    );
   }
 
   @override

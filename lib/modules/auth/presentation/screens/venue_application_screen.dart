@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
@@ -66,10 +67,13 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
     super.dispose();
   }
 
-  void _showError(String message) {
+  void _showError(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 
   void _submit() {
@@ -95,6 +99,7 @@ class _VenueApplicationScreenState extends State<VenueApplicationScreen> {
         (_selectedNeighborhoodId ?? '').isEmpty) {
       _showError(
         'Şehir, ilçe, mahalle ve Açık Adres dahil mekan bilgilerini eksiksiz doldur.',
+        tone: AppSnackBarTone.warning,
       );
       return;
     }

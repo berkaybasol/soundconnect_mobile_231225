@@ -90,7 +90,7 @@ class _VideoReelScreenState extends State<VideoReelScreen>
     if (_playerController == null) {
       playerLayer = Center(
         child: Text(
-          _playerError ?? 'Video yukleniyor...',
+          _playerError ?? 'Video yükleniyor...',
           style: TextStyle(color: AppColors.white.withValues(alpha: 0.70)),
           textAlign: TextAlign.center,
         ),

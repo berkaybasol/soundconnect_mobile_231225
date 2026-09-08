@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
@@ -206,7 +207,9 @@ Future<void> openEventInvitations(
 }
 
 void _showInvitationMessage(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  ScaffoldMessenger.of(context).showSnackBar(
+    appSnackBar(context, tone: AppSnackBarTone.warning, content: Text(message)),
+  );
 }
 
 Future<bool?> _showUnavailableDialog(BuildContext context) {

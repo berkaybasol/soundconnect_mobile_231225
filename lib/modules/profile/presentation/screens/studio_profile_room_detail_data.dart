@@ -170,9 +170,9 @@ extension _StudioRoomDetailData on _StudioRoomDetailScreenState {
   }
 
   void _showCalendarError(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(context, tone: AppSnackBarTone.error, content: Text(message)),
+    );
   }
 
   void _clearPendingReservationRequest() {

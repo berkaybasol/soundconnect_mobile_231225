@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
@@ -14,7 +19,10 @@ import 'package:soundconnect_23_12_25codx/modules/engagement/domain/engagement_r
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_item.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_user_summary.dart';
+import 'package:soundconnect_23_12_25codx/modules/engagement/presentation/cubit/comment_thread_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/engagement/presentation/cubit/comment_thread_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_member_summary.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_detail.dart';
@@ -34,6 +42,9 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/event_poster_fallback.d
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
 
 part 'weekly_event_detail_self_navigation_cases.dart';
+part 'weekly_event_detail_band_navigation_cases.dart';
+part 'weekly_event_detail_profile_chip_cases.dart';
+part 'weekly_event_detail_comment_auth_cases.dart';
 
 void main() {
   late _DetailRepository details;
@@ -60,6 +71,9 @@ void main() {
   tearDown(serviceLocator.reset);
 
   _selfProfileNavigationTests(() => musicians);
+  _bandProfileNavigationTests(() => bands);
+  _adaptiveProfileChipTests(() => venues);
+  _commentAuthenticationTests(() => comments);
 
   testWidgets('restored detail keeps its hero and chips without time seconds', (
     tester,
@@ -577,6 +591,7 @@ void main() {
   testWidgets('320 dp with doubled text and long identity stays usable', (
     tester,
   ) async {
+    _registerCommentMember();
     await _openDetail(
       tester,
       _event(
@@ -642,6 +657,7 @@ void main() {
   testWidgets('failed detail request preserves the real supplied description', (
     tester,
   ) async {
+    _registerCommentMember();
     const authored = 'Kapılar 19.30’da açılır; akustik konser 20.00’de başlar.';
     await _openDetail(tester, _event(description: authored));
 
@@ -1047,6 +1063,7 @@ void main() {
   testWidgets('comment input sends one trimmed comment for the current event', (
     tester,
   ) async {
+    _registerCommentMember();
     await _openDetail(tester, _event());
     await tester.enterText(find.byType(TextField), '  Bilet gerekiyor mu?  ');
     await tester.testTextInput.receiveAction(TextInputAction.send);
@@ -1062,6 +1079,8 @@ void main() {
     expect(comments.comments.single.text, 'Bilet gerekiyor mu?');
     expect(tester.takeException(), isNull);
   });
+
+  _commentAccessPreviewTests(() => comments);
 }
 
 Finder _performerInfoButton() =>
@@ -1094,31 +1113,44 @@ Future<void> _openDetail(
   WeeklyCalendarEvent event, {
   Size size = const Size(390, 844),
   double textScale = 1,
+  bool boldText = false,
   bool settle = true,
   ValueChanged<RouteSettings>? onRoute,
   EventShareService? shareService,
+  GlobalKey? capture,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: AppTheme.navy,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
-      ),
-      home: WeeklyEventDetailScreen(event: event, shareService: shareService),
-      onGenerateRoute: (settings) {
-        onRoute?.call(settings);
-        return MaterialPageRoute<void>(
-          settings: settings,
-          builder: (_) =>
-              const Scaffold(body: Text('Public profile destination')),
-        );
-      },
+  final application = MaterialApp(
+    debugShowCheckedModeBanner: capture == null,
+    theme: capture == null
+        ? AppTheme.navy
+        : AppTheme.navy.copyWith(
+            textTheme: AppTheme.navy.textTheme.apply(fontFamily: 'Roboto'),
+            primaryTextTheme: AppTheme.navy.primaryTextTheme.apply(
+              fontFamily: 'Roboto',
+            ),
+          ),
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScale), boldText: boldText),
+      child: child!,
     ),
+    home: WeeklyEventDetailScreen(event: event, shareService: shareService),
+    onGenerateRoute: (settings) {
+      onRoute?.call(settings);
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) =>
+            const Scaffold(body: Text('Public profile destination')),
+      );
+    },
+  );
+  await tester.pumpWidget(
+    capture == null
+        ? application
+        : RepaintBoundary(key: capture, child: application),
   );
   if (settle) {
     await tester.pumpAndSettle();
@@ -1282,24 +1314,31 @@ class _MusicianRepository extends Fake implements MusicianProfileRepository {
 
 class _BandRepository extends Fake implements BandRepository {
   final requestedIds = <String>[];
+  Result<BandProfile> result = const Result.failure(
+    AppError(code: 'unavailable', message: 'Profile image unavailable.'),
+  );
+  Completer<Result<BandProfile>>? completion;
+  bool throwRead = false;
 
   @override
   Future<Result<BandProfile>> getPublicBandById(String bandId) async {
     requestedIds.add(bandId);
-    return const Result.failure(
-      AppError(code: 'unavailable', message: 'Profile image unavailable.'),
-    );
+    if (throwRead) throw StateError('Band profile request unavailable.');
+    return completion?.future ?? result;
   }
 }
 
 class _VenueRepository extends Fake implements VenueProfileRepository {
   final requestedIds = <String?>[];
+  bool includePhoto = true;
+  Completer<void>? profileGate;
 
   @override
   Future<Result<VenuePublicProfile>> getPublicVenueProfile({
     String? venueId,
   }) async {
     requestedIds.add(venueId);
+    if (profileGate != null) await profileGate!.future;
     return Result.success(
       VenuePublicProfile(
         venueProfileId: 'venue-profile-id',
@@ -1307,7 +1346,9 @@ class _VenueRepository extends Fake implements VenueProfileRepository {
         ownerUserId: 'venue-owner-id',
         venueName: 'soundconnectankarauzunmekankullaniciadi',
         bio: null,
-        profilePictureUrl: 'https://example.invalid/venue.jpg',
+        profilePictureUrl: includePhoto
+            ? 'https://example.invalid/venue.jpg'
+            : null,
         instagramUrl: null,
         youtubeUrl: null,
         websiteUrl: null,
@@ -1330,7 +1371,21 @@ class _VenueRepository extends Fake implements VenueProfileRepository {
 class _CommentsRepository extends Fake implements EngagementRepository {
   final comments = <CommentItem>[];
   final creations = <(String, String, String)>[];
+  final creationParents = <String?>[];
+  final replies = <String, List<CommentItem>>{};
+  final replyReads = <(String, String?)>[];
+  Completer<Result<CommentItem>>? creationCompletion;
+  Future<Result<CommentPage>> Function()? listResponse;
   int listCalls = 0;
+
+  @override
+  Future<Result<List<CommentItem>>> listReplies(
+    String commentId, {
+    String? eventId,
+  }) async {
+    replyReads.add((commentId, eventId));
+    return Result.success(List.of(replies[commentId] ?? const []));
+  }
 
   @override
   Future<Result<CommentPage>> listComments({
@@ -1340,6 +1395,7 @@ class _CommentsRepository extends Fake implements EngagementRepository {
     int size = 20,
   }) async {
     listCalls++;
+    if (listResponse != null) return listResponse!();
     return Result.success(
       CommentPage(items: List.of(comments), totalElements: comments.length),
     );
@@ -1353,6 +1409,8 @@ class _CommentsRepository extends Fake implements EngagementRepository {
     String? parentCommentId,
   }) async {
     creations.add((targetType, targetId, text));
+    creationParents.add(parentCommentId);
+    if (creationCompletion != null) return creationCompletion!.future;
     final comment = CommentItem(
       id: 'comment-${creations.length}',
       user: const CommentUserSummary(
@@ -1366,7 +1424,24 @@ class _CommentsRepository extends Fake implements EngagementRepository {
       replyCount: 0,
       createdAt: DateTime(2026, 9, 5, 22),
     );
-    comments.add(comment);
+    if (parentCommentId == null) {
+      comments.add(comment);
+    } else {
+      replies.putIfAbsent(parentCommentId, () => []).add(comment);
+      final index = comments.indexWhere((item) => item.id == parentCommentId);
+      if (index >= 0) {
+        final parent = comments[index];
+        comments[index] = CommentItem(
+          id: parent.id,
+          user: parent.user,
+          text: parent.text,
+          deleted: parent.deleted,
+          parentCommentId: parent.parentCommentId,
+          replyCount: parent.replyCount + 1,
+          createdAt: parent.createdAt,
+        );
+      }
+    }
     return Result.success(comment);
   }
 }

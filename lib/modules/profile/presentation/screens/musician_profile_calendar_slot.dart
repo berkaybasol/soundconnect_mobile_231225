@@ -132,12 +132,11 @@ class _MusicianProfileCalendarSlotState
         });
         return;
       }
-      if (page.visible &&
-          page.events.isEmpty &&
-          !page.hasNext &&
-          nextPage > 0) {
+      if (page.events.isEmpty && !page.hasNext && nextPage > 0) {
         // Concurrent deletion/revocation can exhaust a page. Return to a fresh
         // first page once instead of stranding the user beyond the current end.
+        // Empty responses intentionally have visible=false. That is not proof
+        // that the earlier pages have also become empty.
         await _load();
         return;
       }

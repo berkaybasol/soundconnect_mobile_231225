@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'profile_public_bottom_bar.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 
 part 'profile_venue_support_intro_screens.dart';
 part 'profile_venue_support_bottom_bar.dart';

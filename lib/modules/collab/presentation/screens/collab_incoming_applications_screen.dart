@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -299,6 +300,7 @@ class _CollabIncomingApplicationsScreenState
           _showMessage(
             'Hedef başvuru yüklendi ancak otomatik kaydırılamadı. '
             'Listede elle kaydırarak açabilirsin.',
+            tone: AppSnackBarTone.warning,
           );
         }
       });
@@ -319,7 +321,10 @@ class _CollabIncomingApplicationsScreenState
       _initialTargetHandled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _showMessage('Bildirimdeki başvuru artık listede bulunamıyor.');
+          _showMessage(
+            'Bildirimdeki başvuru artık listede bulunamıyor.',
+            tone: AppSnackBarTone.warning,
+          );
         }
       });
     }
@@ -386,17 +391,25 @@ class _CollabIncomingApplicationsScreenState
     }
     try {
       await Clipboard.setData(ClipboardData(text: phone));
-      if (mounted) _showMessage('Telefon numarası panoya kopyalandı.');
+      if (mounted) {
+        _showMessage(
+          'Telefon numarası panoya kopyalandı.',
+          tone: AppSnackBarTone.success,
+        );
+      }
     } catch (_) {
       if (mounted) _showMessage('Telefon uygulaması açılamadı.');
     }
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }
 

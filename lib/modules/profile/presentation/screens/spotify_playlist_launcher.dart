@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../spotify/domain/spotify_playlist_uri.dart';
@@ -25,5 +26,7 @@ Future<void> launchSpotifyPlaylist(
 void _showLaunchError(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    ..showSnackBar(
+      appSnackBar(context, tone: AppSnackBarTone.error, content: Text(message)),
+    );
 }

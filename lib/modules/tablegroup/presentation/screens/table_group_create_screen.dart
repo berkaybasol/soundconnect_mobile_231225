@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -605,7 +606,11 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
     if (_formKey.currentState?.validate() != true) return;
     if (_guestCount < 1) {
       messenger.showSnackBar(
-        SnackBar(content: Text('En az 1 katılımcı seçmelisin')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: Text('En az 1 katılımcı seçmelisin'),
+        ),
       );
       return;
     }
@@ -616,7 +621,13 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
         selectedVenue != null;
     final cityId = registered ? selectedVenue.cityId : _selectedCityId;
     if (cityId == null || cityId.isEmpty) {
-      messenger.showSnackBar(SnackBar(content: Text('Şehir seçimi zorunlu')));
+      messenger.showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: Text('Şehir seçimi zorunlu'),
+        ),
+      );
       return;
     }
 
@@ -661,7 +672,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
       if (meetingLead <= Duration.zero ||
           meetingLead > tableGroupMaximumMeetingLead) {
         messenger.showSnackBar(
-          SnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.warning,
             content: Text('Buluşma saati en fazla 24 saat sonrası olabilir'),
           ),
         );
@@ -697,9 +710,13 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
       }
       return;
     }
-    ScaffoldMessenger.of(
-      this.context,
-    ).showSnackBar(SnackBar(content: Text('Masa oluşturuldu')));
+    ScaffoldMessenger.of(this.context).showSnackBar(
+      appSnackBar(
+        this.context,
+        tone: AppSnackBarTone.success,
+        content: Text('Masa oluşturuldu'),
+      ),
+    );
     Navigator.of(
       this.context,
     ).pop(TableGroupCreateResult(cityId: request.cityId));
@@ -739,9 +756,13 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
         listener: (context, state) {
           if (state.status == TableGroupCreateStatus.failure &&
               state.error != null) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.error!.message)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              appSnackBar(
+                context,
+                tone: AppSnackBarTone.error,
+                content: Text(state.error!.message),
+              ),
+            );
           }
         },
         builder: (context, state) {

@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -83,6 +84,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   late final DateTime Function() _now;
   late final TableGroupLocalDayRefreshScheduler _dayRefreshScheduler;
   final TextEditingController _chatController = TextEditingController();
+  final GlobalKey _chatComposerKey = GlobalKey();
   final ScrollController _chatScrollController = ScrollController();
 
   StreamSubscription<TableGroupMessage>? _messageSubscription;
@@ -631,13 +633,19 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   Future<void> _sendMessage() async {
     if (_sending) return;
     if (!_shouldRunChat) {
-      _showSnack('Bu masa sona erdigi icin mesaj gonderilemez');
+      _showSnack(
+        'Bu masa sona erdigi icin mesaj gonderilemez',
+        tone: AppSnackBarTone.warning,
+      );
       return;
     }
     final content = _chatController.text.trim();
     if (content.isEmpty) return;
     if (content.length > 1000) {
-      _showSnack('Mesaj en fazla 1000 karakter olabilir');
+      _showSnack(
+        'Mesaj en fazla 1000 karakter olabilir',
+        tone: AppSnackBarTone.warning,
+      );
       return;
     }
     setState(() {
@@ -690,7 +698,10 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     }
     final activeGame = _gameState.game;
     if (activeGame != null && !activeGame.isTerminal) {
-      _showSnack('Masada zaten aktif bir oyun var.');
+      _showSnack(
+        'Masada zaten aktif bir oyun var.',
+        tone: AppSnackBarTone.warning,
+      );
       return;
     }
     setState(() => _gameLauncherOpen = true);
@@ -700,7 +711,10 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       final latestGame = _gameState.game;
       if (_gameState.loading ||
           (latestGame != null && !latestGame.isTerminal)) {
-        _showSnack('Oyun durumu değişti; tekrar deneyebilirsin.');
+        _showSnack(
+          'Oyun durumu değişti; tekrar deneyebilirsin.',
+          tone: AppSnackBarTone.warning,
+        );
         return;
       }
       final message = await _gameCubit.create(mode);
@@ -846,6 +860,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     if (!_canCreateOrJoin) {
       _showSnack(
         'Masa oluşturma ve katılma işlemleri kişisel hesaplarla kullanılabilir.',
+        tone: AppSnackBarTone.warning,
       );
       return;
     }
@@ -868,6 +883,9 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
         result.isSuccess
             ? 'Katılma isteği gönderildi'
             : (result.error?.message ?? 'Islem basarisiz'),
+        tone: result.isSuccess
+            ? AppSnackBarTone.success
+            : AppSnackBarTone.error,
       );
       if (result.isSuccess) {
         await _loadDetail(replaceScreenOnFailure: false);
@@ -913,6 +931,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       result.isSuccess
           ? 'Onaylandi'
           : (result.error?.message ?? 'Islem basarisiz'),
+      tone: result.isSuccess ? AppSnackBarTone.success : AppSnackBarTone.error,
     );
     return result.isSuccess;
   }
@@ -928,6 +947,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       result.isSuccess
           ? 'Reddedildi'
           : (result.error?.message ?? 'Islem basarisiz'),
+      tone: result.isSuccess ? AppSnackBarTone.success : AppSnackBarTone.error,
     );
     return result.isSuccess;
   }
@@ -970,6 +990,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       result.isSuccess
           ? 'Katilimci masadan cikarildi'
           : (result.error?.message ?? 'Katilimci cikarilamadi'),
+      tone: result.isSuccess ? AppSnackBarTone.success : AppSnackBarTone.error,
     );
     return result.isSuccess;
   }
@@ -992,7 +1013,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
         _showSnack(result.error?.message ?? 'Masadan ayrılamadı');
         return;
       }
-      _showSnack('Masadan ayrıldın');
+      _showSnack('Masadan ayrıldın', tone: AppSnackBarTone.success);
       Navigator.of(context).pop(true);
     } finally {
       if (mounted) setState(() => _sessionActionInFlight = false);
@@ -1017,7 +1038,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
         _showSnack(result.error?.message ?? 'Masa sonlandirilamadi');
         return;
       }
-      _showSnack('Masa iptal edildi');
+      _showSnack('Masa iptal edildi', tone: AppSnackBarTone.success);
       Navigator.of(context).pop(true);
     } finally {
       if (mounted) setState(() => _sessionActionInFlight = false);
@@ -1041,11 +1062,28 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     return confirmed == true;
   }
 
-  void _showSnack(String message) {
+  void _showSnack(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    final composer = _chatComposerKey.currentContext?.findRenderObject();
+    // The composer lives in the body, so Scaffold cannot anchor above it.
+    final bottomMargin = composer is RenderBox && composer.hasSize
+        ? (MediaQuery.sizeOf(context).height -
+                  MediaQuery.viewInsetsOf(context).bottom -
+                  composer.localToGlobal(Offset.zero).dy +
+                  12)
+              .clamp(18.0, double.infinity)
+        : 18.0;
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: tone,
+        content: Text(message),
+        margin: EdgeInsets.fromLTRB(20, 12, 20, bottomMargin),
+      ),
+    );
   }
 
   @override
@@ -1850,6 +1888,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
           ),
           const SizedBox(height: 6),
           Row(
+            key: _chatComposerKey,
             children: [
               Expanded(
                 child: TextField(
@@ -2322,7 +2361,10 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
         .where((target) => isCurrentUser || dmProfileRouteFor(target) != null)
         .toList(growable: false);
     if (targets.isEmpty) {
-      _showSnack('Bu kullanici icin acik profil bulunamadi');
+      _showSnack(
+        'Bu kullanici icin acik profil bulunamadi',
+        tone: AppSnackBarTone.warning,
+      );
       return;
     }
     if (targets.length == 1) {

@@ -173,7 +173,7 @@ void main() {
       repository.hasNext = false;
       await tester.tap(find.byKey(const Key('musician-calendar-more')));
       await tester.pumpAndSettle();
-      expect(repository.pages, [0, 1]);
+      expect(repository.pages, [0, 1, 0]);
       expect(find.byType(WeeklyEventCarousel), findsNothing);
       expect(find.text('Çaldığı Mekanlar'), findsOneWidget);
     },
@@ -283,6 +283,55 @@ void main() {
       expect(find.byKey(const Key('musician-calendar-previous')), findsNothing);
     },
   );
+
+  testWidgets(
+    'an empty hidden later page cannot hide events still on the first page',
+    (tester) async {
+      repository.calendarResponses = [
+        Result.success(
+          _page(events: [_event(id: 'still-visible')], hasNext: true),
+        ),
+        Result.success(_page(page: 1, visible: false)),
+        Result.success(_page(events: [_event(id: 'still-visible')])),
+      ];
+      await tester.pumpWidget(slot());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('musician-calendar-more')));
+      await tester.pumpAndSettle();
+      expect(repository.pages, [0, 1, 0]);
+      expect(
+        tester
+            .widget<WeeklyEventCarousel>(find.byType(WeeklyEventCarousel))
+            .items
+            .single
+            .id,
+        'still-visible',
+      );
+      expect(find.byKey(const Key('musician-calendar-previous')), findsNothing);
+      expect(find.text('Çaldığı Mekanlar'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'hidden exhausted-page recovery remains bounded if all events were revoked',
+    (tester) async {
+      repository.calendarResponses = [
+        Result.success(_page(events: [_event()], hasNext: true)),
+        Result.success(_page(page: 1, visible: false)),
+        Result.success(_page(visible: false)),
+      ];
+      await tester.pumpWidget(slot());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('musician-calendar-more')));
+      await tester.pumpAndSettle();
+      expect(repository.pages, [0, 1, 0]);
+      expect(find.byType(WeeklyEventCarousel), findsNothing);
+      expect(find.text('Haftalık Takvim'), findsNothing);
+      expect(find.text('Çaldığı Mekanlar'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 VenueEventDetail _event({String id = 'event'}) => VenueEventDetail(
@@ -326,6 +375,7 @@ class _Repository extends Fake implements MusicianCalendarRepository {
   List<VenueEventDetail> events = [_event()];
   AppError? calendarError;
   Future<Result<MusicianCalendarPage>>? pendingCalendar;
+  List<Result<MusicianCalendarPage>>? calendarResponses;
   final pages = <int>[];
 
   @override
@@ -343,6 +393,9 @@ class _Repository extends Fake implements MusicianCalendarRepository {
     int size = 20,
   }) async {
     pages.add(page);
+    if (calendarResponses?.isNotEmpty == true) {
+      return calendarResponses!.removeAt(0);
+    }
     if (pendingCalendar != null) return pendingCalendar!;
     if (calendarError != null) return Result.failure(calendarError);
     final dated = events

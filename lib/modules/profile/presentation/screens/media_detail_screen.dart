@@ -202,7 +202,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                 builder: (context, commentState) {
                   if (!hasTarget) {
                     return Text(
-                      'Yorum hedefi bulunamadi.',
+                      'Yorum hedefi bulunamadı.',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -216,7 +216,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                   }
                   if (commentState.comments.isEmpty) {
                     return Text(
-                      'Henuz yorum yok.',
+                      'Henüz yorum yok.',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),

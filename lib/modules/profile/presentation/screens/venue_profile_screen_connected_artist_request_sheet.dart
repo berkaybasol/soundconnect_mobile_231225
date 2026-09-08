@@ -45,6 +45,7 @@ class _ConnectedArtistRequestSheetState
   Timer? _searchDebounce;
   int _searchToken = 0;
   bool _loading = false;
+  bool _continuing = false;
   String _searchError = '';
   String _query = '';
   List<ProfileSearchResult> _results = <ProfileSearchResult>[];
@@ -79,7 +80,7 @@ class _ConnectedArtistRequestSheetState
               children: [
                 Center(
                   child: Text(
-                    'Baglantili Sanatcilari Duzenle',
+                    'Sanatçı seç',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
@@ -90,7 +91,7 @@ class _ConnectedArtistRequestSheetState
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Muzisyen veya band ara...',
+                    hintText: 'Müzisyen veya band ara...',
                     prefixIcon: Icon(Icons.search),
                   ),
                   onChanged: _onQueryChanged,
@@ -102,10 +103,10 @@ class _ConnectedArtistRequestSheetState
                       ? Center(
                           child: Text(
                             _query.length < 2
-                                ? 'Bir muzisyen veya band aramak icin en az 2 karakter yaz.'
+                                ? 'Bir müzisyen veya band aramak için en az 2 karakter yaz.'
                                 : _searchError.isNotEmpty
                                 ? _searchError
-                                : 'Sonuc bulunamadi.',
+                                : 'Sonuç bulunamadı.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Theme.of(
@@ -288,7 +289,7 @@ class _ConnectedArtistRequestSheetState
                                           ),
                                         ),
                                         child: Text(
-                                          isPending ? 'Beklemede' : 'Bagli',
+                                          isPending ? 'Beklemede' : 'Bağlı',
                                           style: TextStyle(
                                             color: Theme.of(
                                               context,
@@ -318,7 +319,12 @@ class _ConnectedArtistRequestSheetState
                     SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _continue,
+                        onPressed:
+                            _continuing ||
+                                _loading ||
+                                _selectedTargetKey == null
+                            ? null
+                            : _continue,
                         child: Text('Devam'),
                       ),
                     ),

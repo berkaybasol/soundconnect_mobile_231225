@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -240,8 +241,10 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
           _messengerKey.currentState
             ?..removeCurrentSnackBar()
             ..showSnackBar(
-              const SnackBar(
-                content: Text(
+              appSnackBar(
+                _messengerKey.currentState!.context,
+                tone: AppSnackBarTone.warning,
+                content: const Text(
                   'Bu ilanı müzisyen, mekan veya stüdyo hesabıyla görüntüleyebilirsin.',
                 ),
               ),

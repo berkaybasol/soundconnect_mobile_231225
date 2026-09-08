@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -101,11 +102,13 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
         roles.contains('ROLE_ORGANIZER') ||
         roles.contains('ORGANIZER');
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.info,
         content: Text(
           isPlannedRole
-              ? 'Bu rolun yonetim alani henuz hazir degil.'
-              : 'Bu hesap icin uygun yonetim alani bulunamadi.',
+              ? 'Bu rolün yönetim alanı henüz hazır değil.'
+              : 'Bu hesap için uygun yönetim alanı bulunamadı.',
         ),
       ),
     );

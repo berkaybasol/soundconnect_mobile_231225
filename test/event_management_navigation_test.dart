@@ -47,9 +47,7 @@ void main() {
     expect(find.text('Etkinlik Onayları'), findsNothing);
     expect(
       tester.getTopLeft(find.text('Etkinlik Yönetimi')).dy,
-      greaterThan(
-        tester.getTopLeft(find.text('Mekan Bağlantılarını Yönet')).dy,
-      ),
+      greaterThan(tester.getTopLeft(find.text('Mekan Bağlantıları')).dy),
     );
     expect(
       tester.getTopLeft(find.text('Etkinlik Yönetimi')).dy,
@@ -186,9 +184,7 @@ void main() {
         expect(find.byTooltip('Etkinlik Ayarları'), findsNothing);
         expect(
           tester.getTopLeft(find.text('Etkinlik Yönetimi')).dy,
-          greaterThan(
-            tester.getTopLeft(find.text('Mekan Bağlantılarını Yönet')).dy,
-          ),
+          greaterThan(tester.getTopLeft(find.text('Mekan Bağlantıları')).dy),
         );
         expect(
           tester.getTopLeft(find.text('Etkinlik Yönetimi')).dy,

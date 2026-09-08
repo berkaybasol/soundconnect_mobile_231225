@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
@@ -95,11 +96,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return null;
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.warning,
+  }) {
     final messenger = ScaffoldMessenger.of(context);
     messenger
       ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 
   Future<void> _reviewIdentifier() async {
@@ -215,7 +219,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 _step = _PasswordResetStep.code;
               }
             });
-            _showMessage(state.message ?? _requestSuccessMessage);
+            _showMessage(
+              state.message ?? _requestSuccessMessage,
+              tone: AppSnackBarTone.success,
+            );
           } else if (state.status == AuthStatus.failure) {
             final message =
                 state.error?.message ??
@@ -239,6 +246,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           _showMessage(
             state.error?.message ??
                 'Şifre güncellenemedi. Kodu kontrol edip tekrar dene.',
+            tone: AppSnackBarTone.error,
           );
         }
       },

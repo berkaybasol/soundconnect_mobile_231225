@@ -61,8 +61,9 @@ class _ActionButtons extends StatelessWidget {
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String? actionLabel;
+  final VoidCallback? onAction;
 
-  _SectionHeader({required this.title, this.actionLabel});
+  _SectionHeader({required this.title, this.actionLabel, this.onAction});
 
   @override
   Widget build(BuildContext context) {
@@ -70,22 +71,27 @@ class _SectionHeader extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          Spacer(),
+          const SizedBox(width: 8),
           if (actionLabel != null)
-            Text(
-              actionLabel!,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+            TextButton(
+              onPressed: onAction,
+              child: Text(
+                actionLabel!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],

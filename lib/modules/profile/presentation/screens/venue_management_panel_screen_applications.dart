@@ -1,15 +1,5 @@
 part of 'venue_management_panel_screen.dart';
 
-class _MusicianApplicationProfile {
-  final String displayName;
-  final String? profilePictureUrl;
-
-  _MusicianApplicationProfile({
-    required this.displayName,
-    required this.profilePictureUrl,
-  });
-}
-
 class VenueApplicationsSheet extends StatefulWidget {
   final String venueId;
   final ApplicationListMode mode;
@@ -25,15 +15,20 @@ class VenueApplicationsSheet extends StatefulWidget {
 }
 
 class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {
+  final _session = ProfileActionSession(roles: const ['VENUE', 'ROLE_VENUE']);
+  int _loadGeneration = 0;
   final _artistVenueRepository =
       serviceLocator<ArtistVenueConnectionRepository>();
-  final _musicianProfileRepository =
-      serviceLocator<MusicianProfileRepository>();
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  int _nextPage = 0;
+  int _totalElements = 0;
+  String? _pageError;
   bool _loading = true;
   bool _actionLoading = false;
+  bool _accessRevoked = false;
   String? _error;
   List<ArtistVenueApplication> _items = [];
-  Map<String, _MusicianApplicationProfile> _musicianProfiles = {};
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -41,16 +36,56 @@ class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {
   }
 
   bool get _showOutgoing => widget.mode == ApplicationListMode.outgoing;
+  bool get _showConnections => widget.mode == ApplicationListMode.connections;
 
   @override
   void initState() {
     super.initState();
+    _session.manager?.addListener(_onSessionChanged);
     _load();
   }
 
   @override
+  void dispose() {
+    _session.manager?.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    _loadGeneration++;
+    _updateState(() {
+      _items = [];
+      _hasMore = false;
+      _loadingMore = false;
+      _pageError = null;
+      _loading = false;
+      _actionLoading = false;
+      _error = 'Hesabın değişti. İstekleri yeniden aç.';
+    });
+  }
+
+  void _revokeAccess(String message) {
+    _loadGeneration++;
+    if (!mounted) return;
+    _updateState(() {
+      _accessRevoked = true;
+      _items = [];
+      _hasMore = false;
+      _loading = false;
+      _loadingMore = false;
+      _actionLoading = false;
+      _pageError = null;
+      _error = message;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final title = _showOutgoing ? 'Basvurular' : 'Gelen Basvurular';
+    final title = _showConnections
+        ? 'Bağlantılarım'
+        : _showOutgoing
+        ? 'Gönderdiğim İstekler'
+        : 'Gelen İstekler';
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -90,9 +125,11 @@ class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {
                     : _items.isEmpty
                     ? Center(
                         child: Text(
-                          _showOutgoing
-                              ? 'Gonderdigin basvuru bulunmuyor.'
-                              : 'Gelen basvuru bulunmuyor.',
+                          _showConnections
+                              ? 'Henüz bağlı olduğun bir sanatçı veya grup yok.'
+                              : _showOutgoing
+                              ? 'Gönderdiğin istek bulunmuyor.'
+                              : 'Gelen istek bulunmuyor.',
                           style: TextStyle(
                             color: Theme.of(
                               context,
@@ -111,6 +148,21 @@ class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {
                           },
                         ),
                       ),
+              ),
+              ApplicationPagingFooter(
+                loading: _loadingMore,
+                hasMore: _hasMore && !_loading,
+                error: _pageError,
+                onMore: _actionLoading || !_session.isCurrent
+                    ? null
+                    : () => _load(append: true),
+                onRetry: !_session.isCurrent || _actionLoading || _accessRevoked
+                    ? null
+                    : _error != null
+                    ? () => _load()
+                    : _pageError != null
+                    ? () => _load(append: true)
+                    : null,
               ),
             ],
           ),

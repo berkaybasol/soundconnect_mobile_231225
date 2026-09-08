@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
@@ -275,7 +276,11 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gorsel olusturma sirasinda hata olustu.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text('Gorsel olusturma sirasinda hata olustu.'),
+        ),
       );
     } finally {
       if (mounted) {

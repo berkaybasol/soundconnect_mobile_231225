@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -80,9 +81,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
       listener: (context, state) {
         final error = state.errorMessage;
         if (error == null || error.trim().isEmpty) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: Text(error),
+          ),
+        );
       },
       builder: (context, state) {
         final loading =
@@ -532,8 +537,10 @@ class _NotificationTileState extends State<_NotificationTile> {
       final target = _performerInvitationTarget(notification);
       if (target == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Davetin ait olduğu profil doğrulanamadı.'),
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: const Text('Davetin ait olduğu profil doğrulanamadı.'),
           ),
         );
         return;
@@ -551,8 +558,10 @@ class _NotificationTileState extends State<_NotificationTile> {
       final target = _performerInvitationTarget(notification);
       if (target == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Davetin ait olduğu profil doğrulanamadı.'),
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: const Text('Davetin ait olduğu profil doğrulanamadı.'),
           ),
         );
         return;
@@ -571,7 +580,11 @@ class _NotificationTileState extends State<_NotificationTile> {
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Etkinlik ayrıntıları açılamadı.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text('Etkinlik ayrıntıları açılamadı.'),
+        ),
       );
       return;
     }
@@ -579,7 +592,9 @@ class _NotificationTileState extends State<_NotificationTile> {
     final detail = result.data;
     if (!result.isSuccess || detail == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
           content: Text(
             result.error?.message ?? 'Etkinlik ayrıntıları açılamadı.',
           ),
@@ -797,14 +812,16 @@ class _NotificationTileState extends State<_NotificationTile> {
     final action = payload['action']?.toString().trim() ?? '';
     final bandId = payload['bandId']?.toString().trim() ?? '';
 
-    if (requestByType == 'BAND' &&
+    final opensBand =
         bandId.isNotEmpty &&
-        action != 'REQUEST_CREATED') {
+        ((requestByType == 'BAND' && action != 'REQUEST_CREATED') ||
+            (requestByType == 'VENUE' && action == 'REQUEST_CREATED'));
+    if (opensBand) {
       await Navigator.of(context).pushNamed(
-        AppRoutes.bandMemberProfile,
+        AppRoutes.bandPublicProfile,
         arguments: BandProfileScreenArgs(
           bandId: bandId,
-          viewMode: BandProfileViewMode.member,
+          viewMode: BandProfileViewMode.public,
         ),
       );
       return;
@@ -961,6 +978,10 @@ class _NotificationTileState extends State<_NotificationTile> {
               bandName: bandName.isEmpty ? null : bandName,
               title: notification.title,
               message: notification.message,
+              invitationId: notification.payload['invitationId']
+                  ?.toString()
+                  .trim(),
+              expectedSessionKey: notification.recipientId,
             ),
           ),
         ),

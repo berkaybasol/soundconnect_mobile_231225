@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -152,8 +153,12 @@ class _TableGroupListViewState extends State<_TableGroupListView>
   void _showSessionRequired() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Oturum bilgisi dogrulanamadi. Lutfen tekrar giris yap.'),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.warning,
+        content: const Text(
+          'Oturum bilgisi dogrulanamadi. Lutfen tekrar giris yap.',
+        ),
       ),
     );
   }
@@ -161,8 +166,10 @@ class _TableGroupListViewState extends State<_TableGroupListView>
   void _showPersonalIdentityRequired() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.warning,
+        content: const Text(
           'Masa oluşturma ve katılma işlemleri kişisel hesaplarla kullanılabilir.',
         ),
       ),
@@ -494,9 +501,13 @@ class _TableGroupListViewState extends State<_TableGroupListView>
         if (state.status == TableGroupListStatus.failure &&
             state.error != null &&
             !(state.items.isEmpty && state.feedError != null)) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.error!.message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
+              content: Text(state.error!.message),
+            ),
+          );
         }
       },
       builder: (context, state) {

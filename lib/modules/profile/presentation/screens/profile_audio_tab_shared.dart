@@ -18,7 +18,6 @@ import '../../../spotify/domain/spotify_repository.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../../domain/entities/track.dart';
 import '../cubit/musician_profile_cubit.dart';
-import '../cubit/musician_profile_state.dart';
 import 'media_detail_screen.dart';
 import 'profile_audio_transport.dart';
 import 'profile_common_widgets.dart';
@@ -76,13 +75,13 @@ class ProfileAudioTab extends StatelessWidget {
     if (callback != null) return callback(tracks);
 
     final cubit = context.read<MusicianProfileCubit>();
-    await cubit.updateProfile(
+    final result = await cubit.updateProfile(
       MusicianProfileSaveRequest(
         spotifyTrackIds: tracks.map((track) => track.id).toList(),
         spotifyTracks: tracks.map(_trackToSaveJson).toList(),
       ),
     );
-    return cubit.state.status != MusicianProfileStatus.failure;
+    return result.isSuccess;
   }
 
   Map<String, dynamic> _trackToSaveJson(SpotifyTrackPreview track) {

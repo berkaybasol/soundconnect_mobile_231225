@@ -27,6 +27,7 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_profil
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/venue_event_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_performer_requests_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_performer_request_card.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_invitation_rejection_dialog.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/band_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/weekly_event_carousel.dart';
@@ -949,6 +950,128 @@ void main() {
       expect(repository.requestedPages, <int>[0, 1]);
     });
 
+    testWidgets(
+      'invitation page cap preserves results and refresh without requesting page 101',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repository = _FakePerformerRequestRepository(
+          pages: {
+            for (var page = 0; page <= 100; page++)
+              page: EventPerformerRequestPage(
+                items: [_request()],
+                page: page,
+                size: 20,
+                totalElements: 2040,
+                totalPages: 102,
+                hasNext: true,
+              ),
+          },
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EventPerformerRequestsScreen(repository: repository),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final savedMore = tester
+            .widget<TextButton>(
+              find.byKey(const Key('load-more-event-performer-requests')),
+            )
+            .onPressed!;
+        for (var page = 1; page <= 100; page++) {
+          savedMore();
+          await tester.pumpAndSettle();
+        }
+        expect(repository.requestedPages, List.generate(101, (i) => i));
+        expect(find.text('Sahbaz • Grup'), findsOneWidget);
+        expect(
+          find.byKey(const Key('event-invitation-page-limit')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('load-more-event-performer-requests')),
+          findsNothing,
+        );
+        savedMore();
+        await tester.pumpAndSettle();
+        expect(repository.listCalls, 101);
+        final refresh = tester
+            .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+            .show();
+        await tester.pumpAndSettle();
+        await refresh;
+        expect(repository.requestedPages.last, 0);
+        expect(
+          find.byKey(const Key('event-invitation-page-limit')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('load-more-event-performer-requests')),
+          findsOneWidget,
+        );
+        expect(repository.acceptCalls, 0);
+        expect(repository.rejectCalls, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'filtered invitation scans stop at the API cap without claiming an empty inbox',
+      (tester) async {
+        final repository = _FakePerformerRequestRepository(
+          pages: {
+            for (var page = 0; page <= 100; page++)
+              page: EventPerformerRequestPage(
+                items: [_request(targetId: 'another-band')],
+                page: page,
+                size: 20,
+                totalElements: 2040,
+                totalPages: 102,
+                hasNext: true,
+              ),
+          },
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EventPerformerRequestsScreen(
+              repository: repository,
+              targetType: EventPerformerTargetType.band,
+              targetId: 'band-wanted',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(repository.requestedPages, [0, 1, 2, 3]);
+        final savedContinue = tester
+            .widget<OutlinedButton>(
+              find.byKey(const Key('continue-filtered-event-request-search')),
+            )
+            .onPressed!;
+        for (var scan = 0; scan < 33; scan++) {
+          savedContinue();
+          await tester.pumpAndSettle();
+        }
+        expect(repository.requestedPages, List.generate(101, (i) => i));
+        expect(
+          find.byKey(const Key('event-invitation-page-limit')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('continue-filtered-event-request-search')),
+          findsNothing,
+        );
+        expect(find.text('Bekleyen etkinlik daveti yok'), findsNothing);
+        expect(find.text('Sahbaz • Grup'), findsNothing);
+        savedContinue();
+        await tester.pumpAndSettle();
+        expect(repository.listCalls, 101);
+        expect(repository.acceptCalls, 0);
+        expect(repository.rejectCalls, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('scoped inbox auto-pages before showing an empty state', (
       tester,
     ) async {
@@ -1004,6 +1127,150 @@ void main() {
       expect(find.text('Bekleyen etkinlik daveti yok'), findsOneWidget);
       expect(repository.listCalls, 2);
     });
+
+    for (final accept in [true, false]) {
+      testWidgets(
+        'saved ${accept ? 'accept' : 'reject'} cannot act on a refreshed eligibility snapshot',
+        (tester) async {
+          final repository = _FakePerformerRequestRepository(
+            listResults: [
+              Result.success(_page([_request()])),
+              Result.success(_page([_request(decisionAllowed: false)])),
+            ],
+          );
+          await tester.pumpWidget(
+            MaterialApp(
+              home: EventPerformerRequestsScreen(repository: repository),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final card = tester.widget<EventPerformerRequestCard>(
+            find.byType(EventPerformerRequestCard),
+          );
+          final savedDecision = accept ? card.onAccept : card.onReject;
+          await tester
+              .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+              .onRefresh();
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<EventPerformerRequestCard>(
+                  find.byType(EventPerformerRequestCard),
+                )
+                .decisionAllowed,
+            isFalse,
+          );
+          savedDecision();
+          await tester.pumpAndSettle();
+          expect(repository.acceptCalls, 0);
+          expect(repository.rejectCalls, 0);
+          expect(find.byType(EventInvitationRejectionDialog), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets(
+      'visible invitation choices and decisions stay disabled during refresh',
+      (tester) async {
+        final pending = Completer<Result<EventPerformerRequestPage>>();
+        final repository = _FakePerformerRequestRepository(
+          listFutures: [
+            Future.value(Result.success(_page([_request()]))),
+            pending.future,
+          ],
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EventPerformerRequestsScreen(repository: repository),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final saved = tester.widget<EventPerformerRequestCard>(
+          find.byType(EventPerformerRequestCard),
+        );
+        final refresh = tester
+            .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+            .onRefresh();
+        await tester.pump();
+        final current = tester.widget<EventPerformerRequestCard>(
+          find.byType(EventPerformerRequestCard),
+        );
+        expect(current.interactionLocked, isTrue);
+        saved.onAccept();
+        saved.onReject();
+        saved.onShowOnProfileChanged!(true);
+        await tester.pump();
+        expect(repository.acceptCalls, 0);
+        expect(repository.rejectCalls, 0);
+        expect(find.byType(EventInvitationRejectionDialog), findsNothing);
+        pending.complete(Result.success(_page([_request()])));
+        await refresh;
+        await tester.pumpAndSettle();
+        final refreshed = tester.widget<EventPerformerRequestCard>(
+          find.byType(EventPerformerRequestCard),
+        );
+        expect(refreshed.interactionLocked, isFalse);
+        expect(refreshed.showOnProfile, isFalse);
+        saved.onAccept();
+        await tester.pumpAndSettle();
+        expect(repository.acceptCalls, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'overlapping pages retain order but replace stale action eligibility',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repository = _FakePerformerRequestRepository(
+          pages: {
+            0: _page([_request()], hasNext: true),
+            1: _page([_request(decisionAllowed: false)], page: 1),
+          },
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EventPerformerRequestsScreen(repository: repository),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final saved = tester.widget<EventPerformerRequestCard>(
+          find.byType(EventPerformerRequestCard),
+        );
+        await tester.tap(
+          find.byKey(const Key('load-more-event-performer-requests')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(EventPerformerRequestCard), findsOneWidget);
+        expect(
+          tester
+              .widget<EventPerformerRequestCard>(
+                find.byType(EventPerformerRequestCard),
+              )
+              .decisionAllowed,
+          isFalse,
+        );
+        saved.onAccept();
+        saved.onReject();
+        saved.onShowOnProfileChanged!(true);
+        await tester.pumpAndSettle();
+        expect(repository.acceptCalls, 0);
+        expect(repository.rejectCalls, 0);
+        expect(
+          tester
+              .widget<EventPerformerRequestCard>(
+                find.byType(EventPerformerRequestCard),
+              )
+              .showOnProfile,
+          isFalse,
+        );
+        expect(find.byType(EventInvitationRejectionDialog), findsNothing);
+        expect(repository.requestedPages, [0, 1]);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('pull-to-refresh keeps the current page visible in flight', (
       tester,
@@ -1326,6 +1593,7 @@ EventPerformerRequest _request({
   String targetId = 'band-1',
   String performerName = 'Sahbaz',
   bool? profileCalendarApproved = false,
+  bool decisionAllowed = true,
   EventPerformerRequestPurpose purpose =
       EventPerformerRequestPurpose.performerConsent,
 }) {
@@ -1349,7 +1617,7 @@ EventPerformerRequest _request({
     performerName: performerName,
     status: EventPerformerRequestStatus.pending,
     profileCalendarApproved: profileCalendarApproved,
-    decisionAllowed: true,
+    decisionAllowed: decisionAllowed,
     canReconsider: false,
     expired: false,
     serverNow: DateTime.utc(2026, 9, 6),

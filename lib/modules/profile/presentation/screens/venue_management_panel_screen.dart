@@ -1,4 +1,9 @@
+import '../../../artist_venue/domain/artist_venue_application_page.dart';
+import '../../../artist_venue/domain/artist_venue_failure_policy.dart';
+import 'application_paging_footer.dart';
+import 'venue_connection_management_hub.dart';
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/service_locator.dart';
@@ -11,8 +16,8 @@ import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../promotion/domain/entities/promotion_item.dart';
 import '../../../promotion/domain/promotion_repository.dart';
 import '../../domain/entities/artist_venue_application.dart';
-import '../../domain/musician_profile_repository.dart';
 import '../../domain/entities/venue_owner_profile.dart';
+import '../navigation/profile_action_session.dart';
 import 'band_profile_screen.dart';
 
 part 'venue_management_panel_screen_applications.dart';
@@ -38,7 +43,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Mekan Yonetimi'), centerTitle: true),
+      appBar: AppBar(title: Text('Mekan Yönetimi'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -76,7 +81,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Buradan mekan profilini destekleyen yonetim araclarina erisebilirsin.',
+                      'Buradan mekan profilini destekleyen yönetim araçlarına erişebilirsin.',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.45,
@@ -102,8 +107,8 @@ class VenueManagementPanelScreen extends StatelessWidget {
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.hub_outlined,
-                title: 'Sanatci Baglantilarini Yonet',
-                message: 'Baglantili sanatcilar ve basvuru akislari burada.',
+                title: 'Sanatçı Bağlantıları',
+                message: 'Bağlantılarını ve isteklerini yönet.',
                 onTap: () => _showArtistAndApplicationSheet(
                   context: context,
                   ownerProfile: ownerProfile,
@@ -114,15 +119,15 @@ class VenueManagementPanelScreen extends StatelessWidget {
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.mode_comment_outlined,
-                title: 'Isletmene Gelen Yorumlari Goruntule',
-                message: 'Isletmene gelen yorumlar burada listelenecek.',
+                title: 'İşletmene Gelen Yorumları Görüntüle',
+                message: 'İşletmene gelen yorumlar burada listelenecek.',
               ),
               SizedBox(height: 14),
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.dashboard_customize_outlined,
                 title: 'Istatistikler',
-                message: 'Istatistikler modulu yakinda burada acilacak.',
+                message: 'İstatistikler modülü yakında burada açılacak.',
                 trailingLabel: 'Yakinda!',
               ),
               SizedBox(height: 14),
@@ -130,7 +135,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
                 context: context,
                 icon: Icons.extension_outlined,
                 title: 'Kampanyalar / Tanitim',
-                message: 'Kampanya ve tanitim alani yakinda burada acilacak.',
+                message: 'Kampanya ve tanıtım alanı yakında burada açılacak.',
                 trailingLabel: 'Yakinda!',
               ),
               SizedBox(height: 18),
@@ -143,4 +148,4 @@ class VenueManagementPanelScreen extends StatelessWidget {
   }
 }
 
-enum ApplicationListMode { outgoing, incoming }
+enum ApplicationListMode { connections, outgoing, incoming }

@@ -55,6 +55,9 @@ class _StudioBacklineCategoryManagementScreenState
                 onTap: _isSubmitting || _requestSheetOpen || _catalog.isEmpty
                     ? () => _showMessage(
                         _loadError ?? 'Kategori listesi henüz hazır değil.',
+                        tone: _loadError != null
+                            ? AppSnackBarTone.error
+                            : AppSnackBarTone.warning,
                       )
                     : _openRequestSheet,
               ),
@@ -334,10 +337,13 @@ class _StudioBacklineCategoryManagementScreenState
     await _loadRequests(_requestPageIndex, preserveItems: true);
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }

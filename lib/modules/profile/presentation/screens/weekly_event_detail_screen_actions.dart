@@ -58,12 +58,21 @@ extension _WeeklyEventDetailScreenStateActions
   }
 
   Future<void> _loadBandProfile(String bandId) async {
-    final repository = serviceLocator<BandRepository>();
-    final result = await repository.getPublicBandById(bandId);
-    if (!mounted || !result.isSuccess || result.data == null) return;
-    _updateState(() {
-      _bandProfile = result.data;
-    });
+    try {
+      final repository = serviceLocator<BandRepository>();
+      final result = await repository.getPublicBandById(bandId);
+      if (!mounted ||
+          !result.isSuccess ||
+          result.data == null ||
+          result.data!.id.trim() != bandId ||
+          widget.event.linkedBandProfileId != bandId) {
+        return;
+      }
+      _updateState(() => _bandProfile = result.data);
+    } catch (_) {
+      // A missing preview must not break the event. Retry its identity lookup
+      // when the chip is tapped, rather than guessing band ownership.
+    }
   }
 
   Future<void> _loadVenueProfile(String venueId) async {
@@ -75,8 +84,12 @@ extension _WeeklyEventDetailScreenStateActions
     });
   }
 
-  Future<void> _loadComments() async {
-    await _commentCubit.load(targetType: 'EVENT', targetId: widget.event.id);
+  Future<void> _loadComments({bool clearExisting = false}) async {
+    await _commentCubit.load(
+      targetType: 'EVENT',
+      targetId: widget.event.id,
+      clearExisting: clearExisting,
+    );
   }
 
   Future<void> _syncReplies(List<CommentItem> comments) async {
@@ -92,15 +105,19 @@ extension _WeeklyEventDetailScreenStateActions
   }
 
   Future<void> _loadReplies(String commentId) async {
+    final identityRevision = _commentIdentityRevision;
     try {
-      final result = await _engagementRepository.listReplies(commentId);
+      final result = await _engagementRepository.listReplies(
+        commentId,
+        eventId: widget.event.id,
+      );
       final items = result.data ?? <CommentItem>[];
-      if (!mounted) return;
+      if (!mounted || identityRevision != _commentIdentityRevision) return;
       _updateState(() {
         _repliesByCommentId[commentId] = items;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || identityRevision != _commentIdentityRevision) return;
       _updateState(() {
         _repliesByCommentId[commentId] = <CommentItem>[];
       });
@@ -117,15 +134,24 @@ extension _WeeklyEventDetailScreenStateActions
     return '${diff.inDays} gun once';
   }
 
-  Future<void> _addComment() async {
-    final text = _commentController.text.trim();
+  Future<void> _addComment(AuthSession? expectedSession) async {
+    if (!_isCurrentCommentSession(expectedSession) ||
+        _commentCubit.state.submitting) {
+      return;
+    }
+    final originalText = _commentController.text;
+    final text = originalText.trim();
     if (text.isEmpty) return;
     await _commentCubit.create(
       targetType: 'EVENT',
       targetId: widget.event.id,
       text: text,
     );
-    _commentController.clear();
+    if (_isCurrentCommentSession(expectedSession) &&
+        _commentCubit.state.error == null &&
+        _commentController.text == originalText) {
+      _commentController.clear();
+    }
   }
 
   Future<void> _openArtistProfile() async {
@@ -151,23 +177,51 @@ extension _WeeklyEventDetailScreenStateActions
         ModalRoute.of(context)?.isCurrent == true;
     _isOpeningArtistProfile = true;
     try {
+      final viewerId = session?.userId?.trim() ?? '';
+      final canResolveOwnership =
+          session?.isAuthenticated == true &&
+          session?.isActive == true &&
+          viewerId.isNotEmpty &&
+          session!.hasAnyRole(const ['MUSICIAN', 'ROLE_MUSICIAN']);
       if (bandId != null && bandId.isNotEmpty) {
+        var opensOwnBand = false;
+        if (canResolveOwnership) {
+          var profile = _bandProfile;
+          if (profile == null || profile.id.trim() != bandId) {
+            final result = await serviceLocator<BandRepository>()
+                .getPublicBandById(bandId);
+            if (!canNavigate()) return;
+            profile = result.data;
+            if (!result.isSuccess ||
+                profile == null ||
+                profile.id.trim() != bandId) {
+              throw StateError('Band ownership could not be verified');
+            }
+          }
+          // Names and general membership do not confer ownership. The band
+          // screen re-fetches the profile and rechecks founder access in auto.
+          opensOwnBand = profile.members.any(
+            (member) =>
+                member.userId.trim() == viewerId &&
+                member.isFounder &&
+                member.status.trim().toUpperCase() == 'ACTIVE',
+          );
+        }
+        if (!mounted || !canNavigate()) return;
         await Navigator.of(context).pushNamed(
-          AppRoutes.bandPublicProfile,
+          opensOwnBand ? AppRoutes.bandProfile : AppRoutes.bandPublicProfile,
           arguments: BandProfileScreenArgs(
             bandId: bandId,
-            viewMode: BandProfileViewMode.public,
+            viewMode: opensOwnBand
+                ? BandProfileViewMode.auto
+                : BandProfileViewMode.public,
           ),
         );
         return;
       }
       if (profileId == null || profileId.isEmpty) return;
       var opensOwnProfile = false;
-      final viewerId = session?.userId?.trim() ?? '';
-      if (session?.isAuthenticated == true &&
-          session?.isActive == true &&
-          viewerId.isNotEmpty &&
-          session!.hasAnyRole(const ['MUSICIAN', 'ROLE_MUSICIAN'])) {
+      if (canResolveOwnership) {
         final publicProfile = _artistProfile;
         if (publicProfile?.id.trim() == profileId &&
             publicProfile!.userId.trim().isNotEmpty) {
@@ -200,7 +254,11 @@ extension _WeeklyEventDetailScreenStateActions
     } catch (_) {
       if (!mounted || !canNavigate()) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil açılamadı. Lütfen tekrar dene.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text('Profil açılamadı. Lütfen tekrar dene.'),
+        ),
       );
     } finally {
       _isOpeningArtistProfile = false;
@@ -208,15 +266,12 @@ extension _WeeklyEventDetailScreenStateActions
   }
 
   void _openVenueProfile() {
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     final venueId = widget.event.venueId?.trim();
     if (venueId == null || venueId.isEmpty) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        settings: RouteSettings(
-          arguments: VenuePublicProfileArgs(venueId: venueId),
-        ),
-        builder: (_) => venue_public.VenuePublicProfileScreen(),
-      ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.venuePublicProfile,
+      arguments: VenuePublicProfileArgs(venueId: venueId),
     );
   }
 
@@ -258,13 +313,10 @@ extension _WeeklyEventDetailScreenStateActions
     } catch (_) {
       if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFF202A3D),
-          behavior: SnackBarBehavior.floating,
-          content: Text(
-            'Paylaşım hazırlanamadı. Lütfen tekrar dene.',
-            style: TextStyle(color: AppColors.white),
-          ),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text('Paylaşım hazırlanamadı. Lütfen tekrar dene.'),
         ),
       );
     } finally {
@@ -276,81 +328,55 @@ extension _WeeklyEventDetailScreenStateActions
     }
   }
 
-  Future<void> _showReplySheet(int index) async {
-    final comments = _commentCubit.state.comments;
-    if (index < 0 || index >= comments.length) return;
-    final targetComment = comments[index];
-    final replyController = TextEditingController();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.navBlue,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            14,
-            14,
-            14,
-            MediaQuery.of(sheetContext).viewInsets.bottom + 14,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: replyController,
-                  autofocus: true,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => Navigator.of(sheetContext).pop(),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Yanita yaz...',
-                    hintStyle: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    filled: true,
-                    fillColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).dividerColor,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).dividerColor,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () => Navigator.of(sheetContext).pop(),
-                child: Text('Ekle'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    final replyText = replyController.text.trim();
-    replyController.dispose();
-    if (replyText.isEmpty) return;
+  Future<void> _showReplySheet(
+    CommentItem targetComment,
+    AuthSession? expectedSession,
+  ) async {
+    if (!_isCurrentCommentSession(expectedSession) ||
+        _showingReply ||
+        _commentCubit.state.submitting) {
+      return;
+    }
+    if (!_commentCubit.state.comments.any(
+      (item) => item.id == targetComment.id,
+    )) {
+      return;
+    }
+    _showingReply = true;
+    String? replyText;
+    try {
+      replyText = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: AppColors.navBlue,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        ),
+        builder: (sheetContext) {
+          _replyRoute = ModalRoute.of(sheetContext);
+          return _EventReplyComposer(
+            canSubmit: () => _isCurrentCommentSession(expectedSession),
+          );
+        },
+      );
+    } finally {
+      _showingReply = false;
+      _replyRoute = null;
+    }
+    if (replyText == null ||
+        replyText.isEmpty ||
+        !_isCurrentCommentSession(expectedSession) ||
+        _commentCubit.state.submitting) {
+      return;
+    }
     await _commentCubit.create(
       targetType: 'EVENT',
       targetId: widget.event.id,
       text: replyText,
       parentCommentId: targetComment.id,
     );
+    if (!_isCurrentCommentSession(expectedSession)) return;
     _loadedReplyParents.remove(targetComment.id);
     await _syncReplies(_commentCubit.state.comments);
   }

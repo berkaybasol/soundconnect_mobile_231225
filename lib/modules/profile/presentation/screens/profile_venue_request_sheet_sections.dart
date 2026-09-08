@@ -11,6 +11,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
       onChanged: (value) {
         _updateState(() {
           _searchQuery = value.trim();
+          _selectedVenueId = null;
         });
       },
     );
@@ -79,7 +80,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 label: Text(
-                  'Filtreyi Sifirla',
+                  'Filtreyi sıfırla',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -91,7 +92,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
           DropdownButtonFormField<String>(
             value: _selectedCityId,
             decoration: InputDecoration(
-              hintText: 'Sehir sec',
+              hintText: 'Şehir seç',
               prefixIcon: Icon(Icons.location_city_outlined),
             ),
             items: widget.cities
@@ -108,7 +109,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
           DropdownButtonFormField<String>(
             value: _selectedDistrictId,
             decoration: InputDecoration(
-              hintText: _loadingDistricts ? 'Ilce yukleniyor...' : 'Ilce sec',
+              hintText: _loadingDistricts ? 'İlçe yükleniyor...' : 'İlçe seç',
               prefixIcon: Icon(Icons.map_outlined),
             ),
             items: _districtOptions
@@ -128,8 +129,8 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
             value: _selectedNeighborhoodId,
             decoration: InputDecoration(
               hintText: _loadingNeighborhoods
-                  ? 'Semt yukleniyor...'
-                  : 'Semt sec',
+                  ? 'Semt yükleniyor...'
+                  : 'Semt seç',
               prefixIcon: Icon(Icons.place_outlined),
             ),
             items: _neighborhoodOptions
@@ -142,8 +143,10 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                 .toList(),
             onChanged: _loadingNeighborhoods
                 ? null
-                : (value) =>
-                      _updateState(() => _selectedNeighborhoodId = value),
+                : (value) => _updateState(() {
+                    _selectedNeighborhoodId = value;
+                    _selectedVenueId = null;
+                  }),
           ),
         ],
       ),
@@ -154,7 +157,7 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
     if (filteredVenues.isEmpty) {
       return Center(
         child: Text(
-          'Mekan bulunamadi.',
+          'Mekan bulunamadı.',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -185,43 +188,53 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
       opacity: disabled ? 0.65 : 1,
       child: Container(
         margin: EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(1),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: checked
-                ? AppColors.coralAlt
-                : Theme.of(context).dividerColor,
-          ),
+          color: checked ? null : Theme.of(context).dividerColor,
+          gradient: checked
+              ? LinearGradient(colors: AppColors.brandGradient)
+              : null,
+          borderRadius: BorderRadius.circular(18),
         ),
-        child: RadioListTile<String>(
-          value: venue.id,
-          groupValue: _selectedVenueId,
-          onChanged: disabled
-              ? null
-              : (value) {
-                  _updateState(() => _selectedVenueId = value);
-                },
-          title: Text(
-            venue.name,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
+        child: Material(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(17),
+          clipBehavior: Clip.antiAlias,
+          child: RadioListTile<String>(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
             ),
-          ),
-          subtitle: Text(
-            isAccepted
-                ? 'Bu mekan zaten bagli.'
-                : isPending
-                ? 'Bu mekan icin onay bekleniyor.'
-                : (location.isNotEmpty ? location : 'Konum bilgisi yok'),
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 12,
+            value: venue.id,
+            groupValue: _selectedVenueId,
+            onChanged: disabled
+                ? null
+                : (value) {
+                    _updateState(() => _selectedVenueId = value);
+                  },
+            title: Text(
+              venue.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
             ),
+            subtitle: Text(
+              isAccepted
+                  ? 'Zaten bağlısın'
+                  : isPending
+                  ? 'Onay bekleniyor'
+                  : (location.isNotEmpty ? location : 'Konum bilgisi yok'),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
+            activeColor: AppColors.coralAlt,
+            controlAffinity: ListTileControlAffinity.trailing,
           ),
-          activeColor: AppColors.coralAlt,
-          controlAffinity: ListTileControlAffinity.trailing,
         ),
       ),
     );
@@ -233,14 +246,21 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
         Expanded(
           child: OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Vazgec'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            child: Text('Vazgeç'),
           ),
         ),
         SizedBox(width: 10),
         Expanded(
-          child: ElevatedButton(
-            onPressed: _selectedVenueId == null ? null : _submit,
-            child: Text('Devam'),
+          child: GradientOutlineButton(
+            onPressed: _selectedVenueId == null || _submitting ? null : _submit,
+            strokeWidth: 1,
+            label: 'Devam',
           ),
         ),
       ],

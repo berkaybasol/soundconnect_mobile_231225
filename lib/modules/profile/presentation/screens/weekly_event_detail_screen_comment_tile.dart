@@ -5,7 +5,7 @@ class _CommentTile extends StatelessWidget {
   final String timeLabel;
   final List<CommentItem> replies;
   final String Function(DateTime? createdAt) replyTimeLabelBuilder;
-  final VoidCallback onReplyTap;
+  final VoidCallback? onReplyTap;
 
   _CommentTile({
     required this.comment,
@@ -114,26 +114,28 @@ class _CommentTile extends StatelessWidget {
                       height: 1.35,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      InkWell(
-                        onTap: onReplyTap,
-                        child: Text(
-                          comment.replyCount > 0
-                              ? 'Yanitla (${comment.replyCount})'
-                              : 'Yanitla',
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                  if (onReplyTap != null) ...[
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        InkWell(
+                          onTap: onReplyTap,
+                          child: Text(
+                            comment.replyCount > 0
+                                ? 'Yanitla (${comment.replyCount})'
+                                : 'Yanitla',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                   if (replies.isNotEmpty) ...[
                     SizedBox(height: 10),
                     ...replies.map(

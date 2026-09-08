@@ -2,24 +2,25 @@ part of 'venue_management_panel_screen.dart';
 
 extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
   Widget _buildApplicationItem(ArtistVenueApplication item) {
-    final isBandRequest = item.requestByType == 'BAND';
-    final musicianProfile = _musicianProfiles[item.musicianProfileId];
+    final isBandRequest = item.bandId.trim().isNotEmpty;
     final applicantName = isBandRequest
         ? (item.bandName.trim().isNotEmpty ? item.bandName.trim() : 'Band')
-        : (musicianProfile?.displayName ??
+        : (item.musicianDisplayName ??
               (item.musicianStageName.trim().isNotEmpty
                   ? item.musicianStageName.trim()
-                  : 'Sanatci'));
+                  : 'Sanatçı'));
     final canCancel = _showOutgoing && item.status == 'PENDING';
-    final canAccept = !_showOutgoing && item.status == 'PENDING';
-    final canReject = !_showOutgoing && item.status == 'PENDING';
+    final canAccept =
+        !_showConnections && !_showOutgoing && item.status == 'PENDING';
+    final canReject =
+        !_showConnections && !_showOutgoing && item.status == 'PENDING';
     final canDisconnect = item.status == 'ACCEPTED';
     final canOpenMusicianProfile =
         !isBandRequest && item.musicianProfileId.isNotEmpty;
     final canOpenBandProfile = isBandRequest && item.bandId.isNotEmpty;
     final applicantImageUrl = isBandRequest
         ? item.bandProfilePictureUrl
-        : musicianProfile?.profilePictureUrl;
+        : item.musicianProfilePictureUrl;
 
     return Container(
       padding: EdgeInsets.all(14),
@@ -39,6 +40,7 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                   onTap: !(canOpenMusicianProfile || canOpenBandProfile)
                       ? null
                       : () {
+                          if (!_session.isCurrent) return;
                           if (canOpenBandProfile) {
                             Navigator.of(context).pushNamed(
                               AppRoutes.bandPublicProfile,
@@ -115,7 +117,7 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                   border: Border.all(color: _statusColor(item.status)),
                 ),
                 child: Text(
-                  _statusLabel(item.status),
+                  _showConnections ? 'Bağlı' : _statusLabel(item.status),
                   style: TextStyle(
                     color: _statusColor(item.status),
                     fontSize: 12,
@@ -125,43 +127,45 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
               ),
             ],
           ),
-          SizedBox(height: 8),
-          _showOutgoing
-              ? Text(
-                  'Hedef mekan: ${item.venueName}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                )
-              : RichText(
-                  text: TextSpan(
+          if (!_showConnections) ...[
+            SizedBox(height: 8),
+            _showOutgoing
+                ? Text(
+                    'Gönderen mekan: ${item.venueName}',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                     ),
-                    children: [
-                      TextSpan(
-                        text: isBandRequest
-                            ? 'Band notu: '
-                            : 'Sanatcinin notu: ',
+                  )
+                : RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
                       ),
-                      TextSpan(
-                        text:
-                            item.message != null &&
-                                item.message!.trim().isNotEmpty
-                            ? item.message!.trim()
-                            : (isBandRequest
-                                  ? 'Band notu yok'
-                                  : 'Sanatcinin notu yok'),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
+                      children: [
+                        TextSpan(
+                          text: isBandRequest
+                              ? 'Band notu: '
+                              : 'Sanatçının notu: ',
                         ),
-                      ),
-                    ],
+                        TextSpan(
+                          text:
+                              item.message != null &&
+                                  item.message!.trim().isNotEmpty
+                              ? item.message!.trim()
+                              : (isBandRequest
+                                    ? 'Band notu yok'
+                                    : 'Sanatçının notu yok'),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+          ],
           SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -175,9 +179,11 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                       ? null
                       : () => _runAction(
                           requestId: item.id,
-                          methodLabel: 'Basvuru onaylandi.',
-                          action: () =>
-                              _artistVenueRepository.acceptRequest(item.id),
+                          methodLabel: 'Başvuru onaylandı.',
+                          action: () => _artistVenueRepository.acceptRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                 ),
               if (canReject)
@@ -188,9 +194,11 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                       ? null
                       : () => _runAction(
                           requestId: item.id,
-                          methodLabel: 'Basvuru reddedildi.',
-                          action: () =>
-                              _artistVenueRepository.rejectRequest(item.id),
+                          methodLabel: 'Başvuru reddedildi.',
+                          action: () => _artistVenueRepository.rejectRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                 ),
               if (canCancel)
@@ -199,9 +207,11 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                       ? null
                       : () => _runAction(
                           requestId: item.id,
-                          methodLabel: 'Basvuru iptal edildi.',
-                          action: () =>
-                              _artistVenueRepository.cancelRequest(item.id),
+                          methodLabel: 'Başvuru iptal edildi.',
+                          action: () => _artistVenueRepository.cancelRequest(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
                   child: Text('İptal et'),
                 ),
@@ -211,11 +221,13 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
                       ? null
                       : () => _runAction(
                           requestId: item.id,
-                          methodLabel: 'Baglanti kaldirildi.',
-                          action: () =>
-                              _artistVenueRepository.disconnect(item.id),
+                          methodLabel: 'Bağlantı kaldırıldı.',
+                          action: () => _artistVenueRepository.disconnect(
+                            item.id,
+                            expectedSessionKey: _session.userId,
+                          ),
                         ),
-                  child: Text('Baglantiyi Kaldir'),
+                  child: Text('Bağlantıyı Kaldır'),
                 ),
             ],
           ),

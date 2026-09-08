@@ -279,8 +279,9 @@ class _MusicianRepositoryFake implements MusicianProfileRepository {
 
   @override
   Future<Result<MusicianProfile>> updateMyProfile(
-    MusicianProfileSaveRequest request,
-  ) async {
+    MusicianProfileSaveRequest request, {
+    String? expectedSessionKey,
+  }) async {
     lastUpdateRequest = request;
     return updateResult;
   }

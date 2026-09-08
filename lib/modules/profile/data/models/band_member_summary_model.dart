@@ -1,4 +1,5 @@
 import '../../domain/entities/band_member_summary.dart';
+import '../../domain/band_member_title_policy.dart';
 
 class BandMemberSummaryModel extends BandMemberSummary {
   const BandMemberSummaryModel({
@@ -8,6 +9,8 @@ class BandMemberSummaryModel extends BandMemberSummary {
     required super.profilePictureUrl,
     required super.role,
     required super.status,
+    super.memberTitle,
+    super.titleVersion,
   });
 
   factory BandMemberSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -43,7 +46,26 @@ class BandMemberSummaryModel extends BandMemberSummary {
       ]),
       role: json['role']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
+      memberTitle: _memberTitle(json['memberTitle']),
+      titleVersion: _titleVersion(json['titleVersion']),
     );
+  }
+
+  static String? _memberTitle(Object? value) {
+    if (value == null) return null;
+    if (value is! String ||
+        BandMemberTitlePolicy.validationMessage(value) != null) {
+      throw const FormatException('Invalid band member title');
+    }
+    return BandMemberTitlePolicy.normalize(value);
+  }
+
+  static int _titleVersion(Object? value) {
+    if (value == null) return 0;
+    if (value is! int || value < 0) {
+      throw const FormatException('Invalid band member title version');
+    }
+    return value;
   }
 
   static String? _firstNonEmpty(List<Object?> candidates) {

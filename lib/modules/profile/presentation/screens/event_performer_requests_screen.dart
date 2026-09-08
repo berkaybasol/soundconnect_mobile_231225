@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -61,6 +62,7 @@ class _EventPerformerRequestsScreenState
     extends State<EventPerformerRequestsScreen> {
   bool get _rejected => widget.status == EventPerformerRequestStatus.rejected;
   static const int _pageSize = 20;
+  static const int _maximumPage = 100;
   static const int _automaticFilteredPageBudget = 3;
 
   late EventPerformerRequestRepository _repository;
@@ -86,6 +88,7 @@ class _EventPerformerRequestsScreenState
   final Stopwatch _elapsed = Stopwatch()..start();
   final Map<_RequestIdentity, Duration> _deadlines = {};
   Timer? _deadlineTimer;
+  bool get _atPageLimit => _hasNext && _nextPage > _maximumPage;
   Duration get _elapsedNow =>
       widget.elapsedProvider?.call() ?? _elapsed.elapsed;
 
@@ -225,6 +228,7 @@ class _EventPerformerRequestsScreenState
   void _onScroll() {
     if (!_scrollController.hasClients ||
         !_hasNext ||
+        _atPageLimit ||
         _loading ||
         _loadingMore) {
       return;
@@ -303,11 +307,18 @@ class _EventPerformerRequestsScreenState
       }
     });
     if (preserveCurrentPage) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_friendlyError(result.error))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text(_friendlyError(result.error)),
+        ),
+      );
     }
-    if (result.isSuccess && _visibleRequests.isEmpty && _hasNext) {
+    if (result.isSuccess &&
+        _visibleRequests.isEmpty &&
+        _hasNext &&
+        !_atPageLimit) {
       unawaited(_loadMore(untilVisibleOrExhausted: true));
     }
   }
@@ -318,7 +329,7 @@ class _EventPerformerRequestsScreenState
       await _loadFirstPage(showSpinner: false);
       return;
     }
-    if (!_hasNext) return;
+    if (!_hasNext || _atPageLimit) return;
     final generation = _loadGeneration;
     final session = _session;
     if (_loadedSession != session) {
@@ -376,6 +387,7 @@ class _EventPerformerRequestsScreenState
     } while (untilVisibleOrExhausted &&
         _visibleRequests.isEmpty &&
         _hasNext &&
+        !_atPageLimit &&
         fetchedPages < _automaticFilteredPageBudget);
 
     if (mounted && generation == _loadGeneration) {
@@ -427,7 +439,9 @@ class _EventPerformerRequestsScreenState
   ) {
     final byId = <String, EventPerformerRequest>{};
     for (final request in requests) {
-      byId.putIfAbsent(request.requestId, () => request);
+      // Keep the original display position but replace overlapping-page data
+      // with the newer server eligibility snapshot.
+      byId[request.requestId] = request;
     }
     return List.unmodifiable(byId.values);
   }
@@ -448,25 +462,31 @@ class _EventPerformerRequestsScreenState
   Future<void> _decide(
     EventPerformerRequest request, {
     required bool accept,
+    required int generation,
   }) async {
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     if (_loadedSession != _session) {
       _discardChangedSession();
       return;
     }
-    if (_processingIds.isNotEmpty ||
+    if (generation != _loadGeneration ||
+        _loading ||
+        _loadingMore ||
+        _processingIds.isNotEmpty ||
         !_canDecide(request) ||
         (_rejected && !accept) ||
         request.status != widget.status ||
         !request.targets(type: widget.targetType, id: widget.targetId) ||
-        !_visibleRequests.any(
-          (visible) => _identityOf(visible) == _identityOf(request),
-        )) {
+        !_visibleRequests.any((visible) => identical(visible, request))) {
       return;
     }
     if (accept && request.profileCalendarApproved == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(request.incompatibleApprovalExplanation)),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: Text(request.incompatibleApprovalExplanation),
+        ),
       );
       return;
     }
@@ -576,7 +596,9 @@ class _EventPerformerRequestsScreenState
 
     if (result.isSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
           content: Text(
             request.decisionSuccessMessage(
               accept: accept,
@@ -589,9 +611,13 @@ class _EventPerformerRequestsScreenState
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(_friendlyError(result.error))));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.error,
+        content: Text(_friendlyError(result.error)),
+      ),
+    );
     // A timeout may follow a committed decision. Hide old actions until a fresh
     // read completes. Never automatically repeat the mutation.
     unawaited(_loadFirstPage());
@@ -602,7 +628,13 @@ class _EventPerformerRequestsScreenState
     bool value,
     int generation,
   ) {
-    if (!mounted || !_canDecide(request)) return;
+    if (!mounted ||
+        _loading ||
+        _loadingMore ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        !_canDecide(request)) {
+      return;
+    }
     if (_loadedSession != _session) {
       _discardChangedSession();
       return;
@@ -613,7 +645,7 @@ class _EventPerformerRequestsScreenState
         request.profileCalendarApproved == null ||
         request.requestPurpose !=
             EventPerformerRequestPurpose.performerConsent ||
-        !_visibleRequests.any((visible) => _identityOf(visible) == identity)) {
+        !_visibleRequests.any((visible) => identical(visible, request))) {
       return;
     }
     setState(() {
@@ -685,6 +717,11 @@ class _EventPerformerRequestsScreenState
                   onRetry: () => _loadMore(untilVisibleOrExhausted: true),
                 ),
               )
+            else if (requests.isEmpty && _atPageLimit)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: _PageLimitNotice()),
+              )
             else if (requests.isEmpty && _hasNext)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -713,14 +750,23 @@ class _EventPerformerRequestsScreenState
                       expired: _expired(request),
                       decisionAllowed: _canDecide(request),
                       processing: _processingIds.contains(request.requestId),
-                      interactionLocked: _processingIds.isNotEmpty,
+                      interactionLocked:
+                          _processingIds.isNotEmpty || _loadingMore,
                       showOnProfile: _profileChoices.contains(
                         _identityOf(request),
                       ),
                       onShowOnProfileChanged: (value) =>
                           _setShowOnProfile(request, value, generation),
-                      onAccept: () => _decide(request, accept: true),
-                      onReject: () => _decide(request, accept: false),
+                      onAccept: () => _decide(
+                        request,
+                        accept: true,
+                        generation: generation,
+                      ),
+                      onReject: () => _decide(
+                        request,
+                        accept: false,
+                        generation: generation,
+                      ),
                     );
                   },
                 ),
@@ -732,6 +778,7 @@ class _EventPerformerRequestsScreenState
                   child: _LoadMoreFooter(
                     loading: _loadingMore,
                     hasNext: _hasNext || _reloadRequired,
+                    atPageLimit: _atPageLimit && !_reloadRequired,
                     errorText: _loadMoreErrorText,
                     onLoadMore: _loadMore,
                   ),
@@ -906,18 +953,21 @@ class _ErrorState extends StatelessWidget {
 class _LoadMoreFooter extends StatelessWidget {
   final bool loading;
   final bool hasNext;
+  final bool atPageLimit;
   final String? errorText;
   final Future<void> Function() onLoadMore;
 
   const _LoadMoreFooter({
     required this.loading,
     required this.hasNext,
+    this.atPageLimit = false,
     required this.errorText,
     required this.onLoadMore,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (atPageLimit) return const _PageLimitNotice();
     if (loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 18),
@@ -958,4 +1008,18 @@ class _LoadMoreFooter extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PageLimitNotice extends StatelessWidget {
+  const _PageLimitNotice();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+    child: Text(
+      'Bu listenin görüntüleme sınırına ulaştın.',
+      key: Key('event-invitation-page-limit'),
+      textAlign: TextAlign.center,
+    ),
+  );
 }

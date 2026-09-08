@@ -114,7 +114,9 @@ class EngagementRepositoryImpl implements EngagementRepository {
   }) async {
     try {
       final response = await _apiClient.get<CommentPage>(
-        EngagementEndpoints.listComments(targetType, targetId),
+        targetType == 'EVENT'
+            ? '/api/v1/events/${Uri.encodeComponent(targetId)}/comments'
+            : EngagementEndpoints.listComments(targetType, targetId),
         query: {'page': page, 'size': size, 'sort': 'createdAt,desc'},
         decoder: (json) => _commentPageFromJson(json),
       );
@@ -132,10 +134,16 @@ class EngagementRepositoryImpl implements EngagementRepository {
   }
 
   @override
-  Future<Result<List<CommentItem>>> listReplies(String commentId) async {
+  Future<Result<List<CommentItem>>> listReplies(
+    String commentId, {
+    String? eventId,
+  }) async {
     try {
       final response = await _apiClient.get<List<CommentItem>>(
-        '/api/v1/comments/replies/$commentId',
+        eventId == null
+            ? EngagementEndpoints.listReplies(commentId)
+            : '/api/v1/events/${Uri.encodeComponent(eventId)}/comments/'
+                  '${Uri.encodeComponent(commentId)}/replies',
         decoder: (json) {
           if (json is List) {
             return json

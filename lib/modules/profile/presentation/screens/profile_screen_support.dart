@@ -88,10 +88,12 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   required String ownerId,
   String? profilePhotoTargetId,
   int? profilePhotoExpectedVersion,
-  String cropTitle = 'Profil fotografini kirp',
+  bool Function()? isCurrent,
+  String cropTitle = 'Profil fotoğrafını kırp',
   Color cropToolbarColor = const Color(0xFF0B1321),
   Color cropAccentColor = const Color(0xFFF47C7C),
 }) async {
+  if (isCurrent?.call() == false) return null;
   final cropped = await pickAndCropProfileImage(
     imagePicker: imagePicker,
     cropTitle: cropTitle,
@@ -102,7 +104,7 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
     cropToolbarColor: cropToolbarColor,
     cropAccentColor: cropAccentColor,
   );
-  if (cropped == null) return null;
+  if (cropped == null || isCurrent?.call() == false) return null;
 
   final repository = serviceLocator<ProfileMediaUploadRepository>();
   final fileName = fileNameFromPath(
@@ -111,6 +113,7 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
   );
   final mimeType = inferImageMimeType(fileName);
   final source = await createProfileUploadSource(filePath: cropped.path);
+  if (isCurrent?.call() == false) return null;
 
   final result = await repository.uploadAsset(
     source: source,
@@ -126,13 +129,13 @@ Future<ProfilePhotoUploadResult?> pickCropAndUploadProfilePhoto({
     ),
   );
   if (!result.isSuccess || result.data == null) {
-    throw Exception(result.error?.message ?? 'Medya yuklenemedi');
+    throw Exception(result.error?.message ?? 'Medya yüklenemedi');
   }
   final completed = result.data!;
 
   final assetId = completed.uuid.trim();
   if (assetId.isEmpty) {
-    throw Exception('Yukleme sonrasi assetId alinmadi');
+    throw Exception('Yükleme sonrasında medya kimliği alınamadı');
   }
 
   return ProfilePhotoUploadResult(
@@ -184,7 +187,7 @@ Future<CroppedFile?> pickAndCropProfileImage({
       ],
     );
   } on PlatformException catch (error) {
-    throw Exception('Kirpma acilamadi: ${error.message ?? error.code}');
+    throw Exception('Kırpma açılamadı: ${error.message ?? error.code}');
   }
   return cropped;
 }
@@ -203,7 +206,7 @@ Future<ProfileUploadedMedia> uploadProfileMediaAsset({
   ProfileUploadCancellation? cancellation,
 }) async {
   if (source.sizeBytes <= 0) {
-    throw Exception('Yuklenecek dosya bos olamaz');
+    throw Exception('Yüklenecek dosya boş olamaz');
   }
 
   final repository = serviceLocator<ProfileMediaUploadRepository>();
@@ -220,7 +223,7 @@ Future<ProfileUploadedMedia> uploadProfileMediaAsset({
     cancellation: cancellation,
   );
   if (!result.isSuccess || result.data == null) {
-    throw Exception(result.error?.message ?? 'Medya yuklenemedi');
+    throw Exception(result.error?.message ?? 'Medya yüklenemedi');
   }
   return result.data!;
 }
@@ -235,7 +238,7 @@ Future<ProfileUploadSource> createProfileUploadSource({
   if (normalizedPath.isNotEmpty) {
     final file = File(normalizedPath);
     final length = await file.length();
-    if (length <= 0) throw Exception('Yuklenecek dosya bos olamaz');
+    if (length <= 0) throw Exception('Yüklenecek dosya boş olamaz');
     return ProfileUploadSource(sizeBytes: length, openRead: file.openRead);
   }
 
@@ -256,7 +259,7 @@ Future<ProfileUploadSource> createProfileUploadSource({
   if (bytes != null && bytes.isNotEmpty) {
     return ProfileUploadSource.bytes(bytes);
   }
-  throw Exception('Yuklenecek dosya okunamadi');
+  throw Exception('Yüklenecek dosya okunamadı');
 }
 
 class ProfileScreenLoadCoordinator {

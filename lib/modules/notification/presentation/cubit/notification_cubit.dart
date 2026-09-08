@@ -40,7 +40,13 @@ class NotificationCubit extends Cubit<NotificationState> {
   int _realtimeRevision = 0;
   int _badgeRevision = 0;
   final Map<String, int> _realtimeRevisionById = <String, int>{};
+  final Map<String, int> _localReadRevisionById = <String, int>{};
   final Set<String> _pendingDeletionIds = <String>{};
+  final Set<String> _deletedNotificationIds = <String>{};
+  // A clear-all response has no server deletion watermark. Afterwards, REST
+  // must verify unknown realtime IDs: a delayed pre-clear frame may be deleted.
+  bool _verifyRealtimeAfterClear = false;
+  Object? _clearOperation;
 
   Future<void> ensureStarted() async {
     final stopInFlight = _stopInFlight;
@@ -70,7 +76,11 @@ class NotificationCubit extends Cubit<NotificationState> {
       if (_startedUserId != null) _sessionRevision += 1;
       _startedUserId = null;
       _realtimeRevisionById.clear();
+      _localReadRevisionById.clear();
       _pendingDeletionIds.clear();
+      _deletedNotificationIds.clear();
+      _verifyRealtimeAfterClear = false;
+      _clearOperation = null;
       emit(const NotificationState.initial().copyWith(initialized: true));
       return;
     }
@@ -79,7 +89,11 @@ class NotificationCubit extends Cubit<NotificationState> {
     _sessionRevision += 1;
     _startedUserId = currentUserId;
     _realtimeRevisionById.clear();
+    _localReadRevisionById.clear();
     _pendingDeletionIds.clear();
+    _deletedNotificationIds.clear();
+    _verifyRealtimeAfterClear = false;
+    _clearOperation = null;
     if (switchingUser) emit(const NotificationState.initial());
 
     await _notificationSubscription?.cancel();
@@ -104,6 +118,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     });
     _badgeSubscription = _realtimeClient.badgeStream.listen((count) {
       if (_isCurrentSession(generation, subscriptionSessionRevision)) {
+        if (_verifyRealtimeAfterClear) {
+          _scheduleBadgeReconciliation(generation, subscriptionSessionRevision);
+          return;
+        }
         final shouldReconcile = state.initialized;
         _badgeRevision += 1;
         emit(state.copyWith(unreadCount: count.clamp(0, 999999)));
@@ -272,12 +290,18 @@ class NotificationCubit extends Cubit<NotificationState> {
     final realtimeItems = state.items.where(
       (item) => (_realtimeRevisionById[item.id] ?? 0) > realtimeRevisionAtStart,
     );
+    final pageItems = pageResult.data!.items.map(
+      (item) => (_localReadRevisionById[item.id] ?? 0) > realtimeRevisionAtStart
+          ? item.copyWith(read: true)
+          : item,
+    );
     final mergedItems = _mergeById(<AppNotification>[
       ...realtimeItems,
-      ...pageResult.data!.items,
-    ]).where((item) => !_pendingDeletionIds.contains(item.id)).toList();
+      ...pageItems,
+    ]).where((item) => !_isDeleted(item.id)).toList();
     final mergedIds = mergedItems.map((item) => item.id).toSet();
     _realtimeRevisionById.removeWhere((id, _) => !mergedIds.contains(id));
+    _localReadRevisionById.removeWhere((id, _) => !mergedIds.contains(id));
 
     final badgeChangedDuringRefresh = _badgeRevision > badgeRevisionAtStart;
     var unreadCount = badgeChangedDuringRefresh
@@ -302,7 +326,9 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   Future<void> loadMore() async {
-    if (!state.hasNext || state.status == NotificationStatus.loadingMore) {
+    if (!state.hasNext ||
+        state.status == NotificationStatus.loading ||
+        state.status == NotificationStatus.loadingMore) {
       return;
     }
     final generation = _lifecycleGeneration;
@@ -329,6 +355,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     // was already loaded (or repeated inside the response).
     final seenIds = state.items.map((item) => item.id).toSet();
     final uniqueNextItems = result.data!.items
+        .where((item) => !_isDeleted(item.id))
         .where((item) => seenIds.add(item.id))
         .toList(growable: false);
     emit(
@@ -362,12 +389,17 @@ class NotificationCubit extends Cubit<NotificationState> {
       return item.copyWith(read: true);
     }).toList();
     if (!changed) return;
+    // Treat local read acknowledgements like newer realtime state, so a REST
+    // refresh started before the acknowledgement cannot make them unread again.
+    _localReadRevisionById[notification.id] = ++_realtimeRevision;
+    final unreadCount = _badgeRevision == badgeRevision
+        ? (state.unreadCount - 1).clamp(0, 999999)
+        : state.unreadCount;
+    _badgeRevision++;
     emit(
       state.copyWith(
         items: updatedItems,
-        unreadCount: _badgeRevision == badgeRevision
-            ? (state.unreadCount - 1).clamp(0, 999999)
-            : state.unreadCount,
+        unreadCount: unreadCount,
         clearError: true,
       ),
     );
@@ -387,12 +419,14 @@ class NotificationCubit extends Cubit<NotificationState> {
           isDmNotification &&
           itemConversationId == normalizedConversationId) {
         changedCount += 1;
+        _localReadRevisionById[item.id] = ++_realtimeRevision;
         return item.copyWith(read: true);
       }
       return item;
     }).toList();
 
     if (changedCount == 0) return;
+    _badgeRevision++;
     emit(
       state.copyWith(
         items: updatedItems,
@@ -417,11 +451,11 @@ class NotificationCubit extends Cubit<NotificationState> {
   Future<void> deleteNotification(AppNotification notification) async {
     final generation = _lifecycleGeneration;
     final sessionRevision = _sessionRevision;
-    final badgeRevision = _badgeRevision;
     final currentIndex = state.items.indexWhere(
       (item) => item.id == notification.id,
     );
     if (currentIndex < 0 || !_pendingDeletionIds.add(notification.id)) return;
+    final badgeRevision = ++_badgeRevision;
     final currentNotification = state.items[currentIndex];
     final realtimeRevision = _realtimeRevisionById.remove(notification.id);
     emit(
@@ -439,6 +473,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (!_isCurrentSession(generation, sessionRevision)) return;
     if (!result.isSuccess) {
       _pendingDeletionIds.remove(notification.id);
+      if (_deletedNotificationIds.contains(notification.id)) return;
       if (realtimeRevision != null) {
         _realtimeRevisionById[notification.id] = realtimeRevision;
       }
@@ -462,20 +497,46 @@ class NotificationCubit extends Cubit<NotificationState> {
       return;
     }
     _pendingDeletionIds.remove(notification.id);
+    // Keep a session-scoped tombstone: a page that was already in flight may
+    // still contain the successfully deleted notification.
+    _deletedNotificationIds.add(notification.id);
     _realtimeRevisionById.remove(notification.id);
+    _localReadRevisionById.remove(notification.id);
   }
 
   Future<void> clearAllNotifications() async {
-    if (state.items.isEmpty) return;
+    if (state.items.isEmpty || _clearOperation != null) return;
     final generation = _lifecycleGeneration;
     final sessionRevision = _sessionRevision;
-    final result = await _repository.clearAllNotifications();
-    if (!_isCurrentSession(generation, sessionRevision)) return;
-    if (!result.isSuccess) {
-      emit(state.copyWith(errorMessage: result.error?.message));
-      return;
+    final operation = Object();
+    _clearOperation = operation;
+    final knownIds = {
+      ...state.items.map((item) => item.id),
+      ..._pendingDeletionIds,
+    };
+    try {
+      final result = await _repository.clearAllNotifications();
+      if (!_isCurrentSession(generation, sessionRevision)) return;
+      if (!result.isSuccess) {
+        emit(state.copyWith(errorMessage: result.error?.message));
+        return;
+      }
+      _deletedNotificationIds.addAll(knownIds);
+      _verifyRealtimeAfterClear = true;
+      _realtimeRevisionById.clear();
+      _localReadRevisionById.clear();
+      _badgeRevision++;
+      emit(
+        state.copyWith(
+          items: state.items.where((item) => !_isDeleted(item.id)).toList(),
+          unreadCount: 0,
+          clearError: true,
+        ),
+      );
+      await _refresh(generation, sessionRevision: sessionRevision);
+    } finally {
+      if (identical(_clearOperation, operation)) _clearOperation = null;
     }
-    await _refresh(generation, sessionRevision: sessionRevision);
   }
 
   Future<void> stop() {
@@ -505,13 +566,20 @@ class NotificationCubit extends Cubit<NotificationState> {
     _connectionSubscription = null;
     await _realtimeClient.disconnect();
     _realtimeRevisionById.clear();
+    _localReadRevisionById.clear();
     _pendingDeletionIds.clear();
+    _deletedNotificationIds.clear();
+    _verifyRealtimeAfterClear = false;
+    _clearOperation = null;
     if (_isCurrent(generation)) emit(const NotificationState.initial());
   }
 
   bool _isCurrent(int generation) {
     return !isClosed && generation == _lifecycleGeneration;
   }
+
+  bool _isDeleted(String id) =>
+      _pendingDeletionIds.contains(id) || _deletedNotificationIds.contains(id);
 
   bool _isCurrentSession(int generation, int sessionRevision) {
     return _isCurrent(generation) && sessionRevision == _sessionRevision;
@@ -533,7 +601,11 @@ class NotificationCubit extends Cubit<NotificationState> {
   void _onRealtimeNotification(AppNotification notification) {
     final recipientId = notification.recipientId.trim();
     if (_startedUserId == null || recipientId != _startedUserId) return;
-    if (_pendingDeletionIds.contains(notification.id)) return;
+    if (_isDeleted(notification.id)) return;
+    if (_verifyRealtimeAfterClear) {
+      unawaited(_reconcileAfterRealtimeGap(_lifecycleGeneration));
+      return;
+    }
     _realtimeRevision += 1;
     _realtimeRevisionById[notification.id] = _realtimeRevision;
     final existingIndex = state.items.indexWhere(

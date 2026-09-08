@@ -20,13 +20,21 @@ extension _VenueProfileViewStateProfileActions
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil fotografi guncellendi')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
+          content: const Text('Profil fotoğrafı güncellendi'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Fotograf yuklenemedi: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text('Fotoğraf yüklenemedi: $e'),
+        ),
+      );
     } finally {
       if (mounted) {
         _updateState(() => _photoUploading = false);
@@ -36,8 +44,12 @@ extension _VenueProfileViewStateProfileActions
 
   void _onEditProfilePressed() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Asagidaki alanlardan profilini duzenleyebilirsin.'),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.info,
+        content: const Text(
+          'Aşağıdaki alanlardan profilini düzenleyebilirsin.',
+        ),
       ),
     );
   }

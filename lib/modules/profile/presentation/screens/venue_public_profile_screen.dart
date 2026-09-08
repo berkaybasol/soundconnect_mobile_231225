@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'venue_artists_screen.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:audio_service/audio_service.dart';
@@ -18,6 +20,7 @@ import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_media.dart';
@@ -33,6 +36,7 @@ import '../cubit/venue_profile_state.dart';
 import 'media_detail_screen.dart';
 import 'profile_audio_transport.dart';
 import 'profile_common_widgets.dart';
+import 'profile_carousels.dart';
 import 'profile_count_row.dart';
 import 'profile_photo_gallery_tab.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
@@ -252,6 +256,12 @@ class _MusicianPublicProfileViewState
                   : followState.followingCount;
               final actionState = context.watch<FollowActionCubit>().state;
               return _MusicianPublicProfileContent(
+                onViewArtists: () => openVenueArtists(
+                  context,
+                  venueId: publicProfile.venueId,
+                  venueName: publicProfile.venueName,
+                  venueImageUrl: publicProfile.profilePictureUrl,
+                ),
                 profile: profile,
                 galleryOwnerId: publicProfile.venueProfileId,
                 media: media,

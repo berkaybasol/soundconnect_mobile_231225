@@ -15,6 +15,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final bool spotifyLoading;
   final List<WeeklyCalendarEvent> weeklyEvents;
   final Future<void> Function() onRefresh;
+  final VoidCallback onViewArtists;
 
   _MusicianPublicProfileContent({
     required this.profile,
@@ -31,6 +32,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.spotifyLoading,
     required this.weeklyEvents,
     required this.onRefresh,
+    required this.onViewArtists,
   });
 
   List<VenueActiveMusician> _resolveVenues() {
@@ -82,11 +84,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: GradientText(
-            text: 'SoundConnect',
-            gradient: LinearGradient(colors: AppColors.brandGradient),
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
+          title: const ProfileBrandTitle(),
           leading: BackButton(),
           centerTitle: true,
         ),
@@ -150,10 +148,14 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 18),
-                _SectionHeader(title: 'Haftalik Takvim'),
+                _SectionHeader(title: 'Haftalık Takvim'),
                 WeeklyEventCarousel(items: weeklyEvents, compactTitle: true),
                 SizedBox(height: 12),
-                _SectionHeader(title: 'Aktif Sanatcilar', actionLabel: 'Tumu'),
+                _SectionHeader(
+                  title: 'Aktif Sanatçılar',
+                  actionLabel: 'Tümü',
+                  onAction: onViewArtists,
+                ),
                 _ActiveMusicianCarousel(items: _resolveVenues()),
                 SizedBox(height: 12),
                 _MediaTabs(),

@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/event_performer_identity.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/event_poster_fallback.dart';
+import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../auth/presentation/widgets/registration_options_sheet.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/domain/entities/comment_item.dart';
@@ -26,12 +30,12 @@ import '../share/event_share_service.dart';
 import '../share/event_share_sheet.dart';
 import 'band_profile_screen.dart';
 import 'profile_route_args.dart';
-import 'venue_public_profile_screen.dart' as venue_public;
 
 part 'weekly_event_detail_screen_sections.dart';
 part 'weekly_event_detail_screen_actions.dart';
 part 'weekly_event_detail_screen_meta_widgets.dart';
 part 'weekly_event_detail_screen_comment_tile.dart';
+part 'weekly_event_detail_screen_comment_access.dart';
 part 'weekly_event_detail_screen_verification.dart';
 
 class WeeklyCalendarEvent {
@@ -131,6 +135,65 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   final Map<String, List<CommentItem>> _repliesByCommentId =
       <String, List<CommentItem>>{};
   final Set<String> _loadedReplyParents = <String>{};
+  AuthSessionManager? _commentSessionManager;
+  AuthSession? _commentSession;
+  int _commentIdentityRevision = 0;
+  bool _openingCommentAuth = false;
+  bool _showingReply = false;
+  ModalRoute<dynamic>? _replyRoute;
+
+  bool get _canComment =>
+      _commentSessionManager?.session.isAuthenticated == true;
+
+  bool _isCurrentCommentSession(AuthSession? expected) =>
+      mounted &&
+      expected?.isAuthenticated == true &&
+      _canComment &&
+      expected!.token == _commentSessionManager!.session.token &&
+      expected.userId == _commentSessionManager!.session.userId;
+
+  void _onCommentSessionChanged() {
+    if (!mounted) return;
+    final next = _commentSessionManager?.session;
+    final identityChanged =
+        next?.token != _commentSession?.token ||
+        next?.userId != _commentSession?.userId;
+    setState(() {
+      _commentSession = next;
+      if (identityChanged) {
+        _commentIdentityRevision++;
+        _commentController.clear();
+        _repliesByCommentId.clear();
+        _loadedReplyParents.clear();
+      }
+    });
+    if (identityChanged) {
+      final replyRoute = _replyRoute;
+      if (replyRoute?.isActive == true) {
+        replyRoute!.navigator?.removeRoute(replyRoute);
+      }
+      _loadComments(clearExisting: true);
+    }
+  }
+
+  Future<void> _openCommentAuth(String route) async {
+    if (!mounted ||
+        _canComment ||
+        _openingCommentAuth ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    setState(() => _openingCommentAuth = true);
+    try {
+      if (route == AppRoutes.register) {
+        await openRegistrationOptions(context);
+      } else {
+        await Navigator.of(context).pushNamed(route);
+      }
+    } finally {
+      if (mounted) setState(() => _openingCommentAuth = false);
+    }
+  }
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -140,11 +203,17 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   @override
   void initState() {
     super.initState();
+    if (serviceLocator.isRegistered<AuthSessionManager>()) {
+      _commentSessionManager = serviceLocator<AuthSessionManager>();
+      _commentSession = _commentSessionManager!.session;
+      _commentSessionManager!.addListener(_onCommentSessionChanged);
+    }
     _loadProfileContext();
   }
 
   @override
   void dispose() {
+    _commentSessionManager?.removeListener(_onCommentSessionChanged);
     _commentCubit.close();
     _commentController.dispose();
     super.dispose();
@@ -153,6 +222,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final event = widget.event;
+    final commentSession = _commentSessionManager?.session;
     final performerName = _eventPerformerDisplayName(event.artistName);
     final location = [event.city, event.district, event.neighborhood]
         .map((value) => value.trim())
@@ -180,64 +250,39 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          SizedBox(
-                            width: double.infinity,
-                            height:
-                                (MediaQuery.textScalerOf(context).scale(12) *
-                                            1.4 +
-                                        16)
-                                    .clamp(48.0, double.infinity)
-                                    .toDouble(),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  flex: 45,
-                                  child: _MetaChip(
-                                    key: const Key(
-                                      'event-performer-profile-chip',
-                                    ),
-                                    singleLine: true,
-                                    centerContent:
-                                        !event.hasLinkedPerformerProfile &&
-                                        !_hasNamedEventPerformer(performerName),
-                                    icon: Icons.music_note_outlined,
-                                    text: performerName.isEmpty
-                                        ? 'Sanatçı'
-                                        : '${event.hasLinkedPerformerProfile ? '@' : ''}$performerName',
-                                    imageUrl:
-                                        _bandProfile?.profilePictureUrl ??
-                                        _artistProfile?.profilePicture,
-                                    onTap: event.hasLinkedPerformerProfile
-                                        ? _openArtistProfile
-                                        : null,
-                                    onInfoTap:
-                                        !event.hasLinkedPerformerProfile &&
-                                            _hasNamedEventPerformer(
-                                              performerName,
-                                            )
-                                        ? _showPerformerVerificationInfo
-                                        : null,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 55,
-                                  child: _MetaChip(
-                                    key: const Key('event-venue-profile-chip'),
-                                    singleLine: true,
-                                    icon: Icons.storefront_outlined,
-                                    text: event.venueName.trim().isEmpty
-                                        ? 'Mekân'
-                                        : '@${event.venueName.trim()}',
-                                    imageUrl: _venueProfile?.profilePictureUrl,
-                                    onTap:
-                                        event.venueId?.trim().isNotEmpty == true
-                                        ? _openVenueProfile
-                                        : null,
-                                  ),
-                                ),
-                              ],
+                          _ProfileIdentityRow(
+                            performer: _MetaChip(
+                              key: const Key('event-performer-profile-chip'),
+                              singleLine: true,
+                              centerContent: true,
+                              icon: Icons.music_note_outlined,
+                              text: performerName.isEmpty
+                                  ? 'Sanatçı'
+                                  : '${event.hasLinkedPerformerProfile ? '@' : ''}$performerName',
+                              imageUrl:
+                                  _bandProfile?.profilePictureUrl ??
+                                  _artistProfile?.profilePicture,
+                              onTap: event.hasLinkedPerformerProfile
+                                  ? _openArtistProfile
+                                  : null,
+                              onInfoTap:
+                                  !event.hasLinkedPerformerProfile &&
+                                      _hasNamedEventPerformer(performerName)
+                                  ? _showPerformerVerificationInfo
+                                  : null,
+                            ),
+                            venue: _MetaChip(
+                              key: const Key('event-venue-profile-chip'),
+                              singleLine: true,
+                              centerContent: true,
+                              icon: Icons.storefront_outlined,
+                              text: event.venueName.trim().isEmpty
+                                  ? 'Mekân'
+                                  : '@${event.venueName.trim()}',
+                              imageUrl: _venueProfile?.profilePictureUrl,
+                              onTap: event.venueId?.trim().isNotEmpty == true
+                                  ? _openVenueProfile
+                                  : null,
                             ),
                           ),
                           _MetaChip(
@@ -306,10 +351,26 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                           );
                         }
                         if (state.comments.isEmpty) {
+                          if (state.error != null) {
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  const Text('Yorumlar yüklenemedi.'),
+                                  TextButton(
+                                    onPressed: _loadComments,
+                                    child: const Text('Tekrar dene'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
                           return Padding(
                             padding: EdgeInsets.fromLTRB(16, 12, 16, 18),
                             child: Text(
-                              'Henüz yorum yok. İlk yorumu sen yaz.',
+                              _canComment
+                                  ? 'Henüz yorum yok. İlk yorumu sen yaz.'
+                                  : 'Henüz yorum yok.',
                               style: TextStyle(
                                 color: Theme.of(
                                   context,
@@ -333,7 +394,12 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                                 timeLabel: _timeLabel(comment.createdAt),
                                 replies: replies,
                                 replyTimeLabelBuilder: _timeLabel,
-                                onReplyTap: () => _showReplySheet(index),
+                                onReplyTap: _canComment
+                                    ? () => _showReplySheet(
+                                        comment,
+                                        commentSession,
+                                      )
+                                    : null,
                               ),
                             );
                           }),
@@ -355,86 +421,102 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentController,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _addComment(),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Yorum yaz...',
-                        hintStyle: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.mode_comment_outlined,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(
-                            color: Theme.of(context).dividerColor,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(
-                            color: Theme.of(context).dividerColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  BlocBuilder<CommentThreadCubit, CommentThreadState>(
-                    bloc: _commentCubit,
-                    builder: (context, state) => Material(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(14),
-                      child: InkWell(
-                        onTap: state.submitting ? null : _addComment,
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          width: 46,
-                          height: 46,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Theme.of(context).dividerColor,
+              child: !_canComment
+                  ? _EventCommentGuestPrompt(
+                      onLogin: _openingCommentAuth
+                          ? null
+                          : () => _openCommentAuth(AppRoutes.login),
+                      onRegister: _openingCommentAuth
+                          ? null
+                          : () => _openCommentAuth(AppRoutes.register),
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const Key('event-comment-input'),
+                            controller: _commentController,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _addComment(commentSession),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Yorum yaz...',
+                              hintStyle: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.mode_comment_outlined,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                              filled: true,
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).dividerColor,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).dividerColor,
+                                ),
+                              ),
                             ),
                           ),
-                          child: state.submitting
-                              ? Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.send_rounded,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
                         ),
-                      ),
+                        SizedBox(width: 8),
+                        BlocBuilder<CommentThreadCubit, CommentThreadState>(
+                          bloc: _commentCubit,
+                          builder: (context, state) => Material(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              onTap: state.submitting
+                                  ? null
+                                  : () => _addComment(commentSession),
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                width: 46,
+                                height: 46,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: Theme.of(context).dividerColor,
+                                  ),
+                                ),
+                                child: state.submitting
+                                    ? Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.send_rounded,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

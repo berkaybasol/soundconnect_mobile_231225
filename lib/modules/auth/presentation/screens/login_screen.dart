@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_route_guard.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -49,7 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       messenger.removeCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text(notice)));
+      messenger.showSnackBar(
+        appSnackBar(context, tone: AppSnackBarTone.info, content: Text(notice)),
+      );
     });
   }
 
@@ -127,8 +130,10 @@ class _LoginScreenState extends State<LoginScreen> {
         messenger
           ..removeCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(
-              content: Text(
+            appSnackBar(
+              messenger.context,
+              tone: AppSnackBarTone.warning,
+              content: const Text(
                 'Bu ilanı müzisyen, mekan veya stüdyo hesabıyla görüntüleyebilirsin.',
               ),
             ),
@@ -179,9 +184,13 @@ class _LoginScreenState extends State<LoginScreen> {
           final message =
               state.error?.message ??
               'Giriş yapılamadı. Bilgilerini kontrol edip tekrar deneyebilirsin.';
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
+              content: Text(message),
+            ),
+          );
         }
       },
       builder: (context, state) {
@@ -285,22 +294,30 @@ class _LoginScreenState extends State<LoginScreen> {
                           final password = _passwordController.text;
                           if (username.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('kullanıcı adı boş olamaz'),
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text('kullanıcı adı boş olamaz'),
                               ),
                             );
                             return;
                           }
                           if (PasswordPolicy.isBlank(password)) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('şifre boş olamaz')),
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text('şifre boş olamaz'),
+                              ),
                             );
                             return;
                           }
                           if (PasswordPolicy.exceedsBcryptLimit(password)) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
+                              appSnackBar(
+                                context,
+                                tone: AppSnackBarTone.warning,
+                                content: const Text(
                                   'Şifre UTF-8 olarak en fazla 72 bayt olmalı',
                                 ),
                               ),

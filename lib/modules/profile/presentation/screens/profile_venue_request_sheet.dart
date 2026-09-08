@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/entities/profile_venue_models.dart';
 import 'profile_venue_support.dart';
 
@@ -22,9 +23,9 @@ Future<VenueRequestPayload?> showVenueRequestBottomSheet({
   return showModalBottomSheet<VenueRequestPayload>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.navBlueDeep,
+    backgroundColor: Theme.of(context).colorScheme.surface,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (_) => _VenueRequestSheet(
       allVenues: allVenues,
@@ -75,6 +76,10 @@ class _VenueRequestSheetState extends State<_VenueRequestSheet> {
   List<VenueLookupOption> _neighborhoodOptions = [];
   bool _loadingDistricts = false;
   bool _loadingNeighborhoods = false;
+  int _districtGeneration = 0;
+  int _neighborhoodGeneration = 0;
+  bool _submitting = false;
+  String? _lookupError;
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -102,29 +107,40 @@ class _VenueRequestSheetState extends State<_VenueRequestSheet> {
               MediaQuery.of(context).size.height *
               (_filtersExpanded ? 0.93 : 0.84),
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
                   child: Text(
-                    'Caldigin Mekanlari Duzenle',
+                    'Mekan seç',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
                     ),
                   ),
                 ),
-                SizedBox(height: 12),
+                SizedBox(height: 20),
                 _buildSearchInput(),
                 SizedBox(height: 10),
                 _buildFilterToggle(),
                 if (_filtersExpanded) ...[
                   SizedBox(height: 8),
-                  _buildFiltersPanel(),
+                  Flexible(
+                    child: SingleChildScrollView(child: _buildFiltersPanel()),
+                  ),
+                  if (_lookupError != null)
+                    Text(
+                      _lookupError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                 ],
                 SizedBox(height: 10),
                 Expanded(child: _buildVenueList(filteredVenues)),
+                SizedBox(height: 16),
                 _buildFooterButtons(),
               ],
             ),

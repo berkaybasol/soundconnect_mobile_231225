@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -170,7 +171,11 @@ Future<String?> promptForSocialLink(
   final normalized = normalizeProfileHttpUrl(trimmed, assumeHttps: true);
   if (normalized == null && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Geçerli bir HTTP(S) bağlantısı gir.')),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.warning,
+        content: const Text('Geçerli bir HTTP(S) bağlantısı gir.'),
+      ),
     );
   }
   return normalized;
@@ -179,17 +184,25 @@ Future<String?> promptForSocialLink(
 Future<void> _launchProfileSocialUrl(BuildContext context, String? url) async {
   final uri = profileHttpUri(url);
   if (uri == null) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Gecersiz link')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.warning,
+        content: Text('Geçersiz bağlantı'),
+      ),
+    );
     return;
   }
 
   final success = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!success && context.mounted) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Link acilamadi')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.error,
+        content: Text('Link açılamadı'),
+      ),
+    );
   }
 }
 

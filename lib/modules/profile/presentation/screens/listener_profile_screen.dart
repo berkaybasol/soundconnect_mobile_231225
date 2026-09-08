@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -10,7 +11,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
-import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../domain/entities/listener_profile.dart';
 import '../../domain/entities/listener_visibility_mode.dart';
@@ -93,7 +94,13 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
         if (message.isEmpty) return;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(message)));
+          ..showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
+              content: Text(message),
+            ),
+          );
       },
       builder: (context, state) {
         final profile = state.profile;
@@ -379,14 +386,24 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(content: Text('$label henüz kullanıma hazır değil.')),
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.info,
+          content: Text('$label henüz kullanıma hazır değil.'),
+        ),
       );
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text(message),
+        ),
+      );
   }
 }
 
@@ -693,11 +710,7 @@ PreferredSizeWidget _listenerOwnerAppBar(
   required ProfileQuickMenuAction onSettings,
 }) {
   return AppBar(
-    title: GradientText(
-      text: 'SoundConnect',
-      gradient: LinearGradient(colors: AppColors.brandGradient),
-      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-    ),
+    title: const ProfileBrandTitle(),
     centerTitle: true,
     actions: [
       IconButton(

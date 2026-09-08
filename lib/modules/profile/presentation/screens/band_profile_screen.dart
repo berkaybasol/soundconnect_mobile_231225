@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,17 +15,18 @@ import '../../../../core/network/network_config.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
-import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/token_store.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/entities/band_member_summary.dart';
 import '../../domain/entities/band_profile.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/profile_venue_models.dart';
-import '../../domain/musician_profile_repository.dart';
-import '../../domain/musician_search_repository.dart';
+import '../../domain/musician_calendar_repository.dart';
+import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../dm/presentation/band_representative_conversation.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
@@ -33,9 +35,12 @@ import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../spotify/domain/spotify_repository.dart';
 import '../../domain/band_representative_contact_policy.dart';
 import '../cubit/profile_media_cubit.dart';
+import '../navigation/band_member_profile_resolver.dart';
 import 'band_management_panel_screen.dart';
 import 'band_profile_calendar_slot.dart';
 import 'profile_common_widgets.dart';
+import 'profile_carousels.dart';
+import 'profile_mini_card.dart';
 import 'profile_count_row.dart';
 import 'profile_audio_transport.dart';
 import 'profile_media_tabs.dart';
@@ -44,7 +49,6 @@ import 'profile_screen_support.dart';
 import 'profile_section_support.dart';
 import 'profile_social_support.dart';
 import 'profile_track_upload_support.dart';
-import 'profile_route_args.dart';
 
 part 'band_profile_screen_header_sections.dart';
 part 'band_profile_screen_audio_tab.dart';
@@ -52,6 +56,7 @@ part 'band_profile_screen_audio_tab_methods.dart';
 part 'band_profile_screen_audio_tab_spotify_dialogs.dart';
 part 'band_profile_screen_audio_tab_spotify_picker.dart';
 part 'band_profile_screen_actions.dart';
+part 'band_profile_screen_membership.dart';
 part 'band_profile_screen_social_sections.dart';
 
 enum BandProfileViewMode { auto, member, public }
@@ -93,10 +98,8 @@ class _BandProfileView extends StatefulWidget {
 class _BandProfileViewState extends State<_BandProfileView> {
   late final TokenStore _tokenStore = serviceLocator<TokenStore>();
   late final BandRepository _bandRepository = serviceLocator<BandRepository>();
-  late final MusicianProfileRepository _musicianProfileRepository =
-      serviceLocator<MusicianProfileRepository>();
-  late final MusicianSearchRepository _musicianSearchRepository =
-      serviceLocator<MusicianSearchRepository>();
+  late final BandMemberProfileResolver _memberProfileResolver =
+      BandMemberProfileResolver();
   late final ArtistVenueConnectionRepository _artistVenueRepository =
       serviceLocator<ArtistVenueConnectionRepository>();
   late final BandFollowRepository _bandFollowRepository =
@@ -112,6 +115,10 @@ class _BandProfileViewState extends State<_BandProfileView> {
   bool _photoUploading = false;
   bool _bandFollowLoading = false;
   bool _spotifyLoading = false;
+  bool _leavingBand = false;
+  bool _leaveRequestPending = false;
+  int _profileLoadGeneration = 0;
+  AuthSessionManager? _membershipSessionManager;
   String? _errorText;
   String? _uploadedProfilePhotoUrl;
   String? _bandId;
@@ -127,6 +134,38 @@ class _BandProfileViewState extends State<_BandProfileView> {
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
     setState(updater);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _membershipSessionManager =
+        serviceLocator.isRegistered<AuthSessionManager>()
+        ? serviceLocator<AuthSessionManager>()
+        : null;
+    _membershipSessionManager?.addListener(_membershipSessionChanged);
+  }
+
+  @override
+  void dispose() {
+    ++_profileLoadGeneration;
+    _membershipSessionManager?.removeListener(_membershipSessionChanged);
+    super.dispose();
+  }
+
+  void _membershipSessionChanged() {
+    if (!mounted) return;
+    ++_profileLoadGeneration;
+    _updateState(() {
+      final session = _membershipSessionManager?.session;
+      _currentUserId =
+          session != null && session.isAuthenticated && session.isActive
+          ? session.userId
+          : null;
+      _profile = null;
+      _loading = false;
+      _errorText = 'Oturum değişti. Bu sayfayı yeniden aç.';
+    });
   }
 
   @override
@@ -199,6 +238,15 @@ class _BandProfileViewState extends State<_BandProfileView> {
   }
 
   Future<void> _resolveCurrentUserId() async {
+    if (_membershipSessionManager != null) {
+      final session = _membershipSessionManager!.session;
+      _updateState(() {
+        _currentUserId = session.isAuthenticated && session.isActive
+            ? session.userId
+            : null;
+      });
+      return;
+    }
     final token = (await _tokenStore.readToken())?.trim() ?? '';
     if (token.isEmpty) {
       _updateState(() => _currentUserId = null);
@@ -247,6 +295,20 @@ class _BandProfileViewState extends State<_BandProfileView> {
   }
 
   Widget _buildBandActionButtons(BandProfile profile) {
+    if (_canLeaveBand(profile)) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: GradientOutlineButton(
+          key: const Key('band-profile-leave-action'),
+          label: 'Gruptan ayrıl',
+          leading: const Icon(Icons.logout_rounded, size: 18),
+          strokeWidth: .7,
+          horizontalPadding: 16,
+          loading: _leaveRequestPending,
+          onPressed: _leavingBand ? null : _leaveBand,
+        ),
+      );
+    }
     if (_canManageBand || _isCurrentUserActiveBandMember(profile)) {
       return SizedBox.shrink();
     }
@@ -339,7 +401,27 @@ class _BandProfileViewState extends State<_BandProfileView> {
     if (_profile == null) {
       return Scaffold(
         appBar: AppBar(title: Text('Band Profili')),
-        body: Center(child: Text(_errorText ?? 'Band profili getirilemedi.')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _errorText ?? 'Band profili getirilemedi.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                GradientOutlineButton(
+                  key: const Key('band-profile-load-retry'),
+                  label: 'Tekrar dene',
+                  onPressed: _loadBandProfile,
+                  strokeWidth: .7,
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -351,14 +433,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: GradientText(
-            text: 'SoundConnect',
-            gradient: LinearGradient(colors: AppColors.brandGradient),
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-          ),
-          centerTitle: true,
-        ),
+        appBar: AppBar(title: const ProfileBrandTitle(), centerTitle: true),
         body: RefreshIndicator(
           onRefresh: () => _loadBandProfile(showLoading: false),
           child: SingleChildScrollView(
@@ -430,7 +505,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
                                       color: AppColors.white,
                                     ),
                                     label: Text(
-                                      'Yonetim Paneli',
+                                      'Yönetim Paneli',
                                       style: TextStyle(color: AppColors.white),
                                     ),
                                   ),
@@ -443,8 +518,8 @@ class _BandProfileViewState extends State<_BandProfileView> {
                 ),
                 SizedBox(height: 18),
                 ProfileSectionHeader(
-                  title: 'Uyeler',
-                  actionLabel: profile.members.isEmpty ? null : 'Tumu',
+                  title: 'Üyeler',
+                  actionLabel: profile.members.isEmpty ? null : 'Tümü',
                 ),
                 _BandMembersRow(
                   items: profile.members,
@@ -453,8 +528,8 @@ class _BandProfileViewState extends State<_BandProfileView> {
                 ),
                 SizedBox(height: 12),
                 ProfileSectionHeader(
-                  title: 'Caldigi Mekanlar',
-                  actionLabel: 'Tumu',
+                  title: 'Çaldığı Mekanlar',
+                  actionLabel: 'Tümü',
                 ),
                 _BandVenuesRow(items: _activeVenues),
                 BandProfileCalendarSlot(
@@ -471,7 +546,13 @@ class _BandProfileViewState extends State<_BandProfileView> {
                         children: [
                           Icon(Icons.graphic_eq, size: 18),
                           SizedBox(width: 6),
-                          Text('Sesler'),
+                          Flexible(
+                            child: Text(
+                              'Sesler',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -481,7 +562,13 @@ class _BandProfileViewState extends State<_BandProfileView> {
                         children: [
                           Icon(Icons.play_circle_outline, size: 18),
                           SizedBox(width: 6),
-                          Text('Video'),
+                          Flexible(
+                            child: Text(
+                              'Video',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                     ),

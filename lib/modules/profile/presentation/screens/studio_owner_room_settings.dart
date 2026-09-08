@@ -665,7 +665,9 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
     });
     ScaffoldMessenger.of(context)
         .showSnackBar(
-          SnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.success,
             content: const Text('Fotoğraf kaldırıldı.'),
             action: SnackBarAction(
               label: 'Geri Al',
@@ -858,8 +860,8 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(context, tone: AppSnackBarTone.error, content: Text(message)),
+    );
   }
 }

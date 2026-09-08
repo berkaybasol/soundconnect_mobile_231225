@@ -4,6 +4,8 @@ class ArtistVenueApplication {
   final String bandId;
   final String venueId;
   final String musicianStageName;
+  final String? musicianDisplayName;
+  final String? musicianProfilePictureUrl;
   final String bandName;
   final String? bandProfilePictureUrl;
   final String? venueProfilePictureUrl;
@@ -19,6 +21,8 @@ class ArtistVenueApplication {
     required this.bandId,
     required this.venueId,
     required this.musicianStageName,
+    this.musicianDisplayName,
+    this.musicianProfilePictureUrl,
     required this.bandName,
     required this.bandProfilePictureUrl,
     required this.venueProfilePictureUrl,

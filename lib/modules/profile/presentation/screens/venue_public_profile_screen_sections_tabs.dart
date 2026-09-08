@@ -25,7 +25,13 @@ class _MediaTabs extends StatelessWidget {
               children: [
                 Icon(Icons.photo_library_outlined, size: 18),
                 SizedBox(width: 6),
-                Text('Fotograflar'),
+                Flexible(
+                  child: Text(
+                    'Fotoğraflar',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ),
@@ -35,7 +41,13 @@ class _MediaTabs extends StatelessWidget {
               children: [
                 Icon(Icons.play_circle_outline, size: 18),
                 SizedBox(width: 6),
-                Text('Video'),
+                Flexible(
+                  child: Text(
+                    'Video',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ),

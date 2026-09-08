@@ -2,11 +2,17 @@ part of 'band_management_panel_screen.dart';
 
 extension _BandManagementPanelScreenStateMemberPicker
     on _BandManagementPanelScreenState {
-  Future<MusicianSearchOption?> _showMusicianPicker() async {
+  Future<MusicianSearchOption?> _showMusicianPicker({
+    bool Function()? isCurrent,
+  }) async {
     final queryController = TextEditingController();
     Timer? searchDebounce;
     int lastSearchToken = 0;
     var pickerActive = true;
+    var loading = false;
+    var results = <MusicianSearchOption>[];
+    var errorText = '';
+    Future<void>? routeCompleted;
 
     try {
       return await showModalBottomSheet<MusicianSearchOption>(
@@ -17,17 +23,25 @@ extension _BandManagementPanelScreenStateMemberPicker
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         builder: (sheetContext) {
-          var loading = false;
-          var results = <MusicianSearchOption>[];
-          var errorText = '';
-          final existingUsernames = _profile.members
-              .map((member) => member.username.trim().toLowerCase())
+          routeCompleted = ModalRoute.of(
+            sheetContext,
+          )?.completed.then<void>((_) {});
+          final existingProfileIds = _profile.members
+              .where(
+                (member) => const [
+                  'ACTIVE',
+                  'PENDING',
+                ].contains(member.status.trim().toUpperCase()),
+              )
+              .map((member) => member.profileId?.trim() ?? '')
+              .where((id) => id.isNotEmpty)
               .toSet();
 
           return StatefulBuilder(
             builder: (context, setSheetState) {
               void updateSheet(VoidCallback updater) {
                 if (!pickerActive ||
+                    isCurrent?.call() == false ||
                     !context.mounted ||
                     !sheetContext.mounted) {
                   return;
@@ -37,15 +51,18 @@ extension _BandManagementPanelScreenStateMemberPicker
 
               Future<void> runSearch() async {
                 if (!pickerActive ||
+                    isCurrent?.call() == false ||
                     !context.mounted ||
                     !sheetContext.mounted) {
                   return;
                 }
 
                 final query = queryController.text.trim();
+                searchDebounce?.cancel();
                 final token = ++lastSearchToken;
                 if (query.length < 2) {
                   updateSheet(() {
+                    loading = false;
                     results = [];
                     errorText = 'En az 2 karakter yaz.';
                   });
@@ -57,8 +74,21 @@ extension _BandManagementPanelScreenStateMemberPicker
                   errorText = '';
                 });
 
-                final result = await _musicianSearchRepository.search(query);
+                final Result<List<MusicianSearchOption>> result;
+                try {
+                  result = await _musicianSearchRepository.search(query);
+                } catch (_) {
+                  if (token == lastSearchToken) {
+                    updateSheet(() {
+                      loading = false;
+                      results = [];
+                      errorText = 'Arama başarısız. Tekrar dene.';
+                    });
+                  }
+                  return;
+                }
                 if (!pickerActive ||
+                    isCurrent?.call() == false ||
                     !context.mounted ||
                     !sheetContext.mounted ||
                     token != lastSearchToken) {
@@ -100,6 +130,12 @@ extension _BandManagementPanelScreenStateMemberPicker
                             onSubmitted: (_) => runSearch(),
                             onChanged: (value) {
                               searchDebounce?.cancel();
+                              ++lastSearchToken;
+                              updateSheet(() {
+                                results = [];
+                                loading = false;
+                                errorText = '';
+                              });
                               if (value.trim().length >= 2) {
                                 searchDebounce = Timer(
                                   Duration(milliseconds: 320),
@@ -144,10 +180,8 @@ extension _BandManagementPanelScreenStateMemberPicker
                               separatorBuilder: (_, __) => SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final musician = results[index];
-                                final alreadyMember = existingUsernames
-                                    .contains(
-                                      musician.displayName.trim().toLowerCase(),
-                                    );
+                                final alreadyMember = existingProfileIds
+                                    .contains(musician.profileId.trim());
                                 return Container(
                                   padding: EdgeInsets.all(10),
                                   decoration: BoxDecoration(
@@ -248,6 +282,18 @@ extension _BandManagementPanelScreenStateMemberPicker
                                       else
                                         IconButton(
                                           onPressed: () {
+                                            if (!pickerActive ||
+                                                isCurrent?.call() == false ||
+                                                !sheetContext.mounted ||
+                                                musician.profileId
+                                                    .trim()
+                                                    .isEmpty ||
+                                                ModalRoute.of(
+                                                      sheetContext,
+                                                    )?.isCurrent !=
+                                                    true) {
+                                              return;
+                                            }
                                             pickerActive = false;
                                             searchDebounce?.cancel();
                                             Navigator.of(
@@ -278,7 +324,7 @@ extension _BandManagementPanelScreenStateMemberPicker
     } finally {
       pickerActive = false;
       searchDebounce?.cancel();
-      await Future<void>.delayed(Duration(milliseconds: 350));
+      if (routeCompleted != null) await routeCompleted;
       queryController.dispose();
     }
   }

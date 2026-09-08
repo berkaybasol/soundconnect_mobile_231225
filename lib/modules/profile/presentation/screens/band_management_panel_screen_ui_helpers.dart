@@ -15,9 +15,13 @@ extension _BandManagementPanelScreenStateUiHelpers
       onTap:
           onTap ??
           () {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(message)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              appSnackBar(
+                context,
+                tone: AppSnackBarTone.info,
+                content: Text(message),
+              ),
+            );
           },
       borderRadius: BorderRadius.circular(18),
       child: _GradientOutline(
@@ -44,6 +48,7 @@ extension _BandManagementPanelScreenStateUiHelpers
                 _GradientIcon(icon: icon, size: 24),
               SizedBox(width: 12),
               Expanded(
+                flex: 2,
                 child: Text(
                   title,
                   style: TextStyle(
@@ -54,21 +59,31 @@ extension _BandManagementPanelScreenStateUiHelpers
                 ),
               ),
               if (trailingLabel != null) ...[
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppColors.white.withValues(alpha: 0.16),
-                    ),
-                  ),
-                  child: Text(
-                    trailingLabel,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
+                Flexible(
+                  child: Tooltip(
+                    message: trailingLabel,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: AppColors.white.withValues(alpha: 0.16),
+                        ),
+                      ),
+                      child: Text(
+                        trailingLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -183,7 +198,7 @@ class _GradientIcon extends StatelessWidget {
   final IconData icon;
   final double size;
 
-  _GradientIcon({required this.icon, required this.size});
+  const _GradientIcon({required this.icon, required this.size});
 
   @override
   Widget build(BuildContext context) {

@@ -1,3 +1,4 @@
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/service_locator.dart';
@@ -132,9 +133,13 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen> {
           .map((item) => item.id == updated.id ? updated : item)
           .toList();
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Paylaşım güncellendi')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.success,
+        content: const Text('Paylaşım güncellendi'),
+      ),
+    );
   }
 
   Future<void> _deletePost(OverthinkingPost post) async {
@@ -162,13 +167,21 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen> {
       setState(() {
         _posts = _posts.where((item) => item.id != post.id).toList();
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Paylaşım silindi')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
+          content: const Text('Paylaşım silindi'),
+        ),
+      );
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.error?.message ?? 'Paylaşım silinemedi')),
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.error,
+        content: Text(result.error?.message ?? 'Paylaşım silinemedi'),
+      ),
     );
   }
 
@@ -187,14 +200,18 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen> {
             .toList();
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.success,
           content: Text(approve ? 'İstek kabul edildi' : 'İstek reddedildi'),
         ),
       );
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.error,
         content: Text(
           result.error?.message ??
               (approve ? 'İstek kabul edilemedi' : 'İstek reddedilemedi'),
@@ -633,9 +650,13 @@ class _EditPostSheetState extends State<_EditPostSheet> {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     if (title.isEmpty || content.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Başlık ve metin zorunlu')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Başlık ve metin zorunlu'),
+        ),
+      );
       return;
     }
     setState(() => _saving = true);
@@ -659,7 +680,9 @@ class _EditPostSheetState extends State<_EditPostSheet> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
+        context,
+        tone: AppSnackBarTone.error,
         content: Text(result.error?.message ?? 'Paylaşım güncellenemedi'),
       ),
     );

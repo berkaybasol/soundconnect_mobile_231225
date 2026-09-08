@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -213,6 +214,7 @@ class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
       result == CollabCreateListingResult.published
           ? 'İlanın yayınlandı.'
           : 'Taslağın kaydedildi.',
+      tone: AppSnackBarTone.success,
     );
   }
 
@@ -298,11 +300,14 @@ class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
         false;
   }
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message, {
+    AppSnackBarTone tone = AppSnackBarTone.error,
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(appSnackBar(context, tone: tone, content: Text(message)));
   }
 }
 

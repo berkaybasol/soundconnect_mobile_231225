@@ -81,7 +81,7 @@ class _VideoHero extends StatelessWidget {
               right: 12,
               bottom: 12,
               child: Text(
-                errorText ?? 'Video yukleniyor...',
+                errorText ?? 'Video yükleniyor...',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,

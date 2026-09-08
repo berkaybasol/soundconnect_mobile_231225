@@ -5,6 +5,7 @@ import '../../../core/network/api_exception.dart';
 import '../../profile/domain/entities/artist_venue_application.dart';
 import '../../profile/domain/entities/profile_venue_models.dart';
 import '../domain/artist_venue_connection_repository.dart';
+import '../domain/artist_venue_application_page.dart';
 import 'artist_venue_connection_endpoints.dart';
 import 'models/artist_venue_connection_response.dart';
 
@@ -13,6 +14,72 @@ class ArtistVenueConnectionRepositoryImpl
   final ApiClient _apiClient;
 
   ArtistVenueConnectionRepositoryImpl(this._apiClient);
+
+  @override
+  Future<Result<ArtistVenueApplicationPage>> listApplicationPage({
+    required ArtistVenueApplicationTarget target,
+    required String targetId,
+    required bool incoming,
+    bool connectionsOnly = false,
+    int page = 0,
+    int size = 20,
+    String? expectedSessionKey,
+  }) async {
+    if (targetId.trim().isEmpty ||
+        page < 0 ||
+        page > 10000 ||
+        size < 1 ||
+        size > 100) {
+      return const Result.failure(
+        AppError(code: 'invalid_page', message: 'İstek sayfası geçersiz.'),
+      );
+    }
+    try {
+      final result = await _apiClient.request<ArtistVenueApplicationPage>(
+        ApiHttpMethod.get,
+        '${ArtistVenueConnectionEndpoints.base}/${target.name}/${Uri.encodeComponent(targetId)}/page',
+        query: {
+          if (connectionsOnly) 'status': 'ACCEPTED' else 'incoming': incoming,
+          'page': page,
+          'size': size,
+        },
+        requestContext: expectedSessionKey == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: expectedSessionKey),
+        decoder: ArtistVenueApplicationPage.fromJson,
+      );
+      if (result.page != page ||
+          result.size != size ||
+          result.items.any((item) {
+            final matches = switch (target) {
+              ArtistVenueApplicationTarget.musician =>
+                item.musicianProfileId == targetId && item.bandId.isEmpty,
+              ArtistVenueApplicationTarget.band =>
+                item.bandId == targetId && item.musicianProfileId.isEmpty,
+              ArtistVenueApplicationTarget.venue => item.venueId == targetId,
+            };
+            final recipientSide = target == ArtistVenueApplicationTarget.venue
+                ? item.requestByType != 'VENUE'
+                : item.requestByType == 'VENUE';
+            return !matches ||
+                (connectionsOnly
+                    ? item.status != 'ACCEPTED'
+                    : recipientSide != incoming);
+          })) {
+        throw const FormatException('Application scope mismatch');
+      }
+      return Result.success(result);
+    } on ApiException catch (error) {
+      return Result.failure(error.error);
+    } catch (_) {
+      return const Result.failure(
+        AppError(
+          code: 'artist_venue_page_failed',
+          message: 'İstekler getirilemedi. Yeniden dene.',
+        ),
+      );
+    }
+  }
 
   @override
   Future<Result<List<String>>> getAcceptedVenues(
@@ -137,9 +204,11 @@ class ArtistVenueConnectionRepositoryImpl
     required String musicianProfileId,
     required String venueId,
     required String message,
+    String? expectedSessionKey,
   }) async {
     return _createRequest(
       requestByType: 'ARTIST',
+      expectedSessionKey: expectedSessionKey,
       body: {
         'musicianProfileId': musicianProfileId,
         'venueId': venueId,
@@ -153,9 +222,11 @@ class ArtistVenueConnectionRepositoryImpl
     required String bandId,
     required String venueId,
     required String message,
+    String? expectedSessionKey,
   }) async {
     return _createRequest(
       requestByType: 'BAND',
+      expectedSessionKey: expectedSessionKey,
       body: {'bandId': bandId, 'venueId': venueId, 'message': message},
     );
   }
@@ -165,9 +236,11 @@ class ArtistVenueConnectionRepositoryImpl
     required String musicianProfileId,
     required String venueId,
     required String message,
+    String? expectedSessionKey,
   }) async {
     return _createRequest(
       requestByType: 'VENUE',
+      expectedSessionKey: expectedSessionKey,
       body: {
         'musicianProfileId': musicianProfileId,
         'venueId': venueId,
@@ -181,9 +254,11 @@ class ArtistVenueConnectionRepositoryImpl
     required String bandId,
     required String venueId,
     required String message,
+    String? expectedSessionKey,
   }) async {
     return _createRequest(
       requestByType: 'VENUE',
+      expectedSessionKey: expectedSessionKey,
       body: {'bandId': bandId, 'venueId': venueId, 'message': message},
     );
   }
@@ -191,12 +266,17 @@ class ArtistVenueConnectionRepositoryImpl
   Future<Result<void>> _createRequest({
     required String requestByType,
     required Map<String, dynamic> body,
+    String? expectedSessionKey,
   }) async {
     try {
-      await _apiClient.post<Object?>(
+      await _apiClient.request<Object?>(
+        ApiHttpMethod.post,
         ArtistVenueConnectionEndpoints.request(requestByType),
         body: body,
         decoder: (_) => null,
+        requestContext: expectedSessionKey == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: expectedSessionKey),
       );
       return const Result.success(null);
     } on ApiException catch (e) {
@@ -396,31 +476,50 @@ class ArtistVenueConnectionRepositoryImpl
   }
 
   @override
-  Future<Result<void>> acceptRequest(String requestId) {
+  Future<Result<void>> acceptRequest(
+    String requestId, {
+    String? expectedSessionKey,
+  }) {
     return _postAction(
       '${ArtistVenueConnectionEndpoints.base}/$requestId/accept',
+      expectedSessionKey: expectedSessionKey,
     );
   }
 
   @override
-  Future<Result<void>> rejectRequest(String requestId) {
+  Future<Result<void>> rejectRequest(
+    String requestId, {
+    String? expectedSessionKey,
+  }) {
     return _postAction(
       '${ArtistVenueConnectionEndpoints.base}/$requestId/reject',
+      expectedSessionKey: expectedSessionKey,
     );
   }
 
   @override
-  Future<Result<void>> cancelRequest(String requestId) {
+  Future<Result<void>> cancelRequest(
+    String requestId, {
+    String? expectedSessionKey,
+  }) {
     return _postAction(
       '${ArtistVenueConnectionEndpoints.base}/$requestId/cancel',
+      expectedSessionKey: expectedSessionKey,
     );
   }
 
   @override
-  Future<Result<void>> disconnect(String requestId) async {
+  Future<Result<void>> disconnect(
+    String requestId, {
+    String? expectedSessionKey,
+  }) async {
     try {
-      await _apiClient.delete<Object?>(
+      await _apiClient.request<Object?>(
+        ApiHttpMethod.delete,
         '${ArtistVenueConnectionEndpoints.base}/$requestId/disconnect',
+        requestContext: expectedSessionKey == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: expectedSessionKey),
         decoder: (_) => null,
       );
       return const Result.success(null);
@@ -436,9 +535,19 @@ class ArtistVenueConnectionRepositoryImpl
     }
   }
 
-  Future<Result<void>> _postAction(String path) async {
+  Future<Result<void>> _postAction(
+    String path, {
+    String? expectedSessionKey,
+  }) async {
     try {
-      await _apiClient.post<Object?>(path, decoder: (_) => null);
+      await _apiClient.request<Object?>(
+        ApiHttpMethod.post,
+        path,
+        decoder: (_) => null,
+        requestContext: expectedSessionKey == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: expectedSessionKey),
+      );
       return const Result.success(null);
     } on ApiException catch (e) {
       return Result.failure(e.error);

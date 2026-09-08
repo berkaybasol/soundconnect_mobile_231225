@@ -13,6 +13,7 @@ import '../core/deep_link/pending_app_deep_link_store.dart';
 import '../core/diagnostics/app_diagnostics.dart';
 import '../core/di/service_locator.dart';
 import '../modules/admin/presentation/screens/admin_dashboard_screen.dart';
+import '../modules/analytics/presentation/widgets/analytics_exposure.dart';
 import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/screens/venue_pending_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
@@ -324,7 +325,10 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
               builder: (_, __) => MaterialApp(
                 navigatorKey: _navigatorKey,
                 scaffoldMessengerKey: _messengerKey,
-                navigatorObservers: <NavigatorObserver>[_routeObserver],
+                navigatorObservers: <NavigatorObserver>[
+                  _routeObserver,
+                  analyticsRouteObserver,
+                ],
                 title: 'SoundConnect',
                 theme: _themeController.lightTheme,
                 darkTheme: _themeController.darkTheme,

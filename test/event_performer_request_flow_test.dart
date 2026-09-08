@@ -554,6 +554,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: WeeklyEventCarousel(
+              now: () => DateTime.utc(2026, 9, 8, 12),
               items: <WeeklyCalendarEvent>[_pendingCarouselEvent('event-a')],
             ),
           ),
@@ -566,6 +567,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: WeeklyEventCarousel(
+              now: () => DateTime.utc(2026, 9, 8, 12),
               items: <WeeklyCalendarEvent>[_pendingCarouselEvent('event-b')],
             ),
           ),
@@ -594,6 +596,7 @@ void main() {
             MaterialApp(
               home: Scaffold(
                 body: WeeklyEventCarousel(
+                  now: () => DateTime.utc(2026, 9, 8, 12),
                   items: <WeeklyCalendarEvent>[_acceptedCarouselEvent(index)],
                 ),
               ),
@@ -606,6 +609,7 @@ void main() {
           MaterialApp(
             home: Scaffold(
               body: WeeklyEventCarousel(
+                now: () => DateTime.utc(2026, 9, 8, 12),
                 items: <WeeklyCalendarEvent>[_acceptedCarouselEvent(0)],
               ),
             ),

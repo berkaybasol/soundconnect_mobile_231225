@@ -14,6 +14,7 @@ import '../../../../shared/widgets/event_poster_fallback.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../auth/presentation/widgets/registration_options_sheet.dart';
+import '../../../analytics/presentation/widgets/analytics_tracking.dart';
 import '../../data/event_discovery_search_repository_impl.dart';
 import '../../data/venue_suggestion_repository_impl.dart';
 import '../../domain/event_discovery_date_policy.dart';
@@ -517,7 +518,10 @@ class _GuestEventHomeScreenState extends State<_LegacyGuestEventHomeScreen> {
                             ) {
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
-                                child: _EventCard(item: _events[index]),
+                                child: TrackEventImpression(
+                                  eventId: _events[index].id,
+                                  child: _EventCard(item: _events[index]),
+                                ),
                               );
                             }, childCount: _events.length),
                           ),
@@ -1370,11 +1374,13 @@ class _GuestTableAccessFab extends StatefulWidget {
   final Future<void> Function() onTap;
   final ValueChanged<Offset> onDragDelta;
   final bool showHint;
+  final String hintText;
 
   const _GuestTableAccessFab({
     required this.onTap,
     required this.onDragDelta,
     this.showHint = true,
+    this.hintText = 'Masa açmak için\ndokunun',
   });
 
   @override
@@ -1444,7 +1450,7 @@ class _GuestTableAccessFabState extends State<_GuestTableAccessFab>
                   ],
                 ),
                 child: Text(
-                  'Masa açmak için\ndokunun',
+                  widget.hintText,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 12,

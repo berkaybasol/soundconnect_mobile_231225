@@ -1,9 +1,16 @@
 enum ApiHttpMethod { get, post, put, patch, delete }
 
 class ApiRequestContext {
-  const ApiRequestContext({this.expectedSessionKey});
+  const ApiRequestContext({
+    this.expectedSessionKey,
+    this.requireGuestSession = false,
+  });
 
   final String? expectedSessionKey;
+
+  /// Prevents a queued anonymous operation from adopting a later login.
+  /// Mutually exclusive with a nonempty [expectedSessionKey].
+  final bool requireGuestSession;
 }
 
 abstract class ApiClient {
@@ -35,7 +42,7 @@ abstract class ApiClient {
 
   /// Dispatches a request with transport-level metadata.
   ///
-  /// Implementations that can guarantee an authenticated session fence must
+  /// Implementations that can guarantee an authenticated or guest fence must
   /// override this method. The default path deliberately rejects fenced
   /// requests instead of silently degrading to a racy preflight check.
   Future<T> request<T>(
@@ -46,7 +53,8 @@ abstract class ApiClient {
     T Function(Object? json)? decoder,
     ApiRequestContext? requestContext,
   }) {
-    if (requestContext?.expectedSessionKey?.trim().isNotEmpty == true) {
+    if (requestContext?.expectedSessionKey?.trim().isNotEmpty == true ||
+        requestContext?.requireGuestSession == true) {
       return Future<T>.error(
         UnsupportedError(
           'This ApiClient does not support transport-level session fencing',

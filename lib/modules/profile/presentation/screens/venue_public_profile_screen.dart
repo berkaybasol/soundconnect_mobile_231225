@@ -6,6 +6,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../analytics/presentation/widgets/analytics_tracking.dart';
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
@@ -28,7 +29,6 @@ import '../../domain/entities/track.dart';
 import '../../domain/entities/venue_active_band.dart';
 import '../../domain/entities/venue_active_musician.dart';
 import '../../domain/entities/venue_public_profile.dart';
-import '../../domain/venue_event_repository.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../cubit/venue_profile_cubit.dart';
@@ -44,7 +44,6 @@ import 'profile_public_bottom_bar.dart';
 import 'profile_public_video_tab.dart';
 import 'profile_route_args.dart';
 import 'profile_screen_support.dart';
-import 'venue_event_support.dart';
 import 'weekly_event_carousel.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -94,20 +93,12 @@ class _MusicianPublicProfileView extends StatefulWidget {
 
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
-  final _venueEventRepository = serviceLocator<VenueEventRepository>();
   String? _publicVenueId;
+  String? _sourceEventId;
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
   bool _viewerUserIdResolved = false;
   String? _currentProfileUserId;
-  List<WeeklyCalendarEvent> _fallbackWeeklyEvents = const [];
-  String? _fallbackWeeklyEventsVenueId;
-  bool _loadingFallbackWeeklyEvents = false;
-
-  void _updateState(VoidCallback updater) {
-    if (!mounted) return;
-    setState(updater);
-  }
 
   @override
   void didChangeDependencies() {
@@ -116,8 +107,12 @@ class _MusicianPublicProfileViewState
     if (_publicVenueId == null) {
       if (args is VenuePublicProfileArgs) {
         _publicVenueId = args.venueId;
+        _sourceEventId = args.sourceEventId;
       } else if (args is Map<String, dynamic>) {
         _publicVenueId = args['venueId']?.toString();
+        _sourceEventId = args['sourceEventId'] is String
+            ? args['sourceEventId'] as String
+            : null;
       } else if (args is String) {
         _publicVenueId = args;
       }
@@ -155,8 +150,6 @@ class _MusicianPublicProfileViewState
 
     final profile = context.read<VenueProfileCubit>().state.publicProfile;
     if (profile == null) return;
-    _fallbackWeeklyEventsVenueId = null;
-    _fallbackWeeklyEvents = const [];
     final refreshes = <Future<void>>[
       context.read<ProfileMediaCubit>().loadMedia(
         profileType: ProfileMediaOwnerType.venue.apiValue,
@@ -172,9 +165,6 @@ class _MusicianPublicProfileViewState
           followingId: profile.ownerUserId,
         ),
       );
-    }
-    if (profile.weeklyEvents.isEmpty) {
-      refreshes.add(_ensureFallbackWeeklyEvents(profile));
     }
     await Future.wait<void>(refreshes);
   }
@@ -200,16 +190,7 @@ class _MusicianPublicProfileViewState
           );
         }
         final profile = _toDisplayProfile(publicProfile);
-        final primaryWeeklyEvents = _toWeeklyCalendarEvents(publicProfile);
-        if (primaryWeeklyEvents.isEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            _ensureFallbackWeeklyEvents(publicProfile);
-          });
-        }
-        final weeklyEvents = primaryWeeklyEvents.isNotEmpty
-            ? primaryWeeklyEvents
-            : _fallbackWeeklyEvents;
+        final weeklyEvents = _toWeeklyCalendarEvents(publicProfile);
         _currentProfileUserId = publicProfile.ownerUserId;
         _loadCoordinator.scheduleMediaLoad(
           context,
@@ -255,7 +236,7 @@ class _MusicianPublicProfileViewState
                   ? null
                   : followState.followingCount;
               final actionState = context.watch<FollowActionCubit>().state;
-              return _MusicianPublicProfileContent(
+              final content = _MusicianPublicProfileContent(
                 onViewArtists: () => openVenueArtists(
                   context,
                   venueId: publicProfile.venueId,
@@ -276,6 +257,12 @@ class _MusicianPublicProfileViewState
                 spotifyLoading: false,
                 weeklyEvents: weeklyEvents,
                 onRefresh: _refreshProfile,
+              );
+              return TrackVenueProfileView(
+                venueId: publicProfile.venueId,
+                sourceEventId: _sourceEventId,
+                enabled: publicProfile.venueId == _publicVenueId,
+                child: content,
               );
             },
           ),

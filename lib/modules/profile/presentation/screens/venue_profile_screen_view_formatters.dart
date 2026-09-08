@@ -57,36 +57,6 @@ extension _VenueProfileViewStateFormatters on _MusicianPublicProfileViewState {
         .toList();
   }
 
-  WeeklyCalendarEvent _toWeeklyCalendarEvent(
-    VenueOwnerProfile profile,
-    VenueOwnerEventItem item,
-  ) {
-    return WeeklyCalendarEvent(
-      id: item.id,
-      title: item.title,
-      artistName: item.performerName.trim().isEmpty
-          ? 'Sanatçı'
-          : item.performerName,
-      artistProfileId: item.musicianProfileId,
-      bandProfileId: item.bandId,
-      performerType: item.performerType,
-      venueName: profile.venueName,
-      venueId: profile.venueId,
-      city: profile.cityName ?? '',
-      district: profile.districtName ?? '',
-      neighborhood: profile.neighborhoodName ?? '',
-      eventDate: _formatDate(item.eventDate),
-      startTime: formatVenueDisplayTime(item.startTime),
-      endTime: item.endTime == null || item.endTime!.trim().isEmpty
-          ? '-'
-          : formatVenueDisplayTime(item.endTime!),
-      imageAssetPath: item.posterImage?.trim().isEmpty == true
-          ? null
-          : item.posterImage?.trim(),
-      description: item.description?.trim() ?? '',
-    );
-  }
-
   String _formatDate(DateTime? value) {
     if (value == null) return '-';
     return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';

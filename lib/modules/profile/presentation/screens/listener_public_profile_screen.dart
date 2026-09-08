@@ -15,6 +15,7 @@ import '../../domain/entities/listener_public_profile.dart';
 import '../cubit/listener_profile_cubit.dart';
 import '../cubit/listener_profile_state.dart';
 import 'listener_ghost_profile_content.dart';
+import 'listener_event_posts.dart';
 import 'listener_profile_theme.dart';
 import 'listener_public_profile_content.dart';
 import 'profile_route_args.dart';
@@ -47,11 +48,18 @@ class _ListenerPublicProfileView extends StatefulWidget {
 
 class _ListenerPublicProfileViewState
     extends State<_ListenerPublicProfileView> {
+  final _eventPostsRefresh = ValueNotifier<int>(0);
   bool _initialized = false;
   String _profileId = '';
   String _viewerUserId = '';
   bool _viewerResolutionComplete = false;
   String? _loadedFollowKey;
+
+  @override
+  void dispose() {
+    _eventPostsRefresh.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -161,6 +169,14 @@ class _ListenerPublicProfileViewState
                   onMessage: _canMessage(profile)
                       ? () => _openMessage(profile)
                       : null,
+                  eventPosts: ListenerEventPostsSection(
+                    key: ValueKey('listener-public-event-posts-${profile.id}'),
+                    listenerProfileId: profile.id,
+                    username: profile.username,
+                    avatarUrl: profile.profilePictureUrl,
+                    refreshSignal: _eventPostsRefresh,
+                    showHeading: true,
+                  ),
                 );
               },
             );
@@ -250,9 +266,10 @@ class _ListenerPublicProfileViewState
     );
   }
 
-  Future<void> _refresh() {
+  Future<void> _refresh() async {
     _loadedFollowKey = null;
-    return context.read<ListenerProfileCubit>().loadPublicProfile(_profileId);
+    await context.read<ListenerProfileCubit>().loadPublicProfile(_profileId);
+    if (mounted) _eventPostsRefresh.value++;
   }
 }
 

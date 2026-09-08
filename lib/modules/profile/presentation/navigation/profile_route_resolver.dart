@@ -14,20 +14,27 @@ enum ProfileRouteKind { musician, band, venue, studio, listener }
 class ProfileRouteTarget {
   final ProfileRouteKind kind;
   final String id;
+  final String? sourceEventId;
 
-  const ProfileRouteTarget({required this.kind, required this.id});
+  const ProfileRouteTarget({
+    required this.kind,
+    required this.id,
+    this.sourceEventId,
+  });
 
   factory ProfileRouteTarget.fromArguments(
     ProfileRouteKind kind,
     Object? args,
   ) {
     String? id;
+    String? sourceEventId;
     if (args is PublicProfileArgs && kind != ProfileRouteKind.band) {
       // DM's venue target is the venue ID, despite the legacy argument name.
       id = args.profileId;
     } else if (args is VenuePublicProfileArgs &&
         kind == ProfileRouteKind.venue) {
       id = args.venueId;
+      sourceEventId = args.sourceEventId;
     } else if (args is BandProfileScreenArgs && kind == ProfileRouteKind.band) {
       id = args.bandId;
     } else if (args is String) {
@@ -40,8 +47,17 @@ class ProfileRouteTarget {
       };
       final value = args[key];
       if (value is String) id = value;
+      if (kind == ProfileRouteKind.venue && args['sourceEventId'] is String) {
+        sourceEventId = args['sourceEventId'] as String;
+      }
     }
-    return ProfileRouteTarget(kind: kind, id: id?.trim() ?? '');
+    return ProfileRouteTarget(
+      kind: kind,
+      id: id?.trim() ?? '',
+      sourceEventId: sourceEventId?.trim().isNotEmpty == true
+          ? sourceEventId!.trim()
+          : null,
+    );
   }
 
   Object get publicArguments => switch (kind) {
@@ -49,7 +65,10 @@ class ProfileRouteTarget {
       bandId: id,
       viewMode: BandProfileViewMode.public,
     ),
-    ProfileRouteKind.venue => VenuePublicProfileArgs(venueId: id),
+    ProfileRouteKind.venue => VenuePublicProfileArgs(
+      venueId: id,
+      sourceEventId: sourceEventId,
+    ),
     _ => PublicProfileArgs(profileId: id),
   };
 

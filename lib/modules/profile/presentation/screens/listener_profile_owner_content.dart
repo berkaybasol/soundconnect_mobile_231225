@@ -27,6 +27,9 @@ class ListenerProfileOwnerContent extends StatelessWidget {
     this.previewData,
     this.showPreviewSections = false,
     this.actionBusy = false,
+    this.eventPosts,
+    this.eventPlansAction,
+    this.scrollController,
   });
 
   final ListenerProfile profile;
@@ -38,6 +41,9 @@ class ListenerProfileOwnerContent extends StatelessWidget {
   final ListenerProfilePreviewData? previewData;
   final bool showPreviewSections;
   final bool actionBusy;
+  final Widget? eventPosts;
+  final Widget? eventPlansAction;
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +69,7 @@ class ListenerProfileOwnerContent extends StatelessWidget {
     return ColoredBox(
       color: _listenerDeepSurface,
       child: ListView(
+        controller: scrollController,
         key: const Key('listener-owner-profile-content'),
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 28),
@@ -117,6 +124,13 @@ class ListenerProfileOwnerContent extends StatelessWidget {
               onPressed: actionBusy ? null : onEditProfile,
             ),
           ),
+          if (eventPlansAction != null) ...[
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: eventPlansAction!,
+            ),
+          ],
           const SizedBox(height: 20),
           ListenerPlaylistSection(
             playlists: profile.playlists,
@@ -124,7 +138,8 @@ class ListenerProfileOwnerContent extends StatelessWidget {
             onEdit: actionBusy ? null : onEditPlaylists,
             showWhenEmpty: true,
           ),
-          if (showPreviewSections && preview != null) ...[
+          if (eventPosts != null ||
+              (showPreviewSections && preview != null)) ...[
             const SizedBox(height: 14),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
@@ -140,19 +155,14 @@ class ListenerProfileOwnerContent extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: [
-                  _ListenerEventPostCard(
-                    username: username,
-                    imageUrl: profile.profilePictureUrl,
-                    post: preview.eventShare,
-                    onAction: onPreviewAction,
-                  ),
-                  const SizedBox(height: 16),
-                  _ListenerOverthinkingPostCard(
-                    username: username,
-                    imageUrl: profile.profilePictureUrl,
-                    post: preview.overthinkingShare,
-                    onAction: onPreviewAction,
-                  ),
+                  if (eventPosts != null) eventPosts!,
+                  if (showPreviewSections && preview != null)
+                    _ListenerOverthinkingPostCard(
+                      username: username,
+                      imageUrl: profile.profilePictureUrl,
+                      post: preview.overthinkingShare,
+                      onAction: onPreviewAction,
+                    ),
                 ],
               ),
             ),
@@ -603,255 +613,6 @@ class _ListenerPostShell extends StatelessWidget {
   }
 }
 
-class _ListenerEventPostCard extends StatelessWidget {
-  const _ListenerEventPostCard({
-    required this.username,
-    required this.imageUrl,
-    required this.post,
-    required this.onAction,
-  });
-
-  final String username;
-  final String? imageUrl;
-  final ListenerEventSharePreview post;
-  final ValueChanged<String> onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return _ListenerPostShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ListenerPostHeader(
-            username: username,
-            imageUrl: imageUrl,
-            meta: post.meta,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            post.message,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _EventPreviewCard(post: post),
-          const SizedBox(height: 10),
-          const Divider(height: 1, color: _listenerDivider),
-          const SizedBox(height: 10),
-          _EventPostActions(post: post, onAction: onAction),
-        ],
-      ),
-    );
-  }
-}
-
-class _EventPreviewCard extends StatelessWidget {
-  const _EventPreviewCard({required this.post});
-
-  final ListenerEventSharePreview post;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: _listenerDeepSurface,
-          border: Border.all(color: _listenerBorder),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              constraints: const BoxConstraints(minHeight: 82),
-              color: _listenerDeepSurface,
-              child: Stack(
-                children: [
-                  const Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF261923),
-                            Color(0xFF151422),
-                            _listenerDeepSurface,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: Alignment(-0.90, -0.95),
-                          radius: 1.12,
-                          colors: [Color(0x70F06C86), Color(0x00F06C86)],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: Alignment(0.72, -0.10),
-                          radius: 0.82,
-                          colors: [Color(0x668B2CFF), Color(0x008B2CFF)],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 12, 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'CANLI ETKİNLİK',
-                                style: TextStyle(
-                                  color: AppColors.coralLight,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.7,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                post.eventTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          constraints: const BoxConstraints(
-                            minWidth: 42,
-                            minHeight: 44,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xE609111E),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: _listenerBorder),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                post.day,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                post.month,
-                                style: TextStyle(
-                                  color: AppColors.socialPink,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const ColoredBox(
-              color: _listenerDivider,
-              child: SizedBox(height: 1),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-              color: _listenerDeepSurface,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          post.venue,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          post.time,
-                          style: const TextStyle(
-                            color: _listenerMuted,
-                            fontSize: 10,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          post.location,
-                          style: const TextStyle(
-                            color: _listenerMuted,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.spotifyGreen.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      'Katılıyor',
-                      style: TextStyle(
-                        color: AppColors.spotifyGreenBright,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ListenerOverthinkingPostCard extends StatelessWidget {
   const _ListenerOverthinkingPostCard({
     required this.username,
@@ -973,58 +734,6 @@ class _ListenerOverthinkingPostCard extends StatelessWidget {
           _OverthinkingPostActions(post: post, onAction: onAction),
         ],
       ),
-    );
-  }
-}
-
-class _EventPostActions extends StatelessWidget {
-  const _EventPostActions({required this.post, required this.onAction});
-
-  final ListenerEventSharePreview post;
-  final ValueChanged<String> onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final attendance = _PostAction(
-      key: const Key('listener-event-attendance-action'),
-      icon: Icons.event_available_outlined,
-      label: post.attendanceLabel,
-      color: AppColors.socialPink,
-      onTap: () => onAction('Etkinlik katılımı'),
-    );
-    final comments = _PostAction(
-      key: const Key('listener-event-comment-action'),
-      icon: Icons.chat_bubble_outline_rounded,
-      label: '${post.commentCount}',
-      onTap: () => onAction('Etkinlik yorumları'),
-    );
-    final share = _PostIconAction(
-      icon: Icons.send_outlined,
-      label: 'Etkinliği paylaş',
-      onTap: () => onAction('Etkinlik paylaşımı'),
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final textScale = MediaQuery.textScalerOf(context).scale(1);
-        if (textScale > 1.35 || constraints.maxWidth < 240) {
-          return Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [attendance, comments, share],
-          );
-        }
-        return Row(
-          children: [
-            attendance,
-            const SizedBox(width: 18),
-            comments,
-            const Spacer(),
-            share,
-          ],
-        );
-      },
     );
   }
 }

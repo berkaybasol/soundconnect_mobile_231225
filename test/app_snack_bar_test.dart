@@ -1,4 +1,5 @@
 import 'dart:ui' show SemanticsAction, SemanticsFlag;
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -117,6 +118,90 @@ void main() {
         expect(renderedAction.onPressed, same(action.onPressed));
       }
     }
+  });
+
+  testWidgets('opt-in inline action expires after the extended lifetime', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final fonts =
+          '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
+      final loader = FontLoader('Roboto');
+      for (final file in [
+        'roboto-regular.ttf',
+        'roboto-medium.ttf',
+        'roboto-bold.ttf',
+      ]) {
+        loader.addFont(
+          File('$fonts/$file').readAsBytes().then(ByteData.sublistView),
+        );
+      }
+      await loader.load();
+    });
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final context = await launch(tester);
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        content: const Text('Gidiyorum olarak işaretlendi.'),
+        tone: AppSnackBarTone.success,
+        duration: const Duration(seconds: 8),
+        persist: false,
+        inlineAction: true,
+        action: SnackBarAction(label: 'Profilinde paylaş', onPressed: () {}),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final message = tester.getRect(find.text('Gidiyorum olarak işaretlendi.'));
+    final action = tester.getRect(find.byType(SnackBarAction));
+    expect(action.left, greaterThan(message.right));
+    expect(action.center.dy, closeTo(message.center.dy, 1));
+    expect(tester.widget<SnackBar>(find.byType(SnackBar)).persist, isFalse);
+    await tester.pump(const Duration(seconds: 6));
+    expect(find.byType(SnackBar), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('inline action falls back below text at 200 percent and 320px', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final context = await launch(tester, textScale: 2);
+    var actions = 0;
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        context,
+        content: const Text('Düşünüyorum olarak işaretlendi.'),
+        tone: AppSnackBarTone.success,
+        duration: const Duration(seconds: 8),
+        persist: false,
+        inlineAction: true,
+        action: SnackBarAction(
+          label: 'Profilinde paylaş',
+          onPressed: () => actions++,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final message = tester.getRect(
+      find.text('Düşünüyorum olarak işaretlendi.'),
+    );
+    final action = tester.getRect(find.byType(SnackBarAction));
+    expect(action.top, greaterThanOrEqualTo(message.bottom));
+    await tester.tap(find.text('Profilinde paylaş'));
+    await tester.pumpAndSettle();
+    expect(actions, 1);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('custom duration times out and advances the existing queue', (

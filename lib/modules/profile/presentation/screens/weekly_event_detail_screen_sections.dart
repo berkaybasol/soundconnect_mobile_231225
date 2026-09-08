@@ -142,24 +142,6 @@ Widget _imageFallback(WeeklyCalendarEvent event, {bool showDetails = false}) {
   );
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String text;
-
-  _SectionTitle({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurface,
-        fontWeight: FontWeight.w700,
-        fontSize: 16,
-      ),
-    );
-  }
-}
-
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;

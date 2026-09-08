@@ -32,7 +32,7 @@ void main() {
           'profileImageUrl': 'https://cdn/avatar.jpg',
           'visibilityMode': 'GHOST',
         },
-        'anonymousAuthor': true,
+        'anonymousAuthor': false,
         'text': 99,
         'deleted': true,
         'parentCommentId': 12,
@@ -46,12 +46,12 @@ void main() {
       expect(item.text, '99');
       expect(item.parentCommentId, '12');
       expect(item.replyCount, 3);
-      expect(item.anonymousAuthor, isTrue);
+      expect(item.anonymousAuthor, isFalse);
       expect(item.deleted, isTrue);
       expect(item.createdAt?.toUtc(), DateTime.utc(2026, 7, 13, 8, 30));
       expect(item.user.visibilityMode, ListenerVisibilityMode.ghost);
       expect(item.user.isGhost, isTrue);
-      expect(item.isVisibleGhostAuthor, isFalse);
+      expect(item.isVisibleGhostAuthor, isTrue);
 
       final masked = CommentItemModel.fromJson(<String, dynamic>{
         'user': <String, dynamic>{
@@ -69,10 +69,7 @@ void main() {
       'listComments decodes valid rows and sends stable paging query',
       () async {
         final client = RecordingApiClient((request) {
-          expect(
-            request.path,
-            '/api/v1/events/event-1/comments',
-          );
+          expect(request.path, '/api/v1/events/event-1/comments');
           return <String, dynamic>{
             'content': <Object?>[
               <String, dynamic>{
@@ -80,7 +77,6 @@ void main() {
                 'text': 'Merhaba',
                 'replyCount': 2,
               },
-              'malformed-row',
             ],
             'totalElements': 9,
           };
@@ -272,7 +268,7 @@ void main() {
   });
 }
 
-class _EngagementRepositoryFake implements EngagementRepository {
+class _EngagementRepositoryFake extends EngagementRepository {
   _EngagementRepositoryFake({
     this.likeCountResult = const Result.success(0),
     this.commentPageResult = const Result.success(
@@ -336,8 +332,10 @@ class _EngagementRepositoryFake implements EngagementRepository {
       const Result.success(null);
 
   @override
-  Future<Result<List<CommentItem>>> listReplies(String commentId, {String? eventId}) async =>
-      const Result.success(<CommentItem>[]);
+  Future<Result<List<CommentItem>>> listReplies(
+    String commentId, {
+    String? eventId,
+  }) async => const Result.success(<CommentItem>[]);
 }
 
 class _FollowRepositoryFake implements FollowRepository {

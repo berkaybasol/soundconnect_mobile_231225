@@ -1,4 +1,5 @@
 import '../../domain/entities/venue_event_detail.dart';
+import '../../../event_audience/domain/event_audience_repository.dart';
 
 /// An immutable snapshot of the public event, never of private invitations.
 class EventShareData {
@@ -16,11 +17,13 @@ class EventShareData {
     this.posterUrl,
     this.venueAvatarUrl,
     this.shareUrl,
+    this.audienceStatus,
   });
 
   factory EventShareData.fromDetail(
     VenueEventDetail detail, {
     String? venueAvatarUrl,
+    EventAudienceStatus? audienceStatus,
   }) => EventShareData(
     eventId: detail.id.trim(),
     title: _clean(detail.title).isEmpty ? 'Etkinlik' : _clean(detail.title),
@@ -40,6 +43,7 @@ class EventShareData {
     posterUrl: detail.posterImage,
     venueAvatarUrl: venueAvatarUrl,
     shareUrl: detail.shareUrl,
+    audienceStatus: audienceStatus,
   );
 
   final String eventId;
@@ -55,6 +59,16 @@ class EventShareData {
   final String? posterUrl;
   final String? venueAvatarUrl;
   final String? shareUrl;
+
+  /// Only supplied for an explicitly requested personal plan export.
+  /// Ordinary event sharing does not imply a participation preference.
+  final EventAudienceStatus? audienceStatus;
+
+  String? get audienceLabel => switch (audienceStatus) {
+    EventAudienceStatus.going => 'Bu etkinliğe gidiyorum',
+    EventAudienceStatus.thinking => 'Bu etkinliği düşünüyorum',
+    EventAudienceStatus.none || null => null,
+  };
 
   String get plainPerformerName => _withoutAt(performerName);
   bool get hasPerformer => !{
@@ -126,6 +140,7 @@ class EventShareData {
 
   /// Full text for reviewing the image with a screen reader, not for sending.
   String get accessibilityDescription => [
+    if (audienceLabel != null) audienceLabel!,
     title,
     if (description.trim().isNotEmpty) description.trim(),
     [dateLabel, timeLabel].where((part) => part.isNotEmpty).join(' · '),

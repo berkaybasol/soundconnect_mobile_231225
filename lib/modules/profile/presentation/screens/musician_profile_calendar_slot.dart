@@ -6,8 +6,10 @@ import '../../../../core/di/service_locator.dart';
 import '../../domain/entities/musician_calendar.dart';
 import '../../domain/entities/venue_event_detail.dart';
 import '../../domain/musician_calendar_repository.dart';
+import '../../domain/weekly_calendar_date_policy.dart';
 import 'profile_section_support.dart';
 import 'weekly_event_carousel.dart';
+import 'weekly_calendar_day_monitor.dart';
 import 'weekly_event_detail_screen.dart';
 
 /// Only server-authorized events produce a calendar section. Venue connections
@@ -19,12 +21,14 @@ class MusicianProfileCalendarSlot extends StatefulWidget {
     this.refreshToken,
     this.compactTitle = false,
     this.repository,
+    this.now,
   });
 
   final String profileId;
   final Object? refreshToken;
   final bool compactTitle;
   final MusicianCalendarRepository? repository;
+  final DateTime Function()? now;
 
   @override
   State<MusicianProfileCalendarSlot> createState() =>
@@ -33,7 +37,7 @@ class MusicianProfileCalendarSlot extends StatefulWidget {
 
 class _MusicianProfileCalendarSlotState
     extends State<MusicianProfileCalendarSlot>
-    with WidgetsBindingObserver {
+    with WeeklyCalendarDayMonitor<MusicianProfileCalendarSlot> {
   MusicianCalendarRepository? _repository;
   StreamSubscription<void>? _subscription;
   MusicianCalendarPage? _page;
@@ -45,7 +49,6 @@ class _MusicianProfileCalendarSlotState
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _bindRepository();
   }
 
@@ -72,10 +75,16 @@ class _MusicianProfileCalendarSlotState
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
+  DateTime calendarNow() => widget.now?.call() ?? DateTime.now();
+
+  @override
+  void onCalendarDayChanged() => _load();
+
+  @override
+  void onCalendarResumed({required bool dayChanged}) {
+    if (!dayChanged &&
         (_lastLoad == null ||
-            DateTime.now().difference(_lastLoad!) >=
+            calendarNow().difference(_lastLoad!) >=
                 const Duration(seconds: 15))) {
       _load();
     }
@@ -97,14 +106,15 @@ class _MusicianProfileCalendarSlotState
     final request = ++_request;
     final profileId = widget.profileId;
     final nextPage = targetPage ?? 0;
-    final today = DateTime.now();
+    final now = calendarNow();
+    final today = WeeklyCalendarDatePolicy.today(now);
     final start = navigating
         ? _page!.startDate
         : DateTime.utc(today.year, today.month, today.day);
     final end = navigating
         ? _page!.endDate
         : start.add(const Duration(days: 6));
-    _lastLoad = today;
+    _lastLoad = now;
     setState(() {
       _loading = true;
       // Per-event publication permissions may have changed since the previous
@@ -143,7 +153,16 @@ class _MusicianProfileCalendarSlotState
       setState(() {
         _loading = false;
         _page = page;
-        _events = page.visible ? page.events : const [];
+        _events = page.visible
+            ? page.events
+                  .where(
+                    (event) => WeeklyCalendarDatePolicy.contains(
+                      event.eventDate,
+                      calendarDay,
+                    ),
+                  )
+                  .toList(growable: false)
+            : const [];
       });
     } catch (_) {
       if (!mounted || request != _request) return;
@@ -159,7 +178,6 @@ class _MusicianProfileCalendarSlotState
   void dispose() {
     ++_request;
     _subscription?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -182,6 +200,7 @@ class _MusicianProfileCalendarSlotState
           key: ValueKey('calendar-page:${widget.profileId}:${page.page}'),
           items: _events.map(_toWeeklyEvent).toList(growable: false),
           compactTitle: widget.compactTitle,
+          now: widget.now,
         ),
         if (page.page > 0 || (page.hasNext && page.page < 100))
           Center(

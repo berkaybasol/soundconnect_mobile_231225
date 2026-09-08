@@ -33,8 +33,9 @@ abstract interface class EventShareService {
   Future<void> share(
     BuildContext context,
     PreparedEventShare prepared,
-    EventShareTarget target,
-  );
+    EventShareTarget target, {
+    bool Function()? isValid,
+  });
 }
 
 typedef EventShareMediaFileLoader =
@@ -160,13 +161,16 @@ class PlatformEventShareService implements EventShareService {
   Future<void> share(
     BuildContext context,
     PreparedEventShare prepared,
-    EventShareTarget target,
-  ) async {
-    if (!_isCurrent(context)) return;
+    EventShareTarget target, {
+    bool Function()? isValid,
+  }) async {
+    bool current() => _isCurrent(context) && (isValid?.call() ?? true);
+    if (!current()) return;
     _validatePng(prepared.bytes);
     final directory = await _shareDirectory();
+    if (!context.mounted || !current()) return;
     await _removeExpiredFiles(directory);
-    if (!context.mounted || !_isCurrent(context)) return;
+    if (!context.mounted || !current()) return;
 
     final token = _randomToken();
     if (!_safeToken.hasMatch(token)) throw StateError('Invalid share token.');
@@ -175,8 +179,9 @@ class PlatformEventShareService implements EventShareService {
     // No event IDs, usernames or other user-controlled strings enter the path.
     // Exclusive creation also refuses an existing file or symbolic link.
     await file.create(exclusive: true);
+    if (!context.mounted || !current()) return;
     await file.writeAsBytes(prepared.bytes, flush: true);
-    if (!context.mounted || !_isCurrent(context)) return;
+    if (!context.mounted || !current()) return;
 
     final message = EventShareMessage.forPlatform(_platform);
     if (_platform == TargetPlatform.android &&
@@ -195,7 +200,7 @@ class PlatformEventShareService implements EventShareService {
       }
     }
     // A route may have been dismissed while the target-app lookup completed.
-    if (!context.mounted || !_isCurrent(context)) return;
+    if (!context.mounted || !current()) return;
     final origin = _shareOrigin(context);
     if (origin == null) return;
     await _shareSender(

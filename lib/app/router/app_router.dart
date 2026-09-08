@@ -16,6 +16,8 @@ import '../../modules/collab/presentation/screens/collab_discovery_screen.dart';
 import '../../modules/collab/presentation/theme/collab_visual_theme.dart';
 import '../../modules/dm/presentation/screens/dm_chat_screen.dart';
 import '../../modules/dm/presentation/screens/dm_conversations_screen.dart';
+import '../../modules/event/presentation/screens/event_discovery_screen.dart';
+import '../../modules/event_audience/presentation/event_audience_profile_draft.dart';
 import '../../modules/notification/presentation/screens/notification_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
@@ -211,9 +213,10 @@ class AppRouter {
           builder: (_) => StudioReservationCalendarScreen(args: args),
         );
       case AppRoutes.listenerProfile:
+        final draft = _arguments<EventAudienceProfileDraftArgs>(settings);
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => ListenerProfileScreen(),
+          builder: (_) => ListenerProfileScreen(eventDraft: draft),
         );
       case AppRoutes.listenerProfileChoice:
         return MaterialPageRoute(
@@ -231,6 +234,14 @@ class AppRouter {
           settings,
           ProfileRouteKind.listener,
           (_) => const ListenerPublicProfileScreen(),
+        );
+      case AppRoutes.eventDiscovery:
+        final args = _arguments<EventDiscoveryArgs>(settings);
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MemberEventDiscoveryScreen(
+            args: args ?? const EventDiscoveryArgs(),
+          ),
         );
       case AppRoutes.overthinkingFeed:
         final args = _arguments<OverthinkingFeedArgs>(settings);

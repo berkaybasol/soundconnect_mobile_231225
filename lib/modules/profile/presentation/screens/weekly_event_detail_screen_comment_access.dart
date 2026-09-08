@@ -77,8 +77,14 @@ class _EventCommentGuestPrompt extends StatelessWidget {
 // The route owns the controller until its exit animation is complete. A null
 // route result (back, drag, barrier, cancel) must never create a reply.
 class _EventReplyComposer extends StatefulWidget {
-  const _EventReplyComposer({required this.canSubmit});
+  const _EventReplyComposer({
+    required this.canSubmit,
+    required this.onSubmit,
+    required this.errorText,
+  });
   final bool Function() canSubmit;
+  final Future<bool> Function(String) onSubmit;
+  final String? Function() errorText;
 
   @override
   State<_EventReplyComposer> createState() => _EventReplyComposerState();
@@ -87,12 +93,57 @@ class _EventReplyComposer extends StatefulWidget {
 class _EventReplyComposerState extends State<_EventReplyComposer> {
   final _controller = TextEditingController();
   bool _finished = false;
+  bool _saving = false;
+  String? _error;
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (!mounted ||
+        _finished ||
+        _saving ||
+        !widget.canSubmit() ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
     final text = _controller.text.trim();
-    if (_finished || text.isEmpty || !widget.canSubmit()) return;
+    if (!CommentText.isValid(text)) return;
+    final route = ModalRoute.of(context);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    var sent = false;
+    try {
+      sent = await widget.onSubmit(text);
+    } catch (_) {
+      /* The editor retains the draft on an unconfirmed write. */
+    }
+    if (!mounted) return;
+    if (!sent) {
+      setState(() {
+        _saving = false;
+        _error =
+            widget.errorText() ??
+            'Gönderim doğrulanamadı. Tekrar göndermeden yorumları kontrol et.';
+      });
+      return;
+    }
     _finished = true;
-    Navigator.of(context).pop(text);
+    if (route?.isCurrent == true) {
+      Navigator.of(context).pop();
+    } else if (route?.isActive == true) {
+      route!.navigator?.removeRoute(route);
+    }
+  }
+
+  void _cancel() {
+    if (!mounted ||
+        _finished ||
+        _saving ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    _finished = true;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -102,59 +153,81 @@ class _EventReplyComposerState extends State<_EventReplyComposer> {
   }
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    padding: EdgeInsets.fromLTRB(
-      14,
-      18,
-      14,
-      MediaQuery.viewInsetsOf(context).bottom + 14,
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'Yanıt yaz',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          key: const Key('event-reply-input'),
-          controller: _controller,
-          autofocus: true,
-          minLines: 1,
-          maxLines: 4,
-          textInputAction: TextInputAction.send,
-          onSubmitted: (_) => _submit(),
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            hintText: 'Yanıtını yaz...',
-            filled: true,
-            fillColor: AppColors.inputFill,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: AppColors.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: AppColors.border),
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        14,
+        18,
+        14,
+        MediaQuery.viewInsetsOf(context).bottom + 14,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Yanıt yaz',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const Key('event-reply-input'),
+            controller: _controller,
+            readOnly: _saving,
+            autofocus: true,
+            minLines: 1,
+            maxLines: 4,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => _submit(),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Yanıtını yaz...',
+              counterText:
+                  '${CommentText.length(_controller.text)}/${CommentText.maxLength}',
+              errorText:
+                  CommentText.length(_controller.text) > CommentText.maxLength
+                  ? 'Yanıtını biraz kısalt.'
+                  : null,
+              filled: true,
+              fillColor: AppColors.inputFill,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 14),
-        GradientOutlineButton(
-          key: const Key('event-reply-submit'),
-          label: 'Gönder',
-          onPressed: _controller.text.trim().isEmpty ? null : _submit,
-          backgroundColor: AppColors.inputFill,
-          strokeWidth: .7,
-        ),
-        const SizedBox(height: 4),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Vazgeç'),
-        ),
-      ],
+          const SizedBox(height: 14),
+          if (_error != null) ...[
+            Text(
+              _error!,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          GradientOutlineButton(
+            key: const Key('event-reply-submit'),
+            label: _saving ? 'Gönderiliyor...' : 'Gönder',
+            onPressed: _saving || !CommentText.isValid(_controller.text)
+                ? null
+                : _submit,
+            backgroundColor: AppColors.inputFill,
+            strokeWidth: .7,
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: _saving ? null : _cancel,
+            child: const Text('Vazgeç'),
+          ),
+        ],
+      ),
     ),
   );
 }

@@ -44,6 +44,12 @@ void _commentAuthenticationTests(_CommentsRepository Function() repository) {
           _authComment('reply', 'Herkesin okuyabildiği yanıt', parent: 'root'),
         ];
         await _openDetail(tester, _event());
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('event-replies-root')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('event-replies-root')));
+        await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('Herkesin okuyabildiği yanıt'));
         await tester.pumpAndSettle();
         expect(find.text('Herkesin okuyabildiği yorum'), findsOneWidget);
@@ -386,7 +392,7 @@ _DetailSessionManager _registerCommentMember() {
 
 Finder _commentField() => find.byKey(const Key('event-comment-input'));
 Finder _replyField() => find.byKey(const Key('event-reply-input'));
-Finder _replyAction() => find.textContaining(RegExp(r'Yan[ıi]tla'));
+Finder _replyAction() => find.text('Yanıtla');
 
 Future<void> _openCommentReply(WidgetTester tester) async {
   await tester.ensureVisible(_replyAction().first);
@@ -465,6 +471,11 @@ void _commentAccessPreviewTests(_CommentsRepository Function() repository) {
       capture = GlobalKey();
       await _openDetail(tester, _event(), capture: capture);
       await tester.ensureVisible(
+        find.byKey(const ValueKey('event-replies-root')),
+      );
+      await tester.tap(find.byKey(const ValueKey('event-replies-root')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
         find.text('Kapıda da katılabilirsin. Görüşmek üzere!'),
       );
       await _captureCommentAccess(
@@ -477,6 +488,11 @@ void _commentAccessPreviewTests(_CommentsRepository Function() repository) {
       _registerCommentMember();
       capture = GlobalKey();
       await _openDetail(tester, _event(), capture: capture);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('event-replies-root')),
+      );
+      await tester.tap(find.byKey(const ValueKey('event-replies-root')));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(
         find.text('Kapıda da katılabilirsin. Görüşmek üzere!'),
       );
@@ -492,6 +508,27 @@ void _commentAccessPreviewTests(_CommentsRepository Function() repository) {
         capture,
         directory,
         '04-member-reply.png',
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      repository().comments
+        ..clear()
+        ..addAll([
+          _compactQualityComment('short', 'a', DateTime.now().toUtc()),
+          _compactQualityComment(
+            'older',
+            'deney',
+            DateTime.now().toUtc().subtract(const Duration(hours: 7)),
+          ),
+        ]);
+      repository().replies.clear();
+      capture = GlobalKey();
+      await _openDetail(tester, _event(title: 'Cuma Falan'), capture: capture);
+      await tester.ensureVisible(find.text('deney'));
+      await _captureCommentAccess(
+        tester,
+        capture,
+        directory,
+        '05-compact-short-comments.png',
       );
       expect(repository().creations, isEmpty);
     },

@@ -24,6 +24,7 @@ class ListenerPublicProfileContent extends StatelessWidget {
     required this.onPlaylistTap,
     this.onFollow,
     this.onMessage,
+    this.eventPosts,
   });
 
   final ListenerPublicProfile profile;
@@ -33,6 +34,7 @@ class ListenerPublicProfileContent extends StatelessWidget {
   final ValueChanged<SpotifyPlaylistPreview> onPlaylistTap;
   final VoidCallback? onFollow;
   final VoidCallback? onMessage;
+  final Widget? eventPosts;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +142,11 @@ class ListenerPublicProfileContent extends StatelessWidget {
                         onPlaylistTap: onPlaylistTap,
                       ),
                     ],
+                    if (eventPosts != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        child: eventPosts!,
+                      ),
                   ],
                 ),
               ),

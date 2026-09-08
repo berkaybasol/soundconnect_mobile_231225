@@ -76,47 +76,4 @@ extension _MediaDetailScreenActions on _MediaDetailScreenState {
         .toInt();
     await handler.seek(Duration(milliseconds: target));
   }
-
-  Future<void> _sendComment() async {
-    final targetType = widget.targetType;
-    final targetId = widget.targetId;
-    final text = _commentController.text.trim();
-    if (targetType == null ||
-        targetType.isEmpty ||
-        targetId == null ||
-        targetId.isEmpty ||
-        text.isEmpty) {
-      return;
-    }
-
-    await context.read<CommentThreadCubit>().create(
-      targetType: targetType,
-      targetId: targetId,
-      text: text,
-      parentCommentId: _replyToCommentId,
-    );
-
-    _commentController.clear();
-    if (!mounted) return;
-    _updateState(() {
-      _replyTo = null;
-      _replyToCommentId = null;
-    });
-
-    await context.read<InteractionStatsCubit>().load(
-      targetType: targetType,
-      targetId: targetId,
-      force: true,
-    );
-  }
-
-  String _timeLabel(DateTime? createdAt) {
-    if (createdAt == null) return '-';
-    final now = DateTime.now();
-    final diff = now.difference(createdAt);
-    if (diff.inMinutes < 1) return 'simdi';
-    if (diff.inHours < 1) return '${diff.inMinutes}dk';
-    if (diff.inDays < 1) return '${diff.inHours}s';
-    return '${diff.inDays}g';
-  }
 }

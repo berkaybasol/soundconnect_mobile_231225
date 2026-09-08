@@ -1,4 +1,13 @@
+import 'dart:async';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/domain/venue_analytics_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/domain/venue_analytics_reporting_config.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets/venue_analytics_reporting_scope.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/data/analytics_tracker.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets/analytics_exposure.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,23 +41,27 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/v
 
 import 'support/event_invitation_navigation_fakes.dart';
 
+part 'venue_profile_analytics_entry_cases.dart';
+
 void main() {
   late _Directory directory;
   late _Badge badge;
   late _Profiles profiles;
+  late _Events events;
 
   setUp(() async {
     await serviceLocator.reset();
     directory = _Directory();
     badge = _Badge();
     profiles = _Profiles();
+    events = _Events();
     final connections = _Connections();
     final followers = _Followers();
     serviceLocator
       ..registerSingleton<VenueArtistDirectoryRepository>(directory)
       ..registerSingleton<ArtistVenueConnectionRepository>(connections)
       ..registerSingleton<ProfileSearchRepository>(_Search())
-      ..registerSingleton<VenueEventRepository>(_Events())
+      ..registerSingleton<VenueEventRepository>(events)
       ..registerSingleton<AudioHandler>(BaseAudioHandler())
       ..registerSingleton<DmBadgeCubit>(badge)
       ..registerFactory<VenueProfileCubit>(() => VenueProfileCubit(profiles))
@@ -70,6 +83,8 @@ void main() {
     await badge.close();
     await serviceLocator.reset();
   });
+
+  _venueProfileAnalyticsTests(() => profiles);
 
   for (final owner in [true, false]) {
     testWidgets(
@@ -101,6 +116,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(profiles.ownerReads, owner ? ['actual-venue'] : isEmpty);
         expect(profiles.publicReads, owner ? isEmpty : ['actual-venue']);
+        // An authoritative empty week must never be refilled from the
+        // all-history event endpoints, in either owner or public profiles.
+        expect(events.historyReads, isEmpty);
+        expect(find.text('Bu hafta için etkinlik bulunamadı.'), findsOneWidget);
         expect(directory.requests, isEmpty);
         expect(find.text('Aktif Sanatçılar'), findsOneWidget);
         final showAll = find.text('Tümü');
@@ -187,6 +206,7 @@ const _public = VenuePublicProfile(
 class _Profiles extends Fake implements VenueProfileRepository {
   final ownerReads = <String?>[];
   final publicReads = <String?>[];
+  Future<Result<VenuePublicProfile>> Function()? publicReply;
   @override
   Future<Result<VenueOwnerProfile>> getMyVenueProfileDetail({
     String? venueId,
@@ -200,7 +220,7 @@ class _Profiles extends Fake implements VenueProfileRepository {
     String? venueId,
   }) async {
     publicReads.add(venueId);
-    return const Result.success(_public);
+    return publicReply?.call() ?? const Result.success(_public);
   }
 }
 
@@ -240,13 +260,19 @@ class _Media extends Fake implements ProfileMediaRepository {
 }
 
 class _Events extends Fake implements VenueEventRepository {
+  final historyReads = <String>[];
   @override
-  Future<Result<List<VenueOwnerEventItem>>> listByVenue(String venueId) async =>
-      const Result.success([]);
+  Future<Result<List<VenueOwnerEventItem>>> listByVenue(String venueId) async {
+    historyReads.add('owner:$venueId');
+    return const Result.success([]);
+  }
   @override
   Future<Result<List<VenueOwnerEventItem>>> listPublicByVenue(
     String venueId,
-  ) async => const Result.success([]);
+  ) async {
+    historyReads.add('public:$venueId');
+    return const Result.success([]);
+  }
 }
 
 class _Followers extends Fake implements FollowRepository {

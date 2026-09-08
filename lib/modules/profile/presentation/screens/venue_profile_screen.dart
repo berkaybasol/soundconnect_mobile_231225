@@ -18,6 +18,8 @@ import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/profile_brand_title.dart';
+import '../../../analytics/presentation/screens/venue_analytics_screen.dart';
+import '../../../analytics/presentation/widgets/venue_analytics_reporting_scope.dart';
 import 'venue_artists_screen.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
@@ -31,7 +33,6 @@ import '../../domain/entities/venue_active_band.dart';
 import '../../domain/entities/venue_active_musician.dart';
 import '../../domain/entities/venue_owner_profile.dart';
 import '../../domain/profile_search_repository.dart';
-import '../../domain/venue_event_repository.dart';
 import '../../data/models/venue_profile_save_request.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../navigation/profile_action_session.dart';
@@ -49,7 +50,6 @@ import 'profile_section_support.dart';
 import 'profile_social_support.dart';
 import 'profile_route_args.dart';
 import 'venue_weekly_calendar_editor_screen.dart';
-import 'venue_event_support.dart';
 import 'weekly_event_carousel.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -67,7 +67,6 @@ part 'venue_profile_screen_view_profile_actions.dart';
 part 'venue_profile_screen_view_connected_artist_actions.dart';
 part 'venue_profile_screen_connected_artist_request_sheet.dart';
 part 'venue_profile_screen_connected_artist_request_sheet_methods.dart';
-part 'venue_profile_screen_view_venue_actions.dart';
 part 'venue_profile_screen_view_formatters.dart';
 
 class VenueProfileScreen extends StatelessWidget {

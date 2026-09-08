@@ -80,6 +80,39 @@ class EventShareCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (data.audienceLabel != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        key: const Key('event-share-audience-status'),
+                        padding: const EdgeInsets.all(0.8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: AppColors.brandGradient,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF171B2D),
+                            borderRadius: BorderRadius.circular(11.2),
+                          ),
+                          child: Text(
+                            data.audienceLabel!,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 19),
                     Expanded(
                       child: DecoratedBox(

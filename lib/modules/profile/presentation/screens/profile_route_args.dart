@@ -20,6 +20,11 @@ class VenueProfileArgs {
 class VenuePublicProfileArgs {
   final String? venueId;
   final String? viewerUserId;
+  final String? sourceEventId;
 
-  const VenuePublicProfileArgs({this.venueId, this.viewerUserId});
+  const VenuePublicProfileArgs({
+    this.venueId,
+    this.viewerUserId,
+    this.sourceEventId,
+  });
 }

@@ -21,6 +21,8 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/e
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_owner_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/musician_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/venue_management_panel_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/domain/venue_analytics_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/screens/venue_analytics_screen.dart';
 
 void main() {
   setUp(() async {
@@ -28,6 +30,48 @@ void main() {
     serviceLocator.registerSingleton<PromotionRepository>(_Promotions());
   });
   tearDown(() => serviceLocator.reset());
+
+  testWidgets(
+    'venue reporting entry defaults to coming soon without navigation or private reads',
+    (tester) async {
+      final reporting = _ManagementReportingRepository();
+      serviceLocator.registerSingleton<VenueAnalyticsRepository>(reporting);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark(useMaterial3: true),
+          home: VenueManagementPanelScreen(
+            ownerProfile: _venue,
+            openWeeklyCalendar: (_) async => false,
+            openConnectedArtists: (_) async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final card = find.byKey(const Key('venue-management-analytics'));
+      await tester.ensureVisible(card);
+      expect(
+        find.descendant(of: card, matching: find.text('Yakında')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.byIcon(Icons.arrow_forward_ios_rounded),
+        ),
+        findsNothing,
+      );
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      expect(find.byType(VenueManagementPanelScreen), findsOneWidget);
+      expect(find.byType(VenueAnalyticsScreen), findsNothing);
+      expect(
+        find.text('Mekan istatistikleri yakında kullanıma açılacak.'),
+        findsOneWidget,
+      );
+      expect(reporting.reads, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('musician management has no independent event creation entry', (
     tester,
@@ -362,6 +406,16 @@ class _Promotions implements PromotionRepository {
   Future<Result<List<PromotionItem>>> getDisplayableByPlacement(
     String placement,
   ) async => const Result.success([]);
+}
+
+class _ManagementReportingRepository extends Fake
+    implements VenueAnalyticsRepository {
+  final reads = <Symbol>[];
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    reads.add(invocation.memberName);
+    return super.noSuchMethod(invocation);
+  }
 }
 
 const _musician = MusicianProfile(

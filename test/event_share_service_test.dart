@@ -430,6 +430,46 @@ void main() {
     expect(Directory('${directory.path}/collab_share').existsSync(), isFalse);
   });
 
+  testWidgets(
+    'an invalid caller cannot create a share file or hand off to an app',
+    (tester) async {
+      final context = await _context(tester);
+      await tester.runAsync(
+        () => service(platform: TargetPlatform.android).share(
+          context,
+          PreparedEventShare(bytes: png, data: _data()),
+          EventShareTarget.whatsapp,
+          isValid: () => false,
+        ),
+      );
+      expect(nativeCalls, isEmpty);
+      expect(shares, isEmpty);
+      expect(Directory('${directory.path}/collab_share').existsSync(), isFalse);
+    },
+  );
+
+  testWidgets(
+    'invalidated caller after app lookup cannot launch fallback sharing',
+    (tester) async {
+      final context = await _context(tester);
+      var valid = true;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (_) async {
+            valid = false;
+            throw PlatformException(code: 'app_not_installed');
+          });
+      await tester.runAsync(
+        () => service(platform: TargetPlatform.android).share(
+          context,
+          PreparedEventShare(bytes: png, data: _data()),
+          EventShareTarget.whatsapp,
+          isValid: () => valid,
+        ),
+      );
+      expect(shares, isEmpty);
+    },
+  );
+
   testWidgets('unmount during file preparation cancels external sharing', (
     tester,
   ) async {

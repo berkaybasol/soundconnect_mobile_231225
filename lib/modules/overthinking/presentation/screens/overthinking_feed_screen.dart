@@ -10,9 +10,8 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
-import '../../../engagement/domain/entities/comment_item.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
-import '../../../engagement/presentation/cubit/comment_thread_state.dart';
+import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../../profile/presentation/screens/stage_home_top_bar.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
@@ -113,6 +112,7 @@ class _OverthinkingFeedViewState extends State<_OverthinkingFeedView> {
   }
 
   Future<void> _openComments(OverthinkingPost post) async {
+    if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
     final feedCubit = context.read<OverthinkingFeedCubit>();
     await showModalBottomSheet<void>(
       context: context,
@@ -122,14 +122,11 @@ class _OverthinkingFeedViewState extends State<_OverthinkingFeedView> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => BlocProvider(
-        create: (_) => serviceLocator<CommentThreadCubit>()
-          ..load(
-            targetType: OverthinkingFeedCubit.targetType,
-            targetId: post.id,
-          ),
+        create: (_) => serviceLocator<CommentThreadCubit>(),
         child: _OverthinkingCommentsSheet(
           post: post,
           onCommentCreated: () => feedCubit.incrementCommentCount(post.id),
+          onCommentDeleted: () => feedCubit.refreshPost(post.id),
         ),
       ),
     );
@@ -1183,6 +1180,9 @@ class OverthinkingDetailScreen extends StatelessWidget {
                   onCommentCreated: () => context
                       .read<OverthinkingFeedCubit>()
                       .incrementCommentCount(currentPost.id),
+                  onCommentDeleted: () => context
+                      .read<OverthinkingFeedCubit>()
+                      .refreshPost(currentPost.id),
                 ),
               ],
             ),
@@ -1853,309 +1853,50 @@ class _LikeSentence extends StatelessWidget {
   }
 }
 
-class _OverthinkingInlineComments extends StatefulWidget {
+class _OverthinkingInlineComments extends StatelessWidget {
   final OverthinkingPost post;
   final VoidCallback onCommentCreated;
-
+  final VoidCallback onCommentDeleted;
   const _OverthinkingInlineComments({
     required this.post,
     required this.onCommentCreated,
+    required this.onCommentDeleted,
   });
 
   @override
-  State<_OverthinkingInlineComments> createState() =>
-      _OverthinkingInlineCommentsState();
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text('Yorumlar', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 10),
+      CommentThreadView(
+        targetType: OverthinkingFeedCubit.targetType,
+        targetId: post.id,
+        autoLoad: false,
+        onCommentCreated: onCommentCreated,
+        onCommentDeleted: onCommentDeleted,
+      ),
+    ],
+  );
 }
 
-class _OverthinkingInlineCommentsState
-    extends State<_OverthinkingInlineComments> {
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    await context.read<CommentThreadCubit>().create(
-      targetType: OverthinkingFeedCubit.targetType,
-      targetId: widget.post.id,
-      text: text,
-    );
-    if (!mounted) return;
-    if (context.read<CommentThreadCubit>().state.error == null) {
-      _controller.clear();
-      widget.onCommentCreated();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          widget.post.commentCount == 0
-              ? 'Yorumlar'
-              : '${widget.post.commentCount} yorum',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 10),
-        BlocBuilder<CommentThreadCubit, CommentThreadState>(
-          builder: (context, state) {
-            if (state.loading) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 22),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            if (state.comments.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  'Henuz yorum yok',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              );
-            }
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: state.comments.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) =>
-                  _CommentRow(comment: state.comments[index]),
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                minLines: 1,
-                maxLines: 3,
-                decoration: _sheetInputDecoration(context, 'Yorum yaz...'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            BlocBuilder<CommentThreadCubit, CommentThreadState>(
-              builder: (context, state) {
-                return IconButton.filled(
-                  onPressed: state.submitting ? null : _send,
-                  icon: const Icon(Icons.send_rounded),
-                );
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _OverthinkingCommentsSheet extends StatefulWidget {
+class _OverthinkingCommentsSheet extends StatelessWidget {
   final OverthinkingPost post;
   final VoidCallback onCommentCreated;
-
+  final VoidCallback onCommentDeleted;
   const _OverthinkingCommentsSheet({
     required this.post,
     required this.onCommentCreated,
+    required this.onCommentDeleted,
   });
 
   @override
-  State<_OverthinkingCommentsSheet> createState() =>
-      _OverthinkingCommentsSheetState();
-}
-
-class _OverthinkingCommentsSheetState
-    extends State<_OverthinkingCommentsSheet> {
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    await context.read<CommentThreadCubit>().create(
-      targetType: OverthinkingFeedCubit.targetType,
-      targetId: widget.post.id,
-      text: text,
-    );
-    if (!mounted) return;
-    if (context.read<CommentThreadCubit>().state.error == null) {
-      _controller.clear();
-      widget.onCommentCreated();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 18,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 14,
-      ),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.72,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Yorumlar',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: BlocBuilder<CommentThreadCubit, CommentThreadState>(
-                builder: (context, state) {
-                  if (state.loading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (state.comments.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'Henuz yorum yok',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    );
-                  }
-                  return ListView.separated(
-                    itemCount: state.comments.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) =>
-                        _CommentRow(comment: state.comments[index]),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    minLines: 1,
-                    maxLines: 3,
-                    decoration: _sheetInputDecoration(context, 'Yorum yaz...'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                BlocBuilder<CommentThreadCubit, CommentThreadState>(
-                  builder: (context, state) {
-                    return IconButton.filled(
-                      onPressed: state.submitting ? null : _send,
-                      icon: const Icon(Icons.send_rounded),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CommentRow extends StatelessWidget {
-  final CommentItem comment;
-
-  const _CommentRow({required this.comment});
-
-  @override
-  Widget build(BuildContext context) {
-    final username = comment.anonymousAuthor
-        ? 'Kimliğini açıklamak istemeyen yazar'
-        : comment.user.username;
-    final avatarUrl = comment.user.avatarUrl?.trim();
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 17,
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest,
-          backgroundImage: avatarUrl?.isNotEmpty == true
-              ? NetworkImage(avatarUrl!)
-              : null,
-          child: avatarUrl?.isNotEmpty == true
-              ? null
-              : Text(
-                  username.isNotEmpty ? username[0].toUpperCase() : '?',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        '@$username',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    if (comment.isVisibleGhostAuthor) ...[
-                      const SizedBox(width: 7),
-                      const GhostProfileBadge(),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  comment.text,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => CommentThreadSheet(
+    targetType: OverthinkingFeedCubit.targetType,
+    targetId: post.id,
+    onCommentCreated: onCommentCreated,
+    onCommentDeleted: onCommentDeleted,
+  );
 }
 
 InputDecoration _sheetInputDecoration(BuildContext context, String hint) {

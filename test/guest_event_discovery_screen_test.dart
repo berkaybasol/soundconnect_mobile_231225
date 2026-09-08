@@ -7,6 +7,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/data/analytics_tracker.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets/analytics_exposure.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/event/domain/entities/discovery_event.dart';
@@ -23,6 +26,8 @@ import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/brand_gradient_icon.dart';
 
+part 'guest_event_discovery_analytics_cases.dart';
+
 const _failure = AppError(code: 'offline', message: 'Bağlantı kurulamadı.');
 final _initialNow = DateTime.utc(2026, 9, 7, 12);
 const _betaNotice =
@@ -31,6 +36,7 @@ const _suggestionNotice =
     'SoundConnect’te bulamadığın bir mekanı önererek mekanla iletişime geçmemize yardımcı olabilirsin.';
 
 void main() {
+  _discoveryAnalyticsTests();
   testWidgets('starts today without searching and requires a city', (
     tester,
   ) async {
@@ -1343,7 +1349,10 @@ Future<void> _mount(
       key: capture,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        navigatorObservers: [if (navigation != null) navigation],
+        navigatorObservers: [
+          analyticsRouteObserver,
+          if (navigation != null) navigation,
+        ],
         theme: capture == null
             ? AppTheme.navy
             : AppTheme.navy.copyWith(

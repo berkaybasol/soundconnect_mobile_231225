@@ -7,8 +7,10 @@ import 'event_share_service.dart';
 
 Future<EventShareTarget?> showEventShareSheet(
   BuildContext context,
-  PreparedEventShare prepared,
-) => showModalBottomSheet<EventShareTarget>(
+  PreparedEventShare prepared, {
+  Listenable? validityChanges,
+  bool Function()? isValid,
+}) => showModalBottomSheet<EventShareTarget>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
@@ -18,12 +20,23 @@ Future<EventShareTarget?> showEventShareSheet(
     borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     side: BorderSide(color: Color(0xFF2A3244)),
   ),
-  builder: (_) => EventShareSheet(prepared: prepared),
+  builder: (_) => EventShareSheet(
+    prepared: prepared,
+    validityChanges: validityChanges,
+    isValid: isValid,
+  ),
 );
 
 class EventShareSheet extends StatefulWidget {
-  const EventShareSheet({super.key, required this.prepared});
+  const EventShareSheet({
+    super.key,
+    required this.prepared,
+    this.validityChanges,
+    this.isValid,
+  });
   final PreparedEventShare prepared;
+  final Listenable? validityChanges;
+  final bool Function()? isValid;
 
   @override
   State<EventShareSheet> createState() => _EventShareSheetState();
@@ -31,17 +44,73 @@ class EventShareSheet extends StatefulWidget {
 
 class _EventShareSheetState extends State<EventShareSheet> {
   bool _dismissed = false;
+  bool _invalidated = false;
+  bool _dismissScheduled = false;
+  ModalRoute<dynamic>? _route;
+
+  bool get _valid => !_invalidated && (widget.isValid?.call() ?? true);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.validityChanges?.addListener(_validityChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+    // The session may have changed after push but before this first build,
+    // before the sheet could subscribe to the notifier.
+    if (!_valid) _validityChanged();
+  }
+
+  @override
+  void didUpdateWidget(covariant EventShareSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.validityChanges != widget.validityChanges) {
+      oldWidget.validityChanges?.removeListener(_validityChanged);
+      widget.validityChanges?.addListener(_validityChanged);
+    }
+    if (!_valid) _validityChanged();
+  }
+
+  void _validityChanged() {
+    if (!mounted || _valid) return;
+    if (!_invalidated) setState(() => _invalidated = true);
+    if (_dismissScheduled) return;
+    _dismissScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _dismissScheduled = false;
+      if (!mounted || _dismissed) return;
+      final route = _route;
+      final navigator = route?.navigator;
+      if (route == null || navigator == null || !route.isActive) return;
+      _dismissed = true;
+      // Remove this exact private preview even when another route covers it;
+      // popping here could dismiss an unrelated screen instead.
+      navigator.removeRoute(route);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  @override
+  void dispose() {
+    widget.validityChanges?.removeListener(_validityChanged);
+    super.dispose();
+  }
 
   void _finish([EventShareTarget? target]) {
     if (_dismissed || !mounted || ModalRoute.of(context)?.isCurrent == false) {
       return;
     }
     _dismissed = true;
-    Navigator.of(context).pop(target);
+    Navigator.of(context).pop(_valid ? target : null);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_valid) return const SizedBox.shrink();
     final android = defaultTargetPlatform == TargetPlatform.android && !kIsWeb;
     return ConstrainedBox(
       constraints: BoxConstraints(

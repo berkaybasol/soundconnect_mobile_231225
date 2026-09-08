@@ -472,7 +472,7 @@ class _OverthinkingRepositoryFake implements OverthinkingRepository {
   }) async => Result.success(_post(postId));
 }
 
-class _EngagementRepositoryFake implements EngagementRepository {
+class _EngagementRepositoryFake extends EngagementRepository {
   _EngagementRepositoryFake({this.likeFuture});
 
   final Future<Result<void>>? likeFuture;
@@ -534,8 +534,10 @@ class _EngagementRepositoryFake implements EngagementRepository {
   }) => throw UnimplementedError();
 
   @override
-  Future<Result<List<CommentItem>>> listReplies(String commentId, {String? eventId}) =>
-      throw UnimplementedError();
+  Future<Result<List<CommentItem>>> listReplies(
+    String commentId, {
+    String? eventId,
+  }) => throw UnimplementedError();
 }
 
 class _OverthinkingApiClientFake extends ApiClient {

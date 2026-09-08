@@ -58,6 +58,72 @@ bool _isPathOrDescendant(String path, String basePath) {
   return path == basePath || path.startsWith('$basePath/');
 }
 
+/// Retry-After accepts delta-seconds or an IMF-fixdate. Invalid dates and past
+/// values are ignored; server hints cannot pause work over 1 hour.
+@visibleForTesting
+Duration? parseApiRetryAfter(String? value, {DateTime? now}) {
+  final raw = value?.trim() ?? '';
+  if (raw.isEmpty) return null;
+  const maximumSeconds = 3600;
+  if (RegExp(r'^\d+$').hasMatch(raw)) {
+    final seconds = int.tryParse(raw);
+    if (seconds == null) return const Duration(seconds: maximumSeconds);
+    return Duration(seconds: seconds.clamp(0, maximumSeconds));
+  }
+  final match = RegExp(
+    r'^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) '
+    r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) '
+    r'(\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT$',
+  ).firstMatch(raw);
+  if (match == null) return null;
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final day = int.parse(match[1]!);
+  final month = months.indexOf(match[2]!) + 1;
+  final year = int.parse(match[3]!);
+  final hour = int.parse(match[4]!);
+  final minute = int.parse(match[5]!);
+  final second = int.parse(match[6]!);
+  final date = DateTime.utc(year, month, day, hour, minute, second);
+  if (date.year != year ||
+      date.month != month ||
+      date.day != day ||
+      date.hour != hour ||
+      date.minute != minute ||
+      date.second != second) {
+    return null;
+  }
+  final delay = date.difference((now ?? DateTime.now()).toUtc());
+  if (delay.isNegative) return null;
+  return delay > const Duration(seconds: maximumSeconds)
+      ? const Duration(seconds: maximumSeconds)
+      : delay;
+}
+
+Duration? _responseRetryAfter(Response<dynamic>? response, String code) {
+  if (response == null ||
+      !(const {'429', '503', '9912', '9913'}.contains(code) ||
+          response.statusCode == 429 ||
+          response.statusCode == 503)) {
+    return null;
+  }
+  final values = response.headers['retry-after'];
+  if (values == null || values.length != 1) return null;
+  return parseApiRetryAfter(values.single);
+}
+
 class DioApiClient implements ApiClient {
   final Dio _dio;
   final TokenStore _tokenStore;
@@ -65,6 +131,8 @@ class DioApiClient implements ApiClient {
 
   static const String _requestTokenKey = 'soundconnect.request_token';
   static const String _expectedSessionKey = 'soundconnect.expected_session_key';
+  static const String _requireGuestSessionKey =
+      'soundconnect.require_guest_session';
 
   DioApiClient({
     Dio? dio,
@@ -89,8 +157,24 @@ class DioApiClient implements ApiClient {
           final isPublic = isPublicApiRequest(options.method, options.path);
           final expectedSession =
               options.extra[_expectedSessionKey]?.toString().trim() ?? '';
-          if (!isPublic || expectedSession.isNotEmpty) {
+          final requireGuestSession =
+              options.extra[_requireGuestSessionKey] == true;
+          if (!isPublic || expectedSession.isNotEmpty || requireGuestSession) {
             final token = await _tokenStore.readToken();
+            if (requireGuestSession &&
+                (expectedSession.isNotEmpty ||
+                    token?.trim().isNotEmpty == true ||
+                    _sessionManager?.session.isAuthenticated == true)) {
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  type: DioExceptionType.cancel,
+                  error: const ApiSessionFenceException(),
+                  message: 'Guest session changed before dispatch',
+                ),
+              );
+              return;
+            }
             if (expectedSession.isNotEmpty) {
               final tokenSession = JwtClaims.tryParse(token)?.subject?.trim();
               final activeSession = _sessionManager?.session.userId?.trim();
@@ -112,6 +196,11 @@ class DioApiClient implements ApiClient {
             if (!isPublic && token != null && token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
               options.extra[_requestTokenKey] = token;
+            }
+            if (requireGuestSession) {
+              options.headers.removeWhere(
+                (key, _) => key.toLowerCase() == 'authorization',
+              );
             }
           }
           handler.next(options);
@@ -227,6 +316,8 @@ class DioApiClient implements ApiClient {
           extra: <String, Object?>{
             if (requestContext?.expectedSessionKey case final value?)
               _expectedSessionKey: value,
+            if (requestContext?.requireGuestSession == true)
+              _requireGuestSessionKey: true,
           },
         ),
       );
@@ -247,6 +338,10 @@ class DioApiClient implements ApiClient {
           AppError(
             code: (baseResponse.code ?? response.statusCode ?? 0).toString(),
             message: baseResponse.message ?? 'Request failed',
+            retryAfter: _responseRetryAfter(
+              response,
+              (baseResponse.code ?? response.statusCode ?? 0).toString(),
+            ),
           ),
         );
       }
@@ -277,6 +372,7 @@ class DioApiClient implements ApiClient {
           code: code,
           message: message,
           details: _detailsFromErrorPayload(errorPayload),
+          retryAfter: _responseRetryAfter(e.response, code),
         ),
       );
     }

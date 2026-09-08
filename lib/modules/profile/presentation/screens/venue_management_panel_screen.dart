@@ -19,6 +19,8 @@ import '../../domain/entities/artist_venue_application.dart';
 import '../../domain/entities/venue_owner_profile.dart';
 import '../navigation/profile_action_session.dart';
 import 'band_profile_screen.dart';
+import '../../../analytics/presentation/screens/venue_analytics_screen.dart';
+import '../../../analytics/presentation/widgets/venue_analytics_reporting_scope.dart';
 
 part 'venue_management_panel_screen_applications.dart';
 part 'venue_management_panel_screen_application_actions.dart';
@@ -42,6 +44,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reporting = VenueAnalyticsReportingScope.of(context).enabled;
     return Scaffold(
       appBar: AppBar(title: Text('Mekan Yönetimi'), centerTitle: true),
       body: SafeArea(
@@ -126,9 +129,30 @@ class VenueManagementPanelScreen extends StatelessWidget {
               _buildManagementActionCard(
                 context: context,
                 icon: Icons.dashboard_customize_outlined,
-                title: 'Istatistikler',
-                message: 'İstatistikler modülü yakında burada açılacak.',
-                trailingLabel: 'Yakinda!',
+                key: const Key('venue-management-analytics'),
+                title: 'İstatistikler',
+                message: reporting
+                    ? 'Etkinliklerinin erişimini ve profil ziyaretlerini gör.'
+                    : 'Mekan istatistikleri yakında kullanıma açılacak.',
+                trailingLabel: reporting ? null : 'Yakında',
+                showChevron: reporting,
+                onTap: !reporting
+                    ? null
+                    : () {
+                        if (!context.mounted ||
+                            !VenueAnalyticsReportingScope.read(context).enabled) {
+                          return;
+                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => VenueAnalyticsScreen(
+                              venueId: ownerProfile.venueId,
+                              venueName: ownerProfile.venueName,
+                              ownerUserId: ownerProfile.ownerUserId,
+                            ),
+                          ),
+                        );
+                      },
               ),
               SizedBox(height: 14),
               _buildManagementActionCard(

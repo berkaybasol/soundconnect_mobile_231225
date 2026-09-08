@@ -1,5 +1,9 @@
 class EngagementEndpoints {
   static const String _likesBase = '/api/v1/likes';
+  static String commentLike(String commentId) =>
+      '$_likesBase/COMMENT/${Uri.encodeComponent(commentId)}';
+  static String commentLikeState(String commentId) =>
+      '${commentLike(commentId)}/state';
   static const String _commentsBase = '/api/v1/comments';
 
   static String like(String targetType, String targetId) =>
@@ -15,13 +19,14 @@ class EngagementEndpoints {
       '$_likesBase/$targetType/$targetId/is-liked';
 
   static String createComment(String targetType, String targetId) =>
-      '$_commentsBase/$targetType/$targetId';
+      '$_commentsBase/${Uri.encodeComponent(targetType)}/${Uri.encodeComponent(targetId)}';
 
   static String listComments(String targetType, String targetId) =>
-      '$_commentsBase/$targetType/$targetId';
+      createComment(targetType, targetId);
 
-  static String deleteComment(String commentId) => '$_commentsBase/$commentId';
+  static String deleteComment(String commentId) =>
+      '$_commentsBase/${Uri.encodeComponent(commentId)}';
 
   static String listReplies(String commentId) =>
-      '$_commentsBase/replies/$commentId';
+      '$_commentsBase/replies/${Uri.encodeComponent(commentId)}';
 }

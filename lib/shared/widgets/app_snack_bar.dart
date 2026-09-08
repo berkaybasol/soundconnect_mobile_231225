@@ -14,6 +14,8 @@ SnackBar appSnackBar(
   required AppSnackBarTone tone,
   Duration duration = const Duration(seconds: 4),
   SnackBarAction? action,
+  bool? persist,
+  bool inlineAction = false,
   EdgeInsetsGeometry margin = const EdgeInsets.fromLTRB(20, 12, 20, 18),
 }) {
   final scheme = Theme.of(context).colorScheme;
@@ -49,12 +51,13 @@ SnackBar appSnackBar(
     // Match the native action's default lifetime even though its layout lives
     // in content. Native overflow rows reserve 40% of the message width and
     // can push the floating bar off screen at large accessibility text sizes.
-    persist: action != null,
+    persist: persist ?? action != null,
     content: LayoutBuilder(
       builder: (context, constraints) {
         final media = MediaQuery.of(context);
         final resolvedMargin = margin.resolve(Directionality.of(context));
         var actionHeight = 0.0;
+        var actionWidth = 0.0;
         if (action != null) {
           final painter = TextPainter(
             text: TextSpan(
@@ -65,8 +68,38 @@ SnackBar appSnackBar(
             textScaler: media.textScaler,
           )..layout(maxWidth: math.max(1, constraints.maxWidth - 32));
           actionHeight = math.max(48, painter.height + 16) + 8;
+          actionWidth = math.min(
+            constraints.maxWidth,
+            painter.maxIntrinsicWidth + 32,
+          );
           painter.dispose();
         }
+        // Opt-in compact feedback can keep the action beside the message.
+        // Larger text/narrow widths retain the original accessible second row.
+        final useInlineAction =
+            inlineAction &&
+            action != null &&
+            media.textScaler.scale(14) <= 18 &&
+            constraints.maxWidth - actionWidth - 45 >= 105;
+        if (useInlineAction) actionHeight = 0;
+        final actionButton = action == null
+            ? null
+            : TextButtonTheme(
+                data: TextButtonThemeData(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                ),
+                child: SnackBarAction(
+                  key: action.key,
+                  label: action.label,
+                  onPressed: action.onPressed,
+                  textColor: scheme.onSurface,
+                  disabledTextColor: scheme.onSurfaceVariant,
+                  backgroundColor: action.backgroundColor,
+                  disabledBackgroundColor: action.disabledBackgroundColor,
+                ),
+              );
         // Reserve space for the action and Scaffold's bottom controls. Only long
         // messages scroll; ordinary feedback keeps its natural height. Calculate
         // this at layout time so keyboard, rotation and custom composer margins
@@ -103,32 +136,18 @@ SnackBar appSnackBar(
                     ),
                   ),
                 ),
+                if (useInlineAction && actionButton != null) ...[
+                  const SizedBox(width: 12),
+                  SizedBox(width: actionWidth, child: actionButton),
+                ],
               ],
             ),
-            if (action != null) ...[
+            if (!useInlineAction && actionButton != null) ...[
               const SizedBox(height: 8),
               Align(
                 alignment: AlignmentDirectional.centerEnd,
-                child: TextButtonTheme(
-                  data: TextButtonThemeData(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                  ),
-                  // Align passes the actual safe-area/content width to the native
-                  // button, so the label wraps after rotation or window resizing.
-                  // SnackBarAction retains its once-only callback and action
-                  // dismissal reason through ScaffoldMessenger.
-                  child: SnackBarAction(
-                    key: action.key,
-                    label: action.label,
-                    onPressed: action.onPressed,
-                    textColor: scheme.onSurface,
-                    disabledTextColor: scheme.onSurfaceVariant,
-                    backgroundColor: action.backgroundColor,
-                    disabledBackgroundColor: action.disabledBackgroundColor,
-                  ),
-                ),
+                // Keep the native once-only action and dismissal semantics.
+                child: actionButton,
               ),
             ],
           ],

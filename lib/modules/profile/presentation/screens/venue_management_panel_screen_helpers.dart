@@ -6,9 +6,12 @@ Widget _buildManagementActionCard({
   required String title,
   required String message,
   String? trailingLabel,
+  Key? key,
+  bool showChevron = true,
   VoidCallback? onTap,
 }) {
   return InkWell(
+    key: key,
     onTap:
         onTap ??
         () {
@@ -72,11 +75,12 @@ Widget _buildManagementActionCard({
               ),
               SizedBox(width: 10),
             ],
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              size: 16,
-            ),
+            if (showChevron)
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 16,
+              ),
           ],
         ),
       ),

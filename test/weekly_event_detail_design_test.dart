@@ -9,6 +9,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/data/analytics_tracker.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/domain/venue_analytics_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/domain/venue_analytics_reporting_config.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets/venue_analytics_reporting_scope.dart';
+import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets/analytics_exposure.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
@@ -16,6 +21,8 @@ import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/engagement_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/event_audience/domain/event_audience_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/event_audience/presentation/widgets/event_audience_controls.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_item.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_user_summary.dart';
@@ -24,6 +31,7 @@ import 'package:soundconnect_23_12_25codx/modules/engagement/presentation/cubit/
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_member_summary.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_detail.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_public_profile.dart';
@@ -40,11 +48,19 @@ import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/event_poster_fallback.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
+import 'support/event_audience_fakes.dart';
 
 part 'weekly_event_detail_self_navigation_cases.dart';
 part 'weekly_event_detail_band_navigation_cases.dart';
 part 'weekly_event_detail_profile_chip_cases.dart';
 part 'weekly_event_detail_comment_auth_cases.dart';
+part 'weekly_event_detail_comment_quality_cases.dart';
+part 'weekly_event_detail_reference_cases.dart';
+part 'weekly_event_detail_reply_design_cases.dart';
+part 'weekly_event_detail_reply_pagination_cases.dart';
+part 'weekly_event_detail_analytics_cases.dart';
+part 'weekly_event_detail_audience_cases.dart';
+part 'weekly_event_detail_loading_cases.dart';
 
 void main() {
   late _DetailRepository details;
@@ -74,6 +90,12 @@ void main() {
   _bandProfileNavigationTests(() => bands);
   _adaptiveProfileChipTests(() => venues);
   _commentAuthenticationTests(() => comments);
+  _commentQualityTests(() => comments);
+  _replyDesignTests(() => comments);
+  _replyPaginationTests(() => comments);
+  _detailAnalyticsTests(() => details, () => venues);
+  _detailAudienceTests(() => venues);
+  _detailLoadingTests();
 
   testWidgets('restored detail keeps its hero and chips without time seconds', (
     tester,
@@ -681,7 +703,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(comments.listCalls, 0);
+    expect(comments.listCalls, 1);
     expect(tester.takeException(), isNull);
   });
 
@@ -1081,6 +1103,7 @@ void main() {
   });
 
   _commentAccessPreviewTests(() => comments);
+  _detailReferenceTests(() => comments);
 }
 
 Finder _performerInfoButton() =>
@@ -1118,10 +1141,12 @@ Future<void> _openDetail(
   ValueChanged<RouteSettings>? onRoute,
   EventShareService? shareService,
   GlobalKey? capture,
+  VenueAnalyticsReportingConfig? reportingConfig,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final application = MaterialApp(
+    navigatorObservers: [analyticsRouteObserver],
     debugShowCheckedModeBanner: capture == null,
     theme: capture == null
         ? AppTheme.navy
@@ -1147,13 +1172,21 @@ Future<void> _openDetail(
       );
     },
   );
+  final capturedApplication = capture == null
+      ? application
+      : RepaintBoundary(key: capture, child: application);
   await tester.pumpWidget(
-    capture == null
-        ? application
-        : RepaintBoundary(key: capture, child: application),
+    reportingConfig == null
+        ? capturedApplication
+        : VenueAnalyticsReportingScope(
+            config: reportingConfig,
+            child: capturedApplication,
+          ),
   );
   if (settle) {
     await tester.pumpAndSettle();
+    // Post-paint zero-duration exposure callbacks use the next event-loop turn.
+    await tester.pump(const Duration(milliseconds: 1));
   } else {
     // Resolve the fake repositories and render their avatar/identity result
     // without waiting for the network image's indeterminate placeholder.
@@ -1261,8 +1294,9 @@ class _EventShareService implements EventShareService {
   Future<void> share(
     BuildContext context,
     PreparedEventShare prepared,
-    EventShareTarget target,
-  ) async {
+    EventShareTarget target, {
+    bool Function()? isValid,
+  }) async {
     shared.add((prepared, target));
     if (failSending) throw StateError('Share failed.');
     await sending?.future;
@@ -1374,9 +1408,56 @@ class _CommentsRepository extends Fake implements EngagementRepository {
   final creationParents = <String?>[];
   final replies = <String, List<CommentItem>>{};
   final replyReads = <(String, String?)>[];
+  final listPages = <int>[];
+  final replyPages = <int>[];
+  final listSizes = <int>[];
+  final replySizes = <int>[];
+  final deletions = <String>[];
+  Future<Result<CommentPage>> Function(int page)? replyPageResponse;
   Completer<Result<CommentItem>>? creationCompletion;
   Future<Result<CommentPage>> Function()? listResponse;
   int listCalls = 0;
+
+  @override
+  Future<Result<void>> deleteComment({required String commentId}) async {
+    deletions.add(commentId);
+    final index = comments.indexWhere((item) => item.id == commentId);
+    if (index >= 0) {
+      final old = comments[index];
+      comments[index] = CommentItem(
+        id: old.id,
+        user: old.user,
+        text: '',
+        deleted: true,
+        parentCommentId: old.parentCommentId,
+        replyCount: old.replyCount,
+        createdAt: old.createdAt,
+      );
+    }
+    return const Result.success(null);
+  }
+
+  @override
+  Future<Result<CommentPage>> listReplyPage(
+    String commentId, {
+    String? eventId,
+    int page = 0,
+    int size = 20,
+  }) async {
+    replyPages.add(page);
+    replySizes.add(size);
+    replyReads.add((commentId, eventId));
+    if (replyPageResponse != null) return replyPageResponse!(page);
+    final rows = replies[commentId] ?? const <CommentItem>[];
+    return Result.success(
+      CommentPage(
+        items: rows.skip(page * size).take(size).toList(),
+        totalElements: rows.length,
+        page: page,
+        size: size,
+      ),
+    );
+  }
 
   @override
   Future<Result<List<CommentItem>>> listReplies(
@@ -1395,9 +1476,16 @@ class _CommentsRepository extends Fake implements EngagementRepository {
     int size = 20,
   }) async {
     listCalls++;
+    listPages.add(page);
+    listSizes.add(size);
     if (listResponse != null) return listResponse!();
     return Result.success(
-      CommentPage(items: List.of(comments), totalElements: comments.length),
+      CommentPage(
+        items: comments.skip(page * size).take(size).toList(),
+        totalElements: comments.length,
+        page: page,
+        size: size,
+      ),
     );
   }
 

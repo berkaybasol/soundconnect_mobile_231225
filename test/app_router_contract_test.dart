@@ -9,6 +9,10 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/access_policy.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/stage_mode.dart';
+import 'package:soundconnect_23_12_25codx/modules/event/presentation/screens/event_discovery_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/event_audience/presentation/event_audience_profile_draft.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_pending_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
@@ -18,6 +22,103 @@ void main() {
   tearDown(() async {
     await GetIt.instance.reset();
   });
+
+  testWidgets('own listener route forwards only typed event draft arguments', (
+    tester,
+  ) async {
+    final session = _activeSession(['ROLE_LISTENER']);
+    _registerSession(session);
+    await tester.pumpWidget(
+      const MaterialApp(home: SizedBox(key: Key('draft-route-host'))),
+    );
+    final context = tester.element(find.byKey(const Key('draft-route-host')));
+    final draft = EventAudienceProfileDraftArgs(
+      eventId: 'event-id',
+      expectedSession: session,
+    );
+    for (final arguments in <Object?>[draft, 'malformed', null]) {
+      final route =
+          AppRouter.onGenerateRoute(
+                RouteSettings(
+                  name: AppRoutes.listenerProfile,
+                  arguments: arguments,
+                ),
+              )
+              as MaterialPageRoute;
+      expect(route.settings.name, AppRoutes.listenerProfile);
+      final screen = route.builder(context) as ListenerProfileScreen;
+      expect(screen.eventDraft, arguments == draft ? same(draft) : isNull);
+    }
+  });
+
+  test('member discovery keeps authentication and onboarding gates', () {
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.eventDiscovery,
+        const AuthSession.guest(),
+      ),
+      AppRoutes.login,
+    );
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.eventDiscovery,
+        _activeSession(['ROLE_LISTENER'], requiresListenerProfileChoice: true),
+      ),
+      AppRoutes.listenerProfileChoice,
+    );
+    for (final role in [
+      'ROLE_LISTENER',
+      'ROLE_MUSICIAN',
+      'ROLE_VENUE',
+      'ROLE_STUDIO',
+    ]) {
+      expect(
+        AppRouteGuard.redirectFor(
+          AppRoutes.eventDiscovery,
+          _activeSession([role]),
+        ),
+        isNull,
+      );
+    }
+  });
+
+  testWidgets(
+    'real member discovery route builds the shared screen with stage args',
+    (tester) async {
+      _registerSession(_activeSession(['ROLE_LISTENER']));
+      await tester.pumpWidget(
+        const MaterialApp(home: SizedBox(key: Key('route-host'))),
+      );
+      final context = tester.element(find.byKey(const Key('route-host')));
+      for (final stage in StageMode.values) {
+        final route =
+            AppRouter.onGenerateRoute(
+                  RouteSettings(
+                    name: AppRoutes.eventDiscovery,
+                    arguments: EventDiscoveryArgs(bottomBarStageMode: stage),
+                  ),
+                )
+                as MaterialPageRoute;
+        expect(route.settings.name, AppRoutes.eventDiscovery);
+        final page = route.builder(context) as MemberEventDiscoveryScreen;
+        expect(page.args.bottomBarStageMode, stage);
+      }
+      final fallback =
+          AppRouter.onGenerateRoute(
+                const RouteSettings(
+                  name: AppRoutes.eventDiscovery,
+                  arguments: 'malformed',
+                ),
+              )
+              as MaterialPageRoute;
+      expect(
+        (fallback.builder(context) as MemberEventDiscoveryScreen)
+            .args
+            .bottomBarStageMode,
+        StageMode.mainstage,
+      );
+    },
+  );
 
   testWidgets('real router lets the guest OTP flow reach venue pending', (
     tester,

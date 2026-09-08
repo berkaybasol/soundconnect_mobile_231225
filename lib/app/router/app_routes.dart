@@ -25,6 +25,7 @@ class AppRoutes {
   static const listenerProfile = '/listener-profile';
   static const listenerProfileChoice = '/listener-profile-choice';
   static const listenerPublicProfile = '/listener-public-profile';
+  static const eventDiscovery = '/event-discovery';
   static const overthinkingFeed = '/overthinking-feed';
   static const notifications = '/notifications';
   static const tableGroupList = '/table-group-list';

@@ -24,6 +24,7 @@ class ListenerGhostProfileContent extends StatelessWidget {
     this.onEditAvatar,
     this.onSwitchToStandard,
     this.onMessage,
+    this.privatePlansAction,
   });
 
   final String username;
@@ -34,6 +35,7 @@ class ListenerGhostProfileContent extends StatelessWidget {
   final VoidCallback? onEditAvatar;
   final VoidCallback? onSwitchToStandard;
   final VoidCallback? onMessage;
+  final Widget? privatePlansAction;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +119,10 @@ class ListenerGhostProfileContent extends StatelessWidget {
                           busy: busy,
                           onSwitchToStandard: onSwitchToStandard,
                         ),
+                        if (privatePlansAction != null) ...[
+                          const SizedBox(height: 16),
+                          privatePlansAction!,
+                        ],
                       ] else ...[
                         const SizedBox(height: 25),
                         const Padding(

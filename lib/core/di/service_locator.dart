@@ -1,4 +1,11 @@
 import 'package:get_it/get_it.dart';
+import '../../modules/analytics/data/analytics_collection_repository_impl.dart';
+import '../../modules/analytics/data/analytics_tracker.dart';
+import '../../modules/analytics/data/venue_analytics_repository_impl.dart';
+import '../../modules/analytics/domain/analytics_collection_repository.dart';
+import '../../modules/analytics/domain/venue_analytics_repository.dart';
+import '../../modules/event_audience/data/event_audience_repository_impl.dart';
+import '../../modules/event_audience/domain/event_audience_repository.dart';
 
 import '../../modules/auth/data/auth_repository_impl.dart';
 import '../../modules/admin/data/admin_repository_impl.dart';
@@ -163,6 +170,28 @@ void setupDependencies() {
         tokenStore: serviceLocator<TokenStore>(),
         sessionManager: serviceLocator<AuthSessionManager>(),
       ),
+    )
+    ..registerLazySingleton<AnalyticsCollectionRepository>(
+      () => AnalyticsCollectionRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<AnalyticsTracker>(
+      () => AnalyticsTracker(
+        repository: serviceLocator<AnalyticsCollectionRepository>(),
+        sessionManager: serviceLocator<AuthSessionManager>(),
+      ),
+      dispose: (tracker) => tracker.dispose(),
+    )
+    ..registerLazySingleton<VenueAnalyticsRepository>(
+      () => VenueAnalyticsRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<EventAudienceRepository>(
+      () => EventAudienceRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+      ),
+      dispose: (repository) =>
+          (repository as EventAudienceRepositoryImpl).dispose(),
     )
     ..registerLazySingleton<AdminRepository>(
       () => AdminRepositoryImpl(serviceLocator<ApiClient>()),
@@ -404,7 +433,10 @@ void setupDependencies() {
       () => TableGroupChatRealtimeClient(),
     )
     ..registerLazySingleton<EngagementRepository>(
-      () => EngagementRepositoryImpl(serviceLocator<ApiClient>()),
+      () => EngagementRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerFactory<TableGroupCreateCubit>(
       () => TableGroupCreateCubit(
@@ -433,7 +465,10 @@ void setupDependencies() {
       () => InteractionStatsCubit(serviceLocator<EngagementRepository>()),
     )
     ..registerFactory<CommentThreadCubit>(
-      () => CommentThreadCubit(serviceLocator<EngagementRepository>()),
+      () => CommentThreadCubit(
+        serviceLocator<EngagementRepository>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<OverthinkingRepository>(
       () => OverthinkingRepositoryImpl(serviceLocator<ApiClient>()),

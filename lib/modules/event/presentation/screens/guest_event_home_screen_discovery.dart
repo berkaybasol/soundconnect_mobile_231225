@@ -9,6 +9,10 @@ class GuestEventDiscoveryScreen extends StatefulWidget {
     this.suggestionRepository,
     this.now,
     this.watchClock = true,
+    this.showGuestFooter = true,
+    this.bottomNavigationBar,
+    this.onTableTap,
+    this.tableHint = 'Masa açmak için\ndokunun',
   });
 
   final LocationRepository? locationRepository;
@@ -16,6 +20,10 @@ class GuestEventDiscoveryScreen extends StatefulWidget {
   final VenueSuggestionRepository? suggestionRepository;
   final DateTime Function()? now;
   final bool watchClock;
+  final bool showGuestFooter;
+  final Widget? bottomNavigationBar;
+  final VoidCallback? onTableTap;
+  final String tableHint;
 
   @override
   State<GuestEventDiscoveryScreen> createState() => _GuestDiscoveryState();
@@ -443,11 +451,14 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
     final tomorrow = DateTime(_today.year, _today.month, _today.day + 1);
     final later = _date.isAfter(tomorrow);
     return Scaffold(
+      bottomNavigationBar: widget.bottomNavigationBar,
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: _DiscoveryTableOverlay(
+                onTap: widget.onTableTap,
+                hint: widget.tableHint,
                 child: CustomScrollView(
                   key: const PageStorageKey('guest-discovery-scroll'),
                   slivers: [
@@ -845,7 +856,10 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                         itemCount: _events.length,
                         itemBuilder: (context, index) => Padding(
                           padding: const EdgeInsets.only(bottom: 14),
-                          child: _DiscoveryEventTile(item: _events[index]),
+                          child: TrackEventImpression(
+                            eventId: _events[index].id,
+                            child: _DiscoveryEventTile(item: _events[index]),
+                          ),
                         ),
                       ),
                     ),
@@ -880,7 +894,7 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                 ),
               ),
             ),
-            const _DiscoveryAuthFooter(),
+            if (widget.showGuestFooter) const _DiscoveryAuthFooter(),
           ],
         ),
       ),
@@ -889,8 +903,14 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
 }
 
 class _DiscoveryTableOverlay extends StatefulWidget {
-  const _DiscoveryTableOverlay({required this.child});
+  const _DiscoveryTableOverlay({
+    required this.child,
+    required this.hint,
+    this.onTap,
+  });
   final Widget child;
+  final String hint;
+  final VoidCallback? onTap;
 
   @override
   State<_DiscoveryTableOverlay> createState() => _DiscoveryTableOverlayState();
@@ -898,6 +918,14 @@ class _DiscoveryTableOverlay extends StatefulWidget {
 
 class _DiscoveryTableOverlayState extends State<_DiscoveryTableOverlay> {
   Offset _offset = Offset.zero;
+
+  Future<void> _openTables() async {
+    if (widget.onTap != null) {
+      widget.onTap!();
+    } else {
+      await _openDiscoveryTableGate(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -913,7 +941,7 @@ class _DiscoveryTableOverlayState extends State<_DiscoveryTableOverlay> {
         ),
       );
       final painter = TextPainter(
-        text: TextSpan(text: 'Masa açmak için\ndokunun', style: hintStyle),
+        text: TextSpan(text: widget.hint, style: hintStyle),
         textDirection: Directionality.of(context),
         textScaler: scaler,
       )..layout(maxWidth: width - 24);
@@ -946,10 +974,11 @@ class _DiscoveryTableOverlayState extends State<_DiscoveryTableOverlay> {
                 excludeSemantics: true,
                 button: true,
                 label: 'Masalar',
-                onTap: () => _openDiscoveryTableGate(context),
+                onTap: _openTables,
                 child: _GuestTableAccessFab(
+                  hintText: widget.hint,
                   showHint: showHint,
-                  onTap: () => _openDiscoveryTableGate(context),
+                  onTap: _openTables,
                   onDragDelta: (delta) => setState(() {
                     final left = (maxLeft + _offset.dx).clamp(0.0, maxLeft);
                     final top = (maxTop + _offset.dy).clamp(0.0, maxTop);

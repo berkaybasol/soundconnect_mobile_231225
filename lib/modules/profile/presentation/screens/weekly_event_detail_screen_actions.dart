@@ -21,18 +21,24 @@ extension _WeeklyEventDetailScreenStateActions
 
     if (futures.isEmpty) return;
     await Future.wait(futures);
-    if (!mounted) return;
-    await _loadComments();
   }
 
   Future<void> _loadShareUrl() async {
     try {
       final result = await _venueEventRepository.getDetail(widget.event.id);
       final payload = result.data;
-      if (!mounted || !result.isSuccess || payload == null) return;
+      if (!mounted ||
+          !result.isSuccess ||
+          payload == null ||
+          payload.id != widget.event.id) {
+        return;
+      }
       _updateState(() {
         // Summaries may omit description; only the event detail is authoritative.
         _loadedDescription = payload.description?.trim() ?? '';
+        _analyticsEventVerified =
+            payload.venueId == widget.event.venueId &&
+            (widget.event.venueId?.trim().isNotEmpty ?? false);
       });
     } catch (_) {
       // Keep the supplied description if the public detail is unavailable.
@@ -76,12 +82,20 @@ extension _WeeklyEventDetailScreenStateActions
   }
 
   Future<void> _loadVenueProfile(String venueId) async {
-    final repository = serviceLocator<VenueProfileRepository>();
-    final result = await repository.getPublicVenueProfile(venueId: venueId);
-    if (!mounted || !result.isSuccess || result.data == null) return;
-    _updateState(() {
-      _venueProfile = result.data;
-    });
+    try {
+      final repository = serviceLocator<VenueProfileRepository>();
+      final result = await repository.getPublicVenueProfile(venueId: venueId);
+      if (!mounted ||
+          !result.isSuccess ||
+          result.data == null ||
+          result.data!.venueId != venueId ||
+          widget.event.venueId != venueId) {
+        return;
+      }
+      _updateState(() => _venueProfile = result.data);
+    } catch (_) {
+      // A failed public preview cannot grant access to private analytics.
+    }
   }
 
   Future<void> _loadComments({bool clearExisting = false}) async {
@@ -92,65 +106,123 @@ extension _WeeklyEventDetailScreenStateActions
     );
   }
 
-  Future<void> _syncReplies(List<CommentItem> comments) async {
-    final futures = <Future<void>>[];
-    for (final comment in comments) {
-      if (comment.replyCount <= 0) continue;
-      if (_loadedReplyParents.contains(comment.id)) continue;
-      _loadedReplyParents.add(comment.id);
-      futures.add(_loadReplies(comment.id));
+  Future<void> _loadReplies(String commentId, {bool restart = false}) async {
+    if (!mounted ||
+        !_expandedReplyParents.contains(commentId) ||
+        (!restart &&
+            (_loadingReplyParents.contains(commentId) ||
+                (_loadedReplyParents.contains(commentId) &&
+                    _replyHasMore[commentId] != true)))) {
+      return;
     }
-    if (futures.isEmpty) return;
-    await Future.wait(futures);
-  }
-
-  Future<void> _loadReplies(String commentId) async {
+    final roots = _commentCubit.state.comments.where(
+      (item) => item.id == commentId,
+    );
+    if (roots.isEmpty) {
+      return;
+    }
+    final root = roots.first;
     final identityRevision = _commentIdentityRevision;
+    final expectedSession = _commentSessionManager?.session;
+    final eventId = widget.event.id;
+    final page = restart ? 0 : (_replyPages[commentId] ?? 0);
+    if (page > 1000) return;
+    final requestVersion = (_replyRequestVersions[commentId] ?? 0) + 1;
+    _replyRequestVersions[commentId] = requestVersion;
+    _replyRootSnapshots[commentId] = root;
+    bool currentRequest() =>
+        mounted &&
+        identityRevision == _commentIdentityRevision &&
+        identical(expectedSession, _commentSessionManager?.session) &&
+        eventId == widget.event.id &&
+        _replyRequestVersions[commentId] == requestVersion &&
+        _commentCubit.state.comments.any((item) => identical(item, root));
+    _updateState(() {
+      _loadingReplyParents.add(commentId);
+      _replyErrors.remove(commentId);
+    });
     try {
-      final result = await _engagementRepository.listReplies(
+      final result = await _engagementRepository.listReplyPage(
         commentId,
-        eventId: widget.event.id,
+        eventId: eventId,
+        page: page,
+        size: 20,
       );
-      final items = result.data ?? <CommentItem>[];
-      if (!mounted || identityRevision != _commentIdentityRevision) return;
+      if (!currentRequest()) {
+        return;
+      }
+      final data = result.data;
       _updateState(() {
-        _repliesByCommentId[commentId] = items;
+        _loadingReplyParents.remove(commentId);
+        if (!result.isSuccess || data == null) {
+          _replyErrors.add(commentId);
+          return;
+        }
+        final rows = <String, CommentItem>{
+          if (!restart)
+            for (final item
+                in _repliesByCommentId[commentId] ?? <CommentItem>[])
+              item.id: item,
+          for (final item in data.items) item.id: item,
+        };
+        _repliesByCommentId[commentId] = rows.values.toList(growable: false);
+        _loadedReplyParents.add(commentId);
+        _replyPages[commentId] = page + 1;
+        _replyTotals[commentId] = data.totalElements;
+        _replyHasMore[commentId] =
+            data.items.isNotEmpty &&
+            page < 1000 &&
+            (page + 1) * 20 < data.totalElements;
       });
     } catch (_) {
-      if (!mounted || identityRevision != _commentIdentityRevision) return;
+      if (!currentRequest()) {
+        return;
+      }
       _updateState(() {
-        _repliesByCommentId[commentId] = <CommentItem>[];
+        _loadingReplyParents.remove(commentId);
+        _replyErrors.add(commentId);
       });
     }
   }
 
-  String _timeLabel(DateTime? createdAt) {
-    if (createdAt == null) return '-';
-    final now = DateTime.now();
-    final diff = now.difference(createdAt);
-    if (diff.inMinutes < 1) return 'simdi';
-    if (diff.inHours < 1) return '${diff.inMinutes} dk once';
-    if (diff.inDays < 1) return '${diff.inHours} sa once';
-    return '${diff.inDays} gun once';
-  }
+  String _timeLabel(DateTime? createdAt) => formatCommentAge(createdAt);
 
-  Future<void> _addComment(AuthSession? expectedSession) async {
+  Future<void> _addComment(
+    AuthSession? expectedSession,
+    String expectedEventId,
+  ) async {
     if (!_isCurrentCommentSession(expectedSession) ||
+        widget.event.id != expectedEventId ||
+        ModalRoute.of(context)?.isCurrent != true ||
         _commentCubit.state.submitting) {
       return;
     }
     final originalText = _commentController.text;
     final text = originalText.trim();
-    if (text.isEmpty) return;
-    await _commentCubit.create(
+    if (!CommentText.isValid(text)) return;
+    final sent = await _commentCubit.create(
       targetType: 'EVENT',
-      targetId: widget.event.id,
+      targetId: expectedEventId,
       text: text,
     );
     if (_isCurrentCommentSession(expectedSession) &&
-        _commentCubit.state.error == null &&
+        widget.event.id == expectedEventId &&
+        sent &&
         _commentController.text == originalText) {
       _commentController.clear();
+    }
+    if (!sent &&
+        mounted &&
+        _isCurrentCommentSession(expectedSession) &&
+        ModalRoute.of(context)?.isCurrent == true &&
+        _commentCubit.state.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: Text(_commentCubit.state.error!.message),
+        ),
+      );
     }
   }
 
@@ -269,9 +341,18 @@ extension _WeeklyEventDetailScreenStateActions
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     final venueId = widget.event.venueId?.trim();
     if (venueId == null || venueId.isEmpty) return;
+    // A tap on the verified, current detail is also an actual page visit. Queue
+    // it before navigation so a very quick profile tap retains attribution.
+    if (_analyticsEventVerified &&
+        serviceLocator.isRegistered<AnalyticsTracker>()) {
+      serviceLocator<AnalyticsTracker>().recordEventDetailView(widget.event.id);
+    }
     Navigator.of(context).pushNamed(
       AppRoutes.venuePublicProfile,
-      arguments: VenuePublicProfileArgs(venueId: venueId),
+      arguments: VenuePublicProfileArgs(
+        venueId: venueId,
+        sourceEventId: _analyticsEventVerified ? widget.event.id : null,
+      ),
     );
   }
 
@@ -333,6 +414,7 @@ extension _WeeklyEventDetailScreenStateActions
     AuthSession? expectedSession,
   ) async {
     if (!_isCurrentCommentSession(expectedSession) ||
+        ModalRoute.of(context)?.isCurrent != true ||
         _showingReply ||
         _commentCubit.state.submitting) {
       return;
@@ -343,9 +425,10 @@ extension _WeeklyEventDetailScreenStateActions
       return;
     }
     _showingReply = true;
-    String? replyText;
+    final eventId = widget.event.id;
+    ModalRoute<dynamic>? ownedRoute;
     try {
-      replyText = await showModalBottomSheet<String>(
+      await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
@@ -354,31 +437,52 @@ extension _WeeklyEventDetailScreenStateActions
           borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
         ),
         builder: (sheetContext) {
-          _replyRoute = ModalRoute.of(sheetContext);
+          ownedRoute = ModalRoute.of(sheetContext);
+          _replyRoute = ownedRoute;
+          if (!_isCurrentCommentSession(expectedSession) ||
+              widget.event.id != eventId) {
+            _dismissReplyRoute();
+          }
           return _EventReplyComposer(
-            canSubmit: () => _isCurrentCommentSession(expectedSession),
+            canSubmit: () =>
+                _isCurrentCommentSession(expectedSession) &&
+                widget.event.id == eventId,
+            onSubmit: (text) async {
+              if (!_isCurrentCommentSession(expectedSession) ||
+                  widget.event.id != eventId ||
+                  ownedRoute?.isCurrent != true) {
+                return false;
+              }
+              final wasExpanded = _expandedReplyParents.contains(
+                targetComment.id,
+              );
+              final sent = await _commentCubit.create(
+                targetType: 'EVENT',
+                targetId: eventId,
+                text: text,
+                parentCommentId: targetComment.id,
+              );
+              if (sent &&
+                  _isCurrentCommentSession(expectedSession) &&
+                  widget.event.id == eventId &&
+                  wasExpanded &&
+                  _commentCubit.state.comments.any(
+                    (item) => item.id == targetComment.id,
+                  )) {
+                _updateState(() => _expandedReplyParents.add(targetComment.id));
+                await _loadReplies(targetComment.id, restart: true);
+              }
+              return sent;
+            },
+            errorText: () => _commentCubit.state.error?.message,
           );
         },
       );
+      await ownedRoute?.completed;
     } finally {
       _showingReply = false;
-      _replyRoute = null;
+      if (identical(_replyRoute, ownedRoute)) _replyRoute = null;
     }
-    if (replyText == null ||
-        replyText.isEmpty ||
-        !_isCurrentCommentSession(expectedSession) ||
-        _commentCubit.state.submitting) {
-      return;
-    }
-    await _commentCubit.create(
-      targetType: 'EVENT',
-      targetId: widget.event.id,
-      text: replyText,
-      parentCommentId: targetComment.id,
-    );
-    if (!_isCurrentCommentSession(expectedSession)) return;
-    _loadedReplyParents.remove(targetComment.id);
-    await _syncReplies(_commentCubit.state.comments);
   }
 
   void _openPosterFullScreen() {

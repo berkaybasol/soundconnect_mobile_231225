@@ -17,14 +17,10 @@ class _MusicianPublicProfileViewState
   final _artistVenueRepository =
       serviceLocator<ArtistVenueConnectionRepository>();
   final _profileSearchRepository = serviceLocator<ProfileSearchRepository>();
-  final _venueEventRepository = serviceLocator<VenueEventRepository>();
   String? _viewerUserId;
   String? _currentProfileUserId;
   bool _photoUploading = false;
   final ImagePicker _imagePicker = ImagePicker();
-  List<WeeklyCalendarEvent> _fallbackWeeklyEvents = const [];
-  String? _fallbackWeeklyEventsVenueId;
-  bool _loadingFallbackWeeklyEvents = false;
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -37,8 +33,6 @@ class _MusicianPublicProfileViewState
 
     final profile = context.read<VenueProfileCubit>().state.ownerProfile;
     if (profile == null) return;
-    _fallbackWeeklyEventsVenueId = null;
-    _fallbackWeeklyEvents = const [];
     final refreshes = <Future<void>>[
       context.read<ProfileMediaCubit>().loadMedia(
         profileType: ProfileMediaOwnerType.venue.apiValue,
@@ -46,9 +40,6 @@ class _MusicianPublicProfileViewState
       ),
       context.read<FollowCountCubit>().loadCounts(profile.ownerUserId),
     ];
-    if (profile.weeklyEvents.isEmpty) {
-      refreshes.add(_ensureFallbackWeeklyEvents(profile));
-    }
     await Future.wait<void>(refreshes);
   }
 
@@ -104,16 +95,7 @@ class _MusicianPublicProfileViewState
         }
         _scheduleIncomingApplicationsSheet(ownerProfile);
         final profile = _toDisplayProfile(ownerProfile);
-        final primaryWeeklyEvents = _toWeeklyCalendarEvents(ownerProfile);
-        if (primaryWeeklyEvents.isEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            _ensureFallbackWeeklyEvents(ownerProfile);
-          });
-        }
-        final weeklyEvents = primaryWeeklyEvents.isNotEmpty
-            ? primaryWeeklyEvents
-            : _fallbackWeeklyEvents;
+        final weeklyEvents = _toWeeklyCalendarEvents(ownerProfile);
         _currentProfileUserId = ownerProfile.ownerUserId;
         _loadCoordinator.scheduleMediaLoad(
           context,
@@ -160,6 +142,7 @@ class _MusicianPublicProfileViewState
                   : followState.followingCount;
               final actionState = context.watch<FollowActionCubit>().state;
               return _MusicianPublicProfileContent(
+                analyticsVenueId: ownerProfile.venueId,
                 onViewArtists: () => openVenueArtists(
                   context,
                   venueId: ownerProfile.venueId,

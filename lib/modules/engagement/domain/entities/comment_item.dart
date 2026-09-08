@@ -9,6 +9,8 @@ class CommentItem {
   final String? parentCommentId;
   final int replyCount;
   final DateTime? createdAt;
+  final int likeCount;
+  final bool likedByMe;
 
   const CommentItem({
     required this.id,
@@ -19,6 +21,8 @@ class CommentItem {
     required this.parentCommentId,
     required this.replyCount,
     required this.createdAt,
+    this.likeCount = 0,
+    this.likedByMe = false,
   });
 
   bool get isVisibleGhostAuthor => !anonymousAuthor && user.isGhost;

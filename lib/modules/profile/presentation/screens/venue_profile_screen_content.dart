@@ -28,6 +28,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
   final String galleryOwnerId;
   final Future<void> Function() onRefresh;
   final VoidCallback onViewArtists;
+  final String analyticsVenueId;
 
   _MusicianPublicProfileContent({
     required this.profile,
@@ -57,6 +58,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
     required this.galleryOwnerId,
     required this.onRefresh,
     required this.onViewArtists,
+    required this.analyticsVenueId,
   });
 
   List<VenueActiveMusician> _resolveVenues() {
@@ -221,8 +223,21 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                       : null,
                 ),
                 SizedBox(height: 18),
+                if (ownerMode &&
+                    VenueAnalyticsReportingScope.of(context).enabled)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: VenueAnalyticsLink(
+                      venueId: analyticsVenueId,
+                      venueName: profile.username ?? 'Mekan',
+                      ownerUserId: profile.userId,
+                    ),
+                  ),
                 ProfileSectionHeader(title: 'Haftalık Takvim'),
-                WeeklyEventCarousel(items: weeklyEvents),
+                WeeklyEventCarousel(
+                  items: weeklyEvents,
+                  trackImpressions: !ownerMode,
+                ),
                 SizedBox(height: 12),
                 ProfileSectionHeader(
                   title: 'Aktif Sanatçılar',

@@ -1,283 +1,364 @@
 part of 'weekly_event_detail_screen.dart';
 
 class _CommentTile extends StatelessWidget {
-  final CommentItem comment;
-  final String timeLabel;
-  final List<CommentItem> replies;
-  final String Function(DateTime? createdAt) replyTimeLabelBuilder;
-  final VoidCallback? onReplyTap;
-
-  _CommentTile({
+  const _CommentTile({
     required this.comment,
     required this.timeLabel,
     required this.replies,
     required this.replyTimeLabelBuilder,
     required this.onReplyTap,
+    required this.onRepliesTap,
+    required this.onToggleReplies,
+    required this.repliesExpanded,
+    required this.replyTotal,
+    required this.onAuthorTap,
+    required this.repliesLoading,
+    required this.repliesError,
+    required this.hasMoreReplies,
+    required this.viewerId,
+    required this.deletingCommentId,
+    required this.actionsEnabled,
+    required this.onDeleteTap,
+    required this.likeButtonBuilder,
   });
+  final CommentItem comment;
+  final String timeLabel;
+  final List<CommentItem> replies;
+  final String Function(DateTime?) replyTimeLabelBuilder;
+  final VoidCallback? onReplyTap;
+  final VoidCallback onRepliesTap;
+  final VoidCallback onToggleReplies;
+  final bool repliesExpanded;
+  final int replyTotal;
+  final ValueChanged<CommentItem>? onAuthorTap;
+  final ValueChanged<CommentItem> onDeleteTap;
+  final String? viewerId, deletingCommentId;
+  final bool actionsEnabled;
+  final bool repliesLoading, repliesError, hasMoreReplies;
+  final Widget Function(CommentItem item, bool compact) likeButtonBuilder;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).dividerColor),
+  Widget build(BuildContext context) => Container(
+    key: ValueKey('event-comment-card-${comment.id}'),
+    padding: const EdgeInsets.all(.8),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      gradient: const LinearGradient(
+        colors: [Color(0xFF604366), Color(0xFF304663)],
+      ),
+    ),
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15.2),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(const Color(0x0C9D5BCE), AppColors.navBlue),
+            AppColors.navBlue,
+            Color.alphaBlend(const Color(0x0D6398D8), AppColors.navBlue),
+          ],
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _entry(context, comment, timeLabel, onReplyTap: onReplyTap),
+          if (replyTotal > 0 ||
+              repliesExpanded ||
+              repliesLoading ||
+              repliesError)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Semantics(
+                  expanded: repliesExpanded,
+                  child: TextButton.icon(
+                    key: ValueKey('event-replies-${comment.id}'),
+                    onPressed: onToggleReplies,
+                    style: _replyControlStyle(),
+                    icon: BrandGradientIcon.social(
+                      repliesExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      repliesExpanded
+                          ? 'Yanıtları gizle'
+                          : 'Yanıtları göster ($replyTotal)',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ),
               ),
-              clipBehavior: Clip.antiAlias,
-              alignment: Alignment.center,
-              child: (comment.user.avatarUrl?.trim().isNotEmpty ?? false)
-                  ? AppCachedNetworkImage(
-                      imageUrl: comment.user.avatarUrl,
-                      width: 30,
-                      height: 30,
-                      fit: BoxFit.cover,
-                      cacheWidth: 90,
-                      cacheHeight: 90,
-                      errorBuilder: (context) => Text(
-                        comment.user.username.isNotEmpty
-                            ? comment.user.username[0]
-                            : '?',
-                        style: TextStyle(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.w700,
+            ),
+          if (repliesExpanded) ...[
+            for (final reply in replies)
+              Container(
+                key: ValueKey('event-reply-${reply.id}'),
+                margin: const EdgeInsets.only(left: 21, bottom: 6),
+                padding: const EdgeInsets.fromLTRB(14, 4, 0, 4),
+                decoration: BoxDecoration(
+                  border: Border(
+                    left: BorderSide(color: AppColors.border, width: 1),
+                  ),
+                ),
+                child: _replyEntry(reply),
+              ),
+            if (repliesLoading || hasMoreReplies || repliesError)
+              Padding(
+                padding: const EdgeInsets.only(left: 35, bottom: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: repliesLoading
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                          child: SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : TextButton.icon(
+                          key: ValueKey('event-replies-more-${comment.id}'),
+                          onPressed: onRepliesTap,
+                          style: _replyControlStyle(),
+                          icon: BrandGradientIcon.social(
+                            repliesError
+                                ? Icons.refresh_rounded
+                                : Icons.subdirectory_arrow_right_rounded,
+                            size: 16,
+                          ),
+                          label: Text(
+                            repliesError
+                                ? 'Yanıtlar yüklenemedi · Tekrar dene'
+                                : 'Daha fazla yanıt',
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
-                      ),
-                    )
-                  : Text(
-                      comment.user.username.isNotEmpty
-                          ? comment.user.username[0]
-                          : '?',
+                ),
+              ),
+          ],
+        ],
+      ),
+    ),
+  );
+
+  ButtonStyle _replyControlStyle() => TextButton.styleFrom(
+    foregroundColor: AppColors.textMuted,
+    minimumSize: const Size(0, 44),
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    alignment: Alignment.centerLeft,
+  );
+
+  Widget _replyEntry(CommentItem item) {
+    final own =
+        !item.deleted &&
+        !item.anonymousAuthor &&
+        viewerId != null &&
+        item.user.id == viewerId;
+    final deleting = deletingCommentId == item.id;
+    final authorTap = actionsEnabled && onAuthorTap != null
+        ? () => onAuthorTap!(item)
+        : null;
+    final time = replyTimeLabelBuilder(item.createdAt);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          // The decorative initial must fit its fixed-size avatar. The author
+          // label beside it retains the user's full accessibility text scale.
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1,
+            child: CommentAuthorAvatar(
+              comment: item,
+              size: 28,
+              onTap: authorTap,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  CommentAuthorLabel(comment: item, onTap: authorTap),
+                  if (time.isNotEmpty)
+                    Text(
+                      time,
                       style: TextStyle(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.w700,
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                        height: 1.2,
                       ),
                     ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.deleted ? 'Bu yorum silindi.' : item.text,
+                style: TextStyle(
+                  color: item.deleted
+                      ? AppColors.textMuted
+                      : AppColors.textPrimary,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (!item.deleted) likeButtonBuilder(item, true),
+        if (own) ...[
+          const SizedBox(width: 4),
+          IconButton(
+            key: ValueKey('event-comment-delete-${item.id}'),
+            tooltip: 'Yorumu sil',
+            onPressed: actionsEnabled && !deleting
+                ? () => onDeleteTap(item)
+                : null,
+            style: IconButton.styleFrom(
+              minimumSize: const Size(44, 44),
+              maximumSize: const Size(44, 44),
+              padding: const EdgeInsets.all(12),
+              foregroundColor: AppColors.textMuted,
+              backgroundColor: Colors.transparent,
+              side: BorderSide.none,
             ),
-            SizedBox(width: 10),
+            icon: deleting
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_outline_rounded, size: 18),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _entry(
+    BuildContext context,
+    CommentItem item,
+    String time, {
+    bool isReply = false,
+    VoidCallback? onReplyTap,
+  }) {
+    final own =
+        !item.deleted &&
+        !item.anonymousAuthor &&
+        viewerId != null &&
+        item.user.id == viewerId;
+    final deleting = deletingCommentId == item.id;
+    final canReply = !item.deleted && onReplyTap != null;
+    final authorTap = actionsEnabled && onAuthorTap != null
+        ? () => onAuthorTap!(item)
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CommentAuthorAvatar(
+              comment: item,
+              size: isReply ? 32 : 44,
+              onTap: authorTap,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                '@${comment.user.username}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            if (comment.isVisibleGhostAuthor) ...[
-                              const SizedBox(width: 7),
-                              const GhostProfileBadge(),
-                            ],
-                          ],
-                        ),
-                      ),
-                      Text(
-                        timeLabel,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    comment.text,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      height: 1.35,
-                    ),
-                  ),
-                  if (onReplyTap != null) ...[
-                    SizedBox(height: 8),
-                    Row(
-                      children: [
-                        InkWell(
-                          onTap: onReplyTap,
-                          child: Text(
-                            comment.replyCount > 0
-                                ? 'Yanitla (${comment.replyCount})'
-                                : 'Yanitla',
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (replies.isNotEmpty) ...[
-                    SizedBox(height: 10),
-                    ...replies.map(
-                      (reply) => Padding(
-                        padding: EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainer,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: AppColors.white.withValues(alpha: 0.06),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(999),
-                                      gradient: LinearGradient(
-                                        colors: AppColors.brandGradient,
-                                      ),
-                                    ),
-                                    clipBehavior: Clip.antiAlias,
-                                    alignment: Alignment.center,
-                                    child:
-                                        (reply.user.avatarUrl
-                                                ?.trim()
-                                                .isNotEmpty ??
-                                            false)
-                                        ? AppCachedNetworkImage(
-                                            imageUrl: reply.user.avatarUrl,
-                                            width: 24,
-                                            height: 24,
-                                            fit: BoxFit.cover,
-                                            cacheWidth: 72,
-                                            cacheHeight: 72,
-                                            errorBuilder: (context) => Text(
-                                              reply.user.username.isNotEmpty
-                                                  ? reply.user.username[0]
-                                                  : '?',
-                                              style: TextStyle(
-                                                color: AppColors.white,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          )
-                                        : Text(
-                                            reply.user.username.isNotEmpty
-                                                ? reply.user.username[0]
-                                                : '?',
-                                            style: TextStyle(
-                                              color: AppColors.white,
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Row(
-                                                children: [
-                                                  Flexible(
-                                                    child: Text(
-                                                      '@${reply.user.username}',
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        color: Theme.of(
-                                                          context,
-                                                        ).colorScheme.onSurface,
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  if (reply
-                                                      .isVisibleGhostAuthor) ...[
-                                                    const SizedBox(width: 7),
-                                                    const GhostProfileBadge(),
-                                                  ],
-                                                ],
-                                              ),
-                                            ),
-                                            Text(
-                                              replyTimeLabelBuilder(
-                                                reply.createdAt,
-                                              ),
-                                              style: TextStyle(
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurfaceVariant,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        SizedBox(height: 4),
-                                        Text(
-                                          reply.text,
-                                          style: TextStyle(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface,
-                                            height: 1.35,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                  CommentAuthorLabel(comment: item, onTap: authorTap),
+                  if (time.isNotEmpty)
+                    Text(
+                      time,
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                        height: 1.3,
                       ),
                     ),
-                  ],
                 ],
               ),
             ),
+            if (own) ...[
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                key: ValueKey('event-comment-delete-${item.id}'),
+                tooltip: 'Yorumu sil',
+                onPressed: actionsEnabled && !deleting
+                    ? () => onDeleteTap(item)
+                    : null,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(44, 44),
+                  maximumSize: const Size(44, 44),
+                  padding: const EdgeInsets.all(10),
+                  foregroundColor: AppColors.textPrimary,
+                  backgroundColor: AppColors.navBlueSoft.withValues(alpha: .5),
+                  side: BorderSide(color: AppColors.border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: deleting
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline_rounded, size: 20),
+              ),
+            ],
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          item.deleted ? 'Bu yorum silindi.' : item.text,
+          style: TextStyle(
+            color: item.deleted ? AppColors.textMuted : AppColors.textPrimary,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        if (!item.deleted) ...[
+          const SizedBox(height: 8),
+          Divider(height: .6, thickness: .6, color: AppColors.border),
+          Wrap(
+            spacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              likeButtonBuilder(item, false),
+              if (canReply)
+                TextButton.icon(
+                  onPressed: actionsEnabled ? onReplyTap : null,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(44, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    foregroundColor: AppColors.brandGradient[2],
+                    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  icon: const BrandGradientIcon.social(
+                    Icons.reply_rounded,
+                    size: 19,
+                  ),
+                  label: const Text('Yanıtla'),
+                ),
+            ],
+          ),
+        ] else
+          const SizedBox(height: 14),
+      ],
     );
   }
 }

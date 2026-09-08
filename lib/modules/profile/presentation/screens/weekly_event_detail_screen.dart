@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session.dart';
@@ -13,11 +14,20 @@ import '../../../../shared/widgets/event_poster_fallback.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../auth/presentation/widgets/registration_options_sheet.dart';
-import '../../../../shared/widgets/ghost_profile_badge.dart';
+import '../../../analytics/presentation/widgets/analytics_tracking.dart';
+import '../../../analytics/data/analytics_tracker.dart';
+import '../../../analytics/presentation/screens/venue_analytics_screen.dart';
+import '../../../analytics/presentation/widgets/venue_analytics_reporting_scope.dart';
+import '../../../event_audience/presentation/widgets/event_audience_controls.dart';
 import '../../../engagement/domain/engagement_repository.dart';
+import '../../../engagement/domain/comment_age.dart';
 import '../../../engagement/domain/entities/comment_item.dart';
+import '../../../engagement/domain/entities/comment_text.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/comment_thread_state.dart';
+import '../../../engagement/presentation/widgets/comment_author_identity.dart';
+import '../../../engagement/presentation/widgets/comment_like_button.dart';
+import '../../../engagement/presentation/widgets/comment_like_memory.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/musician_profile_repository.dart';
 import '../../domain/venue_event_repository.dart';
@@ -36,6 +46,8 @@ part 'weekly_event_detail_screen_actions.dart';
 part 'weekly_event_detail_screen_meta_widgets.dart';
 part 'weekly_event_detail_screen_comment_tile.dart';
 part 'weekly_event_detail_screen_comment_access.dart';
+part 'weekly_event_detail_screen_comments.dart';
+part 'weekly_event_detail_screen_comment_chrome.dart';
 part 'weekly_event_detail_screen_verification.dart';
 
 class WeeklyCalendarEvent {
@@ -114,10 +126,14 @@ class WeeklyEventDetailScreen extends StatefulWidget {
       _WeeklyEventDetailScreenState();
 }
 
-class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
+class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _commentController = TextEditingController();
   final CommentThreadCubit _commentCubit = CommentThreadCubit(
     serviceLocator<EngagementRepository>(),
+    sessions: serviceLocator.isRegistered<AuthSessionManager>()
+        ? serviceLocator<AuthSessionManager>()
+        : null,
   );
   final EngagementRepository _engagementRepository =
       serviceLocator<EngagementRepository>();
@@ -126,6 +142,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   MusicianProfile? _artistProfile;
   BandProfile? _bandProfile;
   VenuePublicProfile? _venueProfile;
+  bool _analyticsEventVerified = false;
   late final EventShareService _eventShareService =
       widget.shareService ?? PlatformEventShareService();
   String? _loadedDescription;
@@ -135,44 +152,59 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   final Map<String, List<CommentItem>> _repliesByCommentId =
       <String, List<CommentItem>>{};
   final Set<String> _loadedReplyParents = <String>{};
+  final Set<String> _expandedReplyParents = <String>{};
+  final Map<String, bool> _replyHasMore = <String, bool>{};
+  final Set<String> _loadingReplyParents = <String>{};
+  final Map<String, int> _replyPages = <String, int>{};
+  final Map<String, int> _replyTotals = <String, int>{};
+  final Set<String> _replyErrors = <String>{};
+  final Map<String, int> _replyRequestVersions = <String, int>{};
+  final Map<String, CommentItem> _replyRootSnapshots = <String, CommentItem>{};
   AuthSessionManager? _commentSessionManager;
+  final _commentLikeMemory = CommentLikeMemory();
   AuthSession? _commentSession;
   int _commentIdentityRevision = 0;
   bool _openingCommentAuth = false;
   bool _showingReply = false;
   ModalRoute<dynamic>? _replyRoute;
+  ModalRoute<dynamic>? _deleteCommentRoute;
+  bool _confirmingCommentDelete = false;
 
   bool get _canComment =>
-      _commentSessionManager?.session.isAuthenticated == true;
+      _commentSessionManager?.session.isAuthenticated == true &&
+      _commentSessionManager?.session.isActive == true &&
+      _commentSessionManager?.session.requiresListenerProfileChoice != true;
 
   bool _isCurrentCommentSession(AuthSession? expected) =>
       mounted &&
       expected?.isAuthenticated == true &&
       _canComment &&
-      expected!.token == _commentSessionManager!.session.token &&
-      expected.userId == _commentSessionManager!.session.userId;
+      identical(expected, _commentSessionManager!.session);
 
   void _onCommentSessionChanged() {
     if (!mounted) return;
     final next = _commentSessionManager?.session;
-    final identityChanged =
-        next?.token != _commentSession?.token ||
-        next?.userId != _commentSession?.userId;
+    final identityChanged = !identical(next, _commentSession);
     setState(() {
       _commentSession = next;
       if (identityChanged) {
+        _commentLikeMemory.clear();
         _commentIdentityRevision++;
         _commentController.clear();
         _repliesByCommentId.clear();
         _loadedReplyParents.clear();
+        _expandedReplyParents.clear();
+        _replyHasMore.clear();
+        _loadingReplyParents.clear();
+        _replyPages.clear();
+        _replyTotals.clear();
+        _replyErrors.clear();
+        _replyRequestVersions.clear();
+        _replyRootSnapshots.clear();
       }
     });
     if (identityChanged) {
-      final replyRoute = _replyRoute;
-      if (replyRoute?.isActive == true) {
-        replyRoute!.navigator?.removeRoute(replyRoute);
-      }
-      _loadComments(clearExisting: true);
+      _dismissReplyRoute();
     }
   }
 
@@ -203,16 +235,39 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (serviceLocator.isRegistered<AuthSessionManager>()) {
       _commentSessionManager = serviceLocator<AuthSessionManager>();
       _commentSession = _commentSessionManager!.session;
       _commentSessionManager!.addListener(_onCommentSessionChanged);
     }
     _loadProfileContext();
+    _loadComments();
+  }
+
+  @override
+  void didUpdateWidget(covariant WeeklyEventDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.event.id == widget.event.id) return;
+    _commentController.clear();
+    _dismissReplyRoute();
+    _resetReplyThreads();
+    _loadComments(clearExisting: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _resetReplyThreads();
+      _loadComments(clearExisting: true);
+    }
   }
 
   @override
   void dispose() {
+    _commentLikeMemory.clear();
+    WidgetsBinding.instance.removeObserver(this);
+    _dismissReplyRoute();
     _commentSessionManager?.removeListener(_onCommentSessionChanged);
     _commentCubit.close();
     _commentController.dispose();
@@ -229,7 +284,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
         .where((value) => value.isNotEmpty && value != '-')
         .join(' / ');
 
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: AppColors.navBlueDeep,
       body: SafeArea(
         child: Column(
@@ -315,6 +370,14 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                       ),
                     ),
                   ),
+                  SliverToBoxAdapter(
+                    child: EventAudienceControls(
+                      eventId: event.id,
+                      eventTitle: event.title,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      endedNoticeBuilder: (_) => const _EventEndedNotice(),
+                    ),
+                  ),
                   if ((_loadedDescription ?? event.description)
                       .trim()
                       .isNotEmpty)
@@ -334,93 +397,39 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(16, 22, 16, 8),
-                      child: _SectionTitle(text: 'Sorular & Yorumlar'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_analyticsEventVerified &&
+                              _venueProfile != null &&
+                              VenueAnalyticsReportingScope.of(context).enabled)
+                            VenueAnalyticsLink(
+                              venueId: _venueProfile!.venueId,
+                              venueName: _venueProfile!.venueName,
+                              eventId: event.id,
+                              eventTitle: event.title,
+                              ownerUserId: _venueProfile!.ownerUserId,
+                            ),
+                          BlocBuilder<CommentThreadCubit, CommentThreadState>(
+                            bloc: _commentCubit,
+                            builder: (context, state) =>
+                                _EventCommentsHeading(state: state),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  SliverToBoxAdapter(
-                    child: BlocConsumer<CommentThreadCubit, CommentThreadState>(
-                      bloc: _commentCubit,
-                      listener: (context, state) {
-                        _syncReplies(state.comments);
-                      },
-                      builder: (context, state) {
-                        if (state.loading && state.comments.isEmpty) {
-                          return Padding(
-                            padding: EdgeInsets.fromLTRB(16, 12, 16, 18),
-                            child: LinearProgressIndicator(),
-                          );
-                        }
-                        if (state.comments.isEmpty) {
-                          if (state.error != null) {
-                            return Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                children: [
-                                  const Text('Yorumlar yüklenemedi.'),
-                                  TextButton(
-                                    onPressed: _loadComments,
-                                    child: const Text('Tekrar dene'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          return Padding(
-                            padding: EdgeInsets.fromLTRB(16, 12, 16, 18),
-                            child: Text(
-                              _canComment
-                                  ? 'Henüz yorum yok. İlk yorumu sen yaz.'
-                                  : 'Henüz yorum yok.',
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          );
-                        }
-                        return Column(
-                          children: List.generate(state.comments.length, (
-                            index,
-                          ) {
-                            final comment = state.comments[index];
-                            final replies =
-                                _repliesByCommentId[comment.id] ??
-                                <CommentItem>[];
-                            return Padding(
-                              padding: EdgeInsets.only(bottom: 10),
-                              child: _CommentTile(
-                                comment: comment,
-                                timeLabel: _timeLabel(comment.createdAt),
-                                replies: replies,
-                                replyTimeLabelBuilder: _timeLabel,
-                                onReplyTap: _canComment
-                                    ? () => _showReplySheet(
-                                        comment,
-                                        commentSession,
-                                      )
-                                    : null,
-                              ),
-                            );
-                          }),
-                        );
-                      },
-                    ),
+                  BlocConsumer<CommentThreadCubit, CommentThreadState>(
+                    bloc: _commentCubit,
+                    listener: (context, state) =>
+                        _pruneReplyThreads(_commentCubit.state.comments),
+                    builder: (context, state) => _commentSliver(state),
                   ),
                   SliverToBoxAdapter(child: SizedBox(height: 14)),
                 ],
               ),
             ),
-            Container(
-              padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
-              decoration: BoxDecoration(
-                color: AppColors.navBlue,
-                border: Border(
-                  top: BorderSide(
-                    color: AppColors.white.withValues(alpha: 0.06),
-                  ),
-                ),
-              ),
+            _EventCommentComposerSurface(
               child: !_canComment
                   ? _EventCommentGuestPrompt(
                       onLogin: _openingCommentAuth
@@ -433,42 +442,49 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                   : Row(
                       children: [
                         Expanded(
-                          child: TextField(
-                            key: const Key('event-comment-input'),
-                            controller: _commentController,
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => _addComment(commentSession),
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Yorum yaz...',
-                              hintStyle: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
+                          child: _EventCommentInputFrame(
+                            child: TextField(
+                              key: const Key('event-comment-input'),
+                              controller: _commentController,
+                              maxLength: 500,
+                              onChanged: (_) => setState(() {}),
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) =>
+                                  _addComment(commentSession, event.id),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
-                              prefixIcon: Icon(
-                                Icons.mode_comment_outlined,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                              filled: true,
-                              fillColor: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).dividerColor,
+                              decoration: InputDecoration(
+                                counterText: '',
+                                errorText:
+                                    CommentText.length(
+                                          _commentController.text,
+                                        ) >
+                                        CommentText.maxLength
+                                    ? 'Yorumunu biraz kısalt.'
+                                    : null,
+                                hintText: 'Yorum yaz...',
+                                hintStyle: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).dividerColor,
+                                prefixIcon: Icon(
+                                  Icons.mode_comment_outlined,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
+                                filled: false,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 16,
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
                               ),
                             ),
                           ),
@@ -477,14 +493,19 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
                         BlocBuilder<CommentThreadCubit, CommentThreadState>(
                           bloc: _commentCubit,
                           builder: (context, state) => Material(
+                            key: const Key('event-comment-send'),
                             color: Theme.of(
                               context,
                             ).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(14),
                             child: InkWell(
-                              onTap: state.submitting
+                              onTap:
+                                  state.submitting ||
+                                      !CommentText.isValid(
+                                        _commentController.text,
+                                      )
                                   ? null
-                                  : () => _addComment(commentSession),
+                                  : () => _addComment(commentSession, event.id),
                               borderRadius: BorderRadius.circular(14),
                               child: Container(
                                 width: 46,
@@ -521,6 +542,14 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen> {
           ],
         ),
       ),
+    );
+    return TrackEventDetailView(
+      eventId: event.id,
+      enabled:
+          _analyticsEventVerified &&
+          (_venueProfile == null ||
+              _venueProfile!.ownerUserId != commentSession?.userId),
+      child: page,
     );
   }
 }

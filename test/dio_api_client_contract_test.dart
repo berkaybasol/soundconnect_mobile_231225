@@ -483,6 +483,249 @@ void main() {
       },
     );
 
+    test(
+      'guest fence dispatches without authorization while still guest',
+      () async {
+        final tokenStore = _MemoryTokenStore(null);
+        final adapter = _RecordingHttpClientAdapter(
+          (_) => _jsonResponse(
+            statusCode: 202,
+            payload: const {'success': true, 'data': null},
+          ),
+        );
+        final dio = _dio(adapter);
+        dio.options.headers['Authorization'] = 'stale-default-header';
+        addTearDown(() => _closeDio(dio, adapter));
+        final client = DioApiClient(dio: dio, tokenStore: tokenStore);
+
+        await client.request<Object?>(
+          ApiHttpMethod.post,
+          '/api/v1/analytics/observations',
+          requestContext: const ApiRequestContext(requireGuestSession: true),
+        );
+
+        expect(adapter.requests, hasLength(1));
+        expect(adapter.requests.single.headers['Authorization'], isNull);
+      },
+    );
+
+    test('guest fence rejects login completed during token read', () async {
+      final tokenStore = _BarrierTokenStore(null);
+      final sessionManager = AuthSessionManager(
+        tokenStore: tokenStore,
+        sessionStore: _MemorySessionStore(null),
+      );
+      addTearDown(sessionManager.dispose);
+      final adapter = _RecordingHttpClientAdapter(
+        (_) => _jsonResponse(
+          statusCode: 202,
+          payload: const {'success': true, 'data': null},
+        ),
+      );
+      final dio = _dio(adapter);
+      addTearDown(() => _closeDio(dio, adapter));
+      final client = DioApiClient(
+        dio: dio,
+        tokenStore: tokenStore,
+        sessionManager: sessionManager,
+      );
+      tokenStore.armBarrier();
+      final request = client.request<Object?>(
+        ApiHttpMethod.post,
+        '/api/v1/analytics/observations',
+        requestContext: const ApiRequestContext(requireGuestSession: true),
+      );
+      await tokenStore.readStarted.future;
+      await sessionManager.startSession(
+        token: _jwt(subject: 'new-account', roles: const ['ROLE_LISTENER']),
+        username: 'new-account',
+        accountStatus: 'ACTIVE',
+      );
+      final fenced = expectLater(
+        request,
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.error.code,
+            'code',
+            'api_session_fence',
+          ),
+        ),
+      );
+      tokenStore.releaseRead();
+      await fenced;
+      expect(adapter.requests, isEmpty);
+    });
+
+    test(
+      'guest fence rejects authenticated manager despite empty store',
+      () async {
+        final tokenStore = _MemoryTokenStore(null);
+        final sessionManager = AuthSessionManager(
+          tokenStore: tokenStore,
+          sessionStore: _MemorySessionStore(null),
+        );
+        addTearDown(sessionManager.dispose);
+        await sessionManager.startSession(
+          token: _jwt(subject: 'account-A', roles: const ['ROLE_LISTENER']),
+          username: 'account-A',
+          accountStatus: 'ACTIVE',
+        );
+        tokenStore.value = null;
+        final adapter = _RecordingHttpClientAdapter(
+          (_) => _jsonResponse(
+            statusCode: 202,
+            payload: const {'success': true, 'data': null},
+          ),
+        );
+        final dio = _dio(adapter);
+        addTearDown(() => _closeDio(dio, adapter));
+        final client = DioApiClient(
+          dio: dio,
+          tokenStore: tokenStore,
+          sessionManager: sessionManager,
+        );
+        await expectLater(
+          client.request<Object?>(
+            ApiHttpMethod.post,
+            '/api/v1/analytics/observations',
+            requestContext: const ApiRequestContext(requireGuestSession: true),
+          ),
+          throwsA(
+            isA<ApiException>().having(
+              (error) => error.error.code,
+              'code',
+              'api_session_fence',
+            ),
+          ),
+        );
+        expect(adapter.requests, isEmpty);
+      },
+    );
+
+    test('conflicting guest and user fences never dispatch', () async {
+      final adapter = _RecordingHttpClientAdapter(
+        (_) => _jsonResponse(
+          statusCode: 202,
+          payload: const {'success': true, 'data': null},
+        ),
+      );
+      final dio = _dio(adapter);
+      addTearDown(() => _closeDio(dio, adapter));
+      final client = DioApiClient(
+        dio: dio,
+        tokenStore: _MemoryTokenStore(null),
+      );
+      await expectLater(
+        client.request<Object?>(
+          ApiHttpMethod.post,
+          '/api/v1/analytics/observations',
+          requestContext: const ApiRequestContext(
+            expectedSessionKey: 'account-A',
+            requireGuestSession: true,
+          ),
+        ),
+        throwsA(isA<ApiException>()),
+      );
+      expect(adapter.requests, isEmpty);
+    });
+
+    test(
+      'transient analytics errors preserve bounded Retry-After metadata',
+      () async {
+        for (final status in [429, 503]) {
+          final adapter = _RecordingHttpClientAdapter(
+            (_) => _jsonResponse(
+              statusCode: status,
+              payload: {
+                'code': status == 429 ? 9912 : 9913,
+                'message': 'Retry later',
+              },
+              extraHeaders: const {
+                'retry-after': ['120'],
+              },
+            ),
+          );
+          final dio = _dio(adapter);
+          addTearDown(() => _closeDio(dio, adapter));
+          final client = DioApiClient(
+            dio: dio,
+            tokenStore: _MemoryTokenStore(null),
+          );
+          await expectLater(
+            client.post<Object?>('/api/v1/analytics/observations'),
+            throwsA(
+              isA<ApiException>().having(
+                (error) => error.error.retryAfter,
+                'retryAfter',
+                const Duration(minutes: 2),
+              ),
+            ),
+          );
+        }
+      },
+    );
+
+    test('non-transient errors do not acquire Retry-After metadata', () async {
+      final adapter = _RecordingHttpClientAdapter(
+        (_) => _jsonResponse(
+          statusCode: 401,
+          payload: const {'code': 401, 'message': 'Unauthorized'},
+          extraHeaders: const {
+            'retry-after': ['120'],
+          },
+        ),
+      );
+      final dio = _dio(adapter);
+      addTearDown(() => _closeDio(dio, adapter));
+      final client = DioApiClient(
+        dio: dio,
+        tokenStore: _MemoryTokenStore(null),
+      );
+      await expectLater(
+        client.post<Object?>('/api/v1/analytics/observations'),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.error.retryAfter,
+            'retryAfter',
+            isNull,
+          ),
+        ),
+      );
+    });
+
+    test(
+      'Retry-After delta and HTTP dates reject malformed and clamp long delays',
+      () {
+        final now = DateTime.utc(2026, 9, 8, 12);
+        expect(parseApiRetryAfter('60', now: now), const Duration(minutes: 1));
+        expect(parseApiRetryAfter('0', now: now), Duration.zero);
+        expect(
+          parseApiRetryAfter('999999999999999999999999', now: now),
+          const Duration(hours: 1),
+        );
+        expect(
+          parseApiRetryAfter('Tue, 08 Sep 2026 12:02:00 GMT', now: now),
+          const Duration(minutes: 2),
+        );
+        expect(
+          parseApiRetryAfter('Wed, 09 Sep 2026 12:02:00 GMT', now: now),
+          const Duration(hours: 1),
+        );
+        for (final raw in [
+          null,
+          '',
+          '-1',
+          '1.5',
+          'tomorrow',
+          'Tue, 08 Sep 2026 11:59:00 GMT',
+          'Tue, 32 Sep 2026 12:00:00 GMT',
+          'Tue, 08 Sep 2026 25:00:00 GMT',
+        ]) {
+          expect(parseApiRetryAfter(raw, now: now), isNull, reason: '$raw');
+        }
+      },
+    );
+
     test('late 1308 from account A cannot mark account B as pending', () async {
       final tokenA = _jwt(
         subject: 'account-A',
@@ -564,12 +807,17 @@ void _closeDio(Dio dio, _RecordingHttpClientAdapter adapter) {
   expect(adapter.closed, isTrue);
 }
 
-ResponseBody _jsonResponse({required int statusCode, required Object payload}) {
+ResponseBody _jsonResponse({
+  required int statusCode,
+  required Object payload,
+  Map<String, List<String>> extraHeaders = const {},
+}) {
   return ResponseBody.fromString(
     jsonEncode(payload),
     statusCode,
     headers: <String, List<String>>{
       Headers.contentTypeHeader: <String>['application/json; charset=utf-8'],
+      ...extraHeaders,
     },
   );
 }

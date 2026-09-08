@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
-import '../../../engagement/presentation/cubit/comment_thread_state.dart';
+import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import 'video_frame_preset_store.dart';
 

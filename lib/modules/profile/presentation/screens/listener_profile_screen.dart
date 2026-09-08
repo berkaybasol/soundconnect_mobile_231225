@@ -15,10 +15,14 @@ import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../domain/entities/listener_profile.dart';
 import '../../domain/entities/listener_visibility_mode.dart';
+import '../../../event_audience/presentation/event_audience_controller.dart';
+import '../../../event_audience/presentation/event_audience_profile_draft.dart';
 import '../cubit/listener_profile_cubit.dart';
 import '../cubit/listener_profile_state.dart';
 import '../listener_visibility_error_message.dart';
 import 'listener_ghost_profile_content.dart';
+import 'listener_event_posts.dart';
+import 'listener_event_draft_composer.dart';
 import 'listener_playlist_manager_sheet.dart';
 import 'listener_profile_owner_content.dart';
 import 'listener_profile_preview_data.dart';
@@ -32,10 +36,12 @@ class ListenerProfileScreen extends StatelessWidget {
     super.key,
     this.cubitFactory,
     this.showBottomNavigation = true,
+    this.eventDraft,
   });
 
   final ListenerProfileCubit Function()? cubitFactory;
   final bool showBottomNavigation;
+  final EventAudienceProfileDraftArgs? eventDraft;
 
   @override
   Widget build(BuildContext context) {
@@ -44,25 +50,178 @@ class ListenerProfileScreen extends StatelessWidget {
         create: (_) =>
             (cubitFactory?.call() ?? serviceLocator<ListenerProfileCubit>())
               ..loadMyProfile(),
-        child: _ListenerProfileView(showBottomNavigation: showBottomNavigation),
+        child: _ListenerProfileView(
+          showBottomNavigation: showBottomNavigation,
+          eventDraft: eventDraft,
+        ),
       ),
     );
   }
 }
 
 class _ListenerProfileView extends StatefulWidget {
-  const _ListenerProfileView({required this.showBottomNavigation});
+  const _ListenerProfileView({
+    required this.showBottomNavigation,
+    this.eventDraft,
+  });
 
   final bool showBottomNavigation;
+  final EventAudienceProfileDraftArgs? eventDraft;
 
   @override
   State<_ListenerProfileView> createState() => _ListenerProfileViewState();
 }
 
 class _ListenerProfileViewState extends State<_ListenerProfileView> {
+  final _eventPostsRefresh = ValueNotifier<int>(0);
   bool _avatarBusy = false;
   bool _choiceRecoveryInFlight = false;
   String? _choiceRecoveryError;
+  final _profileScroll = ScrollController();
+  final _draftKey = GlobalKey<ListenerEventDraftComposerState>();
+  EventAudienceProfileDraftArgs? _activeDraft;
+  AuthSessionManager? _draftSessions;
+  bool _revealingDraft = false;
+  bool _draftRevealed = false;
+  bool _allowPop = false;
+  bool _leavingDraft = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeDraft = widget.eventDraft;
+    if (_activeDraft != null &&
+        serviceLocator.isRegistered<AuthSessionManager>()) {
+      _draftSessions = serviceLocator<AuthSessionManager>();
+      _draftSessions!.addListener(_draftSessionChanged);
+    }
+  }
+
+  void _draftSessionChanged() {
+    final draft = _activeDraft;
+    final current = _draftSessions?.session;
+    if (draft != null &&
+        (current == null ||
+            !canPublishAudienceProfile(current) ||
+            !sameEventAudienceSession(current, draft.expectedSession))) {
+      _draftKey.currentState?.invalidate();
+      if (mounted) setState(() => _activeDraft = null);
+    }
+  }
+
+  bool _draftAllowed(ListenerProfile profile) {
+    final draft = _activeDraft;
+    final current = _draftSessions?.session;
+    return draft != null &&
+        current != null &&
+        canPublishAudienceProfile(current) &&
+        sameEventAudienceSession(current, draft.expectedSession) &&
+        profile.userId == current.userId &&
+        profile.visibilityChoiceCompleted &&
+        !profile.isGhost &&
+        profile.profileContentVisible &&
+        profile.profileContentEditable;
+  }
+
+  void _draftChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _finishDraft(bool published) {
+    if (!mounted) return;
+    setState(() => _activeDraft = null);
+    if (published) _eventPostsRefresh.value++;
+  }
+
+  Future<bool> _beforeLeavingDraft() async {
+    final route = ModalRoute.of(context);
+    final draft = _activeDraft;
+    if (_leavingDraft || !mounted || route?.isCurrent != true) return false;
+    _leavingDraft = true;
+    try {
+      final allowed =
+          await (_draftKey.currentState?.canLeave() ?? Future.value(true));
+      if (!allowed ||
+          !mounted ||
+          route?.isCurrent != true ||
+          !identical(draft, _activeDraft)) {
+        return false;
+      }
+      final profile = context.read<ListenerProfileCubit>().state.profile;
+      if (draft != null && (profile == null || !_draftAllowed(profile))) {
+        return false;
+      }
+      if (_activeDraft != null) setState(() => _activeDraft = null);
+      return true;
+    } finally {
+      _leavingDraft = false;
+    }
+  }
+
+  Future<void> _backFromDraft() async {
+    if (!await _beforeLeavingDraft() || !mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).maybePop();
+      }
+    });
+  }
+
+  void _revealDraft() {
+    if (_activeDraft == null || _draftRevealed || _revealingDraft) return;
+    _revealingDraft = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        // ListView lazily mounts the posts section. First bring that child
+        // into the viewport, then align the actual composer rather than a
+        // guessed pixel offset based on avatar/bio/playlist height.
+        for (
+          var attempt = 0;
+          attempt < 5 && mounted && _activeDraft != null;
+          attempt++
+        ) {
+          final target = _draftKey.currentContext;
+          if (target != null && target.mounted) {
+            final readyBeforeScroll =
+                _draftKey.currentState?.readyForReveal == true;
+            await Scrollable.ensureVisible(
+              target,
+              alignment: .04,
+              duration: const Duration(milliseconds: 220),
+            );
+            _draftRevealed = readyBeforeScroll;
+            return;
+          }
+          if (!_profileScroll.hasClients) return;
+          _profileScroll.jumpTo(_profileScroll.position.maxScrollExtent);
+          await WidgetsBinding.instance.endOfFrame;
+        }
+      } finally {
+        _revealingDraft = false;
+        if (mounted &&
+            !_draftRevealed &&
+            _activeDraft != null &&
+            _draftKey.currentState?.readyForReveal == true) {
+          _revealDraft();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _draftSessions?.removeListener(_draftSessionChanged);
+    _profileScroll.dispose();
+    _eventPostsRefresh.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshProfile() async {
+    if (_draftKey.currentState?.saving == true) return;
+    await context.read<ListenerProfileCubit>().loadMyProfile();
+    if (mounted) _eventPostsRefresh.value++;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,33 +263,52 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
       },
       builder: (context, state) {
         final profile = state.profile;
+        // Resolve projection changes before computing PopScope and busy flags.
+        // Otherwise a removed ghost/restricted draft can leave an obsolete
+        // canPop:false scope with no draft callback able to release it.
+        if (profile != null &&
+            _activeDraft != null &&
+            !_draftAllowed(profile)) {
+          _activeDraft = null;
+        }
         final avatarUrl = profile?.profilePictureUrl?.trim();
         final showRefreshProgress =
             profile != null && state.status == ListenerProfileStatus.loading;
 
-        return Scaffold(
-          appBar: _listenerOwnerAppBar(context, onSettings: _openSettings),
-          body: Stack(
-            children: [
-              Positioned.fill(child: _buildBody(context, state)),
-              if (showRefreshProgress)
-                const Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
-            ],
+        return PopScope(
+          canPop: _allowPop || _activeDraft == null,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && _activeDraft != null) unawaited(_backFromDraft());
+          },
+          child: Scaffold(
+            appBar: _listenerOwnerAppBar(
+              context,
+              onSettings: _openSettings,
+              onBeforeMenu: _beforeLeavingDraft,
+            ),
+            body: Stack(
+              children: [
+                Positioned.fill(child: _buildBody(context, state)),
+                if (showRefreshProgress)
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
+              ],
+            ),
+            bottomNavigationBar: widget.showBottomNavigation
+                ? ProfilePublicBottomBar(
+                    currentIndex: 4,
+                    profileImageUrl: isValidNetworkImageUrl(avatarUrl)
+                        ? avatarUrl
+                        : null,
+                    stageMode: StageMode.mainstage,
+                    onBeforeNavigate: _beforeLeavingDraft,
+                  )
+                : null,
           ),
-          bottomNavigationBar: widget.showBottomNavigation
-              ? ProfilePublicBottomBar(
-                  currentIndex: 4,
-                  profileImageUrl: isValidNetworkImageUrl(avatarUrl)
-                      ? avatarUrl
-                      : null,
-                  stageMode: StageMode.mainstage,
-                )
-              : null,
         );
       },
     );
@@ -160,34 +338,73 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     }
 
     final actionBusy =
-        _avatarBusy || state.status == ListenerProfileStatus.saving;
+        _avatarBusy ||
+        state.status == ListenerProfileStatus.saving ||
+        _activeDraft != null;
     if (profile.isGhost) {
       return ListenerGhostProfileContent(
         username: profile.username ?? '',
         profilePictureUrl: profile.profilePictureUrl,
         owner: true,
         busy: actionBusy,
-        onRefresh: () => context.read<ListenerProfileCubit>().loadMyProfile(),
+        onRefresh: _refreshProfile,
         onEditAvatar: profile.avatarEditable
             ? () => _openAvatarActions(profile)
             : null,
         onSwitchToStandard: () => unawaited(_confirmStandardMode()),
+        privatePlansAction: ListenerEventPlansButton(
+          listenerProfileId: profile.id,
+          userId: profile.userId,
+          username: profile.username ?? '',
+          avatarUrl: profile.profilePictureUrl,
+        ),
       );
     }
 
+    _revealDraft();
     return RefreshIndicator(
-      onRefresh: () => context.read<ListenerProfileCubit>().loadMyProfile(),
+      onRefresh: _refreshProfile,
       child: ListenerProfileOwnerContent(
         profile: profile,
+        scrollController: _profileScroll,
         previewData: listenerOwnerPreviewData,
         showPreviewSections: true,
         actionBusy: actionBusy,
         onEditProfile: () => unawaited(_openSettings()),
         onEditAvatar: () => _openAvatarActions(profile),
         onEditPlaylists: () => unawaited(_openPlaylistManager(profile)),
-        onPlaylistTap: (playlist) =>
-            unawaited(launchSpotifyPlaylist(context, playlist.spotifyUrl)),
+        onPlaylistTap: (playlist) async {
+          if (!await _beforeLeavingDraft() || !context.mounted) return;
+          await launchSpotifyPlaylist(context, playlist.spotifyUrl);
+        },
         onPreviewAction: _showUnavailableMessage,
+        eventPlansAction: _activeDraft != null
+            ? null
+            : ListenerEventPlansButton(
+                listenerProfileId: profile.id,
+                userId: profile.userId,
+                username: profile.username ?? '',
+                avatarUrl: profile.profilePictureUrl,
+              ),
+        eventPosts: _activeDraft != null
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ListenerEventDraftComposer(
+                  key: _draftKey,
+                  draft: _activeDraft!,
+                  profile: profile,
+                  onFinished: _finishDraft,
+                  onStateChanged: _draftChanged,
+                ),
+              )
+            : ListenerEventPostsSection(
+                key: ValueKey('listener-owner-event-posts-${profile.id}'),
+                listenerProfileId: profile.id,
+                ownerUserId: profile.userId,
+                username: profile.username ?? '',
+                avatarUrl: profile.profilePictureUrl,
+                refreshSignal: _eventPostsRefresh,
+              ),
       ),
     );
   }
@@ -235,6 +452,9 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
   }
 
   Future<void> _openSettings() async {
+    final route = ModalRoute.of(context);
+    if (!await _beforeLeavingDraft() || !mounted) return;
+    if (route?.isCurrent != true) return;
     await Navigator.of(context).pushNamed(AppRoutes.settings);
     if (!mounted) return;
     await context.read<ListenerProfileCubit>().loadMyProfile();
@@ -708,6 +928,7 @@ class _StandardModeConfirmButton extends StatelessWidget {
 PreferredSizeWidget _listenerOwnerAppBar(
   BuildContext context, {
   required ProfileQuickMenuAction onSettings,
+  Future<bool> Function()? onBeforeMenu,
 }) {
   return AppBar(
     title: const ProfileBrandTitle(),
@@ -716,11 +937,15 @@ PreferredSizeWidget _listenerOwnerAppBar(
       IconButton(
         key: const Key('listener-owner-menu'),
         tooltip: 'Profil menüsü',
-        onPressed: () => showProfileQuickMenu(
-          context,
-          settingsTileKey: const Key('listener-account-settings'),
-          onSettings: onSettings,
-        ),
+        onPressed: () async {
+          if (onBeforeMenu != null && !await onBeforeMenu()) return;
+          if (!context.mounted) return;
+          await showProfileQuickMenu(
+            context,
+            settingsTileKey: const Key('listener-account-settings'),
+            onSettings: onSettings,
+          );
+        },
         icon: Image.asset(
           'assets/logo.png',
           width: 28,

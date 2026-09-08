@@ -3,11 +3,13 @@ part of 'weekly_event_carousel.dart';
 class _WeeklyEventCard extends StatefulWidget {
   final WeeklyCalendarEvent event;
   final bool compactTitle;
+  final bool Function() canOpen;
 
   _WeeklyEventCard({
     super.key,
     required this.event,
     required this.compactTitle,
+    required this.canOpen,
   });
 
   @override
@@ -75,6 +77,9 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
       splashColor: AppColors.coral.withValues(alpha: 0.22),
       highlightColor: AppColors.white.withValues(alpha: 0.05),
       onTap: () {
+        if (!mounted || !identical(widget.event, event) || !widget.canOpen()) {
+          return;
+        }
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => WeeklyEventDetailScreen(event: event),

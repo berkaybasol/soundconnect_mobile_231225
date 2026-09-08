@@ -25,6 +25,32 @@ void main() {
   tearDown(() async => serviceLocator.reset());
 
   group('profile route argument normalization', () {
+    test(
+      'venue analytics source survives routing but never supplies viewer identity',
+      () {
+        for (final input in <Object>[
+          const VenuePublicProfileArgs(
+            venueId: ' venue ',
+            sourceEventId: ' event ',
+            viewerUserId: 'spoof',
+          ),
+          {
+            'venueId': ' venue ',
+            'sourceEventId': ' event ',
+            'viewerUserId': 'spoof',
+          },
+        ]) {
+          final target = ProfileRouteTarget.fromArguments(
+            ProfileRouteKind.venue,
+            input,
+          );
+          final args = target.publicArguments as VenuePublicProfileArgs;
+          expect(args.venueId, 'venue');
+          expect(args.sourceEventId, 'event');
+          expect(args.viewerUserId, isNull);
+        }
+      },
+    );
     for (final kind in ProfileRouteKind.values) {
       test('$kind accepts and trims string and typed identity', () {
         final fromString = ProfileRouteTarget.fromArguments(kind, ' target ');

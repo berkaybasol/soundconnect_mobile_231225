@@ -171,6 +171,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: WeeklyEventCarousel(
+              now: () => DateTime.utc(2026, 9, 8, 12),
               items: [
                 _event(title: title, poster: 'assets/missing-poster.png'),
               ],
@@ -199,6 +200,7 @@ void main() {
             data: const MediaQueryData(textScaler: TextScaler.linear(3)),
             child: Scaffold(
               body: WeeklyEventCarousel(
+                now: () => DateTime.utc(2026, 9, 8, 12),
                 compactTitle: compact,
                 items: [_event(title: 'Şahbaz ile Akustik Bir Gece')],
               ),

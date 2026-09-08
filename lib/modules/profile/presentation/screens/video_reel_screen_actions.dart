@@ -113,184 +113,32 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
   }
 
   Future<void> _openCommentsSheet() async {
+    if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
     final cubit = context.read<CommentThreadCubit>();
-    await cubit.load(targetType: widget.targetType, targetId: widget.targetId);
-    if (!mounted) return;
-    final inputController = TextEditingController();
-
+    final stats = context.read<InteractionStatsCubit>();
+    _stopPlayback();
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.navBlueDeep,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (sheetContext) {
-        return BlocProvider.value(
-          value: cubit,
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-            ),
-            child: SizedBox(
-              height: MediaQuery.of(sheetContext).size.height * 0.72,
-              child: Column(
-                children: [
-                  SizedBox(height: 10),
-                  Container(
-                    width: 44,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).dividerColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Yorumlar',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Expanded(
-                    child: BlocBuilder<CommentThreadCubit, CommentThreadState>(
-                      builder: (context, state) {
-                        if (state.loading && state.comments.isEmpty) {
-                          return Center(child: CircularProgressIndicator());
-                        }
-                        if (state.comments.isEmpty) {
-                          return Center(
-                            child: Text(
-                              'Henüz yorum yok.',
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          );
-                        }
-                        return ListView.separated(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          itemCount: state.comments.length,
-                          separatorBuilder: (_, __) => Divider(
-                            color: Theme.of(context).dividerColor,
-                            height: 14,
-                          ),
-                          itemBuilder: (context, i) {
-                            final c = state.comments[i];
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainer,
-                                  child: Icon(
-                                    Icons.person,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                    size: 16,
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '@${c.user.username}',
-                                        style: TextStyle(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurface,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      SizedBox(height: 3),
-                                      Text(
-                                        c.text,
-                                        style: TextStyle(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: inputController,
-                            decoration: InputDecoration(
-                              hintText: 'Yorum yaz...',
-                              hintStyle: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                              filled: true,
-                              fillColor: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () async {
-                            final text = inputController.text.trim();
-                            if (text.isEmpty) return;
-                            final statsCubit = context
-                                .read<InteractionStatsCubit>();
-                            await cubit.create(
-                              targetType: widget.targetType,
-                              targetId: widget.targetId,
-                              text: text,
-                            );
-                            if (!mounted) return;
-                            await statsCubit.load(
-                              targetType: widget.targetType,
-                              targetId: widget.targetId,
-                              force: true,
-                            );
-                            inputController.clear();
-                          },
-                          icon: Icon(Icons.send, color: AppColors.coralAlt),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: CommentThreadSheet(
+          targetType: widget.targetType,
+          targetId: widget.targetId,
+          onCommentCreated: () => stats.load(
+            targetType: widget.targetType,
+            targetId: widget.targetId,
+            force: true,
           ),
-        );
-      },
+          onCommentDeleted: () => stats.load(
+            targetType: widget.targetType,
+            targetId: widget.targetId,
+            force: true,
+          ),
+        ),
+      ),
     );
-    inputController.dispose();
   }
 }

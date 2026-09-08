@@ -8,16 +8,12 @@ import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
-import '../../../engagement/domain/entities/comment_item.dart';
-import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
-import '../../../engagement/presentation/cubit/comment_thread_state.dart';
+import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 
 part 'media_detail_screen_heroes.dart';
 part 'media_detail_screen_heroes_audio.dart';
-part 'media_detail_screen_comments.dart';
 part 'media_detail_screen_actions.dart';
 
 class MediaDetailScreen extends StatefulWidget {
@@ -55,15 +51,11 @@ class MediaDetailScreen extends StatefulWidget {
 }
 
 class _MediaDetailScreenState extends State<MediaDetailScreen> {
-  final FocusNode _commentFocusNode = FocusNode();
-  final TextEditingController _commentController = TextEditingController();
   Stream<Duration>? _positionStream;
   VideoPlayerController? _videoController;
   bool _videoReady = false;
   String? _videoError;
 
-  String? _replyTo;
-  String? _replyToCommentId;
   bool _initializedLoads = false;
 
   void _updateState(VoidCallback updater) {
@@ -80,8 +72,6 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
   @override
   void dispose() {
     _videoController?.dispose();
-    _commentFocusNode.dispose();
-    _commentController.dispose();
     super.dispose();
   }
 
@@ -129,10 +119,6 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               context.read<InteractionStatsCubit>().load(
-                targetType: targetType,
-                targetId: targetId,
-              );
-              context.read<CommentThreadCubit>().load(
                 targetType: targetType,
                 targetId: targetId,
               );
@@ -198,73 +184,26 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                 ),
               ),
               SizedBox(height: 12),
-              BlocBuilder<CommentThreadCubit, CommentThreadState>(
-                builder: (context, commentState) {
-                  if (!hasTarget) {
-                    return Text(
-                      'Yorum hedefi bulunamadı.',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+              if (hasTarget)
+                CommentThreadView(
+                  key: ValueKey('$targetType:$targetId'),
+                  targetType: targetType,
+                  targetId: targetId,
+                  onCommentCreated: () =>
+                      context.read<InteractionStatsCubit>().load(
+                        targetType: targetType,
+                        targetId: targetId,
+                        force: true,
                       ),
-                    );
-                  }
-                  if (commentState.loading && commentState.comments.isEmpty) {
-                    return Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: LinearProgressIndicator(),
-                    );
-                  }
-                  if (commentState.comments.isEmpty) {
-                    return Text(
-                      'Henüz yorum yok.',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  onCommentDeleted: () =>
+                      context.read<InteractionStatsCubit>().load(
+                        targetType: targetType,
+                        targetId: targetId,
+                        force: true,
                       ),
-                    );
-                  }
-                  return Column(
-                    children: List.generate(commentState.comments.length, (
-                      index,
-                    ) {
-                      final item = commentState.comments[index];
-                      return Column(
-                        children: [
-                          _CommentBubble(
-                            comment: item,
-                            timeLabel: _timeLabel(item.createdAt),
-                            onReply: () {
-                              setState(() {
-                                _replyTo = '@${item.user.username}';
-                                _replyToCommentId = item.id;
-                              });
-                            },
-                          ),
-                          if (index < commentState.comments.length - 1)
-                            Divider(
-                              color: Theme.of(context).dividerColor,
-                              height: 16,
-                            ),
-                        ],
-                      );
-                    }),
-                  );
-                },
-              ),
-              SizedBox(height: 18),
-              _CommentInput(
-                controller: _commentController,
-                focusNode: _commentFocusNode,
-                replyTo: _replyTo,
-                submitting: context
-                    .watch<CommentThreadCubit>()
-                    .state
-                    .submitting,
-                onSend: _sendComment,
-                onClearReply: () => setState(() {
-                  _replyTo = null;
-                  _replyToCommentId = null;
-                }),
-              ),
+                )
+              else
+                const Text('Yorum hedefi bulunamadı.'),
             ],
           );
         },

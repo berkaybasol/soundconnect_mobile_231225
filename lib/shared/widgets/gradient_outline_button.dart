@@ -9,6 +9,7 @@ class GradientOutlineButton extends StatelessWidget {
   final Color? backgroundColor;
   final double horizontalPadding;
   final double strokeWidth;
+  final int? maxLines;
 
   const GradientOutlineButton({
     super.key,
@@ -19,6 +20,7 @@ class GradientOutlineButton extends StatelessWidget {
     this.backgroundColor,
     this.horizontalPadding = 28,
     this.strokeWidth = 1.4,
+    this.maxLines = 1,
   });
 
   @override
@@ -71,7 +73,7 @@ class GradientOutlineButton extends StatelessWidget {
                   Flexible(
                     child: Text(
                       label,
-                      maxLines: 1,
+                      maxLines: maxLines,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: isEnabled ? enabledTextColor : disabledTextColor,

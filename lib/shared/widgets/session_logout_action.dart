@@ -13,14 +13,11 @@ Future<bool> confirmAndLogoutSession(BuildContext context) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
-      final theme = Theme.of(dialogContext);
       final colors = Theme.of(dialogContext).colorScheme;
-      final dialogColor = theme.brightness == Brightness.dark
-          ? Color.alphaBlend(
-              colors.onSurface.withValues(alpha: 0.035),
-              colors.surface,
-            )
-          : colors.surface;
+      final dialogColor = Color.alphaBlend(
+        colors.onSurface.withValues(alpha: 0.035),
+        colors.surface,
+      );
       return Dialog(
         backgroundColor: dialogColor,
         surfaceTintColor: Colors.transparent,

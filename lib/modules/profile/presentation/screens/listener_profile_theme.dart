@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// The listener profile artwork is deliberately a dark, premium surface in
-/// every application theme. Keeping the local palette self-contained avoids
-/// mixing a light app foreground with the dark profile cards when the user
-/// switches themes while this route is open.
+/// Existing publication and onboarding surfaces keep their local dark palette.
+/// Profile chrome opts into the shared musician/venue application theme.
 const listenerProfileDeepSurface = Color(0xFF070B13);
 const listenerProfileChromeSurface = Color(0xFF111522);
 const listenerProfileSurface = Color(0xFF101722);
@@ -45,12 +43,29 @@ ThemeData listenerProfileDarkTheme(BuildContext context) {
 }
 
 class ListenerProfileTheme extends StatelessWidget {
-  const ListenerProfileTheme({super.key, required this.child});
+  const ListenerProfileTheme({
+    super.key,
+    required this.child,
+    this.inheritAppTheme = false,
+  });
 
   final Widget child;
+  // Profile chrome shares the musician/venue palette. Existing publication and
+  // onboarding surfaces retain their local palette unless explicitly opted in.
+  final bool inheritAppTheme;
 
   @override
   Widget build(BuildContext context) {
-    return Theme(data: listenerProfileDarkTheme(context), child: child);
+    if (inheritAppTheme) return child;
+    final theme = listenerProfileDarkTheme(context);
+    return Theme(
+      data: theme,
+      // A nested Theme does not replace the enclosing Material's text style.
+      // Keep publication text identical when this scope is inside a profile.
+      child: DefaultTextStyle(
+        style: theme.textTheme.bodyMedium!,
+        child: child,
+      ),
+    );
   }
 }

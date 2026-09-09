@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/event_performer_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_performer_request_card.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_performer_request_copy.dart';
@@ -46,61 +47,59 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-  for (final brightness in Brightness.values) {
-    for (final band in [false, true]) {
-      testWidgets(
-        'long request fits 320dp at 200 percent: $brightness band=$band',
-        (tester) async {
-          tester.view.physicalSize = const Size(320, 740);
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          final request = requestCardFixture(band: band, longNames: true);
-          var accepted = 0;
-          var rejected = 0;
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: ThemeData(brightness: brightness),
-              home: MediaQuery(
-                data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-                child: Scaffold(
-                  body: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: EventPerformerRequestCard(
-                      request: request,
-                      processing: false,
-                      onAccept: () => accepted++,
-                      onReject: () => rejected++,
-                    ),
-                  ),
+
+  for (final band in [false, true]) {
+    testWidgets('long request fits 320dp at 200 percent: Koyu band=$band', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final request = requestCardFixture(band: band, longNames: true);
+      var accepted = 0;
+      var rejected = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.navy,
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Scaffold(
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: EventPerformerRequestCard(
+                  request: request,
+                  processing: false,
+                  onAccept: () => accepted++,
+                  onReject: () => rejected++,
                 ),
               ),
             ),
-          );
-          expect(tester.takeException(), isNull);
-          expect(find.text('2026'), findsOneWidget);
-          expect(find.text('EYL'), findsOneWidget);
-          expect(find.text('20:00 – 22:00'), findsOneWidget);
-          expect(
-            find.text(
-              band
-                  ? 'Bu etkinliği grubun profilinde de göster'
-                  : 'Bu etkinliği profilimde de göster',
-            ),
-            findsOneWidget,
-          );
-          final approve = find.byKey(const Key('accept-event-request-preview'));
-          await tester.ensureVisible(approve);
-          await tester.tap(approve);
-          expect(accepted, 1);
-          final reject = find.byKey(const Key('reject-event-request-preview'));
-          await tester.ensureVisible(reject);
-          await tester.tap(reject);
-          expect(rejected, 1);
-          expect(tester.takeException(), isNull);
-        },
+          ),
+        ),
       );
-    }
+      expect(tester.takeException(), isNull);
+      expect(find.text('2026'), findsOneWidget);
+      expect(find.text('EYL'), findsOneWidget);
+      expect(find.text('20:00 – 22:00'), findsOneWidget);
+      expect(
+        find.text(
+          band
+              ? 'Bu etkinliği grubun profilinde de göster'
+              : 'Bu etkinliği profilimde de göster',
+        ),
+        findsOneWidget,
+      );
+      final approve = find.byKey(const Key('accept-event-request-preview'));
+      await tester.ensureVisible(approve);
+      await tester.tap(approve);
+      expect(accepted, 1);
+      final reject = find.byKey(const Key('reject-event-request-preview'));
+      await tester.ensureVisible(reject);
+      await tester.tap(reject);
+      expect(rejected, 1);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets(

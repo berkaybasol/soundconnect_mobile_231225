@@ -14,9 +14,11 @@ class ListenerEventFeedRow {
     required this.intent,
     required this.note,
     required this.ended,
+    this.postId,
     this.privateState,
   });
   final VenueEventDetail event;
+  final String? postId;
   final EventAudienceStatus intent;
   final String? note;
   final bool ended;
@@ -133,6 +135,7 @@ class ListenerEventFeedController extends ChangeNotifier {
               .map(
                 (item) => ListenerEventFeedRow(
                   event: item.event!,
+                  postId: item.postId,
                   intent: item.intent,
                   note: item.note,
                   privateState: item,
@@ -162,6 +165,7 @@ class ListenerEventFeedController extends ChangeNotifier {
               .map(
                 (item) => ListenerEventFeedRow(
                   event: item.event,
+                  postId: item.postId,
                   intent: item.intent,
                   note: item.note,
                   ended: item.eventEnded,
@@ -198,7 +202,12 @@ class ListenerEventFeedController extends ChangeNotifier {
 
   void _sessionChanged() {
     final next = _sessionIdentity(sessions.session);
-    if (next == _identity) return;
+    if (next == _identity) {
+      // Metadata updates (such as a username change) replace AuthSession too.
+      // Rebind UI callbacks fenced to that instance without reloading the page.
+      notifyListeners();
+      return;
+    }
     _identity = next;
     unawaited(reload());
   }

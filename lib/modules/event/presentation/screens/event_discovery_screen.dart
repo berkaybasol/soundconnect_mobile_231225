@@ -79,11 +79,10 @@ class _MemberDiscoveryState extends State<MemberEventDiscoveryScreen> {
       session.userId?.trim().isNotEmpty == true &&
       !session.requiresListenerProfileChoice;
 
-  StageMode _stage(AuthSession session) =>
-      widget.args.bottomBarStageMode == StageMode.backstage &&
-          AccessPolicy.canAccessBackstage(session.roles)
-      ? StageMode.backstage
-      : StageMode.mainstage;
+  StageMode _stage(AuthSession session) => StageModeResolver.forViewer(
+    session,
+    requested: widget.args.bottomBarStageMode,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +108,7 @@ class _MemberDiscoveryState extends State<MemberEventDiscoveryScreen> {
           widget.bottomNavigationBar ??
           ProfilePublicBottomBar(
             currentIndex: stage == StageMode.mainstage ? 0 : 2,
+            mainstageCurrentIndex: 0,
             stageMode: stage,
           ),
       onTableTap: () => unawaited(_openTables(session, stage)),

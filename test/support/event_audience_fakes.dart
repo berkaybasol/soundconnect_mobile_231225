@@ -7,6 +7,7 @@ import 'package:soundconnect_23_12_25codx/modules/event_audience/domain/event_au
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_detail.dart';
 
 const audienceEventId = 'c0890d3f-805d-4808-b123-abb9a9c79666';
+const audiencePostId = 'f901b254-ea45-4469-9458-7903113d52ca';
 const audienceVenueId = '58e05c32-bd79-4823-bbc0-58c53ea5aeea';
 
 AuthSession audienceSession({
@@ -51,6 +52,7 @@ EventAudienceState audienceState({
   bool canPublish = true,
 }) => EventAudienceState(
   eventId: eventId,
+  postId: published ? audiencePostId : null,
   intent: intent,
   publishedOnProfile: published,
   note: note,

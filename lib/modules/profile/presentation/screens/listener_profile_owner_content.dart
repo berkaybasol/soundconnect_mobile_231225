@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/entities/listener_profile.dart';
 import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
 import 'listener_playlist_section.dart';
+import 'listener_profile_header.dart';
 import 'listener_profile_preview_data.dart';
+import 'listener_profile_theme.dart';
 import 'profile_screen_support.dart';
 
 const _listenerDeepSurface = Color(0xFF070B13);
@@ -67,70 +69,45 @@ class ListenerProfileOwnerContent extends StatelessWidget {
     final preview = previewData;
 
     return ColoredBox(
-      color: _listenerDeepSurface,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: ListView(
         controller: scrollController,
         key: const Key('listener-owner-profile-content'),
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 28),
         children: [
-          const SizedBox(height: 14),
-          _ListenerOwnerAvatar(
+          ListenerProfileHeader(
             username: username,
             imageUrl: profile.profilePictureUrl,
-            onEdit: actionBusy ? null : onEditAvatar,
-          ),
-          const SizedBox(height: 10),
-          Center(
-            child: GradientText(
-              text: username,
-              gradient: LinearGradient(colors: AppColors.brandGradient),
-              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              textAlign: TextAlign.center,
-            ),
-          ),
-          if (followerCount != null && followingCount != null) ...[
-            const SizedBox(height: 12),
-            _ListenerFollowerSummary(
-              followersCount: followerCount,
-              followingCount: followingCount,
-            ),
-          ],
-          if (bio.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 38),
-              child: Text(
-                bio,
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFC1C8D2),
-                  fontSize: 12,
-                  height: 1.42,
+            followerCount: followerCount,
+            followingCount: followingCount,
+            editableAvatar: true,
+            avatarBusy: actionBusy,
+            onEditAvatar: onEditAvatar,
+            actionButtons: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Center(
+                child: GradientOutlineButton(
+                  key: const Key('listener-edit-profile'),
+                  label: 'Profili Düzenle',
+                  onPressed: actionBusy ? null : onEditProfile,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                  leading: const Icon(Icons.edit_outlined, size: 16),
+                  horizontalPadding: 24,
+                  maxLines: 2,
                 ),
               ),
             ),
-          ],
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _ListenerEditProfileButton(
-              key: const Key('listener-edit-profile'),
-              onPressed: actionBusy ? null : onEditProfile,
-            ),
+            bio: bio,
+            afterBio: eventPlansAction == null
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: eventPlansAction!,
+                  ),
           ),
-          if (eventPlansAction != null) ...[
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: eventPlansAction!,
-            ),
-          ],
           const SizedBox(height: 20),
           ListenerPlaylistSection(
             playlists: profile.playlists,
@@ -153,17 +130,19 @@ class ListenerProfileOwnerContent extends StatelessWidget {
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  if (eventPosts != null) eventPosts!,
-                  if (showPreviewSections && preview != null)
-                    _ListenerOverthinkingPostCard(
-                      username: username,
-                      imageUrl: profile.profilePictureUrl,
-                      post: preview.overthinkingShare,
-                      onAction: onPreviewAction,
-                    ),
-                ],
+              child: ListenerProfileTheme(
+                child: Column(
+                  children: [
+                    if (eventPosts != null) eventPosts!,
+                    if (showPreviewSections && preview != null)
+                      _ListenerOverthinkingPostCard(
+                        username: username,
+                        imageUrl: profile.profilePictureUrl,
+                        post: preview.overthinkingShare,
+                        onAction: onPreviewAction,
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -185,289 +164,6 @@ String _initials(String username) {
   }
   final first = parts.first[0].toUpperCase();
   return '$first$first';
-}
-
-class _ListenerFollowerSummary extends StatelessWidget {
-  const _ListenerFollowerSummary({
-    required this.followersCount,
-    required this.followingCount,
-  });
-
-  final int followersCount;
-  final int followingCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      runAlignment: WrapAlignment.center,
-      spacing: 10,
-      runSpacing: 8,
-      children: [
-        _ListenerMetricPill(value: followersCount, label: 'Takipçi'),
-        _ListenerMetricPill(value: followingCount, label: 'Takip'),
-      ],
-    );
-  }
-}
-
-class _ListenerMetricPill extends StatelessWidget {
-  const _ListenerMetricPill({required this.value, required this.label});
-
-  final int value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 34),
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-      decoration: BoxDecoration(
-        color: _listenerSurface,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _listenerBorder),
-      ),
-      alignment: Alignment.center,
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: '$value ',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            TextSpan(
-              text: label,
-              style: const TextStyle(
-                color: _listenerMuted,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        style: const TextStyle(fontSize: 12),
-      ),
-    );
-  }
-}
-
-class _ListenerEditProfileButton extends StatelessWidget {
-  const _ListenerEditProfileButton({super.key, required this.onPressed});
-
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(14);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsets.all(0.8),
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        gradient: LinearGradient(colors: AppColors.brandGradient),
-      ),
-      child: Material(
-        color: _listenerSurface,
-        borderRadius: BorderRadius.circular(13.2),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: radius,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final textScale = MediaQuery.textScalerOf(context).scale(1);
-              final stackContent =
-                  constraints.maxWidth < 220 || textScale > 1.35;
-              const icon = Icon(
-                Icons.edit_outlined,
-                size: 16,
-                color: Colors.white,
-              );
-              const label = Text(
-                'Profili Düzenle',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              );
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: stackContent
-                    ? const Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [icon, SizedBox(height: 4), label],
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          icon,
-                          SizedBox(width: 8),
-                          Flexible(child: label),
-                        ],
-                      ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ListenerOwnerAvatar extends StatelessWidget {
-  const _ListenerOwnerAvatar({
-    required this.username,
-    required this.imageUrl,
-    required this.onEdit,
-  });
-
-  final String username;
-  final String? imageUrl;
-  final VoidCallback? onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    final normalizedUrl = imageUrl?.trim();
-    final hasImage = isValidNetworkImageUrl(normalizedUrl);
-    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-
-    return Center(
-      child: SizedBox.square(
-        dimension: 88,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF8B2CFF).withValues(alpha: 0.22),
-                      blurRadius: 18,
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(1.2),
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      color: _listenerDeepSurface,
-                      shape: BoxShape.circle,
-                    ),
-                    child: ClipOval(
-                      child: hasImage
-                          ? AppCachedNetworkImage(
-                              imageUrl: normalizedUrl,
-                              width: 86,
-                              height: 86,
-                              fit: BoxFit.cover,
-                              cacheWidth: (86 * pixelRatio).round(),
-                              errorBuilder: (_) => _InitialsAvatar(
-                                initials: _initials(username),
-                              ),
-                            )
-                          : _InitialsAvatar(initials: _initials(username)),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Semantics(
-                button: onEdit != null,
-                enabled: onEdit != null,
-                label: 'Profil fotoğrafını düzenle',
-                child: Material(
-                  color: Colors.transparent,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    key: const Key('listener-edit-avatar'),
-                    customBorder: const CircleBorder(),
-                    onTap: onEdit,
-                    child: SizedBox.square(
-                      dimension: 48,
-                      child: Center(
-                        child: Transform.translate(
-                          // Preserve the visual overlap without placing the
-                          // 48 px tap target outside the avatar's hit-test
-                          // bounds.
-                          offset: const Offset(13, 13),
-                          child: Ink(
-                            width: 26,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: AppColors.brandGradient,
-                              ),
-                              border: Border.all(
-                                color: _listenerDeepSurface,
-                                width: 2,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.edit_outlined,
-                              color: AppColors.white,
-                              size: 13,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InitialsAvatar extends StatelessWidget {
-  const _InitialsAvatar({required this.initials});
-
-  final String initials;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2B2033), Color(0xFF151525), _listenerDeepSurface],
-        ),
-      ),
-      child: Center(
-        child: Text(
-          initials,
-          style: const TextStyle(
-            color: AppColors.white,
-            fontSize: 21,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _ListenerSectionHeader extends StatelessWidget {

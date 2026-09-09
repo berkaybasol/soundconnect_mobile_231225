@@ -32,13 +32,17 @@ class BandUpdateRequest {
     }
 
     addIfNotEmpty('name', name);
-    addIfNotEmpty('description', description);
+    if (description != null) payload['description'] = description!.trim();
     addIfNotEmpty('profilePicture', profilePicture);
-    addIfNotEmpty('instagramUrl', instagramUrl);
-    addIfNotEmpty('youtubeUrl', youtubeUrl);
-    addIfNotEmpty('soundCloudUrl', soundCloudUrl);
-    addIfNotEmpty('spotifyEmbedUrl', spotifyEmbedUrl);
-    addIfNotEmpty('spotifyArtistId', spotifyArtistId);
+    if (instagramUrl != null) payload['instagramUrl'] = instagramUrl!.trim();
+    if (youtubeUrl != null) payload['youtubeUrl'] = youtubeUrl!.trim();
+    if (soundCloudUrl != null) payload['soundCloudUrl'] = soundCloudUrl!.trim();
+    if (spotifyEmbedUrl != null) {
+      payload['spotifyEmbedUrl'] = spotifyEmbedUrl!.trim();
+    }
+    if (spotifyArtistId != null) {
+      payload['spotifyArtistId'] = spotifyArtistId!.trim();
+    }
     if (spotifyTrackIds != null) {
       payload['spotifyTrackIds'] = spotifyTrackIds;
     }

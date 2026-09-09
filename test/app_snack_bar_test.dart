@@ -43,11 +43,6 @@ void main() {
     return host;
   }
 
-  final themes = {
-    'light': AppTheme.light,
-    'navy': AppTheme.navy,
-    'black': AppTheme.black,
-  };
   final icons = {
     AppSnackBarTone.success: Icons.check_circle_outline_rounded,
     AppSnackBarTone.error: Icons.error_outline_rounded,
@@ -55,40 +50,38 @@ void main() {
     AppSnackBarTone.info: Icons.info_outline_rounded,
   };
 
-  for (final theme in themes.entries) {
-    for (final tone in icons.entries) {
-      testWidgets('${theme.key} ${tone.key.name} feedback remains readable', (
-        tester,
-      ) async {
-        final context = await launch(tester, theme: theme.value);
-        ScaffoldMessenger.of(context).showSnackBar(
-          appSnackBar(
-            context,
-            content: const Text('İşlem sonucu'),
-            tone: tone.key,
-          ),
-        );
-        await tester.pumpAndSettle();
+  for (final tone in icons.entries) {
+    testWidgets('navy ${tone.key.name} feedback remains readable', (
+      tester,
+    ) async {
+      final context = await launch(tester, theme: AppTheme.navy);
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          content: const Text('İşlem sonucu'),
+          tone: tone.key,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final snack = tester.widget<SnackBar>(find.byType(SnackBar));
-        expect(snack.behavior, SnackBarBehavior.floating);
-        expect(
-          snack.backgroundColor,
-          theme.value.colorScheme.surfaceContainerHighest,
-        );
-        expect(snack.elevation, 0);
-        expect(snack.margin, const EdgeInsets.fromLTRB(20, 12, 20, 18));
-        final shape = snack.shape! as RoundedRectangleBorder;
-        expect(shape.borderRadius, BorderRadius.circular(16));
-        expect(find.byIcon(tone.value), findsOneWidget);
-        final textContext = tester.element(find.text('İşlem sonucu'));
-        expect(
-          DefaultTextStyle.of(textContext).style.color,
-          theme.value.colorScheme.onSurface,
-        );
-        expect(tester.takeException(), isNull);
-      });
-    }
+      final snack = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snack.behavior, SnackBarBehavior.floating);
+      expect(
+        snack.backgroundColor,
+        AppTheme.navy.colorScheme.surfaceContainerHighest,
+      );
+      expect(snack.elevation, 0);
+      expect(snack.margin, const EdgeInsets.fromLTRB(20, 12, 20, 18));
+      final shape = snack.shape! as RoundedRectangleBorder;
+      expect(shape.borderRadius, BorderRadius.circular(16));
+      expect(find.byIcon(tone.value), findsOneWidget);
+      final textContext = tester.element(find.text('İşlem sonucu'));
+      expect(
+        DefaultTextStyle.of(textContext).style.color,
+        AppTheme.navy.colorScheme.onSurface,
+      );
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('default lifetime and action persistence match native SnackBar', (

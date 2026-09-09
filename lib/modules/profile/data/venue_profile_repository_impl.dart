@@ -14,14 +14,32 @@ import 'venue_profile_endpoints.dart';
 
 class VenueProfileRepositoryImpl implements VenueProfileRepository {
   final ApiClient _apiClient;
+  final String? Function()? sessionKeyProvider;
 
-  VenueProfileRepositoryImpl(this._apiClient);
+  VenueProfileRepositoryImpl(this._apiClient, {this.sessionKeyProvider});
+
+  String? get _session => sessionKeyProvider?.call()?.trim();
+  bool _isCurrent(String? expected) =>
+      sessionKeyProvider == null ||
+      (expected?.isNotEmpty == true && expected == _session);
+  static const _sessionError = AppError(
+    code: 'venue_profile_session_changed',
+    message: 'Oturum değişti. Mekân profilini yeniden aç.',
+  );
 
   @override
-  Future<Result<List<VenueProfileSummary>>> getMyVenueProfiles() async {
+  Future<Result<List<VenueProfileSummary>>> getMyVenueProfiles() =>
+      _myProfiles(_session);
+
+  Future<Result<List<VenueProfileSummary>>> _myProfiles(String? session) async {
+    if (!_isCurrent(session)) return const Result.failure(_sessionError);
     try {
-      final response = await _apiClient.get<List<VenueProfileSummary>>(
+      final response = await _apiClient.request<List<VenueProfileSummary>>(
+        ApiHttpMethod.get,
         VenueProfileEndpoints.myProfiles,
+        requestContext: sessionKeyProvider == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: session),
         decoder: (json) {
           final list = json is List ? json : const [];
           return list
@@ -30,6 +48,7 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
               .toList();
         },
       );
+      if (!_isCurrent(session)) return const Result.failure(_sessionError);
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
@@ -47,8 +66,11 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
   Future<Result<VenueOwnerProfile>> getMyVenueProfileDetail({
     String? venueId,
   }) async {
+    final session = _session;
+    if (!_isCurrent(session)) return const Result.failure(_sessionError);
     try {
-      final resolvedVenueId = await _resolveVenueId(venueId);
+      final resolvedVenueId = await _resolveVenueId(venueId, session);
+      if (!_isCurrent(session)) return const Result.failure(_sessionError);
       if (resolvedVenueId == null || resolvedVenueId.isEmpty) {
         return Result.failure(
           const AppError(
@@ -57,11 +79,16 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
           ),
         );
       }
-      final response = await _apiClient.get<VenueOwnerProfile>(
+      final response = await _apiClient.request<VenueOwnerProfile>(
+        ApiHttpMethod.get,
         VenueProfileEndpoints.myDetail(resolvedVenueId),
+        requestContext: sessionKeyProvider == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: session),
         decoder: (json) =>
             VenueOwnerProfileModel.fromJson(json as Map<String, dynamic>),
       );
+      if (!_isCurrent(session)) return const Result.failure(_sessionError);
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
@@ -80,8 +107,11 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
     VenueProfileSaveRequest request, {
     String? venueId,
   }) async {
+    final session = _session;
+    if (!_isCurrent(session)) return const Result.failure(_sessionError);
     try {
-      final resolvedVenueId = await _resolveVenueId(venueId);
+      final resolvedVenueId = await _resolveVenueId(venueId, session);
+      if (!_isCurrent(session)) return const Result.failure(_sessionError);
       if (resolvedVenueId == null || resolvedVenueId.isEmpty) {
         return Result.failure(
           const AppError(
@@ -90,12 +120,17 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
           ),
         );
       }
-      final response = await _apiClient.put<VenueOwnerProfile>(
+      final response = await _apiClient.request<VenueOwnerProfile>(
+        ApiHttpMethod.put,
         VenueProfileEndpoints.myDetail(resolvedVenueId),
+        requestContext: sessionKeyProvider == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: session),
         body: request.toJson(),
         decoder: (json) =>
             VenueOwnerProfileModel.fromJson(json as Map<String, dynamic>),
       );
+      if (!_isCurrent(session)) return const Result.failure(_sessionError);
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);
@@ -114,7 +149,7 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
     String? venueId,
   }) async {
     try {
-      final resolvedVenueId = await _resolveVenueId(venueId);
+      final resolvedVenueId = await _resolveVenueId(venueId, _session);
       if (resolvedVenueId == null || resolvedVenueId.isEmpty) {
         return Result.failure(
           const AppError(
@@ -141,12 +176,13 @@ class VenueProfileRepositoryImpl implements VenueProfileRepository {
     }
   }
 
-  Future<String?> _resolveVenueId(String? venueId) async {
-    if (venueId != null && venueId.isNotEmpty) return venueId;
-    final profiles = await getMyVenueProfiles();
-    if (!profiles.isSuccess ||
-        profiles.data == null ||
-        profiles.data!.isEmpty) {
+  Future<String?> _resolveVenueId(String? venueId, String? session) async {
+    if (venueId?.trim().isNotEmpty == true) return venueId!.trim();
+    final profiles = await _myProfiles(session);
+    if (!profiles.isSuccess) {
+      throw ApiException(profiles.error ?? _sessionError);
+    }
+    if (profiles.data == null || profiles.data!.isEmpty) {
       return null;
     }
     return profiles.data!.first.venueId;

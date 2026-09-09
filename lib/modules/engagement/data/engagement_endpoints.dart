@@ -7,16 +7,16 @@ class EngagementEndpoints {
   static const String _commentsBase = '/api/v1/comments';
 
   static String like(String targetType, String targetId) =>
-      '$_likesBase/$targetType/$targetId';
+      '$_likesBase/${Uri.encodeComponent(targetType)}/${Uri.encodeComponent(targetId)}';
 
   static String unlike(String targetType, String targetId) =>
-      '$_likesBase/$targetType/$targetId';
+      like(targetType, targetId);
 
   static String likeCount(String targetType, String targetId) =>
-      '$_likesBase/$targetType/$targetId/count';
+      '${like(targetType, targetId)}/count';
 
   static String isLiked(String targetType, String targetId) =>
-      '$_likesBase/$targetType/$targetId/is-liked';
+      '${like(targetType, targetId)}/is-liked';
 
   static String createComment(String targetType, String targetId) =>
       '$_commentsBase/${Uri.encodeComponent(targetType)}/${Uri.encodeComponent(targetId)}';

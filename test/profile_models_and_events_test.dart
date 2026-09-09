@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/models/musician_profile_save_request.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/data/models/band_update_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/models/venue_profile_save_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/venue_event_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_item.dart';
@@ -41,13 +42,35 @@ void main() {
 
       final json = request.toJson();
       expect(json['stageName'], 'Artist');
-      expect(json.containsKey('description'), isFalse);
+      expect(json['description'], '');
       expect(json['spotifyTrackIds'], ['a', 'b']);
       expect(json['spotifyTracks'], [
         {'spotifyTrackId': 'a'},
       ]);
       expect(json['instrumentIds'], ['guitar']);
     });
+
+    test(
+      'explicit empty optional fields clear saved profile text and links',
+      () {
+        expect(
+          const VenueProfileSaveRequest(bio: ' ', instagramUrl: '').toJson(),
+          {'bio': '', 'instagramUrl': ''},
+        );
+        expect(
+          const MusicianProfileSaveRequest(
+            description: '',
+            spotifyArtistId: ' ',
+          ).toJson(),
+          {'description': '', 'spotifyArtistId': ''},
+        );
+        expect(
+          const BandUpdateRequest(description: ' ', soundCloudUrl: '').toJson(),
+          {'description': '', 'soundCloudUrl': ''},
+        );
+        expect(const BandUpdateRequest().toJson(), isEmpty);
+      },
+    );
   });
 
   group('venue event format helpers', () {

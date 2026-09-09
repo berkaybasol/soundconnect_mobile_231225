@@ -1,5 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/auth_session.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/error/app_error.dart';
 import '../../../../core/error/result.dart';
 import '../../domain/entities/listener_profile.dart';
@@ -10,17 +12,36 @@ import 'listener_profile_state.dart';
 
 class ListenerProfileCubit extends Cubit<ListenerProfileState> {
   final ListenerProfileRepository _repository;
+  final AuthSessionManager? sessions;
   int _loadGeneration = 0;
   Future<void>? _ownerMutationTail;
 
-  ListenerProfileCubit(this._repository)
-    : super(const ListenerProfileState.idle());
+  ListenerProfileCubit(this._repository, {this.sessions})
+    : super(const ListenerProfileState.idle()) {
+    sessions?.addListener(_sessionChanged);
+  }
+
+  void _sessionChanged() {
+    if (isClosed) return;
+    ++_loadGeneration;
+    emit(const ListenerProfileState.idle());
+  }
+
+  bool _sameSession(AuthSession? expected) =>
+      !isClosed && identical(sessions?.session, expected);
+
+  @override
+  Future<void> close() {
+    sessions?.removeListener(_sessionChanged);
+    return super.close();
+  }
 
   Future<void> loadMyProfile() async {
+    final session = sessions?.session;
+    final generation = ++_loadGeneration;
     final activeMutation = _ownerMutationTail;
     if (activeMutation != null) await activeMutation;
-    if (isClosed) return;
-    final generation = ++_loadGeneration;
+    if (!_sameSession(session) || generation != _loadGeneration) return;
     emit(
       state.copyWith(
         status: ListenerProfileStatus.loading,
@@ -124,9 +145,10 @@ class ListenerProfileCubit extends Cubit<ListenerProfileState> {
     ListenerProfileAction action,
     Future<Result<ListenerProfile>> Function(ListenerProfile profile) request,
   ) {
+    final session = sessions?.session;
     final previous = _ownerMutationTail;
     final mutation = (previous ?? Future<void>.value()).then(
-      (_) => _performOwnerMutation(action, request),
+      (_) => _performOwnerMutation(action, request, session),
     );
     final safeTail = mutation.then<void>(
       (_) {},
@@ -142,9 +164,16 @@ class ListenerProfileCubit extends Cubit<ListenerProfileState> {
   Future<void> _performOwnerMutation(
     ListenerProfileAction action,
     Future<Result<ListenerProfile>> Function(ListenerProfile profile) request,
+    AuthSession? session,
   ) async {
-    if (isClosed) return;
+    if (!_sameSession(session)) return;
     final profile = state.profile;
+    if (sessions != null &&
+        (session?.isAuthenticated != true ||
+            session?.isActive != true ||
+            profile?.userId != session?.userId)) {
+      return;
+    }
     if (profile == null) {
       emit(
         state.copyWith(
@@ -170,7 +199,7 @@ class ListenerProfileCubit extends Cubit<ListenerProfileState> {
       ),
     );
     final result = await _safeOwnerRequest(() => request(profile));
-    if (isClosed) return;
+    if (!_sameSession(session)) return;
     if (generation != _loadGeneration) {
       // Keep the owner cache current without replacing a newer public/load
       // presentation state that was selected while this request was running.

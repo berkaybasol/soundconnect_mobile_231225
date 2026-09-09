@@ -65,92 +65,68 @@ class EngagementRepositoryImpl implements EngagementRepository {
   Future<Result<int>> getLikeCount({
     required String targetType,
     required String targetId,
-  }) async {
-    try {
-      final response = await _apiClient.get<int>(
-        EngagementEndpoints.likeCount(targetType, targetId),
-        decoder: (json) => (json as num?)?.toInt() ?? 0,
-      );
-      return Result.success(response);
-    } on ApiException catch (e) {
-      return Result.failure(e.error);
-    } catch (_) {
-      return Result.failure(
-        const AppError(
-          code: 'engagement_like_count_unknown',
-          message: 'Like sayisi getirilemedi',
-        ),
-      );
-    }
-  }
+  }) => _commentRequest(
+    ApiHttpMethod.get,
+    () => EngagementEndpoints.likeCount(targetType, targetId),
+    decoder: _count,
+    validate: () => _validateLikeTarget(targetType, targetId),
+    errorCode: 'engagement_like_count_unknown',
+    errorMessage: 'Beğeni sayısı getirilemedi.',
+  );
 
   @override
   Future<Result<bool>> isLiked({
     required String targetType,
     required String targetId,
-  }) async {
-    try {
-      final response = await _apiClient.get<bool>(
-        EngagementEndpoints.isLiked(targetType, targetId),
-        decoder: (json) => json == true,
-      );
-      return Result.success(response);
-    } on ApiException catch (e) {
-      return Result.failure(e.error);
-    } catch (_) {
-      return Result.failure(
-        const AppError(
-          code: 'engagement_is_liked_unknown',
-          message: 'Begeni durumu getirilemedi',
-        ),
-      );
-    }
-  }
+  }) => _commentRequest(
+    ApiHttpMethod.get,
+    () => EngagementEndpoints.isLiked(targetType, targetId),
+    decoder: (raw) {
+      if (raw is! bool) throw const FormatException('Invalid liked state');
+      return raw;
+    },
+    validate: () => _validateLikeTarget(targetType, targetId),
+    errorCode: 'engagement_is_liked_unknown',
+    errorMessage: 'Beğeni durumu getirilemedi.',
+  );
 
   @override
   Future<Result<void>> like({
     required String targetType,
     required String targetId,
-  }) async {
-    try {
-      await _apiClient.post<Object?>(
-        EngagementEndpoints.like(targetType, targetId),
-        decoder: (_) => null,
-      );
-      return const Result.success(null);
-    } on ApiException catch (e) {
-      return Result.failure(e.error);
-    } catch (_) {
-      return Result.failure(
-        const AppError(
-          code: 'engagement_like_unknown',
-          message: 'Begeni eklenemedi',
-        ),
-      );
-    }
-  }
+  }) => _commentRequest<void>(
+    ApiHttpMethod.post,
+    () => EngagementEndpoints.like(targetType, targetId),
+    decoder: (_) {},
+    validate: () => _validateLikeTarget(targetType, targetId),
+    errorCode: 'engagement_like_unknown',
+    errorMessage: 'Beğeni doğrulanamadı. Yenilemek için tekrar dene.',
+  );
 
   @override
   Future<Result<void>> unlike({
     required String targetType,
     required String targetId,
-  }) async {
-    try {
-      await _apiClient.delete<Object?>(
-        EngagementEndpoints.unlike(targetType, targetId),
-        decoder: (_) => null,
-      );
-      return const Result.success(null);
-    } on ApiException catch (e) {
-      return Result.failure(e.error);
-    } catch (_) {
-      return Result.failure(
-        const AppError(
-          code: 'engagement_unlike_unknown',
-          message: 'Begeni kaldirilamadi',
-        ),
-      );
+  }) => _commentRequest<void>(
+    ApiHttpMethod.delete,
+    () => EngagementEndpoints.unlike(targetType, targetId),
+    decoder: (_) {},
+    validate: () => _validateLikeTarget(targetType, targetId),
+    errorCode: 'engagement_unlike_unknown',
+    errorMessage: 'Beğeni doğrulanamadı. Yenilemek için tekrar dene.',
+  );
+
+  static void _validateLikeTarget(String type, String id) {
+    if (!const {
+      'EVENT',
+      'EVENT_POST',
+      'MEDIA',
+      'OVERTHINKING',
+      'COMMENT',
+    }.contains(type)) {
+      throw const FormatException('Invalid engagement target');
     }
+    _validateCommentLikeId(id);
   }
 
   @override

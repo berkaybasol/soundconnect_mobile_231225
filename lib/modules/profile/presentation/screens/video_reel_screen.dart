@@ -18,8 +18,8 @@ class VideoReelScreen extends StatefulWidget {
   final VideoFramePreset? framePreset;
   final String targetType;
   final String targetId;
-  final int initialLikeCount;
-  final int initialCommentCount;
+  final int? initialLikeCount;
+  final int? initialCommentCount;
 
   const VideoReelScreen({
     super.key,
@@ -81,8 +81,12 @@ class _VideoReelScreenState extends State<VideoReelScreen>
         MediaQuery.of(context).orientation == Orientation.landscape;
     final statsKey = '${widget.targetType}:${widget.targetId}';
     final stats = context.watch<InteractionStatsCubit>().state.items[statsKey];
-    final likeCount = stats?.likeCount ?? widget.initialLikeCount;
-    final commentCount = stats?.commentCount ?? widget.initialCommentCount;
+    final likeCount = stats == null
+        ? widget.initialLikeCount
+        : stats.visibleLikeCount;
+    final commentCount = stats == null
+        ? widget.initialCommentCount
+        : stats.visibleCommentCount;
     final liked = stats?.isLiked ?? false;
     final likeLoading = stats?.loading ?? false;
     final preset = widget.framePreset;
@@ -158,7 +162,7 @@ class _VideoReelScreenState extends State<VideoReelScreen>
                   children: [
                     _ReelActionButton(
                       icon: liked ? Icons.favorite : Icons.favorite_border,
-                      label: likeCount.toString(),
+                      label: likeCount?.toString() ?? '—',
                       active: liked,
                       onTap: likeLoading
                           ? null
@@ -172,7 +176,7 @@ class _VideoReelScreenState extends State<VideoReelScreen>
                     const SizedBox(height: 14),
                     _ReelActionButton(
                       icon: Icons.chat_bubble_outline,
-                      label: commentCount.toString(),
+                      label: commentCount?.toString() ?? '—',
                       onTap: _openCommentsSheet,
                     ),
                   ],

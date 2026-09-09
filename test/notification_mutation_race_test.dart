@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/pagination/page.dart'
     as pagination;
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_realtime_client.dart';
@@ -28,6 +29,49 @@ void main() {
   tearDown(() async {
     await cubit.close();
     await realtime.dispose();
+  });
+
+  testWidgets('opening inbox reads all without tapping a notification', (
+    tester,
+  ) async {
+    repository.items = [_notification(), _notification(id: 'second')];
+    await tester.pumpWidget(
+      BlocProvider<NotificationCubit>.value(
+        value: cubit,
+        child: const MaterialApp(home: NotificationScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.markAllCalls, 1);
+    expect(cubit.state.items, hasLength(2));
+    expect(cubit.state.items.every((item) => item.read), isTrue);
+    expect(cubit.state.unreadCount, 0);
+    // Rebuilds and refreshes must not silently read later arrivals.
+    repository.items.add(_notification(id: 'later'));
+    await cubit.refresh();
+    await tester.pumpAndSettle();
+    expect(repository.markAllCalls, 1);
+    expect(cubit.state.unreadCount, 1);
+    expect(
+      cubit.state.items.firstWhere((item) => item.id == 'later').read,
+      isFalse,
+    );
+  });
+
+  testWidgets('failed read-all still loads inbox and preserves unread state', (
+    tester,
+  ) async {
+    repository.failMarkAll = true;
+    await tester.pumpWidget(
+      BlocProvider<NotificationCubit>.value(
+        value: cubit,
+        child: const MaterialApp(home: NotificationScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(cubit.state.items.single.read, isFalse);
+    expect(cubit.state.unreadCount, 1);
+    expect(find.text('Read failed'), findsOneWidget);
   });
 
   test(
@@ -188,6 +232,21 @@ Result<pagination.Page<AppNotification>> _page(List<AppNotification> items) =>
     Result.success(pagination.Page(items: items, hasNext: true));
 
 class _Repository extends Fake implements NotificationRepository {
+  int markAllCalls = 0;
+  bool failMarkAll = false;
+  @override
+  Future<Result<int>> markAllAsRead() async {
+    markAllCalls++;
+    if (failMarkAll) {
+      return const Result.failure(
+        AppError(code: 'read_failed', message: 'Read failed'),
+      );
+    }
+    final count = items.where((item) => !item.read).length;
+    items = items.map((item) => item.copyWith(read: true)).toList();
+    return Result.success(count);
+  }
+
   List<AppNotification> items = [_notification()];
   final pages = <int>[];
   Completer<Result<pagination.Page<AppNotification>>>? pendingPage;
@@ -202,7 +261,8 @@ class _Repository extends Fake implements NotificationRepository {
   }
 
   @override
-  Future<Result<int>> getUnreadCount() async => const Result.success(1);
+  Future<Result<int>> getUnreadCount() async =>
+      Result.success(items.where((item) => !item.read).length);
   @override
   Future<Result<void>> markAsRead({required String notificationId}) async =>
       const Result.success(null);

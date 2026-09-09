@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../shared/theme/app_colors.dart';
 
 class ProfileCountRow extends StatelessWidget {
-  final int likeCount;
-  final int commentCount;
+  final int? likeCount;
+  final int? commentCount;
   final bool light;
   final bool isLiked;
   final VoidCallback? onLikeTap;
@@ -44,7 +44,7 @@ class ProfileCountRow extends StatelessWidget {
               ),
               SizedBox(width: 6),
               Text(
-                likeCount.toString(),
+                likeCount?.toString() ?? '—',
                 style: TextStyle(color: likeColor, fontSize: 12),
               ),
             ],
@@ -59,7 +59,7 @@ class ProfileCountRow extends StatelessWidget {
               Icon(Icons.chat_bubble_outline, size: 16, color: color),
               SizedBox(width: 6),
               Text(
-                commentCount.toString(),
+                commentCount?.toString() ?? '—',
                 style: TextStyle(color: color, fontSize: 12),
               ),
             ],

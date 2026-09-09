@@ -228,58 +228,92 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
   }
 
   Future<void> _confirmDeleteBand() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Bandı sil'),
-        content: Text(
-          'Bu bandı silmek istediğine emin misin? Bu işlem geri alınamaz.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text('Vazgeç'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Sil', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
+    if (_submitting) return;
+    final session = ProfileActionSession(
+      roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
     );
+    final route = ModalRoute.of(context);
+    bool current() => mounted && session.isCurrent && route?.isCurrent == true;
+    if (!current()) return;
+    setState(() => _submitting = true);
+    try {
+      var answered = false;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Bandı sil'),
+          content: Text(
+            'Bu bandı silmek istediğine emin misin? Bu işlem geri alınamaz.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (answered ||
+                    ModalRoute.of(dialogContext)?.isCurrent != true) {
+                  return;
+                }
+                answered = true;
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: Text('Vazgeç'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (answered ||
+                    ModalRoute.of(dialogContext)?.isCurrent != true) {
+                  return;
+                }
+                answered = true;
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: Text('Sil', style: TextStyle(color: Colors.redAccent)),
+            ),
+          ],
+        ),
+      );
 
-    if (confirmed != true || !mounted) return;
+      if (!mounted || confirmed != true || !current()) return;
 
-    setState(() {
-      _submitting = true;
-      _errorText = null;
-    });
-
-    final result = await _bandRepository.deleteBand(bandId: _profile.id);
-    if (!mounted) return;
-
-    if (!result.isSuccess) {
       setState(() {
-        _submitting = false;
-        _errorText = result.error?.message ?? 'Band silinemedi.';
+        _submitting = true;
+        _errorText = null;
       });
+
+      final result = await _bandRepository.deleteBand(
+        bandId: _profile.id,
+        expectedSessionKey: session.userId!,
+      );
+      if (!mounted || !current()) return;
+
+      if (!result.isSuccess) {
+        setState(() {
+          _submitting = false;
+          _errorText = result.error?.message ?? 'Band silinemedi.';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: Text(_errorText!),
+          ),
+        );
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         appSnackBar(
           context,
-          tone: AppSnackBarTone.error,
-          content: Text(_errorText!),
+          tone: AppSnackBarTone.success,
+          content: Text('${_profile.name} silindi.'),
         ),
       );
-      return;
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (current()) {
+        setState(() => _errorText = 'Band silinemedi. Lütfen tekrar dene.');
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      appSnackBar(
-        context,
-        tone: AppSnackBarTone.success,
-        content: Text('${_profile.name} silindi.'),
-      ),
-    );
-    Navigator.of(context).pop(true);
   }
 }

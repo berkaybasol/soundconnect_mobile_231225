@@ -242,6 +242,7 @@ class _OverthinkingFeedViewState extends State<_OverthinkingFeedView> {
             ),
           ),
           bottomNavigationBar: ProfilePublicBottomBar(
+            mainstageCurrentIndex: 1,
             currentIndex: widget.bottomBarStageMode == StageMode.mainstage
                 ? 1
                 : 2,

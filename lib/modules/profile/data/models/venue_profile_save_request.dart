@@ -23,11 +23,11 @@ class VenueProfileSaveRequest {
       }
     }
 
-    addIfNotEmpty('bio', bio);
+    if (bio != null) payload['bio'] = bio!.trim();
     addIfNotEmpty('profilePicture', profilePicture);
-    addIfNotEmpty('instagramUrl', instagramUrl);
-    addIfNotEmpty('youtubeUrl', youtubeUrl);
-    addIfNotEmpty('websiteUrl', websiteUrl);
+    if (instagramUrl != null) payload['instagramUrl'] = instagramUrl!.trim();
+    if (youtubeUrl != null) payload['youtubeUrl'] = youtubeUrl!.trim();
+    if (websiteUrl != null) payload['websiteUrl'] = websiteUrl!.trim();
 
     return payload;
   }

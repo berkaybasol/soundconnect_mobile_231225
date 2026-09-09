@@ -10,8 +10,6 @@ extension _VenuePublicProfileAudioTabTrackItem on _AudioTab {
     required bool isPlaying,
     required dynamic statsState,
   }) {
-    final fallbackLikeCount = 128 + (index * 7);
-    final fallbackCommentCount = 32 + (index * 3);
     final targetType = 'MEDIA';
     final targetId = track.mediaAssetId;
     final statsKey = '$targetType:$targetId';
@@ -22,8 +20,8 @@ extension _VenuePublicProfileAudioTabTrackItem on _AudioTab {
       );
     }
     final stats = statsState.items[statsKey];
-    final likeCount = stats?.likeCount ?? fallbackLikeCount;
-    final commentCount = stats?.commentCount ?? fallbackCommentCount;
+    final likeCount = stats?.visibleLikeCount;
+    final commentCount = stats?.visibleCommentCount;
     final playback = track.playbackUrl ?? '';
     final isSpotify =
         playback.contains('spotify') ||

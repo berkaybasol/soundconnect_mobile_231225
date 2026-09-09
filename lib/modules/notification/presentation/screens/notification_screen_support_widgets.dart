@@ -98,6 +98,8 @@ class _NotificationTypeIcon extends StatelessWidget {
 
   IconData get _iconForType {
     return switch (type) {
+      'SOCIAL_LIKE' => Icons.favorite_outline,
+      'SOCIAL_COMMENT' => Icons.chat_bubble_outline,
       final value when value.startsWith('OVERTHINKING') =>
         Icons.psychology_alt_outlined,
       final value when value.startsWith('BAND') => Icons.album_outlined,

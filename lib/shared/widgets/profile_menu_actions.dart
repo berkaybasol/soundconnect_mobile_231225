@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../core/di/service_locator.dart';
 import '../screens/support_screen.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme_variant.dart';
-import '../theme/theme_controller.dart';
+import 'app_theme_menu_option.dart';
 import 'session_logout_action.dart';
 
 const Key profileMenuThemeTileKey = Key('profile-menu-theme-tile');
@@ -147,16 +145,8 @@ Future<void> showProfileQuickMenu(
   );
 }
 
-IconData _themeIcon(AppThemeVariant variant) => switch (variant) {
-  AppThemeVariant.light => Icons.light_mode_outlined,
-  AppThemeVariant.dark => Icons.dark_mode_outlined,
-  AppThemeVariant.black => Icons.contrast_rounded,
-};
-
 Future<void> showProfileMenuThemePicker(BuildContext context) async {
-  if (!serviceLocator.isRegistered<ThemeController>()) return;
-  final controller = serviceLocator<ThemeController>();
-  final selected = await showModalBottomSheet<AppThemeVariant>(
+  await showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     useSafeArea: true,
@@ -174,16 +164,17 @@ Future<void> showProfileMenuThemePicker(BuildContext context) async {
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
-          for (final variant in AppThemeVariant.values)
+          for (final option in AppThemeMenuOption.values)
             ListTile(
-              key: Key('profile-menu-theme-${variant.storageValue}'),
+              key: Key('profile-menu-theme-${option.name}'),
+              enabled: option.isEnabled,
               contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-              leading: Icon(_themeIcon(variant)),
+              leading: Icon(option.icon),
               title: Text(
-                variant.label,
+                option.label,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              trailing: controller.variant == variant
+              trailing: option.isSelected
                   ? ShaderMask(
                       blendMode: BlendMode.srcIn,
                       shaderCallback: (bounds) => LinearGradient(
@@ -195,14 +186,15 @@ Future<void> showProfileMenuThemePicker(BuildContext context) async {
                       ),
                     )
                   : null,
-              onTap: () => Navigator.of(sheetContext).pop(variant),
+              onTap: option.isEnabled
+                  ? () => Navigator.of(sheetContext).pop()
+                  : null,
             ),
           const SizedBox(height: 12),
         ],
       );
     },
   );
-  if (selected != null) await controller.setVariant(selected);
 }
 
 Future<void> showProfileMenuSupport(BuildContext context) async {

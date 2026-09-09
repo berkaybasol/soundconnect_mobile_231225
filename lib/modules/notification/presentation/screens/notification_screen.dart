@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -15,6 +16,7 @@ import '../../../dm/domain/entities/dm_profile_target.dart';
 import '../../../dm/presentation/dm_profile_navigation.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
+import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../../overthinking/domain/overthinking_repository.dart';
 import '../../../overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
@@ -27,11 +29,13 @@ import '../../../profile/presentation/screens/band_invite_decision_screen.dart';
 import '../../../profile/presentation/screens/band_profile_screen.dart';
 import '../../../profile/presentation/screens/event_invitation_navigation.dart';
 import '../../../profile/presentation/screens/musician_profile_screen.dart';
+import '../../../profile/presentation/screens/media_detail_screen.dart';
 import '../../../profile/presentation/screens/profile_route_args.dart';
 import '../../../profile/presentation/screens/studio_profile_screen.dart';
 import '../../../profile/presentation/screens/weekly_event_detail_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_detail_screen.dart';
 import '../../domain/entities/app_notification.dart';
+import '../../data/notification_media_repository.dart';
 import '../cubit/notification_cubit.dart';
 import '../cubit/notification_state.dart';
 
@@ -53,7 +57,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<NotificationCubit>().refresh();
+      unawaited(context.read<NotificationCubit>().markAllAsRead());
     });
   }
 
@@ -131,7 +135,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         );
                       }
                       final item = state.items[index];
-                      return _NotificationTile(notification: item);
+                      return _NotificationTile(
+                        key: ValueKey(item.id),
+                        notification: item,
+                      );
                     },
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemCount:
@@ -187,7 +194,7 @@ enum _NotificationAction { markAllRead, clearAll }
 class _NotificationTile extends StatefulWidget {
   final AppNotification notification;
 
-  const _NotificationTile({required this.notification});
+  const _NotificationTile({super.key, required this.notification});
 
   @override
   State<_NotificationTile> createState() => _NotificationTileState();
@@ -316,6 +323,11 @@ class _NotificationTileState extends State<_NotificationTile> {
     setState(() => _openingTarget = true);
     unawaited(context.read<NotificationCubit>().markAsRead(notification));
     try {
+      if (notification.type == 'SOCIAL_LIKE' ||
+          notification.type == 'SOCIAL_COMMENT') {
+        await _openMediaEngagementTarget(context);
+        return;
+      }
       if (_isDmNotification(notification)) {
         final senderId =
             notification.payload['senderId']?.toString().trim() ?? '';
@@ -366,6 +378,67 @@ class _NotificationTileState extends State<_NotificationTile> {
   bool _isDmNotification(AppNotification notification) {
     final module = notification.payload['module']?.toString().trim() ?? '';
     return module == 'DM' || notification.type.startsWith('DM');
+  }
+
+  Future<void> _openMediaEngagementTarget(BuildContext context) async {
+    final sessions = serviceLocator<AuthSessionManager>();
+    final session = sessions.session;
+    final route = ModalRoute.of(context);
+    final notificationId = notification.id;
+    final targetId = notification.payload['targetId']?.toString().trim() ?? '';
+    if (notification.payload['targetType'] != 'MEDIA' || targetId.isEmpty) {
+      return;
+    }
+    final result = await serviceLocator<NotificationMediaRepository>().resolve(
+      notificationId,
+      targetId,
+    );
+    if (!context.mounted ||
+        !identical(session, sessions.session) ||
+        notification.id != notificationId ||
+        (route != null && !route.isCurrent)) {
+      return;
+    }
+    final media = result.data;
+    if (!result.isSuccess || media == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text(
+            'İçerik şu anda açılamıyor. Silinmiş, gizlenmiş veya bağlantı kesilmiş olabilir.',
+          ),
+        ),
+      );
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) => serviceLocator<InteractionStatsCubit>(),
+            ),
+            BlocProvider(create: (_) => serviceLocator<CommentThreadCubit>()),
+          ],
+          child: MediaDetailScreen(
+            title: media.title?.trim().isNotEmpty == true
+                ? media.title!
+                : 'İçerik',
+            isVideo: media.kind == 'VIDEO',
+            isImage: media.kind == 'IMAGE',
+            playbackUrl: media.playbackUrl ?? media.sourceUrl,
+            imageUrl: media.sourceUrl,
+            thumbnailUrl: media.thumbnailUrl,
+            durationSeconds: media.durationSeconds,
+            targetType: 'MEDIA',
+            targetId: media.id,
+            likeCount: null,
+            commentCount: null,
+          ),
+        ),
+      ),
+    );
   }
 
   bool get _isGhostContextualIdentity {

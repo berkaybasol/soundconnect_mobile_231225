@@ -613,30 +613,28 @@ void main() {
       },
     );
 
-    for (final theme in ['navy', 'light', 'black']) {
-      for (final scale in [1.0, 2.0]) {
-        testWidgets('pending read-only card fits $theme at320dp ${scale}x', (
-          tester,
-        ) async {
-          bands.onPending = (_) async => Result.success(
-            _page([_invitation(username: 'cokuzunbirmuzisyenkullaniciadi')]),
-          );
-          tester.view.physicalSize = const Size(320, 844);
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          await _mount(tester, bands, theme: theme, scale: scale);
-          await _reveal(tester, const Key('band-pending-aedrum-user'));
-          expect(tester.takeException(), isNull);
-          final card = tester.getRect(
-            find.byKey(const Key('band-pending-aedrum-user')),
-          );
-          expect(card.left, greaterThanOrEqualTo(0));
-          expect(card.right, lessThanOrEqualTo(320));
-          expect(find.byType(CustomScrollView), findsOneWidget);
-          await _capture(tester, '$theme-$scale');
-        });
-      }
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('pending read-only card fits navy at320dp ${scale}x', (
+        tester,
+      ) async {
+        bands.onPending = (_) async => Result.success(
+          _page([_invitation(username: 'cokuzunbirmuzisyenkullaniciadi')]),
+        );
+        tester.view.physicalSize = const Size(320, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await _mount(tester, bands, scale: scale);
+        await _reveal(tester, const Key('band-pending-aedrum-user'));
+        expect(tester.takeException(), isNull);
+        final card = tester.getRect(
+          find.byKey(const Key('band-pending-aedrum-user')),
+        );
+        expect(card.left, greaterThanOrEqualTo(0));
+        expect(card.right, lessThanOrEqualTo(320));
+        expect(find.byType(CustomScrollView), findsOneWidget);
+        await _capture(tester, 'navy-$scale');
+      });
     }
   });
 }
@@ -883,7 +881,6 @@ class _UnfencedApi extends ApiClient {
 Future<void> _mount(
   WidgetTester tester,
   _Bands bands, {
-  String theme = 'navy',
   double scale = 1,
   bool settle = true,
 }) async {
@@ -891,11 +888,7 @@ Future<void> _mount(
     RepaintBoundary(
       key: const Key('pending-preview'),
       child: MaterialApp(
-        theme: switch (theme) {
-          'light' => AppTheme.light,
-          'black' => AppTheme.black,
-          _ => AppTheme.navy,
-        },
+        theme: AppTheme.navy,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,

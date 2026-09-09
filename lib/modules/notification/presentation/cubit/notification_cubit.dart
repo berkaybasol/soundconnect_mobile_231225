@@ -442,6 +442,9 @@ class NotificationCubit extends Cubit<NotificationState> {
     final result = await _repository.markAllAsRead();
     if (!_isCurrentSession(generation, sessionRevision)) return;
     if (!result.isSuccess) {
+      // Opening the inbox must still load its contents if marking read fails.
+      await _refresh(generation, sessionRevision: sessionRevision);
+      if (!_isCurrentSession(generation, sessionRevision)) return;
       emit(state.copyWith(errorMessage: result.error?.message));
       return;
     }

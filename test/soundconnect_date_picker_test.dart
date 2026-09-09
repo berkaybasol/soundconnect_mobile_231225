@@ -1,26 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/soundconnect_date_picker.dart';
 
 void main() {
   DateTime? result;
   var completed = false;
 
-  Future<void> open(
-    WidgetTester tester, {
-    Brightness brightness = Brightness.dark,
-    double scale = 1,
-  }) async {
+  Future<void> open(WidgetTester tester, {double scale = 1}) async {
     result = null;
     completed = false;
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFF47C7C),
-            brightness: brightness,
-          ),
-        ),
+        theme: AppTheme.navy,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -120,18 +112,16 @@ void main() {
     expect(result, DateTime(2027, 10, 8));
   });
 
-  for (final brightness in Brightness.values) {
-    testWidgets('compact 200 percent text fits in $brightness', (tester) async {
-      tester.view.physicalSize = const Size(320, 740);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await open(tester, brightness: brightness, scale: 2);
-      expect(tester.takeException(), isNull);
-      expect(find.text('Seç').hitTestable(), findsOneWidget);
-      await tester.tap(find.text('Seç'));
-      await tester.pumpAndSettle();
-      expect(result, DateTime(2026, 9, 6));
-    });
-  }
+  testWidgets('compact 200 percent text fits in Koyu', (tester) async {
+    tester.view.physicalSize = const Size(320, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await open(tester, scale: 2);
+    expect(tester.takeException(), isNull);
+    expect(find.text('Seç').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Seç'));
+    await tester.pumpAndSettle();
+    expect(result, DateTime(2026, 9, 6));
+  });
 }

@@ -43,8 +43,6 @@ class ProfilePublicVideoTab extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         final thumbnail = item.thumbnailUrl?.trim();
-        final fallbackLikeCount = 210 + (index * 9);
-        final fallbackCommentCount = 44 + (index * 4);
         final targetType = 'MEDIA';
         final targetId = item.id;
         final statsState = context.watch<InteractionStatsCubit>().state;
@@ -56,8 +54,8 @@ class ProfilePublicVideoTab extends StatelessWidget {
           );
         }
         final stats = statsState.items[statsKey];
-        final likeCount = stats?.likeCount ?? fallbackLikeCount;
-        final commentCount = stats?.commentCount ?? fallbackCommentCount;
+        final likeCount = stats?.visibleLikeCount;
+        final commentCount = stats?.visibleCommentCount;
         return Container(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,

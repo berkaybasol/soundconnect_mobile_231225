@@ -65,6 +65,7 @@ import '../../modules/instrument/domain/instrument_repository.dart';
 import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
 import '../../modules/notification/data/notification_realtime_client.dart';
 import '../../modules/notification/data/notification_repository_impl.dart';
+import '../../modules/notification/data/notification_media_repository.dart';
 import '../../modules/notification/domain/notification_repository.dart';
 import '../../modules/notification/presentation/cubit/notification_cubit.dart';
 import '../../modules/overthinking/data/overthinking_repository_impl.dart';
@@ -269,6 +270,12 @@ void setupDependencies() {
     ..registerLazySingleton<NotificationRepository>(
       () => NotificationRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<NotificationMediaRepository>(
+      () => NotificationMediaRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
     ..registerLazySingleton<NotificationRealtimeClient>(
       () => NotificationRealtimeClient(),
     )
@@ -302,7 +309,11 @@ void setupDependencies() {
       dispose: (factory) => factory.dispose(),
     )
     ..registerLazySingleton<ListenerProfileRepository>(
-      () => ListenerProfileRepositoryImpl(serviceLocator<ApiClient>()),
+      () => ListenerProfileRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+      ),
     )
     ..registerLazySingleton<BandRepository>(
       () => BandRepositoryImpl(serviceLocator<ApiClient>()),
@@ -311,7 +322,10 @@ void setupDependencies() {
       () => MusicianProfileCubit(serviceLocator<MusicianProfileRepository>()),
     )
     ..registerFactory<ListenerProfileCubit>(
-      () => ListenerProfileCubit(serviceLocator<ListenerProfileRepository>()),
+      () => ListenerProfileCubit(
+        serviceLocator<ListenerProfileRepository>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<ProfileMediaRepository>(
       () => ProfileMediaRepositoryImpl(serviceLocator<ApiClient>()),
@@ -391,7 +405,11 @@ void setupDependencies() {
       () => StudioProfileCubit(serviceLocator<StudioProfileRepository>()),
     )
     ..registerLazySingleton<VenueProfileRepository>(
-      () => VenueProfileRepositoryImpl(serviceLocator<ApiClient>()),
+      () => VenueProfileRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+      ),
     )
     ..registerLazySingleton<PromotionRepository>(
       () => PromotionRepositoryImpl(serviceLocator<ApiClient>()),
@@ -462,7 +480,10 @@ void setupDependencies() {
       () => SpotifyPreviewCubit(serviceLocator<SpotifyRepository>()),
     )
     ..registerFactory<InteractionStatsCubit>(
-      () => InteractionStatsCubit(serviceLocator<EngagementRepository>()),
+      () => InteractionStatsCubit(
+        serviceLocator<EngagementRepository>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerFactory<CommentThreadCubit>(
       () => CommentThreadCubit(

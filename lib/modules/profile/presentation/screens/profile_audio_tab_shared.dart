@@ -8,6 +8,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/auth/auth_session_manager.dart';
+import '../../data/profile_track_deletion_repository.dart';
+import '../cubit/profile_media_cubit.dart';
+import 'profile_track_delete_menu.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/waveform_stub.dart';

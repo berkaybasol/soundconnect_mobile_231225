@@ -267,6 +267,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen> {
           ],
         ),
         bottomNavigationBar: ProfilePublicBottomBar(
+          mainstageCurrentIndex: 1,
           currentIndex: widget.bottomBarStageMode == StageMode.mainstage
               ? 1
               : 2,

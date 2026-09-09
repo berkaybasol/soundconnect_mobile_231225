@@ -34,6 +34,7 @@ class CommentThreadView extends StatefulWidget {
     this.repository,
     this.onCommentCreated,
     this.onCommentDeleted,
+    this.compactSheet = false,
   });
   final String targetType;
   final String targetId;
@@ -43,6 +44,10 @@ class CommentThreadView extends StatefulWidget {
   final EngagementRepository? repository;
   final VoidCallback? onCommentCreated;
   final VoidCallback? onCommentDeleted;
+
+  /// A compact, docked composer and centered empty state for small sheets.
+  /// Inline threads retain their existing presentation by default.
+  final bool compactSheet;
 
   @override
   State<CommentThreadView> createState() => _CommentThreadViewState();
@@ -553,7 +558,8 @@ class _CommentThreadViewState extends State<CommentThreadView>
       if (!state.loading &&
           state.comments.isEmpty &&
           state.error == null &&
-          state.reloadError == null)
+          state.reloadError == null &&
+          !widget.compactSheet)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text('Henüz yorum yok. İlk yorumu sen yaz.'),
@@ -568,8 +574,18 @@ class _CommentThreadViewState extends State<CommentThreadView>
     ],
   );
 
-  Widget _composer(CommentThreadState state) => Padding(
-    padding: const EdgeInsets.only(top: 10, bottom: 8),
+  Widget _composer(
+    CommentThreadState state, {
+    int maxInputLines = 4,
+  }) => Container(
+    padding: EdgeInsets.only(top: widget.compactSheet ? 12 : 10, bottom: 8),
+    decoration: widget.compactSheet
+        ? BoxDecoration(
+            border: Border(
+              top: BorderSide(color: AppColors.border.withValues(alpha: .6)),
+            ),
+          )
+        : null,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -596,7 +612,9 @@ class _CommentThreadViewState extends State<CommentThreadView>
             ],
           ),
         Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: widget.compactSheet
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.end,
           children: [
             Expanded(
               child: TextField(
@@ -604,8 +622,15 @@ class _CommentThreadViewState extends State<CommentThreadView>
                 focusNode: _focus,
                 enabled: !state.submitting,
                 minLines: 1,
-                maxLines: 4,
+                maxLines: maxInputLines,
                 maxLength: 500,
+                style: widget.compactSheet
+                    ? TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        height: 1.4,
+                      )
+                    : null,
                 inputFormatters: [
                   TextInputFormatter.withFunction((oldValue, newValue) {
                     final normalized = newValue.text
@@ -622,33 +647,92 @@ class _CommentThreadViewState extends State<CommentThreadView>
                           );
                   }),
                 ],
-                decoration: InputDecoration(
-                  hintText: 'Yorum yaz...',
-                  counterText: '',
-                  filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceContainer,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
+                decoration: widget.compactSheet
+                    ? InputDecoration(
+                        hintText: 'Yorum yaz...',
+                        hintStyle: TextStyle(
+                          color: AppColors.textMuted.withValues(alpha: .8),
+                          fontSize: 14,
+                        ),
+                        counterText: '',
+                        isDense: true,
+                        filled: true,
+                        fillColor: const Color(0xFF070B13),
+                        constraints: const BoxConstraints(minHeight: 48),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppColors.border.withValues(alpha: .6),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppColors.border.withValues(alpha: .6),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppColors.socialPink.withValues(alpha: .65),
+                          ),
+                        ),
+                      )
+                    : InputDecoration(
+                        hintText: 'Yorum yaz...',
+                        counterText: '',
+                        filled: true,
+                        fillColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainer,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
               ),
             ),
             const SizedBox(width: 8),
             ValueListenableBuilder(
               valueListenable: _input,
-              builder: (context, value, _) => IconButton.outlined(
-                tooltip: 'Yorumu gönder',
-                onPressed: state.submitting || value.text.trim().isEmpty
-                    ? null
-                    : _send,
-                icon: state.submitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send_outlined),
-              ),
+              builder: (context, value, _) => widget.compactSheet
+                  ? IconButton(
+                      tooltip: 'Yorumu gönder',
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        maximumSize: const Size(48, 48),
+                        padding: const EdgeInsets.all(13),
+                        foregroundColor: AppColors.socialPink,
+                        disabledForegroundColor: AppColors.textMuted.withValues(
+                          alpha: .35,
+                        ),
+                      ),
+                      onPressed: state.submitting || value.text.trim().isEmpty
+                          ? null
+                          : _send,
+                      icon: state.submitting
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send_outlined, size: 22),
+                    )
+                  : IconButton.outlined(
+                      tooltip: 'Yorumu gönder',
+                      onPressed: state.submitting || value.text.trim().isEmpty
+                          ? null
+                          : _send,
+                      icon: state.submitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send_outlined),
+                    ),
             ),
           ],
         ),
@@ -684,7 +768,60 @@ class _CommentThreadViewState extends State<CommentThreadView>
             (root) => root.id == id && identical(root, page.root),
           ),
         );
-        final rows = widget.scrollable
+        final empty =
+            !state.loading &&
+            state.comments.isEmpty &&
+            state.error == null &&
+            state.reloadError == null;
+        final rows = widget.compactSheet && empty
+            ? LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Padding(
+                      key: const Key('comment-thread-compact-empty'),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 8,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 30,
+                            color: AppColors.textMuted.withValues(alpha: .55),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Henüz yorum yok',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'İlk yorumu sen yaz.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textMuted.withValues(alpha: .8),
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : widget.scrollable
             ? ListView.builder(
                 padding: const EdgeInsets.only(top: 8),
                 itemCount: state.comments.length + 1,
@@ -699,14 +836,27 @@ class _CommentThreadViewState extends State<CommentThreadView>
                   _status(state),
                 ],
               );
-        return Column(
+        Widget content({int maxInputLines = 4}) => Column(
           mainAxisSize: widget.scrollable ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (widget.scrollable) Expanded(child: rows) else rows,
-            _composer(state),
+            _composer(state, maxInputLines: maxInputLines),
           ],
         );
+        return widget.compactSheet
+            ? LayoutBuilder(
+                builder: (context, constraints) => content(
+                  // Leave space for the reply strip and send action with a
+                  // keyboard or larger system text. The draft still scrolls.
+                  maxInputLines: constraints.maxHeight < 260
+                      ? 1
+                      : constraints.maxHeight < 350
+                      ? 2
+                      : 4,
+                ),
+              )
+            : content();
       },
     );
   }

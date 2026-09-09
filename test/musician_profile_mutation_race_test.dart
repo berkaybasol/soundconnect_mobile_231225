@@ -97,6 +97,100 @@ void main() {
     expect(cubit.state.action, MusicianProfileAction.update);
   });
 
+  test(
+    'owner refresh waits for a pending save and reads committed fields',
+    () async {
+      await cubit.loadMyProfile();
+      repository.pendingUpdate = Completer<Result<MusicianProfile>>();
+      final save = cubit.updateProfile(request);
+      final refresh = cubit.loadMyProfile();
+      await Future<void>.delayed(Duration.zero);
+      final readsBeforeCommit = repository.ownerReads;
+
+      repository.ownerProfile = _profile(bio: 'New bio');
+      repository.pendingUpdate!.complete(
+        Result.success(repository.ownerProfile),
+      );
+      final saved = await save;
+      await refresh;
+
+      expect(saved.isSuccess, isTrue);
+      expect(readsBeforeCommit, 1);
+      expect(repository.ownerReads, 2);
+      expect(cubit.state.profile?.bio, 'New bio');
+      expect(cubit.state.action, MusicianProfileAction.load);
+    },
+  );
+
+  test(
+    'refresh after a failed write refetches without disguising the failure',
+    () async {
+      await cubit.loadMyProfile();
+      repository.pendingUpdate = Completer<Result<MusicianProfile>>();
+      final save = cubit.updateProfile(request);
+      final refresh = cubit.loadMyProfile();
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.ownerReads, 1);
+
+      repository.pendingUpdate!.complete(
+        const Result.failure(
+          AppError(code: 'offline', message: 'No connection'),
+        ),
+      );
+      expect((await save).error?.code, 'offline');
+      await refresh;
+      expect(repository.ownerReads, 2);
+      expect(cubit.state.status, MusicianProfileStatus.success);
+      expect(cubit.state.profile?.bio, isNull);
+    },
+  );
+
+  test(
+    'new public navigation supersedes an owner refresh waiting for a save',
+    () async {
+      await cubit.loadMyProfile();
+      repository.pendingUpdate = Completer<Result<MusicianProfile>>();
+      final save = cubit.updateProfile(request);
+      final refresh = cubit.loadMyProfile();
+      repository.publicProfile = _profile(id: 'public-profile', user: 'artist');
+      await cubit.loadPublicProfile('public-profile');
+
+      repository.pendingUpdate!.complete(
+        Result.success(_profile(bio: 'New bio')),
+      );
+      expect((await save).isSuccess, isTrue);
+      await refresh;
+      expect(repository.ownerReads, 1);
+      expect(cubit.state.profile?.id, 'public-profile');
+      expect(cubit.state.profile?.userId, 'artist');
+    },
+  );
+
+  for (final close in [false, true]) {
+    test(
+      'waiting owner refresh is revoked by ${close ? 'close' : 'account switch'}',
+      () async {
+        await cubit.loadMyProfile();
+        repository.pendingUpdate = Completer<Result<MusicianProfile>>();
+        final save = cubit.updateProfile(request);
+        final refresh = cubit.loadMyProfile();
+        if (close) {
+          await cubit.close();
+        } else {
+          session.current = _auth('other');
+          session.notifyListeners();
+        }
+        repository.pendingUpdate!.complete(
+          Result.success(_profile(bio: 'New bio')),
+        );
+        expect((await save).isSuccess, isFalse);
+        await refresh;
+        expect(repository.ownerReads, 1);
+        if (!close) expect(cubit.state.profile, isNull);
+      },
+    );
+  }
+
   for (final isUpdate in [false, true]) {
     test(
       'late ${isUpdate ? 'save' : 'read'} after close does not emit',
@@ -302,7 +396,7 @@ AuthSession _auth(String user) => AuthSession.authenticated(
   isAdmin: false,
 );
 
-class _Session extends Fake implements AuthSessionManager {
+class _Session extends Fake with ChangeNotifier implements AuthSessionManager {
   AuthSession current = _auth('owner');
   @override
   AuthSession get session => current;
@@ -310,18 +404,24 @@ class _Session extends Fake implements AuthSessionManager {
 
 class _Repository extends Fake implements MusicianProfileRepository {
   int updates = 0;
+  int ownerReads = 0;
+  MusicianProfile ownerProfile = _profile();
+  MusicianProfile publicProfile = _profile();
   bool throwUpdate = false;
   String? expectedAccount;
   Result<MusicianProfile> updateResult = Result.success(_profile());
   Completer<Result<MusicianProfile>>? pendingRead;
   Completer<Result<MusicianProfile>>? pendingUpdate;
   @override
-  Future<Result<MusicianProfile>> getMyProfile() async =>
-      pendingRead?.future ?? Result.success(_profile());
+  Future<Result<MusicianProfile>> getMyProfile() async {
+    ownerReads++;
+    return pendingRead?.future ?? Result.success(ownerProfile);
+  }
+
   @override
   Future<Result<MusicianProfile>> getPublicProfileByProfileId(
     String id,
-  ) async => Result.success(_profile());
+  ) async => Result.success(publicProfile);
   @override
   Future<Result<MusicianProfile>> updateMyProfile(
     MusicianProfileSaveRequest request, {

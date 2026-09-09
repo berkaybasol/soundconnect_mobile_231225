@@ -1,6 +1,26 @@
 part of 'band_profile_screen.dart';
 
 extension _BandProfileViewStateActions on _BandProfileViewState {
+  ({String userId, bool Function() isCurrent})? _captureBandMutation() {
+    final session = _membershipSessionManager?.session;
+    final userId = session?.userId?.trim() ?? '';
+    final bandId = _profile?.id;
+    final generation = _profileLoadGeneration;
+    if (!_canManageBand || _membershipSessionKey == null || userId.isEmpty) {
+      return null;
+    }
+    return (
+      userId: userId,
+      isCurrent: () =>
+          mounted &&
+          identical(_membershipSessionManager?.session, session) &&
+          generation == _profileLoadGeneration &&
+          _bandId == bandId &&
+          _profile?.id == bandId &&
+          _canManageBand,
+    );
+  }
+
   Future<void> _loadBandProfile({bool showLoading = true}) async {
     if (_leavingBand) return;
     final bandId = _bandId;
@@ -215,13 +235,16 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     }
     final profile = _profile;
     if (profile == null) return false;
+    final action = _captureBandMutation();
+    if (action == null) return false;
 
     final result = await _bandRepository.updateBand(
       bandId: profile.id,
+      expectedSessionKey: action.userId,
       spotifyTrackIds: nextTracks.map((track) => track.id).toList(),
     );
 
-    if (!mounted) return false;
+    if (!mounted || !action.isCurrent()) return false;
 
     if (!result.isSuccess || result.data == null) {
       final message = result.error?.message ?? failureMessage;
@@ -242,7 +265,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     return true;
   }
 
-  Future<void> _saveDescription(String value) async {
+  Future<bool> _saveDescription(String value) async {
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
         appSnackBar(
@@ -251,17 +274,20 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
           content: const Text('Bu işlem için yetkin yok.'),
         ),
       );
-      return;
+      return false;
     }
     final profile = _profile;
-    if (profile == null) return;
+    if (profile == null) return false;
+    final action = _captureBandMutation();
+    if (action == null) return false;
 
     final result = await _bandRepository.updateBand(
       bandId: profile.id,
+      expectedSessionKey: action.userId,
       description: value.trim(),
     );
 
-    if (!mounted) return;
+    if (!mounted || !action.isCurrent()) return false;
 
     if (!result.isSuccess || result.data == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -271,7 +297,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
           content: Text(result.error?.message ?? 'Açıklama kaydedilemedi.'),
         ),
       );
-      return;
+      return false;
     }
 
     _updateState(() {
@@ -285,9 +311,11 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
         content: const Text('Açıklama güncellendi.'),
       ),
     );
+    return true;
   }
 
   Future<void> _editProfilePhoto() async {
+    if (_photoUploading) return;
     if (!_canManageBand) {
       ScaffoldMessenger.of(context).showSnackBar(
         appSnackBar(
@@ -300,6 +328,8 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     }
     final profile = _profile;
     if (profile == null) return;
+    final action = _captureBandMutation();
+    if (action == null) return;
 
     _updateState(() => _photoUploading = true);
     try {
@@ -308,15 +338,17 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
         imagePicker: _imagePicker,
         ownerType: 'BAND',
         ownerId: profile.id,
+        isCurrent: action.isCurrent,
       );
-      if (uploaded == null) return;
+      if (!mounted || uploaded == null || !action.isCurrent()) return;
 
       final result = await _bandRepository.updateBand(
         bandId: profile.id,
+        expectedSessionKey: action.userId,
         profilePicture: uploaded.assetId,
       );
 
-      if (!mounted) return;
+      if (!mounted || !action.isCurrent()) return;
 
       if (!result.isSuccess || result.data == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -343,6 +375,17 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
           content: const Text('Profil fotoğrafı güncellendi.'),
         ),
       );
+    } catch (_) {
+      if (!mounted || !action.isCurrent()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text(
+            'Profil fotoğrafı yüklenemedi. Lütfen tekrar dene.',
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         _updateState(() => _photoUploading = false);
@@ -363,16 +406,19 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     }
     final profile = _profile;
     if (profile == null) return;
+    final action = _captureBandMutation();
+    if (action == null) return;
 
     final normalized = await promptForSocialLink(
       context,
       platform: platform,
       initialValue: _socialUrlFor(profile, platform)?.trim() ?? '',
     );
-    if (normalized == null) return;
+    if (!mounted || normalized == null || !action.isCurrent()) return;
 
     final result = await _bandRepository.updateBand(
       bandId: profile.id,
+      expectedSessionKey: action.userId,
       instagramUrl: platform == ProfileSocialPlatform.instagram
           ? normalized
           : null,
@@ -385,7 +431,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
           : null,
     );
 
-    if (!mounted) return;
+    if (!mounted || !action.isCurrent()) return;
 
     if (!result.isSuccess || result.data == null) {
       ScaffoldMessenger.of(context).showSnackBar(

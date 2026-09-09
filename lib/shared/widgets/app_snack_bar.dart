@@ -27,9 +27,7 @@ SnackBar appSnackBar(
     AppSnackBarTone.error => (Icons.error_outline_rounded, AppColors.coral),
     AppSnackBarTone.warning => (
       Icons.warning_amber_rounded,
-      scheme.brightness == Brightness.light
-          ? const Color(0xFF956000)
-          : AppColors.gradientB,
+      AppColors.gradientB,
     ),
     AppSnackBarTone.info => (
       Icons.info_outline_rounded,

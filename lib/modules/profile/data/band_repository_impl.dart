@@ -222,11 +222,16 @@ class BandRepositoryImpl implements BandRepository {
   @override
   Future<Result<BandSummary>> createBand({
     required String name,
+    required String expectedSessionKey,
     String? description,
   }) async {
+    final sessionKey = expectedSessionKey.trim();
+    if (sessionKey.isEmpty) return _missingMutationSession();
     try {
-      final response = await _apiClient.post<BandSummary>(
+      final response = await _apiClient.request<BandSummary>(
+        ApiHttpMethod.post,
         BandEndpoints.create,
+        requestContext: ApiRequestContext(expectedSessionKey: sessionKey),
         body: BandCreateRequest(name: name, description: description).toJson(),
         decoder: (json) =>
             BandSummaryModel.fromJson(json as Map<String, dynamic>),
@@ -247,6 +252,7 @@ class BandRepositoryImpl implements BandRepository {
   @override
   Future<Result<BandProfile>> updateBand({
     required String bandId,
+    required String expectedSessionKey,
     String? name,
     String? description,
     String? profilePicture,
@@ -257,9 +263,13 @@ class BandRepositoryImpl implements BandRepository {
     String? spotifyArtistId,
     List<String>? spotifyTrackIds,
   }) async {
+    final sessionKey = expectedSessionKey.trim();
+    if (sessionKey.isEmpty) return _missingMutationSession();
     try {
-      final response = await _apiClient.put<BandProfile>(
+      final response = await _apiClient.request<BandProfile>(
+        ApiHttpMethod.put,
         BandEndpoints.byId(bandId),
+        requestContext: ApiRequestContext(expectedSessionKey: sessionKey),
         body: BandUpdateRequest(
           name: name,
           description: description,
@@ -535,10 +545,17 @@ class BandRepositoryImpl implements BandRepository {
   }
 
   @override
-  Future<Result<void>> deleteBand({required String bandId}) async {
+  Future<Result<void>> deleteBand({
+    required String bandId,
+    required String expectedSessionKey,
+  }) async {
+    final sessionKey = expectedSessionKey.trim();
+    if (sessionKey.isEmpty) return _missingMutationSession();
     try {
-      await _apiClient.delete<Object?>(
+      await _apiClient.request<Object?>(
+        ApiHttpMethod.delete,
         BandEndpoints.delete(bandId),
+        requestContext: ApiRequestContext(expectedSessionKey: sessionKey),
         decoder: (_) => null,
       );
       return const Result.success(null);
@@ -550,4 +567,11 @@ class BandRepositoryImpl implements BandRepository {
       );
     }
   }
+
+  Result<T> _missingMutationSession<T>() => Result<T>.failure(
+    const AppError(
+      code: 'session_changed',
+      message: 'Oturum değişti. Sayfayı yeniden aç.',
+    ),
+  );
 }

@@ -6,6 +6,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_state.dart';
@@ -83,11 +84,38 @@ class _MusicianPublicProfileView extends StatefulWidget {
 
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
+  final AuthSessionManager? _sessions =
+      serviceLocator.isRegistered<AuthSessionManager>()
+      ? serviceLocator<AuthSessionManager>()
+      : null;
   String? _targetProfileId;
   final _loadCoordinator = ProfileScreenLoadCoordinator();
   String? _viewerUserId;
   bool _viewerUserIdResolved = false;
   String? _currentProfileUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessions?.addListener(_viewerSessionChanged);
+  }
+
+  @override
+  void dispose() {
+    _sessions?.removeListener(_viewerSessionChanged);
+    super.dispose();
+  }
+
+  String? get _authenticatedViewerId {
+    final session = _sessions?.session;
+    return session != null && session.isAuthenticated && session.isActive
+        ? session.userId?.trim()
+        : null;
+  }
+
+  void _viewerSessionChanged() {
+    if (mounted) setState(() => _viewerUserId = _authenticatedViewerId);
+  }
 
   @override
   void didChangeDependencies() {
@@ -107,6 +135,11 @@ class _MusicianPublicProfileViewState
     }
     if (_viewerUserIdResolved) return;
     _viewerUserIdResolved = true;
+    // Navigation hints never override the account that is actually signed in.
+    if (_sessions != null) {
+      _viewerUserId = _authenticatedViewerId;
+      return;
+    }
     if (args is PublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is Map<String, dynamic>) {
@@ -120,8 +153,9 @@ class _MusicianPublicProfileViewState
   }
 
   Future<void> _loadViewerUserIdFromToken() async {
+    final session = _sessions?.session;
     final resolved = await resolveCurrentViewerUserId();
-    if (!mounted) return;
+    if (!mounted || !identical(_sessions?.session, session)) return;
     final value = resolved?.trim() ?? '';
     if (value.isEmpty || value == (_viewerUserId ?? '').trim()) return;
     setState(() => _viewerUserId = value);

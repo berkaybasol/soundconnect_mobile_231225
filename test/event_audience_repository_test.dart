@@ -82,6 +82,8 @@ void main() {
       );
       expect(result.isSuccess, isTrue);
       expect((api.body as Map)['note'], 'Görüşürüz');
+      expect(result.data!.postId, audiencePostId);
+      expect(result.data!.postId, isNot(result.data!.eventId));
     },
   );
 
@@ -267,6 +269,7 @@ void main() {
       expect(api.query, {'period': 'PAST', 'page': 0, 'size': 20});
       api.response = _page({
         'eventId': audienceEventId,
+        'postId': audiencePostId,
         'intent': 'THINKING',
         'note': 'Belki',
         'publishedAt': '2026-09-08T12:00:00Z',
@@ -279,6 +282,8 @@ void main() {
       );
       expect(posts.isSuccess, isTrue);
       expect(posts.data!.items.single.eventEnded, isTrue);
+      expect(posts.data!.items.single.postId, audiencePostId);
+      expect(posts.data!.items.single.eventId, audienceEventId);
       expect(api.query!['period'], 'ALL');
       expect(api.context!.expectedSessionKey, 'listener');
     },
@@ -306,7 +311,213 @@ void main() {
       expect(result.isSuccess, isFalse);
     });
   }
+
+  for (final malformedId in <Object?>[
+    null,
+    '',
+    'event/not-a-publication',
+    4,
+    '00000000-0000-0000-0000-000000000000',
+  ]) {
+    test(
+      'public publication never falls back to eventId: $malformedId',
+      () async {
+        final api = _Api()
+          ..response = _page({..._post(), 'postId': malformedId});
+        final result = await EventAudienceRepositoryImpl(
+          api,
+          sessionKeyProvider: () => 'listener',
+        ).listPublic(audienceVenueId, expectedSessionKey: 'listener');
+        expect(result.isSuccess, isFalse);
+        expect(result.data, isNull);
+      },
+    );
+  }
+
+  test('legacy publication missing post identity is not actionable', () async {
+    final post = _post()..remove('postId');
+    final api = _Api()..response = _page(post);
+    final result = await EventAudienceRepositoryImpl(
+      api,
+      sessionKeyProvider: () => 'listener',
+    ).listPublic(audienceVenueId, expectedSessionKey: 'listener');
+    expect(result.isSuccess, isFalse);
+  });
+
+  for (final published in [false, true]) {
+    test(
+      'private state rejects inconsistent publication identity ($published)',
+      () async {
+        final api = _Api()
+          ..response = {
+            ..._state(intent: 'GOING', version: 1, published: published),
+            'postId': published ? null : audiencePostId,
+          };
+        final result = await EventAudienceRepositoryImpl(
+          api,
+          sessionKeyProvider: () => 'listener',
+        ).getIntent(eventId: audienceEventId, expectedSessionKey: 'listener');
+        expect(result.isSuccess, isFalse);
+      },
+    );
+  }
+
+  test('hidden publication retains its independent identity', () async {
+    final api = _Api()
+      ..response = {
+        ..._state(intent: 'GOING', version: 1, published: true),
+        'publicationVisible': false,
+      };
+    final result = await EventAudienceRepositoryImpl(
+      api,
+      sessionKeyProvider: () => 'listener',
+    ).getIntent(eventId: audienceEventId, expectedSessionKey: 'listener');
+    expect(result.isSuccess, isTrue);
+    expect(result.data!.postId, audiencePostId);
+    expect(result.data!.publicationVisible, isFalse);
+  });
+
+  test('duplicate post identity invalidates the public page', () async {
+    final api = _Api()
+      ..response = {
+        ..._page(_post()),
+        'content': [
+          _post(),
+          {
+            ..._post(),
+            'eventId': audienceVenueId,
+            'event': {..._event(), 'id': audienceVenueId},
+          },
+        ],
+        'totalElements': 2,
+      };
+    final result = await EventAudienceRepositoryImpl(
+      api,
+      sessionKeyProvider: () => 'listener',
+    ).listPublic(audienceVenueId, expectedSessionKey: 'listener');
+    expect(result.isSuccess, isFalse);
+  });
+
+  test(
+    'delete targets post UUID, preserves returned plan and invalidates once',
+    () async {
+      final api = _Api()..response = _state(intent: 'GOING', version: 3);
+      final repository = EventAudienceRepositoryImpl(
+        api,
+        sessionKeyProvider: () => 'listener',
+      );
+      final result = await repository.deletePost(
+        postId: audiencePostId,
+        expectedSessionKey: 'listener',
+      );
+      expect(result.isSuccess, isTrue);
+      expect(result.data!.intent, EventAudienceStatus.going);
+      expect(result.data!.eventId, audienceEventId);
+      expect(result.data!.postId, isNull);
+      expect(result.data!.publishedOnProfile, isFalse);
+      expect(result.data!.note, isNull);
+      expect(result.data!.version, 3);
+      expect(api.path, '/api/v1/user/event-posts/$audiencePostId');
+      expect(api.method, ApiHttpMethod.delete);
+      expect(api.body, isNull);
+      expect(api.context!.expectedSessionKey, 'listener');
+      expect(api.calls, 1);
+      expect(repository.changes.value, 1);
+    },
+  );
+
+  for (final error in [
+    const AppError(code: '404', message: 'Post no longer exists'),
+    const AppError(code: 'network', message: 'Disconnected'),
+  ]) {
+    test(
+      'failed post deletion is surfaced without retry or invalidation: ${error.code}',
+      () async {
+        final api = _Api()..error = ApiException(error);
+        final repository = EventAudienceRepositoryImpl(
+          api,
+          sessionKeyProvider: () => 'listener',
+        );
+        final result = await repository.deletePost(
+          postId: audiencePostId,
+          expectedSessionKey: 'listener',
+        );
+        expect(result.error, same(error));
+        expect(api.calls, 1);
+        expect(repository.changes.value, 0);
+      },
+    );
+  }
+
+  test('invalid deletion identity never reaches the transport', () async {
+    final api = _Api();
+    final repository = EventAudienceRepositoryImpl(
+      api,
+      sessionKeyProvider: () => 'listener',
+    );
+    final result = await repository.deletePost(
+      postId: '../event-intents/$audienceEventId',
+      expectedSessionKey: 'listener',
+    );
+    expect(result.isSuccess, isFalse);
+    expect(api.calls, 0);
+    expect(repository.changes.value, 0);
+  });
+
+  test('unconfirmed deletion cannot announce success or reload', () async {
+    final api = _Api()
+      ..response = _state(intent: 'GOING', version: 3, published: true);
+    final repository = EventAudienceRepositoryImpl(
+      api,
+      sessionKeyProvider: () => 'listener',
+    );
+    final result = await repository.deletePost(
+      postId: audiencePostId,
+      expectedSessionKey: 'listener',
+    );
+    expect(result.isSuccess, isFalse);
+    expect(repository.changes.value, 0);
+  });
+
+  test('session switch fences deletion before and after transport', () async {
+    var actor = 'other';
+    final api = _Api();
+    final repository = EventAudienceRepositoryImpl(
+      api,
+      sessionKeyProvider: () => actor,
+    );
+    final rejected = await repository.deletePost(
+      postId: audiencePostId,
+      expectedSessionKey: 'listener',
+    );
+    expect(rejected.error!.code, 'event_audience_session_changed');
+    expect(api.calls, 0);
+    actor = 'listener';
+    final pending = Completer<Object?>();
+    api.pending = pending.future;
+    final deleting = repository.deletePost(
+      postId: audiencePostId,
+      expectedSessionKey: 'listener',
+    );
+    actor = 'other';
+    pending.complete(_state(intent: 'GOING', version: 3));
+    final late = await deleting;
+    expect(late.error!.code, 'event_audience_session_changed');
+    expect(late.data, isNull);
+    expect(repository.changes.value, 0);
+    expect(api.calls, 1);
+  });
 }
+
+Map<String, dynamic> _post() => {
+  'eventId': audienceEventId,
+  'postId': audiencePostId,
+  'intent': 'GOING',
+  'note': 'Görüşürüz',
+  'publishedAt': '2026-09-08T12:00:00Z',
+  'eventEnded': false,
+  'event': _event(),
+};
 
 Map<String, dynamic> _state({
   String intent = 'NONE',
@@ -315,6 +526,7 @@ Map<String, dynamic> _state({
   String? note,
 }) => {
   'eventId': audienceEventId,
+  'postId': published ? audiencePostId : null,
   'intent': intent,
   'publishedOnProfile': published,
   'note': note,

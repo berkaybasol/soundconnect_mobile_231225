@@ -28,32 +28,28 @@ class ProfileIdentityHeader extends StatelessWidget {
         ? username!.trim()
         : fallbackName;
     final resolvedSecondary = secondaryText?.trim();
-    final isLightTheme = Theme.of(context).brightness == Brightness.light;
 
     return Column(
       children: [
-        isLightTheme
-            ? Text(
-                name,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              )
-            : GradientText(
-                text: name,
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: AppColors.brandGradient,
-                ),
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-              ),
+        GradientText(
+          text: name,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: AppColors.brandGradient,
+          ),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
         if (resolvedSecondary != null && resolvedSecondary.isNotEmpty) ...[
           SizedBox(height: 6),
           Text(
             resolvedSecondary,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 13,
@@ -92,12 +88,16 @@ class ProfileFollowerSummary extends StatelessWidget {
       ProfilePillBadge(text: _formatCount(followersCount, followersLabel)),
     ];
     if (showFollowing) {
-      children.add(SizedBox(width: 12));
       children.add(
         ProfilePillBadge(text: _formatCount(followingCount, followingLabel)),
       );
     }
-    return Row(mainAxisAlignment: MainAxisAlignment.center, children: children);
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 12,
+      runSpacing: 8,
+      children: children,
+    );
   }
 }
 

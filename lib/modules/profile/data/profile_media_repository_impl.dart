@@ -46,20 +46,29 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
 
       return Result.success(finalMedia);
     } on ApiException catch (e) {
-      final fallbackMedia = await _loadPublicMedia(
-        profileType: profileType,
-        profileId: profileId,
-      );
-      if (fallbackMedia != null) {
-        return Result.success(
-          ProfileMedia(
-            featuredVideo: null,
-            videos: fallbackMedia,
-            audios: const [],
-          ),
+      // Only a missing legacy route permits compatibility fallback. Auth,
+      // hidden-profile and transport failures must remain visible to callers.
+      if (e.error.code != '404') return Result.failure(e.error);
+      try {
+        final fallbackMedia = await _loadPublicMedia(
+          profileType: profileType,
+          profileId: profileId,
         );
+        if (fallbackMedia != null) {
+          return Result.success(
+            ProfileMedia(
+              featuredVideo: null,
+              videos: fallbackMedia,
+              audios: const [],
+            ),
+          );
+        }
+      } on FormatException {
+        return const Result.failure(_invalidResponse);
       }
       return Result.failure(e.error);
+    } on FormatException {
+      return const Result.failure(_invalidResponse);
     } catch (_) {
       return Result.failure(
         const AppError(
@@ -79,9 +88,14 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
         '/api/v1/public/media/owner/${_mediaOwnerType(profileType)}/$profileId/kind/VIDEO',
         query: const {'page': 0, 'size': 20, 'sort': 'createdAt,desc'},
         decoder: (json) {
-          if (json is! Map<String, dynamic>) return const <MediaAssetModel>[];
+          if (json is! Map<String, dynamic>) {
+            throw const FormatException('Expected media page');
+          }
           final content = json['content'];
-          if (content is! List) return const <MediaAssetModel>[];
+          if (content is! List ||
+              content.any((item) => item is! Map<String, dynamic>)) {
+            throw const FormatException('Expected media page content');
+          }
           return content
               .whereType<Map<String, dynamic>>()
               .map(MediaAssetModel.fromJson)
@@ -93,6 +107,8 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
               .toList();
         },
       );
+    } on FormatException {
+      rethrow;
     } catch (_) {
       return null;
     }
@@ -109,4 +125,9 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
       _ => 'MUSICIAN_PROFILE',
     };
   }
+
+  static const _invalidResponse = AppError(
+    code: 'profile_media_invalid_response',
+    message: 'Profil medyası yanıtı doğrulanamadı.',
+  );
 }

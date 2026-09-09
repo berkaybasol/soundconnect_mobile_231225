@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/band_repository.dart';
+import '../navigation/profile_action_session.dart';
 
 class CreateBandScreen extends StatefulWidget {
   CreateBandScreen({super.key});
@@ -14,21 +15,42 @@ class CreateBandScreen extends StatefulWidget {
 class _CreateBandScreenState extends State<CreateBandScreen> {
   late final BandRepository _bandRepository = serviceLocator<BandRepository>();
   final _nameController = TextEditingController();
+  final _actionSession = ProfileActionSession(
+    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+  );
   bool _submitting = false;
+  bool _created = false;
   String? _errorText;
 
   @override
+  void initState() {
+    super.initState();
+    _actionSession.manager?.addListener(_sessionChanged);
+  }
+
+  void _sessionChanged() {
+    if (!mounted || _actionSession.isCurrent) return;
+    setState(() => _errorText = 'Oturum değişti. Bu sayfayı yeniden aç.');
+  }
+
+  @override
   void dispose() {
+    _actionSession.manager?.removeListener(_sessionChanged);
     _nameController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    if (_submitting || _created || !_actionSession.isCurrent) return;
+    final route = ModalRoute.of(context);
+    if (route?.isCurrent == false) return;
     final name = _nameController.text.trim();
 
-    if (name.isEmpty) {
+    if (name.isEmpty || name.length > 100) {
       setState(() {
-        _errorText = 'Band adı zorunlu.';
+        _errorText = name.isEmpty
+            ? 'Band adı zorunlu.'
+            : 'Band adı en fazla 100 karakter olabilir.';
       });
       return;
     }
@@ -38,22 +60,36 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
       _errorText = null;
     });
 
-    final result = await _bandRepository.createBand(
-      name: name,
-      description: null,
-    );
-
-    if (!mounted) return;
-
-    if (!result.isSuccess || result.data == null) {
-      setState(() {
-        _submitting = false;
-        _errorText = result.error?.message ?? 'Band oluşturulamadı.';
-      });
-      return;
+    try {
+      final result = await _bandRepository.createBand(
+        name: name,
+        expectedSessionKey: _actionSession.userId!,
+        description: null,
+      );
+      if (!mounted || !_actionSession.isCurrent) return;
+      if (!result.isSuccess || result.data == null) {
+        setState(
+          () => _errorText = result.error?.message ?? 'Band oluşturulamadı.',
+        );
+        return;
+      }
+      _created = true;
+      if (route?.isCurrent == true) {
+        Navigator.of(context).pop(result.data);
+      } else {
+        setState(
+          () => _errorText = 'Band oluşturuldu. Bandlerim listesini yenile.',
+        );
+      }
+    } catch (_) {
+      if (mounted && _actionSession.isCurrent) {
+        setState(() => _errorText = 'Band oluşturulamadı. Lütfen tekrar dene.');
+      }
+    } finally {
+      if (mounted && _actionSession.isCurrent) {
+        setState(() => _submitting = false);
+      }
     }
-
-    Navigator.of(context).pop(result.data);
   }
 
   @override
@@ -72,7 +108,8 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
                 children: [
                   TextField(
                     controller: _nameController,
-                    enabled: !_submitting,
+                    enabled:
+                        !_submitting && !_created && _actionSession.isCurrent,
                     autofocus: true,
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -99,8 +136,15 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
                   ],
                   SizedBox(height: 18),
                   _BrandGradientOutlineButton(
-                    label: _submitting ? 'Oluşturuluyor...' : 'Bandı oluştur',
-                    onPressed: _submitting ? null : _submit,
+                    label: _created
+                        ? 'Oluşturuldu'
+                        : _submitting
+                        ? 'Oluşturuluyor...'
+                        : 'Bandı oluştur',
+                    onPressed:
+                        _submitting || _created || !_actionSession.isCurrent
+                        ? null
+                        : _submit,
                   ),
                 ],
               ),

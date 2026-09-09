@@ -6,6 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/artist_venue/domain/artist_venue_connection_repository.dart';
@@ -39,14 +41,16 @@ void main() {
   late _CalendarRepository calendar;
   late _BadgeCubit badge;
   late _ConnectionRepository connections;
+  late _ProfileRepository profiles;
+  late _FollowRepository followers;
 
   setUp(() async {
     await serviceLocator.reset();
     calendar = _CalendarRepository();
     badge = _BadgeCubit();
     connections = _ConnectionRepository();
-    final followers = _FollowRepository();
-    final profiles = _ProfileRepository();
+    followers = _FollowRepository();
+    profiles = _ProfileRepository();
     serviceLocator
       ..registerSingleton<MusicianCalendarRepository>(calendar)
       ..registerSingleton<MusicianProfileRepository>(profiles)
@@ -76,6 +80,68 @@ void main() {
     await badge.close();
     await serviceLocator.reset();
   });
+
+  testWidgets(
+    'public refresh replaces embedded venues without using the private connection API',
+    (tester) async {
+      await _pumpProfile(tester, owner: false);
+      await tester.pumpAndSettle();
+      _expectVenues();
+      final reads = profiles.publicReads;
+      profiles.publicProfile = const MusicianProfile(
+        id: 'musician-profile',
+        userId: 'musician-user',
+        username: 'bugrasahin',
+        stageName: 'Buğra',
+        bio: 'Canlı müzik.',
+        profilePicture: null,
+        instagramUrl: null,
+        youtubeUrl: null,
+        soundcloudUrl: null,
+        spotifyEmbedUrl: null,
+        spotifyArtistId: null,
+        spotifyTrackIds: [],
+        spotifyTracks: [],
+        instruments: [],
+        activeVenues: ['Yeni Sahne'],
+        activeVenueConnections: [
+          VenueConnection(
+            requestId: '',
+            venueId: 'new-venue',
+            venueName: 'Yeni Sahne',
+          ),
+        ],
+        bands: [],
+      );
+      await tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator).first)
+          .onRefresh();
+      await tester.pumpAndSettle();
+      expect(profiles.publicReads, greaterThan(reads));
+      expect(connections.reads, 0);
+      expect(find.text('Bağlı Sahne'), findsNothing);
+      expect(find.text('Yeni Sahne'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final viewer in ['musician-user', 'signed-in-visitor']) {
+    testWidgets(
+      'public viewer uses authenticated $viewer instead of route identity',
+      (tester) async {
+        serviceLocator.registerSingleton<AuthSessionManager>(_Sessions(viewer));
+        await _pumpProfile(tester, owner: false);
+        await tester.pumpAndSettle();
+        if (viewer == 'musician-user') {
+          expect(followers.statusViewers, isEmpty);
+        } else {
+          expect(followers.statusViewers, isNotEmpty);
+          expect(followers.statusViewers.toSet(), {viewer});
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final owner in [true, false]) {
     final label = owner ? 'owner profile' : 'public profile';
@@ -246,6 +312,8 @@ const _profile = MusicianProfile(
 );
 
 class _ProfileRepository extends Fake implements MusicianProfileRepository {
+  MusicianProfile publicProfile = _profile;
+  int publicReads = 0;
   @override
   Future<Result<MusicianProfile>> getMyProfile() async =>
       const Result.success(_profile);
@@ -253,7 +321,10 @@ class _ProfileRepository extends Fake implements MusicianProfileRepository {
   @override
   Future<Result<MusicianProfile>> getPublicProfileByProfileId(
     String profileId,
-  ) async => const Result.success(_profile);
+  ) async {
+    publicReads++;
+    return Result.success(publicProfile);
+  }
 }
 
 class _MediaRepository extends Fake implements ProfileMediaRepository {
@@ -281,6 +352,7 @@ class _ConnectionRepository extends Fake
 }
 
 class _FollowRepository extends Fake implements FollowRepository {
+  final statusViewers = <String>[];
   @override
   Future<Result<int>> getFollowersCount(String userId) async =>
       const Result.success(3);
@@ -293,7 +365,31 @@ class _FollowRepository extends Fake implements FollowRepository {
   Future<Result<bool>> isFollowing({
     required String followerId,
     required String followingId,
-  }) async => const Result.success(false);
+  }) async {
+    statusViewers.add(followerId);
+    return const Result.success(false);
+  }
+}
+
+class _Sessions extends Fake implements AuthSessionManager {
+  _Sessions(String userId)
+    : current = AuthSession.authenticated(
+        token: 'token',
+        userId: userId,
+        username: userId,
+        accountStatus: 'ACTIVE',
+        roles: ['ROLE_MUSICIAN'],
+        permissions: [],
+        expiresAt: DateTime.utc(2040),
+        isAdmin: false,
+      );
+  final AuthSession current;
+  @override
+  AuthSession get session => current;
+  @override
+  void addListener(VoidCallback listener) {}
+  @override
+  void removeListener(VoidCallback listener) {}
 }
 
 class _LocationRepository extends Fake implements LocationRepository {}

@@ -591,83 +591,73 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final theme in ['navy', 'light', 'black']) {
-    for (final scale in [1.0, 2.0]) {
-      testWidgets('title cards and editor fit responsive $theme ${scale}x', (
-        tester,
-      ) async {
-        bands.profile = _profile(
-          members: [
-            _member('founder', role: 'FOUNDER', title: 'Vokal ve Bas Gitar'),
-            _member('member', title: 'Davul ve Perküsyon'),
-          ],
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('title cards and editor fit responsive navy ${scale}x', (
+      tester,
+    ) async {
+      bands.profile = _profile(
+        members: [
+          _member('founder', role: 'FOUNDER', title: 'Vokal ve Bas Gitar'),
+          _member('member', title: 'Davul ve Perküsyon'),
+        ],
+      );
+      tester.view.physicalSize = Size(scale == 1 ? 390 : 320, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _mount(tester, bands, scale: scale);
+      expect(tester.takeException(), isNull);
+      for (final id in ['founder', 'member']) {
+        final identity = tester.getRect(
+          find.byKey(Key('band-member-identity-$id')),
         );
-        tester.view.physicalSize = Size(scale == 1 ? 390 : 320, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        await _mount(tester, bands, theme: theme, scale: scale);
-        expect(tester.takeException(), isNull);
-        for (final id in ['founder', 'member']) {
-          final identity = tester.getRect(
-            find.byKey(Key('band-member-identity-$id')),
-          );
-          final copy = tester.getRect(
-            find.byKey(Key('band-member-identity-copy-$id')),
-          );
-          final menu = tester.getRect(find.byKey(Key('member-options-$id')));
-          expect(menu.width, greaterThanOrEqualTo(48));
-          expect(menu.height, greaterThanOrEqualTo(48));
-          expect(find.byKey(Key('band-member-actions-$id')), findsNothing);
-          expect(
-            copy.width,
-            greaterThanOrEqualTo(scale == 2 ? 130 : 200),
-            reason: 'One trailing action preserves readable identity width',
-          );
-          expect((menu.center.dy - identity.center.dy).abs(), lessThan(1));
-          expect(menu.left, greaterThanOrEqualTo(identity.right));
-          expect(find.byKey(Key('edit-member-title-$id')), findsNothing);
-        }
-        expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
-        expect(find.byIcon(Icons.edit_outlined), findsNothing);
-        expect(find.byIcon(Icons.person_remove_outlined), findsNothing);
-        await _capturePreview(tester, 'roster-$theme-$scale');
-        await _openOptions(tester, 'member');
+        final copy = tester.getRect(
+          find.byKey(Key('band-member-identity-copy-$id')),
+        );
+        final menu = tester.getRect(find.byKey(Key('member-options-$id')));
+        expect(menu.width, greaterThanOrEqualTo(48));
+        expect(menu.height, greaterThanOrEqualTo(48));
+        expect(find.byKey(Key('band-member-actions-$id')), findsNothing);
         expect(
-          find.byKey(const Key('edit-member-title-member')),
-          findsOneWidget,
+          copy.width,
+          greaterThanOrEqualTo(scale == 2 ? 130 : 200),
+          reason: 'One trailing action preserves readable identity width',
         );
-        expect(find.byKey(const Key('remove-member-member')), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        await _capturePreview(tester, 'menu-$theme-$scale');
-        await _dismissOptions(tester, 'member');
-        await _openOptions(tester, 'founder');
-        await tester.tap(find.byKey(const Key('edit-member-title-founder')));
-        await tester.pumpAndSettle();
-        expect(find.byType(TextField), findsOneWidget);
-        expect(find.byKey(const Key('band-member-title-save')), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        await _capturePreview(tester, 'editor-$theme-$scale');
-      });
-    }
+        expect((menu.center.dy - identity.center.dy).abs(), lessThan(1));
+        expect(menu.left, greaterThanOrEqualTo(identity.right));
+        expect(find.byKey(Key('edit-member-title-$id')), findsNothing);
+      }
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.person_remove_outlined), findsNothing);
+      await _capturePreview(tester, 'roster-navy-$scale');
+      await _openOptions(tester, 'member');
+      expect(find.byKey(const Key('edit-member-title-member')), findsOneWidget);
+      expect(find.byKey(const Key('remove-member-member')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await _capturePreview(tester, 'menu-navy-$scale');
+      await _dismissOptions(tester, 'member');
+      await _openOptions(tester, 'founder');
+      await tester.tap(find.byKey(const Key('edit-member-title-founder')));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byKey(const Key('band-member-title-save')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await _capturePreview(tester, 'editor-navy-$scale');
+    });
   }
 }
 
 Future<void> _mount(
   WidgetTester tester,
   _Bands bands, {
-  String theme = 'navy',
   double scale = 1,
 }) async {
   await tester.pumpWidget(
     RepaintBoundary(
       key: const Key('member-title-preview'),
       child: MaterialApp(
-        theme: theme == 'light'
-            ? AppTheme.light
-            : theme == 'black'
-            ? AppTheme.black
-            : AppTheme.navy,
+        theme: AppTheme.navy,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,

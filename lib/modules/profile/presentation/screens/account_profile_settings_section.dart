@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:image_picker/image_picker.dart';
@@ -15,6 +17,7 @@ import '../../domain/musician_profile_repository.dart';
 import '../../domain/studio_profile_repository.dart';
 import '../../domain/venue_profile_repository.dart';
 import '../listener_visibility_error_message.dart';
+import '../navigation/profile_action_session.dart';
 import 'profile_screen_support.dart';
 
 enum _AccountProfileKind { musician, venue, studio, listener }
@@ -31,6 +34,23 @@ class _AccountProfileSettingsSectionState
     extends State<AccountProfileSettingsSection> {
   final _imagePicker = ImagePicker();
   final _descriptionController = TextEditingController();
+  late final AuthSessionManager _sessions;
+  ProfileActionSession? _loadedSession;
+  DialogRoute<bool>? _visibilityDialog;
+  bool _confirmingVisibility = false;
+  static const _profileRoles = [
+    'ROLE_MUSICIAN',
+    'MUSICIAN',
+    'ROLE_VENUE',
+    'VENUE',
+    'ROLE_STUDIO',
+    'STUDIO',
+    'ROLE_LISTENER',
+    'LISTENER',
+  ];
+
+  bool _current(ProfileActionSession? action) =>
+      mounted && action?.isCurrent == true && identical(_loadedSession, action);
 
   _AccountProfileKind? _kind;
   String? _profileId;
@@ -51,18 +71,57 @@ class _AccountProfileSettingsSectionState
   String? _loadError;
 
   bool get _profileMutationBusy =>
-      _savingDescription || _uploadingPhoto || _updatingListenerVisibility;
+      _savingDescription ||
+      _uploadingPhoto ||
+      _updatingListenerVisibility ||
+      _confirmingVisibility;
 
   @override
   void initState() {
     super.initState();
+    _sessions = serviceLocator<AuthSessionManager>();
+    _sessions.addListener(_sessionChanged);
     _loadProfile();
   }
 
   @override
   void dispose() {
+    _sessions.removeListener(_sessionChanged);
+    _dismissVisibilityDialog();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  void _sessionChanged() {
+    if (!mounted || _loadedSession?.isCurrent == true) return;
+    _dismissVisibilityDialog();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _loadedSession = null;
+      _descriptionController.clear();
+      _description = '';
+      _profileId = _venueId = _profileImageUrl = null;
+      _studioVersion = _listenerVersion = null;
+      _kind = null;
+      _editingDescription = _savingDescription = _uploadingPhoto = false;
+      _updatingListenerVisibility = _confirmingVisibility = false;
+      _listenerVisibilityMode = ListenerVisibilityMode.standard;
+      _listenerProfileContentEditable = false;
+      _available = false;
+      _loading = false;
+      _loadError = null;
+    });
+    unawaited(_loadProfile());
+  }
+
+  void _dismissVisibilityDialog() {
+    final dialog = _visibilityDialog;
+    _visibilityDialog = null;
+    if (dialog == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (dialog.isActive) dialog.navigator?.removeRoute(dialog);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   _AccountProfileKind? _resolveKind() {
@@ -83,8 +142,11 @@ class _AccountProfileSettingsSectionState
   }
 
   Future<void> _loadProfile() async {
+    if (!mounted) return;
+    final action = ProfileActionSession(roles: _profileRoles);
+    _loadedSession = action;
     final kind = _resolveKind();
-    if (kind == null || !_repositoryIsAvailable(kind)) {
+    if (!action.isCurrent || kind == null || !_repositoryIsAvailable(kind)) {
       if (mounted) {
         setState(() {
           _available = false;
@@ -96,6 +158,7 @@ class _AccountProfileSettingsSectionState
 
     if (mounted) {
       setState(() {
+        _available = true;
         _kind = kind;
         _loading = true;
         _loadError = null;
@@ -106,7 +169,7 @@ class _AccountProfileSettingsSectionState
       case _AccountProfileKind.musician:
         final result = await serviceLocator<MusicianProfileRepository>()
             .getMyProfile();
-        if (!mounted) return;
+        if (!_current(action)) return;
         final profile = result.data;
         if (!result.isSuccess || profile == null) {
           _setLoadFailure(result.error?.message);
@@ -120,7 +183,7 @@ class _AccountProfileSettingsSectionState
       case _AccountProfileKind.venue:
         final result = await serviceLocator<VenueProfileRepository>()
             .getMyVenueProfileDetail();
-        if (!mounted) return;
+        if (!_current(action)) return;
         final profile = result.data;
         if (!result.isSuccess || profile == null) {
           _setLoadFailure(result.error?.message);
@@ -135,7 +198,7 @@ class _AccountProfileSettingsSectionState
       case _AccountProfileKind.studio:
         final result = await serviceLocator<StudioProfileRepository>()
             .getMyProfile();
-        if (!mounted) return;
+        if (!_current(action)) return;
         final profile = result.data;
         if (!result.isSuccess || profile == null) {
           _setLoadFailure(result.error?.message);
@@ -150,7 +213,7 @@ class _AccountProfileSettingsSectionState
       case _AccountProfileKind.listener:
         final result = await serviceLocator<ListenerProfileRepository>()
             .getMyProfile();
-        if (!mounted) return;
+        if (!_current(action)) return;
         final profile = result.data;
         if (!result.isSuccess || profile == null) {
           _setLoadFailure(result.error?.message);
@@ -223,6 +286,8 @@ class _AccountProfileSettingsSectionState
   }
 
   Future<void> _changePhoto() async {
+    final action = _loadedSession;
+    if (!_current(action)) return;
     final kind = _kind;
     final profileId = _profileId;
     if (kind == null || profileId == null || _profileMutationBusy) return;
@@ -244,6 +309,7 @@ class _AccountProfileSettingsSectionState
           _AccountProfileKind.listener => 'LISTENER_PROFILE',
         },
         ownerId: profileId,
+        isCurrent: () => _current(action),
         profilePhotoTargetId: kind == _AccountProfileKind.venue
             ? _venueId
             : null,
@@ -252,10 +318,10 @@ class _AccountProfileSettingsSectionState
             : null,
         cropTitle: 'Profil fotoğrafını kırp',
       );
-      if (upload == null || !mounted) return;
+      if (upload == null || !_current(action)) return;
 
-      final failure = await _attachUploadedPhoto(kind, upload.assetId);
-      if (!mounted) return;
+      final failure = await _attachUploadedPhoto(kind, upload.assetId, action!);
+      if (!_current(action)) return;
       if (failure != null) {
         _showMessage(failure);
         return;
@@ -270,23 +336,26 @@ class _AccountProfileSettingsSectionState
         tone: AppSnackBarTone.success,
       );
     } catch (error) {
-      if (mounted) {
+      if (_current(action)) {
         _showMessage(error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted) setState(() => _uploadingPhoto = false);
+      if (_current(action)) setState(() => _uploadingPhoto = false);
     }
   }
 
   Future<String?> _attachUploadedPhoto(
     _AccountProfileKind kind,
     String assetId,
+    ProfileActionSession action,
   ) async {
+    if (!_current(action)) return 'Oturum değişti. Profilini yeniden aç.';
     switch (kind) {
       case _AccountProfileKind.musician:
         final result = await serviceLocator<MusicianProfileRepository>()
             .updateMyProfile(
               MusicianProfileSaveRequest(profilePicture: assetId),
+              expectedSessionKey: action.userId,
             );
         return result.isSuccess
             ? null
@@ -314,7 +383,7 @@ class _AccountProfileSettingsSectionState
         if (!result.isSuccess || profile == null) {
           return 'Profil fotoğrafı güncellendi ancak güncel profil bilgisi alınamadı. Sayfayı yenileyip tekrar kontrol et.';
         }
-        if (mounted) {
+        if (_current(action)) {
           setState(() {
             _listenerVersion = profile.version;
             _listenerVisibilityMode = profile.visibilityMode;
@@ -327,13 +396,15 @@ class _AccountProfileSettingsSectionState
   }
 
   Future<void> _saveDescription() async {
+    final action = _loadedSession;
+    if (!_current(action)) return;
     final kind = _kind;
     if (kind == null || _profileMutationBusy) return;
     final description = _descriptionController.text.trim();
     setState(() => _savingDescription = true);
     try {
-      final failure = await _updateDescription(kind, description);
-      if (!mounted) return;
+      final failure = await _updateDescription(kind, description, action!);
+      if (!_current(action)) return;
       if (failure != null) {
         _showMessage(failure);
         return;
@@ -343,20 +414,27 @@ class _AccountProfileSettingsSectionState
         _editingDescription = false;
       });
       _showMessage('Açıklaman güncellendi.', tone: AppSnackBarTone.success);
+    } catch (_) {
+      if (_current(action)) {
+        _showMessage('Açıklama güncellenemedi. Yeniden dene.');
+      }
     } finally {
-      if (mounted) setState(() => _savingDescription = false);
+      if (_current(action)) setState(() => _savingDescription = false);
     }
   }
 
   Future<String?> _updateDescription(
     _AccountProfileKind kind,
     String description,
+    ProfileActionSession action,
   ) async {
+    if (!_current(action)) return 'Oturum değişti. Profilini yeniden aç.';
     switch (kind) {
       case _AccountProfileKind.musician:
         final result = await serviceLocator<MusicianProfileRepository>()
             .updateMyProfile(
               MusicianProfileSaveRequest(description: description),
+              expectedSessionKey: action.userId,
             );
         return result.isSuccess
             ? null
@@ -379,7 +457,9 @@ class _AccountProfileSettingsSectionState
               ),
             );
         if (result.isSuccess) {
-          _studioVersion = result.data?.version ?? _studioVersion;
+          if (_current(action)) {
+            _studioVersion = result.data?.version ?? _studioVersion;
+          }
           return null;
         }
         return result.error?.message ?? 'Açıklama güncellenemedi.';
@@ -395,7 +475,7 @@ class _AccountProfileSettingsSectionState
         if (!result.isSuccess || profile == null) {
           return result.error?.message ?? 'Açıklama güncellenemedi.';
         }
-        if (mounted) {
+        if (_current(action)) {
           setState(() {
             _listenerVersion = profile.version;
             _listenerVisibilityMode = profile.visibilityMode;
@@ -408,18 +488,21 @@ class _AccountProfileSettingsSectionState
   }
 
   void _startEditingDescription() {
-    if (_profileMutationBusy) return;
+    if (!_current(_loadedSession) || _profileMutationBusy) return;
     _descriptionController.text = _description;
     setState(() => _editingDescription = true);
   }
 
   void _cancelEditingDescription() {
+    if (!_current(_loadedSession)) return;
     FocusManager.instance.primaryFocus?.unfocus();
     _descriptionController.text = _description;
     setState(() => _editingDescription = false);
   }
 
   Future<void> _changeListenerVisibility(bool enableGhost) async {
+    final action = _loadedSession;
+    if (!_current(action)) return;
     if (_kind != _AccountProfileKind.listener ||
         _profileMutationBusy ||
         _listenerVersion == null) {
@@ -427,7 +510,8 @@ class _AccountProfileSettingsSectionState
     }
 
     if (enableGhost) {
-      final confirmed = await showDialog<bool>(
+      setState(() => _confirmingVisibility = true);
+      final dialog = DialogRoute<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Hayalet profile geç?'),
@@ -448,7 +532,12 @@ class _AccountProfileSettingsSectionState
           ],
         ),
       );
-      if (confirmed != true || !mounted) return;
+      _visibilityDialog = dialog;
+      final confirmed = await Navigator.of(context).push(dialog);
+      if (identical(_visibilityDialog, dialog)) _visibilityDialog = null;
+      if (!_current(action)) return;
+      setState(() => _confirmingVisibility = false);
+      if (confirmed != true) return;
     }
 
     if (_profileMutationBusy) return;
@@ -470,13 +559,13 @@ class _AccountProfileSettingsSectionState
               expectedVersion: _listenerVersion!,
             ),
           );
-      if (!mounted) return;
+      if (!_current(action)) return;
       final profile = result.data;
       if (!result.isSuccess || profile == null) {
         final code = result.error?.code.trim().toUpperCase();
         if (code == '1304' || code == 'LISTENER_PROFILE_VERSION_CONFLICT') {
-          final refreshed = await _reloadListenerAfterConflict();
-          if (!mounted) return;
+          final refreshed = await _reloadListenerAfterConflict(action!);
+          if (!_current(action)) return;
           _showMessage(
             refreshed
                 ? 'Görünürlük başka bir oturumda değişti. Güncel ayarı yükledik; kontrol edip tekrar dene.'
@@ -503,15 +592,22 @@ class _AccountProfileSettingsSectionState
             : 'Profilin yeniden görünür.',
         tone: AppSnackBarTone.success,
       );
+    } catch (_) {
+      if (_current(action)) {
+        _showMessage('Görünürlük güncellenemedi. Yeniden dene.');
+      }
     } finally {
-      if (mounted) setState(() => _updatingListenerVisibility = false);
+      if (_current(action)) setState(() => _updatingListenerVisibility = false);
     }
   }
 
-  Future<bool> _reloadListenerAfterConflict() async {
+  Future<bool> _reloadListenerAfterConflict(ProfileActionSession action) async {
+    if (!_current(action)) return false;
     final result = await serviceLocator<ListenerProfileRepository>()
         .getMyProfile();
-    if (!mounted || !result.isSuccess || result.data == null) return false;
+    if (!_current(action) || !result.isSuccess || result.data == null) {
+      return false;
+    }
     final profile = result.data!;
     setState(() {
       _listenerVersion = profile.version;
@@ -526,6 +622,7 @@ class _AccountProfileSettingsSectionState
 
   @override
   Widget build(BuildContext context) {
+    final action = _loadedSession;
     if (!_available) return const SizedBox.shrink();
 
     return Column(
@@ -554,7 +651,11 @@ class _AccountProfileSettingsSectionState
             key: const Key('account-settings-profile-photo'),
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: _profileMutationBusy ? null : _changePhoto,
+              onTap: _profileMutationBusy
+                  ? null
+                  : () {
+                      if (_current(action)) _changePhoto();
+                    },
               child: _ProfileAvatar(
                 imageUrl: _profileImageUrl,
                 uploading: _uploadingPhoto,
@@ -566,7 +667,9 @@ class _AccountProfileSettingsSectionState
             _ListenerVisibilityCard(
               isGhost: _listenerVisibilityMode.isGhost,
               updating: _profileMutationBusy,
-              onChanged: _changeListenerVisibility,
+              onChanged: (value) {
+                if (_current(action)) _changeListenerVisibility(value);
+              },
             ),
             const SizedBox(height: 14),
           ],
@@ -577,7 +680,9 @@ class _AccountProfileSettingsSectionState
               borderRadius: BorderRadius.circular(12),
               onTap: _profileMutationBusy || _editingDescription
                   ? null
-                  : _startEditingDescription,
+                  : () {
+                      if (_current(action)) _startEditingDescription();
+                    },
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
@@ -656,7 +761,11 @@ class _AccountProfileSettingsSectionState
                         child: TextButton(
                           onPressed: _profileMutationBusy
                               ? null
-                              : _cancelEditingDescription,
+                              : () {
+                                  if (_current(action)) {
+                                    _cancelEditingDescription();
+                                  }
+                                },
                           child: const Text('İptal'),
                         ),
                       ),
@@ -669,7 +778,9 @@ class _AccountProfileSettingsSectionState
                           ),
                           onPressed: _profileMutationBusy
                               ? null
-                              : _saveDescription,
+                              : () {
+                                  if (_current(action)) _saveDescription();
+                                },
                           loading: _savingDescription,
                           label: _savingDescription
                               ? 'Kaydediliyor...'

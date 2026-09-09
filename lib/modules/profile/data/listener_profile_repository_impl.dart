@@ -11,15 +11,46 @@ import 'models/listener_public_profile_model.dart';
 
 class ListenerProfileRepositoryImpl implements ListenerProfileRepository {
   final ApiClient _apiClient;
+  final String? Function()? sessionKeyProvider;
 
-  ListenerProfileRepositoryImpl(this._apiClient);
+  ListenerProfileRepositoryImpl(this._apiClient, {this.sessionKeyProvider});
+
+  Future<ListenerProfile> _ownerRequest(
+    ApiHttpMethod method,
+    String path, {
+    Object? body,
+  }) async {
+    final session = sessionKeyProvider?.call()?.trim();
+    const error = AppError(
+      code: 'listener_profile_session_changed',
+      message: 'Oturum değişti. Dinleyici profilini yeniden aç.',
+    );
+    if (sessionKeyProvider != null && session?.isNotEmpty != true) {
+      throw ApiException(error);
+    }
+    final response = await _apiClient.request<ListenerProfile>(
+      method,
+      path,
+      body: body,
+      decoder: ListenerProfileModel.fromJson,
+      requestContext: sessionKeyProvider == null
+          ? null
+          : ApiRequestContext(expectedSessionKey: session),
+    );
+    if (sessionKeyProvider != null &&
+        (session != sessionKeyProvider?.call()?.trim() ||
+            response.userId != session)) {
+      throw ApiException(error);
+    }
+    return response;
+  }
 
   @override
   Future<Result<ListenerProfile>> getMyProfile() async {
     try {
-      final response = await _apiClient.get<ListenerProfile>(
+      final response = await _ownerRequest(
+        ApiHttpMethod.get,
         ListenerProfileEndpoints.me,
-        decoder: ListenerProfileModel.fromJson,
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -79,10 +110,10 @@ class ListenerProfileRepositoryImpl implements ListenerProfileRepository {
     ListenerProfileSaveRequest request,
   ) async {
     try {
-      final response = await _apiClient.put<ListenerProfile>(
+      final response = await _ownerRequest(
+        ApiHttpMethod.put,
         ListenerProfileEndpoints.update,
         body: request.toJson(),
-        decoder: ListenerProfileModel.fromJson,
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -112,10 +143,10 @@ class ListenerProfileRepositoryImpl implements ListenerProfileRepository {
       );
     }
     try {
-      final response = await _apiClient.patch<ListenerProfile>(
+      final response = await _ownerRequest(
+        ApiHttpMethod.patch,
         ListenerProfileEndpoints.visibility,
         body: request.toJson(),
-        decoder: ListenerProfileModel.fromJson,
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -151,10 +182,10 @@ class ListenerProfileRepositoryImpl implements ListenerProfileRepository {
       expectedVersion: request.expectedVersion,
     );
     try {
-      final response = await _apiClient.patch<ListenerProfile>(
+      final response = await _ownerRequest(
+        ApiHttpMethod.patch,
         ListenerProfileEndpoints.avatar,
         body: normalizedRequest.toJson(),
-        decoder: ListenerProfileModel.fromJson,
       );
       return Result.success(response);
     } on ApiException catch (e) {
@@ -186,10 +217,10 @@ class ListenerProfileRepositoryImpl implements ListenerProfileRepository {
       );
     }
     try {
-      final response = await _apiClient.put<ListenerProfile>(
+      final response = await _ownerRequest(
+        ApiHttpMethod.put,
         ListenerProfileEndpoints.playlists,
         body: body,
-        decoder: ListenerProfileModel.fromJson,
       );
       return Result.success(response);
     } on ApiException catch (e) {

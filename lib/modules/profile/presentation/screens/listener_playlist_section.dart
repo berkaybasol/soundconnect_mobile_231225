@@ -6,7 +6,6 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
 
 const _playlistDeepSurface = Color(0xFF070B13);
-const _playlistMuted = Color(0xFFA0A9B6);
 
 class ListenerPlaylistSection extends StatelessWidget {
   const ListenerPlaylistSection({
@@ -34,14 +33,13 @@ class ListenerPlaylistSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Çalma Listeleri',
                   style: TextStyle(
-                    color: Color(0xFFD8DEE8),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.15,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -50,7 +48,7 @@ class ListenerPlaylistSection extends StatelessWidget {
                   key: const Key('listener-playlist-edit'),
                   onPressed: onEdit,
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.coral,
+                    foregroundColor: AppColors.coralAlt,
                     minimumSize: const Size(48, 48),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -129,8 +127,12 @@ class _EmptyPlaylistCallout extends StatelessWidget {
               onTap: onTap,
               excludeFromSemantics: true,
               borderRadius: BorderRadius.circular(18),
-              child: const Center(
-                child: Icon(Icons.add_rounded, color: _playlistMuted, size: 24),
+              child: Center(
+                child: Icon(
+                  Icons.add_rounded,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  size: 24,
+                ),
               ),
             ),
           ),

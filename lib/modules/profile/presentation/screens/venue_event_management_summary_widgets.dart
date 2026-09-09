@@ -28,7 +28,6 @@ class VenueCalendarProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -68,31 +67,18 @@ class VenueCalendarProfileHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              isLight
-                  ? Text(
-                      venueName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 21,
-                        height: 1.08,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.35,
-                      ),
-                    )
-                  : GradientText(
-                      text: venueName,
-                      gradient: LinearGradient(colors: AppColors.brandGradient),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 21,
-                        height: 1.08,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.35,
-                      ),
-                    ),
+              GradientText(
+                text: venueName,
+                gradient: LinearGradient(colors: AppColors.brandGradient),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 21,
+                  height: 1.08,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.35,
+                ),
+              ),
               if (locationLabel.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Row(

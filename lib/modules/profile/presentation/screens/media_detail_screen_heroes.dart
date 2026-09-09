@@ -153,8 +153,8 @@ class _ImageHero extends StatelessWidget {
 }
 
 class _CountRow extends StatelessWidget {
-  final int likeCount;
-  final int commentCount;
+  final int? likeCount;
+  final int? commentCount;
   final bool liked;
   final bool likeLoading;
   final VoidCallback? onLikeTap;
@@ -185,7 +185,7 @@ class _CountRow extends StatelessWidget {
               ),
               SizedBox(width: 6),
               Text(
-                likeCount.toString(),
+                likeCount?.toString() ?? '—',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -201,7 +201,7 @@ class _CountRow extends StatelessWidget {
         ),
         SizedBox(width: 6),
         Text(
-          commentCount.toString(),
+          commentCount?.toString() ?? '—',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),

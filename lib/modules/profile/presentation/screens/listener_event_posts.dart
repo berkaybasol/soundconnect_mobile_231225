@@ -7,14 +7,20 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../engagement/domain/engagement_repository.dart';
+import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
 import '../../../event_audience/domain/event_audience_repository.dart';
 import '../../../event_audience/presentation/event_audience_controller.dart';
-import '../../../event_audience/presentation/widgets/event_audience_controls.dart';
 import '../../domain/entities/venue_event_detail.dart';
 import '../cubit/listener_event_feed_controller.dart';
 import '../share/event_share_flow.dart';
 import 'listener_event_post_card.dart';
+import 'listener_event_post_comments_sheet.dart';
+import 'listener_event_post_engagement.dart';
+import 'listener_event_post_participation.dart';
+import 'listener_event_post_note_editor.dart';
 import 'listener_profile_theme.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -175,6 +181,16 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     with WidgetsBindingObserver {
   ListenerEventFeedController? _feed;
   bool _opening = false;
+  DialogRoute<void>? _noteDialog;
+  AuthSession? _noteSession;
+  ListenerEventFeedRow? _noteRow;
+  bool _noteSaving = false;
+  DialogRoute<bool>? _deleteDialog;
+  AuthSession? _deleteSession;
+  String? _deletePostId;
+  ValueNotifier<bool>? _commentsAvailable;
+  AuthSession? _commentsSession;
+  String? _commentsPostId;
 
   @override
   void initState() {
@@ -185,6 +201,9 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
   }
 
   void _bind() {
+    _dismissNoteDialog();
+    _dismissDeleteDialog();
+    _invalidateComments();
     _feed?.removeListener(_changed);
     _feed?.dispose();
     _opening = false;
@@ -221,7 +240,76 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
   }
 
   void _changed() {
+    final feed = _feed;
+    if (_noteDialog != null &&
+        (feed == null ||
+            !feed.allowed ||
+            !identical(feed.sessions.session, _noteSession) ||
+            (!_noteSaving &&
+                (feed.loading ||
+                    !feed.rows.any((row) => identical(row, _noteRow)))))) {
+      _dismissNoteDialog();
+    }
+    if (_commentsAvailable != null &&
+        (feed == null ||
+            !feed.allowed ||
+            !identical(feed.sessions.session, _commentsSession) ||
+            (!feed.loading &&
+                !feed.rows.any(
+                  (row) =>
+                      row.postId == _commentsPostId &&
+                      (!widget.privatePlans ||
+                          row.privateState?.publicationVisible == true),
+                )))) {
+      _invalidateComments();
+    }
+    if (_deleteDialog != null &&
+        (feed == null ||
+            !feed.allowed ||
+            feed.loading ||
+            !identical(feed.sessions.session, _deleteSession) ||
+            !feed.rows.any((row) => row.postId == _deletePostId))) {
+      _dismissDeleteDialog();
+    }
     if (mounted) setState(() {});
+  }
+
+  void _dismissDeleteDialog() {
+    final dialog = _deleteDialog;
+    _deleteDialog = null;
+    _deleteSession = null;
+    _deletePostId = null;
+    if (dialog == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (dialog.isActive) dialog.navigator?.removeRoute(dialog);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _dismissNoteDialog() {
+    final dialog = _noteDialog;
+    _noteDialog = null;
+    _noteSession = null;
+    _noteRow = null;
+    _noteSaving = false;
+    if (dialog == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (dialog.isActive) dialog.navigator?.removeRoute(dialog);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _invalidateComments() {
+    final availability = _commentsAvailable;
+    if (availability == null || !availability.value) return;
+    // Feed rebinding can happen during a parent build. Update the separately
+    // mounted modal after that frame, and never re-enable a revoked thread.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (identical(_commentsAvailable, availability)) {
+        availability.value = false;
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _refresh() => unawaited(_feed?.reload());
@@ -233,6 +321,9 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
 
   @override
   void dispose() {
+    _dismissNoteDialog();
+    _dismissDeleteDialog();
+    _invalidateComments();
     WidgetsBinding.instance.removeObserver(this);
     widget.refreshSignal?.removeListener(_refresh);
     _feed?.removeListener(_changed);
@@ -257,9 +348,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     return Scaffold(
       backgroundColor: const Color(0xFF070B13),
       appBar: AppBar(
-        title: Text(
-          widget.privatePlans ? 'Planlarım' : 'Etkinlik paylaşımları',
-        ),
+        title: Text(widget.privatePlans ? 'Planlarım' : 'Paylaşımlar'),
       ),
       body: body,
     );
@@ -276,7 +365,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     final content = <Widget>[
       if (widget.showHeading) ...[
         const Text(
-          'Etkinlik paylaşımları',
+          'Paylaşımlar',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 12),
@@ -418,34 +507,108 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     final own = widget.ownerUserId != null;
     final private = row.privateState;
     final ended = row.ended;
-    return ListenerEventPostCard(
-      event: row.event,
-      username: widget.username,
-      avatarUrl: widget.avatarUrl,
-      intentLabel: row.intent.label,
-      note: row.note,
-      owner: own,
-      ended: ended,
-      visibilityLabel: private == null
-          ? null
-          : private.publicationVisible
-          ? 'Profilinde paylaşıldı'
-          : private.publishedOnProfile
-          ? 'Hayalet modda gizli'
-          : 'Yalnızca sen',
-      onOpen: _opening
-          ? null
-          : () => unawaited(_openEvent(feed, row, expectedSession)),
-      onIntent:
-          _opening ||
-              (!own && ended) ||
-              !canUseEventAudience(feed.sessions.session)
-          ? null
-          : () => unawaited(_intent(feed, row, expectedSession)),
-      onShare: _opening
-          ? null
-          : () => unawaited(_share(feed, row, expectedSession)),
-    );
+    final engagement = _registered<EngagementRepository>();
+    final publicationVisible =
+        row.postId != null && (private == null || private.publicationVisible);
+    Widget buildCard({
+      bool going = false,
+      bool participationBusy = false,
+      VoidCallback? onToggle,
+    }) {
+      Widget card({
+        InteractionStatsItemState? stats,
+        VoidCallback? onLike,
+        AsyncCallback? refreshStats,
+      }) => ListenerEventPostCard(
+        event: row.event,
+        username: widget.username,
+        avatarUrl: widget.avatarUrl,
+        intentLabel: row.intent.label,
+        note: row.note,
+        owner: own,
+        ended: ended,
+        isParticipating: going,
+        intentBusy: participationBusy,
+        onLike: onLike,
+        isLiked: stats?.error == null && stats?.isLiked == true,
+        likeBusy: onLike != null && (_opening || stats?.loading == true),
+        likeCount: stats?.visibleLikeCount,
+        commentCount: stats?.visibleCommentCount,
+        visibilityLabel: private == null
+            ? null
+            : private.publicationVisible
+            ? 'Profilinde paylaşıldı'
+            : private.publishedOnProfile
+            ? 'Hayalet modda gizli'
+            : 'Yalnızca sen',
+        onOpen: _opening
+            ? null
+            : () => unawaited(_openEvent(feed, row, expectedSession)),
+        onIntent: own ? null : onToggle,
+        onChangeIntent:
+            _opening || !own || ended || !canUseEventAudience(expectedSession)
+            ? null
+            : () => unawaited(_changeOwnerIntent(feed, row, expectedSession)),
+        onEditNote:
+            _opening ||
+                !own ||
+                ended ||
+                row.postId == null ||
+                !canUseEventAudience(expectedSession)
+            ? null
+            : () => unawaited(_editOwnerNote(feed, row, expectedSession)),
+        onShare: _opening
+            ? null
+            : () => unawaited(_share(feed, row, expectedSession)),
+        onComments:
+            _opening ||
+                row.postId == null ||
+                (private != null && !private.publicationVisible)
+            ? null
+            : () => unawaited(
+                _openComments(
+                  feed,
+                  row,
+                  expectedSession,
+                  refreshStats: refreshStats,
+                ),
+              ),
+        onDelete: _opening || !own || row.postId == null
+            ? null
+            : () => unawaited(_deletePost(feed, row, expectedSession)),
+      );
+      if (!publicationVisible || engagement == null) return card();
+      return ListenerEventPostEngagement(
+        key: ValueKey('listener-event-engagement-${row.postId}'),
+        postId: row.postId!,
+        repository: engagement,
+        sessions: feed.sessions,
+        canInteract: () =>
+            !_opening && _currentAction(feed, expectedSession, row),
+        onError: _feedback,
+        builder: (stats, onLike, refresh) =>
+            card(stats: stats, onLike: onLike, refreshStats: refresh),
+      );
+    }
+
+    if (!own && !ended && canUseEventAudience(expectedSession)) {
+      return ListenerEventPostParticipation(
+        key: ValueKey('listener-event-participation-${row.postId}'),
+        eventId: row.event.id,
+        refreshKey: row,
+        repository: feed.repository,
+        sessions: feed.sessions,
+        canInteract: () =>
+            !_opening && _currentAction(feed, expectedSession, row),
+        onError: _feedback,
+        builder: (going, busy, onToggle) => buildCard(
+          going: going,
+          participationBusy: busy,
+          onToggle: onToggle,
+        ),
+      );
+    }
+    return buildCard();
   }
 
   bool _currentAction(
@@ -467,6 +630,146 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     }
   }
 
+  Future<void> _openComments(
+    ListenerEventFeedController feed,
+    ListenerEventFeedRow row,
+    AuthSession expectedSession, {
+    AsyncCallback? refreshStats,
+  }) async {
+    if (_opening || !_currentAction(feed, expectedSession, row)) return;
+    final postId = row.postId;
+    if (postId == null) return;
+    final repository = _registered<EngagementRepository>();
+    if (repository == null) {
+      _feedback('Yorumlar şu anda açılamıyor. Tekrar deneyebilirsin.');
+      return;
+    }
+    setState(() => _opening = true);
+    final availability = ValueNotifier<bool>(true);
+    _commentsAvailable = availability;
+    _commentsSession = expectedSession;
+    _commentsPostId = postId;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: false,
+        backgroundColor: const Color(0xFF101722),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        builder: (_) => ListenerEventPostCommentsSheet(
+          postId: postId,
+          repository: repository,
+          sessions: feed.sessions,
+          expectedSession: expectedSession,
+          publicationAvailable: availability,
+        ),
+      );
+    } finally {
+      if (identical(_commentsAvailable, availability)) {
+        _commentsAvailable = null;
+        _commentsSession = null;
+        _commentsPostId = null;
+      }
+      availability.dispose();
+      _finishAction(feed);
+      // Updating counters must not clear the whole feed and jump the profile's
+      // scroll position when a comment sheet closes.
+      if (_currentAction(feed, expectedSession, row)) {
+        await refreshStats?.call();
+      }
+    }
+  }
+
+  Future<void> _deletePost(
+    ListenerEventFeedController feed,
+    ListenerEventFeedRow row,
+    AuthSession expectedSession,
+  ) async {
+    if (_opening ||
+        !_currentAction(feed, expectedSession, row) ||
+        widget.ownerUserId != expectedSession.userId ||
+        row.postId == null) {
+      return;
+    }
+    final postId = row.postId!;
+    setState(() => _opening = true);
+    final dialog = DialogRoute<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Paylaşım silinsin mi?'),
+        content: const Text(
+          'Bu paylaşım profilinden kaldırılacak ve yorumları kapanacak. '
+          'Etkinlik planın korunacak.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            key: const Key('listener-event-post-delete-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Paylaşımı sil'),
+          ),
+        ],
+      ),
+    );
+    _deleteDialog = dialog;
+    _deleteSession = expectedSession;
+    _deletePostId = postId;
+    try {
+      final confirmed = await Navigator.of(context).push<bool>(dialog);
+      if (identical(_deleteDialog, dialog)) {
+        _deleteDialog = null;
+        _deleteSession = null;
+        _deletePostId = null;
+      }
+      if (confirmed != true || !_currentAction(feed, expectedSession, row)) {
+        return;
+      }
+      final result = await feed.repository.deletePost(
+        postId: postId,
+        expectedSessionKey: expectedSession.userId!,
+      );
+      // A successful delete triggers the repository's feed refresh. The old
+      // row is expected to disappear; session/route identity still must match.
+      if (!mounted ||
+          !identical(_feed, feed) ||
+          !identical(feed.sessions.session, expectedSession) ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      if (!result.isSuccess) {
+        _feedback(
+          result.error?.message ??
+              'Paylaşım silinemedi. Tekrar deneyebilirsin.',
+        );
+        await feed.reload();
+      } else {
+        await feed.reload();
+      }
+    } catch (_) {
+      if (_currentAction(feed, expectedSession)) {
+        _feedback('Paylaşım silinemedi. Tekrar deneyebilirsin.');
+        await feed.reload();
+      }
+    } finally {
+      if (identical(_deleteDialog, dialog)) _dismissDeleteDialog();
+      _finishAction(feed);
+    }
+  }
+
+  void _feedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(context, content: Text(message), tone: AppSnackBarTone.error),
+    );
+  }
+
   Future<void> _share(
     ListenerEventFeedController feed,
     ListenerEventFeedRow row,
@@ -486,29 +789,158 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     }
   }
 
-  Future<void> _intent(
+  bool _ownerActionAllowed(
+    ListenerEventFeedController feed,
+    ListenerEventFeedRow row,
+    AuthSession session,
+  ) =>
+      !_opening &&
+      widget.ownerUserId == session.userId &&
+      !row.ended &&
+      canUseEventAudience(session) &&
+      _currentAction(feed, session, row);
+
+  bool _matchesOwnerPlan(EventAudienceState? state, ListenerEventFeedRow row) =>
+      state != null &&
+      state.eventId == row.event.id &&
+      state.postId == row.postId &&
+      state.intent != EventAudienceStatus.none &&
+      state.eventAvailable &&
+      state.canSetIntent;
+
+  Future<void> _changeOwnerIntent(
     ListenerEventFeedController feed,
     ListenerEventFeedRow row,
     AuthSession expectedSession,
   ) async {
-    if (_opening || !_currentAction(feed, expectedSession, row)) return;
+    if (!_ownerActionAllowed(feed, row, expectedSession)) return;
     setState(() => _opening = true);
     try {
-      await showEventAudienceSheet(
-        context,
+      final read = await feed.repository.getIntent(
         eventId: row.event.id,
-        eventTitle: row.event.title ?? 'Etkinlik',
-        initialIntent: row.privateState,
-        repository: feed.repository,
-        sessions: feed.sessions,
-        onExternalShare: (status) => shareAudienceEvent(
-          context,
-          eventId: row.event.id,
-          status: status,
-          sessions: feed.sessions,
-          expectedSession: expectedSession,
+        expectedSessionKey: expectedSession.userId!,
+      );
+      if (!_currentAction(feed, expectedSession, row)) return;
+      final current = read.data;
+      if (!read.isSuccess || !_matchesOwnerPlan(current, row)) {
+        _feedback(
+          'Planın güncel durumu doğrulanamadı. Sayfayı yenileyip tekrar dene.',
+        );
+        return;
+      }
+      final target = row.intent == EventAudienceStatus.thinking
+          ? EventAudienceStatus.going
+          : EventAudienceStatus.thinking;
+      final result = await feed.repository.setIntent(
+        eventId: row.event.id,
+        intent: target,
+        publishedOnProfile: current!.publishedOnProfile,
+        note: current.note,
+        expectedVersion: current.version,
+        expectedSessionKey: expectedSession.userId!,
+      );
+      if (!mounted ||
+          !identical(_feed, feed) ||
+          !identical(feed.sessions.session, expectedSession) ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      if (!result.isSuccess ||
+          result.data?.postId != row.postId ||
+          result.data?.intent != target) {
+        _feedback(
+          'Katılım durumu değiştirilemedi. Güncel durumu kontrol edip tekrar dene.',
+        );
+      }
+      await feed.reload();
+    } catch (_) {
+      if (_currentAction(feed, expectedSession)) {
+        _feedback('Katılım durumu değiştirilemedi. Tekrar deneyebilirsin.');
+      }
+    } finally {
+      _finishAction(feed);
+    }
+  }
+
+  Future<void> _editOwnerNote(
+    ListenerEventFeedController feed,
+    ListenerEventFeedRow row,
+    AuthSession expectedSession,
+  ) async {
+    if (!_ownerActionAllowed(feed, row, expectedSession) ||
+        row.postId == null) {
+      return;
+    }
+    setState(() => _opening = true);
+    try {
+      final read = await feed.repository.getIntent(
+        eventId: row.event.id,
+        expectedSessionKey: expectedSession.userId!,
+      );
+      if (!mounted || !_currentAction(feed, expectedSession, row)) return;
+      final current = read.data;
+      if (!read.isSuccess ||
+          !_matchesOwnerPlan(current, row) ||
+          !current!.publishedOnProfile) {
+        _feedback(
+          'Paylaşımın güncel durumu doğrulanamadı. Sayfayı yenileyip tekrar dene.',
+        );
+        return;
+      }
+      late final DialogRoute<void> dialog;
+      bool available() =>
+          mounted &&
+          identical(_feed, feed) &&
+          feed.allowed &&
+          identical(feed.sessions.session, expectedSession) &&
+          identical(_noteDialog, dialog) &&
+          dialog.isCurrent;
+      dialog = DialogRoute<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => ListenerEventPostNoteEditor(
+          note: current.note,
+          onSave: (note) async {
+            if (!available() ||
+                feed.loading ||
+                !feed.rows.any((item) => identical(item, row))) {
+              return 'Paylaşım değişmiş. Editörü kapatıp yeniden aç.';
+            }
+            final normalized = note.isEmpty ? null : note;
+            if (normalized == current.note) return null;
+            _noteSaving = true;
+            try {
+              final result = await feed.repository.setIntent(
+                eventId: row.event.id,
+                intent: current.intent,
+                publishedOnProfile: current.publishedOnProfile,
+                note: normalized,
+                expectedVersion: current.version,
+                expectedSessionKey: expectedSession.userId!,
+              );
+              if (!available()) return 'Paylaşım artık düzenlenemiyor.';
+              if (!result.isSuccess ||
+                  result.data?.postId != row.postId ||
+                  result.data?.note != normalized ||
+                  result.data?.intent != current.intent) {
+                return 'Açıklama kaydedilemedi. Paylaşım değişmişse editörü kapatıp yeniden aç.';
+              }
+              return null;
+            } finally {
+              if (identical(_noteDialog, dialog)) _noteSaving = false;
+            }
+          },
         ),
       );
+      _noteDialog = dialog;
+      _noteSession = expectedSession;
+      _noteRow = row;
+      await Navigator.of(context).push<void>(dialog);
+      if (identical(_noteDialog, dialog)) _dismissNoteDialog();
+    } catch (_) {
+      if (_currentAction(feed, expectedSession)) {
+        _feedback('Açıklama açılamadı. Tekrar deneyebilirsin.');
+      }
     } finally {
       _finishAction(feed);
     }

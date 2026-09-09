@@ -464,7 +464,8 @@ class _BandProfileViewState extends State<_BandProfileView> {
                   bioSection: EditableBioSection(
                     bio: profile.description,
                     editable: _canManageBand,
-                    onSave: _saveDescription,
+                    onSave: null,
+                    onSaveConfirmed: _saveDescription,
                     emptyText: 'Henüz bir açıklama eklenmedi.',
                     addLabel: 'Profiline birkaç cümle ekle',
                     hintText: 'Bandinden bahset...',

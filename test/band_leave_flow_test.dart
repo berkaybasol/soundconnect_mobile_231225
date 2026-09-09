@@ -70,6 +70,46 @@ void main() {
     await serviceLocator.reset();
   });
 
+  testWidgets('failed band bio save retains the draft for a successful retry', (
+    tester,
+  ) async {
+    bands.profile = _profile(role: 'FOUNDER');
+    bands.updateResult = const Result.failure(
+      AppError(code: 'offline', message: 'Açıklama kaydedilemedi.'),
+    );
+    await _open(tester, height: 1400);
+    await tester.ensureVisible(find.text('Profiline birkaç cümle ekle'));
+    await tester.tap(find.text('Profiline birkaç cümle ekle'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextFormField),
+      'Kaybolmaması gereken açıklama',
+    );
+    final save = find.widgetWithText(GradientOutlineButton, 'Kaydet');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextFormField), findsOneWidget);
+    expect(find.text('Kaybolmaması gereken açıklama'), findsOneWidget);
+    expect(find.text('Açıklama güncellendi.'), findsNothing);
+    expect(bands.savedDescriptions, ['Kaybolmaması gereken açıklama']);
+    expect(bands.updateSession, 'aedrum-user');
+
+    bands.updateResult = Result.success(
+      _profile(role: 'FOUNDER', description: 'Kaybolmaması gereken açıklama'),
+    );
+    ScaffoldMessenger.of(
+      tester.element(find.byType(TextFormField)),
+    ).removeCurrentSnackBar();
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.byType(TextFormField), findsNothing);
+    expect(find.text('Kaybolmaması gereken açıklama'), findsOneWidget);
+    expect(find.text('Açıklama güncellendi.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final scale in [1.0, 2.0, 3.0]) {
     for (final founder in [false, true]) {
       testWidgets('mini member card fits caption $founder at $scale', (
@@ -436,17 +476,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final theme in ['navy', 'light', 'black']) {
-    testWidgets('leave confirmation at 320dp and 2x font in $theme', (
-      tester,
-    ) async {
-      await _open(tester, width: 320, scale: 2, theme: theme);
-      await _showDialog(tester);
-      await tester.ensureVisible(find.byKey(const Key('confirm-band-leave')));
-      expect(find.byKey(const Key('band-leave-confirmation')), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
+  testWidgets('leave confirmation at 320dp and 2x font in navy', (
+    tester,
+  ) async {
+    await _open(tester, width: 320, scale: 2);
+    await _showDialog(tester);
+    await tester.ensureVisible(find.byKey(const Key('confirm-band-leave')));
+    expect(find.byKey(const Key('band-leave-confirmation')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('shared section header wraps long title with trailing action', (
     tester,
@@ -644,7 +682,6 @@ Future<void> _open(
   double width = 390,
   double height = 1100,
   double scale = 1,
-  String theme = 'navy',
   GlobalKey<NavigatorState>? navigatorKey,
   bool settle = true,
 }) async {
@@ -653,11 +690,7 @@ Future<void> _open(
   await tester.pumpWidget(
     MaterialApp(
       navigatorKey: navigatorKey,
-      theme: switch (theme) {
-        'light' => AppTheme.light,
-        'black' => AppTheme.black,
-        _ => AppTheme.navy,
-      },
+      theme: AppTheme.navy,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(
           context,
@@ -690,11 +723,12 @@ BandProfile _profile({
   bool duplicate = false,
   String id = 'band',
   String? title,
+  String? description,
   int version = 0,
 }) => BandProfile(
   id: id,
   name: 'Şahbaz',
-  description: null,
+  description: description,
   profilePictureUrl: null,
   instagramUrl: null,
   youtubeUrl: null,
@@ -757,6 +791,9 @@ class _SessionStore implements AuthSessionStore {
 
 class _Bands implements BandRepository {
   BandProfile profile = _profile();
+  Result<BandProfile>? updateResult;
+  final savedDescriptions = <String?>[];
+  String? updateSession;
   int leaves = 0;
   String? leftBand;
   String? expectedUser;
@@ -780,6 +817,25 @@ class _Bands implements BandRepository {
     publicReads++;
     if (throwPublic) throw StateError('network');
     return pendingRead?.future ?? Result.success(profile);
+  }
+
+  @override
+  Future<Result<BandProfile>> updateBand({
+    required String bandId,
+    required String expectedSessionKey,
+    String? name,
+    String? description,
+    String? profilePicture,
+    String? instagramUrl,
+    String? youtubeUrl,
+    String? soundCloudUrl,
+    String? spotifyEmbedUrl,
+    String? spotifyArtistId,
+    List<String>? spotifyTrackIds,
+  }) async {
+    savedDescriptions.add(description);
+    updateSession = expectedSessionKey;
+    return updateResult ?? Result.success(profile);
   }
 
   @override

@@ -27,6 +27,7 @@ class ListenerPublicProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenerProfileTheme(
+      inheritAppTheme: true,
       child: MultiBlocProvider(
         providers: [
           BlocProvider(create: (_) => serviceLocator<ListenerProfileCubit>()),

@@ -42,77 +42,75 @@ void main() {
   });
   tearDown(serviceLocator.reset);
 
-  for (final theme in ['navy', 'light', 'black']) {
-    for (final scale in [1.0, 2.0]) {
-      testWidgets('compact members layout $theme at 320dp / ${scale}x', (
-        tester,
-      ) async {
-        bands.profile = _profile(longNames: scale == 2);
-        await _open(tester, bands, theme: theme, scale: scale);
-        expect(find.byType(CustomScrollView), findsOneWidget);
-        expect(find.byType(ListView), findsNothing);
-        expect(find.text('Kurucu'), findsOneWidget);
-        expect(find.byTooltip('Kurucu kaldırılamaz'), findsNothing);
-        expect(find.byTooltip('Üyeyi çıkar'), findsNothing);
-        expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
-        expect(find.byIcon(Icons.edit_outlined), findsNothing);
-        expect(find.byIcon(Icons.person_remove_outlined), findsNothing);
-        expect(find.byTooltip('Üye seçenekleri'), findsNWidgets(2));
-        for (final id in ['founder', 'member-1']) {
-          final menu = tester.getRect(find.byKey(Key('member-options-$id')));
-          final identity = tester.getRect(
-            find.byKey(Key('band-member-identity-$id')),
-          );
-          expect(menu.width, greaterThanOrEqualTo(48));
-          expect(menu.height, greaterThanOrEqualTo(48));
-          expect(menu.left, greaterThanOrEqualTo(identity.right));
-          expect((menu.center.dy - identity.center.dy).abs(), lessThan(1));
-        }
-        expect(find.byKey(const Key('band-invite-member')), findsOneWidget);
-        final member = tester.getRect(
-          find.byKey(const ValueKey('band-member-founder')),
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('compact members layout navy at 320dp / ${scale}x', (
+      tester,
+    ) async {
+      bands.profile = _profile(longNames: scale == 2);
+      await _open(tester, bands, scale: scale);
+      expect(find.byType(CustomScrollView), findsOneWidget);
+      expect(find.byType(ListView), findsNothing);
+      expect(find.text('Kurucu'), findsOneWidget);
+      expect(find.byTooltip('Kurucu kaldırılamaz'), findsNothing);
+      expect(find.byTooltip('Üyeyi çıkar'), findsNothing);
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.person_remove_outlined), findsNothing);
+      expect(find.byTooltip('Üye seçenekleri'), findsNWidgets(2));
+      for (final id in ['founder', 'member-1']) {
+        final menu = tester.getRect(find.byKey(Key('member-options-$id')));
+        final identity = tester.getRect(
+          find.byKey(Key('band-member-identity-$id')),
         );
-        expect(member.width, 280);
-        expect(member.height, lessThan(160));
-        expect(tester.takeException(), isNull);
+        expect(menu.width, greaterThanOrEqualTo(48));
+        expect(menu.height, greaterThanOrEqualTo(48));
+        expect(menu.left, greaterThanOrEqualTo(identity.right));
+        expect((menu.center.dy - identity.center.dy).abs(), lessThan(1));
+      }
+      expect(find.byKey(const Key('band-invite-member')), findsOneWidget);
+      final member = tester.getRect(
+        find.byKey(const ValueKey('band-member-founder')),
+      );
+      expect(member.width, 280);
+      expect(member.height, lessThan(160));
+      expect(tester.takeException(), isNull);
 
-        if (const bool.fromEnvironment('MEMBER_PREVIEW')) {
-          await tester.runAsync(() async {
-            const fontRoot = String.fromEnvironment(
-              'MEMBER_PREVIEW_FLUTTER_ROOT',
-            );
-            for (final font in {
-              'Roboto':
-                  '$fontRoot/engine/src/flutter/txt/third_party/fonts/Roboto-Regular.ttf',
-              'MaterialIcons':
-                  '$fontRoot/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf',
-            }.entries) {
-              await (FontLoader(font.key)..addFont(
-                    File(font.value).readAsBytes().then(ByteData.sublistView),
-                  ))
-                  .load();
-            }
-          });
-          await tester.pumpAndSettle();
-          final boundary = tester.renderObject<RenderRepaintBoundary>(
-            find.byKey(const Key('members-preview')),
+      if (const bool.fromEnvironment('MEMBER_PREVIEW')) {
+        await tester.runAsync(() async {
+          const fontRoot = String.fromEnvironment(
+            'MEMBER_PREVIEW_FLUTTER_ROOT',
           );
-          await tester.runAsync(() async {
-            final picture = await boundary.toImage(pixelRatio: 2);
-            try {
-              final bytes = await picture.toByteData(
-                format: ui.ImageByteFormat.png,
-              );
-              await File(
-                'build/band-members-$theme-$scale.png',
-              ).writeAsBytes(bytes!.buffer.asUint8List());
-            } finally {
-              picture.dispose();
-            }
-          });
-        }
-      });
-    }
+          for (final font in {
+            'Roboto':
+                '$fontRoot/engine/src/flutter/txt/third_party/fonts/Roboto-Regular.ttf',
+            'MaterialIcons':
+                '$fontRoot/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf',
+          }.entries) {
+            await (FontLoader(font.key)..addFont(
+                  File(font.value).readAsBytes().then(ByteData.sublistView),
+                ))
+                .load();
+          }
+        });
+        await tester.pumpAndSettle();
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const Key('members-preview')),
+        );
+        await tester.runAsync(() async {
+          final picture = await boundary.toImage(pixelRatio: 2);
+          try {
+            final bytes = await picture.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await File(
+              'build/band-members-navy-$scale.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+          } finally {
+            picture.dispose();
+          }
+        });
+      }
+    });
   }
 
   testWidgets('founder-only list has no removal action', (tester) async {
@@ -538,7 +536,6 @@ Future<void> _openOptions(WidgetTester tester, String id) async {
 Future<void> _open(
   WidgetTester tester,
   _Bands bands, {
-  String theme = 'navy',
   double scale = 1,
   bool settle = true,
 }) async {
@@ -549,11 +546,7 @@ Future<void> _open(
       key: const Key('members-preview'),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: theme == 'light'
-            ? AppTheme.light
-            : theme == 'black'
-            ? AppTheme.black
-            : AppTheme.navy,
+        theme: AppTheme.navy,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,

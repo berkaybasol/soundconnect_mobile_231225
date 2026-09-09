@@ -21,6 +21,17 @@ class ListenerEventPostCard extends StatelessWidget {
     this.owner = false,
     this.visibilityLabel,
     this.onShare,
+    this.onComments,
+    this.onLike,
+    this.isLiked = false,
+    this.likeBusy = false,
+    this.isParticipating = false,
+    this.intentBusy = false,
+    this.likeCount,
+    this.commentCount,
+    this.onDelete,
+    this.onChangeIntent,
+    this.onEditNote,
     this.ended = false,
     this.noteEditor,
     this.actions,
@@ -32,11 +43,25 @@ class ListenerEventPostCard extends StatelessWidget {
   final String intentLabel;
   final String? note;
   final bool owner;
+
   final bool ended;
   final String? visibilityLabel;
   final VoidCallback? onOpen;
   final VoidCallback? onIntent;
   final VoidCallback? onShare;
+  final VoidCallback? onComments;
+  final VoidCallback? onLike;
+  final bool isLiked;
+  final bool likeBusy;
+  final bool isParticipating;
+  final bool intentBusy;
+
+  /// Null represents an unread count, rather than an empty interaction list.
+  final int? likeCount;
+  final int? commentCount;
+  final VoidCallback? onDelete;
+  final VoidCallback? onChangeIntent;
+  final VoidCallback? onEditNote;
 
   /// Draft-only slots; published cards keep their existing note and actions.
   final Widget? noteEditor;
@@ -53,7 +78,13 @@ class ListenerEventPostCard extends StatelessWidget {
     final title = event.title?.trim() ?? '';
     final performer = event.performerName?.trim() ?? '';
     final message = note?.trim() ?? '';
-    final status = ended ? 'Geçmiş plan · $intentLabel' : intentLabel;
+    final isDraft = noteEditor != null || actions != null;
+    final showLike = onLike != null || likeBusy || likeCount != null || isLiked;
+    final handle = username.trim().replaceFirst(RegExp(r'^@+'), '');
+    final displayName = _displayName(handle);
+    final status = isDraft
+        ? intentLabel
+        : _participationLabel(displayName, intentLabel, ended: ended);
     return Container(
       key: ValueKey('listener-event-post-${event.id}'),
       padding: const EdgeInsets.all(12),
@@ -66,6 +97,7 @@ class ListenerEventPostCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipOval(
                 child: AppCachedNetworkImage(
@@ -87,7 +119,7 @@ class ListenerEventPostCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      username,
+                      isDraft || handle.isEmpty ? username : '@$handle',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -109,6 +141,54 @@ class ListenerEventPostCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (owner &&
+                  !isDraft &&
+                  (onDelete != null ||
+                      onChangeIntent != null ||
+                      onEditNote != null))
+                PopupMenuButton<String>(
+                  key: ValueKey('listener-event-menu-${event.id}'),
+                  tooltip: 'Paylaşım seçenekleri',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 180),
+                  icon: const Icon(Icons.more_horiz_rounded, size: 19),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    maximumSize: const Size(48, 48),
+                    foregroundColor: const Color(0xFFA0A9B6),
+                  ),
+                  onSelected: (action) {
+                    switch (action) {
+                      case 'intent':
+                        onChangeIntent?.call();
+                      case 'note':
+                        onEditNote?.call();
+                      case 'delete':
+                        onDelete?.call();
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    if (onChangeIntent != null)
+                      PopupMenuItem(
+                        value: 'intent',
+                        child: Text(
+                          intentLabel == 'Düşünüyorum'
+                              ? 'Gidiyorum olarak değiştir'
+                              : 'Düşünüyorum olarak değiştir',
+                        ),
+                      ),
+                    if (onEditNote != null)
+                      const PopupMenuItem(
+                        value: 'note',
+                        child: Text('Açıklamayı düzenle'),
+                      ),
+                    if (onDelete != null)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Paylaşımı sil'),
+                      ),
+                  ],
+                ),
             ],
           ),
           if (noteEditor != null) ...[
@@ -241,56 +321,103 @@ class ListenerEventPostCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(
+            height:
+                !owner && (onIntent != null || intentBusy) && actions == null
+                ? 2
+                : 8,
+          ),
           actions ??
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (onIntent != null)
-                    TextButton.icon(
-                      key: ValueKey('listener-event-intent-${event.id}'),
-                      onPressed: onIntent,
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(48, 48),
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                  if (owner)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            ended
+                                ? Icons.history_rounded
+                                : intentLabel == 'Gidiyorum'
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.event_outlined,
+                            color: AppColors.socialPink,
+                            size: 17,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _ownerParticipationLabel(intentLabel, ended),
+                              key: ValueKey(
+                                'listener-event-owner-status-${event.id}',
+                              ),
+                              style: const TextStyle(
+                                color: Color(0xFFA0A9B6),
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (onIntent != null || intentBusy)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _PostAction(
+                        key: ValueKey('listener-event-intent-${event.id}'),
+                        onPressed: onIntent,
                         foregroundColor: AppColors.socialPink,
-                      ),
-                      icon: Icon(
-                        owner
-                            ? Icons.tune_rounded
+                        icon: isParticipating
+                            ? Icons.check_circle_outline_rounded
                             : Icons.event_available_outlined,
-                        size: 18,
-                      ),
-                      label: Text(
-                        owner ? 'Planımı düzenle' : 'Ben de gidiyorum',
-                      ),
-                    ),
-                  if (onOpen != null)
-                    IconButton(
-                      key: ValueKey('listener-event-comments-${event.id}'),
-                      constraints: const BoxConstraints(
-                        minWidth: 48,
-                        minHeight: 48,
-                      ),
-                      onPressed: onOpen,
-                      tooltip: 'Etkinlik yorumları',
-                      icon: const Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        size: 19,
+                        label: isParticipating
+                            ? 'Bu etkinliğe katılıyorsun!'
+                            : 'Ben de gidiyorum',
+                        compact: true,
                       ),
                     ),
-                  if (onShare != null)
-                    IconButton(
-                      key: ValueKey('listener-event-share-${event.id}'),
-                      constraints: const BoxConstraints(
-                        minWidth: 48,
-                        minHeight: 48,
-                      ),
-                      onPressed: onShare,
-                      tooltip: 'Etkinliği paylaş',
-                      icon: const Icon(Icons.send_outlined, size: 19),
+                  if (showLike || onComments != null || onShare != null) ...[
+                    const Divider(color: Color(0xFF202B3A), height: 1),
+                    _PostEngagementActions(
+                      like: showLike
+                          ? _PostCountAction(
+                              key: ValueKey('listener-event-like-${event.id}'),
+                              icon: isLiked
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              label: isLiked ? 'Beğenmekten vazgeç' : 'Beğen',
+                              count: likeCount,
+                              countLabel: 'beğeni',
+                              selected: isLiked,
+                              color: isLiked ? AppColors.socialPink : null,
+                              onPressed: likeBusy ? null : onLike,
+                            )
+                          : null,
+                      comments: onComments == null
+                          ? null
+                          : _PostCountAction(
+                              key: ValueKey(
+                                'listener-event-comments-${event.id}',
+                              ),
+                              icon: Icons.chat_bubble_outline_rounded,
+                              label: 'Yorumlar',
+                              count: commentCount,
+                              countLabel: 'yorum',
+                              onPressed: onComments,
+                            ),
+                      share: onShare == null
+                          ? null
+                          : _PostIconAction(
+                              key: ValueKey('listener-event-share-${event.id}'),
+                              icon: Icons.send_outlined,
+                              label: 'Paylaş',
+                              onPressed: onShare!,
+                            ),
                     ),
+                  ],
                 ],
               ),
         ],
@@ -298,6 +425,228 @@ class ListenerEventPostCard extends StatelessWidget {
     );
   }
 }
+
+class _PostEngagementActions extends StatelessWidget {
+  const _PostEngagementActions({this.like, this.comments, this.share});
+
+  final Widget? like;
+  final Widget? comments;
+  final Widget? share;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final counters = [
+        if (like != null) like!,
+        if (comments != null) comments!,
+      ];
+      if (MediaQuery.textScalerOf(context).scale(1) > 1.35 ||
+          constraints.maxWidth < 300) {
+        return Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 18,
+          children: [...counters, if (share != null) share!],
+        );
+      }
+      final counterWidth =
+          (constraints.maxWidth -
+              (share == null ? 0 : 48) -
+              (counters.length > 1 ? 18 : 0)) /
+          (counters.isEmpty ? 1 : counters.length);
+      return Row(
+        children: [
+          for (var index = 0; index < counters.length; index++) ...[
+            if (index > 0) const SizedBox(width: 18),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: counterWidth),
+              child: counters[index],
+            ),
+          ],
+          const Spacer(),
+          if (share != null) share!,
+        ],
+      );
+    },
+  );
+}
+
+class _PostCountAction extends StatelessWidget {
+  const _PostCountAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.countLabel,
+    required this.onPressed,
+    this.selected,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final int? count;
+  final String countLabel;
+  final VoidCallback? onPressed;
+  final bool? selected;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedColor = color ?? const Color(0xFFA0A9B6);
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      selected: selected,
+      label: label,
+      value: count == null ? null : '$count $countLabel',
+      onTap: onPressed,
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: label,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, color: resolvedColor, size: 18),
+                      if (count != null) ...[
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            '$count',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: resolvedColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PostIconAction extends StatelessWidget {
+  const _PostIconAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: label,
+    onPressed: onPressed,
+    constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+    icon: Icon(icon, color: const Color(0xFFA0A9B6), size: 19),
+  );
+}
+
+class _PostAction extends StatelessWidget {
+  const _PostAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.foregroundColor = const Color(0xFFCED4DF),
+    this.compact = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final Color foregroundColor;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => TextButton(
+    onPressed: onPressed,
+    style: TextButton.styleFrom(
+      minimumSize: Size(48, compact ? 32 : 48),
+      tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 0 : 6,
+        vertical: compact ? 4 : 10,
+      ),
+      foregroundColor: foregroundColor,
+      textStyle: compact
+          ? Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12)
+          : null,
+    ),
+    child: Row(
+      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: compact ? 16 : 18),
+        SizedBox(width: compact ? 6 : 7),
+        Flexible(
+          child: Text(
+            label,
+            textAlign: compact ? TextAlign.left : TextAlign.center,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+String _displayName(String username) {
+  if (username.isEmpty) return 'Dinleyici';
+  final first = username[0] == 'i' ? 'İ' : username[0].toUpperCase();
+  return '$first${username.substring(1)}';
+}
+
+String _participationLabel(
+  String name,
+  String intentLabel, {
+  required bool ended,
+}) => switch (intentLabel) {
+  'Gidiyorum' =>
+    ended
+        ? '$name bu etkinliğe gitmeyi planlamıştı.'
+        : '$name bu etkinliğe gidiyor.',
+  'Düşünüyorum' =>
+    ended
+        ? '$name bu etkinliğe katılmayı düşünüyordu.'
+        : '$name bu etkinliğe katılmayı düşünüyor.',
+  _ => ended ? 'Geçmiş plan · $intentLabel' : '$name · $intentLabel',
+};
+
+String _ownerParticipationLabel(String intentLabel, bool ended) =>
+    switch (intentLabel) {
+      'Gidiyorum' =>
+        ended
+            ? 'Bu etkinliğe katılmayı planlamıştın.'
+            : 'Bu etkinliğe katılıyorsun!',
+      'Düşünüyorum' =>
+        ended
+            ? 'Bu etkinliğe katılmayı düşünüyordun.'
+            : 'Bu etkinliğe katılmayı düşünüyorsun.',
+      _ => ended ? 'Geçmiş planın' : intentLabel,
+    };
 
 class _PostNote extends StatefulWidget {
   const _PostNote({required this.note});

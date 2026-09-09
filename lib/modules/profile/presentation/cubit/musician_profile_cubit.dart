@@ -12,13 +12,49 @@ import 'musician_profile_state.dart';
 class MusicianProfileCubit extends Cubit<MusicianProfileState> {
   final MusicianProfileRepository _repository;
   int _generation = 0;
-  bool _updating = false;
+  Future<Result<MusicianProfile>>? _update;
+  final AuthSessionManager? _sessions;
 
-  MusicianProfileCubit(this._repository)
-    : super(const MusicianProfileState.idle());
+  MusicianProfileCubit(this._repository, {AuthSessionManager? sessions})
+    : _sessions =
+          sessions ??
+          (serviceLocator.isRegistered<AuthSessionManager>()
+              ? serviceLocator<AuthSessionManager>()
+              : null),
+      super(const MusicianProfileState.idle()) {
+    _sessions?.addListener(_sessionChanged);
+  }
+
+  void _sessionChanged() {
+    if (isClosed) return;
+    ++_generation;
+    emit(const MusicianProfileState.idle());
+  }
+
+  @override
+  Future<void> close() {
+    _sessions?.removeListener(_sessionChanged);
+    return super.close();
+  }
 
   Future<void> loadMyProfile() async {
-    await _run(_repository.getMyProfile, ownerRead: true);
+    if (isClosed) return;
+    // Reserve presentation before waiting: a later navigation must not be
+    // replaced when this owner refresh resumes after the write commits.
+    final generation = ++_generation;
+    final session = _sessions?.session;
+    final update = _update;
+    if (update != null) await update;
+    if (isClosed ||
+        generation != _generation ||
+        !identical(_sessions?.session, session)) {
+      return;
+    }
+    await _run(
+      _repository.getMyProfile,
+      ownerRead: true,
+      reservedGeneration: generation,
+    );
   }
 
   Future<void> loadPublicProfile(String profileId) async {
@@ -32,7 +68,7 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     MusicianProfileSaveRequest request, {
     String? expectedSessionKey,
   }) async {
-    if (_updating) {
+    if (_update != null) {
       return const Result.failure(
         AppError(
           code: 'musician_profile_busy',
@@ -40,24 +76,21 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
         ),
       );
     }
-    final expectedAccount =
-        expectedSessionKey ??
-        (serviceLocator.isRegistered<AuthSessionManager>()
-            ? serviceLocator<AuthSessionManager>().session.userId
-            : null);
-    _updating = true;
-    try {
-      return await _run(
-        () => _repository.updateMyProfile(
-          request,
-          expectedSessionKey: expectedAccount,
-        ),
-        action: MusicianProfileAction.update,
+    final expectedAccount = expectedSessionKey ?? _sessions?.session.userId;
+    final operation = _run(
+      () => _repository.updateMyProfile(
+        request,
         expectedSessionKey: expectedAccount,
-        targetProfileId: state.profile?.id,
-      );
+      ),
+      action: MusicianProfileAction.update,
+      expectedSessionKey: expectedAccount,
+      targetProfileId: state.profile?.id,
+    );
+    _update = operation;
+    try {
+      return await operation;
     } finally {
-      _updating = false;
+      _update = null;
     }
   }
 
@@ -67,6 +100,7 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     bool ownerRead = false,
     String? expectedSessionKey,
     String? targetProfileId,
+    int? reservedGeneration,
   }) async {
     const stale = Result<MusicianProfile>.failure(
       AppError(
@@ -75,9 +109,7 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
       ),
     );
     if (isClosed) return stale;
-    final manager = serviceLocator.isRegistered<AuthSessionManager>()
-        ? serviceLocator<AuthSessionManager>()
-        : null;
+    final manager = _sessions;
     final session = manager?.session;
     if (action == MusicianProfileAction.update &&
         manager != null &&
@@ -90,11 +122,7 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
                 state.profile!.userId != session.userId))) {
       return stale;
     }
-    final generation = ++_generation;
-    bool current() =>
-        !isClosed &&
-        generation == _generation &&
-        identical(manager?.session, session);
+    final generation = reservedGeneration ?? ++_generation;
     emit(
       state.copyWith(
         status: MusicianProfileStatus.loading,
@@ -116,7 +144,10 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
         ),
       );
     }
-    if (!current()) return stale;
+    if (isClosed || !identical(manager?.session, session)) return stale;
+    if (generation != _generation && action != MusicianProfileAction.update) {
+      return stale;
+    }
     final profile = result.data;
     final expectedUser =
         expectedSessionKey ??
@@ -136,16 +167,20 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
         ),
       );
     }
-    emit(
-      state.copyWith(
-        status: result.isSuccess
-            ? MusicianProfileStatus.success
-            : MusicianProfileStatus.failure,
-        action: action,
-        profile: result.isSuccess ? result.data : state.profile,
-        error: result.error,
-      ),
-    );
+    // A newer view owns presentation, but the editor still needs the actual
+    // mutation result instead of treating a committed write as a failure.
+    if (generation == _generation) {
+      emit(
+        state.copyWith(
+          status: result.isSuccess
+              ? MusicianProfileStatus.success
+              : MusicianProfileStatus.failure,
+          action: action,
+          profile: result.isSuccess ? result.data : state.profile,
+          error: result.error,
+        ),
+      );
+    }
     return result;
   }
 }

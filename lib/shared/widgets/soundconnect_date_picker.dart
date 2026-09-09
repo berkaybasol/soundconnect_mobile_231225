@@ -13,12 +13,11 @@ Future<DateTime?> showSoundConnectDatePicker({
   String helpText = 'Tarih seç',
 }) {
   final base = Theme.of(context);
-  final dark = base.brightness == Brightness.dark;
-  final surface = dark ? const Color(0xFF101827) : const Color(0xFFFAF8FC);
-  final header = dark ? const Color(0xFF151F31) : const Color(0xFFF1EDF7);
-  final ink = dark ? const Color(0xFFEFF2F8) : const Color(0xFF202536);
-  final muted = dark ? const Color(0xFFA8B4C9) : const Color(0xFF626A7D);
-  final border = dark ? const Color(0xFF2A3447) : const Color(0xFFDAD5E4);
+  const surface = Color(0xFF101827);
+  const header = Color(0xFF151F31);
+  const ink = Color(0xFFEFF2F8);
+  const muted = Color(0xFFA8B4C9);
+  const border = Color(0xFF2A3447);
   final accent = AppColors.brandGradient[1];
   final selectedInk = const Color(0xFF111827);
   final foreground = WidgetStateProperty.resolveWith<Color?>((states) {

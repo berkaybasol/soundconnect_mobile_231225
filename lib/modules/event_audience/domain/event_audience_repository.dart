@@ -22,6 +22,7 @@ extension EventAudiencePeriodWire on EventAudiencePeriod {
 class EventAudienceState {
   const EventAudienceState({
     required this.eventId,
+    this.postId,
     required this.intent,
     required this.publishedOnProfile,
     required this.note,
@@ -36,6 +37,10 @@ class EventAudienceState {
   });
 
   final String eventId;
+
+  /// Identity of this publication, independent of the underlying event.
+  /// Unpublishing clears it; a later publication receives a new identity.
+  final String? postId;
   final EventAudienceStatus intent;
   final bool publishedOnProfile;
   final String? note;
@@ -52,6 +57,7 @@ class EventAudienceState {
 class EventAudiencePost {
   const EventAudiencePost({
     required this.eventId,
+    required this.postId,
     required this.intent,
     required this.note,
     required this.publishedAt,
@@ -59,6 +65,7 @@ class EventAudiencePost {
     required this.event,
   });
   final String eventId;
+  final String postId;
   final EventAudienceStatus intent;
   final String? note;
   final DateTime publishedAt;
@@ -97,6 +104,12 @@ abstract class EventAudienceRepository {
     required bool publishedOnProfile,
     required String? note,
     required int expectedVersion,
+    required String expectedSessionKey,
+  });
+
+  /// Removes the publication and its note while retaining the private plan.
+  Future<Result<EventAudienceState>> deletePost({
+    required String postId,
     required String expectedSessionKey,
   });
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:soundconnect_23_12_25codx/app/app.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
@@ -17,12 +18,23 @@ import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_c
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/register_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/collab_route_args.dart';
-import 'package:soundconnect_23_12_25codx/shared/theme/app_theme_variant.dart';
-import 'package:soundconnect_23_12_25codx/shared/theme/theme_controller.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/app_theme_menu_option.dart';
 
 import 'support/auth_widget_test_support.dart';
 
 const _listingId = '550e8400-e29b-41d4-a716-446655440000';
+
+void _expectOriginalKoyu(ThemeData? theme) {
+  final original = AppTheme.navy;
+  expect(theme?.brightness, Brightness.dark);
+  expect(theme?.colorScheme, original.colorScheme);
+  expect(theme?.scaffoldBackgroundColor, original.scaffoldBackgroundColor);
+  expect(
+    theme?.inputDecorationTheme.fillColor,
+    original.inputDecorationTheme.fillColor,
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +54,6 @@ void main() {
     await tester.pumpWidget(
       SoundConnectApp(
         initialTokenFuture: Future<String?>.value(null),
-        themeController: ThemeController.memory(),
         appLinkSource: source,
         appDeepLinkInbox: inbox,
       ),
@@ -79,38 +90,86 @@ void main() {
     await source.close();
   });
 
-  testWidgets('guest pending link survives anonymous popup routes', (
-    tester,
-  ) async {
-    setupDependencies();
-    final source = _FakeAppLinkSource();
-    final inbox = AppDeepLinkInbox(store: MemoryPendingAppDeepLinkStore());
+  testWidgets(
+    'fixed Koyu and pending link survive unavailable theme popup routes',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'app_theme_variant': 'light'});
+      addTearDown(() => SharedPreferences.setMockInitialValues({}));
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      setupDependencies();
+      final source = _FakeAppLinkSource();
+      final inbox = AppDeepLinkInbox(store: MemoryPendingAppDeepLinkStore());
 
-    await tester.pumpWidget(
-      SoundConnectApp(
-        initialTokenFuture: Future<String?>.value(null),
-        themeController: ThemeController.memory(),
-        appLinkSource: source,
-        appDeepLinkInbox: inbox,
-      ),
-    );
-    await tester.pump();
-    source.add(
-      Uri.parse('https://soundconnect.com.tr/is-birligi/ilan/$_listingId'),
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'korunmali');
+      await tester.pumpWidget(
+        SoundConnectApp(
+          initialTokenFuture: Future<String?>.value(null),
+          appLinkSource: source,
+          appDeepLinkInbox: inbox,
+        ),
+      );
+      await tester.pump();
+      source.add(
+        Uri.parse('https://soundconnect.com.tr/is-birligi/ilan/$_listingId'),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'korunmali');
 
-    await tester.tap(find.byType(PopupMenuButton<AppThemeVariant>));
-    await tester.pumpAndSettle();
+      final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(app.themeMode, ThemeMode.dark);
+      _expectOriginalKoyu(app.theme);
+      expect(app.darkTheme, isNull);
+      expect(
+        Theme.of(tester.element(find.byType(LoginScreen))).brightness,
+        Brightness.dark,
+      );
 
-    expect(find.byType(LoginScreen), findsOneWidget);
-    expect(find.text('korunmali'), findsOneWidget);
-    expect((await inbox.pending())?.target.listingId, _listingId);
+      await tester.tap(find.byType(PopupMenuButton<AppThemeMenuOption>));
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await source.close();
-  });
+      for (final label in ['Açık (yakında)', 'Siyah (yakında)']) {
+        final option = find.widgetWithText(
+          PopupMenuItem<AppThemeMenuOption>,
+          label,
+        );
+        expect(option, findsOneWidget);
+        expect(
+          tester.widget<PopupMenuItem<AppThemeMenuOption>>(option).enabled,
+          isFalse,
+        );
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        expect(option, findsOneWidget);
+        expect(
+          Theme.of(tester.element(find.byType(LoginScreen))).brightness,
+          Brightness.dark,
+        );
+      }
+      expect(
+        tester
+            .widget<PopupMenuItem<AppThemeMenuOption>>(
+              find.widgetWithText(PopupMenuItem<AppThemeMenuOption>, 'Koyu'),
+            )
+            .enabled,
+        isTrue,
+      );
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.text('korunmali'), findsOneWidget);
+      expect((await inbox.pending())?.target.listingId, _listingId);
+
+      await tester.tap(find.text('Koyu'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PopupMenuItem<AppThemeMenuOption>), findsNothing);
+      expect(find.text('korunmali'), findsOneWidget);
+      final selectedApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(selectedApp.themeMode, ThemeMode.dark);
+      _expectOriginalKoyu(selectedApp.theme);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await source.close();
+    },
+  );
 
   testWidgets('successful login resumes and consumes the pending listing', (
     tester,

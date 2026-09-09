@@ -35,7 +35,6 @@ void main() {
     WidgetTester tester,
     Widget child, {
     double scale = 1,
-    Brightness brightness = Brightness.dark,
     ValueChanged<RouteSettings>? onRoute,
   }) async {
     tester.view.physicalSize = const Size(320, 800);
@@ -44,7 +43,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: brightness == Brightness.dark ? AppTheme.navy : AppTheme.light,
+        theme: AppTheme.navy,
         builder: (context, widget) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -66,34 +65,31 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final brightness in Brightness.values) {
-    for (final scale in [1.0, 2.0, 3.0]) {
-      testWidgets('identity rows fit at $scale in $brightness', (tester) async {
-        await open(
-          tester,
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const VenueNameCarousel(items: [venue]),
-              const ActiveMusicianCarousel(items: [band, musician]),
-            ],
-          ),
-          scale: scale,
-          brightness: brightness,
-        );
-        final cards = find.byType(ProfileMiniCard);
-        expect(cards, findsNWidgets(3));
-        for (final element in cards.evaluate()) {
-          final size = tester.getSize(find.byWidget(element.widget));
-          expect(size.width, 168);
-          if (scale == 1) expect(size.height, 52);
-        }
-        expect(find.text('Kurucu'), findsNothing);
-        expect(find.byIcon(Icons.chevron_right), findsNothing);
-        expect(find.byTooltip('Dolu Kadehi Ters Tut'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      });
-    }
+  for (final scale in [1.0, 2.0, 3.0]) {
+    testWidgets('identity rows fit at $scale in navy', (tester) async {
+      await open(
+        tester,
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const VenueNameCarousel(items: [venue]),
+            const ActiveMusicianCarousel(items: [band, musician]),
+          ],
+        ),
+        scale: scale,
+      );
+      final cards = find.byType(ProfileMiniCard);
+      expect(cards, findsNWidgets(3));
+      for (final element in cards.evaluate()) {
+        final size = tester.getSize(find.byWidget(element.widget));
+        expect(size.width, 168);
+        if (scale == 1) expect(size.height, 52);
+      }
+      expect(find.text('Kurucu'), findsNothing);
+      expect(find.byIcon(Icons.chevron_right), findsNothing);
+      expect(find.byTooltip('Dolu Kadehi Ters Tut'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('venue mini card preserves venue route arguments', (

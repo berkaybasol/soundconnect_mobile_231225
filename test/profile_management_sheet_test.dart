@@ -113,53 +113,47 @@ void main() {
     }
   }
 
-  for (final theme in [
-    ('navy', AppTheme.navy),
-    ('light', AppTheme.light),
-    ('black', AppTheme.black),
-  ]) {
-    for (final band in [false, true]) {
-      testWidgets(
-        '${theme.$1} ${band ? 'band' : 'musician'} venue and event hubs share the compact management design',
-        (tester) async {
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: theme.$2,
-              home: band
-                  ? BandManagementPanelScreen(profile: invitationBand())
-                  : const MusicianManagementPanelScreen(
-                      musicianProfile: invitationProfile,
-                    ),
-            ),
-          );
-          await tester.pumpAndSettle();
+  for (final band in [false, true]) {
+    testWidgets(
+      'navy ${band ? 'band' : 'musician'} venue and event hubs share the compact management design',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.navy,
+            home: band
+                ? BandManagementPanelScreen(profile: invitationBand())
+                : const MusicianManagementPanelScreen(
+                    musicianProfile: invitationProfile,
+                  ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-          await tester.ensureVisible(find.text('Mekan Bağlantıları'));
-          await tester.tap(find.text('Mekan Bağlantıları'));
-          await tester.pumpAndSettle();
-          final venueStyle = _sheetStyle(tester, const [
-            'Bağlantılarım',
-            'Gelen İstekler',
-            'Gönderdiğim İstekler',
-          ], hasCreate: true);
-          Navigator.of(tester.element(find.byType(BottomSheet))).pop();
-          await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Mekan Bağlantıları'));
+        await tester.tap(find.text('Mekan Bağlantıları'));
+        await tester.pumpAndSettle();
+        final venueStyle = _sheetStyle(tester, const [
+          'Bağlantılarım',
+          'Gelen İstekler',
+          'Gönderdiğim İstekler',
+        ], hasCreate: true);
+        Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+        await tester.pumpAndSettle();
 
-          await tester.ensureVisible(find.text('Etkinlik Yönetimi'));
-          await tester.tap(find.text('Etkinlik Yönetimi'));
-          await tester.pumpAndSettle();
-          final eventStyle = _sheetStyle(tester, const [
-            'Etkinlik Davetleri',
-            'Etkinliklerim',
-            'Reddedilen Etkinlikler',
-          ]);
-          expect(eventStyle.$1, venueStyle.$1);
-          expect(eventStyle.$2, venueStyle.$2);
-          expect(eventStyle.$3, venueStyle.$3);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+        await tester.ensureVisible(find.text('Etkinlik Yönetimi'));
+        await tester.tap(find.text('Etkinlik Yönetimi'));
+        await tester.pumpAndSettle();
+        final eventStyle = _sheetStyle(tester, const [
+          'Etkinlik Davetleri',
+          'Etkinliklerim',
+          'Reddedilen Etkinlikler',
+        ]);
+        expect(eventStyle.$1, venueStyle.$1);
+        expect(eventStyle.$2, venueStyle.$2);
+        expect(eventStyle.$3, venueStyle.$3);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('generic sheet returns the selected typed option exactly once', (

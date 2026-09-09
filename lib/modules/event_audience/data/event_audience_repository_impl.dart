@@ -145,6 +145,37 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
   });
 
   @override
+  Future<Result<EventAudienceState>> deletePost({
+    required String postId,
+    required String expectedSessionKey,
+  }) async {
+    final result = await _read(expectedSessionKey, () async {
+      final id = _id(postId);
+      // Address the publication itself so a stale card cannot remove a newer
+      // publication of the same event. Do not retry an ambiguous deletion.
+      return _api.request<EventAudienceState>(
+        ApiHttpMethod.delete,
+        '/api/v1/user/event-posts/$id',
+        requestContext: ApiRequestContext(
+          expectedSessionKey: expectedSessionKey.trim(),
+        ),
+        decoder: (raw) {
+          final state = _state(raw);
+          if (state.postId != null ||
+              state.publishedOnProfile ||
+              state.note != null ||
+              state.version == 0) {
+            throw const FormatException('Post deletion not confirmed');
+          }
+          return state;
+        },
+      );
+    });
+    if (result.isSuccess) _changes.value++;
+    return result;
+  }
+
+  @override
   Future<Result<EventAudiencePage<EventAudiencePost>>> listPublic(
     String listenerProfileId, {
     String? expectedSessionKey,
@@ -170,13 +201,14 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
         }
         return EventAudiencePost(
           eventId: eventId,
+          postId: _id(json['postId']),
           intent: status,
           note: _note(json['note']),
           publishedAt: _instant(json['publishedAt']),
           eventEnded: _bool(json['eventEnded']),
           event: _event(json['event'], eventId),
         );
-      }, (post) => post.eventId),
+      }, (post) => post.postId),
     );
   });
 
@@ -241,7 +273,8 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
 
   static EventAudienceState _state(Object? raw, {String? expectedId}) {
     final json = _map(raw);
-    if (!json.containsKey('note') ||
+    if (!json.containsKey('postId') ||
+        !json.containsKey('note') ||
         !json.containsKey('updatedAt') ||
         !json.containsKey('event')) {
       throw const FormatException('Incomplete audience state');
@@ -249,6 +282,7 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
     final id = _id(json['eventId']);
     final intent = _status(json['intent']);
     final published = _bool(json['publishedOnProfile']);
+    final postId = json['postId'] == null ? null : _id(json['postId']);
     final note = _note(json['note']);
     final available = _bool(json['eventAvailable']);
     final ended = _bool(json['eventEnded']);
@@ -261,6 +295,7 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
         ? null
         : _instant(json['updatedAt']);
     if ((expectedId != null && id != expectedId) ||
+        (published != (postId != null)) ||
         (available != (event != null)) ||
         (canSet && (!available || ended)) ||
         (canPublish && !canSet) ||
@@ -272,6 +307,7 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
     }
     return EventAudienceState(
       eventId: id,
+      postId: postId,
       intent: intent,
       publishedOnProfile: published,
       note: note,

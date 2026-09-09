@@ -374,58 +374,54 @@ void main() {
     expect(find.text('Gelen Davetler'), findsNothing);
   });
 
-  for (final theme in ['navy', 'light', 'black']) {
-    for (final scale in [1.0, 2.0]) {
-      testWidgets('groups/invitations fit320dp $theme $scale', (tester) async {
-        tester.view.physicalSize = const Size(320, 900);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        bands.longName = true;
-        if (const bool.fromEnvironment('BAND_RECEIVED_PREVIEW')) {
-          await tester.runAsync(() async {
-            const root = String.fromEnvironment('PREVIEW_FLUTTER_ROOT');
-            for (final font in {
-              'Roboto':
-                  '$root/engine/src/flutter/txt/third_party/fonts/Roboto-Regular.ttf',
-              'MaterialIcons':
-                  '$root/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf',
-            }.entries) {
-              await (FontLoader(font.key)..addFont(
-                    File(font.value).readAsBytes().then(ByteData.sublistView),
-                  ))
-                  .load();
-            }
-          });
-        }
-        await _mount(tester, theme: theme, scale: scale);
-        expect(tester.takeException(), isNull);
-        await tester.scrollUntilVisible(
-          find.text('Grup daveti · Yanıtını bekliyor'),
-          200,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        if (!const bool.fromEnvironment('BAND_RECEIVED_PREVIEW')) return;
-        final boundary = tester.renderObject<RenderRepaintBoundary>(
-          find.byKey(const Key('preview')),
-        );
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('groups/invitations fit320dp navy $scale', (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      bands.longName = true;
+      if (const bool.fromEnvironment('BAND_RECEIVED_PREVIEW')) {
         await tester.runAsync(() async {
-          final image = await boundary.toImage(pixelRatio: 1);
-          try {
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
-            );
-            await File(
-              'build/band-received-$theme-$scale.png',
-            ).writeAsBytes(bytes!.buffer.asUint8List());
-          } finally {
-            image.dispose();
+          const root = String.fromEnvironment('PREVIEW_FLUTTER_ROOT');
+          for (final font in {
+            'Roboto':
+                '$root/engine/src/flutter/txt/third_party/fonts/Roboto-Regular.ttf',
+            'MaterialIcons':
+                '$root/bin/cache/dart-sdk/bin/resources/devtools/assets/fonts/MaterialIcons-Regular.otf',
+          }.entries) {
+            await (FontLoader(font.key)..addFont(
+                  File(font.value).readAsBytes().then(ByteData.sublistView),
+                ))
+                .load();
           }
         });
+      }
+      await _mount(tester, scale: scale);
+      expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(
+        find.text('Grup daveti · Yanıtını bekliyor'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      if (!const bool.fromEnvironment('BAND_RECEIVED_PREVIEW')) return;
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const Key('preview')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 1);
+        try {
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(
+            'build/band-received-navy-$scale.png',
+          ).writeAsBytes(bytes!.buffer.asUint8List());
+        } finally {
+          image.dispose();
+        }
       });
-    }
+    });
   }
 }
 
@@ -612,18 +608,13 @@ class _Api extends ApiClient {
 Future<void> _mount(
   WidgetTester tester, {
   bool settle = true,
-  String theme = 'navy',
   double scale = 1,
 }) async {
   await tester.pumpWidget(
     RepaintBoundary(
       key: const Key('preview'),
       child: MaterialApp(
-        theme: switch (theme) {
-          'light' => AppTheme.light,
-          'black' => AppTheme.black,
-          _ => AppTheme.navy,
-        },
+        theme: AppTheme.navy,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,

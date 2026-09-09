@@ -250,8 +250,6 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
     final thumbnail = isValidNetworkImageUrl(thumbnailRaw)
         ? thumbnailRaw!.trim()
         : null;
-    final fallbackLikeCount = 210 + (index * 9);
-    final fallbackCommentCount = 44 + (index * 4);
     final targetType = 'MEDIA';
     final targetId = item.id;
     final statsState = context.watch<InteractionStatsCubit>().state;
@@ -263,8 +261,8 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
       );
     }
     final stats = statsState.items[statsKey];
-    final likeCount = stats?.likeCount ?? fallbackLikeCount;
-    final commentCount = stats?.commentCount ?? fallbackCommentCount;
+    final likeCount = stats?.visibleLikeCount;
+    final commentCount = stats?.visibleCommentCount;
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,

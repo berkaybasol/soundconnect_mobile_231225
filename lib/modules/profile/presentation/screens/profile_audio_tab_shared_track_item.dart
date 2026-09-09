@@ -10,8 +10,6 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
     required bool isPlaying,
     required dynamic statsState,
   }) {
-    final fallbackLikeCount = 128 + (index * 7);
-    final fallbackCommentCount = 32 + (index * 3);
     final targetType = 'MEDIA';
     final targetId = track.mediaAssetId;
     final statsKey = '$targetType:$targetId';
@@ -22,8 +20,8 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
       );
     }
     final stats = statsState.items[statsKey];
-    final likeCount = stats?.likeCount ?? fallbackLikeCount;
-    final commentCount = stats?.commentCount ?? fallbackCommentCount;
+    final likeCount = stats?.visibleLikeCount;
+    final commentCount = stats?.visibleCommentCount;
     final playback = track.playbackUrl ?? '';
     final isSpotify =
         playback.contains('spotify') ||
@@ -87,6 +85,37 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
               }
             },
             title: track.title,
+            trailing:
+                ownerMode &&
+                    !isSpotify &&
+                    ProfileTrackDeletionRepository.supports(uploadOwnerType)
+                ? ProfileTrackDeleteMenu(
+                    key: ValueKey('delete-track:${track.id}'),
+                    ownerType: uploadOwnerType,
+                    ownerId: profileId,
+                    trackId: track.id,
+                    onDeleted: () async {
+                      final sessions = serviceLocator<AuthSessionManager>();
+                      final session = sessions.session;
+                      final mediaCubit = context.read<ProfileMediaCubit>();
+                      if (audioHandler.mediaItem.value?.id == track.id) {
+                        try {
+                          await audioHandler.stop();
+                        } catch (_) {
+                          /* Refresh even if the player fails. */
+                        }
+                      }
+                      if (!context.mounted ||
+                          !identical(session, sessions.session)) {
+                        return;
+                      }
+                      await mediaCubit.loadMedia(
+                        profileType: uploadProfileType,
+                        profileId: profileId,
+                      );
+                    },
+                  )
+                : null,
             actionLabel: isSpotify ? "Tamamini Spotify'da Dinle" : null,
             actionColor: isSpotify ? AppColors.spotifyGreen : null,
             bottomControls: ProfileAudioTransportRow(

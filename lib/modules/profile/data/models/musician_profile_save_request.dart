@@ -36,12 +36,17 @@ class MusicianProfileSaveRequest {
     }
 
     addIfNotEmpty('stageName', stageName);
-    addIfNotEmpty('description', description);
-    addIfNotEmpty('instagramUrl', instagramUrl);
-    addIfNotEmpty('youtubeUrl', youtubeUrl);
-    addIfNotEmpty('soundcloudUrl', soundcloudUrl);
-    addIfNotEmpty('spotifyEmbedUrl', spotifyEmbedUrl);
-    addIfNotEmpty('spotifyArtistId', spotifyArtistId);
+    // Null means unchanged; an explicit empty value clears an optional field.
+    if (description != null) payload['description'] = description!.trim();
+    if (instagramUrl != null) payload['instagramUrl'] = instagramUrl!.trim();
+    if (youtubeUrl != null) payload['youtubeUrl'] = youtubeUrl!.trim();
+    if (soundcloudUrl != null) payload['soundcloudUrl'] = soundcloudUrl!.trim();
+    if (spotifyEmbedUrl != null) {
+      payload['spotifyEmbedUrl'] = spotifyEmbedUrl!.trim();
+    }
+    if (spotifyArtistId != null) {
+      payload['spotifyArtistId'] = spotifyArtistId!.trim();
+    }
     addIfNotEmpty('profilePicture', profilePicture);
 
     if (spotifyTrackIds != null) {

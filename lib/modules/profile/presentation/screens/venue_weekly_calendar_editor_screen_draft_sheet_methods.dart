@@ -128,8 +128,8 @@ extension _VenueEventDraftSheetStateMethods on _VenueEventDraftSheetState {
     final endMinutes = _endTime == null
         ? null
         : _endTime!.hour * 60 + _endTime!.minute;
-    if (endMinutes != null && endMinutes < startMinutes) {
-      _setFormError('Bitiş saati başlangıç saatinden önce olamaz.');
+    if (endMinutes != null && endMinutes <= startMinutes) {
+      _setFormError('Bitiş saati başlangıç saatinden sonra olmalı.');
       return;
     }
     _formError = null;

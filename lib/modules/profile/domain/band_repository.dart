@@ -29,11 +29,13 @@ abstract class BandRepository {
 
   Future<Result<BandSummary>> createBand({
     required String name,
+    required String expectedSessionKey,
     String? description,
   });
 
   Future<Result<BandProfile>> updateBand({
     required String bandId,
+    required String expectedSessionKey,
     String? name,
     String? description,
     String? profilePicture,
@@ -85,5 +87,8 @@ abstract class BandRepository {
     required String expectedSessionKey,
   });
 
-  Future<Result<void>> deleteBand({required String bandId});
+  Future<Result<void>> deleteBand({
+    required String bandId,
+    required String expectedSessionKey,
+  });
 }

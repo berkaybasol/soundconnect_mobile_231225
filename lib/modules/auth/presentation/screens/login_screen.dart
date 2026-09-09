@@ -11,9 +11,8 @@ import '../../../../core/deep_link/pending_app_deep_link_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../collab/presentation/collab_route_args.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/theme/app_theme_variant.dart';
-import '../../../../shared/theme/theme_controller.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/widgets/app_theme_menu_option.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../domain/password_policy.dart';
 import '../../domain/username_policy.dart';
@@ -144,9 +143,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeController = serviceLocator.isRegistered<ThemeController>()
-        ? serviceLocator<ThemeController>()
-        : ThemeController.memory();
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action != AuthAction.login) return;
@@ -204,16 +200,22 @@ class _LoginScreenState extends State<LoginScreen> {
           child: AppScaffold(
             title: '',
             actions: [
-              PopupMenuButton<AppThemeVariant>(
+              PopupMenuButton<AppThemeMenuOption>(
                 tooltip: 'Tema seç',
                 enabled: !navigationLocked,
-                initialValue: themeController.variant,
-                onSelected: themeController.setVariant,
-                itemBuilder: (_) => AppThemeVariant.values
+                initialValue: AppThemeMenuOption.dark,
+                itemBuilder: (_) => AppThemeMenuOption.values
                     .map(
-                      (variant) => PopupMenuItem<AppThemeVariant>(
-                        value: variant,
-                        child: Text(variant.label),
+                      (option) => PopupMenuItem<AppThemeMenuOption>(
+                        value: option,
+                        enabled: option.isEnabled,
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(option.label)),
+                            if (option.isSelected)
+                              const Icon(Icons.check_rounded, size: 20),
+                          ],
+                        ),
                       ),
                     )
                     .toList(),

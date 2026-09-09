@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/models/musician_profile_save_request.dart';
@@ -17,6 +22,8 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/mus
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/musician_profile_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/venue_profile_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/venue_profile_state.dart';
+
+import 'support/event_audience_fakes.dart';
 
 void main() {
   group('ListenerProfileCubit', () {
@@ -42,6 +49,21 @@ void main() {
   });
 
   group('MusicianProfileCubit', () {
+    test('logout immediately removes cached personal profile', () async {
+      final sessions = AudienceTestSessions(
+        audienceSession(user: 'musician-user-1', role: 'MUSICIAN'),
+      );
+      final cubit = MusicianProfileCubit(
+        _MusicianRepositoryFake(),
+        sessions: sessions,
+      );
+      addTearDown(cubit.close);
+      await cubit.loadMyProfile();
+      expect(cubit.state.profile, same(_musician));
+      sessions.replace(const AuthSession.guest());
+      expect(cubit.state.profile, isNull);
+      expect(cubit.state.status, MusicianProfileStatus.idle);
+    });
     test('replaces a typed failure with a later signed-in profile', () async {
       const failure = AppError(code: 'musician_failed', message: 'Unavailable');
       final repository = _MusicianRepositoryFake(
@@ -102,6 +124,21 @@ void main() {
   });
 
   group('VenueProfileCubit', () {
+    test('logout immediately removes cached private venue details', () async {
+      final sessions = AudienceTestSessions(
+        audienceSession(user: 'owner-1', role: 'VENUE'),
+      );
+      final cubit = VenueProfileCubit(
+        _VenueRepositoryFake(),
+        sessions: sessions,
+      );
+      addTearDown(cubit.close);
+      await cubit.loadOwner(venueId: 'venue-1');
+      expect(cubit.state.ownerProfile, same(_ownerVenue));
+      sessions.replace(const AuthSession.guest());
+      expect(cubit.state.ownerProfile, isNull);
+      expect(cubit.state.status, VenueProfileStatus.idle);
+    });
     test(
       'owner load forwards optional venue id and selects owner view',
       () async {
@@ -109,9 +146,9 @@ void main() {
         final cubit = VenueProfileCubit(repository);
         addTearDown(cubit.close);
 
-        await cubit.loadOwner(venueId: 'venue-9');
+        await cubit.loadOwner(venueId: 'venue-1');
 
-        expect(repository.lastOwnerVenueId, 'venue-9');
+        expect(repository.lastOwnerVenueId, 'venue-1');
         expect(cubit.state.status, VenueProfileStatus.success);
         expect(cubit.state.view, VenueProfileView.owner);
         expect(cubit.state.ownerProfile, same(_ownerVenue));
@@ -141,14 +178,145 @@ void main() {
       addTearDown(cubit.close);
       const request = VenueProfileSaveRequest(bio: 'Live music venue');
 
-      await cubit.updateOwnerProfile(request, venueId: 'venue-11');
+      await cubit.updateOwnerProfile(request, venueId: 'venue-1');
 
       expect(repository.lastUpdateRequest, same(request));
-      expect(repository.lastUpdateVenueId, 'venue-11');
+      expect(repository.lastUpdateVenueId, 'venue-1');
       expect(cubit.state.status, VenueProfileStatus.success);
       expect(cubit.state.view, VenueProfileView.owner);
       expect(cubit.state.ownerProfile, same(_ownerVenue));
     });
+
+    test('late owner response cannot replace a newer public view', () async {
+      final pending = Completer<Result<VenueOwnerProfile>>();
+      final repository = _VenueRepositoryFake()
+        ..ownerLoader = () => pending.future;
+      final cubit = VenueProfileCubit(repository);
+      addTearDown(cubit.close);
+      final owner = cubit.loadOwner(venueId: 'venue-1');
+      await cubit.loadPublic(venueId: 'venue-1');
+      pending.complete(const Result.success(_ownerVenue));
+      await owner;
+      expect(cubit.state.view, VenueProfileView.public);
+      expect(cubit.state.publicProfile, same(_publicVenue));
+      expect(cubit.state.ownerProfile, isNull);
+    });
+
+    test(
+      'another venue clears cached data and rejects mismatched responses',
+      () async {
+        final cubit = VenueProfileCubit(_VenueRepositoryFake());
+        addTearDown(cubit.close);
+        await cubit.loadOwner(venueId: 'venue-1');
+        final load = cubit.loadOwner(venueId: 'venue-other');
+        expect(cubit.state.ownerProfile, isNull);
+        await load;
+        expect(cubit.state.status, VenueProfileStatus.failure);
+        expect(cubit.state.error?.code, 'venue_profile_identity');
+      },
+    );
+
+    test('load after close and completion after close do not emit', () async {
+      final pending = Completer<Result<VenuePublicProfile>>();
+      final repository = _VenueRepositoryFake()
+        ..publicLoader = () => pending.future;
+      final cubit = VenueProfileCubit(repository);
+      final load = cubit.loadPublic(venueId: 'venue-1');
+      await cubit.close();
+      pending.complete(const Result.success(_publicVenue));
+      await load;
+      await cubit.loadOwner(venueId: 'ignored');
+      expect(repository.lastOwnerVenueId, isNull);
+    });
+
+    test(
+      'unexpected repository error is recoverable and clears private cache',
+      () async {
+        final repository = _VenueRepositoryFake();
+        final cubit = VenueProfileCubit(repository);
+        addTearDown(cubit.close);
+        await cubit.loadOwner(venueId: 'venue-1');
+        repository.ownerLoader = () => Future.error(StateError('network'));
+        await cubit.loadOwner(venueId: 'venue-1');
+        expect(cubit.state.status, VenueProfileStatus.failure);
+        expect(cubit.state.ownerProfile, isNull);
+        repository.ownerLoader = null;
+        await cubit.loadOwner(venueId: 'venue-1');
+        expect(cubit.state.status, VenueProfileStatus.success);
+      },
+    );
+
+    test(
+      'duplicate save is rejected and refresh waits for the write',
+      () async {
+        final pending = Completer<Result<VenueOwnerProfile>>();
+        final repository = _VenueRepositoryFake()
+          ..updater = () => pending.future;
+        final cubit = VenueProfileCubit(repository);
+        addTearDown(cubit.close);
+        const request = VenueProfileSaveRequest(bio: 'changed');
+        final write = cubit.updateOwnerProfile(request, venueId: 'venue-1');
+        final duplicate = await cubit.updateOwnerProfile(
+          request,
+          venueId: 'venue-1',
+        );
+        expect(duplicate.error?.code, 'venue_profile_busy');
+        final refresh = cubit.loadOwner(venueId: 'venue-1');
+        expect(repository.lastOwnerVenueId, isNull);
+        pending.complete(const Result.success(_ownerVenue));
+        expect((await write).isSuccess, isTrue);
+        await refresh;
+        expect(repository.updateCalls, 1);
+        expect(repository.lastOwnerVenueId, 'venue-1');
+        expect(cubit.state.status, VenueProfileStatus.success);
+      },
+    );
+
+    test('failed save returns failure to its UI caller', () async {
+      const failure = AppError(code: 'forbidden', message: 'Yetki yok');
+      final repository = _VenueRepositoryFake()
+        ..updater = () async => const Result.failure(failure);
+      final cubit = VenueProfileCubit(repository);
+      addTearDown(cubit.close);
+      final result = await cubit.updateOwnerProfile(
+        const VenueProfileSaveRequest(profilePicture: 'photo'),
+        venueId: 'venue-1',
+      );
+      expect(result.isSuccess, isFalse);
+      expect(result.error, same(failure));
+      expect(cubit.state.status, VenueProfileStatus.failure);
+    });
+
+    test(
+      'account switch discards late response and rejects stale editor',
+      () async {
+        await serviceLocator.reset();
+        addTearDown(serviceLocator.reset);
+        final sessions = AudienceTestSessions(
+          audienceSession(user: 'owner-1', role: 'ROLE_VENUE'),
+        );
+        serviceLocator.registerSingleton<AuthSessionManager>(sessions);
+        final pending = Completer<Result<VenueOwnerProfile>>();
+        final repository = _VenueRepositoryFake()
+          ..ownerLoader = () => pending.future;
+        final cubit = VenueProfileCubit(repository);
+        addTearDown(cubit.close);
+        final load = cubit.loadOwner(venueId: 'venue-1');
+        sessions.replace(
+          audienceSession(user: 'other-owner', role: 'ROLE_VENUE'),
+        );
+        pending.complete(const Result.success(_ownerVenue));
+        await load;
+        expect(cubit.state.ownerProfile, isNull);
+        final save = await cubit.updateOwnerProfile(
+          const VenueProfileSaveRequest(bio: 'old account edit'),
+          venueId: 'venue-1',
+          expectedSessionKey: 'owner-1',
+        );
+        expect(save.error?.code, 'venue_profile_stale');
+        expect(repository.updateCalls, 0);
+      },
+    );
   });
 }
 
@@ -301,6 +469,10 @@ class _VenueRepositoryFake implements VenueProfileRepository {
   String? lastPublicVenueId;
   String? lastUpdateVenueId;
   VenueProfileSaveRequest? lastUpdateRequest;
+  Future<Result<VenueOwnerProfile>> Function()? ownerLoader;
+  Future<Result<VenuePublicProfile>> Function()? publicLoader;
+  Future<Result<VenueOwnerProfile>> Function()? updater;
+  int updateCalls = 0;
 
   @override
   Future<Result<List<VenueProfileSummary>>> getMyVenueProfiles() async =>
@@ -311,7 +483,7 @@ class _VenueRepositoryFake implements VenueProfileRepository {
     String? venueId,
   }) async {
     lastOwnerVenueId = venueId;
-    return ownerResult;
+    return ownerLoader?.call() ?? ownerResult;
   }
 
   @override
@@ -319,7 +491,7 @@ class _VenueRepositoryFake implements VenueProfileRepository {
     String? venueId,
   }) async {
     lastPublicVenueId = venueId;
-    return publicResult;
+    return publicLoader?.call() ?? publicResult;
   }
 
   @override
@@ -329,6 +501,7 @@ class _VenueRepositoryFake implements VenueProfileRepository {
   }) async {
     lastUpdateRequest = request;
     lastUpdateVenueId = venueId;
-    return updateResult;
+    updateCalls++;
+    return updater?.call() ?? updateResult;
   }
 }

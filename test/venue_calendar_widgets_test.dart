@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
@@ -15,6 +16,41 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/v
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/venue_weekly_calendar_editor_screen.dart';
 
 void main() {
+  testWidgets('zero-duration event is rejected before calling repository', (
+    tester,
+  ) async {
+    final repository = _FakeVenueEventRepository();
+    await _openVenueDraft(tester, repository);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Etkinlik başlığı'),
+      'Akustik Set',
+    );
+    tester.testTextInput.hide();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    for (final label in ['Başlangıç', 'Bitiş']) {
+      final field = find.text(label);
+      await tester.ensureVisible(field);
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+      final pickers = tester
+          .widgetList<CupertinoPicker>(find.byType(CupertinoPicker))
+          .toList();
+      pickers[0].onSelectedItemChanged!(20);
+      pickers[1].onSelectedItemChanged!(0);
+      await tester.pump();
+      await tester.tap(find.text('Saati Seç'));
+      await tester.pumpAndSettle();
+    }
+    await _submitVenueDraft(tester);
+    expect(repository.createCalls, 0);
+    expect(
+      find.text('Bitiş saati başlangıç saatinden sonra olmalı.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'draft explains future visibility and clears notice for this week',
     (tester) async {

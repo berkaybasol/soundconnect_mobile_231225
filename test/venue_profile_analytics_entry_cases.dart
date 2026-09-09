@@ -147,7 +147,7 @@ class _VenueOwnerSession extends Fake
     with ChangeNotifier
     implements AuthSessionManager {
   @override
-  AuthSession get session => AuthSession.authenticated(
+  final AuthSession session = AuthSession.authenticated(
     token: 'owner-test-token',
     userId: 'owner',
     username: 'owner',

@@ -30,7 +30,7 @@ void main() {
     final h = await _mount(tester);
     expect(find.text('Nabız'), findsNothing);
     expect(find.text('Keşfet'), findsOneWidget);
-    expect(find.byIcon(Icons.travel_explore_outlined), findsOneWidget);
+    expect(find.image(const AssetImage('assets/music-note.png')), findsWidgets);
     await tester.tap(find.text('Keşfet'));
     await tester.pumpAndSettle();
     expect(find.text('Discovery destination'), findsOneWidget);
@@ -232,6 +232,12 @@ Future<_Harness> _mount(
   int currentIndex = 4,
   FutureOr<bool> Function()? before,
 }) async {
+  if (stage == StageMode.backstage &&
+      !GetIt.instance.isRegistered<AuthSessionManager>()) {
+    GetIt.instance.registerSingleton<AuthSessionManager>(
+      AudienceTestSessions(audienceSession(role: 'ROLE_MUSICIAN')),
+    );
+  }
   tester.view.physicalSize = const Size(420, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);

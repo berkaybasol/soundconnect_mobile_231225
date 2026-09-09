@@ -46,6 +46,7 @@ class ListenerProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenerProfileTheme(
+      inheritAppTheme: true,
       child: BlocProvider(
         create: (_) =>
             (cubitFactory?.call() ?? serviceLocator<ListenerProfileCubit>())
@@ -946,11 +947,14 @@ PreferredSizeWidget _listenerOwnerAppBar(
             onSettings: onSettings,
           );
         },
-        icon: Image.asset(
-          'assets/logo.png',
-          width: 28,
-          height: 28,
-          fit: BoxFit.contain,
+        icon: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/logo.png',
+            width: 34,
+            height: 34,
+            fit: BoxFit.cover,
+          ),
         ),
       ),
       const SizedBox(width: 4),

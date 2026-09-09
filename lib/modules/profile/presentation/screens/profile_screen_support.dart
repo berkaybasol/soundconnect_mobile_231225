@@ -277,7 +277,7 @@ class ProfileScreenLoadCoordinator {
     if (profileId.isEmpty || _mediaProfileId == profileId) return;
     _mediaProfileId = profileId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       context.read<ProfileMediaCubit>().loadMedia(
         profileType: profileType.apiValue,
         profileId: profileId,
@@ -293,7 +293,7 @@ class ProfileScreenLoadCoordinator {
     if (userId.isEmpty || _followUserId == userId) return;
     _followUserId = userId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       context.read<FollowCountCubit>().loadCounts(userId);
     });
   }
@@ -306,7 +306,7 @@ class ProfileScreenLoadCoordinator {
     if (profileId.isEmpty || _venueProfileId == profileId) return;
     _venueProfileId = profileId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       context.read<ArtistVenueConnectionsCubit>().loadAcceptedVenues(profileId);
     });
   }
@@ -324,7 +324,7 @@ class ProfileScreenLoadCoordinator {
     if (_followStatusKey == nextKey) return;
     _followStatusKey = nextKey;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       context.read<FollowActionCubit>().loadStatus(
         followerId: followerId,
         followingId: followingId,

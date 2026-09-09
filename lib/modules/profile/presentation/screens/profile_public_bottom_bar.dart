@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
@@ -25,6 +26,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
   final int currentIndex;
   final String? profileImageUrl;
   final StageMode stageMode;
+  final int? mainstageCurrentIndex;
   final bool profileTapAlwaysOpensOwnProfile;
   final FutureOr<bool> Function()? onBeforeNavigate;
 
@@ -33,6 +35,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
     this.currentIndex = 4,
     this.profileImageUrl,
     this.stageMode = StageMode.backstage,
+    this.mainstageCurrentIndex,
     this.profileTapAlwaysOpensOwnProfile = false,
     this.onBeforeNavigate,
   });
@@ -61,6 +64,13 @@ class ProfilePublicBottomBar extends StatelessWidget {
     return ColorFiltered(
       colorFilter: ColorFilter.mode(tint, BlendMode.srcIn),
       child: Image.asset(assetName, width: 22, height: 22),
+    );
+  }
+
+  Widget _discoveryIcon(BuildContext context) {
+    return ImageFiltered(
+      imageFilter: ui.ImageFilter.dilate(radiusX: 0.35, radiusY: 0.35),
+      child: _assetIcon(context, 'assets/music-note.png'),
     );
   }
 
@@ -96,8 +106,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
   ) {
     return [
       BottomNavigationBarItem(
-        icon: Icon(Icons.travel_explore_outlined),
-        activeIcon: Icon(Icons.travel_explore),
+        icon: _discoveryIcon(context),
+        activeIcon: _discoveryIcon(context),
         label: 'Keşfet',
       ),
       BottomNavigationBarItem(
@@ -202,11 +212,23 @@ class ProfilePublicBottomBar extends StatelessWidget {
   Future<void> _openProfileForCurrentRole(BuildContext context) async {
     final current = _navigationFence(context);
     if (!context.mounted || !current()) return;
-    final token = await serviceLocator<TokenStore>().readToken();
+    final manager = serviceLocator.isRegistered<AuthSessionManager>()
+        ? serviceLocator<AuthSessionManager>()
+        : null;
+    // The live session is authoritative; storage can still contain a token
+    // from the account that is being replaced.
+    final List<String> currentRoles;
+    if (manager != null) {
+      currentRoles = manager.session.isAuthenticated && manager.session.isActive
+          ? manager.session.roles
+          : const [];
+    } else {
+      currentRoles = _rolesFromToken(
+        await serviceLocator<TokenStore>().readToken(),
+      );
+    }
     if (!context.mounted || !current()) return;
-    final roles = _rolesFromToken(
-      token,
-    ).map((role) => role.trim().toUpperCase()).toSet();
+    final roles = currentRoles.map((role) => role.trim().toUpperCase()).toSet();
     if (roles.contains('ROLE_STUDIO') || roles.contains('STUDIO')) {
       replaceProfileBottomNavigationRoute(context, AppRoutes.studioProfile);
       return;
@@ -337,7 +359,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   _MainstageLauncherTile(
-                    icon: Icons.travel_explore_outlined,
+                    assetName: 'assets/music-note.png',
                     label: 'Keşfet',
                     description: 'Konumuna göre canlı müzik etkinliklerini bul',
                     enabled: true,
@@ -389,7 +411,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
   Future<void> _handleMainstageTap(BuildContext context, int index) async {
     final current = _navigationFence(context);
     if (!context.mounted || !current()) return;
-    if (index == currentIndex &&
+    if (index == (mainstageCurrentIndex ?? currentIndex) &&
         !(index == 4 && profileTapAlwaysOpensOwnProfile)) {
       return;
     }
@@ -425,6 +447,22 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final manager = serviceLocator.isRegistered<AuthSessionManager>()
+        ? serviceLocator<AuthSessionManager>()
+        : null;
+    if (manager == null) return _buildForViewer(context, null);
+    return AnimatedBuilder(
+      animation: manager,
+      builder: (context, _) => _buildForViewer(context, manager),
+    );
+  }
+
+  Widget _buildForViewer(BuildContext context, AuthSessionManager? manager) {
+    final session = manager?.session;
+    final effectiveStage = StageModeResolver.forViewer(
+      session,
+      requested: stageMode,
+    );
     final resolvedProfileImageUrl = (profileImageUrl?.trim().isNotEmpty == true)
         ? profileImageUrl!.trim()
         : ProfileBottomBarAvatarCache.lastProfileImageUrl;
@@ -436,13 +474,18 @@ class ProfilePublicBottomBar extends StatelessWidget {
       child: BlocBuilder<DmBadgeCubit, DmBadgeState>(
         builder: (context, state) {
           return BottomNavigationBar(
-            currentIndex: currentIndex,
+            currentIndex: effectiveStage == StageMode.mainstage
+                ? mainstageCurrentIndex ?? currentIndex
+                : currentIndex,
             type: BottomNavigationBarType.fixed,
             backgroundColor: AppColors.navBlueDeep,
             selectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
             unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
             onTap: (index) {
-              if (stageMode == StageMode.mainstage) {
+              if (manager != null && !identical(manager.session, session)) {
+                return;
+              }
+              if (effectiveStage == StageMode.mainstage) {
                 unawaited(_handleMainstageTap(context, index));
                 return;
               }
@@ -450,7 +493,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
                 _handleBackstageTap(context, index, resolvedProfileImageUrl),
               );
             },
-            items: stageMode == StageMode.mainstage
+            items: effectiveStage == StageMode.mainstage
                 ? _mainstageItems(context, state)
                 : _backstageItems(context, state),
           );

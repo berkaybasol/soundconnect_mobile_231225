@@ -156,27 +156,30 @@ void main() {
       expect(repository.lastProfileId, 'profile-7');
     });
 
-    test('replaces a prior success with the typed failure', () async {
-      const media = ProfileMedia(
-        featuredVideo: null,
-        videos: <MediaAssetModel>[],
-        audios: <TrackModel>[],
-      );
-      const error = AppError(code: 'offline', message: 'Offline');
-      final repository = _ProfileMediaRepositoryFake(
-        response: const Result.success(media),
-      );
-      final cubit = ProfileMediaCubit(repository);
-      addTearDown(cubit.close);
-      await cubit.loadMedia(profileType: 'BAND', profileId: 'band-1');
+    test(
+      'clears stale media when a refresh fails and preserves the typed error',
+      () async {
+        const media = ProfileMedia(
+          featuredVideo: null,
+          videos: <MediaAssetModel>[],
+          audios: <TrackModel>[],
+        );
+        const error = AppError(code: 'offline', message: 'Offline');
+        final repository = _ProfileMediaRepositoryFake(
+          response: const Result.success(media),
+        );
+        final cubit = ProfileMediaCubit(repository);
+        addTearDown(cubit.close);
+        await cubit.loadMedia(profileType: 'BAND', profileId: 'band-1');
 
-      repository.response = const Result.failure(error);
-      await cubit.loadMedia(profileType: 'BAND', profileId: 'band-1');
+        repository.response = const Result.failure(error);
+        await cubit.loadMedia(profileType: 'BAND', profileId: 'band-1');
 
-      expect(cubit.state.status, ProfileMediaStatus.failure);
-      expect(cubit.state.error, same(error));
-      expect(cubit.state.media, same(media));
-    });
+        expect(cubit.state.status, ProfileMediaStatus.failure);
+        expect(cubit.state.error, same(error));
+        expect(cubit.state.media, isNull);
+      },
+    );
   });
 }
 

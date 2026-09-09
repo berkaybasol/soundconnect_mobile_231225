@@ -32,7 +32,6 @@ void main() {
     double width = 390,
     double height = 844,
     double scale = 1,
-    Brightness brightness = Brightness.dark,
     ValueChanged<RouteSettings>? onRoute,
     bool settle = true,
     GlobalKey? boundaryKey,
@@ -43,7 +42,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: brightness == Brightness.dark ? AppTheme.navy : AppTheme.light,
+        theme: AppTheme.navy,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -570,26 +569,24 @@ void main() {
     });
   }
 
-  for (final brightness in Brightness.values) {
-    for (final scale in [1.0, 2.0]) {
-      testWidgets('long and short names fit at 320dp, $scale, $brightness', (
-        tester,
-      ) async {
-        repository.respond = (call) => _success([
-          _item('A', kind: call.kind),
-          _item(
-            'Dolu Kadehi Ters Tut ve Çok Uzun Bir Sanatçı veya Grup İsmi',
-            kind: call.kind,
-          ),
-        ]);
-        await open(tester, width: 320, scale: scale, brightness: brightness);
-        expect(tester.takeException(), isNull);
-        await tester.tap(find.text('Gruplar'));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        expect(find.text('A'), findsOneWidget);
-      });
-    }
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('long and short names fit at 320dp, $scale, navy', (
+      tester,
+    ) async {
+      repository.respond = (call) => _success([
+        _item('A', kind: call.kind),
+        _item(
+          'Dolu Kadehi Ters Tut ve Çok Uzun Bir Sanatçı veya Grup İsmi',
+          kind: call.kind,
+        ),
+      ]);
+      await open(tester, width: 320, scale: scale);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Gruplar'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('A'), findsOneWidget);
+    });
   }
 
   if (const bool.fromEnvironment('VENUE_ARTISTS_PREVIEW')) {

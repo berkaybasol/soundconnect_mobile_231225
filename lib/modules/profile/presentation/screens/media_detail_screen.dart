@@ -26,8 +26,8 @@ class MediaDetailScreen extends StatefulWidget {
   final int? durationSeconds;
   final String? targetType;
   final String? targetId;
-  final int likeCount;
-  final int commentCount;
+  final int? likeCount;
+  final int? commentCount;
   final bool isSpotify;
 
   MediaDetailScreen({
@@ -131,9 +131,12 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                     .state
                     .items['$targetType:$targetId']
               : null;
-          final resolvedLikeCount = stats?.likeCount ?? widget.likeCount;
-          final resolvedCommentCount =
-              stats?.commentCount ?? widget.commentCount;
+          final resolvedLikeCount = stats == null
+              ? widget.likeCount
+              : stats.visibleLikeCount;
+          final resolvedCommentCount = stats == null
+              ? widget.commentCount
+              : stats.visibleCommentCount;
           final resolvedIsLiked = stats?.isLiked ?? false;
           final likeLoading = stats?.loading ?? false;
 

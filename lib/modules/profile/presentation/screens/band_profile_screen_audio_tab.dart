@@ -34,6 +34,7 @@ class _BandAudioTab extends StatelessWidget {
         final position = snapshot.data ?? Duration.zero;
         final currentId = audioHandler.mediaItem.value?.id;
         final isPlaying = audioHandler.playbackState.value.playing;
+        final statsState = context.watch<InteractionStatsCubit>().state;
 
         return ListView(
           padding: EdgeInsets.all(20),
@@ -126,9 +127,7 @@ class _BandAudioTab extends StatelessWidget {
                 ),
               )
             else
-              ...items.asMap().entries.map((entry) {
-                final index = entry.key;
-                final track = entry.value;
+              ...items.map((track) {
                 final trackId = track.id?.toString() ?? '';
                 final playback = track.playbackUrl?.toString() ?? '';
                 final isSpotify =
@@ -148,8 +147,16 @@ class _BandAudioTab extends StatelessWidget {
                 final progress = totalMs > 0
                     ? (position.inMilliseconds / totalMs).clamp(0.0, 1.0)
                     : 0.0;
-                final fallbackLikeCount = 128 + (index * 7);
-                final fallbackCommentCount = 32 + (index * 3);
+                final targetId = track.mediaAssetId?.toString().trim() ?? '';
+                final statsKey = 'MEDIA:$targetId';
+                if (targetId.isNotEmpty &&
+                    !statsState.items.containsKey(statsKey)) {
+                  context.read<InteractionStatsCubit>().load(
+                    targetType: 'MEDIA',
+                    targetId: targetId,
+                  );
+                }
+                final stats = statsState.items[statsKey];
 
                 return Padding(
                   padding: EdgeInsets.only(bottom: 12),
@@ -241,8 +248,8 @@ class _BandAudioTab extends StatelessWidget {
                       ),
                       SizedBox(height: 6),
                       ProfileCountRow(
-                        likeCount: fallbackLikeCount,
-                        commentCount: fallbackCommentCount,
+                        likeCount: stats?.visibleLikeCount,
+                        commentCount: stats?.visibleCommentCount,
                         isLiked: false,
                         onLikeTap: null,
                         onCommentTap: null,

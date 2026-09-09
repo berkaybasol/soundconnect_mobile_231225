@@ -48,6 +48,7 @@ class ProfileAudioPreviewCard extends StatefulWidget {
   final VoidCallback? onDoubleTap;
   final Widget waveform;
   final Widget? bottomControls;
+  final Widget? trailing;
   final double ringSize;
 
   ProfileAudioPreviewCard({
@@ -60,6 +61,7 @@ class ProfileAudioPreviewCard extends StatefulWidget {
     this.onActionTap,
     this.onDoubleTap,
     this.bottomControls,
+    this.trailing,
     this.ringSize = 64,
   });
 
@@ -149,14 +151,27 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  widget.title,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: widget.trailing == null ? 0 : 34,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: widget.trailing == null ? 0 : 24,
+                    ),
+                    child: Center(
+                      heightFactor: 1,
+                      child: Text(
+                        widget.title,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 if (widget.actionLabel != null) ...[
@@ -186,6 +201,8 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
               ],
             ),
           ),
+          if (widget.trailing != null)
+            PositionedDirectional(top: 0, end: 0, child: widget.trailing!),
           IgnorePointer(
             child: AnimatedBuilder(
               animation: _heartController,

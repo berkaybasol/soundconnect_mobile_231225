@@ -303,8 +303,22 @@ void main() {
         const Key('event-share-target-instagramStory'),
       );
       if (instagram.evaluate().isNotEmpty) {
-        expect(tester.getSize(instagram).height, tester.getSize(target).height);
-        expect(tester.getRect(instagram).top, tester.getRect(target).top);
+        final stacked = find
+            .byKey(const Key('event-share-targets-column'))
+            .evaluate()
+            .isNotEmpty;
+        if (stacked) {
+          expect(
+            tester.getRect(target).top,
+            greaterThan(tester.getRect(instagram).bottom),
+          );
+        } else {
+          expect(
+            tester.getSize(instagram).height,
+            tester.getSize(target).height,
+          );
+          expect(tester.getRect(instagram).top, tester.getRect(target).top);
+        }
       }
       expect(tester.takeException(), isNull);
       await tester.tap(target);

@@ -15,6 +15,17 @@ enum EventAudienceStatus {
 
 enum EventAudiencePeriod { upcoming, past, all }
 
+class EventAudienceEngagement {
+  const EventAudienceEngagement({
+    required this.likeCount,
+    required this.commentCount,
+    required this.likedByMe,
+  });
+  final int likeCount;
+  final int commentCount;
+  final bool likedByMe;
+}
+
 extension EventAudiencePeriodWire on EventAudiencePeriod {
   String get wireValue => name.toUpperCase();
 }
@@ -34,6 +45,7 @@ class EventAudienceState {
     required this.canPublish,
     required this.publicationVisible,
     required this.event,
+    this.engagement,
   });
 
   final String eventId;
@@ -52,6 +64,7 @@ class EventAudienceState {
   final bool canPublish;
   final bool publicationVisible;
   final VenueEventDetail? event;
+  final EventAudienceEngagement? engagement;
 }
 
 class EventAudiencePost {
@@ -63,6 +76,8 @@ class EventAudiencePost {
     required this.publishedAt,
     required this.eventEnded,
     required this.event,
+    this.engagement,
+    this.viewerIntentState,
   });
   final String eventId;
   final String postId;
@@ -71,6 +86,8 @@ class EventAudiencePost {
   final DateTime publishedAt;
   final bool eventEnded;
   final VenueEventDetail event;
+  final EventAudienceEngagement? engagement;
+  final EventAudienceState? viewerIntentState;
 }
 
 class EventAudiencePage<T> {

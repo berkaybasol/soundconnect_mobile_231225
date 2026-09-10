@@ -3,11 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../profile/presentation/screens/account_profile_settings_section.dart';
 import '../../domain/username_policy.dart';
+import '../../domain/account_deletion_repository.dart';
+import 'listener_account_deletion_dialog.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
@@ -24,6 +27,31 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   final _usernameController = TextEditingController();
   String _currentUsername = '';
   bool _editingUsername = false;
+  bool _deletingAccount = false;
+
+  Future<void> _deleteAccount() async {
+    final sessions = serviceLocator<AuthSessionManager>();
+    final expected = sessions.session;
+    if (_deletingAccount || !canDeleteListenerAccount(expected)) return;
+    setState(() => _deletingAccount = true);
+    final navigator = Navigator.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ListenerAccountDeletionDialog(
+        repository: serviceLocator<AccountDeletionRepository>(),
+        sessions: sessions,
+      ),
+    );
+    if (!mounted) return;
+    if (confirmed == true && identical(sessions.session, expected)) {
+      await sessions.logout();
+      if (navigator.mounted && !sessions.session.isAuthenticated) {
+        navigator.pushNamedAndRemoveUntil<void>(AppRoutes.login, (_) => false);
+      }
+    }
+    if (mounted) setState(() => _deletingAccount = false);
+  }
 
   @override
   void initState() {
@@ -451,6 +479,14 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                           key: const Key(
                             'account-settings-delete-account-reminder',
                           ),
+                          onTap:
+                              !_deletingAccount &&
+                                  canDeleteListenerAccount(
+                                    serviceLocator<AuthSessionManager>()
+                                        .session,
+                                  )
+                              ? _deleteAccount
+                              : null,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 4,
                           ),
@@ -475,12 +511,24 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                             ),
                           ),
                           subtitle: Text(
-                            'Hesap silme özelliği yakında',
+                            canDeleteListenerAccount(
+                                  serviceLocator<AuthSessionManager>().session,
+                                )
+                                ? 'Hesabını ve kişisel verilerini kalıcı olarak sil'
+                                : 'Hesap silme özelliği yakında',
                             style: TextStyle(
                               color: _dangerRed.withValues(alpha: 0.78),
                             ),
                           ),
-                          trailing: _soonBadge(context, color: _dangerRed),
+                          trailing:
+                              canDeleteListenerAccount(
+                                serviceLocator<AuthSessionManager>().session,
+                              )
+                              ? const Icon(
+                                  Icons.chevron_right,
+                                  color: _dangerRed,
+                                )
+                              : _soonBadge(context, color: _dangerRed),
                         ),
                         const SizedBox(height: 8),
                       ],

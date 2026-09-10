@@ -17,7 +17,10 @@ class ListenerPublicProfileContent extends StatelessWidget {
     required this.onPlaylistTap,
     this.onFollow,
     this.onMessage,
+    this.posts,
+    this.postsAreSlivers = false,
     this.eventPosts,
+    this.overthinkingPosts,
   });
 
   final ListenerPublicProfile profile;
@@ -28,6 +31,9 @@ class ListenerPublicProfileContent extends StatelessWidget {
   final VoidCallback? onFollow;
   final VoidCallback? onMessage;
   final Widget? eventPosts;
+  final Widget? posts;
+  final bool postsAreSlivers;
+  final Widget? overthinkingPosts;
 
   @override
   Widget build(BuildContext context) {
@@ -49,60 +55,102 @@ class ListenerPublicProfileContent extends StatelessWidget {
     );
     final username = normalizedUsername.isEmpty ? '—' : normalizedUsername;
 
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        key: const Key('listener-public-standard-content'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 34),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ListenerProfileHeader(
-                    username: username,
-                    imageUrl: profile.profilePictureUrl,
-                    followerCount: profile.followerCount,
-                    followingCount: profile.followingCount,
-                    bio: profile.bio?.trim() ?? '',
-                    actionButtons: onFollow != null || onMessage != null
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 32),
-                            child: _PublicProfileActions(
-                              isFollowing: isFollowing,
-                              followBusy: followBusy,
-                              onFollow: onFollow,
-                              onMessage: onMessage,
+    final content = <Widget>[
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ListenerProfileHeader(
+                username: username,
+                imageUrl: profile.profilePictureUrl,
+                followerCount: profile.followerCount,
+                followingCount: profile.followingCount,
+                bio: profile.bio?.trim() ?? '',
+                actionButtons: onFollow != null || onMessage != null
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: _PublicProfileActions(
+                          isFollowing: isFollowing,
+                          followBusy: followBusy,
+                          onFollow: onFollow,
+                          onMessage: onMessage,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              if (profile.playlists.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                ListenerPlaylistSection(
+                  playlists: profile.playlists,
+                  onPlaylistTap: onPlaylistTap,
+                ),
+              ],
+              if (posts != null ||
+                  eventPosts != null ||
+                  overthinkingPosts != null)
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                      child: ListenerProfileTheme(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              'Paylaşımlar',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  if (profile.playlists.isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    ListenerPlaylistSection(
-                      playlists: profile.playlists,
-                      onPlaylistTap: onPlaylistTap,
-                    ),
-                  ],
-                  if (eventPosts != null)
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 460),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                          child: ListenerProfileTheme(child: eventPosts!),
+                            const SizedBox(height: 12),
+                            if (posts != null && !postsAreSlivers) posts!,
+                            if (eventPosts != null) eventPosts!,
+                            if (overthinkingPosts != null) overthinkingPosts!,
+                          ],
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
+                  ),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
+    ];
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: postsAreSlivers
+          ? CustomScrollView(
+              key: const Key('listener-public-standard-content'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverList.list(children: content),
+                if (posts != null)
+                  SliverLayoutBuilder(
+                    builder: (context, constraints) {
+                      final outer = (constraints.crossAxisExtent - 460) / 2;
+                      return SliverPadding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: (outer > 0 ? outer : 0) + 20,
+                        ),
+                        sliver: ListenerProfileTheme(child: posts!),
+                      );
+                    },
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 34)),
+              ],
+            )
+          : ListView(
+              key: const Key('listener-public-standard-content'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 34),
+              children: content,
+            ),
     );
   }
 }

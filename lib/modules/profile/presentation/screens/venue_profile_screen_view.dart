@@ -11,6 +11,7 @@ class _MusicianPublicProfileView extends StatefulWidget {
 class _MusicianPublicProfileViewState
     extends State<_MusicianPublicProfileView> {
   String? _ownerVenueId;
+  bool _routeInitialized = false;
   bool _openIncomingApplicationsOnLoad = false;
   bool _incomingApplicationsOpened = false;
   final _loadCoordinator = ProfileScreenLoadCoordinator();
@@ -46,6 +47,10 @@ class _MusicianPublicProfileViewState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_routeInitialized) return;
+    // A missing venue ID selects the current owner's venue. It is not an
+    // initialization marker: opening a modal also changes route dependencies.
+    _routeInitialized = true;
     if (_ownerVenueId == null) {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is VenueProfileArgs) {

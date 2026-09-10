@@ -131,6 +131,7 @@ class DioApiClient implements ApiClient {
 
   static const String _requestTokenKey = 'soundconnect.request_token';
   static const String _expectedSessionKey = 'soundconnect.expected_session_key';
+  static const String _expectedTokenKey = 'soundconnect.expected_token';
   static const String _requireGuestSessionKey =
       'soundconnect.require_guest_session';
 
@@ -159,8 +160,26 @@ class DioApiClient implements ApiClient {
               options.extra[_expectedSessionKey]?.toString().trim() ?? '';
           final requireGuestSession =
               options.extra[_requireGuestSessionKey] == true;
-          if (!isPublic || expectedSession.isNotEmpty || requireGuestSession) {
+          final expectedToken = options.extra[_expectedTokenKey] as String?;
+          if (!isPublic ||
+              expectedSession.isNotEmpty ||
+              requireGuestSession ||
+              expectedToken != null) {
             final token = await _tokenStore.readToken();
+            if (expectedToken != null &&
+                (token != expectedToken ||
+                    (_sessionManager != null &&
+                        _sessionManager.session.token != expectedToken))) {
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  type: DioExceptionType.cancel,
+                  error: const ApiSessionFenceException(),
+                  message: 'Session token changed before dispatch',
+                ),
+              );
+              return;
+            }
             if (requireGuestSession &&
                 (expectedSession.isNotEmpty ||
                     token?.trim().isNotEmpty == true ||
@@ -316,6 +335,8 @@ class DioApiClient implements ApiClient {
           extra: <String, Object?>{
             if (requestContext?.expectedSessionKey case final value?)
               _expectedSessionKey: value,
+            if (requestContext?.expectedToken case final value?)
+              _expectedTokenKey: value,
             if (requestContext?.requireGuestSession == true)
               _requireGuestSessionKey: true,
           },

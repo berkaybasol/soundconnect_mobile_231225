@@ -11,6 +11,7 @@ class DmConversationPreview {
   final DateTime? lastMessageAt;
   final bool? lastMessageRead;
   final ListenerVisibilityMode otherUserVisibilityMode;
+  final bool otherUserDeleted;
 
   const DmConversationPreview({
     required this.conversationId,
@@ -23,7 +24,9 @@ class DmConversationPreview {
     required this.lastMessageAt,
     required this.lastMessageRead,
     this.otherUserVisibilityMode = ListenerVisibilityMode.standard,
+    this.otherUserDeleted = false,
   });
 
-  bool get isOtherUserGhost => otherUserVisibilityMode.isGhost;
+  bool get isOtherUserGhost =>
+      !otherUserDeleted && otherUserVisibilityMode.isGhost;
 }

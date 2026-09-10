@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
@@ -5,20 +6,74 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/pagination/page.dart';
 import '../domain/entities/overthinking_post.dart';
 import '../domain/entities/overthinking_reveal_request.dart';
+import '../domain/entities/overthinking_incoming_unread_status.dart';
 import '../domain/overthinking_repository.dart';
+import '../domain/overthinking_feed_sort.dart';
 import 'models/overthinking_post_model.dart';
 import 'models/overthinking_reveal_request_model.dart';
 import 'overthinking_endpoints.dart';
 
 class OverthinkingRepositoryImpl implements OverthinkingRepository {
   final ApiClient _apiClient;
+  final AuthSessionManager? _sessions;
 
-  OverthinkingRepositoryImpl(this._apiClient);
+  OverthinkingRepositoryImpl(this._apiClient, {AuthSessionManager? sessions})
+    : _sessions = sessions;
+
+  static const _sessionError = AppError(
+    code: 'overthinking_session_changed',
+    message: 'Oturum değişti. Overthinking sayfasını yeniden aç.',
+  );
+
+  Future<T> _request<T>(
+    ApiHttpMethod method,
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+    T Function(Object?)? decoder,
+    bool publicRead = false,
+  }) async {
+    final session = _sessions?.session;
+    bool current() =>
+        _sessions == null || identical(_sessions.session, session);
+    if (_sessions != null &&
+        !publicRead &&
+        (session?.isAuthenticated != true ||
+            session?.isActive != true ||
+            session?.userId?.trim().isNotEmpty != true ||
+            session?.requiresListenerProfileChoice == true)) {
+      throw ApiException(_sessionError);
+    }
+    try {
+      final result = await _apiClient.request<T>(
+        method,
+        path,
+        body: body,
+        query: query,
+        decoder: decoder,
+        requestContext: session == null
+            ? null
+            : ApiRequestContext(
+                expectedSessionKey: session.isAuthenticated
+                    ? session.userId
+                    : null,
+                expectedToken: session.isAuthenticated ? session.token : null,
+                requireGuestSession: !session.isAuthenticated,
+              ),
+      );
+      if (!current()) throw ApiException(_sessionError);
+      return result;
+    } catch (_) {
+      if (!current()) throw ApiException(_sessionError);
+      rethrow;
+    }
+  }
 
   @override
   Future<Result<Page<OverthinkingPost>>> getFeed({
     int page = 0,
     int size = 20,
+    OverthinkingFeedSort sort = OverthinkingFeedSort.newest,
   }) async {
     return _fetchPostPage(
       path: OverthinkingEndpoints.feed,
@@ -26,6 +81,8 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
       size: size,
       fallbackCode: 'overthinking_feed_unknown',
       fallbackMessage: 'Overthinking akisi getirilemedi',
+      publicRead: true,
+      feedSort: sort,
     );
   }
 
@@ -55,14 +112,17 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
       size: size,
       fallbackCode: 'overthinking_artist_posts_unknown',
       fallbackMessage: 'Sanatci paylasimlari getirilemedi',
+      publicRead: true,
     );
   }
 
   @override
   Future<Result<OverthinkingPost>> getDetail({required String postId}) async {
     try {
-      final response = await _apiClient.get<OverthinkingPost>(
+      final response = await _request<OverthinkingPost>(
+        ApiHttpMethod.get,
         OverthinkingEndpoints.detail(postId),
+        publicRead: true,
         decoder: (json) =>
             OverthinkingPostModel.fromJson(json as Map<String, dynamic>),
       );
@@ -81,6 +141,7 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
 
   @override
   Future<Result<OverthinkingPost>> createPost({
+    String? clientRequestId,
     required String title,
     required String content,
     required String visibilityType,
@@ -91,9 +152,11 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
     String? spotifyAlbumImageUrl,
   }) async {
     try {
-      final response = await _apiClient.post<OverthinkingPost>(
+      final response = await _request<OverthinkingPost>(
+        ApiHttpMethod.post,
         OverthinkingEndpoints.create,
         body: {
+          if (clientRequestId != null) 'clientRequestId': clientRequestId,
           'title': title,
           'content': content,
           'visibilityType': visibilityType,
@@ -136,7 +199,8 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
     String? bandTrackId,
   }) async {
     try {
-      final response = await _apiClient.put<OverthinkingPost>(
+      final response = await _request<OverthinkingPost>(
+        ApiHttpMethod.put,
         OverthinkingEndpoints.update(postId),
         body: {
           'title': title,
@@ -169,7 +233,8 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
   @override
   Future<Result<void>> deletePost({required String postId}) async {
     try {
-      await _apiClient.delete<Object?>(
+      await _request<Object?>(
+        ApiHttpMethod.delete,
         OverthinkingEndpoints.delete(postId),
         decoder: (_) => null,
       );
@@ -189,7 +254,8 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
   @override
   Future<Result<void>> requestReveal({required String postId}) async {
     try {
-      await _apiClient.post<Object?>(
+      await _request<Object?>(
+        ApiHttpMethod.post,
         OverthinkingEndpoints.createRevealRequest(postId),
         decoder: (_) => null,
       );
@@ -207,6 +273,27 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
   }
 
   @override
+  Future<Result<void>> cancelReveal({required String postId}) async {
+    try {
+      await _request<Object?>(
+        ApiHttpMethod.delete,
+        OverthinkingEndpoints.cancelRevealRequest(postId),
+        decoder: (_) => null,
+      );
+      return const Result.success(null);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return const Result.failure(
+        AppError(
+          code: 'overthinking_reveal_cancel_unknown',
+          message: 'Kimlik isteği geri alınamadı.',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<Page<OverthinkingRevealRequest>>> getIncomingRevealRequests({
     int page = 0,
     int size = 20,
@@ -218,6 +305,66 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
       fallbackCode: 'overthinking_incoming_reveal_unknown',
       fallbackMessage: 'Gelen kimlik istekleri getirilemedi',
     );
+  }
+
+  @override
+  Future<Result<OverthinkingIncomingUnreadStatus>> getIncomingUnreadStatus() =>
+      _incomingUnreadRequest(
+        ApiHttpMethod.get,
+        OverthinkingEndpoints.incomingUnreadStatus,
+      );
+
+  @override
+  Future<Result<OverthinkingIncomingUnreadStatus>> markIncomingRequestsSeen({
+    required int revision,
+  }) => _incomingUnreadRequest(
+    ApiHttpMethod.post,
+    OverthinkingEndpoints.incomingSeen,
+    revision: revision,
+  );
+
+  Future<Result<OverthinkingIncomingUnreadStatus>> _incomingUnreadRequest(
+    ApiHttpMethod method,
+    String path, {
+    int? revision,
+  }) async {
+    try {
+      if (revision != null && revision < 0) {
+        throw const FormatException('Invalid inbox revision');
+      }
+      final status = await _request<OverthinkingIncomingUnreadStatus>(
+        method,
+        path,
+        body: revision == null ? null : {'revision': revision},
+        decoder: (json) {
+          final unread = json is Map<String, dynamic>
+              ? json['hasUnread']
+              : null;
+          final serverRevision = json is Map<String, dynamic>
+              ? json['revision']
+              : null;
+          if (unread is! bool || serverRevision is! int || serverRevision < 0) {
+            throw const FormatException(
+              'Invalid incoming request unread status',
+            );
+          }
+          return OverthinkingIncomingUnreadStatus(
+            hasUnread: unread,
+            revision: serverRevision,
+          );
+        },
+      );
+      return Result.success(status);
+    } on ApiException catch (e) {
+      return Result.failure(e.error);
+    } catch (_) {
+      return const Result.failure(
+        AppError(
+          code: 'overthinking_incoming_unread_unknown',
+          message: 'Yeni kimlik isteklerinin durumu doğrulanamadı.',
+        ),
+      );
+    }
   }
 
   @override
@@ -262,11 +409,20 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
     required int size,
     required String fallbackCode,
     required String fallbackMessage,
+    bool publicRead = false,
+    OverthinkingFeedSort? feedSort,
   }) async {
     try {
-      final response = await _apiClient.get<Page<OverthinkingPost>>(
+      final response = await _request<Page<OverthinkingPost>>(
+        ApiHttpMethod.get,
         path,
-        query: {'page': page, 'size': size, 'sort': 'createdAt,desc'},
+        publicRead: publicRead,
+        query: {
+          'page': page,
+          'size': size,
+          if (feedSort != null) 'order': feedSort.apiValue,
+          if (feedSort == null) 'sort': 'createdAt,desc',
+        },
         decoder: (json) => _decodePage(
           json,
           page,
@@ -291,7 +447,8 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
     required String fallbackMessage,
   }) async {
     try {
-      final response = await _apiClient.get<Page<OverthinkingRevealRequest>>(
+      final response = await _request<Page<OverthinkingRevealRequest>>(
+        ApiHttpMethod.get,
         path,
         query: {'page': page, 'size': size, 'sort': 'createdAt,desc'},
         decoder: (json) => _decodePage(
@@ -316,7 +473,8 @@ class OverthinkingRepositoryImpl implements OverthinkingRepository {
     required String fallbackMessage,
   }) async {
     try {
-      final response = await _apiClient.post<OverthinkingRevealRequest>(
+      final response = await _request<OverthinkingRevealRequest>(
+        ApiHttpMethod.post,
         path,
         decoder: (json) => OverthinkingRevealRequestModel.fromJson(
           json as Map<String, dynamic>,

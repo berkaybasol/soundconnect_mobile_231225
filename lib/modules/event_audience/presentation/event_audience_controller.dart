@@ -53,10 +53,11 @@ class EventAudienceController extends ChangeNotifier {
     required this.repository,
     required this.sessions,
     EventAudienceState? initialIntent,
+    this.observeChanges = true,
   }) {
     _session = sessions.session;
     sessions.addListener(_sessionChanged);
-    repository.changes.addListener(_repositoryChanged);
+    if (observeChanges) repository.changes.addListener(_repositoryChanged);
     if (allowed && initialIntent?.eventId == eventId) {
       _state = initialIntent;
     } else if (allowed) {
@@ -67,6 +68,7 @@ class EventAudienceController extends ChangeNotifier {
   final String eventId;
   final EventAudienceRepository repository;
   final AuthSessionManager sessions;
+  final bool observeChanges;
   late AuthSession _session;
   EventAudienceState? _state;
   String? _error;
@@ -276,7 +278,7 @@ class EventAudienceController extends ChangeNotifier {
     _disposed = true;
     _revision++;
     sessions.removeListener(_sessionChanged);
-    repository.changes.removeListener(_repositoryChanged);
+    if (observeChanges) repository.changes.removeListener(_repositoryChanged);
     super.dispose();
   }
 }

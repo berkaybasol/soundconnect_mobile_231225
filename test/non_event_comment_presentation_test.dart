@@ -1321,6 +1321,12 @@ class _FeedCubit extends Cubit<OverthinkingFeedState>
     implements OverthinkingFeedCubit {
   _FeedCubit() : super(const OverthinkingFeedState.initial());
   @override
+  bool get isSessionCurrent => true;
+  @override
+  bool get canWrite => true;
+  @override
+  bool isPostUnavailable(String postId) => false;
+  @override
   void incrementCommentCount(String postId) {}
   @override
   Future<void> refreshPost(String postId) async {}

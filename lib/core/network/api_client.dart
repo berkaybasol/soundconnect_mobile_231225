@@ -3,10 +3,15 @@ enum ApiHttpMethod { get, post, put, patch, delete }
 class ApiRequestContext {
   const ApiRequestContext({
     this.expectedSessionKey,
+    this.expectedToken,
     this.requireGuestSession = false,
   });
 
   final String? expectedSessionKey;
+
+  /// Also fences logout/relogin into the same account while token storage is
+  /// awaiting. Omit when only the account identity is relevant to a request.
+  final String? expectedToken;
 
   /// Prevents a queued anonymous operation from adopting a later login.
   /// Mutually exclusive with a nonempty [expectedSessionKey].
@@ -54,6 +59,7 @@ abstract class ApiClient {
     ApiRequestContext? requestContext,
   }) {
     if (requestContext?.expectedSessionKey?.trim().isNotEmpty == true ||
+        requestContext?.expectedToken != null ||
         requestContext?.requireGuestSession == true) {
       return Future<T>.error(
         UnsupportedError(

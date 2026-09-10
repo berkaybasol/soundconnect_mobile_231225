@@ -23,6 +23,7 @@ class OverthinkingPost {
   final int likeCount;
   final int commentCount;
   final bool likedByMe;
+  final bool revealRequestPending;
 
   const OverthinkingPost({
     required this.id,
@@ -47,6 +48,7 @@ class OverthinkingPost {
     required this.likeCount,
     required this.commentCount,
     required this.likedByMe,
+    this.revealRequestPending = false,
   });
 
   bool get hasVisibleAuthor =>
@@ -78,6 +80,7 @@ class OverthinkingPost {
     int? likeCount,
     int? commentCount,
     bool? likedByMe,
+    bool? revealRequestPending,
   }) {
     return OverthinkingPost(
       id: id ?? this.id,
@@ -124,6 +127,7 @@ class OverthinkingPost {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       likedByMe: likedByMe ?? this.likedByMe,
+      revealRequestPending: revealRequestPending ?? this.revealRequestPending,
     );
   }
 }

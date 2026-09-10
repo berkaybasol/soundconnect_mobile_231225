@@ -12,6 +12,7 @@ class DmChatState {
   final String? conversationId;
   final int page;
   final bool hasNext;
+  final bool recipientDeleted;
 
   const DmChatState({
     required this.status,
@@ -21,6 +22,7 @@ class DmChatState {
     required this.conversationId,
     required this.page,
     required this.hasNext,
+    this.recipientDeleted = false,
   });
 
   const DmChatState.idle()
@@ -30,7 +32,8 @@ class DmChatState {
       error = null,
       conversationId = null,
       page = 0,
-      hasNext = false;
+      hasNext = false,
+      recipientDeleted = false;
 
   DmChatState copyWith({
     DmChatStatus? status,
@@ -40,6 +43,7 @@ class DmChatState {
     Object? conversationId = copyWithUnset,
     int? page,
     bool? hasNext,
+    bool? recipientDeleted,
   }) {
     return DmChatState(
       status: status ?? this.status,
@@ -51,6 +55,7 @@ class DmChatState {
           : conversationId as String?,
       page: page ?? this.page,
       hasNext: hasNext ?? this.hasNext,
+      recipientDeleted: recipientDeleted ?? this.recipientDeleted,
     );
   }
 }

@@ -13,8 +13,10 @@ import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
 import '../../../event_audience/domain/event_audience_repository.dart';
 import '../../../event_audience/presentation/event_audience_controller.dart';
+import '../../../overthinking/domain/overthinking_profile_share_repository.dart';
 import '../../domain/entities/venue_event_detail.dart';
 import '../cubit/listener_event_feed_controller.dart';
+import '../cubit/listener_profile_feed_controller.dart';
 import '../share/event_share_flow.dart';
 import 'listener_event_post_card.dart';
 import 'listener_event_post_comments_sheet.dart';
@@ -22,7 +24,79 @@ import 'listener_event_post_engagement.dart';
 import 'listener_event_post_participation.dart';
 import 'listener_event_post_note_editor.dart';
 import 'listener_profile_theme.dart';
+import 'listener_overthinking_posts.dart';
+import 'listener_overthinking_share_tile.dart';
+import 'listener_share_delete_dialog.dart';
 import 'weekly_event_detail_screen.dart';
+
+/// The profile's public publications, ordered across all supported types.
+class ListenerProfilePostsSection extends StatelessWidget {
+  const ListenerProfilePostsSection({
+    super.key,
+    required this.listenerProfileId,
+    required this.username,
+    this.avatarUrl,
+    this.ownerUserId,
+    this.profileContentVisible = true,
+    this.eventsRepository,
+    this.overthinkingRepository,
+    this.sessions,
+    this.refreshSignal,
+    this.onOpenEvent,
+    this.onOpenSource,
+    this.asSliver = false,
+  });
+
+  final String listenerProfileId;
+  final String username;
+  final String? avatarUrl;
+  final String? ownerUserId;
+  final bool profileContentVisible;
+  final EventAudienceRepository? eventsRepository;
+  final OverthinkingProfileShareRepository? overthinkingRepository;
+  final AuthSessionManager? sessions;
+  final ValueListenable<int>? refreshSignal;
+  final Future<void> Function(VenueEventDetail event)? onOpenEvent;
+  final Future<void> Function(String postId)? onOpenSource;
+  final bool asSliver;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!profileContentVisible) {
+      return asSliver ? const SliverToBoxAdapter() : const SizedBox.shrink();
+    }
+    final events = eventsRepository ?? _registered<EventAudienceRepository>();
+    final shares =
+        overthinkingRepository ??
+        _registered<OverthinkingProfileShareRepository>();
+    if (events == null) {
+      final fallback = ListenerOverthinkingPostsSection(
+        listenerProfileId: listenerProfileId,
+        username: username,
+        avatarUrl: avatarUrl,
+        ownerUserId: ownerUserId,
+        repository: shares,
+        sessions: sessions,
+        refreshSignal: refreshSignal,
+        onOpenSource: onOpenSource,
+      );
+      return asSliver ? SliverToBoxAdapter(child: fallback) : fallback;
+    }
+    return _ListenerEventFeed(
+      listenerProfileId: listenerProfileId,
+      username: username,
+      avatarUrl: avatarUrl,
+      ownerUserId: ownerUserId,
+      repository: events,
+      overthinkingRepository: shares,
+      sessions: sessions,
+      refreshSignal: refreshSignal,
+      onOpenEvent: onOpenEvent,
+      onOpenSource: onOpenSource,
+      asSliver: asSliver,
+    );
+  }
+}
 
 class ListenerEventPostsSection extends StatelessWidget {
   const ListenerEventPostsSection({
@@ -160,6 +234,9 @@ class _ListenerEventFeed extends StatefulWidget {
     this.fullPage = false,
     this.showHeading = false,
     this.onOpenEvent,
+    this.overthinkingRepository,
+    this.onOpenSource,
+    this.asSliver = false,
   });
   final String listenerProfileId;
   final String username;
@@ -172,6 +249,9 @@ class _ListenerEventFeed extends StatefulWidget {
   final bool fullPage;
   final bool showHeading;
   final Future<void> Function(VenueEventDetail event)? onOpenEvent;
+  final OverthinkingProfileShareRepository? overthinkingRepository;
+  final Future<void> Function(String postId)? onOpenSource;
+  final bool asSliver;
 
   @override
   State<_ListenerEventFeed> createState() => _ListenerEventFeedState();
@@ -212,6 +292,14 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     final sessions = widget.sessions ?? _registered<AuthSessionManager>();
     _feed = repository == null || sessions == null
         ? null
+        : widget.overthinkingRepository != null
+        ? ListenerProfileFeedController(
+            eventsRepository: repository,
+            overthinkingRepository: widget.overthinkingRepository!,
+            sessions: sessions,
+            listenerProfileId: widget.listenerProfileId,
+            ownerUserId: widget.ownerUserId,
+          )
         : ListenerEventFeedController(
             repository: repository,
             sessions: sessions,
@@ -233,6 +321,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     }
     if (oldWidget.listenerProfileId != widget.listenerProfileId ||
         oldWidget.ownerUserId != widget.ownerUserId ||
+        oldWidget.overthinkingRepository != widget.overthinkingRepository ||
         oldWidget.repository != widget.repository ||
         oldWidget.sessions != widget.sessions) {
       _bind();
@@ -312,7 +401,13 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
-  void _refresh() => unawaited(_feed?.reload());
+  Future<void> _reloadFeed(ListenerEventFeedController feed) =>
+      feed is ListenerProfileFeedController ? feed.revalidate() : feed.reload();
+
+  void _refresh() {
+    final feed = _feed;
+    if (feed != null) unawaited(_reloadFeed(feed));
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -344,7 +439,13 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
                 )
               : const SizedBox.shrink()
         : _body(feed);
-    if (!widget.fullPage) return body;
+    if (!widget.fullPage) {
+      if (widget.asSliver &&
+          !(available && feed is ListenerProfileFeedController)) {
+        return SliverToBoxAdapter(child: body);
+      }
+      return body;
+    }
     return Scaffold(
       backgroundColor: const Color(0xFF070B13),
       appBar: AppBar(
@@ -355,6 +456,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
   }
 
   Widget _body(ListenerEventFeedController feed) {
+    if (feed is ListenerProfileFeedController) return _profileBody(feed);
     final expectedSession = feed.sessions.session;
     if (!widget.fullPage &&
         !feed.loading &&
@@ -502,6 +604,146 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     );
   }
 
+  Widget _profileBody(ListenerProfileFeedController feed) {
+    final expectedSession = feed.sessions.session;
+    Widget rowAt(int index) {
+      final entry = feed.entries[index];
+      return Visibility(
+        key: ValueKey('listener-profile-post-${entry.key}'),
+        visible: !feed.loading,
+        maintainState: true,
+        maintainAnimation: true,
+        maintainSize: true,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: entry.eventRow != null
+              ? _card(feed, entry.eventRow!)
+              : ListenerOverthinkingShareTile(
+                  share: entry.share!,
+                  username: widget.username,
+                  avatarUrl: widget.avatarUrl,
+                  ownerUserId: widget.ownerUserId,
+                  repository: widget.overthinkingRepository!,
+                  sessions: feed.sessions,
+                  isCurrent: () =>
+                      mounted &&
+                      identical(_feed, feed) &&
+                      feed.containsShare(expectedSession, entry.share!) &&
+                      ModalRoute.of(context)?.isCurrent == true,
+                  onRefresh: () async {
+                    if (mounted &&
+                        identical(_feed, feed) &&
+                        identical(feed.sessions.session, expectedSession)) {
+                      await feed.revalidate();
+                    }
+                  },
+                  onRemoved: (shareId) {
+                    if (mounted &&
+                        identical(_feed, feed) &&
+                        identical(feed.sessions.session, expectedSession)) {
+                      feed.forgetShare(shareId);
+                      unawaited(feed.revalidate());
+                    }
+                  },
+                  onError: (message) {
+                    if (mounted &&
+                        identical(_feed, feed) &&
+                        feed.allowed &&
+                        identical(feed.sessions.session, expectedSession) &&
+                        ModalRoute.of(context)?.isCurrent == true) {
+                      _feedback(message);
+                    }
+                  },
+                  onOpenSource: widget.onOpenSource,
+                ),
+        ),
+      );
+    }
+
+    final footer = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (feed.loading)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
+        if (feed.error != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                Text(
+                  feed.error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: listenerProfileMuted),
+                ),
+                TextButton.icon(
+                  key: const Key('listener-profile-posts-retry'),
+                  onPressed:
+                      _currentAction(feed, expectedSession) && !feed.loadingMore
+                      ? () => unawaited(feed.retry())
+                      : null,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Tekrar dene'),
+                ),
+              ],
+            ),
+          )
+        else if (feed.hasNext)
+          TextButton.icon(
+            key: const Key('listener-profile-posts-more'),
+            onPressed:
+                _currentAction(feed, expectedSession) &&
+                    !feed.loadingMore &&
+                    !_opening
+                ? () => unawaited(feed.next())
+                : null,
+            icon: feed.loadingMore
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.expand_more_rounded),
+            label: const Text('Daha fazla göster'),
+          ),
+      ],
+    );
+    if (widget.asSliver) {
+      return SliverList.builder(
+        key: const Key('listener-profile-posts'),
+        itemCount: feed.entries.length + 1,
+        addAutomaticKeepAlives: false,
+        findChildIndexCallback: (key) {
+          if (key == const ValueKey('listener-profile-posts-footer')) {
+            return feed.entries.length;
+          }
+          final index = feed.entries.indexWhere(
+            (entry) => key == ValueKey('listener-profile-post-${entry.key}'),
+          );
+          return index < 0 ? null : index;
+        },
+        itemBuilder: (context, index) {
+          if (index == feed.entries.length) {
+            return KeyedSubtree(
+              key: const ValueKey('listener-profile-posts-footer'),
+              child: footer,
+            );
+          }
+          return rowAt(index);
+        },
+      );
+    }
+    return Column(
+      key: const Key('listener-profile-posts'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < feed.entries.length; index++) rowAt(index),
+        footer,
+      ],
+    );
+  }
+
   Widget _card(ListenerEventFeedController feed, ListenerEventFeedRow row) {
     final expectedSession = feed.sessions.session;
     final own = widget.ownerUserId != null;
@@ -581,8 +823,17 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
       return ListenerEventPostEngagement(
         key: ValueKey('listener-event-engagement-${row.postId}'),
         postId: row.postId!,
+        projectionKey: row,
         repository: engagement,
         sessions: feed.sessions,
+        initialStats: row.engagement == null
+            ? null
+            : InteractionStatsItemState(
+                loading: false,
+                likeCount: row.engagement!.likeCount,
+                commentCount: row.engagement!.commentCount,
+                isLiked: row.engagement!.likedByMe,
+              ),
         canInteract: () =>
             !_opening && _currentAction(feed, expectedSession, row),
         onError: _feedback,
@@ -591,11 +842,15 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
       );
     }
 
-    if (!own && !ended && canUseEventAudience(expectedSession)) {
+    if (!own &&
+        !ended &&
+        canUseEventAudience(expectedSession) &&
+        (row.engagement == null || row.viewerIntentState != null)) {
       return ListenerEventPostParticipation(
         key: ValueKey('listener-event-participation-${row.postId}'),
         eventId: row.event.id,
         refreshKey: row,
+        initialIntent: row.viewerIntentState,
         repository: feed.repository,
         sessions: feed.sessions,
         canInteract: () =>
@@ -699,23 +954,8 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     setState(() => _opening = true);
     final dialog = DialogRoute<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Paylaşım silinsin mi?'),
-        content: const Text(
-          'Bu paylaşım profilinden kaldırılacak ve yorumları kapanacak. '
-          'Etkinlik planın korunacak.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          TextButton(
-            key: const Key('listener-event-post-delete-confirm'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Paylaşımı sil'),
-          ),
-        ],
+      builder: (_) => const ListenerShareDeleteDialog.event(
+        confirmKey: Key('listener-event-post-delete-confirm'),
       ),
     );
     _deleteDialog = dialog;
@@ -748,14 +988,14 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
           result.error?.message ??
               'Paylaşım silinemedi. Tekrar deneyebilirsin.',
         );
-        await feed.reload();
+        await _reloadFeed(feed);
       } else {
-        await feed.reload();
+        await _reloadFeed(feed);
       }
     } catch (_) {
       if (_currentAction(feed, expectedSession)) {
         _feedback('Paylaşım silinemedi. Tekrar deneyebilirsin.');
-        await feed.reload();
+        await _reloadFeed(feed);
       }
     } finally {
       if (identical(_deleteDialog, dialog)) _dismissDeleteDialog();
@@ -852,7 +1092,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
           'Katılım durumu değiştirilemedi. Güncel durumu kontrol edip tekrar dene.',
         );
       }
-      await feed.reload();
+      await _reloadFeed(feed);
     } catch (_) {
       if (_currentAction(feed, expectedSession)) {
         _feedback('Katılım durumu değiştirilemedi. Tekrar deneyebilirsin.');
@@ -987,7 +1227,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     } finally {
       _finishAction(feed);
       if (_currentAction(feed, expectedSession)) {
-        await feed.reload();
+        await _reloadFeed(feed);
       }
     }
   }
@@ -1017,7 +1257,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     } finally {
       _finishAction(feed);
       if (_currentAction(feed, expectedSession)) {
-        await feed.reload();
+        await _reloadFeed(feed);
       }
     }
   }

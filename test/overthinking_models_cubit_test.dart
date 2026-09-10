@@ -16,6 +16,8 @@ import 'package:soundconnect_23_12_25codx/modules/overthinking/data/overthinking
 import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/entities/overthinking_post.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/entities/overthinking_reveal_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/overthinking_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/overthinking_feed_sort.dart';
+import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/entities/overthinking_incoming_unread_status.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/presentation/cubit/overthinking_feed_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
@@ -34,6 +36,7 @@ void main() {
         'likeCount': 4.9,
         'commentCount': 2,
         'likedByMe': true,
+        'revealRequestPending': true,
       });
 
       expect(model.id, '7');
@@ -46,6 +49,12 @@ void main() {
       expect(model.likeCount, 4);
       expect(model.commentCount, 2);
       expect(model.likedByMe, isTrue);
+      expect(model.revealRequestPending, isTrue);
+      expect(model.copyWith(likedByMe: false).revealRequestPending, isTrue);
+      expect(
+        model.copyWith(revealRequestPending: false).revealRequestPending,
+        isFalse,
+      );
       expect(model.authorVisibilityMode, ListenerVisibilityMode.standard);
       expect(model.isVisibleGhostAuthor, isFalse);
 
@@ -58,6 +67,7 @@ void main() {
       });
       expect(visibleGhost.authorVisibilityMode, ListenerVisibilityMode.ghost);
       expect(visibleGhost.isVisibleGhostAuthor, isTrue);
+      expect(visibleGhost.revealRequestPending, isFalse);
     });
 
     test('reveal request parses valid dates and defaults invalid values', () {
@@ -105,8 +115,53 @@ void main() {
       expect(apiClient.lastQuery, <String, dynamic>{
         'page': 2,
         'size': 7,
-        'sort': 'createdAt,desc',
+        'order': 'NEWEST',
       });
+    });
+
+    for (final sort in OverthinkingFeedSort.values) {
+      test(
+        'feed delegates global ${sort.apiValue} ordering to the server',
+        () async {
+          final apiClient = _OverthinkingApiClientFake(
+            (_, __, ___, ____) => {
+              'last': true,
+              'content': [
+                {
+                  'id': 'server-first',
+                  'likeCount': 1,
+                  'revealRequestPending': true,
+                },
+                {'id': 'server-second', 'likeCount': 20},
+              ],
+            },
+          );
+          final result = await OverthinkingRepositoryImpl(
+            apiClient,
+          ).getFeed(page: 3, size: 8, sort: sort);
+          expect(apiClient.lastQuery, {
+            'page': 3,
+            'size': 8,
+            'order': sort.apiValue,
+          });
+          expect(result.data!.items.map((post) => post.id), [
+            'server-first',
+            'server-second',
+          ]);
+          expect(result.data!.items.first.revealRequestPending, isTrue);
+        },
+      );
+    }
+
+    test('cancel uses DELETE and accepts a null response body', () async {
+      final apiClient = _OverthinkingApiClientFake((_, __, ___, ____) => null);
+      final result = await OverthinkingRepositoryImpl(
+        apiClient,
+      ).cancelReveal(postId: 'post-1');
+      expect(result.isSuccess, isTrue);
+      expect(apiClient.lastMethod, 'DELETE');
+      expect(apiClient.lastPath, '/api/v1/overthinking/post-1/reveal-requests');
+      expect(apiClient.lastBody, isNull);
     });
 
     test('sends canonical create path and complete request body', () async {
@@ -355,6 +410,17 @@ OverthinkingPost _post(
 }
 
 class _OverthinkingRepositoryFake implements OverthinkingRepository {
+  @override
+  Future<Result<OverthinkingIncomingUnreadStatus>>
+  getIncomingUnreadStatus() async => const Result.success(
+    OverthinkingIncomingUnreadStatus(hasUnread: false, revision: 0),
+  );
+
+  @override
+  Future<Result<OverthinkingIncomingUnreadStatus>> markIncomingRequestsSeen({
+    required int revision,
+  }) => getIncomingUnreadStatus();
+
   _OverthinkingRepositoryFake({
     this.pages = const <int, Result<Page<OverthinkingPost>>>{},
     Result<OverthinkingPost>? createResult,
@@ -373,6 +439,7 @@ class _OverthinkingRepositoryFake implements OverthinkingRepository {
   Future<Result<Page<OverthinkingPost>>> getFeed({
     int page = 0,
     int size = 20,
+    OverthinkingFeedSort sort = OverthinkingFeedSort.newest,
   }) async {
     requestedPages.add(page);
     return pages[page] ??
@@ -383,6 +450,7 @@ class _OverthinkingRepositoryFake implements OverthinkingRepository {
 
   @override
   Future<Result<OverthinkingPost>> createPost({
+    String? clientRequestId,
     required String title,
     required String content,
     required String visibilityType,
@@ -402,6 +470,10 @@ class _OverthinkingRepositoryFake implements OverthinkingRepository {
     lastRevealPostId = postId;
     return revealResult;
   }
+
+  @override
+  Future<Result<void>> cancelReveal({required String postId}) async =>
+      revealResult;
 
   @override
   Future<Result<OverthinkingPost>> getDetail({required String postId}) async =>

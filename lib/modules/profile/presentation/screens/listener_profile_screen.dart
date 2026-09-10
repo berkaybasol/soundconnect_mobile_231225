@@ -17,15 +17,17 @@ import '../../domain/entities/listener_profile.dart';
 import '../../domain/entities/listener_visibility_mode.dart';
 import '../../../event_audience/presentation/event_audience_controller.dart';
 import '../../../event_audience/presentation/event_audience_profile_draft.dart';
+import '../../../overthinking/domain/overthinking_profile_share_access.dart';
+import '../../../overthinking/presentation/overthinking_profile_draft.dart';
 import '../cubit/listener_profile_cubit.dart';
 import '../cubit/listener_profile_state.dart';
 import '../listener_visibility_error_message.dart';
 import 'listener_ghost_profile_content.dart';
 import 'listener_event_posts.dart';
 import 'listener_event_draft_composer.dart';
+import 'listener_overthinking_draft_composer.dart';
 import 'listener_playlist_manager_sheet.dart';
 import 'listener_profile_owner_content.dart';
-import 'listener_profile_preview_data.dart';
 import 'listener_profile_theme.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_screen_support.dart';
@@ -37,11 +39,13 @@ class ListenerProfileScreen extends StatelessWidget {
     this.cubitFactory,
     this.showBottomNavigation = true,
     this.eventDraft,
-  });
+    this.overthinkingDraft,
+  }) : assert(eventDraft == null || overthinkingDraft == null);
 
   final ListenerProfileCubit Function()? cubitFactory;
   final bool showBottomNavigation;
   final EventAudienceProfileDraftArgs? eventDraft;
+  final OverthinkingProfileDraftArgs? overthinkingDraft;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +58,7 @@ class ListenerProfileScreen extends StatelessWidget {
         child: _ListenerProfileView(
           showBottomNavigation: showBottomNavigation,
           eventDraft: eventDraft,
+          overthinkingDraft: overthinkingDraft,
         ),
       ),
     );
@@ -64,10 +69,12 @@ class _ListenerProfileView extends StatefulWidget {
   const _ListenerProfileView({
     required this.showBottomNavigation,
     this.eventDraft,
+    this.overthinkingDraft,
   });
 
   final bool showBottomNavigation;
   final EventAudienceProfileDraftArgs? eventDraft;
+  final OverthinkingProfileDraftArgs? overthinkingDraft;
 
   @override
   State<_ListenerProfileView> createState() => _ListenerProfileViewState();
@@ -80,44 +87,70 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
   String? _choiceRecoveryError;
   final _profileScroll = ScrollController();
   final _draftKey = GlobalKey<ListenerEventDraftComposerState>();
+  final _overthinkingDraftKey =
+      GlobalKey<ListenerOverthinkingDraftComposerState>();
   EventAudienceProfileDraftArgs? _activeDraft;
+  OverthinkingProfileDraftArgs? _activeOverthinkingDraft;
   AuthSessionManager? _draftSessions;
   bool _revealingDraft = false;
   bool _draftRevealed = false;
   bool _allowPop = false;
   bool _leavingDraft = false;
 
+  Object? get _currentDraft => _activeOverthinkingDraft ?? _activeDraft;
+  bool get _hasDraft => _currentDraft != null;
+  bool get _draftSaving =>
+      _draftKey.currentState?.saving == true ||
+      _overthinkingDraftKey.currentState?.saving == true;
+  bool get _draftReady => _activeOverthinkingDraft != null
+      ? _overthinkingDraftKey.currentState?.readyForReveal == true
+      : _draftKey.currentState?.readyForReveal == true;
+  BuildContext? get _draftContext => _activeOverthinkingDraft != null
+      ? _overthinkingDraftKey.currentContext
+      : _draftKey.currentContext;
+
+  bool get _draftSessionCurrent {
+    final current = _draftSessions?.session;
+    final writing = _activeOverthinkingDraft;
+    if (writing != null) {
+      return canShareOverthinkingOnProfile(current) &&
+          identical(current, writing.expectedSession);
+    }
+    final event = _activeDraft;
+    return event != null &&
+        current != null &&
+        canPublishAudienceProfile(current) &&
+        sameEventAudienceSession(current, event.expectedSession);
+  }
+
+  void _clearDraft() {
+    _activeDraft = null;
+    _activeOverthinkingDraft = null;
+  }
+
   @override
   void initState() {
     super.initState();
     _activeDraft = widget.eventDraft;
-    if (_activeDraft != null &&
-        serviceLocator.isRegistered<AuthSessionManager>()) {
+    _activeOverthinkingDraft = widget.overthinkingDraft;
+    if (_hasDraft && serviceLocator.isRegistered<AuthSessionManager>()) {
       _draftSessions = serviceLocator<AuthSessionManager>();
       _draftSessions!.addListener(_draftSessionChanged);
     }
   }
 
   void _draftSessionChanged() {
-    final draft = _activeDraft;
-    final current = _draftSessions?.session;
-    if (draft != null &&
-        (current == null ||
-            !canPublishAudienceProfile(current) ||
-            !sameEventAudienceSession(current, draft.expectedSession))) {
+    if (_hasDraft && !_draftSessionCurrent) {
       _draftKey.currentState?.invalidate();
-      if (mounted) setState(() => _activeDraft = null);
+      _overthinkingDraftKey.currentState?.invalidate();
+      if (mounted) setState(_clearDraft);
     }
   }
 
   bool _draftAllowed(ListenerProfile profile) {
-    final draft = _activeDraft;
     final current = _draftSessions?.session;
-    return draft != null &&
-        current != null &&
-        canPublishAudienceProfile(current) &&
-        sameEventAudienceSession(current, draft.expectedSession) &&
-        profile.userId == current.userId &&
+    return _draftSessionCurrent &&
+        profile.userId == current?.userId &&
         profile.visibilityChoiceCompleted &&
         !profile.isGhost &&
         profile.profileContentVisible &&
@@ -130,29 +163,32 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
 
   void _finishDraft(bool published) {
     if (!mounted) return;
-    setState(() => _activeDraft = null);
+    setState(_clearDraft);
     if (published) _eventPostsRefresh.value++;
   }
 
   Future<bool> _beforeLeavingDraft() async {
     final route = ModalRoute.of(context);
-    final draft = _activeDraft;
+    final draft = _currentDraft;
     if (_leavingDraft || !mounted || route?.isCurrent != true) return false;
     _leavingDraft = true;
     try {
-      final allowed =
-          await (_draftKey.currentState?.canLeave() ?? Future.value(true));
+      final allowed = await (_activeOverthinkingDraft != null
+          ? _overthinkingDraftKey.currentState?.canLeave() ?? Future.value(true)
+          : _draftKey.currentState?.canLeave() ?? Future.value(true));
       if (!allowed ||
           !mounted ||
           route?.isCurrent != true ||
-          !identical(draft, _activeDraft)) {
+          !identical(draft, _currentDraft)) {
         return false;
       }
       final profile = context.read<ListenerProfileCubit>().state.profile;
-      if (draft != null && (profile == null || !_draftAllowed(profile))) {
+      // Loading/failure before the composer mounts has no authored note to
+      // preserve. Keep navigation available even when the profile never loads.
+      if (draft != null && profile != null && !_draftAllowed(profile)) {
         return false;
       }
-      if (_activeDraft != null) setState(() => _activeDraft = null);
+      if (_hasDraft) setState(_clearDraft);
       return true;
     } finally {
       _leavingDraft = false;
@@ -170,22 +206,17 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
   }
 
   void _revealDraft() {
-    if (_activeDraft == null || _draftRevealed || _revealingDraft) return;
+    if (!_hasDraft || _draftRevealed || _revealingDraft) return;
     _revealingDraft = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         // ListView lazily mounts the posts section. First bring that child
         // into the viewport, then align the actual composer rather than a
         // guessed pixel offset based on avatar/bio/playlist height.
-        for (
-          var attempt = 0;
-          attempt < 5 && mounted && _activeDraft != null;
-          attempt++
-        ) {
-          final target = _draftKey.currentContext;
+        for (var attempt = 0; attempt < 5 && mounted && _hasDraft; attempt++) {
+          final target = _draftContext;
           if (target != null && target.mounted) {
-            final readyBeforeScroll =
-                _draftKey.currentState?.readyForReveal == true;
+            final readyBeforeScroll = _draftReady;
             await Scrollable.ensureVisible(
               target,
               alignment: .04,
@@ -200,10 +231,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
         }
       } finally {
         _revealingDraft = false;
-        if (mounted &&
-            !_draftRevealed &&
-            _activeDraft != null &&
-            _draftKey.currentState?.readyForReveal == true) {
+        if (mounted && !_draftRevealed && _hasDraft && _draftReady) {
           _revealDraft();
         }
       }
@@ -219,7 +247,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
   }
 
   Future<void> _refreshProfile() async {
-    if (_draftKey.currentState?.saving == true) return;
+    if (_draftSaving) return;
     await context.read<ListenerProfileCubit>().loadMyProfile();
     if (mounted) _eventPostsRefresh.value++;
   }
@@ -267,19 +295,17 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
         // Resolve projection changes before computing PopScope and busy flags.
         // Otherwise a removed ghost/restricted draft can leave an obsolete
         // canPop:false scope with no draft callback able to release it.
-        if (profile != null &&
-            _activeDraft != null &&
-            !_draftAllowed(profile)) {
-          _activeDraft = null;
+        if (profile != null && _hasDraft && !_draftAllowed(profile)) {
+          _clearDraft();
         }
         final avatarUrl = profile?.profilePictureUrl?.trim();
         final showRefreshProgress =
             profile != null && state.status == ListenerProfileStatus.loading;
 
         return PopScope(
-          canPop: _allowPop || _activeDraft == null,
+          canPop: _allowPop || !_hasDraft,
           onPopInvokedWithResult: (didPop, result) {
-            if (!didPop && _activeDraft != null) unawaited(_backFromDraft());
+            if (!didPop && _hasDraft) unawaited(_backFromDraft());
           },
           child: Scaffold(
             appBar: _listenerOwnerAppBar(
@@ -341,7 +367,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     final actionBusy =
         _avatarBusy ||
         state.status == ListenerProfileStatus.saving ||
-        _activeDraft != null;
+        _hasDraft;
     if (profile.isGhost) {
       return ListenerGhostProfileContent(
         username: profile.username ?? '',
@@ -366,10 +392,9 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     return RefreshIndicator(
       onRefresh: _refreshProfile,
       child: ListenerProfileOwnerContent(
+        postsAreSlivers: !_hasDraft,
         profile: profile,
         scrollController: _profileScroll,
-        previewData: listenerOwnerPreviewData,
-        showPreviewSections: true,
         actionBusy: actionBusy,
         onEditProfile: () => unawaited(_openSettings()),
         onEditAvatar: () => _openAvatarActions(profile),
@@ -379,7 +404,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
           await launchSpotifyPlaylist(context, playlist.spotifyUrl);
         },
         onPreviewAction: _showUnavailableMessage,
-        eventPlansAction: _activeDraft != null
+        eventPlansAction: _hasDraft
             ? null
             : ListenerEventPlansButton(
                 listenerProfileId: profile.id,
@@ -387,6 +412,31 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
                 username: profile.username ?? '',
                 avatarUrl: profile.profilePictureUrl,
               ),
+        posts: _hasDraft
+            ? null
+            : ListenerProfilePostsSection(
+                asSliver: true,
+                key: ValueKey('listener-owner-posts-${profile.id}'),
+                listenerProfileId: profile.id,
+                username: profile.username ?? '',
+                avatarUrl: profile.profilePictureUrl,
+                ownerUserId: profile.userId,
+                profileContentVisible:
+                    profile.profileContentVisible && !profile.isGhost,
+                refreshSignal: _eventPostsRefresh,
+              ),
+        overthinkingPosts: _activeOverthinkingDraft != null
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ListenerOverthinkingDraftComposer(
+                  key: _overthinkingDraftKey,
+                  draft: _activeOverthinkingDraft!,
+                  profile: profile,
+                  onFinished: _finishDraft,
+                  onStateChanged: _draftChanged,
+                ),
+              )
+            : null,
         eventPosts: _activeDraft != null
             ? Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -398,14 +448,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
                   onStateChanged: _draftChanged,
                 ),
               )
-            : ListenerEventPostsSection(
-                key: ValueKey('listener-owner-event-posts-${profile.id}'),
-                listenerProfileId: profile.id,
-                ownerUserId: profile.userId,
-                username: profile.username ?? '',
-                avatarUrl: profile.profilePictureUrl,
-                refreshSignal: _eventPostsRefresh,
-              ),
+            : null,
       ),
     );
   }

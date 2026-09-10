@@ -26,6 +26,7 @@ class OverthinkingPostModel extends OverthinkingPost {
     required super.likeCount,
     required super.commentCount,
     required super.likedByMe,
+    super.revealRequestPending,
   });
 
   factory OverthinkingPostModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +55,7 @@ class OverthinkingPostModel extends OverthinkingPost {
       likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
       commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
       likedByMe: json['likedByMe'] == true,
+      revealRequestPending: json['revealRequestPending'] == true,
     );
   }
 

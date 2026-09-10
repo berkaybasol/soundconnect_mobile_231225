@@ -17,6 +17,7 @@ import '../../../dm/presentation/cubit/dm_badge_cubit.dart';
 import '../../../dm/presentation/cubit/dm_badge_state.dart';
 import '../../../event/presentation/screens/event_discovery_screen.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
+import '../../../overthinking/presentation/widgets/overthinking_unread_dot.dart';
 import '../../../tablegroup/presentation/screens/table_group_route_args.dart';
 import 'backstage_profiles_home_screen.dart';
 import 'profile_bottom_navigation.dart';
@@ -111,7 +112,10 @@ class ProfilePublicBottomBar extends StatelessWidget {
         label: 'Keşfet',
       ),
       BottomNavigationBarItem(
-        icon: _assetIcon(context, 'assets/confined.png'),
+        icon: OverthinkingBoundUnreadDot(
+          badgeKey: const ValueKey('overthinking-navigation-unread-dot'),
+          child: _assetIcon(context, 'assets/confined.png'),
+        ),
         label: 'Overthinking',
       ),
       BottomNavigationBarItem(
@@ -344,6 +348,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
                   const SizedBox(height: 14),
                   _MainstageLauncherTile(
                     assetName: 'assets/confined.png',
+                    showOverthinkingUnread: true,
                     label: 'Overthinking',
                     description: 'Overthinking akışına geç',
                     enabled: true,
@@ -510,6 +515,7 @@ class _MainstageLauncherTile extends StatelessWidget {
   final String description;
   final bool enabled;
   final VoidCallback? onTap;
+  final bool showOverthinkingUnread;
 
   const _MainstageLauncherTile({
     this.icon,
@@ -518,6 +524,7 @@ class _MainstageLauncherTile extends StatelessWidget {
     required this.description,
     required this.enabled,
     required this.onTap,
+    this.showOverthinkingUnread = false,
   });
 
   @override
@@ -527,6 +534,32 @@ class _MainstageLauncherTile extends StatelessWidget {
         : Theme.of(
             context,
           ).colorScheme.onSurfaceVariant.withValues(alpha: 0.55);
+    final leading = Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: enabled
+            ? LinearGradient(colors: AppColors.brandGradient)
+            : null,
+        color: enabled ? null : Theme.of(context).disabledColor,
+      ),
+      child: assetName == null
+          ? Icon(
+              icon ?? Icons.circle_outlined,
+              color: enabled ? AppColors.white : AppColors.navBlueDeep,
+              size: 20,
+            )
+          : Center(
+              child: ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  enabled ? AppColors.white : AppColors.navBlueDeep,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(assetName!, width: 21, height: 21),
+              ),
+            ),
+    );
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(14),
@@ -539,32 +572,13 @@ class _MainstageLauncherTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: enabled
-                    ? LinearGradient(colors: AppColors.brandGradient)
-                    : null,
-                color: enabled ? null : Theme.of(context).disabledColor,
-              ),
-              child: assetName == null
-                  ? Icon(
-                      icon ?? Icons.circle_outlined,
-                      color: enabled ? AppColors.white : AppColors.navBlueDeep,
-                      size: 20,
-                    )
-                  : Center(
-                      child: ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          enabled ? AppColors.white : AppColors.navBlueDeep,
-                          BlendMode.srcIn,
-                        ),
-                        child: Image.asset(assetName!, width: 21, height: 21),
-                      ),
-                    ),
-            ),
+            if (showOverthinkingUnread)
+              OverthinkingBoundUnreadDot(
+                badgeKey: const ValueKey('overthinking-launcher-unread-dot'),
+                child: leading,
+              )
+            else
+              leading,
             const SizedBox(width: 12),
             Expanded(
               child: Column(

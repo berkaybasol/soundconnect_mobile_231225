@@ -22,6 +22,69 @@ import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_conve
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 
 void main() {
+  test(
+    'deleted participant marker removes legacy identifying preview data',
+    () {
+      final row = DmConversationPreviewModel.fromJson({
+        'otherUserDeleted': true,
+        'otherUsername': 'old-name',
+        'otherUserProfilePicture': 'https://example.com/old-avatar',
+        'otherUserVisibilityMode': 'GHOST',
+      });
+      expect(row.otherUserDeleted, isTrue);
+      expect(row.otherUsername, 'Silinmiş hesap');
+      expect(row.otherUserProfilePicture, isNull);
+      expect(row.isOtherUserGhost, isFalse);
+    },
+  );
+
+  for (final knownDeleted in [false, true]) {
+    test(
+      'deleted DM peer keeps history and blocks writes (known=$knownDeleted)',
+      () async {
+        final repository = _DmRepositoryFake(
+          conversationId: const Result.success('conversation-1'),
+          messagePages: {
+            0: Result.success(
+              Page<DmMessage>(
+                items: [
+                  _message('history', senderId: 'me', recipientId: 'other'),
+                ],
+                hasNext: false,
+              ),
+            ),
+          },
+          sentMessage: const Result.failure(
+            AppError(code: '1008', message: 'Deleted'),
+          ),
+        );
+        final realtime = DmRealtimeClient();
+        final cubit = DmChatCubit(
+          repository,
+          _MemoryTokenStore(),
+          realtimeClient: realtime,
+        );
+        addTearDown(() async {
+          await cubit.close();
+          await realtime.dispose();
+        });
+        await cubit.openOrCreateConversation(
+          otherUserId: 'other',
+          currentUserId: 'me',
+          recipientDeleted: knownDeleted,
+        );
+        expect(cubit.state.messages.single.messageId, 'history');
+        expect(await cubit.send('New message'), isFalse);
+        expect(cubit.state.recipientDeleted, isTrue);
+        expect(await cubit.send('Retry'), isFalse);
+        await cubit.refresh();
+        expect(cubit.state.recipientDeleted, isTrue);
+        expect(repository.sentContents.length, knownDeleted ? 0 : 1);
+        expect(cubit.state.messages.single.messageId, 'history');
+      },
+    );
+  }
+
   group('DM models', () {
     test('message model parses dates, aliases values, and safe defaults', () {
       final parsed = DmMessageModel.fromJson(<String, dynamic>{

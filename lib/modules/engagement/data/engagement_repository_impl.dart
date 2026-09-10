@@ -269,6 +269,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
                 expectedSessionKey: session.isAuthenticated
                     ? session.userId
                     : null,
+                expectedToken: session.isAuthenticated ? session.token : null,
                 requireGuestSession: !session.isAuthenticated,
               ),
       );

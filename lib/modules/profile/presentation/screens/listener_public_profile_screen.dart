@@ -157,6 +157,7 @@ class _ListenerPublicProfileViewState
               builder: (context, followState) {
                 final canFollow = _canFollow(profile);
                 return ListenerPublicProfileContent(
+                  postsAreSlivers: true,
                   profile: profile,
                   isFollowing: followState.isFollowing,
                   followBusy: followState.status == FollowActionStatus.loading,
@@ -170,13 +171,15 @@ class _ListenerPublicProfileViewState
                   onMessage: _canMessage(profile)
                       ? () => _openMessage(profile)
                       : null,
-                  eventPosts: ListenerEventPostsSection(
-                    key: ValueKey('listener-public-event-posts-${profile.id}'),
+                  posts: ListenerProfilePostsSection(
+                    asSliver: true,
+                    key: ValueKey('listener-public-posts-${profile.id}'),
                     listenerProfileId: profile.id,
                     username: profile.username,
                     avatarUrl: profile.profilePictureUrl,
+                    profileContentVisible:
+                        !profile.restricted && !profile.isGhost,
                     refreshSignal: _eventPostsRefresh,
-                    showHeading: true,
                   ),
                 );
               },

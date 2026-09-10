@@ -11,6 +11,7 @@ import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/artist_venue/domain/artist_venue_connection_repository.dart';
@@ -85,6 +86,44 @@ void main() {
   });
 
   _venueProfileAnalyticsTests(() => profiles);
+
+  testWidgets(
+    'default owner venue route opens Overthinking without reloading on sheet changes',
+    (tester) async {
+      serviceLocator.registerSingleton<AuthSessionManager>(
+        _VenueOwnerSession(),
+      );
+      profiles.ownerReply = () => Future.delayed(
+        const Duration(milliseconds: 50),
+        () => const Result.success(_owner),
+      );
+      await tester.binding.setSurfaceSize(const Size(390, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark(useMaterial3: true),
+          home: const VenueProfileScreen(),
+          routes: {
+            AppRoutes.overthinkingFeed: (_) =>
+                const Scaffold(body: Text('Overthinking destination')),
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(profiles.ownerReads, [null]);
+
+      await tester.tap(find.text('Git'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Overthinking'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Overthinking destination'), findsOneWidget);
+      expect(profiles.ownerReads, [null]);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
 
   for (final owner in [true, false]) {
     testWidgets(
@@ -206,13 +245,14 @@ const _public = VenuePublicProfile(
 class _Profiles extends Fake implements VenueProfileRepository {
   final ownerReads = <String?>[];
   final publicReads = <String?>[];
+  Future<Result<VenueOwnerProfile>> Function()? ownerReply;
   Future<Result<VenuePublicProfile>> Function()? publicReply;
   @override
   Future<Result<VenueOwnerProfile>> getMyVenueProfileDetail({
     String? venueId,
   }) async {
     ownerReads.add(venueId);
-    return const Result.success(_owner);
+    return ownerReply?.call() ?? const Result.success(_owner);
   }
 
   @override
@@ -266,6 +306,7 @@ class _Events extends Fake implements VenueEventRepository {
     historyReads.add('owner:$venueId');
     return const Result.success([]);
   }
+
   @override
   Future<Result<List<VenueOwnerEventItem>>> listPublicByVenue(
     String venueId,

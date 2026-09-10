@@ -85,7 +85,7 @@ void main() {
       expect(screenshot.widget, isA<EventShareCard>());
       expect(
         providers.whereType<AssetImage>().map((provider) => provider.assetName),
-        ['assets/logo.png'],
+        ['assets/Logoyanyana.png', 'assets/logo.png'],
       );
       expect(prepared!.data, same(data));
       expect(prepared.bytes, png);

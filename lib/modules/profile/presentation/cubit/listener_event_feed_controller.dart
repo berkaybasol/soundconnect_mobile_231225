@@ -16,6 +16,9 @@ class ListenerEventFeedRow {
     required this.ended,
     this.postId,
     this.privateState,
+    this.publishedAt,
+    this.engagement,
+    this.viewerIntentState,
   });
   final VenueEventDetail event;
   final String? postId;
@@ -23,6 +26,9 @@ class ListenerEventFeedRow {
   final String? note;
   final bool ended;
   final EventAudienceState? privateState;
+  final DateTime? publishedAt;
+  final EventAudienceEngagement? engagement;
+  final EventAudienceState? viewerIntentState;
 }
 
 /// Holds one bounded page, never a growing copy of the profile's history.
@@ -35,6 +41,7 @@ class ListenerEventFeedController extends ChangeNotifier {
     this.ownerUserId,
     this.privatePlans = false,
     this.pageSize = 20,
+    this.observeChanges = true,
     EventAudiencePeriod? period,
   }) : period =
            period ??
@@ -42,8 +49,10 @@ class ListenerEventFeedController extends ChangeNotifier {
                ? EventAudiencePeriod.upcoming
                : EventAudiencePeriod.all) {
     _identity = _sessionIdentity(sessions.session);
-    sessions.addListener(_sessionChanged);
-    repository.changes.addListener(_dataChanged);
+    if (observeChanges) {
+      sessions.addListener(_sessionChanged);
+      repository.changes.addListener(_dataChanged);
+    }
   }
 
   final EventAudienceRepository repository;
@@ -52,6 +61,7 @@ class ListenerEventFeedController extends ChangeNotifier {
   final String? ownerUserId;
   final bool privatePlans;
   final int pageSize;
+  final bool observeChanges;
   EventAudiencePeriod period;
   List<ListenerEventFeedRow> rows = const [];
   bool loading = false;
@@ -140,6 +150,8 @@ class ListenerEventFeedController extends ChangeNotifier {
                   note: item.note,
                   privateState: item,
                   ended: item.eventEnded,
+                  engagement: item.engagement,
+                  viewerIntentState: item,
                 ),
               ),
         );
@@ -169,6 +181,9 @@ class ListenerEventFeedController extends ChangeNotifier {
                   intent: item.intent,
                   note: item.note,
                   ended: item.eventEnded,
+                  publishedAt: item.publishedAt,
+                  engagement: item.engagement,
+                  viewerIntentState: item.viewerIntentState,
                 ),
               ),
         );
@@ -223,8 +238,10 @@ class ListenerEventFeedController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _generation++;
-    sessions.removeListener(_sessionChanged);
-    repository.changes.removeListener(_dataChanged);
+    if (observeChanges) {
+      sessions.removeListener(_sessionChanged);
+      repository.changes.removeListener(_dataChanged);
+    }
     super.dispose();
   }
 }

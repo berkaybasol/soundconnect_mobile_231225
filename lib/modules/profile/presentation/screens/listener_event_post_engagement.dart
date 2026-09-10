@@ -20,6 +20,8 @@ class ListenerEventPostEngagement extends StatefulWidget {
     required this.canInteract,
     required this.onError,
     required this.builder,
+    this.initialStats,
+    this.projectionKey,
   });
 
   final String postId;
@@ -27,6 +29,8 @@ class ListenerEventPostEngagement extends StatefulWidget {
   final AuthSessionManager sessions;
   final bool Function() canInteract;
   final ValueChanged<String> onError;
+  final InteractionStatsItemState? initialStats;
+  final Object? projectionKey;
   final Widget Function(
     InteractionStatsItemState stats,
     VoidCallback onLike,
@@ -55,6 +59,14 @@ class _ListenerEventPostEngagementState
       widget.repository,
       sessions: widget.sessions,
     );
+    final initial = widget.initialStats;
+    if (initial != null) {
+      _stats.seed(
+        targetType: _targetType,
+        targetId: widget.postId,
+        item: initial,
+      );
+    }
     unawaited(_stats.load(targetType: _targetType, targetId: widget.postId));
   }
 
@@ -62,8 +74,13 @@ class _ListenerEventPostEngagementState
   void didUpdateWidget(covariant ListenerEventPostEngagement oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.postId != widget.postId ||
+        oldWidget.projectionKey != widget.projectionKey ||
         !identical(oldWidget.repository, widget.repository) ||
-        !identical(oldWidget.sessions, widget.sessions)) {
+        !identical(oldWidget.sessions, widget.sessions) ||
+        oldWidget.initialStats?.likeCount != widget.initialStats?.likeCount ||
+        oldWidget.initialStats?.commentCount !=
+            widget.initialStats?.commentCount ||
+        oldWidget.initialStats?.isLiked != widget.initialStats?.isLiked) {
       unawaited(_stats.close());
       _bind();
     }

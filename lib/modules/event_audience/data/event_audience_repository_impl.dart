@@ -207,6 +207,10 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
           publishedAt: _instant(json['publishedAt']),
           eventEnded: _bool(json['eventEnded']),
           event: _event(json['event'], eventId),
+          engagement: _engagement(json),
+          viewerIntentState: json['viewerIntentState'] == null
+              ? null
+              : _state(json['viewerIntentState'], expectedId: eventId),
         );
       }, (post) => post.postId),
     );
@@ -217,6 +221,19 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
       throw const FormatException('Invalid object');
     }
     return raw;
+  }
+
+  static EventAudienceEngagement? _engagement(Map<String, dynamic> json) {
+    if (json['likeCount'] == null &&
+        json['commentCount'] == null &&
+        json['likedByMe'] == null) {
+      return null;
+    }
+    return EventAudienceEngagement(
+      likeCount: _int(json['likeCount']),
+      commentCount: _int(json['commentCount']),
+      likedByMe: _bool(json['likedByMe']),
+    );
   }
 
   static String _id(Object? raw) {
@@ -319,6 +336,7 @@ class EventAudienceRepositoryImpl implements EventAudienceRepository {
       canPublish: canPublish,
       publicationVisible: visible,
       event: event,
+      engagement: _engagement(json),
     );
   }
 

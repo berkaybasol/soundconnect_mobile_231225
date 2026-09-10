@@ -33,6 +33,7 @@ class DmChatCubit extends Cubit<DmChatState> {
   Future<void> openOrCreateConversation({
     required String otherUserId,
     String? currentUserId,
+    bool recipientDeleted = false,
   }) async {
     _otherUserId = otherUserId;
     final normalizedCurrent = currentUserId?.trim() ?? '';
@@ -46,6 +47,7 @@ class DmChatCubit extends Cubit<DmChatState> {
         page: 0,
         hasNext: false,
         error: null,
+        recipientDeleted: recipientDeleted,
       ),
     );
     final conversationResult = await _repository.getOrCreateConversation(
@@ -56,6 +58,9 @@ class DmChatCubit extends Cubit<DmChatState> {
         state.copyWith(
           status: DmChatStatus.failure,
           error: conversationResult.error,
+          recipientDeleted:
+              recipientDeleted ||
+              _deletedAccount(conversationResult.error?.code),
         ),
       );
       return;
@@ -142,7 +147,7 @@ class DmChatCubit extends Cubit<DmChatState> {
   }
 
   Future<bool> send(String content) async {
-    if (state.sending) return false;
+    if (isClosed || state.sending || state.recipientDeleted) return false;
     final conversationId = state.conversationId;
     final otherUserId = _otherUserId;
     final trimmed = content.trim();
@@ -160,8 +165,15 @@ class DmChatCubit extends Cubit<DmChatState> {
       content: trimmed,
       messageType: 'text',
     );
+    if (isClosed) return false;
     if (!sendResult.isSuccess || sendResult.data == null) {
-      emit(state.copyWith(sending: false, error: sendResult.error));
+      emit(
+        state.copyWith(
+          sending: false,
+          error: sendResult.error,
+          recipientDeleted: _deletedAccount(sendResult.error?.code),
+        ),
+      );
       return false;
     }
     _currentUserId ??= sendResult.data!.senderId.trim().isEmpty
@@ -187,6 +199,9 @@ class DmChatCubit extends Cubit<DmChatState> {
     final bTime = b.sentAt ?? DateTime.fromMillisecondsSinceEpoch(0);
     return aTime.compareTo(bTime);
   }
+
+  static bool _deletedAccount(String? code) =>
+      const {'1008', 'ACCOUNT_DELETED'}.contains(code);
 
   Future<void> _markIncomingUnreadAsRead(List<DmMessage> messages) async {
     final otherUserId = _otherUserId;

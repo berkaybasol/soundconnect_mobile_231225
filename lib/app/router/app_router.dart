@@ -18,6 +18,7 @@ import '../../modules/dm/presentation/screens/dm_chat_screen.dart';
 import '../../modules/dm/presentation/screens/dm_conversations_screen.dart';
 import '../../modules/event/presentation/screens/event_discovery_screen.dart';
 import '../../modules/event_audience/presentation/event_audience_profile_draft.dart';
+import '../../modules/overthinking/presentation/overthinking_profile_draft.dart';
 import '../../modules/notification/presentation/screens/notification_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
@@ -214,9 +215,15 @@ class AppRouter {
         );
       case AppRoutes.listenerProfile:
         final draft = _arguments<EventAudienceProfileDraftArgs>(settings);
+        final overthinkingDraft = _arguments<OverthinkingProfileDraftArgs>(
+          settings,
+        );
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => ListenerProfileScreen(eventDraft: draft),
+          builder: (_) => ListenerProfileScreen(
+            eventDraft: draft,
+            overthinkingDraft: overthinkingDraft,
+          ),
         );
       case AppRoutes.listenerProfileChoice:
         return MaterialPageRoute(

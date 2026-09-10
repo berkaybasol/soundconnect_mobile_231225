@@ -29,7 +29,10 @@ class ListenerProfileOwnerContent extends StatelessWidget {
     this.previewData,
     this.showPreviewSections = false,
     this.actionBusy = false,
+    this.posts,
+    this.postsAreSlivers = false,
     this.eventPosts,
+    this.overthinkingPosts,
     this.eventPlansAction,
     this.scrollController,
   });
@@ -43,7 +46,10 @@ class ListenerProfileOwnerContent extends StatelessWidget {
   final ListenerProfilePreviewData? previewData;
   final bool showPreviewSections;
   final bool actionBusy;
+  final Widget? posts;
+  final bool postsAreSlivers;
   final Widget? eventPosts;
+  final Widget? overthinkingPosts;
   final Widget? eventPlansAction;
   final ScrollController? scrollController;
 
@@ -68,86 +74,106 @@ class ListenerProfileOwnerContent extends StatelessWidget {
     final followingCount = profile.followingCount;
     final preview = previewData;
 
+    final content = <Widget>[
+      ListenerProfileHeader(
+        username: username,
+        imageUrl: profile.profilePictureUrl,
+        followerCount: followerCount,
+        followingCount: followingCount,
+        editableAvatar: true,
+        avatarBusy: actionBusy,
+        onEditAvatar: onEditAvatar,
+        actionButtons: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Center(
+            child: GradientOutlineButton(
+              key: const Key('listener-edit-profile'),
+              label: 'Profili Düzenle',
+              onPressed: actionBusy ? null : onEditProfile,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              leading: const Icon(Icons.edit_outlined, size: 16),
+              horizontalPadding: 24,
+              maxLines: 2,
+            ),
+          ),
+        ),
+        bio: bio,
+        afterBio: eventPlansAction == null
+            ? null
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: eventPlansAction!,
+              ),
+      ),
+      const SizedBox(height: 20),
+      ListenerPlaylistSection(
+        playlists: profile.playlists,
+        onPlaylistTap: onPlaylistTap,
+        onEdit: actionBusy ? null : onEditPlaylists,
+        showWhenEmpty: true,
+      ),
+      if (posts != null ||
+          eventPosts != null ||
+          overthinkingPosts != null ||
+          (showPreviewSections && preview != null)) ...[
+        const SizedBox(height: 14),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: ColoredBox(
+            color: _listenerDivider,
+            child: SizedBox(height: 1),
+          ),
+        ),
+        const SizedBox(height: 20),
+        const _ListenerSectionHeader(title: 'Paylaşımlar'),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ListenerProfileTheme(
+            child: Column(
+              children: [
+                if (posts != null && !postsAreSlivers) posts!,
+                if (eventPosts != null) eventPosts!,
+                if (overthinkingPosts != null) overthinkingPosts!,
+                if (showPreviewSections && preview != null)
+                  _ListenerOverthinkingPostCard(
+                    username: username,
+                    imageUrl: profile.profilePictureUrl,
+                    post: preview.overthinkingShare,
+                    onAction: onPreviewAction,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ];
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
-      child: ListView(
-        controller: scrollController,
-        key: const Key('listener-owner-profile-content'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 28),
-        children: [
-          ListenerProfileHeader(
-            username: username,
-            imageUrl: profile.profilePictureUrl,
-            followerCount: followerCount,
-            followingCount: followingCount,
-            editableAvatar: true,
-            avatarBusy: actionBusy,
-            onEditAvatar: onEditAvatar,
-            actionButtons: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Center(
-                child: GradientOutlineButton(
-                  key: const Key('listener-edit-profile'),
-                  label: 'Profili Düzenle',
-                  onPressed: actionBusy ? null : onEditProfile,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
-                  leading: const Icon(Icons.edit_outlined, size: 16),
-                  horizontalPadding: 24,
-                  maxLines: 2,
-                ),
-              ),
-            ),
-            bio: bio,
-            afterBio: eventPlansAction == null
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: eventPlansAction!,
+      child: postsAreSlivers
+          ? CustomScrollView(
+              controller: scrollController,
+              key: const Key('listener-owner-profile-content'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverList.list(children: content),
+                if (posts != null)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: ListenerProfileTheme(child: posts!),
                   ),
-          ),
-          const SizedBox(height: 20),
-          ListenerPlaylistSection(
-            playlists: profile.playlists,
-            onPlaylistTap: onPlaylistTap,
-            onEdit: actionBusy ? null : onEditPlaylists,
-            showWhenEmpty: true,
-          ),
-          if (eventPosts != null ||
-              (showPreviewSections && preview != null)) ...[
-            const SizedBox(height: 14),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: ColoredBox(
-                color: _listenerDivider,
-                child: SizedBox(height: 1),
-              ),
+                const SliverToBoxAdapter(child: SizedBox(height: 28)),
+              ],
+            )
+          : ListView(
+              controller: scrollController,
+              key: const Key('listener-owner-profile-content'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 28),
+              children: content,
             ),
-            const SizedBox(height: 20),
-            const _ListenerSectionHeader(title: 'Paylaşımlar'),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: ListenerProfileTheme(
-                child: Column(
-                  children: [
-                    if (eventPosts != null) eventPosts!,
-                    if (showPreviewSections && preview != null)
-                      _ListenerOverthinkingPostCard(
-                        username: username,
-                        imageUrl: profile.profilePictureUrl,
-                        post: preview.overthinkingShare,
-                        onAction: onPreviewAction,
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

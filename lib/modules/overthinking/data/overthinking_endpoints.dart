@@ -6,6 +6,9 @@ class OverthinkingEndpoints {
   static const String myPosts = '$_base/me';
   static const String incomingRevealRequests =
       '$_base/reveal-requests/incoming';
+  static const String incomingUnreadStatus =
+      '$incomingRevealRequests/unread-status';
+  static const String incomingSeen = '$incomingRevealRequests/seen';
   static const String sentRevealRequests = '$_base/reveal-requests/sent';
 
   static String detail(String postId) => '$_base/$postId';
@@ -17,6 +20,9 @@ class OverthinkingEndpoints {
   static String postsByArtist(String artistId) => '$_base/artist/$artistId';
 
   static String createRevealRequest(String postId) =>
+      '$_base/$postId/reveal-requests';
+
+  static String cancelRevealRequest(String postId) =>
       '$_base/$postId/reveal-requests';
 
   static String approveRevealRequest(String requestId) =>

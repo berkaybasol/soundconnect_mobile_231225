@@ -778,7 +778,7 @@ void main() {
       await tester.tap(find.text('Ben de gidiyorum'));
       await tester.pumpAndSettle();
       expect(find.text('Bu etkinliğe katılıyorsun!'), findsOneWidget);
-      expect(find.text('Author bu etkinliğe gidiyor.'), findsOneWidget);
+      expect(find.text('Bu etkinliğe gidiyor.'), findsOneWidget);
       expect(find.byType(BottomSheet), findsNothing);
       expect(repository.intentWrites.single, (
         EventAudienceStatus.going,
@@ -978,7 +978,7 @@ void main() {
       expect(find.text('Gerçek etkinlik'), findsOneWidget);
       expect(find.text('Ben de gidiyorum'), findsOneWidget);
       expect(find.text('@listener'), findsOneWidget);
-      expect(find.text('Listener bu etkinliğe gidiyor.'), findsOneWidget);
+      expect(find.text('Bu etkinliğe gidiyor.'), findsOneWidget);
       expect(find.text('Ankara Indie Night'), findsNothing);
       expect(find.text('Katılıyor'), findsNothing);
       expect(find.text('Katıldı'), findsNothing);
@@ -1273,7 +1273,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Paylaşımı sil'));
         await tester.pumpAndSettle();
-        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.byKey(const Key('listener-share-delete-dialog')),
+          findsOneWidget,
+        );
         if (change == 'account') {
           sessions.change(_session(userId: 'other', token: 'other-token'));
         } else {
@@ -1283,7 +1286,10 @@ void main() {
           repository.changes.value++;
         }
         await tester.pumpAndSettle();
-        expect(find.byType(AlertDialog), findsNothing);
+        expect(
+          find.byKey(const Key('listener-share-delete-dialog')),
+          findsNothing,
+        );
         expect(repository.deletedPosts, isEmpty);
         expect(tester.takeException(), isNull);
       },
@@ -1408,10 +1414,7 @@ void main() {
           sessions: _Sessions(_session()),
         ),
       );
-      expect(
-        find.text('Listener bu etkinliğe gitmeyi planlamıştı.'),
-        findsOneWidget,
-      );
+      expect(find.text('Bu etkinliğe gitmeyi planlamıştı.'), findsOneWidget);
       expect(find.text('Ben de gidiyorum'), findsNothing);
       expect(
         find.byKey(const ValueKey('listener-event-open-event')),
@@ -1586,7 +1589,7 @@ void main() {
         screen: true,
       );
       expect(
-        find.textContaining('Listener bu etkinliğe gitmeyi planlamıştı.'),
+        find.textContaining('Bu etkinliğe gitmeyi planlamıştı.'),
         findsOneWidget,
       );
       expect(find.textContaining('Hayalet modda gizli'), findsOneWidget);

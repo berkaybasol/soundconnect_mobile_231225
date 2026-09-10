@@ -25,6 +25,7 @@ class DmChatScreenArgs {
   final String? otherMusicianProfileId;
   final String? conversationId;
   final ListenerVisibilityMode otherUserVisibilityMode;
+  final bool otherUserDeleted;
 
   DmChatScreenArgs({
     required this.otherUserId,
@@ -34,6 +35,7 @@ class DmChatScreenArgs {
     this.otherMusicianProfileId,
     this.conversationId,
     this.otherUserVisibilityMode = ListenerVisibilityMode.standard,
+    this.otherUserDeleted = false,
   });
 }
 
@@ -82,6 +84,7 @@ class _DmChatViewState extends State<_DmChatView> {
           currentUserId: rawArgs['currentUserId']?.toString(),
           otherMusicianProfileId: rawArgs['otherMusicianProfileId']?.toString(),
           conversationId: rawArgs['conversationId']?.toString(),
+          otherUserDeleted: rawArgs['otherUserDeleted'] == true,
           otherUserVisibilityMode: parseContextualListenerVisibilityMode(
             rawArgs['otherUserVisibilityMode'],
           ),
@@ -93,6 +96,7 @@ class _DmChatViewState extends State<_DmChatView> {
     context.read<DmChatCubit>().openOrCreateConversation(
       otherUserId: args.otherUserId,
       currentUserId: args.currentUserId,
+      recipientDeleted: args.otherUserDeleted,
     );
     if (!_identityHydrationStarted) {
       _identityHydrationStarted = true;
@@ -101,7 +105,7 @@ class _DmChatViewState extends State<_DmChatView> {
   }
 
   Future<void> _hydrateGhostIdentity(DmChatScreenArgs args) async {
-    if (args.otherUserVisibilityMode.isGhost) return;
+    if (args.otherUserDeleted || args.otherUserVisibilityMode.isGhost) return;
     if (!serviceLocator.isRegistered<DmUserProfileResolver>()) return;
     final targets = await serviceLocator<DmUserProfileResolver>()
         .resolveByUserId(
@@ -116,7 +120,11 @@ class _DmChatViewState extends State<_DmChatView> {
       }
     }
     final resolvedGhostTarget = ghostTarget;
-    if (!mounted || resolvedGhostTarget == null) return;
+    if (!mounted ||
+        resolvedGhostTarget == null ||
+        context.read<DmChatCubit>().state.recipientDeleted) {
+      return;
+    }
     setState(() {
       _args = DmChatScreenArgs(
         otherUserId: args.otherUserId,
@@ -146,9 +154,14 @@ class _DmChatViewState extends State<_DmChatView> {
   @override
   Widget build(BuildContext context) {
     final args = _args;
+    final deleted = context.select<DmChatCubit, bool>(
+      (cubit) => cubit.state.recipientDeleted,
+    );
     final resolvedUsername = args?.otherUsername?.trim() ?? '';
     final resolvedUserId = args?.otherUserId.trim() ?? '';
-    final title = resolvedUsername.isNotEmpty
+    final title = deleted
+        ? 'Silinmiş hesap'
+        : resolvedUsername.isNotEmpty
         ? resolvedUsername
         : (resolvedUserId.isNotEmpty ? resolvedUserId : 'Mesajlar');
     return Scaffold(
@@ -156,16 +169,17 @@ class _DmChatViewState extends State<_DmChatView> {
         titleSpacing: 8,
         title: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: _openRelatedProfile,
+          onTap: deleted ? null : _openRelatedProfile,
           child: Row(
             children: [
               CircleAvatar(
                 radius: 18,
                 backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                backgroundImage: _hasAvatar(args?.otherUserProfilePicture)
+                backgroundImage:
+                    !deleted && _hasAvatar(args?.otherUserProfilePicture)
                     ? NetworkImage(args!.otherUserProfilePicture!.trim())
                     : null,
-                child: _hasAvatar(args?.otherUserProfilePicture)
+                child: !deleted && _hasAvatar(args?.otherUserProfilePicture)
                     ? null
                     : Icon(Icons.person_outline, size: 18),
               ),
@@ -181,7 +195,7 @@ class _DmChatViewState extends State<_DmChatView> {
                       children: [
                         Flexible(
                           child: Text(
-                            'Doğrudan mesaj',
+                            deleted ? 'Mesaj geçmişi' : 'Doğrudan mesaj',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -192,7 +206,8 @@ class _DmChatViewState extends State<_DmChatView> {
                             ),
                           ),
                         ),
-                        if (args?.otherUserVisibilityMode.isGhost == true) ...[
+                        if (!deleted &&
+                            args?.otherUserVisibilityMode.isGhost == true) ...[
                           const SizedBox(width: 7),
                           const GhostProfileBadge(),
                         ],
@@ -333,7 +348,16 @@ class _DmChatViewState extends State<_DmChatView> {
                   },
                 ),
               ),
-              _composer(),
+              if (deleted)
+                const Padding(
+                  key: Key('dm-deleted-account-readonly'),
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Bu hesap silindi. Mesaj geçmişini okuyabilirsin; yeni mesaj gönderemezsin.',
+                  ),
+                )
+              else
+                _composer(),
             ],
           ),
         ),
@@ -413,7 +437,11 @@ class _DmChatViewState extends State<_DmChatView> {
 
   Future<void> _openRelatedProfile() async {
     final args = _args;
-    if (args == null || !mounted) return;
+    if (args == null ||
+        !mounted ||
+        context.read<DmChatCubit>().state.recipientDeleted) {
+      return;
+    }
     final musicianProfileId = args.otherMusicianProfileId?.trim() ?? '';
     if (musicianProfileId.isNotEmpty) {
       _navigateToProfile(

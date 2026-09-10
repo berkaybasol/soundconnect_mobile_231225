@@ -81,10 +81,9 @@ class ListenerEventPostCard extends StatelessWidget {
     final isDraft = noteEditor != null || actions != null;
     final showLike = onLike != null || likeBusy || likeCount != null || isLiked;
     final handle = username.trim().replaceFirst(RegExp(r'^@+'), '');
-    final displayName = _displayName(handle);
     final status = isDraft
         ? intentLabel
-        : _participationLabel(displayName, intentLabel, ended: ended);
+        : _participationLabel(intentLabel, ended: ended);
     return Container(
       key: ValueKey('listener-event-post-${event.id}'),
       padding: const EdgeInsets.all(12),
@@ -97,23 +96,23 @@ class ListenerEventPostCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ClipOval(
                 child: AppCachedNetworkImage(
                   imageUrl: avatarUrl,
-                  width: 32,
-                  height: 32,
+                  width: 38,
+                  height: 38,
                   fit: BoxFit.cover,
                   errorBuilder: (_) => Container(
-                    width: 32,
-                    height: 32,
+                    width: 38,
+                    height: 38,
                     color: const Color(0xFF202238),
-                    child: const Icon(Icons.person_outline_rounded, size: 19),
+                    child: const Icon(Icons.person_outline_rounded, size: 22),
                   ),
                 ),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,8 +122,9 @@ class ListenerEventPostCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -136,6 +136,7 @@ class ListenerEventPostCard extends StatelessWidget {
                       style: const TextStyle(
                         color: Color(0xFFA0A9B6),
                         fontSize: 11,
+                        height: 1.4,
                       ),
                     ),
                   ],
@@ -613,27 +614,16 @@ class _PostAction extends StatelessWidget {
   );
 }
 
-String _displayName(String username) {
-  if (username.isEmpty) return 'Dinleyici';
-  final first = username[0] == 'i' ? 'İ' : username[0].toUpperCase();
-  return '$first${username.substring(1)}';
-}
-
-String _participationLabel(
-  String name,
-  String intentLabel, {
-  required bool ended,
-}) => switch (intentLabel) {
-  'Gidiyorum' =>
-    ended
-        ? '$name bu etkinliğe gitmeyi planlamıştı.'
-        : '$name bu etkinliğe gidiyor.',
-  'Düşünüyorum' =>
-    ended
-        ? '$name bu etkinliğe katılmayı düşünüyordu.'
-        : '$name bu etkinliğe katılmayı düşünüyor.',
-  _ => ended ? 'Geçmiş plan · $intentLabel' : '$name · $intentLabel',
-};
+String _participationLabel(String intentLabel, {required bool ended}) =>
+    switch (intentLabel) {
+      'Gidiyorum' =>
+        ended ? 'Bu etkinliğe gitmeyi planlamıştı.' : 'Bu etkinliğe gidiyor.',
+      'Düşünüyorum' =>
+        ended
+            ? 'Bu etkinliğe katılmayı düşünüyordu.'
+            : 'Bu etkinliğe katılmayı düşünüyor.',
+      _ => ended ? 'Geçmiş plan · $intentLabel' : intentLabel,
+    };
 
 String _ownerParticipationLabel(String intentLabel, bool ended) =>
     switch (intentLabel) {
@@ -668,12 +658,11 @@ class _PostNoteState extends State<_PostNote> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      const style = TextStyle(fontSize: 12, height: 1.4);
+      final style = DefaultTextStyle.of(
+        context,
+      ).style.copyWith(color: Colors.white, fontSize: 14, height: 1.6);
       final painter = TextPainter(
-        text: TextSpan(
-          text: widget.note,
-          style: DefaultTextStyle.of(context).style.merge(style),
-        ),
+        text: TextSpan(text: widget.note, style: style),
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
         maxLines: 3,
@@ -691,12 +680,19 @@ class _PostNoteState extends State<_PostNote> {
           ),
           if (needsExpansion)
             Align(
-              alignment: Alignment.centerLeft,
+              alignment: Alignment.centerRight,
               child: TextButton(
                 key: const Key('listener-event-note-expand'),
                 style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(48, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  foregroundColor: const Color(0xFFA0A9B6),
+                  textStyle: style.copyWith(
+                    fontSize: 12,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 onPressed: () => setState(() => _expanded = !_expanded),
                 child: Text(

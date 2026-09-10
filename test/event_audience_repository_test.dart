@@ -11,6 +11,53 @@ import 'support/event_audience_fakes.dart';
 
 void main() {
   test(
+    'public and owner pages decode batched publication stats and viewer state',
+    () async {
+      final stats = {'likeCount': 7, 'commentCount': 3, 'likedByMe': true};
+      final api = _Api()
+        ..response = _page({
+          ..._post(),
+          ...stats,
+          'viewerIntentState': _state(intent: 'THINKING', version: 2),
+        });
+      final repository = EventAudienceRepositoryImpl(
+        api,
+        sessionKeyProvider: () => 'listener',
+      );
+      final public = await repository.listPublic(
+        audienceVenueId,
+        expectedSessionKey: 'listener',
+      );
+      expect(public.isSuccess, isTrue);
+      final row = public.data!.items.single;
+      expect(row.engagement!.likeCount, 7);
+      expect(row.engagement!.commentCount, 3);
+      expect(row.engagement!.likedByMe, isTrue);
+      expect(row.viewerIntentState!.intent, EventAudienceStatus.thinking);
+      expect(row.viewerIntentState!.version, 2);
+      api.response = _page({
+        ..._state(intent: 'GOING', version: 1, published: true),
+        ...stats,
+      });
+      final mine = await repository.listMine(expectedSessionKey: 'listener');
+      expect(mine.isSuccess, isTrue);
+      expect(mine.data!.items.single.engagement!.likeCount, 7);
+      api.response = _page({
+        ..._post(),
+        ...stats,
+        'viewerIntentState': {..._state(), 'eventId': audienceVenueId},
+      });
+      expect(
+        (await repository.listPublic(
+          audienceVenueId,
+          expectedSessionKey: 'listener',
+        )).isSuccess,
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'private current intent uses captured session and strict event scope',
     () async {
       final api = _Api()..response = _state();

@@ -2,9 +2,15 @@ import '../../../core/error/result.dart';
 import '../../../core/pagination/page.dart';
 import 'entities/overthinking_post.dart';
 import 'entities/overthinking_reveal_request.dart';
+import 'entities/overthinking_incoming_unread_status.dart';
+import 'overthinking_feed_sort.dart';
 
 abstract class OverthinkingRepository {
-  Future<Result<Page<OverthinkingPost>>> getFeed({int page = 0, int size = 20});
+  Future<Result<Page<OverthinkingPost>>> getFeed({
+    int page = 0,
+    int size = 20,
+    OverthinkingFeedSort sort = OverthinkingFeedSort.newest,
+  });
 
   Future<Result<Page<OverthinkingPost>>> getMyPosts({
     int page = 0,
@@ -20,6 +26,7 @@ abstract class OverthinkingRepository {
   Future<Result<OverthinkingPost>> getDetail({required String postId});
 
   Future<Result<OverthinkingPost>> createPost({
+    String? clientRequestId,
     required String title,
     required String content,
     required String visibilityType,
@@ -48,9 +55,17 @@ abstract class OverthinkingRepository {
 
   Future<Result<void>> requestReveal({required String postId});
 
+  Future<Result<void>> cancelReveal({required String postId});
+
   Future<Result<Page<OverthinkingRevealRequest>>> getIncomingRevealRequests({
     int page = 0,
     int size = 20,
+  });
+
+  Future<Result<OverthinkingIncomingUnreadStatus>> getIncomingUnreadStatus();
+
+  Future<Result<OverthinkingIncomingUnreadStatus>> markIncomingRequestsSeen({
+    required int revision,
   });
 
   Future<Result<Page<OverthinkingRevealRequest>>> getSentRevealRequests({

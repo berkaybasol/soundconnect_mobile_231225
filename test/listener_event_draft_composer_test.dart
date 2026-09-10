@@ -575,7 +575,7 @@ void main() {
   });
 
   testWidgets(
-    'real profile reveals inline draft, retains Overthinking, cancel restores event feed',
+    'real profile reveals inline draft without mock posts, cancel restores event feed',
     (tester) async {
       final repository = _Repository();
       await _mountProfile(tester, repository);
@@ -587,7 +587,7 @@ void main() {
           (widget) =>
               widget.runtimeType.toString() == '_ListenerOverthinkingPostCard',
         ),
-        findsOneWidget,
+        findsNothing,
       );
       await _tap(tester, find.byKey(const Key('listener-event-draft-cancel')));
       expect(_note, findsNothing);

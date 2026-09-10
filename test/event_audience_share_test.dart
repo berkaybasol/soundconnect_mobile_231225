@@ -94,6 +94,13 @@ void main() {
         final output = Platform.environment['EVENT_AUDIENCE_RENDER_DIR'];
         if (output != null && output.isNotEmpty) {
           await tester.runAsync(() async {
+            final context = tester.element(find.byType(EventShareCard));
+            for (final image in tester.widgetList<Image>(find.byType(Image))) {
+              if (context.mounted) await precacheImage(image.image, context);
+            }
+          });
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
             final pixels =
                 await (boundary.currentContext!.findRenderObject()!
                         as RenderRepaintBoundary)

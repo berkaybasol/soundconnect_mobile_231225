@@ -37,6 +37,7 @@ void main() {
       for (final name in [
         'owner',
         'owner-liked',
+        'owner-long-note',
         'public',
         'public-going',
         'owner-narrow-2x',
@@ -51,7 +52,12 @@ void main() {
           _card(
             owner: owner,
             isParticipating: name.startsWith('public-going'),
-            note: 'Hadi gidek',
+            note: name == 'owner-long-note'
+                ? 'Bu akşam aynı şarkılara eşlik edelim. Uzun zamandır canlı '
+                      'dinlemek istediğim bir sahne; aranızda gelmeyi düşünen '
+                      'varsa konser öncesi buluşabiliriz. Şehrin gürültüsünden '
+                      'biraz uzaklaşıp müziğe karışmak iyi gelecek.'
+                : 'Hadi gidek',
             onOpen: () {},
             onIntent: () {},
             onComments: () {},
@@ -91,13 +97,13 @@ void main() {
       }
     });
   }
-  testWidgets('published header uses one @ and names the participant', (
+  testWidgets('published header uses one @ without repeating the participant', (
     tester,
   ) async {
     await _pump(tester, _card(username: '@berna'));
 
     expect(find.text('@berna'), findsOneWidget);
-    expect(find.text('Berna bu etkinliğe gidiyor.'), findsOneWidget);
+    expect(find.text('Bu etkinliğe gidiyor.'), findsOneWidget);
     expect(find.text('Gidiyorum'), findsNothing);
     expect(find.text('@@berna'), findsNothing);
   });
@@ -107,10 +113,7 @@ void main() {
   ) async {
     await _pump(tester, _card(intentLabel: 'Düşünüyorum', owner: true));
 
-    expect(
-      find.text('Berna bu etkinliğe katılmayı düşünüyor.'),
-      findsOneWidget,
-    );
+    expect(find.text('Bu etkinliğe katılmayı düşünüyor.'), findsOneWidget);
     expect(find.text('Bu etkinliğe katılmayı düşünüyorsun.'), findsOneWidget);
     expect(find.text('Bu etkinliğe katılıyorsun!'), findsNothing);
   });
@@ -120,10 +123,7 @@ void main() {
   ) async {
     await _pump(tester, _card(ended: true, owner: true));
 
-    expect(
-      find.text('Berna bu etkinliğe gitmeyi planlamıştı.'),
-      findsOneWidget,
-    );
+    expect(find.text('Bu etkinliğe gitmeyi planlamıştı.'), findsOneWidget);
     expect(find.text('Bu etkinliğe katılmayı planlamıştın.'), findsOneWidget);
     expect(find.text('Bu etkinliğe katılıyorsun!'), findsNothing);
   });

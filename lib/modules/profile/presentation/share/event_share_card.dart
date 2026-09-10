@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import 'event_share_data.dart';
 
 /// A fixed 9:16 export canvas. The preview and exported PNG use the same pixels.
@@ -58,14 +59,12 @@ class EventShareCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Image.asset('assets/logo.png', width: 27, height: 27),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'SoundConnect',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
+                        Transform.translate(
+                          offset: const Offset(-204 * 10 / 190, 0),
+                          child: const SizedBox(
+                            width: 204,
+                            height: 42,
+                            child: ProfileBrandTitle(),
                           ),
                         ),
                         const Spacer(),

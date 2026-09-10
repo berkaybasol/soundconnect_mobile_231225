@@ -1,3 +1,4 @@
+import '../../../overthinking/presentation/screens/overthinking_session_guard.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
 
@@ -816,12 +817,28 @@ class _NotificationTileState extends State<_NotificationTile> {
     BuildContext context,
     AppNotification notification,
   ) async {
+    final sessions = serviceLocator<AuthSessionManager>();
+    final session = sessions.session;
+    final sourceRoute = ModalRoute.of(context);
+    final notificationId = notification.id;
+    bool current() =>
+        context.mounted &&
+        identical(sessions.session, session) &&
+        session.isAuthenticated &&
+        session.isActive &&
+        !session.requiresListenerProfileChoice &&
+        session.userId == notification.recipientId &&
+        this.notification.id == notificationId &&
+        (sourceRoute == null || sourceRoute.isCurrent);
+    if (!context.mounted || !current()) return;
     final type = notification.type;
     final payload = notification.payload;
     if (type == 'OVERTHINKING_REVEAL_REQUEST_RECEIVED') {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => const OverthinkingManageScreen(initialTabIndex: 1),
+          builder: (_) => identical(sessions.session, session)
+              ? const OverthinkingManageScreen(initialTabIndex: 1)
+              : const OverthinkingUnavailableScreen(),
         ),
       );
       return;
@@ -830,7 +847,9 @@ class _NotificationTileState extends State<_NotificationTile> {
     if (type == 'OVERTHINKING_REVEAL_REQUEST_REJECTED') {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => const OverthinkingManageScreen(initialTabIndex: 2),
+          builder: (_) => identical(sessions.session, session)
+              ? const OverthinkingManageScreen(initialTabIndex: 2)
+              : const OverthinkingUnavailableScreen(),
         ),
       );
       return;
@@ -845,21 +864,19 @@ class _NotificationTileState extends State<_NotificationTile> {
     final result = await serviceLocator<OverthinkingRepository>().getDetail(
       postId: postId,
     );
-    if (!context.mounted) return;
+    if (!context.mounted || !current()) return;
     if (!result.isSuccess || result.data == null) {
       await Navigator.of(context).pushNamed(AppRoutes.overthinkingFeed);
       return;
     }
 
+    final detailCubit = serviceLocator<OverthinkingFeedCubit>()
+      ..refreshPost(result.data!.id);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MultiBlocProvider(
           providers: [
-            BlocProvider(
-              create: (_) =>
-                  serviceLocator<OverthinkingFeedCubit>()
-                    ..refreshPost(result.data!.id),
-            ),
+            BlocProvider(create: (_) => detailCubit),
             BlocProvider(
               create: (_) => serviceLocator<CommentThreadCubit>()
                 ..load(

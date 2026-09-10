@@ -8,6 +8,8 @@ import '../../modules/event_audience/data/event_audience_repository_impl.dart';
 import '../../modules/event_audience/domain/event_audience_repository.dart';
 
 import '../../modules/auth/data/auth_repository_impl.dart';
+import '../../modules/auth/data/account_deletion_repository_impl.dart';
+import '../../modules/auth/domain/account_deletion_repository.dart';
 import '../../modules/admin/data/admin_repository_impl.dart';
 import '../../modules/admin/domain/admin_repository.dart';
 import '../../modules/admin/presentation/cubit/admin_panel_cubit.dart';
@@ -70,7 +72,10 @@ import '../../modules/notification/domain/notification_repository.dart';
 import '../../modules/notification/presentation/cubit/notification_cubit.dart';
 import '../../modules/overthinking/data/overthinking_repository_impl.dart';
 import '../../modules/overthinking/domain/overthinking_repository.dart';
+import '../../modules/overthinking/domain/overthinking_profile_share_repository.dart';
+import '../../modules/overthinking/data/overthinking_profile_share_repository_impl.dart';
 import '../../modules/overthinking/presentation/cubit/overthinking_feed_cubit.dart';
+import '../../modules/overthinking/presentation/cubit/overthinking_incoming_unread_scope.dart';
 import '../../modules/profile/data/musician_profile_repository_impl.dart';
 import '../../modules/profile/data/musician_calendar_repository_impl.dart';
 import '../../modules/profile/data/band_calendar_repository_factory.dart';
@@ -492,12 +497,43 @@ void setupDependencies() {
       ),
     )
     ..registerLazySingleton<OverthinkingRepository>(
-      () => OverthinkingRepositoryImpl(serviceLocator<ApiClient>()),
+      () => OverthinkingRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<OverthinkingProfileShareRepository>(
+      () => OverthinkingProfileShareRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
+      dispose: (repository) =>
+          (repository as OverthinkingProfileShareRepositoryImpl).dispose(),
+    )
+    ..registerLazySingleton<OverthinkingIncomingUnreadScope>(
+      () => OverthinkingIncomingUnreadScope(
+        serviceLocator<OverthinkingRepository>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+        notifications:
+            serviceLocator<NotificationRealtimeClient>().notificationStream,
+        reconnections:
+            serviceLocator<NotificationRealtimeClient>().connectionStream,
+        invalidations: serviceLocator<NotificationRealtimeClient>().badgeStream
+            .map<void>((_) {}),
+      ),
+      dispose: (scope) => scope.close(),
     )
     ..registerFactory<OverthinkingFeedCubit>(
       () => OverthinkingFeedCubit(
         overthinkingRepository: serviceLocator<OverthinkingRepository>(),
         engagementRepository: serviceLocator<EngagementRepository>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<AccountDeletionRepository>(
+      () => AccountDeletionRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
       ),
     )
     ..registerLazySingleton<AuthRepository>(

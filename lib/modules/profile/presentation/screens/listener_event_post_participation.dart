@@ -18,10 +18,12 @@ class ListenerEventPostParticipation extends StatefulWidget {
     required this.canInteract,
     required this.onError,
     required this.builder,
+    this.initialIntent,
   });
 
   final String eventId;
   final Object refreshKey;
+  final EventAudienceState? initialIntent;
   final EventAudienceRepository repository;
   final AuthSessionManager sessions;
   final bool Function() canInteract;
@@ -50,6 +52,8 @@ class _ListenerEventPostParticipationState
       eventId: widget.eventId,
       repository: widget.repository,
       sessions: widget.sessions,
+      initialIntent: widget.initialIntent,
+      observeChanges: false,
     );
   }
 

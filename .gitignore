@@ -45,3 +45,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /android/key.properties
+
+# Local verification output and generated golden-test diagnostics
+/.local-verification/
+/test/failures/

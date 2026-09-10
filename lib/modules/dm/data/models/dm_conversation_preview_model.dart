@@ -13,14 +13,20 @@ class DmConversationPreviewModel extends DmConversationPreview {
     required super.lastMessageAt,
     required super.lastMessageRead,
     super.otherUserVisibilityMode,
+    super.otherUserDeleted,
   });
 
   factory DmConversationPreviewModel.fromJson(Map<String, dynamic> json) {
     return DmConversationPreviewModel(
       conversationId: json['conversationId']?.toString() ?? '',
       otherUserId: json['otherUserId']?.toString() ?? '',
-      otherUsername: _resolveUsername(json),
-      otherUserProfilePicture: json['otherUserProfilePicture']?.toString(),
+      otherUsername: json['otherUserDeleted'] == true
+          ? 'Silinmiş hesap'
+          : _resolveUsername(json),
+      otherUserProfilePicture: json['otherUserDeleted'] == true
+          ? null
+          : json['otherUserProfilePicture']?.toString(),
+      otherUserDeleted: json['otherUserDeleted'] == true,
       lastMessageContent: json['lastMessageContent']?.toString(),
       lastMessageType: json['lastMessageType']?.toString(),
       lastMessageSenderId: json['lastMessageSenderId']?.toString(),

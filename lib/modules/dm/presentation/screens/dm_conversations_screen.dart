@@ -721,6 +721,7 @@ class _ConversationTile extends StatelessWidget {
               otherUsername: item.otherUsername,
               otherUserProfilePicture: item.otherUserProfilePicture,
               otherUserVisibilityMode: item.otherUserVisibilityMode,
+              otherUserDeleted: item.otherUserDeleted,
             ),
           );
           if (context.mounted) {

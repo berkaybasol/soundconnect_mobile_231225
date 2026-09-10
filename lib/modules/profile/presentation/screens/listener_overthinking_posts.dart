@@ -8,11 +8,8 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../overthinking/domain/overthinking_profile_share_repository.dart';
-import '../../../overthinking/presentation/screens/overthinking_open_source.dart';
-import '../share/overthinking_share_flow.dart';
-import 'listener_overthinking_share_card.dart';
+import 'listener_overthinking_share_tile.dart';
 import 'listener_profile_theme.dart';
-import 'listener_share_delete_dialog.dart';
 
 class ListenerOverthinkingPostsSection extends StatefulWidget {
   const ListenerOverthinkingPostsSection({
@@ -51,14 +48,11 @@ class _ListenerOverthinkingPostsSectionState
   List<OverthinkingProfileShare> _items = [];
   final Set<String> _removed = {};
   int _generation = 0;
-  final _shareValidity = ValueNotifier<int>(0);
   int _page = 0;
   bool _hasNext = false;
   bool _loading = false;
   bool _loadingMore = false;
   String? _error;
-  String? _busyShareId;
-  DialogRoute<bool>? _confirmation;
 
   bool get _allowed =>
       _repository != null &&
@@ -69,9 +63,6 @@ class _ListenerOverthinkingPostsSectionState
       !_session.requiresListenerProfileChoice &&
       (widget.ownerUserId == null || widget.ownerUserId == _session.userId) &&
       identical(_sessions?.session, _session);
-  bool get _owner =>
-      widget.ownerUserId == _session.userId &&
-      canShareOverthinkingOnProfile(_session);
 
   @override
   void initState() {
@@ -96,7 +87,6 @@ class _ListenerOverthinkingPostsSectionState
 
   void _reset() {
     ++_generation;
-    _shareValidity.value = _generation;
     _items = [];
     _removed.clear();
     _page = 0;
@@ -104,8 +94,6 @@ class _ListenerOverthinkingPostsSectionState
     _loading = false;
     _loadingMore = false;
     _error = null;
-    _busyShareId = null;
-    _dismissConfirmation();
   }
 
   void _sessionChanged() {
@@ -148,7 +136,6 @@ class _ListenerOverthinkingPostsSectionState
     final session = _session;
     final repository = _repository!;
     final generation = ++_generation;
-    _shareValidity.value = generation;
     final page = append ? _page + 1 : 0;
     setState(() {
       _loading = !append;
@@ -218,118 +205,9 @@ class _ListenerOverthinkingPostsSectionState
       ModalRoute.of(context)?.isCurrent == true &&
       _items.any((row) => identical(row, item));
 
-  Future<void> _open(OverthinkingProfileShare item) async {
-    final session = _session;
-    if (_busyShareId != null || !_current(session, item)) return;
-    setState(() => _busyShareId = item.shareId);
-    try {
-      if (widget.onOpenSource case final open?) {
-        await open(item.post.id);
-      } else {
-        await openOverthinkingSource(
-          context,
-          item.post.id,
-          isCurrent: () => _current(session, item),
-        );
-      }
-    } finally {
-      if (mounted && identical(session, _session)) {
-        setState(() => _busyShareId = null);
-        await _load();
-      }
-    }
-  }
-
-  Future<void> _remove(OverthinkingProfileShare item) async {
-    final session = _session;
-    if (!_owner || _busyShareId != null || !_current(session, item)) return;
-    setState(() => _busyShareId = item.shareId);
-    final dialog = DialogRoute<bool>(
-      context: context,
-      builder: (_) => const ListenerShareDeleteDialog.overthinking(
-        confirmKey: Key('listener-overthinking-remove-confirm'),
-      ),
-    );
-    _confirmation = dialog;
-    try {
-      final confirmed = await Navigator.of(context).push<bool>(dialog);
-      if (identical(_confirmation, dialog)) _confirmation = null;
-      if (confirmed != true || !_current(session, item) || !_owner) return;
-      final result = await _repository!.deleteShare(
-        shareId: item.shareId,
-        expectedSession: session,
-      );
-      if (!mounted || !identical(session, _session) || !_allowed) return;
-      if (result.isSuccess) {
-        _removed.add(item.shareId);
-        setState(
-          () => _items = _items
-              .where((row) => row.shareId != item.shareId)
-              .toList(),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          appSnackBar(
-            context,
-            tone: AppSnackBarTone.error,
-            content: Text(result.error?.message ?? 'Paylaşım kaldırılamadı.'),
-          ),
-        );
-      }
-      await _load();
-    } finally {
-      if (identical(_confirmation, dialog)) _dismissConfirmation();
-      if (mounted && identical(session, _session)) {
-        setState(() => _busyShareId = null);
-      }
-    }
-  }
-
-  Future<void> _share(OverthinkingProfileShare item) async {
-    final session = _session;
-    if (_busyShareId != null || !_current(session, item)) return;
-    final repository = _repository!;
-    final revision = repository.changes.value;
-    final generation = _generation;
-    setState(() => _busyShareId = item.shareId);
-    try {
-      await shareOverthinkingPost(
-        context,
-        postId: item.post.id,
-        sessions: _sessions,
-        expectedSession: session,
-        validityChanges: Listenable.merge([repository.changes, _shareValidity]),
-        isValid: () =>
-            mounted &&
-            _allowed &&
-            generation == _generation &&
-            identical(_session, session) &&
-            identical(_repository, repository) &&
-            repository.changes.value == revision &&
-            _items.any((row) => identical(row, item)),
-      );
-    } finally {
-      if (mounted && identical(_session, session)) {
-        setState(() => _busyShareId = null);
-      }
-    }
-  }
-
-  void _dismissConfirmation() {
-    final dialog = _confirmation;
-    _confirmation = null;
-    if (dialog == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (dialog.isActive) dialog.navigator?.removeRoute(dialog);
-    });
-  }
-
   @override
   void dispose() {
     ++_generation;
-    _shareValidity.value = _generation;
-    _shareValidity.dispose();
-    _dismissConfirmation();
     WidgetsBinding.instance.removeObserver(this);
     widget.refreshSignal?.removeListener(_refresh);
     _repository?.changes.removeListener(_refresh);
@@ -341,6 +219,15 @@ class _ListenerOverthinkingPostsSectionState
   Widget build(BuildContext context) {
     if (!_allowed) return const SizedBox.shrink();
     final session = _session;
+    final repository = _repository!;
+    final profileId = widget.listenerProfileId;
+    final generation = _generation;
+    bool profileCurrent() =>
+        mounted &&
+        _allowed &&
+        identical(_session, session) &&
+        identical(_repository, repository) &&
+        widget.listenerProfileId == profileId;
     return Column(
       key: const Key('listener-overthinking-posts'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -350,20 +237,69 @@ class _ListenerOverthinkingPostsSectionState
             padding: EdgeInsets.only(bottom: 12),
             child: LinearProgressIndicator(minHeight: 2),
           ),
-        for (final item in _items)
+        for (final item in _loading ? const <OverthinkingProfileShare>[] : _items)
           Padding(
+            // Every read revalidates this projection. Replacing the tile also
+            // invalidates an open source sheet or share dialog immediately.
+            key: ValueKey('$_generation:${item.shareId}'),
             padding: const EdgeInsets.only(bottom: 12),
-            child: ListenerOverthinkingShareCard(
+            child: ListenerOverthinkingShareTile(
               share: item,
               username: widget.username,
               avatarUrl: widget.avatarUrl,
-              busy: _busyShareId == item.shareId,
+              ownerUserId: widget.ownerUserId,
+              repository: repository,
+              sessions: _sessions!,
               isCurrent: () => _current(session, item),
-              onOpen: _busyShareId == null
-                  ? () => unawaited(_open(item))
-                  : null,
-              onRemove: _owner ? () => unawaited(_remove(item)) : null,
-              onShare: () => unawaited(_share(item)),
+              onOpenSource: widget.onOpenSource,
+              onSourceChanged: (post) {
+                if (!profileCurrent() ||
+                    generation != _generation ||
+                    post.id != item.post.id ||
+                    !_items.any((row) => identical(row, item))) {
+                  return;
+                }
+                setState(
+                  () => _items = [
+                    for (final row in _items)
+                      if (identical(row, item))
+                        OverthinkingProfileShare(
+                          shareId: row.shareId,
+                          note: row.note,
+                          publishedAt: row.publishedAt,
+                          post: post,
+                        )
+                      else
+                        row,
+                  ],
+                );
+              },
+              onRefresh: () async {
+                if (profileCurrent()) await _load();
+              },
+              onRemoved: (shareId) {
+                if (!profileCurrent()) return;
+                _removed.add(shareId);
+                setState(
+                  () => _items = _items
+                      .where((row) => row.shareId != shareId)
+                      .toList(),
+                );
+                unawaited(_load());
+              },
+              onError: (message) {
+                if (!profileCurrent() ||
+                    ModalRoute.of(context)?.isCurrent != true) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  appSnackBar(
+                    context,
+                    tone: AppSnackBarTone.error,
+                    content: Text(message),
+                  ),
+                );
+              },
             ),
           ),
         if (_error != null)

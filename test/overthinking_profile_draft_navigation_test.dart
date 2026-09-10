@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_router.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
@@ -29,11 +30,16 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/listener_profil
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/listener_profile_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_overthinking_draft_composer.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_table_group_draft_composer.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_public_bottom_bar.dart';
+import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_profile_share_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/table_group_profile_draft.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
 
 import 'support/event_audience_fakes.dart';
+
+part 'table_group_profile_draft_navigation_cases.dart';
 
 const _sourceId = '0d87cfdc-44ea-48dd-a16c-28e27e92ba4d';
 const _preview = bool.fromEnvironment('OVERTHINKING_DRAFT_PREVIEW');
@@ -54,6 +60,8 @@ final _leaveDialog = find.byKey(
 void main() {
   setUp(() async => serviceLocator.reset());
   tearDown(() async => serviceLocator.reset());
+
+  _registerTableGroupDraftNavigationCases();
 
   testWidgets('share button opens own profile draft without a sheet or write', (
     tester,

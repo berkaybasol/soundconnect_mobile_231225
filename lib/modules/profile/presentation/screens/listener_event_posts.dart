@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -14,6 +15,7 @@ import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
 import '../../../event_audience/domain/event_audience_repository.dart';
 import '../../../event_audience/presentation/event_audience_controller.dart';
 import '../../../overthinking/domain/overthinking_profile_share_repository.dart';
+import '../../../tablegroup/domain/table_group_profile_share_repository.dart';
 import '../../domain/entities/venue_event_detail.dart';
 import '../cubit/listener_event_feed_controller.dart';
 import '../cubit/listener_profile_feed_controller.dart';
@@ -26,6 +28,7 @@ import 'listener_event_post_note_editor.dart';
 import 'listener_profile_theme.dart';
 import 'listener_overthinking_posts.dart';
 import 'listener_overthinking_share_tile.dart';
+import 'listener_table_group_share_tile.dart';
 import 'listener_share_delete_dialog.dart';
 import 'weekly_event_detail_screen.dart';
 
@@ -40,6 +43,8 @@ class ListenerProfilePostsSection extends StatelessWidget {
     this.profileContentVisible = true,
     this.eventsRepository,
     this.overthinkingRepository,
+    this.tableGroupRepository,
+    this.onOpenTable,
     this.sessions,
     this.refreshSignal,
     this.onOpenEvent,
@@ -54,6 +59,8 @@ class ListenerProfilePostsSection extends StatelessWidget {
   final bool profileContentVisible;
   final EventAudienceRepository? eventsRepository;
   final OverthinkingProfileShareRepository? overthinkingRepository;
+  final TableGroupProfileShareRepository? tableGroupRepository;
+  final Future<void> Function(String tableGroupId)? onOpenTable;
   final AuthSessionManager? sessions;
   final ValueListenable<int>? refreshSignal;
   final Future<void> Function(VenueEventDetail event)? onOpenEvent;
@@ -89,6 +96,10 @@ class ListenerProfilePostsSection extends StatelessWidget {
       ownerUserId: ownerUserId,
       repository: events,
       overthinkingRepository: shares,
+      tableGroupRepository:
+          tableGroupRepository ??
+          _registered<TableGroupProfileShareRepository>(),
+      onOpenTable: onOpenTable,
       sessions: sessions,
       refreshSignal: refreshSignal,
       onOpenEvent: onOpenEvent,
@@ -235,6 +246,8 @@ class _ListenerEventFeed extends StatefulWidget {
     this.showHeading = false,
     this.onOpenEvent,
     this.overthinkingRepository,
+    this.tableGroupRepository,
+    this.onOpenTable,
     this.onOpenSource,
     this.asSliver = false,
   });
@@ -250,6 +263,8 @@ class _ListenerEventFeed extends StatefulWidget {
   final bool showHeading;
   final Future<void> Function(VenueEventDetail event)? onOpenEvent;
   final OverthinkingProfileShareRepository? overthinkingRepository;
+  final TableGroupProfileShareRepository? tableGroupRepository;
+  final Future<void> Function(String tableGroupId)? onOpenTable;
   final Future<void> Function(String postId)? onOpenSource;
   final bool asSliver;
 
@@ -271,16 +286,30 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
   ValueNotifier<bool>? _commentsAvailable;
   AuthSession? _commentsSession;
   String? _commentsPostId;
+  final Set<String> _visibleTableShares = {};
+  Timer? _tableRefreshTimer;
+  Object? _tableRefreshFlight;
+  int _tableRefreshGeneration = 0;
+  Duration _tableRefreshDelay = const Duration(seconds: 15);
+  bool _foreground = true;
+  bool _routeCurrent = false;
+  bool _tickersEnabled = true;
 
   @override
   void initState() {
     super.initState();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     widget.refreshSignal?.addListener(_refresh);
     _bind();
   }
 
   void _bind() {
+    _cancelTableRefresh();
+    _tableRefreshFlight = null;
+    _visibleTableShares.clear();
+    _tableRefreshDelay = const Duration(seconds: 15);
     _dismissNoteDialog();
     _dismissDeleteDialog();
     _invalidateComments();
@@ -296,6 +325,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
         ? ListenerProfileFeedController(
             eventsRepository: repository,
             overthinkingRepository: widget.overthinkingRepository!,
+            tableGroupRepository: widget.tableGroupRepository,
             sessions: sessions,
             listenerProfileId: widget.listenerProfileId,
             ownerUserId: widget.ownerUserId,
@@ -313,6 +343,92 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final wasVisible = _routeCurrent && _tickersEnabled;
+    // Subscribe to route currency and inherited tab visibility. This also
+    // suspends reads while a dialog, detail route, or another tab is showing.
+    _routeCurrent = ModalRoute.isCurrentOf(context) ?? false;
+    _tickersEnabled = TickerMode.of(context);
+    if (!_routeCurrent || !_tickersEnabled) {
+      _cancelTableRefresh();
+    } else {
+      _scheduleTableRefresh(immediate: !wasVisible);
+    }
+  }
+
+  bool get _canRefreshTables {
+    final feed = _feed;
+    return mounted &&
+        _foreground &&
+        _routeCurrent &&
+        _tickersEnabled &&
+        feed is ListenerProfileFeedController &&
+        feed.allowed &&
+        !feed.loading &&
+        feed.entries.any(
+          (entry) =>
+              entry.tableShare?.tableGroup.status == 'ACTIVE' &&
+              _visibleTableShares.contains(entry.tableShare?.shareId),
+        );
+  }
+
+  void _setTableVisible(String shareId, bool visible) {
+    if (!mounted) return;
+    if (visible) {
+      _visibleTableShares.add(shareId);
+    } else {
+      _visibleTableShares.remove(shareId);
+    }
+    _scheduleTableRefresh();
+  }
+
+  void _cancelTableRefresh() {
+    _tableRefreshTimer?.cancel();
+    _tableRefreshTimer = null;
+    ++_tableRefreshGeneration;
+  }
+
+  void _scheduleTableRefresh({bool immediate = false}) {
+    if (!_canRefreshTables) {
+      _cancelTableRefresh();
+      return;
+    }
+    if (_tableRefreshFlight != null || _tableRefreshTimer != null) return;
+    _tableRefreshTimer = Timer(
+      immediate ? Duration.zero : _tableRefreshDelay,
+      () => unawaited(_refreshVisibleTables()),
+    );
+  }
+
+  Future<void> _refreshVisibleTables() async {
+    _tableRefreshTimer = null;
+    final feed = _feed;
+    if (!_canRefreshTables || feed is! ListenerProfileFeedController) return;
+    final flight = Object();
+    _tableRefreshFlight = flight;
+    final generation = _tableRefreshGeneration;
+    final success = await feed.refreshTableShares(
+      shareIds: Set.of(_visibleTableShares),
+      isCurrent: () =>
+          _canRefreshTables &&
+          identical(_feed, feed) &&
+          generation == _tableRefreshGeneration,
+    );
+    if (!identical(_tableRefreshFlight, flight)) return;
+    _tableRefreshFlight = null;
+    if (!mounted) return;
+    if (generation == _tableRefreshGeneration) {
+      _tableRefreshDelay = success
+          ? const Duration(seconds: 15)
+          : Duration(
+              seconds: (_tableRefreshDelay.inSeconds * 2).clamp(15, 120),
+            );
+    }
+    _scheduleTableRefresh();
+  }
+
+  @override
   void didUpdateWidget(covariant _ListenerEventFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.refreshSignal != widget.refreshSignal) {
@@ -322,6 +438,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     if (oldWidget.listenerProfileId != widget.listenerProfileId ||
         oldWidget.ownerUserId != widget.ownerUserId ||
         oldWidget.overthinkingRepository != widget.overthinkingRepository ||
+        oldWidget.tableGroupRepository != widget.tableGroupRepository ||
         oldWidget.repository != widget.repository ||
         oldWidget.sessions != widget.sessions) {
       _bind();
@@ -361,6 +478,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
       _dismissDeleteDialog();
     }
     if (mounted) setState(() {});
+    _scheduleTableRefresh();
   }
 
   void _dismissDeleteDialog() {
@@ -411,11 +529,17 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh();
+    _foreground = state == AppLifecycleState.resumed;
+    _cancelTableRefresh();
+    if (_foreground && _routeCurrent && _tickersEnabled) {
+      _refresh();
+      _scheduleTableRefresh(immediate: true);
+    }
   }
 
   @override
   void dispose() {
+    _cancelTableRefresh();
     _dismissNoteDialog();
     _dismissDeleteDialog();
     _invalidateComments();
@@ -604,6 +728,65 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
     );
   }
 
+  Widget _tableCard(
+    ListenerProfileFeedController feed,
+    TableGroupProfileShare share,
+    AuthSession expectedSession,
+  ) {
+    bool profileCurrent() =>
+        mounted &&
+        identical(_feed, feed) &&
+        feed.allowed &&
+        identical(feed.sessions.session, expectedSession);
+    return _VisibleTablePublication(
+      onVisibilityChanged: (visible) {
+        if (profileCurrent()) _setTableVisible(share.shareId, visible);
+      },
+      child: ListenerTableGroupShareTile(
+        share: share,
+        username: widget.username,
+        avatarUrl: widget.avatarUrl,
+        ownerUserId: widget.ownerUserId,
+        repository: widget.tableGroupRepository!,
+        sessions: feed.sessions,
+        isCurrent: () =>
+            profileCurrent() && feed.containsTableShare(expectedSession, share),
+        onSourceRefresh: () async {
+          bool sourceCurrent() =>
+              profileCurrent() && _foreground && _tickersEnabled;
+          if (!sourceCurrent()) return;
+          await feed.refreshTableShares(
+            shareIds: {share.shareId, ..._visibleTableShares},
+            isCurrent: sourceCurrent,
+            afterPending: true,
+          );
+        },
+        onOpenSource: widget.onOpenTable,
+        onEngagementChanged: (stats) {
+          if (!profileCurrent()) return;
+          feed.updateTableGroupEngagement(
+            expectedSession: expectedSession,
+            expectedShare: share,
+            stats: stats,
+          );
+        },
+        onRefresh: () async {
+          if (profileCurrent()) await feed.revalidate();
+        },
+        onRemoved: (shareId) {
+          if (!profileCurrent()) return;
+          feed.forgetTableShare(shareId);
+          unawaited(feed.revalidate());
+        },
+        onError: (message) {
+          if (profileCurrent() && ModalRoute.of(context)?.isCurrent == true) {
+            _feedback(message);
+          }
+        },
+      ),
+    );
+  }
+
   Widget _profileBody(ListenerProfileFeedController feed) {
     final expectedSession = feed.sessions.session;
     Widget rowAt(int index) {
@@ -618,6 +801,8 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
           padding: const EdgeInsets.only(bottom: 12),
           child: entry.eventRow != null
               ? _card(feed, entry.eventRow!)
+              : entry.tableShare != null
+              ? _tableCard(feed, entry.tableShare!, expectedSession)
               : ListenerOverthinkingShareTile(
                   share: entry.share!,
                   username: widget.username,
@@ -630,6 +815,20 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
                       identical(_feed, feed) &&
                       feed.containsShare(expectedSession, entry.share!) &&
                       ModalRoute.of(context)?.isCurrent == true,
+                  onSourceChanged: (post) {
+                    // The feed can still own this publication after its tile
+                    // is recycled. Validate the parent lifetime independently.
+                    if (mounted &&
+                        identical(_feed, feed) &&
+                        widget.listenerProfileId == feed.listenerProfileId &&
+                        identical(feed.sessions.session, expectedSession)) {
+                      feed.updateOverthinkingSource(
+                        expectedSession: expectedSession,
+                        expectedShare: entry.share!,
+                        post: post,
+                      );
+                    }
+                  },
                   onRefresh: () async {
                     if (mounted &&
                         identical(_feed, feed) &&
@@ -713,7 +912,9 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
       return SliverList.builder(
         key: const Key('listener-profile-posts'),
         itemCount: feed.entries.length + 1,
-        addAutomaticKeepAlives: false,
+        // Tiles retain themselves only while an interaction is in flight.
+        // Idle publications still recycle outside the viewport.
+        addAutomaticKeepAlives: true,
         findChildIndexCallback: (key) {
           if (key == const ValueKey('listener-profile-posts-footer')) {
             return feed.entries.length;
@@ -1265,6 +1466,47 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
 
 T? _registered<T extends Object>() =>
     serviceLocator.isRegistered<T>() ? serviceLocator<T>() : null;
+
+/// A card contributes visibility to its owning feed's single refresh timer.
+/// Cached sliver children do not generate requests while outside the viewport.
+class _VisibleTablePublication extends StatefulWidget {
+  const _VisibleTablePublication({
+    required this.child,
+    required this.onVisibilityChanged,
+  });
+
+  final Widget child;
+  final ValueChanged<bool> onVisibilityChanged;
+
+  @override
+  State<_VisibleTablePublication> createState() =>
+      _VisibleTablePublicationState();
+}
+
+class _VisibleTablePublicationState extends State<_VisibleTablePublication> {
+  final _detectorKey = UniqueKey();
+  bool _visible = false;
+
+  @override
+  Widget build(BuildContext context) => VisibilityDetector(
+    key: _detectorKey,
+    onVisibilityChanged: (info) {
+      if (!mounted) return;
+      final visible = info.visibleFraction > 0;
+      if (_visible == visible) return;
+      _visible = visible;
+      widget.onVisibilityChanged(visible);
+    },
+    child: widget.child,
+  );
+
+  @override
+  void dispose() {
+    VisibilityDetectorController.instance.forget(_detectorKey);
+    if (_visible) widget.onVisibilityChanged(false);
+    super.dispose();
+  }
+}
 
 class _PlanPeriodChoice extends StatelessWidget {
   const _PlanPeriodChoice({

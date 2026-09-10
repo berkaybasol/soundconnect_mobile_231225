@@ -234,16 +234,10 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
                       opacity: _heartOpacity.value,
                       child: Transform.scale(
                         scale: _heartScale.value,
-                        child: ShaderMask(
-                          blendMode: BlendMode.srcIn,
-                          shaderCallback: (Rect bounds) {
-                            return LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: AppColors.brandGradient,
-                            ).createShader(bounds);
-                          },
-                          child: Icon(Icons.favorite, size: 76),
+                        child: Icon(
+                          Icons.favorite_rounded,
+                          size: 76,
+                          color: AppColors.likeHeart,
                         ),
                       ),
                     ),
@@ -252,9 +246,9 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
                       child: Transform.scale(
                         scale: _heartScale.value * 1.05,
                         child: Icon(
-                          Icons.favorite,
+                          Icons.favorite_rounded,
                           size: 82,
-                          color: Color(0x66FF5F8F),
+                          color: AppColors.likeHeart.withValues(alpha: 0.4),
                         ),
                       ),
                     ),

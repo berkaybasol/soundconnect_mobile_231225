@@ -58,10 +58,12 @@ BoxDecoration _manageCardDecoration() => BoxDecoration(
 
 class _ManageMetric extends StatelessWidget {
   final IconData icon;
+  final Color? iconColor;
   final int value;
   final String label;
   const _ManageMetric({
     required this.icon,
+    this.iconColor,
     required this.value,
     required this.label,
   });
@@ -73,7 +75,7 @@ class _ManageMetric extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 15, color: OverthinkingPalette.muted),
+        Icon(icon, size: 15, color: iconColor ?? OverthinkingPalette.muted),
         const SizedBox(width: 5),
         Text(
           '$value',

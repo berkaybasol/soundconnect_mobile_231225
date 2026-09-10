@@ -65,6 +65,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
   String? _selectedCityId;
   String? _selectedDistrictId;
   String? _selectedNeighborhoodId;
+  bool _attemptedSubmit = false;
   bool _settingVenueText = false;
   _TableGroupCreateDraft? _retryableCreateDraft;
   TableGroupCreateRequest? _retryableCreateRequest;
@@ -603,6 +604,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
   Future<void> _submit(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
 
+    if (!_attemptedSubmit) setState(() => _attemptedSubmit = true);
     if (_formKey.currentState?.validate() != true) return;
     if (_guestCount < 1) {
       messenger.showSnackBar(
@@ -714,7 +716,11 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
       appSnackBar(
         this.context,
         tone: AppSnackBarTone.success,
-        content: Text('Masa oluşturuldu'),
+        duration: const Duration(seconds: 6),
+        content: const Text(
+          'Masa oluşturuldu.\n'
+          'Masana Mesajlar bölümünden ulaşabilirsin.',
+        ),
       ),
     );
     Navigator.of(
@@ -794,6 +800,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                 padding: const EdgeInsets.fromLTRB(6, 16, 6, 28),
                 child: Form(
                   key: _formKey,
+                  autovalidateMode: _attemptedSubmit
+                      ? AutovalidateMode.onUserInteraction
+                      : AutovalidateMode.disabled,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

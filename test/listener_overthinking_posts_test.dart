@@ -146,10 +146,6 @@ void main() {
           const Key('listener-overthinking-source-quote'),
         );
         expect(
-          (tester.widget<Container>(quote).decoration! as BoxDecoration).color,
-          const Color(0xFF151D2D),
-        );
-        expect(
           find.descendant(of: quote, matching: find.text('Devamını gör…')),
           findsOneWidget,
         );
@@ -202,8 +198,17 @@ void main() {
         find.byWidgetPredicate(
           (widget) =>
               widget is Semantics &&
-              widget.properties.label ==
-                  'Asıl yazıda 2147483647 beğeni, 999999999 yorum',
+              widget.properties.label == 'Beğen' &&
+              widget.properties.value == '2147483647 beğeni',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics &&
+              widget.properties.label == 'Yorumlar' &&
+              widget.properties.value == '999999999 yorum',
         ),
         findsOneWidget,
       );

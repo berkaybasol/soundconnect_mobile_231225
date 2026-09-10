@@ -19,6 +19,8 @@ import '../../../event_audience/presentation/event_audience_controller.dart';
 import '../../../event_audience/presentation/event_audience_profile_draft.dart';
 import '../../../overthinking/domain/overthinking_profile_share_access.dart';
 import '../../../overthinking/presentation/overthinking_profile_draft.dart';
+import '../../../tablegroup/presentation/table_group_profile_draft.dart';
+import '../../../../core/auth/listener_profile_publication_access.dart';
 import '../cubit/listener_profile_cubit.dart';
 import '../cubit/listener_profile_state.dart';
 import '../listener_visibility_error_message.dart';
@@ -26,6 +28,7 @@ import 'listener_ghost_profile_content.dart';
 import 'listener_event_posts.dart';
 import 'listener_event_draft_composer.dart';
 import 'listener_overthinking_draft_composer.dart';
+import 'listener_table_group_draft_composer.dart';
 import 'listener_playlist_manager_sheet.dart';
 import 'listener_profile_owner_content.dart';
 import 'listener_profile_theme.dart';
@@ -40,12 +43,18 @@ class ListenerProfileScreen extends StatelessWidget {
     this.showBottomNavigation = true,
     this.eventDraft,
     this.overthinkingDraft,
-  }) : assert(eventDraft == null || overthinkingDraft == null);
+    this.tableGroupDraft,
+  }) : assert(eventDraft == null || overthinkingDraft == null),
+       assert(
+         tableGroupDraft == null ||
+             (eventDraft == null && overthinkingDraft == null),
+       );
 
   final ListenerProfileCubit Function()? cubitFactory;
   final bool showBottomNavigation;
   final EventAudienceProfileDraftArgs? eventDraft;
   final OverthinkingProfileDraftArgs? overthinkingDraft;
+  final TableGroupProfileDraftArgs? tableGroupDraft;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +68,7 @@ class ListenerProfileScreen extends StatelessWidget {
           showBottomNavigation: showBottomNavigation,
           eventDraft: eventDraft,
           overthinkingDraft: overthinkingDraft,
+          tableGroupDraft: tableGroupDraft,
         ),
       ),
     );
@@ -70,11 +80,13 @@ class _ListenerProfileView extends StatefulWidget {
     required this.showBottomNavigation,
     this.eventDraft,
     this.overthinkingDraft,
+    this.tableGroupDraft,
   });
 
   final bool showBottomNavigation;
   final EventAudienceProfileDraftArgs? eventDraft;
   final OverthinkingProfileDraftArgs? overthinkingDraft;
+  final TableGroupProfileDraftArgs? tableGroupDraft;
 
   @override
   State<_ListenerProfileView> createState() => _ListenerProfileViewState();
@@ -89,6 +101,8 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
   final _draftKey = GlobalKey<ListenerEventDraftComposerState>();
   final _overthinkingDraftKey =
       GlobalKey<ListenerOverthinkingDraftComposerState>();
+  final _tableGroupDraftKey = GlobalKey<ListenerTableGroupDraftComposerState>();
+  TableGroupProfileDraftArgs? _activeTableGroupDraft;
   EventAudienceProfileDraftArgs? _activeDraft;
   OverthinkingProfileDraftArgs? _activeOverthinkingDraft;
   AuthSessionManager? _draftSessions;
@@ -97,20 +111,31 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
   bool _allowPop = false;
   bool _leavingDraft = false;
 
-  Object? get _currentDraft => _activeOverthinkingDraft ?? _activeDraft;
+  Object? get _currentDraft =>
+      _activeTableGroupDraft ?? _activeOverthinkingDraft ?? _activeDraft;
   bool get _hasDraft => _currentDraft != null;
   bool get _draftSaving =>
       _draftKey.currentState?.saving == true ||
-      _overthinkingDraftKey.currentState?.saving == true;
-  bool get _draftReady => _activeOverthinkingDraft != null
+      _overthinkingDraftKey.currentState?.saving == true ||
+      _tableGroupDraftKey.currentState?.saving == true;
+  bool get _draftReady => _activeTableGroupDraft != null
+      ? _tableGroupDraftKey.currentState?.readyForReveal == true
+      : _activeOverthinkingDraft != null
       ? _overthinkingDraftKey.currentState?.readyForReveal == true
       : _draftKey.currentState?.readyForReveal == true;
-  BuildContext? get _draftContext => _activeOverthinkingDraft != null
+  BuildContext? get _draftContext => _activeTableGroupDraft != null
+      ? _tableGroupDraftKey.currentContext
+      : _activeOverthinkingDraft != null
       ? _overthinkingDraftKey.currentContext
       : _draftKey.currentContext;
 
   bool get _draftSessionCurrent {
     final current = _draftSessions?.session;
+    final table = _activeTableGroupDraft;
+    if (table != null) {
+      return canPublishListenerProfile(current) &&
+          identical(current, table.expectedSession);
+    }
     final writing = _activeOverthinkingDraft;
     if (writing != null) {
       return canShareOverthinkingOnProfile(current) &&
@@ -126,6 +151,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
   void _clearDraft() {
     _activeDraft = null;
     _activeOverthinkingDraft = null;
+    _activeTableGroupDraft = null;
   }
 
   @override
@@ -133,6 +159,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     super.initState();
     _activeDraft = widget.eventDraft;
     _activeOverthinkingDraft = widget.overthinkingDraft;
+    _activeTableGroupDraft = widget.tableGroupDraft;
     if (_hasDraft && serviceLocator.isRegistered<AuthSessionManager>()) {
       _draftSessions = serviceLocator<AuthSessionManager>();
       _draftSessions!.addListener(_draftSessionChanged);
@@ -143,6 +170,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     if (_hasDraft && !_draftSessionCurrent) {
       _draftKey.currentState?.invalidate();
       _overthinkingDraftKey.currentState?.invalidate();
+      _tableGroupDraftKey.currentState?.invalidate();
       if (mounted) setState(_clearDraft);
     }
   }
@@ -173,7 +201,9 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     if (_leavingDraft || !mounted || route?.isCurrent != true) return false;
     _leavingDraft = true;
     try {
-      final allowed = await (_activeOverthinkingDraft != null
+      final allowed = await (_activeTableGroupDraft != null
+          ? _tableGroupDraftKey.currentState?.canLeave() ?? Future.value(true)
+          : _activeOverthinkingDraft != null
           ? _overthinkingDraftKey.currentState?.canLeave() ?? Future.value(true)
           : _draftKey.currentState?.canLeave() ?? Future.value(true));
       if (!allowed ||
@@ -412,7 +442,18 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
                 username: profile.username ?? '',
                 avatarUrl: profile.profilePictureUrl,
               ),
-        posts: _hasDraft
+        posts: _activeTableGroupDraft != null
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ListenerTableGroupDraftComposer(
+                  key: _tableGroupDraftKey,
+                  draft: _activeTableGroupDraft!,
+                  profile: profile,
+                  onFinished: _finishDraft,
+                  onStateChanged: _draftChanged,
+                ),
+              )
+            : _hasDraft
             ? null
             : ListenerProfilePostsSection(
                 asSliver: true,

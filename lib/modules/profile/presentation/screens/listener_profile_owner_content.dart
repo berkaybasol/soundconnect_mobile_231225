@@ -473,6 +473,7 @@ class _OverthinkingPostActions extends StatelessWidget {
       icon: Icons.favorite_border_rounded,
       label: '${post.likeCount}',
       color: AppColors.socialPink,
+      iconColor: AppColors.likeHeart,
       onTap: () => onAction('Overthinking beğenisi'),
     );
     final comments = _PostAction(
@@ -575,12 +576,14 @@ class _PostAction extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.color,
+    this.iconColor,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final Color? color;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -596,7 +599,7 @@ class _PostAction extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: resolvedColor, size: 18),
+              Icon(icon, color: iconColor ?? resolvedColor, size: 18),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(

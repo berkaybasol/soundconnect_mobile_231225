@@ -17,6 +17,13 @@ class ListenerShareDeleteDialog extends StatelessWidget {
        detail = 'Asıl yazı, beğeniler ve yorumlar korunur.';
 
   final Key confirmKey;
+  const ListenerShareDeleteDialog.tableGroup({
+    super.key,
+    required this.confirmKey,
+  }) : message =
+           'Bu paylaşım profilinden kaldırılacak ve paylaşıma ait yorumlar kapanacak.',
+       detail = 'Masan ve masaya katılımın korunur.';
+
   final String message;
   final String detail;
 

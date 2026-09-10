@@ -120,6 +120,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
     if (!const {
       'EVENT',
       'EVENT_POST',
+      'TABLE_GROUP_POST',
       'MEDIA',
       'OVERTHINKING',
       'COMMENT',

@@ -161,7 +161,10 @@ class _VideoReelScreenState extends State<VideoReelScreen>
                 child: Column(
                   children: [
                     _ReelActionButton(
-                      icon: liked ? Icons.favorite : Icons.favorite_border,
+                      icon: liked
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      iconColor: AppColors.likeHeart,
                       label: likeCount?.toString() ?? '—',
                       active: liked,
                       onTap: likeLoading
@@ -209,12 +212,14 @@ class _VideoReelScreenState extends State<VideoReelScreen>
 
 class _ReelActionButton extends StatelessWidget {
   final IconData icon;
+  final Color? iconColor;
   final String label;
   final bool active;
   final VoidCallback? onTap;
 
   const _ReelActionButton({
     required this.icon,
+    this.iconColor,
     required this.label,
     this.active = false,
     this.onTap,
@@ -236,7 +241,8 @@ class _ReelActionButton extends StatelessWidget {
             ),
             child: Icon(
               icon,
-              color: active ? AppColors.coralAlt : AppColors.white,
+              color:
+                  iconColor ?? (active ? AppColors.coralAlt : AppColors.white),
             ),
           ),
         ),

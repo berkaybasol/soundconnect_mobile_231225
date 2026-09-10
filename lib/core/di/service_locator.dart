@@ -6,6 +6,8 @@ import '../../modules/analytics/domain/analytics_collection_repository.dart';
 import '../../modules/analytics/domain/venue_analytics_repository.dart';
 import '../../modules/event_audience/data/event_audience_repository_impl.dart';
 import '../../modules/event_audience/domain/event_audience_repository.dart';
+import '../../modules/tablegroup/data/table_group_profile_share_repository_impl.dart';
+import '../../modules/tablegroup/domain/table_group_profile_share_repository.dart';
 
 import '../../modules/auth/data/auth_repository_impl.dart';
 import '../../modules/auth/data/account_deletion_repository_impl.dart';
@@ -509,6 +511,14 @@ void setupDependencies() {
       ),
       dispose: (repository) =>
           (repository as OverthinkingProfileShareRepositoryImpl).dispose(),
+    )
+    ..registerLazySingleton<TableGroupProfileShareRepository>(
+      () => TableGroupProfileShareRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
+      dispose: (repository) =>
+          (repository as TableGroupProfileShareRepositoryImpl).dispose(),
     )
     ..registerLazySingleton<OverthinkingIncomingUnreadScope>(
       () => OverthinkingIncomingUnreadScope(

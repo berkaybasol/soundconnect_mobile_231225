@@ -13,7 +13,7 @@ import 'package:soundconnect_23_12_25codx/modules/engagement/data/engagement_rep
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_item.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/presentation/widgets/comment_like_button.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
-import 'package:soundconnect_23_12_25codx/shared/widgets/brand_gradient_icon.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 
 const _actor = 'e0000000-0000-4000-8000-000000000001';
 const _event = 'e0000000-0000-4000-8000-000000000002';
@@ -164,8 +164,9 @@ void main() {
           expect(
             find.byWidgetPredicate(
               (widget) =>
-                  widget is BrandGradientIcon &&
-                  widget.icon == Icons.favorite_rounded,
+                  widget is Icon &&
+                  widget.icon == Icons.favorite_rounded &&
+                  widget.color == AppColors.likeHeart,
             ),
             findsNWidgets(2),
           );

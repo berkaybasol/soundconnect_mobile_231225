@@ -10,12 +10,325 @@ import 'package:soundconnect_23_12_25codx/modules/overthinking/data/models/overt
 import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/overthinking_profile_share_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/listener_profile_feed_controller.dart';
 
+import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_profile_share_repository.dart';
+
 import 'support/event_audience_fakes.dart';
+import 'package:soundconnect_23_12_25codx/modules/engagement/presentation/cubit/interaction_stats_state.dart';
 
 void main() {
   late _Harness h;
   setUp(() => h = _Harness());
   tearDown(() => h.dispose());
+
+  test(
+    'one lookup refreshes visible tables without reloading other sources',
+    () async {
+      h.tables.items = [_table('s', 9), _table('other', 8)];
+      await h.feed.reload();
+      final original = h.feed.entries.first.tableShare!;
+      final other = h.feed.entries.last;
+      final keys = h.keys;
+      h.tables.items = [_table('s', 9, accepted: 2), _table('other', 8)];
+      expect(
+        await h.feed.refreshTableShares(shareIds: {'s'}, isCurrent: () => true),
+        isTrue,
+      );
+      expect(h.feed.entries.first.tableShare!.tableGroup.acceptedCount, 2);
+      expect(h.feed.entries.first.tableShare, isNot(same(original)));
+      expect(h.feed.entries.last, same(other));
+      expect(h.keys, keys);
+      expect(h.feed.loading, isFalse);
+      expect(h.events.pages, [0]);
+      expect(h.shares.pages, [0]);
+      expect(h.tables.pages, [0]);
+      expect(h.tables.lookups, [
+        {'s'},
+      ]);
+      final updated = h.feed.entries.first;
+      await h.feed.refreshTableShares(shareIds: {'s'}, isCurrent: () => true);
+      expect(h.feed.entries.first, same(updated));
+    },
+  );
+
+  test(
+    'lookup coalesces and preserves engagement confirmed during read',
+    () async {
+      h.tables.items = [_table('s', 9)];
+      await h.feed.reload();
+      final pending = Completer<Result<List<TableGroupProfileShare>>>();
+      h.tables.lookup = (_) => pending.future;
+      final first = h.feed.refreshTableShares(
+        shareIds: {'s'},
+        isCurrent: () => true,
+      );
+      final second = h.feed.refreshTableShares(
+        shareIds: {'s'},
+        isCurrent: () => true,
+      );
+      expect(first, same(second));
+      h.feed.updateTableGroupEngagement(
+        expectedSession: h.sessions.session,
+        expectedShare: h.feed.entries.single.tableShare!,
+        stats: const InteractionStatsItemState(
+          loading: false,
+          likeCount: 3,
+          commentCount: 4,
+          isLiked: true,
+        ),
+      );
+      pending.complete(Result.success([_table('s', 9, accepted: 2)]));
+      await first;
+      expect(h.tables.lookups, hasLength(1));
+      final updated = h.feed.entries.single.tableShare!;
+      expect(updated.tableGroup.acceptedCount, 2);
+      expect(updated.likeCount, 3);
+      expect(updated.commentCount, 4);
+      expect(updated.likedByMe, isTrue);
+    },
+  );
+
+  test(
+    'failed lookup keeps rows; confirmed absence removes requested rows only',
+    () async {
+      h.tables.items = [_table('s', 9), _table('other', 8)];
+      await h.feed.reload();
+      final before = List.of(h.feed.entries);
+      h.tables.lookup = (_) async => _failure();
+      expect(
+        await h.feed.refreshTableShares(shareIds: {'s'}, isCurrent: () => true),
+        isFalse,
+      );
+      expect(h.feed.entries, before);
+      expect(h.feed.error, isNull);
+      h.tables.lookup = (_) async => Result.success([]);
+      await h.feed.refreshTableShares(shareIds: {'s'}, isCurrent: () => true);
+      expect(h.keys, ['table-group:other']);
+      h.tables.lookup = null;
+      await h.feed.revalidate();
+      expect(h.keys, ['table-group:s', 'table-group:other']);
+    },
+  );
+
+  test('late lookup loses to newer feed and hidden profile', () async {
+    h.tables.items = [_table('s', 9)];
+    await h.feed.reload();
+    final pending = Completer<Result<List<TableGroupProfileShare>>>();
+    h.tables.lookup = (_) => pending.future;
+    final read = h.feed.refreshTableShares(
+      shareIds: {'s'},
+      isCurrent: () => true,
+    );
+    h.tables.items = [_table('s', 9, accepted: 3)];
+    await h.feed.revalidate();
+    pending.complete(Result.success([_table('s', 9, accepted: 2)]));
+    await read;
+    expect(h.feed.entries.single.tableShare!.tableGroup.acceptedCount, 3);
+
+    final hiddenRead = Completer<Result<List<TableGroupProfileShare>>>();
+    h.tables.lookup = (_) => hiddenRead.future;
+    var visible = true;
+    final reading = h.feed.refreshTableShares(
+      shareIds: {'s'},
+      isCurrent: () => visible,
+    );
+    visible = false;
+    hiddenRead.complete(Result.success([]));
+    await reading;
+    expect(h.keys, ['table-group:s']);
+  });
+
+  test(
+    'past deadline still resolves final snapshot then stops querying',
+    () async {
+      h.tables.items = [_table('s', 9, expiresAt: DateTime.utc(2020))];
+      await h.feed.reload();
+      h.tables.items = [
+        _table(
+          's',
+          9,
+          accepted: 3,
+          status: 'INACTIVE',
+          expiresAt: DateTime.utc(2020),
+        ),
+      ];
+      await h.feed.refreshTableShares(shareIds: {'s'}, isCurrent: () => true);
+      expect(h.feed.entries.single.tableShare!.tableGroup.status, 'INACTIVE');
+      expect(h.feed.entries.single.tableShare!.tableGroup.acceptedCount, 3);
+      await h.feed.refreshTableShares(shareIds: {'s'}, isCurrent: () => true);
+      expect(h.tables.lookups, hasLength(1));
+    },
+  );
+
+  test(
+    'lookup revocation clears projections and session change fences pending reply',
+    () async {
+      h.tables.items = [_table('s', 9)];
+      await h.feed.reload();
+      h.tables.lookup = (_) async => _failure(code: '1301');
+      await h.feed.refreshTableShares(shareIds: {'s'}, isCurrent: () => true);
+      expect(h.feed.entries, isEmpty);
+      await h.feed.reload();
+      final pending = Completer<Result<List<TableGroupProfileShare>>>();
+      h.tables.lookup = (_) => pending.future;
+      final reading = h.feed.refreshTableShares(
+        shareIds: {'s'},
+        isCurrent: () => true,
+      );
+      h.sessions.replace(const AuthSession.guest());
+      pending.complete(Result.success([_table('s', 9, accepted: 2)]));
+      await reading;
+      expect(h.feed.allowed, isFalse);
+      expect(h.feed.entries, isEmpty);
+    },
+  );
+
+  test(
+    'confirmed table likes persist in page and old callbacks cannot overwrite them',
+    () async {
+      h.tables.items = [_table('s', 9)];
+      await h.feed.reload();
+      final original = h.feed.entries.single.tableShare!;
+      const confirmed = InteractionStatsItemState(
+        loading: false,
+        likeCount: 1,
+        commentCount: 3,
+        isLiked: true,
+      );
+      h.feed.updateTableGroupEngagement(
+        expectedSession: h.sessions.session,
+        expectedShare: original,
+        stats: confirmed,
+      );
+      final updated = h.feed.entries.single.tableShare!;
+      expect(updated.likeCount, 1);
+      expect(updated.likedByMe, isTrue);
+      expect(updated.commentCount, 3);
+      h.feed.updateTableGroupEngagement(
+        expectedSession: h.sessions.session,
+        expectedShare: original,
+        stats: confirmed.copyWith(likeCount: 0, isLiked: false),
+      );
+      expect(h.feed.entries.single.tableShare, same(updated));
+      h.feed.updateTableGroupEngagement(
+        expectedSession: h.sessions.session,
+        expectedShare: updated,
+        stats: confirmed.copyWith(
+          error: const AppError(code: 'NETWORK', message: 'Unknown'),
+        ),
+      );
+      expect(h.feed.entries.single.tableShare, same(updated));
+    },
+  );
+
+  test(
+    'three source merge refills table pages before exposing older rows',
+    () async {
+      h.tables.items = [
+        _table('t10', 10),
+        _table('t8', 8),
+        _table('t6', 6),
+        _table('t4', 4),
+      ];
+      h.events.items = [_event('e9', 9), _event('e3', 3)];
+      h.shares.items = [_share('s7', 7), _share('s1', 1)];
+      await h.feed.reload();
+      while (h.feed.hasNext) {
+        await h.feed.next();
+      }
+      expect(h.keys, [
+        'table-group:t10',
+        'event:e9',
+        'table-group:t8',
+        'overthinking:s7',
+        'table-group:t6',
+        'table-group:t4',
+        'event:e3',
+        'overthinking:s1',
+      ]);
+      expect(h.tables.pages, [0, 1]);
+      expect(h.events.pages, [0]);
+      expect(h.shares.pages, [0]);
+    },
+  );
+
+  test(
+    'third source failure cannot consume buffered event or writing rows',
+    () async {
+      h.tables.items = [_table('t9', 9), _table('t8', 8), _table('t7', 7)];
+      h.events.items = [_event('e6', 6)];
+      h.shares.items = [_share('s5', 5)];
+      await h.feed.reload();
+      final before = List.of(h.keys);
+      h.tables.read = (page, size) async => _failure();
+      await h.feed.next();
+      expect(h.keys, before);
+      expect(h.feed.error, isNotNull);
+      h.tables.read = null;
+      await h.feed.retry();
+      expect(h.keys, [
+        'table-group:t9',
+        'table-group:t8',
+        'table-group:t7',
+        'event:e6',
+      ]);
+      await h.feed.next();
+      expect(h.keys.last, 'overthinking:s5');
+      expect(h.feed.hasNext, isFalse);
+    },
+  );
+
+  test(
+    'table profile revocation clears all source projections, even on append',
+    () async {
+      h.tables.items = [_table('t9', 9), _table('t8', 8), _table('t7', 7)];
+      h.events.items = [_event('e6', 6)];
+      await h.feed.reload();
+      h.tables.read = (page, size) async => _failure(code: '1301');
+      await h.feed.next();
+      expect(h.feed.entries, isEmpty);
+      expect(h.feed.rows, isEmpty);
+      expect(h.feed.hasNext, isFalse);
+    },
+  );
+
+  test(
+    'same timestamp and IDs across three sources stay distinct and deterministic',
+    () async {
+      h.replaceFeed(pageSize: 1);
+      h.events.items = [_event('same', 7)];
+      h.shares.items = [_share('same', 7)];
+      h.tables.items = [_table('same', 7), _table('a', 7)];
+      await h.feed.reload();
+      while (h.feed.hasNext) {
+        await h.feed.next();
+      }
+      expect(h.keys, [
+        'event:same',
+        'overthinking:same',
+        'table-group:same',
+        'table-group:a',
+      ]);
+      final old = h.feed.entries[2].tableShare!;
+      expect(h.feed.containsTableShare(h.sessions.session, old), isTrue);
+      h.feed.forgetTableShare('same');
+      expect(h.feed.containsTableShare(h.sessions.session, old), isFalse);
+      expect(h.keys, ['event:same', 'overthinking:same', 'table-group:a']);
+    },
+  );
+
+  test('late table page from a previous session cannot reappear', () async {
+    final pending = Completer<Result<Page<TableGroupProfileShare>>>();
+    h.tables.read = (page, size) => pending.future;
+    final loading = h.feed.reload();
+    h.sessions.replace(const AuthSession.guest());
+    pending.complete(
+      Result.success(Page(items: [_table('private', 8)], hasNext: false)),
+    );
+    await loading;
+    await _settle();
+    expect(h.feed.allowed, isFalse);
+    expect(h.feed.entries, isEmpty);
+  });
 
   test(
     'revalidation preserves the loaded prefix and fails closed on revoked projections',
@@ -543,6 +856,7 @@ class _Harness {
   }
   final events = _Events();
   final shares = _Shares();
+  final tables = _Tables();
   final sessions = AudienceTestSessions(audienceSession());
   late ListenerProfileFeedController feed;
   bool _initialized = false;
@@ -554,6 +868,7 @@ class _Harness {
     feed = ListenerProfileFeedController(
       eventsRepository: events,
       overthinkingRepository: shares,
+      tableGroupRepository: tables,
       sessions: sessions,
       listenerProfileId: 'profile',
       ownerUserId: ownerUserId,
@@ -567,6 +882,7 @@ class _Harness {
     sessions.dispose();
     events.signal.dispose();
     shares.signal.dispose();
+    tables.signal.dispose();
   }
 }
 
@@ -622,6 +938,75 @@ class _Shares extends Fake implements OverthinkingProfileShareRepository {
   }) async {
     pages.add(page);
     expectedSessions.add(expectedSession);
+    if (read != null) return read!(page, size);
+    return Result.success(
+      Page(
+        items: items.skip(page * size).take(size).toList(),
+        hasNext: (page + 1) * size < items.length,
+      ),
+    );
+  }
+}
+
+TableGroupProfileShare _table(
+  String id,
+  int minute, {
+  int accepted = 1,
+  String status = 'ACTIVE',
+  DateTime? expiresAt,
+}) => TableGroupProfileShare(
+  shareId: id,
+  note: null,
+  publishedAt: _time(minute),
+  likeCount: 0,
+  commentCount: 0,
+  likedByMe: false,
+  tableGroup: TableGroupProfileShareSource(
+    id: 'table-$id',
+    description: 'Birlikte müzik',
+    venueName: null,
+    cityName: 'Ankara',
+    districtName: null,
+    meetingAt: DateTime.utc(2100),
+    expiresAt: expiresAt ?? DateTime.utc(2100, 1, 2),
+    status: status,
+    maxPersonCount: 4,
+    acceptedCount: accepted,
+  ),
+);
+
+class _Tables extends Fake implements TableGroupProfileShareRepository {
+  final signal = ValueNotifier(0);
+  @override
+  ValueListenable<int> get changes => signal;
+  List<TableGroupProfileShare> items = [];
+  final pages = <int>[];
+  final lookups = <Set<String>>[];
+  Future<Result<List<TableGroupProfileShare>>> Function(Set<String>)? lookup;
+
+  @override
+  Future<Result<List<TableGroupProfileShare>>> lookupProfile({
+    required String profileId,
+    required AuthSession expectedSession,
+    required Set<String> shareIds,
+  }) async {
+    lookups.add(Set.of(shareIds));
+    if (lookup != null) return lookup!(shareIds);
+    return Result.success(
+      items.where((share) => shareIds.contains(share.shareId)).toList(),
+    );
+  }
+
+  Future<Result<Page<TableGroupProfileShare>>> Function(int page, int size)?
+  read;
+  @override
+  Future<Result<Page<TableGroupProfileShare>>> listProfile({
+    required String profileId,
+    required AuthSession expectedSession,
+    int page = 0,
+    int size = 20,
+  }) async {
+    pages.add(page);
     if (read != null) return read!(page, size);
     return Result.success(
       Page(

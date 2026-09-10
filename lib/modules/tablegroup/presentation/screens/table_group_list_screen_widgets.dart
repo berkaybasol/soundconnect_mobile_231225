@@ -661,6 +661,12 @@ String _tableGroupLocationLabel(TableGroup group) {
 }
 
 class _CreateTableFab extends StatefulWidget {
+  static const tooltipWidth = 145.0;
+  static const tooltipHeight = 50.0;
+  static const tooltipGap = 8.0;
+  static const diameter = 80.0;
+  static const size = Size(tooltipWidth, tooltipHeight + tooltipGap + diameter);
+
   final Future<void> Function() onTap;
   final ValueChanged<Offset> onDragDelta;
 
@@ -709,11 +715,11 @@ class _CreateTableFabState extends State<_CreateTableFab>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 145,
-              height: 50,
+              width: _CreateTableFab.tooltipWidth,
+              height: _CreateTableFab.tooltipHeight,
               alignment: Alignment.center,
               padding: EdgeInsets.symmetric(horizontal: 12),
-              margin: EdgeInsets.only(bottom: 8),
+              margin: EdgeInsets.only(bottom: _CreateTableFab.tooltipGap),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(12),
@@ -741,8 +747,8 @@ class _CreateTableFabState extends State<_CreateTableFab>
               ),
             ),
             Container(
-              width: 80,
-              height: 80,
+              width: _CreateTableFab.diameter,
+              height: _CreateTableFab.diameter,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(

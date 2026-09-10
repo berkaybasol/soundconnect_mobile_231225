@@ -4,7 +4,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/auth/listener_profile_publication_access.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/access_policy.dart';
@@ -31,6 +33,7 @@ import '../../domain/table_group_message_timeline.dart';
 import '../../domain/table_group_repository.dart';
 import '../cubit/table_group_game_cubit.dart';
 import '../cubit/table_group_game_state.dart';
+import '../table_group_profile_draft.dart';
 import '../widgets/table_group_game_launcher_sheet.dart';
 import '../widgets/table_group_game_message_card.dart';
 import '../widgets/table_group_overview_style.dart';
@@ -56,6 +59,7 @@ class TableGroupDetailScreen extends StatefulWidget {
   final DateTime Function()? now;
   final bool Function()? canCreateOrJoin;
   final String Function()? chatRequestIdFactory;
+  final AuthSessionManager? sessions;
 
   const TableGroupDetailScreen({
     super.key,
@@ -67,6 +71,7 @@ class TableGroupDetailScreen extends StatefulWidget {
     this.now,
     this.canCreateOrJoin,
     this.chatRequestIdFactory,
+    this.sessions,
   });
 
   @override
@@ -82,6 +87,8 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   late final bool _ownsRealtimeClient;
   late final String Function() _chatRequestIdFactory;
   late final DateTime Function() _now;
+  late final AuthSessionManager? _shareSessions;
+  late final AuthSession? _shareSession;
   late final TableGroupLocalDayRefreshScheduler _dayRefreshScheduler;
   final TextEditingController _chatController = TextEditingController();
   final GlobalKey _chatComposerKey = GlobalKey();
@@ -106,6 +113,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   bool _joinInFlight = false;
   bool _sessionActionInFlight = false;
   bool _gameLauncherOpen = false;
+  bool _profileDraftOpening = false;
   late bool _showChat;
   String? _error;
   String? _chatError;
@@ -125,6 +133,13 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _repository = widget.repository ?? serviceLocator<TableGroupRepository>();
+    _shareSessions =
+        widget.sessions ??
+        (serviceLocator.isRegistered<AuthSessionManager>()
+            ? serviceLocator<AuthSessionManager>()
+            : null);
+    _shareSession = _shareSessions?.session;
+    _shareSessions?.addListener(_profileShareSessionChanged);
     _showChat = widget.args.openChat;
     _tokenStore = widget.tokenStore ?? serviceLocator<TokenStore>();
     _ownsRealtimeClient = widget.realtimeClient == null;
@@ -156,6 +171,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _shareSessions?.removeListener(_profileShareSessionChanged);
     _dayRefreshScheduler.dispose();
     _expiryTimer?.cancel();
     _gameExpiryRetryTimer?.cancel();
@@ -567,6 +583,35 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
 
   bool get _isAccepted =>
       _isOwner || _myStatus == TableGroupParticipantStatus.accepted;
+
+  bool get _canShareOnProfile =>
+      !_loading &&
+      _error == null &&
+      !_sessionActionInFlight &&
+      _isSessionActive &&
+      _isAccepted &&
+      canPublishListenerProfile(_shareSession) &&
+      identical(_shareSessions?.session, _shareSession) &&
+      _shareSession?.userId == _currentUserId;
+
+  void _profileShareSessionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openProfileDraft() async {
+    if (!_canShareOnProfile || _profileDraftOpening) return;
+    setState(() => _profileDraftOpening = true);
+    try {
+      await openTableGroupProfileDraft(
+        context,
+        tableGroupId: widget.args.tableGroupId,
+        expectedSession: _shareSession!,
+        sessions: _shareSessions,
+      );
+    } finally {
+      if (mounted) setState(() => _profileDraftOpening = false);
+    }
+  }
 
   bool _isCurrentUserAcceptedIn(TableGroup group) {
     final userId = _currentUserId;
@@ -1134,6 +1179,13 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                       value: _DetailMenuAction.refresh,
                       child: Text('Yenile'),
                     ),
+                  if (_canShareOnProfile)
+                    PopupMenuItem<_DetailMenuAction>(
+                      key: const Key('table_group_profile_share'),
+                      value: _DetailMenuAction.shareOnProfile,
+                      enabled: !_profileDraftOpening,
+                      child: const Text('Paylaş'),
+                    ),
                   if (_isOwner && _isSessionActive)
                     const PopupMenuItem<_DetailMenuAction>(
                       value: _DetailMenuAction.closeTable,
@@ -1199,6 +1251,9 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
 
   void _handleDetailMenuAction(_DetailMenuAction action) {
     switch (action) {
+      case _DetailMenuAction.shareOnProfile:
+        unawaited(_openProfileDraft());
+        break;
       case _DetailMenuAction.refresh:
         unawaited(_bootstrap());
         break;
@@ -2749,7 +2804,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
   }
 }
 
-enum _DetailMenuAction { refresh, closeTable, leaveTable }
+enum _DetailMenuAction { refresh, shareOnProfile, closeTable, leaveTable }
 
 class _DetailOverviewAction {
   final String label;

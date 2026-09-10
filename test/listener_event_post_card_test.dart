@@ -347,7 +347,7 @@ void main() {
     expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
     final icon = tester.widget<Icon>(find.byIcon(Icons.favorite_rounded));
     expect(icon.size, 18);
-    expect(icon.color, AppColors.socialPink);
+    expect(icon.color, AppColors.likeHeart);
     expect(
       tester.getSemantics(
         find.byKey(const ValueKey('listener-event-like-event')),

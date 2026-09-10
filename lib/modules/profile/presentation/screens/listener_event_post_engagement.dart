@@ -22,9 +22,11 @@ class ListenerEventPostEngagement extends StatefulWidget {
     required this.builder,
     this.initialStats,
     this.projectionKey,
+    this.targetType = 'EVENT_POST',
   });
 
   final String postId;
+  final String targetType;
   final EngagementRepository repository;
   final AuthSessionManager sessions;
   final bool Function() canInteract;
@@ -46,7 +48,7 @@ class ListenerEventPostEngagement extends StatefulWidget {
 class _ListenerEventPostEngagementState
     extends State<ListenerEventPostEngagement> {
   late InteractionStatsCubit _stats;
-  static const _targetType = 'EVENT_POST';
+  String get _targetType => widget.targetType;
 
   @override
   void initState() {
@@ -74,6 +76,7 @@ class _ListenerEventPostEngagementState
   void didUpdateWidget(covariant ListenerEventPostEngagement oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.postId != widget.postId ||
+        oldWidget.targetType != widget.targetType ||
         oldWidget.projectionKey != widget.projectionKey ||
         !identical(oldWidget.repository, widget.repository) ||
         !identical(oldWidget.sessions, widget.sessions) ||

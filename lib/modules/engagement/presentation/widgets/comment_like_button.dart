@@ -7,7 +7,6 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
-import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../domain/engagement_repository.dart';
 import '../../domain/entities/comment_item.dart';
 import '../../domain/entities/comment_like_state.dart';
@@ -233,9 +232,13 @@ class _CommentLikeButtonState extends State<CommentLikeButton> {
           )
         : _uncertain
         ? const Icon(Icons.refresh_rounded, size: 18)
-        : _value.likedByMe
-        ? const BrandGradientIcon.social(Icons.favorite_rounded, size: 18)
-        : const Icon(Icons.favorite_border_rounded, size: 18);
+        : Icon(
+            _value.likedByMe
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+            size: 18,
+            color: AppColors.likeHeart,
+          );
     return Semantics(
       label: _uncertain ? label : '$label, ${_value.likeCount} beğeni',
       toggled: !_uncertain && _value.likedByMe,

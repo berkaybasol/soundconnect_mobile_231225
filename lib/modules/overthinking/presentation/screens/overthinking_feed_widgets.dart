@@ -326,6 +326,7 @@ class OverthinkingPostCard extends StatelessWidget {
                 label: '${post.likeCount} beğeni',
                 tooltip: post.likedByMe ? 'Beğeniyi kaldır' : 'Beğen',
                 active: post.likedByMe,
+                iconColor: AppColors.likeHeart,
                 onTap: busy ? null : onLike,
               ),
               _PostAction(
@@ -467,12 +468,14 @@ class _PostAction extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     this.active = false,
+    this.iconColor,
   });
   final IconData icon;
   final String label;
   final String tooltip;
   final VoidCallback? onTap;
   final bool active;
+  final Color? iconColor;
   @override
   Widget build(BuildContext context) => Tooltip(
     message: tooltip,
@@ -488,7 +491,7 @@ class _PostAction extends StatelessWidget {
           fontWeight: FontWeight.w500,
         ),
       ),
-      icon: Icon(icon, size: 19),
+      icon: Icon(icon, size: 19, color: iconColor),
       label: Text(label),
     ),
   );

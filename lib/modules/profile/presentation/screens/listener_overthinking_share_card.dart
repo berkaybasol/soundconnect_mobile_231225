@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../shared/images/app_cached_network_image.dart';
+import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../overthinking/domain/entities/overthinking_post.dart';
 import '../../../overthinking/domain/entities/overthinking_profile_share.dart';
@@ -20,6 +21,10 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
     required this.onOpen,
     this.onRemove,
     this.onShare,
+    this.onLike,
+    this.onComments,
+    this.likeBusy = false,
+    this.engagementUnknown = false,
     this.busy = false,
     this.isCurrent,
   }) : _draftPost = null,
@@ -43,7 +48,11 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
        share = null,
        onOpen = null,
        onRemove = null,
-       onShare = null;
+       onShare = null,
+       onLike = null,
+       onComments = null,
+       likeBusy = false,
+       engagementUnknown = false;
 
   final OverthinkingProfileShare? share;
   final OverthinkingPost? _draftPost;
@@ -56,6 +65,10 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
   final VoidCallback? onOpen;
   final VoidCallback? onRemove;
   final VoidCallback? onShare;
+  final VoidCallback? onLike;
+  final VoidCallback? onComments;
+  final bool likeBusy;
+  final bool engagementUnknown;
   final bool busy;
   final bool Function()? isCurrent;
 
@@ -312,28 +325,36 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
               spacing: 12,
               runSpacing: 4,
               children: [
-                Semantics(
-                  label:
-                      'Asıl yazıda ${source.likeCount} beğeni, ${source.commentCount} yorum',
-                  excludeSemantics: true,
-                  child: Wrap(
-                    spacing: 14,
-                    runSpacing: 8,
-                    children: [
-                      _SourceCount(
-                        count: source.likeCount,
-                        icon: source.likedByMe
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: _sharePink,
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 8,
+                  children: [
+                    _SourceAction(
+                      key: ValueKey(
+                        'listener-overthinking-like-${share!.shareId}',
                       ),
-                      _SourceCount(
-                        count: source.commentCount,
-                        icon: Icons.chat_bubble_outline_rounded,
-                        color: listenerProfileMuted,
+                      count: engagementUnknown ? null : source.likeCount,
+                      label: source.likedByMe ? 'Beğeniyi kaldır' : 'Beğen',
+                      countLabel: 'beğeni',
+                      selected: !engagementUnknown && source.likedByMe,
+                      onPressed: busy || likeBusy ? null : onLike,
+                      icon: source.likedByMe
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: AppColors.likeHeart,
+                    ),
+                    _SourceAction(
+                      key: ValueKey(
+                        'listener-overthinking-comments-${share!.shareId}',
                       ),
-                    ],
-                  ),
+                      count: engagementUnknown ? null : source.commentCount,
+                      label: 'Yorumlar',
+                      countLabel: 'yorum',
+                      onPressed: busy || likeBusy ? null : onComments,
+                      icon: Icons.chat_bubble_outline_rounded,
+                      color: listenerProfileMuted,
+                    ),
+                  ],
                 ),
                 if (onShare != null)
                   IconButton(
@@ -420,27 +441,61 @@ class _SourceExcerpt extends StatelessWidget {
   }
 }
 
-class _SourceCount extends StatelessWidget {
-  const _SourceCount({
+class _SourceAction extends StatelessWidget {
+  const _SourceAction({
+    super.key,
     required this.count,
     required this.icon,
     required this.color,
+    required this.label,
+    required this.countLabel,
+    required this.onPressed,
+    this.selected,
   });
-  final int count;
+  final int? count;
   final IconData icon;
   final Color color;
+  final String label;
+  final String countLabel;
+  final VoidCallback? onPressed;
+  final bool? selected;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, color: color, size: 17),
-      const SizedBox(width: 5),
-      Text(
-        NumberFormat.compact(locale: 'tr').format(count),
-        style: const TextStyle(color: listenerProfileMuted, fontSize: 12),
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    enabled: onPressed != null,
+    selected: selected,
+    label: label,
+    value: count == null ? 'Sayı doğrulanamadı' : '$count $countLabel',
+    onTap: onPressed,
+    child: ExcludeSemantics(
+      child: Tooltip(
+        message: label,
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 17),
+              const SizedBox(width: 5),
+              Text(
+                count == null
+                    ? '—'
+                    : NumberFormat.compact(locale: 'tr').format(count),
+                style: const TextStyle(
+                  color: listenerProfileMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-    ],
+    ),
   );
 }
 

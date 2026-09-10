@@ -394,6 +394,7 @@ class ListenerEventPostCard extends StatelessWidget {
                               countLabel: 'beğeni',
                               selected: isLiked,
                               color: isLiked ? AppColors.socialPink : null,
+                              iconColor: AppColors.likeHeart,
                               onPressed: likeBusy ? null : onLike,
                             )
                           : null,
@@ -482,6 +483,7 @@ class _PostCountAction extends StatelessWidget {
     required this.onPressed,
     this.selected,
     this.color,
+    this.iconColor,
   });
 
   final IconData icon;
@@ -491,6 +493,7 @@ class _PostCountAction extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool? selected;
   final Color? color;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -518,7 +521,7 @@ class _PostCountAction extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(icon, color: resolvedColor, size: 18),
+                      Icon(icon, color: iconColor ?? resolvedColor, size: 18),
                       if (count != null) ...[
                         const SizedBox(width: 6),
                         Flexible(

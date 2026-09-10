@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class AppColors {
   static const white = Color(0xFFFFFFFF);
   static const pureBlack = Color(0xFF000000);
+  static const likeHeart = Color(0xFFF06C86);
 
   static const _Palette _dark = _Palette(
     black: Color(0xFF0B0B10),

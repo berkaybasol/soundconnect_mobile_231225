@@ -177,11 +177,9 @@ class _CountRow extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                liked ? Icons.favorite : Icons.favorite_border,
+                liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                 size: 18,
-                color: liked
-                    ? AppColors.coralAlt
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: AppColors.likeHeart,
               ),
               SizedBox(width: 6),
               Text(

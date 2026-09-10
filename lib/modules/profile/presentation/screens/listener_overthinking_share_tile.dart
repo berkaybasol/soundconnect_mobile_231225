@@ -4,10 +4,16 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/di/service_locator.dart';
+import '../../../../core/error/app_error.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
+import '../../../engagement/domain/engagement_repository.dart';
+import '../../../overthinking/domain/entities/overthinking_post.dart';
 import '../../../overthinking/domain/overthinking_profile_share_repository.dart';
+import '../../../overthinking/domain/overthinking_repository.dart';
 import '../../../overthinking/presentation/screens/overthinking_open_source.dart';
 import '../share/overthinking_share_flow.dart';
+import 'listener_event_post_comments_sheet.dart';
 import 'listener_overthinking_share_card.dart';
 import 'listener_share_delete_dialog.dart';
 
@@ -27,6 +33,9 @@ class ListenerOverthinkingShareTile extends StatefulWidget {
     required this.onRemoved,
     this.onOpenSource,
     this.onError,
+    this.engagementRepository,
+    this.sourceRepository,
+    this.onSourceChanged,
   });
 
   final OverthinkingProfileShare share;
@@ -39,6 +48,9 @@ class ListenerOverthinkingShareTile extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final ValueChanged<String> onRemoved;
   final Future<void> Function(String postId)? onOpenSource;
+  final EngagementRepository? engagementRepository;
+  final OverthinkingRepository? sourceRepository;
+  final ValueChanged<OverthinkingPost>? onSourceChanged;
 
   /// Parent-scoped feedback for a mutation whose repository invalidation has
   /// already removed this tile. Must fence the profile and viewer session.
@@ -50,12 +62,30 @@ class ListenerOverthinkingShareTile extends StatefulWidget {
 }
 
 class _ListenerOverthinkingShareTileState
-    extends State<ListenerOverthinkingShareTile> {
+    extends State<ListenerOverthinkingShareTile>
+    with AutomaticKeepAliveClientMixin {
   late AuthSession _session;
   int _generation = 0;
   final _shareValidity = ValueNotifier<int>(0);
   bool _busy = false;
+  bool _engagementBusy = false;
+  bool _engagementUncertain = false;
+  bool _sourceUnavailable = false;
+  late OverthinkingPost _post;
+  EngagementRepository? _engagement;
+  OverthinkingRepository? _sources;
+  ValueNotifier<bool>? _commentsAvailable;
   DialogRoute<bool>? _confirmation;
+
+  // Retain pending/uncertain operations when their card leaves the viewport.
+  // Once a confirmed source is saved by the parent, idle cards recycle again.
+  @override
+  bool get wantKeepAlive => _busy || _engagementBusy || _engagementUncertain;
+
+  void _setState(VoidCallback change) {
+    setState(change);
+    updateKeepAlive();
+  }
 
   bool get _allowed =>
       _session.isAuthenticated &&
@@ -71,6 +101,7 @@ class _ListenerOverthinkingShareTileState
   void initState() {
     super.initState();
     _session = widget.sessions.session;
+    _bindEngagement();
     widget.sessions.addListener(_sessionChanged);
   }
 
@@ -78,7 +109,26 @@ class _ListenerOverthinkingShareTileState
     ++_generation;
     _shareValidity.value = _generation;
     _busy = false;
+    _engagementBusy = false;
+    _commentsAvailable?.value = false;
     _dismissConfirmation();
+    updateKeepAlive();
+  }
+
+  void _bindEngagement() {
+    _post = widget.share.post;
+    _engagementUncertain = false;
+    _sourceUnavailable = false;
+    _engagement =
+        widget.engagementRepository ??
+        (serviceLocator.isRegistered<EngagementRepository>()
+            ? serviceLocator<EngagementRepository>()
+            : null);
+    _sources =
+        widget.sourceRepository ??
+        (serviceLocator.isRegistered<OverthinkingRepository>()
+            ? serviceLocator<OverthinkingRepository>()
+            : null);
   }
 
   void _sessionChanged() {
@@ -86,7 +136,7 @@ class _ListenerOverthinkingShareTileState
     // Keep the old session fence until the parent supplies a fresh row. An
     // account or token change cannot reuse the previous viewer's projection.
     _invalidate();
-    if (mounted) setState(() {});
+    if (mounted) _setState(() {});
   }
 
   @override
@@ -99,9 +149,15 @@ class _ListenerOverthinkingShareTileState
     if (!identical(oldWidget.share, widget.share) ||
         !identical(oldWidget.repository, widget.repository) ||
         !identical(oldWidget.sessions, widget.sessions) ||
+        !identical(
+          oldWidget.engagementRepository,
+          widget.engagementRepository,
+        ) ||
+        !identical(oldWidget.sourceRepository, widget.sourceRepository) ||
         oldWidget.ownerUserId != widget.ownerUserId) {
       _invalidate();
       _session = widget.sessions.session;
+      _bindEngagement();
     }
   }
 
@@ -128,8 +184,8 @@ class _ListenerOverthinkingShareTileState
   );
 
   Future<void> _open(_ShareOperation operation) async {
-    if (_busy || !_current(operation)) return;
-    setState(() => _busy = true);
+    if (_busy || _engagementBusy || !_current(operation)) return;
+    _setState(() => _busy = true);
     try {
       if (widget.onOpenSource case final open?) {
         await open(operation.share.post.id);
@@ -143,16 +199,180 @@ class _ListenerOverthinkingShareTileState
     } catch (_) {
       _showError(operation, 'Yazı açılamadı. Yeniden deneyebilirsin.');
     } finally {
-      if (_same(operation)) setState(() => _busy = false);
+      if (_same(operation)) _setState(() => _busy = false);
       await _refresh(operation);
     }
   }
 
+  Future<void> _toggleLike(_ShareOperation operation) async {
+    if (_busy ||
+        _engagementBusy ||
+        _sourceUnavailable ||
+        !_current(operation)) {
+      return;
+    }
+    final engagement = _engagement;
+    if (engagement == null || _sources == null) {
+      _showError(
+        operation,
+        'Beğeni şu anda güncellenemiyor. Yeniden deneyebilirsin.',
+      );
+      return;
+    }
+    final previous = _post;
+    final reconcileOnly = _engagementUncertain;
+    _setState(() {
+      _engagementBusy = true;
+      if (!reconcileOnly) {
+        _post = previous.copyWith(
+          likedByMe: !previous.likedByMe,
+          likeCount: (previous.likeCount + (previous.likedByMe ? -1 : 1)).clamp(
+            0,
+            9007199254740991,
+          ),
+        );
+      }
+    });
+    try {
+      // An uncertain request may already have reached the server. Reconcile
+      // before deciding which direction the user's next toggle should take.
+      if (!reconcileOnly) {
+        final result = previous.likedByMe
+            ? await engagement.unlike(
+                targetType: 'OVERTHINKING',
+                targetId: previous.id,
+              )
+            : await engagement.like(
+                targetType: 'OVERTHINKING',
+                targetId: previous.id,
+              );
+        if (!_same(operation)) return;
+        if (!result.isSuccess) {
+          _setState(() {
+            _post = previous;
+            _engagementUncertain = true;
+          });
+          if (_isUnavailable(result.error)) {
+            await _revokeSource(operation);
+          } else {
+            _showError(
+              operation,
+              result.error?.message ??
+                  'Beğeni doğrulanamadı. Yenilemek için tekrar dene.',
+            );
+          }
+          return;
+        }
+      }
+      await _refreshSource(operation);
+    } catch (_) {
+      if (_same(operation)) {
+        _setState(() {
+          _post = previous;
+          _engagementUncertain = true;
+        });
+        _showError(
+          operation,
+          'Beğeni doğrulanamadı. Yenilemek için tekrar dene.',
+        );
+      }
+    } finally {
+      if (_same(operation)) _setState(() => _engagementBusy = false);
+    }
+  }
+
+  bool _isUnavailable(AppError? error) =>
+      const {'9401', '9700', '1102', '403', '404', '410'}.contains(error?.code);
+
+  Future<void> _revokeSource(_ShareOperation operation) async {
+    if (!_same(operation)) return;
+    _setState(() => _sourceUnavailable = true);
+    _commentsAvailable?.value = false;
+    _showError(operation, 'Bu yazı artık görüntülenemiyor.');
+    await _refresh(operation);
+  }
+
+  Future<void> _refreshSource(_ShareOperation operation) async {
+    final sources = _sources;
+    if (!_same(operation) || sources == null) return;
+    final result = await sources.getDetail(postId: operation.share.post.id);
+    if (!_same(operation)) return;
+    if (result.isSuccess && result.data?.id == operation.share.post.id) {
+      _setState(() {
+        _post = result.data!;
+        _engagementUncertain = false;
+      });
+      widget.onSourceChanged?.call(result.data!);
+    } else if (_isUnavailable(result.error)) {
+      await _revokeSource(operation);
+    } else {
+      _setState(() => _engagementUncertain = true);
+      _showError(
+        operation,
+        'Etkileşimler doğrulanamadı. Yenilemek için beğeniye tekrar dokunabilirsin.',
+      );
+    }
+  }
+
+  Future<void> _openComments(_ShareOperation operation) async {
+    if (_busy ||
+        _engagementBusy ||
+        _sourceUnavailable ||
+        !_current(operation)) {
+      return;
+    }
+    final engagement = _engagement;
+    if (engagement == null || _sources == null) {
+      _showError(
+        operation,
+        'Yorumlar şu anda açılamıyor. Yeniden deneyebilirsin.',
+      );
+      return;
+    }
+    _setState(() => _busy = true);
+    final availability = ValueNotifier<bool>(true);
+    _commentsAvailable = availability;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: false,
+        backgroundColor: const Color(0xFF101722),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        builder: (_) => ListenerEventPostCommentsSheet.overthinking(
+          postId: operation.share.post.id,
+          repository: engagement,
+          sessions: operation.sessions,
+          expectedSession: operation.session,
+          publicationAvailable: availability,
+        ),
+      );
+      if (_current(operation)) {
+        // Source DTO counts include replies. A root-comments page total is not
+        // the source's commentCount, and reloading the feed would jump scroll.
+        await _refreshSource(operation);
+      }
+    } catch (_) {
+      if (_same(operation)) _setState(() => _engagementUncertain = true);
+      _showError(operation, 'Yorumlar doğrulanamadı. Yeniden deneyebilirsin.');
+    } finally {
+      if (identical(_commentsAvailable, availability)) {
+        _commentsAvailable = null;
+      }
+      availability.dispose();
+      if (_same(operation)) _setState(() => _busy = false);
+    }
+  }
+
   Future<void> _remove(_ShareOperation operation) async {
-    if (!_owner || _busy || !_current(operation)) return;
+    if (!_owner || _busy || _engagementBusy || !_current(operation)) return;
     final parentError = widget.onError;
     final profileRoute = ModalRoute.of(context);
-    setState(() => _busy = true);
+    _setState(() => _busy = true);
     final dialog = DialogRoute<bool>(
       context: context,
       builder: (_) => const ListenerShareDeleteDialog.overthinking(
@@ -193,15 +413,15 @@ class _ListenerOverthinkingShareTileState
       );
     } finally {
       if (identical(_confirmation, dialog)) _dismissConfirmation();
-      if (_same(operation)) setState(() => _busy = false);
+      if (_same(operation)) _setState(() => _busy = false);
       if (attempted) await _refresh(operation);
     }
   }
 
   Future<void> _share(_ShareOperation operation) async {
-    if (_busy || !_current(operation)) return;
+    if (_busy || _engagementBusy || !_current(operation)) return;
     final revision = operation.repository.changes.value;
-    setState(() => _busy = true);
+    _setState(() => _busy = true);
     try {
       await shareOverthinkingPost(
         context,
@@ -216,7 +436,7 @@ class _ListenerOverthinkingShareTileState
             _same(operation) && operation.repository.changes.value == revision,
       );
     } finally {
-      if (_same(operation)) setState(() => _busy = false);
+      if (_same(operation)) _setState(() => _busy = false);
     }
   }
 
@@ -280,7 +500,8 @@ class _ListenerOverthinkingShareTileState
 
   @override
   Widget build(BuildContext context) {
-    if (!_allowed) return const SizedBox.shrink();
+    super.build(context);
+    if (!_allowed || _sourceUnavailable) return const SizedBox.shrink();
     final operation = _capture();
     return KeyedSubtree(
       // PopupMenuButton resolves onSelected from its latest widget after the
@@ -288,14 +509,23 @@ class _ListenerOverthinkingShareTileState
       // open menu cannot silently acquire the replacement row's callbacks.
       key: ValueKey(_generation),
       child: ListenerOverthinkingShareCard(
-        share: widget.share,
+        share: OverthinkingProfileShare(
+          shareId: widget.share.shareId,
+          note: widget.share.note,
+          publishedAt: widget.share.publishedAt,
+          post: _post,
+        ),
         username: widget.username,
         avatarUrl: widget.avatarUrl,
-        busy: _busy,
+        busy: _busy || _engagementBusy,
+        likeBusy: _engagementBusy,
+        engagementUnknown: _engagementUncertain,
         isCurrent: () => _current(operation),
         onOpen: _busy ? null : () => unawaited(_open(operation)),
         onRemove: _owner ? () => unawaited(_remove(operation)) : null,
         onShare: () => unawaited(_share(operation)),
+        onLike: () => unawaited(_toggleLike(operation)),
+        onComments: () => unawaited(_openComments(operation)),
       ),
     );
   }

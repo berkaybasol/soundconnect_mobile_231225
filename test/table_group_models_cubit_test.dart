@@ -2942,6 +2942,10 @@ void main() {
     expect(tableRepository.createRequestCount, 1);
     await tester.binding.handlePopRoute();
     await tester.pump();
+    expect(
+      find.textContaining('Masana Mesajlar bölümünden ulaşabilirsin.'),
+      findsNothing,
+    );
     expect(find.byKey(const Key('table_group_create_submit')), findsOneWidget);
     expect(find.byKey(const Key('open_table_group_create')), findsNothing);
     expect(
@@ -2978,6 +2982,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(routeResult?.cityId, createdCityId);
+    expect(
+      find.text('Masa oluşturuldu.\nMasana Mesajlar bölümünden ulaşabilirsin.'),
+      findsOneWidget,
+    );
     expect(tableRepository.lastCreateRequest?.cityId, createdCityId);
     expect(
       tableRepository.lastCreateRequest?.description,

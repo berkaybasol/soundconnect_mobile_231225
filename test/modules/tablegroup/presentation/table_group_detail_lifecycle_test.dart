@@ -4,6 +4,7 @@ import 'dart:ui' show SemanticsFlag;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
@@ -25,9 +26,143 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_game_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/table_group_profile_draft.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 
+import '../../../support/event_audience_fakes.dart';
+
 void main() {
+  for (final scenario in [
+    (user: 'owner', role: 'ROLE_LISTENER', eligible: true),
+    (user: 'guest', role: 'ROLE_LISTENER', eligible: true),
+    (user: 'pending-user', role: 'ROLE_LISTENER', eligible: false),
+    (user: 'outsider', role: 'ROLE_LISTENER', eligible: false),
+    (user: 'owner', role: 'ROLE_MUSICIAN', eligible: false),
+  ]) {
+    for (final chat in [false, true]) {
+      testWidgets(
+        'profile share stays in ${chat ? 'chat' : 'overview'} overflow for ${scenario.user}/${scenario.role}',
+        (tester) async {
+          final sessions = AudienceTestSessions(
+            audienceSession(user: scenario.user, role: scenario.role),
+          );
+          addTearDown(sessions.dispose);
+          final now = DateTime.utc(2026, 9, 10, 18);
+          final tokens = _UserTokenStore(scenario.user);
+          await serviceLocator.reset();
+          serviceLocator.registerSingleton<DmBadgeCubit>(
+            DmBadgeCubit(
+              _DetailDmRepository(),
+              tokens,
+              realtimeClient: _DetailNoopDmRealtimeClient(),
+            ),
+            dispose: (cubit) => cubit.close(),
+          );
+          addTearDown(serviceLocator.reset);
+          TableGroupProfileDraftArgs? opened;
+          await tester.pumpWidget(
+            MaterialApp(
+              onGenerateRoute: (settings) {
+                if (settings.name != AppRoutes.listenerProfile) return null;
+                opened = settings.arguments as TableGroupProfileDraftArgs;
+                return MaterialPageRoute<void>(
+                  builder: (_) => const Scaffold(body: Text('Profile draft')),
+                );
+              },
+              home: TableGroupDetailScreen(
+                args: TableGroupDetailArgs(tableGroupId: 'g-1', openChat: chat),
+                repository: _DetailRepository(
+                  group: _group(
+                    status: 'ACTIVE',
+                    expiresAt: now.add(const Duration(hours: 2)),
+                    includeGuest: true,
+                    includePending: true,
+                  ),
+                ),
+                gameRepository: const _NoActiveGameRepository(),
+                tokenStore: tokens,
+                realtimeClient: TableGroupChatRealtimeClient(
+                  transportFactory: _ImmediateTransportHarness().create,
+                ),
+                sessions: sessions,
+                now: () => now,
+                canCreateOrJoin: () => true,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Paylaş'), findsNothing);
+          await tester.tap(find.byKey(const Key('table_group_detail_more')));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const Key('table_group_profile_share')),
+            scenario.eligible ? findsOneWidget : findsNothing,
+          );
+          if (scenario.eligible) {
+            await tester.tap(find.text('Paylaş'));
+            await tester.pumpAndSettle();
+            expect(opened?.tableGroupId, 'g-1');
+            expect(opened?.expectedSession, same(sessions.session));
+            expect(find.text('Profile draft'), findsOneWidget);
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pump();
+        },
+      );
+    }
+  }
+
+  for (final invalidation in ['expiry', 'relogin']) {
+    testWidgets('open share menu cannot outlive $invalidation', (tester) async {
+      var now = DateTime.utc(2026, 9, 10, 18);
+      final sessions = AudienceTestSessions(audienceSession(user: 'owner'));
+      addTearDown(sessions.dispose);
+      var opened = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          onGenerateRoute: (settings) {
+            opened = true;
+            return MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('Unexpected draft')),
+            );
+          },
+          home: TableGroupDetailScreen(
+            args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
+            repository: _DetailRepository(
+              group: _group(
+                status: 'ACTIVE',
+                expiresAt: now.add(const Duration(hours: 1)),
+              ),
+            ),
+            gameRepository: const _NoActiveGameRepository(),
+            tokenStore: const _OwnerTokenStore(),
+            realtimeClient: TableGroupChatRealtimeClient(
+              transportFactory: _ImmediateTransportHarness().create,
+            ),
+            sessions: sessions,
+            now: () => now,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('table_group_detail_more')));
+      await tester.pumpAndSettle();
+      expect(find.text('Paylaş'), findsOneWidget);
+      if (invalidation == 'expiry') {
+        now = now.add(const Duration(hours: 2));
+      } else {
+        sessions.replace(audienceSession(user: 'owner', token: 'new-login'));
+      }
+      await tester.tap(find.text('Paylaş'));
+      await tester.pumpAndSettle();
+      expect(opened, isFalse);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    });
+  }
+
   group('table-group lifecycle contract', () {
     test('requires ACTIVE status and a strictly future expiry', () {
       final now = DateTime.utc(2026, 8, 17, 18);

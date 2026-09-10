@@ -72,6 +72,7 @@ class _PostPreviewSheet extends StatelessWidget {
                 children: [
                   _ManageMetric(
                     icon: Icons.favorite_border_rounded,
+                    iconColor: AppColors.likeHeart,
                     value: post.likeCount,
                     label: 'beğeni',
                   ),

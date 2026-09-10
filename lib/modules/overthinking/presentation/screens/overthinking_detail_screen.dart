@@ -142,6 +142,7 @@ class OverthinkingDetailScreen extends StatelessWidget {
                             ? 'Beğeniyi kaldır'
                             : 'Beğen',
                         active: currentPost.likedByMe,
+                        iconColor: AppColors.likeHeart,
                         onTap: () => context
                             .read<OverthinkingFeedCubit>()
                             .toggleLike(currentPost),

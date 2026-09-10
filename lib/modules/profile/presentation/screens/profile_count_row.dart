@@ -38,9 +38,11 @@ class ProfileCountRow extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border,
+                isLiked
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
                 size: 16,
-                color: likeColor,
+                color: AppColors.likeHeart,
               ),
               SizedBox(width: 6),
               Text(

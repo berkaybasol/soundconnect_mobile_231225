@@ -39,6 +39,7 @@ import '../../modules/tablegroup/presentation/screens/table_group_create_screen.
 import '../../modules/tablegroup/presentation/screens/table_group_list_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_route_args.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
+import '../../modules/tablegroup/presentation/table_group_profile_draft.dart';
 import 'app_routes.dart';
 import 'app_route_guard.dart';
 
@@ -223,6 +224,7 @@ class AppRouter {
           builder: (_) => ListenerProfileScreen(
             eventDraft: draft,
             overthinkingDraft: overthinkingDraft,
+            tableGroupDraft: _arguments<TableGroupProfileDraftArgs>(settings),
           ),
         );
       case AppRoutes.listenerProfileChoice:

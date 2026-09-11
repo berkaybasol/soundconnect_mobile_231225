@@ -230,6 +230,9 @@ void main() {
         expect(row.post.authorId, isNull);
         expect(row.post.revealRequestPending, isTrue);
         expect(row.post.spotifyTrackName, 'Song');
+        expect(row.likeCount, 7);
+        expect(row.commentCount, 9);
+        expect(row.likedByMe, isTrue);
         expect(h.repository.changes.value, 0);
       },
     );
@@ -403,6 +406,42 @@ void main() {
         isFalse,
       );
     });
+
+    final validRow =
+        (_page()['content'] as List).single as Map<String, dynamic>;
+    for (final malformed in [
+      {
+        ..._page(),
+        'content': [
+          {...validRow, 'likeCount': -1},
+        ],
+      },
+      {
+        ..._page(),
+        'content': [
+          {...validRow, 'commentCount': 1.5},
+        ],
+      },
+      {
+        ..._page(),
+        'content': [
+          {...validRow, 'likedByMe': null},
+        ],
+      },
+    ]) {
+      test('malformed wrapper engagement fails the entire page', () async {
+        final h = _Harness();
+        h.api.reply = malformed;
+        expect(
+          (await h.repository.listProfile(
+            profileId: 'profile',
+            page: 2,
+            expectedSession: h.session,
+          )).isSuccess,
+          isFalse,
+        );
+      });
+    }
   });
 
   group('session boundaries', () {
@@ -640,6 +679,9 @@ Map<String, dynamic> _page() => {
       'shareId': 'share',
       'note': 'My note',
       'publishedAt': '2026-09-10T12:00:00Z',
+      'likeCount': 7,
+      'commentCount': 9,
+      'likedByMe': true,
       'post': {
         'id': 'source',
         'anonymous': true,

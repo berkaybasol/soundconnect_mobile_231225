@@ -16,6 +16,7 @@ class WaveformStub extends StatelessWidget {
   final ValueChanged<double>? onSeek;
   final double height;
   final double waveformHeight;
+  final double leadingSize;
   final List<double>? samples;
 
   const WaveformStub({
@@ -34,8 +35,9 @@ class WaveformStub extends StatelessWidget {
     this.onSeek,
     this.height = 68,
     this.waveformHeight = 44,
+    this.leadingSize = 32,
     this.samples,
-  });
+  }) : assert(leadingSize > 0);
 
   static const _samples = [
     0.18,
@@ -155,8 +157,8 @@ class WaveformStub extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: leadingSize,
+                height: leadingSize,
                 decoration: BoxDecoration(
                   color: effectiveLeadingBackgroundColor,
                   borderRadius: BorderRadius.circular(8),
@@ -184,56 +186,89 @@ class WaveformStub extends StatelessWidget {
                           (samples != null && samples!.isNotEmpty)
                           ? samples!
                           : _samples;
+                      final seekable = onSeek != null;
+                      const semanticStep = .05;
+                      String percentage(double value) =>
+                          '${(value.clamp(0.0, 1.0) * 100).round()}%';
+                      void seekBy(double delta) => onSeek?.call(
+                        (clampedProgress + delta).clamp(0.0, 1.0),
+                      );
 
-                      return GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTapDown: onSeek == null
-                            ? null
-                            : (details) {
-                                final ratio = details.localPosition.dx / width;
-                                onSeek?.call(ratio.clamp(0.0, 1.0));
-                              },
-                        onHorizontalDragUpdate: onSeek == null
-                            ? null
-                            : (details) {
-                                final ratio = details.localPosition.dx / width;
-                                onSeek?.call(ratio.clamp(0.0, 1.0));
-                              },
-                        child: TweenAnimationBuilder<double>(
-                          duration: const Duration(milliseconds: 56),
-                          curve: Curves.linear,
-                          tween: Tween<double>(end: clampedProgress),
-                          builder: (context, animatedProgress, _) {
-                            final lineLeft = width * animatedProgress;
-                            return Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                CustomPaint(
-                                  painter: _WaveformPainter(
-                                    samples: waveformSamples,
-                                    gradientColors: effectiveGradientColors,
-                                    baseOpacity: 0.35,
-                                    progress: animatedProgress,
-                                  ),
-                                ),
-                                if (animatedProgress > 0)
-                                  Positioned(
-                                    left: lineLeft.clamp(0.0, width - 1),
-                                    top: 0,
-                                    bottom: 0,
-                                    child: Container(
-                                      width: 2,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.white.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
+                      return Semantics(
+                        container: true,
+                        slider: seekable ? true : null,
+                        label: 'Oynatma konumu',
+                        value: percentage(clampedProgress),
+                        increasedValue: seekable
+                            ? percentage(clampedProgress + semanticStep)
+                            : null,
+                        decreasedValue: seekable
+                            ? percentage(clampedProgress - semanticStep)
+                            : null,
+                        hint: seekable
+                            ? 'Oynatma konumunu artır veya azalt'
+                            : null,
+                        onIncrease: seekable
+                            ? () => seekBy(semanticStep)
+                            : null,
+                        onDecrease: seekable
+                            ? () => seekBy(-semanticStep)
+                            : null,
+                        child: GestureDetector(
+                          excludeFromSemantics: true,
+                          behavior: HitTestBehavior.translucent,
+                          onTapDown: onSeek == null
+                              ? null
+                              : (details) {
+                                  final ratio =
+                                      details.localPosition.dx / width;
+                                  onSeek?.call(ratio.clamp(0.0, 1.0));
+                                },
+                          onHorizontalDragUpdate: onSeek == null
+                              ? null
+                              : (details) {
+                                  final ratio =
+                                      details.localPosition.dx / width;
+                                  onSeek?.call(ratio.clamp(0.0, 1.0));
+                                },
+                          child: TweenAnimationBuilder<double>(
+                            duration: const Duration(milliseconds: 56),
+                            curve: Curves.linear,
+                            tween: Tween<double>(end: clampedProgress),
+                            builder: (context, animatedProgress, _) {
+                              final lineLeft = width * animatedProgress;
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  CustomPaint(
+                                    painter: _WaveformPainter(
+                                      samples: waveformSamples,
+                                      gradientColors: effectiveGradientColors,
+                                      baseOpacity: 0.35,
+                                      progress: animatedProgress,
                                     ),
                                   ),
-                              ],
-                            );
-                          },
+                                  if (animatedProgress > 0)
+                                    Positioned(
+                                      left: lineLeft.clamp(0.0, width - 1),
+                                      top: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        width: 2,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.white.withValues(
+                                            alpha: 0.7,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
                         ),
                       );
                     },

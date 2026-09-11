@@ -625,6 +625,8 @@ OverthinkingProfileShare _share({
   shareId: id,
   note: note,
   publishedAt: DateTime.utc(2026, 9, 10, 18),
+  likeCount: likes,
+  commentCount: comments,
   post: OverthinkingPostModel.fromJson({
     'id': 'source-post',
     'title': title,

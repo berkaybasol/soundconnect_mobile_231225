@@ -118,8 +118,14 @@ bool _isNetworkLikePath(String? value) {
 class WeeklyEventDetailScreen extends StatefulWidget {
   final WeeklyCalendarEvent event;
   final EventShareService? shareService;
+  final VoidCallback? onEngagementChanged;
 
-  WeeklyEventDetailScreen({super.key, required this.event, this.shareService});
+  WeeklyEventDetailScreen({
+    super.key,
+    required this.event,
+    this.shareService,
+    this.onEngagementChanged,
+  });
 
   @override
   State<WeeklyEventDetailScreen> createState() =>

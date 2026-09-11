@@ -333,12 +333,12 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                       key: ValueKey(
                         'listener-overthinking-like-${share!.shareId}',
                       ),
-                      count: engagementUnknown ? null : source.likeCount,
-                      label: source.likedByMe ? 'Beğeniyi kaldır' : 'Beğen',
+                      count: engagementUnknown ? null : share!.likeCount,
+                      label: share!.likedByMe ? 'Beğeniyi kaldır' : 'Beğen',
                       countLabel: 'beğeni',
-                      selected: !engagementUnknown && source.likedByMe,
+                      selected: !engagementUnknown && share!.likedByMe,
                       onPressed: busy || likeBusy ? null : onLike,
-                      icon: source.likedByMe
+                      icon: share!.likedByMe
                           ? Icons.favorite_rounded
                           : Icons.favorite_border_rounded,
                       color: AppColors.likeHeart,
@@ -347,7 +347,7 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                       key: ValueKey(
                         'listener-overthinking-comments-${share!.shareId}',
                       ),
-                      count: engagementUnknown ? null : source.commentCount,
+                      count: engagementUnknown ? null : share!.commentCount,
                       label: 'Yorumlar',
                       countLabel: 'yorum',
                       onPressed: busy || likeBusy ? null : onComments,

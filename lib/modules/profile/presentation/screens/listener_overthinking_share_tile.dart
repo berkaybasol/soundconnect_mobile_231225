@@ -8,12 +8,12 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/app_error.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../engagement/domain/engagement_repository.dart';
-import '../../../overthinking/domain/entities/overthinking_post.dart';
+import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
 import '../../../overthinking/domain/overthinking_profile_share_repository.dart';
-import '../../../overthinking/domain/overthinking_repository.dart';
 import '../../../overthinking/presentation/screens/overthinking_open_source.dart';
 import '../share/overthinking_share_flow.dart';
 import 'listener_event_post_comments_sheet.dart';
+import 'listener_event_post_engagement.dart';
 import 'listener_overthinking_share_card.dart';
 import 'listener_share_delete_dialog.dart';
 
@@ -34,8 +34,7 @@ class ListenerOverthinkingShareTile extends StatefulWidget {
     this.onOpenSource,
     this.onError,
     this.engagementRepository,
-    this.sourceRepository,
-    this.onSourceChanged,
+    this.onEngagementChanged,
   });
 
   final OverthinkingProfileShare share;
@@ -49,8 +48,7 @@ class ListenerOverthinkingShareTile extends StatefulWidget {
   final ValueChanged<String> onRemoved;
   final Future<void> Function(String postId)? onOpenSource;
   final EngagementRepository? engagementRepository;
-  final OverthinkingRepository? sourceRepository;
-  final ValueChanged<OverthinkingPost>? onSourceChanged;
+  final ValueChanged<InteractionStatsItemState>? onEngagementChanged;
 
   /// Parent-scoped feedback for a mutation whose repository invalidation has
   /// already removed this tile. Must fence the profile and viewer session.
@@ -68,19 +66,19 @@ class _ListenerOverthinkingShareTileState
   int _generation = 0;
   final _shareValidity = ValueNotifier<int>(0);
   bool _busy = false;
+  bool _retainEngagement = false;
   bool _engagementBusy = false;
-  bool _engagementUncertain = false;
-  bool _sourceUnavailable = false;
-  late OverthinkingPost _post;
+  bool _publicationUnavailable = false;
+  InteractionStatsItemState? _reportedStats;
+  late InteractionStatsItemState _initialStats;
   EngagementRepository? _engagement;
-  OverthinkingRepository? _sources;
   ValueNotifier<bool>? _commentsAvailable;
   DialogRoute<bool>? _confirmation;
 
   // Retain pending/uncertain operations when their card leaves the viewport.
-  // Once a confirmed source is saved by the parent, idle cards recycle again.
+  // Once confirmed wrapper stats are saved by the parent, idle cards recycle.
   @override
-  bool get wantKeepAlive => _busy || _engagementBusy || _engagementUncertain;
+  bool get wantKeepAlive => _busy || _retainEngagement;
 
   void _setState(VoidCallback change) {
     setState(change);
@@ -109,26 +107,31 @@ class _ListenerOverthinkingShareTileState
     ++_generation;
     _shareValidity.value = _generation;
     _busy = false;
+    _retainEngagement = false;
     _engagementBusy = false;
+    _publicationUnavailable = false;
+    _reportedStats = null;
     _commentsAvailable?.value = false;
     _dismissConfirmation();
     updateKeepAlive();
   }
 
   void _bindEngagement() {
-    _post = widget.share.post;
-    _engagementUncertain = false;
-    _sourceUnavailable = false;
     _engagement =
         widget.engagementRepository ??
         (serviceLocator.isRegistered<EngagementRepository>()
             ? serviceLocator<EngagementRepository>()
             : null);
-    _sources =
-        widget.sourceRepository ??
-        (serviceLocator.isRegistered<OverthinkingRepository>()
-            ? serviceLocator<OverthinkingRepository>()
-            : null);
+    _retainEngagement = false;
+    _engagementBusy = false;
+    _publicationUnavailable = false;
+    _reportedStats = null;
+    _initialStats = InteractionStatsItemState(
+      loading: false,
+      likeCount: widget.share.likeCount,
+      commentCount: widget.share.commentCount,
+      isLiked: widget.share.likedByMe,
+    );
   }
 
   void _sessionChanged() {
@@ -153,11 +156,16 @@ class _ListenerOverthinkingShareTileState
           oldWidget.engagementRepository,
           widget.engagementRepository,
         ) ||
-        !identical(oldWidget.sourceRepository, widget.sourceRepository) ||
         oldWidget.ownerUserId != widget.ownerUserId) {
+      final preserveUnavailable =
+          _publicationUnavailable &&
+          oldWidget.share.shareId == widget.share.shareId &&
+          oldWidget.share.post.id == widget.share.post.id &&
+          oldWidget.share.publishedAt == widget.share.publishedAt;
       _invalidate();
       _session = widget.sessions.session;
       _bindEngagement();
+      _publicationUnavailable = preserveUnavailable;
     }
   }
 
@@ -204,125 +212,12 @@ class _ListenerOverthinkingShareTileState
     }
   }
 
-  Future<void> _toggleLike(_ShareOperation operation) async {
-    if (_busy ||
-        _engagementBusy ||
-        _sourceUnavailable ||
-        !_current(operation)) {
-      return;
-    }
-    final engagement = _engagement;
-    if (engagement == null || _sources == null) {
-      _showError(
-        operation,
-        'Beğeni şu anda güncellenemiyor. Yeniden deneyebilirsin.',
-      );
-      return;
-    }
-    final previous = _post;
-    final reconcileOnly = _engagementUncertain;
-    _setState(() {
-      _engagementBusy = true;
-      if (!reconcileOnly) {
-        _post = previous.copyWith(
-          likedByMe: !previous.likedByMe,
-          likeCount: (previous.likeCount + (previous.likedByMe ? -1 : 1)).clamp(
-            0,
-            9007199254740991,
-          ),
-        );
-      }
-    });
-    try {
-      // An uncertain request may already have reached the server. Reconcile
-      // before deciding which direction the user's next toggle should take.
-      if (!reconcileOnly) {
-        final result = previous.likedByMe
-            ? await engagement.unlike(
-                targetType: 'OVERTHINKING',
-                targetId: previous.id,
-              )
-            : await engagement.like(
-                targetType: 'OVERTHINKING',
-                targetId: previous.id,
-              );
-        if (!_same(operation)) return;
-        if (!result.isSuccess) {
-          _setState(() {
-            _post = previous;
-            _engagementUncertain = true;
-          });
-          if (_isUnavailable(result.error)) {
-            await _revokeSource(operation);
-          } else {
-            _showError(
-              operation,
-              result.error?.message ??
-                  'Beğeni doğrulanamadı. Yenilemek için tekrar dene.',
-            );
-          }
-          return;
-        }
-      }
-      await _refreshSource(operation);
-    } catch (_) {
-      if (_same(operation)) {
-        _setState(() {
-          _post = previous;
-          _engagementUncertain = true;
-        });
-        _showError(
-          operation,
-          'Beğeni doğrulanamadı. Yenilemek için tekrar dene.',
-        );
-      }
-    } finally {
-      if (_same(operation)) _setState(() => _engagementBusy = false);
-    }
-  }
-
-  bool _isUnavailable(AppError? error) =>
-      const {'9401', '9700', '1102', '403', '404', '410'}.contains(error?.code);
-
-  Future<void> _revokeSource(_ShareOperation operation) async {
-    if (!_same(operation)) return;
-    _setState(() => _sourceUnavailable = true);
-    _commentsAvailable?.value = false;
-    _showError(operation, 'Bu yazı artık görüntülenemiyor.');
-    await _refresh(operation);
-  }
-
-  Future<void> _refreshSource(_ShareOperation operation) async {
-    final sources = _sources;
-    if (!_same(operation) || sources == null) return;
-    final result = await sources.getDetail(postId: operation.share.post.id);
-    if (!_same(operation)) return;
-    if (result.isSuccess && result.data?.id == operation.share.post.id) {
-      _setState(() {
-        _post = result.data!;
-        _engagementUncertain = false;
-      });
-      widget.onSourceChanged?.call(result.data!);
-    } else if (_isUnavailable(result.error)) {
-      await _revokeSource(operation);
-    } else {
-      _setState(() => _engagementUncertain = true);
-      _showError(
-        operation,
-        'Etkileşimler doğrulanamadı. Yenilemek için beğeniye tekrar dokunabilirsin.',
-      );
-    }
-  }
-
   Future<void> _openComments(_ShareOperation operation) async {
-    if (_busy ||
-        _engagementBusy ||
-        _sourceUnavailable ||
-        !_current(operation)) {
+    if (_busy || _engagementBusy || !_current(operation)) {
       return;
     }
     final engagement = _engagement;
-    if (engagement == null || _sources == null) {
+    if (engagement == null) {
       _showError(
         operation,
         'Yorumlar şu anda açılamıyor. Yeniden deneyebilirsin.',
@@ -344,20 +239,14 @@ class _ListenerOverthinkingShareTileState
         ),
         clipBehavior: Clip.antiAlias,
         builder: (_) => ListenerEventPostCommentsSheet.overthinking(
-          postId: operation.share.post.id,
+          postId: operation.share.shareId,
           repository: engagement,
           sessions: operation.sessions,
           expectedSession: operation.session,
           publicationAvailable: availability,
         ),
       );
-      if (_current(operation)) {
-        // Source DTO counts include replies. A root-comments page total is not
-        // the source's commentCount, and reloading the feed would jump scroll.
-        await _refreshSource(operation);
-      }
     } catch (_) {
-      if (_same(operation)) _setState(() => _engagementUncertain = true);
       _showError(operation, 'Yorumlar doğrulanamadı. Yeniden deneyebilirsin.');
     } finally {
       if (identical(_commentsAvailable, availability)) {
@@ -365,6 +254,9 @@ class _ListenerOverthinkingShareTileState
       }
       availability.dispose();
       if (_same(operation)) _setState(() => _busy = false);
+      // The profile projection counts both roots and replies; the comments
+      // page total only counts roots, so refresh the authoritative batch row.
+      await _refresh(operation);
     }
   }
 
@@ -459,6 +351,16 @@ class _ListenerOverthinkingShareTileState
     );
   }
 
+  void _engagementFailure(_ShareOperation operation, AppError error) {
+    if (!_same(operation) ||
+        !const {'9700', '1102', '403', '404', '410'}.contains(error.code)) {
+      return;
+    }
+    _setState(() => _publicationUnavailable = true);
+    _commentsAvailable?.value = false;
+    unawaited(_refresh(operation));
+  }
+
   void _showMutationError(
     _ShareOperation operation,
     String message, {
@@ -490,6 +392,75 @@ class _ListenerOverthinkingShareTileState
     });
   }
 
+  void _retainStats(
+    InteractionStatsItemState stats,
+    _ShareOperation operation,
+  ) {
+    _engagementBusy = stats.loading;
+    final changed =
+        stats.likeCount != widget.share.likeCount ||
+        stats.isLiked != widget.share.likedByMe;
+    final retain =
+        stats.loading ||
+        stats.error != null ||
+        (changed && widget.onEngagementChanged != null);
+    if (retain != _retainEngagement) {
+      _retainEngagement = retain;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) updateKeepAlive();
+      });
+    }
+    if (!changed ||
+        stats.loading ||
+        stats.error != null ||
+        widget.onEngagementChanged == null ||
+        (_reportedStats?.likeCount == stats.likeCount &&
+            _reportedStats?.isLiked == stats.isLiked)) {
+      return;
+    }
+    _reportedStats = stats;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_same(operation) || !widget.isCurrent()) return;
+      // The batched profile projection includes replies. A like refresh reads
+      // only the root page total, so never replace that authoritative count.
+      widget.onEngagementChanged?.call(
+        stats.copyWith(
+          commentCount: widget.share.commentCount,
+          hasCommentCount: true,
+        ),
+      );
+    });
+  }
+
+  Widget _card(
+    _ShareOperation operation,
+    InteractionStatsItemState stats,
+    VoidCallback? onLike,
+  ) {
+    final projected = operation.share.copyWithEngagement(
+      likeCount: stats.likeCount,
+      commentCount: operation.share.commentCount,
+      likedByMe: stats.error == null && stats.isLiked,
+    );
+    return ListenerOverthinkingShareCard(
+      share: projected,
+      username: widget.username,
+      avatarUrl: widget.avatarUrl,
+      busy: _busy,
+      likeBusy: stats.loading,
+      engagementUnknown:
+          stats.error != null || !stats.hasLikeCount || !stats.hasCommentCount,
+      isCurrent: () => _current(operation),
+      onOpen: _busy ? null : () => unawaited(_open(operation)),
+      onRemove: _owner ? () => unawaited(_remove(operation)) : null,
+      onShare: () => unawaited(_share(operation)),
+      onLike: onLike,
+      onComments: _engagement == null
+          ? null
+          : () => unawaited(_openComments(operation)),
+    );
+  }
+
   @override
   void dispose() {
     _invalidate();
@@ -501,32 +472,31 @@ class _ListenerOverthinkingShareTileState
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!_allowed || _sourceUnavailable) return const SizedBox.shrink();
+    if (!_allowed || _publicationUnavailable) return const SizedBox.shrink();
     final operation = _capture();
+    final engagement = _engagement;
     return KeyedSubtree(
       // PopupMenuButton resolves onSelected from its latest widget after the
       // overlay closes. Recreate its state for a fresh projection so an old
       // open menu cannot silently acquire the replacement row's callbacks.
       key: ValueKey(_generation),
-      child: ListenerOverthinkingShareCard(
-        share: OverthinkingProfileShare(
-          shareId: widget.share.shareId,
-          note: widget.share.note,
-          publishedAt: widget.share.publishedAt,
-          post: _post,
-        ),
-        username: widget.username,
-        avatarUrl: widget.avatarUrl,
-        busy: _busy || _engagementBusy,
-        likeBusy: _engagementBusy,
-        engagementUnknown: _engagementUncertain,
-        isCurrent: () => _current(operation),
-        onOpen: _busy ? null : () => unawaited(_open(operation)),
-        onRemove: _owner ? () => unawaited(_remove(operation)) : null,
-        onShare: () => unawaited(_share(operation)),
-        onLike: () => unawaited(_toggleLike(operation)),
-        onComments: () => unawaited(_openComments(operation)),
-      ),
+      child: engagement == null
+          ? _card(operation, _initialStats, null)
+          : ListenerEventPostEngagement(
+              targetType: 'OVERTHINKING_PROFILE_SHARE',
+              postId: operation.share.shareId,
+              repository: engagement,
+              sessions: operation.sessions,
+              projectionKey: _generation,
+              initialStats: _initialStats,
+              canInteract: () => !_busy && _current(operation),
+              onError: (message) => _showError(operation, message),
+              onFailure: (error) => _engagementFailure(operation, error),
+              builder: (stats, onLike, refresh) {
+                _retainStats(stats, operation);
+                return _card(operation, stats, onLike);
+              },
+            ),
     );
   }
 }

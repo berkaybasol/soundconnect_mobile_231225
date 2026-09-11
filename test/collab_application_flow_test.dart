@@ -260,6 +260,7 @@ void main() {
       );
       final cubit = CollabListingDetailCubit(repository);
       addTearDown(cubit.close);
+      var appliedCallbacks = 0;
 
       await tester.pumpWidget(
         app(
@@ -267,6 +268,7 @@ void main() {
             listingId: 'listing-1',
             detailCubit: cubit,
             showBottomNavigation: false,
+            onApplied: () => appliedCallbacks += 1,
           ),
         ),
       );
@@ -296,6 +298,7 @@ void main() {
       await scrollTo(tester, find.text('Başvuru Gönderildi'));
       expect(find.text('Başvuru Gönderildi'), findsOneWidget);
       expect(repository.applyCalls, 1);
+      expect(appliedCallbacks, 1);
       expect(
         repository.lastApplicationInput?.applicantActorId,
         'actor-musician',

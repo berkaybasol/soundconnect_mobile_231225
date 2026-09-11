@@ -133,6 +133,7 @@ extension _EventCommentsView on _WeeklyEventDetailScreenState {
       }
       if (deleted) {
         _updateState(_resetReplyThreads);
+        widget.onEngagementChanged?.call();
       }
       if (ModalRoute.of(context)?.isCurrent != true) return;
       ScaffoldMessenger.of(context).showSnackBar(

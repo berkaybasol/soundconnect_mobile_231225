@@ -15,7 +15,7 @@ import 'package:soundconnect_23_12_25codx/modules/event_audience/domain/event_au
 import 'package:soundconnect_23_12_25codx/modules/overthinking/data/models/overthinking_post_model.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/entities/overthinking_post.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/overthinking_profile_share_repository.dart';
-import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/overthinking_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/engagement/presentation/cubit/interaction_stats_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/cubit/listener_profile_feed_controller.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_event_posts.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_overthinking_share_tile.dart';
@@ -31,7 +31,6 @@ const _commentsKey = Key('listener-overthinking-comments-publication');
 void main() {
   late _Server server;
   late _Engagement engagement;
-  late _Sources sources;
   late _Shares shares;
   late AudienceTestSessions sessions;
   late ValueNotifier<OverthinkingProfileShare> row;
@@ -42,7 +41,6 @@ void main() {
   setUp(() {
     server = _Server();
     engagement = _Engagement(server);
-    sources = _Sources(server);
     shares = _Shares();
     sessions = AudienceTestSessions(audienceSession(user: 'viewer'));
     row = ValueNotifier(_share(server.post));
@@ -76,10 +74,23 @@ void main() {
                   ownerUserId: 'sharer',
                   repository: shares,
                   engagementRepository: engagement,
-                  sourceRepository: sources,
                   sessions: sessions,
                   isCurrent: () => current,
-                  onRefresh: () async => refreshes++,
+                  onRefresh: () async {
+                    refreshes++;
+                    row.value = row.value.copyWithEngagement(
+                      likeCount: server.likeCount,
+                      commentCount: server.commentCount,
+                      likedByMe: server.likedByMe,
+                    );
+                  },
+                  onEngagementChanged: (stats) {
+                    row.value = row.value.copyWithEngagement(
+                      likeCount: stats.likeCount,
+                      commentCount: stats.commentCount,
+                      likedByMe: stats.isLiked,
+                    );
+                  },
                   onRemoved: (_) {},
                   onOpenSource: (postId) async => opened.add(postId),
                 ),
@@ -117,8 +128,8 @@ void main() {
     final view = tester.widget<CommentThreadView>(
       find.byType(CommentThreadView),
     );
-    expect(view.targetType, 'OVERTHINKING');
-    expect(view.targetId, _sourceId);
+    expect(view.targetType, 'OVERTHINKING_PROFILE_SHARE');
+    expect(view.targetId, _shareId);
     expect(opened, isEmpty);
   }
 
@@ -129,7 +140,7 @@ void main() {
 
   for (final pendingWhileOffscreen in [false, true]) {
     testWidgets(
-      'confirmed source survives lazy recycling with pending=$pendingWhileOffscreen',
+      'confirmed wrapper state survives lazy recycling with pending=$pendingWhileOffscreen',
       (tester) async {
         final events = _Events();
         final scroll = ScrollController();
@@ -137,7 +148,6 @@ void main() {
         addTearDown(events.signal.dispose);
         addTearDown(scroll.dispose);
         serviceLocator.registerSingleton<EngagementRepository>(engagement);
-        serviceLocator.registerSingleton<OverthinkingRepository>(sources);
         shares.items = [
           row.value,
           for (var index = 1; index < 6; index++)
@@ -193,7 +203,8 @@ void main() {
         await tester.pumpAndSettle();
         if (pendingWhileOffscreen) {
           expect(original.mounted, isTrue);
-          server.post = server.post.copyWith(likeCount: 4, likedByMe: true);
+          server.likeCount = 4;
+          server.likedByMe = true;
           pending.complete(const Result.success(null));
           await tester.pumpAndSettle();
         }
@@ -207,12 +218,15 @@ void main() {
         expectLiked(true);
         expectCount(_likeKey, 4);
         expectCount(_commentsKey, 4);
-        expect(engagement.calls, [('like', 'OVERTHINKING', _sourceId)]);
-        expect(sources.reads, [_sourceId]);
+        expect(engagement.mutations, [
+          ('like', 'OVERTHINKING_PROFILE_SHARE', _shareId),
+        ]);
 
         // A fresh page is authoritative over the locally confirmed cache.
         shares.items[0] = _share(
           server.post.copyWith(likeCount: 12, likedByMe: false),
+          likeCount: 12,
+          likedByMe: false,
         );
         shares.signal.value++;
         await tester.pumpAndSettle();
@@ -224,7 +238,7 @@ void main() {
   }
 
   test(
-    'feed source updates retain publication identity fields and reject stale scopes',
+    'feed wrapper updates retain source identity and reject stale scopes',
     () async {
       final events = _Events();
       final feed = ListenerProfileFeedController(
@@ -240,74 +254,91 @@ void main() {
         note: 'Paylaşan kişinin notu',
         publishedAt: row.value.publishedAt,
         post: server.post,
+        likeCount: 3,
+        commentCount: 4,
       );
       shares.items = [original];
       await feed.reload();
       final expectedSession = sessions.session;
-      final updated = server.post.copyWith(likeCount: 4, likedByMe: true);
-      feed.updateOverthinkingSource(
+      final updated = _stats(likes: 4, comments: 4, liked: true);
+      feed.updateOverthinkingEngagement(
         expectedSession: expectedSession,
         expectedShare: original,
-        post: updated,
+        stats: updated,
       );
       final stored = feed.entries.single.share!;
       expect(stored.shareId, original.shareId);
       expect(stored.note, original.note);
       expect(stored.publishedAt, original.publishedAt);
-      expect(identical(stored.post, updated), isTrue);
-      // A retained callback cannot overwrite its own replacement or another source.
-      feed.updateOverthinkingSource(
+      expect(identical(stored.post, original.post), isTrue);
+      expect(stored.likeCount, 4);
+      expect(stored.commentCount, 4);
+      expect(stored.likedByMe, isTrue);
+      // A retained callback cannot overwrite its own replacement.
+      feed.updateOverthinkingEngagement(
         expectedSession: expectedSession,
         expectedShare: original,
-        post: server.post,
+        stats: _stats(likes: 9, comments: 9, liked: false),
       );
-      feed.updateOverthinkingSource(
+      feed.updateOverthinkingEngagement(
         expectedSession: expectedSession,
         expectedShare: stored,
-        post: updated.copyWith(id: 'other-source'),
+        stats: _stats(likes: 8, comments: 8, liked: false, loading: true),
       );
       expect(identical(feed.entries.single.share, stored), isTrue);
 
       final reading = Completer<Result<Page<OverthinkingProfileShare>>>();
       shares.onList = () => reading.future;
       final refresh = feed.revalidate();
-      feed.updateOverthinkingSource(
+      feed.updateOverthinkingEngagement(
         expectedSession: expectedSession,
         expectedShare: stored,
-        post: server.post,
+        stats: _stats(likes: 5, comments: 4, liked: false),
       );
       expect(identical(feed.entries.single.share, stored), isTrue);
       reading.complete(Result.success(Page(items: [original], hasNext: false)));
       await refresh;
       expect(identical(feed.entries.single.share, original), isTrue);
-      feed.updateOverthinkingSource(
+      feed.updateOverthinkingEngagement(
         expectedSession: expectedSession,
         expectedShare: stored,
-        post: updated,
+        stats: updated,
       );
       expect(identical(feed.entries.single.share, original), isTrue);
-      feed.updateOverthinkingSource(
+      feed.updateOverthinkingEngagement(
         expectedSession: audienceSession(user: 'other'),
         expectedShare: original,
-        post: updated,
+        stats: updated,
       );
       expect(identical(feed.entries.single.share, original), isTrue);
       feed.forgetShare(_shareId);
-      feed.updateOverthinkingSource(
+      feed.updateOverthinkingEngagement(
         expectedSession: expectedSession,
         expectedShare: original,
-        post: updated,
+        stats: updated,
       );
       expect(feed.entries, isEmpty);
     },
   );
 
   testWidgets(
-    'standalone profile fallback persists confirmed source interactions',
+    'standalone profile fallback persists confirmed wrapper interactions',
     (tester) async {
       serviceLocator.registerSingleton<EngagementRepository>(engagement);
-      serviceLocator.registerSingleton<OverthinkingRepository>(sources);
       shares.items = [row.value];
+      shares.onList = () async => Result.success(
+        Page(
+          items: [
+            _share(
+              server.post,
+              likeCount: server.likeCount,
+              commentCount: server.commentCount,
+              likedByMe: server.likedByMe,
+            ),
+          ],
+          hasNext: false,
+        ),
+      );
       await tester.pumpWidget(
         MaterialApp(
           home: ListenerProfileTheme(
@@ -343,9 +374,9 @@ void main() {
       final tile = tester.widget<ListenerOverthinkingShareTile>(
         find.byType(ListenerOverthinkingShareTile),
       );
-      expect(tile.share.post.likedByMe, isTrue);
-      expect(tile.share.post.commentCount, 5);
-      expect(engagement.created.single.$2, _sourceId);
+      expect(tile.share.likedByMe, isTrue);
+      expect(tile.share.commentCount, 5);
+      expect(engagement.created.single.$2, _shareId);
       expect(tester.takeException(), isNull);
     },
   );
@@ -361,36 +392,36 @@ void main() {
       expectCount(_likeKey, 3);
       expectCount(_commentsKey, 4);
       expectLiked(false);
-      expect(engagement.calls, isEmpty);
-      expect(sources.reads, isEmpty);
+      expect(engagement.mutations, isEmpty);
+      expect(engagement.commentReads, isEmpty);
       expect(refreshes, 0);
     },
   );
 
   for (final role in ['ROLE_LISTENER', 'ROLE_MUSICIAN', 'ROLE_VENUE']) {
-    testWidgets('profile heart toggles the source for $role viewers', (
+    testWidgets('profile heart toggles the wrapper for $role viewers', (
       tester,
     ) async {
       sessions.replace(audienceSession(user: 'viewer', role: role));
       await mount(tester);
       await tester.tap(find.byKey(_likeKey));
       await tester.pumpAndSettle();
-      expect(engagement.calls, [('like', 'OVERTHINKING', _sourceId)]);
-      expect(sources.reads, [_sourceId]);
+      expect(engagement.mutations, [
+        ('like', 'OVERTHINKING_PROFILE_SHARE', _shareId),
+      ]);
       expectLiked(true);
       expectCount(_likeKey, 4);
-      // Source totals include one root and three replies. A root-page total
-      // would incorrectly replace the source total with one after a refresh.
+      // The wrapper total includes one root and three replies. A root-page
+      // total must not replace the batched profile projection.
       expectCount(_commentsKey, 4);
       expect(find.byTooltip('Beğeniyi kaldır'), findsOneWidget);
 
       await tester.tap(find.byKey(_likeKey));
       await tester.pumpAndSettle();
-      expect(engagement.calls, [
-        ('like', 'OVERTHINKING', _sourceId),
-        ('unlike', 'OVERTHINKING', _sourceId),
+      expect(engagement.mutations, [
+        ('like', 'OVERTHINKING_PROFILE_SHARE', _shareId),
+        ('unlike', 'OVERTHINKING_PROFILE_SHARE', _shareId),
       ]);
-      expect(sources.reads, [_sourceId, _sourceId]);
       expectLiked(false);
       expectCount(_likeKey, 3);
       expectCount(_commentsKey, 4);
@@ -409,13 +440,15 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(_likeKey));
     await tester.pump();
-    expect(engagement.calls, [('like', 'OVERTHINKING', _sourceId)]);
-    server.post = server.post.copyWith(likeCount: 4, likedByMe: true);
+    expect(engagement.mutations, [
+      ('like', 'OVERTHINKING_PROFILE_SHARE', _shareId),
+    ]);
+    server.likeCount = 4;
+    server.likedByMe = true;
     pending.complete(const Result.success(null));
     await tester.pumpAndSettle();
     expectLiked(true);
     expectCount(_likeKey, 4);
-    expect(sources.reads, [_sourceId]);
   });
 
   testWidgets('uncertain heart write shows error and reconciles before retry', (
@@ -423,7 +456,8 @@ void main() {
   ) async {
     engagement.onLike = () async {
       // The server committed the write, but its acknowledgement was lost.
-      server.post = server.post.copyWith(likeCount: 4, likedByMe: true);
+      server.likeCount = 4;
+      server.likedByMe = true;
       return const Result.failure(
         AppError(code: 'network', message: 'Bağlantı kesildi.'),
       );
@@ -437,40 +471,51 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(SnackBar), findsOneWidget);
-    expect(sources.reads, isEmpty);
 
     await tester.tap(find.byKey(_likeKey));
     await tester.pumpAndSettle();
-    expect(engagement.calls, [('like', 'OVERTHINKING', _sourceId)]);
-    expect(sources.reads, [_sourceId]);
+    expect(engagement.mutations, [
+      ('like', 'OVERTHINKING_PROFILE_SHARE', _shareId),
+    ]);
     expectLiked(true);
     expectCount(_likeKey, 4);
 
     await tester.tap(find.byKey(_likeKey));
     await tester.pumpAndSettle();
-    expect(engagement.calls.last, ('unlike', 'OVERTHINKING', _sourceId));
+    expect(engagement.mutations.last, (
+      'unlike',
+      'OVERTHINKING_PROFILE_SHARE',
+      _shareId,
+    ));
     expectLiked(false);
     expectCount(_likeKey, 3);
   });
 
   testWidgets(
-    'comment create and delete use source thread and refresh totals',
+    'comment create and delete use wrapper thread and refresh totals',
     (tester) async {
       await mount(tester);
       await openComments(tester);
       expect(find.text('Asıl yazının yorumu'), findsOneWidget);
-      expect(engagement.calls.single, ('comments', 'OVERTHINKING', _sourceId));
+      expect(engagement.commentReads.last, (
+        'OVERTHINKING_PROFILE_SHARE',
+        _shareId,
+      ));
       await tester.enterText(find.byType(TextField), 'Profilden yazılan yorum');
       await tester.pump();
       await tester.tap(find.byTooltip('Yorumu gönder'));
       await tester.pumpAndSettle();
       expect(engagement.created, [
-        ('OVERTHINKING', _sourceId, 'Profilden yazılan yorum', null),
+        (
+          'OVERTHINKING_PROFILE_SHARE',
+          _shareId,
+          'Profilden yazılan yorum',
+          null,
+        ),
       ]);
       expect(find.text('Profilden yazılan yorum'), findsOneWidget);
       await closeComments(tester);
       expectCount(_commentsKey, 5);
-      expect(sources.reads, [_sourceId]);
 
       await openComments(tester);
       await tester.tap(find.byKey(const Key('comment-delete-created-1')));
@@ -481,7 +526,6 @@ void main() {
       expect(find.text('Profilden yazılan yorum'), findsNothing);
       await closeComments(tester);
       expectCount(_commentsKey, 4);
-      expect(sources.reads, [_sourceId, _sourceId]);
       expect(tester.takeException(), isNull);
     },
   );
@@ -494,16 +538,16 @@ void main() {
     await tester.tap(find.byKey(_likeKey));
     await tester.tap(find.byKey(_commentsKey));
     await tester.pumpAndSettle();
-    expect(engagement.calls, isEmpty);
-    expect(sources.reads, isEmpty);
+    expect(engagement.mutations, isEmpty);
+    expect(engagement.commentReads, isEmpty);
     expect(find.byType(CommentThreadView), findsNothing);
   });
 
-  testWidgets('source deletion during like revokes the stale shared card', (
+  testWidgets('wrapper deletion during like revokes the stale shared card', (
     tester,
   ) async {
     engagement.onLike = () async => const Result.failure(
-      AppError(code: '9401', message: 'Yazı bulunamadı.'),
+      AppError(code: '9700', message: 'Paylaşım bulunamadı.'),
     );
     await mount(tester);
     await tester.tap(find.byKey(_likeKey));
@@ -512,31 +556,6 @@ void main() {
     expect(find.byKey(_commentsKey), findsNothing);
     expect(find.text('Yazı'), findsNothing);
     expect(refreshes, 1);
-    expect(sources.reads, isEmpty);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('late source read cannot overwrite a replacement projection', (
-    tester,
-  ) async {
-    final pending = Completer<Result<OverthinkingPost>>();
-    sources.onRead = () => pending.future;
-    await mount(tester);
-    await tester.tap(find.byKey(_likeKey));
-    await tester.pump();
-    expect(sources.reads, [_sourceId]);
-    final replacement = server.post.copyWith(
-      title: 'Yeni görünüm',
-      likeCount: 9,
-      likedByMe: false,
-    );
-    row.value = _share(replacement);
-    await tester.pump();
-    pending.complete(Result.success(server.post));
-    await tester.pumpAndSettle();
-    expectCount(_likeKey, 9);
-    expectLiked(false);
-    expect(refreshes, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -557,7 +576,6 @@ void main() {
       await tester.pump();
       pending.complete(const Result.success(null));
       await tester.pumpAndSettle();
-      expect(sources.reads, isEmpty);
       expect(refreshes, 0);
       if (change == 'row') {
         expectLiked(false);
@@ -580,20 +598,41 @@ void main() {
     expect(find.byType(CommentThreadView), findsNothing);
     expect(find.text('Eski görünümün taslağı'), findsNothing);
     expect(engagement.created, isEmpty);
-    expect(sources.reads, isEmpty);
     expect(tester.takeException(), isNull);
   });
 }
 
-OverthinkingProfileShare _share(OverthinkingPost post) =>
-    OverthinkingProfileShare(
-      shareId: _shareId,
-      note: null,
-      publishedAt: DateTime.utc(2026, 9, 10, 18),
-      post: post,
-    );
+OverthinkingProfileShare _share(
+  OverthinkingPost post, {
+  int likeCount = 3,
+  int commentCount = 4,
+  bool likedByMe = false,
+}) => OverthinkingProfileShare(
+  shareId: _shareId,
+  note: null,
+  publishedAt: DateTime.utc(2026, 9, 10, 18),
+  post: post,
+  likeCount: likeCount,
+  commentCount: commentCount,
+  likedByMe: likedByMe,
+);
+
+InteractionStatsItemState _stats({
+  required int likes,
+  required int comments,
+  required bool liked,
+  bool loading = false,
+}) => InteractionStatsItemState(
+  loading: loading,
+  likeCount: likes,
+  commentCount: comments,
+  isLiked: liked,
+);
 
 class _Server {
+  int likeCount = 3;
+  int commentCount = 4;
+  bool likedByMe = false;
   OverthinkingPost post = OverthinkingPostModel.fromJson({
     'id': _sourceId,
     'title': 'Yazı',
@@ -620,19 +659,6 @@ class _Server {
       createdAt: null,
     ),
   ];
-}
-
-class _Sources extends Fake implements OverthinkingRepository {
-  _Sources(this.server);
-  final _Server server;
-  final reads = <String>[];
-  Future<Result<OverthinkingPost>> Function()? onRead;
-
-  @override
-  Future<Result<OverthinkingPost>> getDetail({required String postId}) async {
-    reads.add(postId);
-    return onRead?.call() ?? Result.success(server.post);
-  }
 }
 
 class _Shares extends Fake implements OverthinkingProfileShareRepository {
@@ -685,7 +711,8 @@ class _Events extends Fake implements EventAudienceRepository {
 class _Engagement extends Fake implements EngagementRepository {
   _Engagement(this.server);
   final _Server server;
-  final calls = <(String, String, String)>[];
+  final mutations = <(String, String, String)>[];
+  final commentReads = <(String, String)>[];
   final created = <(String, String, String, String?)>[];
   final deleted = <String>[];
   Future<Result<void>> Function()? onLike;
@@ -695,12 +722,10 @@ class _Engagement extends Fake implements EngagementRepository {
     required String targetType,
     required String targetId,
   }) async {
-    calls.add(('like', targetType, targetId));
+    mutations.add(('like', targetType, targetId));
     if (onLike != null) return onLike!();
-    server.post = server.post.copyWith(
-      likeCount: server.post.likeCount + 1,
-      likedByMe: true,
-    );
+    server.likeCount++;
+    server.likedByMe = true;
     return const Result.success(null);
   }
 
@@ -709,13 +734,23 @@ class _Engagement extends Fake implements EngagementRepository {
     required String targetType,
     required String targetId,
   }) async {
-    calls.add(('unlike', targetType, targetId));
-    server.post = server.post.copyWith(
-      likeCount: server.post.likeCount - 1,
-      likedByMe: false,
-    );
+    mutations.add(('unlike', targetType, targetId));
+    server.likeCount--;
+    server.likedByMe = false;
     return const Result.success(null);
   }
+
+  @override
+  Future<Result<int>> getLikeCount({
+    required String targetType,
+    required String targetId,
+  }) async => Result.success(server.likeCount);
+
+  @override
+  Future<Result<bool>> isLiked({
+    required String targetType,
+    required String targetId,
+  }) async => Result.success(server.likedByMe);
 
   @override
   Future<Result<CommentPage>> listComments({
@@ -724,7 +759,7 @@ class _Engagement extends Fake implements EngagementRepository {
     int page = 0,
     int size = 20,
   }) async {
-    calls.add(('comments', targetType, targetId));
+    commentReads.add((targetType, targetId));
     return Result.success(
       CommentPage(
         items: List.unmodifiable(server.comments),
@@ -757,9 +792,7 @@ class _Engagement extends Fake implements EngagementRepository {
       createdAt: null,
     );
     server.comments.insert(0, comment);
-    server.post = server.post.copyWith(
-      commentCount: server.post.commentCount + 1,
-    );
+    server.commentCount++;
     return Result.success(comment);
   }
 
@@ -767,9 +800,7 @@ class _Engagement extends Fake implements EngagementRepository {
   Future<Result<void>> deleteComment({required String commentId}) async {
     deleted.add(commentId);
     server.comments.removeWhere((item) => item.id == commentId);
-    server.post = server.post.copyWith(
-      commentCount: server.post.commentCount - 1,
-    );
+    server.commentCount--;
     return const Result.success(null);
   }
 }

@@ -7,6 +7,7 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
+import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
 import '../../../overthinking/domain/overthinking_profile_share_repository.dart';
 import 'listener_overthinking_share_tile.dart';
 import 'listener_profile_theme.dart';
@@ -237,7 +238,8 @@ class _ListenerOverthinkingPostsSectionState
             padding: EdgeInsets.only(bottom: 12),
             child: LinearProgressIndicator(minHeight: 2),
           ),
-        for (final item in _loading ? const <OverthinkingProfileShare>[] : _items)
+        for (final item
+            in _loading ? const <OverthinkingProfileShare>[] : _items)
           Padding(
             // Every read revalidates this projection. Replacing the tile also
             // invalidates an open source sheet or share dialog immediately.
@@ -252,10 +254,11 @@ class _ListenerOverthinkingPostsSectionState
               sessions: _sessions!,
               isCurrent: () => _current(session, item),
               onOpenSource: widget.onOpenSource,
-              onSourceChanged: (post) {
+              onEngagementChanged: (InteractionStatsItemState stats) {
                 if (!profileCurrent() ||
                     generation != _generation ||
-                    post.id != item.post.id ||
+                    stats.loading ||
+                    stats.error != null ||
                     !_items.any((row) => identical(row, item))) {
                   return;
                 }
@@ -263,11 +266,10 @@ class _ListenerOverthinkingPostsSectionState
                   () => _items = [
                     for (final row in _items)
                       if (identical(row, item))
-                        OverthinkingProfileShare(
-                          shareId: row.shareId,
-                          note: row.note,
-                          publishedAt: row.publishedAt,
-                          post: post,
+                        row.copyWithEngagement(
+                          likeCount: stats.likeCount,
+                          commentCount: stats.commentCount,
+                          likedByMe: stats.isLiked,
                         )
                       else
                         row,

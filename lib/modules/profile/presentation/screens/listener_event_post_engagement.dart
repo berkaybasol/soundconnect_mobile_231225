@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/error/app_error.dart';
 import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
@@ -19,6 +20,7 @@ class ListenerEventPostEngagement extends StatefulWidget {
     required this.sessions,
     required this.canInteract,
     required this.onError,
+    this.onFailure,
     required this.builder,
     this.initialStats,
     this.projectionKey,
@@ -31,6 +33,7 @@ class ListenerEventPostEngagement extends StatefulWidget {
   final AuthSessionManager sessions;
   final bool Function() canInteract;
   final ValueChanged<String> onError;
+  final ValueChanged<AppError>? onFailure;
   final InteractionStatsItemState? initialStats;
   final Object? projectionKey;
   final Widget Function(
@@ -102,7 +105,10 @@ class _ListenerEventPostEngagementState
       return;
     }
     final error = stats.state.items['$_targetType:$postId']?.error;
-    if (error != null) widget.onError(error.message);
+    if (error != null) {
+      widget.onError(error.message);
+      widget.onFailure?.call(error);
+    }
   }
 
   Future<void> _refresh() async {

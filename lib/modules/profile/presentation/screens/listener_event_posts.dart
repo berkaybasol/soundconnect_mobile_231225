@@ -815,17 +815,17 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
                       identical(_feed, feed) &&
                       feed.containsShare(expectedSession, entry.share!) &&
                       ModalRoute.of(context)?.isCurrent == true,
-                  onSourceChanged: (post) {
+                  onEngagementChanged: (stats) {
                     // The feed can still own this publication after its tile
                     // is recycled. Validate the parent lifetime independently.
                     if (mounted &&
                         identical(_feed, feed) &&
                         widget.listenerProfileId == feed.listenerProfileId &&
                         identical(feed.sessions.session, expectedSession)) {
-                      feed.updateOverthinkingSource(
+                      feed.updateOverthinkingEngagement(
                         expectedSession: expectedSession,
                         expectedShare: entry.share!,
-                        post: post,
+                        stats: stats,
                       );
                     }
                   },

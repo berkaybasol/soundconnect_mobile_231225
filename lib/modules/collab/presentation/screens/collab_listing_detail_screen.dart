@@ -27,6 +27,7 @@ class CollabListingDetailScreen extends StatefulWidget {
     required this.listingId,
     this.showBottomNavigation = true,
     this.onListingChanged,
+    this.onApplied,
     this.detailCubit,
     this.shareService,
     super.key,
@@ -35,6 +36,7 @@ class CollabListingDetailScreen extends StatefulWidget {
   final String listingId;
   final bool showBottomNavigation;
   final ValueChanged<CollabListing>? onListingChanged;
+  final VoidCallback? onApplied;
 
   /// Test/embedding seam. Production callers use the route-scoped GetIt
   /// factory and should leave this null.
@@ -80,6 +82,7 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
         listingId: widget.listingId,
         showBottomNavigation: widget.showBottomNavigation,
         onListingChanged: widget.onListingChanged,
+        onApplied: widget.onApplied,
         shareService: widget.shareService ?? PlatformCollabShareService(),
       ),
     );
@@ -92,11 +95,13 @@ class _DetailView extends StatefulWidget {
     required this.showBottomNavigation,
     required this.shareService,
     this.onListingChanged,
+    this.onApplied,
   });
 
   final String listingId;
   final bool showBottomNavigation;
   final ValueChanged<CollabListing>? onListingChanged;
+  final VoidCallback? onApplied;
   final CollabShareService shareService;
 
   @override
@@ -411,6 +416,11 @@ class _DetailViewState extends State<_DetailView> {
     );
     if (mounted && submitted == true) {
       _showMessage('Başvurun gönderildi.', tone: AppSnackBarTone.success);
+      try {
+        widget.onApplied?.call();
+      } catch (_) {
+        // Optional embedding telemetry must not alter the Collab flow.
+      }
     }
   }
 

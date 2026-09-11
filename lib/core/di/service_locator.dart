@@ -64,6 +64,11 @@ import '../../modules/follow/presentation/cubit/follow_count_cubit.dart';
 import '../../modules/location/data/location_repository_impl.dart';
 import '../../modules/location/domain/location_repository.dart';
 import '../../modules/location/presentation/cubit/location_cubit.dart';
+import '../../modules/musician_feed/data/musician_feed_preferences_repository_impl.dart';
+import '../../modules/musician_feed/data/musician_feed_repository_impl.dart';
+import '../../modules/musician_feed/domain/musician_feed_preferences_repository.dart';
+import '../../modules/musician_feed/domain/musician_feed_repository.dart';
+import '../../modules/musician_feed/presentation/cubit/musician_feed_cubit.dart';
 import '../../modules/instrument/data/instrument_repository_impl.dart';
 import '../../modules/instrument/domain/instrument_repository.dart';
 import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
@@ -460,6 +465,28 @@ void setupDependencies() {
     ..registerLazySingleton<EngagementRepository>(
       () => EngagementRepositoryImpl(
         serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<MusicianFeedRepository>(
+      () => MusicianFeedRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<MusicianFeedPreferencesRepository>(
+      () => MusicianFeedPreferencesRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerFactory<MusicianFeedCubit>(
+      () => MusicianFeedCubit(
+        serviceLocator<MusicianFeedRepository>(),
+        serviceLocator<EngagementRepository>(),
+        collabRepository: serviceLocator<CollabRepository>(),
+        followRepository: serviceLocator<FollowRepository>(),
+        bandFollowRepository: serviceLocator<BandFollowRepository>(),
         sessions: serviceLocator<AuthSessionManager>(),
       ),
     )

@@ -121,6 +121,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
       'EVENT',
       'EVENT_POST',
       'TABLE_GROUP_POST',
+      'OVERTHINKING_PROFILE_SHARE',
       'MEDIA',
       'OVERTHINKING',
       'COMMENT',

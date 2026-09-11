@@ -1140,6 +1140,7 @@ Future<void> _openDetail(
   bool settle = true,
   ValueChanged<RouteSettings>? onRoute,
   EventShareService? shareService,
+  VoidCallback? onEngagementChanged,
   GlobalKey? capture,
   VenueAnalyticsReportingConfig? reportingConfig,
 }) async {
@@ -1162,7 +1163,11 @@ Future<void> _openDetail(
       ).copyWith(textScaler: TextScaler.linear(textScale), boldText: boldText),
       child: child!,
     ),
-    home: WeeklyEventDetailScreen(event: event, shareService: shareService),
+    home: WeeklyEventDetailScreen(
+      event: event,
+      shareService: shareService,
+      onEngagementChanged: onEngagementChanged,
+    ),
     onGenerateRoute: (settings) {
       onRoute?.call(settings);
       return MaterialPageRoute<void>(

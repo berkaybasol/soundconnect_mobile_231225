@@ -211,6 +211,11 @@ extension _WeeklyEventDetailScreenStateActions
         _commentController.text == originalText) {
       _commentController.clear();
     }
+    if (_isCurrentCommentSession(expectedSession) &&
+        widget.event.id == expectedEventId &&
+        sent) {
+      widget.onEngagementChanged?.call();
+    }
     if (!sent &&
         mounted &&
         _isCurrentCommentSession(expectedSession) &&
@@ -471,6 +476,11 @@ extension _WeeklyEventDetailScreenStateActions
                   )) {
                 _updateState(() => _expandedReplyParents.add(targetComment.id));
                 await _loadReplies(targetComment.id, restart: true);
+              }
+              if (sent &&
+                  _isCurrentCommentSession(expectedSession) &&
+                  widget.event.id == eventId) {
+                widget.onEngagementChanged?.call();
               }
               return sent;
             },

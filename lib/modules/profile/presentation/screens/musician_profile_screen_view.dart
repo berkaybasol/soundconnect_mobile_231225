@@ -25,6 +25,8 @@ class _MusicianPublicProfileViewState
   final ImagePicker _imagePicker = ImagePicker();
   bool _openManagementPanelOnLoad = false;
   bool _managementPanelOpened = false;
+  String? _completionTaskCodeOnLoad;
+  bool _completionTaskOpened = false;
   bool _openIncomingVenueApplicationsOnLoad = false;
   bool _incomingVenueApplicationsOpened = false;
 
@@ -59,6 +61,7 @@ class _MusicianPublicProfileViewState
     if (args is MusicianProfileScreenArgs) {
       _openManagementPanelOnLoad = args.openManagementPanel;
       _openIncomingVenueApplicationsOnLoad = args.openIncomingVenueApplications;
+      _completionTaskCodeOnLoad = args.completionTaskCode?.trim().toUpperCase();
     } else if (args is PublicProfileArgs) {
       _viewerUserId = args.viewerUserId;
     } else if (args is Map<String, dynamic>) {
@@ -66,6 +69,10 @@ class _MusicianPublicProfileViewState
       _openManagementPanelOnLoad = args['openManagementPanel'] == true;
       _openIncomingVenueApplicationsOnLoad =
           args['openIncomingVenueApplications'] == true;
+      _completionTaskCodeOnLoad = args['completionTaskCode']
+          ?.toString()
+          .trim()
+          .toUpperCase();
     } else if (args is String) {
       _viewerUserId = args;
     }
@@ -107,6 +114,7 @@ class _MusicianPublicProfileViewState
 
           final profile = state.profile!;
           _scheduleIncomingVenueApplicationsSheet(profile);
+          _openCompletionTaskAfterLoad(profile);
           _openManagementPanelAfterLoad(profile);
           _currentProfileUserId = profile.userId;
           _loadCoordinator.scheduleMediaLoad(
@@ -176,7 +184,11 @@ class _MusicianPublicProfileViewState
   }
 
   void _openManagementPanelAfterLoad(MusicianProfile profile) {
-    if (!_openManagementPanelOnLoad || _managementPanelOpened) return;
+    if (!_openManagementPanelOnLoad ||
+        _managementPanelOpened ||
+        _hasDirectCompletionEditor) {
+      return;
+    }
     _managementPanelOpened = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -193,6 +205,55 @@ class _MusicianPublicProfileViewState
         ),
       );
       if (mounted && session.isCurrent) await _refreshProfile();
+    });
+  }
+
+  bool get _hasDirectCompletionEditor =>
+      musicianProfileCompletionEditorForCode(_completionTaskCodeOnLoad) !=
+      null;
+
+  void _openCompletionTaskAfterLoad(MusicianProfile profile) {
+    final completionEditor = musicianProfileCompletionEditorForCode(
+      _completionTaskCodeOnLoad,
+    );
+    if (completionEditor == null || _completionTaskOpened) return;
+    _completionTaskOpened = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final session = ProfileActionSession(
+        roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+      );
+      if (!session.isCurrent) return;
+      var refreshAfterEditor = false;
+      switch (completionEditor) {
+        case MusicianProfileCompletionEditor.instruments:
+          refreshAfterEditor = await showMusicianInstrumentEditor(
+            context,
+            profile: profile,
+          );
+        case MusicianProfileCompletionEditor.profileDetails:
+          refreshAfterEditor = await showMusicianProfileDetailsEditor(
+            context,
+            profile: profile,
+          );
+        case MusicianProfileCompletionEditor.portfolio:
+          await showMusicianPortfolioCompletionEditor(
+            context,
+            profile: profile,
+          );
+          refreshAfterEditor = true;
+        case MusicianProfileCompletionEditor.photoAndSocialLinks:
+          await showMusicianPhotoAndSocialLinksCompletionEditor(
+            context,
+            profile: profile,
+            onEditPhoto: () => _editProfilePhoto(profile),
+            onEditSocialLink: (platform) => _addSocialLink(profile, platform),
+          );
+          refreshAfterEditor = true;
+      }
+      if (refreshAfterEditor && mounted && session.isCurrent) {
+        await _refreshProfile();
+      }
     });
   }
 

@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/backstage_palette.dart';
 
-/// Collab's intentionally deeper visual hierarchy.
+/// Compatibility facade for Collab's intentionally deeper visual hierarchy.
 ///
-/// These colors are local to the module so the shared application theme and
-/// the real Backstage bottom navigation keep their existing appearance.
+/// The values alias the shared Backstage neutrals so Collab and the musician
+/// feed cannot drift while existing Collab call sites keep their public API.
 abstract final class CollabPalette {
-  static const canvasTop = Color(0xFF030713);
-  static const canvas = Color(0xFF050910);
-  static const canvasMid = Color(0xFF07101D);
-  static const surface = Color(0xFF0B111D);
-  static const surfaceRaised = Color(0xFF101722);
-  static const input = Color(0xFF070B13);
-  static const border = Color(0xFF202B3A);
-  static const divider = Color(0xFF151D29);
-  static const textPrimary = Color(0xFFEFF2F8);
-  static const textMuted = Color(0xFF9EA8B7);
+  static const canvasTop = BackstagePalette.canvasTop;
+  static const canvas = BackstagePalette.canvas;
+  static const canvasMid = BackstagePalette.canvasMid;
+  static const surface = BackstagePalette.surface;
+  static const surfaceRaised = BackstagePalette.surfaceRaised;
+  static const input = BackstagePalette.input;
+  static const border = BackstagePalette.border;
+  static const divider = BackstagePalette.divider;
+  static const textPrimary = BackstagePalette.textPrimary;
+  static const textMuted = BackstagePalette.textMuted;
 }
 
 class CollabThemeScope extends StatelessWidget {

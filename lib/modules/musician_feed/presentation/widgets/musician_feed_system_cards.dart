@@ -69,7 +69,7 @@ Widget buildSponsoredFeedCard(
           child: GradientOutlineButton(
             label: payload.ctaLabel,
             onPressed: () => actions.openPromotion(item),
-            backgroundColor: AppColors.navBlue,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
             leading: const Icon(Icons.arrow_forward_rounded, size: 18),
           ),
         ),
@@ -145,7 +145,7 @@ class _CompletionCarouselState extends State<_CompletionCarousel> {
             Text(
               '${widget.payload.completed}/$total',
               style: TextStyle(
-                color: AppColors.textMuted,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -158,7 +158,7 @@ class _CompletionCarouselState extends State<_CompletionCarousel> {
           child: LinearProgressIndicator(
             value: fraction,
             minHeight: 6,
-            backgroundColor: AppColors.navBlueSoft,
+            backgroundColor: Theme.of(context).colorScheme.outlineVariant,
             valueColor: AlwaysStoppedAnimation<Color>(AppColors.coral),
           ),
         ),
@@ -198,7 +198,9 @@ class _CompletionCarouselState extends State<_CompletionCarousel> {
                   height: 6,
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   decoration: BoxDecoration(
-                    color: index == _page ? AppColors.coral : AppColors.border,
+                    color: index == _page
+                        ? AppColors.coral
+                        : Theme.of(context).colorScheme.outlineVariant,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -221,9 +223,9 @@ class _CompletionTaskCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,9 +236,11 @@ class _CompletionTaskCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: AppColors.navBlue,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
                 child: Center(
                   child: BrandGradientIcon.social(
@@ -267,7 +271,7 @@ class _CompletionTaskCard extends StatelessWidget {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: AppColors.textMuted,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12.5,
                 height: 1.4,
               ),
@@ -278,7 +282,9 @@ class _CompletionTaskCard extends StatelessWidget {
             child: GradientOutlineButton(
               label: task.ctaLabel,
               onPressed: onTap,
-              backgroundColor: AppColors.navBlue,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHigh,
               horizontalPadding: 16,
             ),
           ),
@@ -296,9 +302,9 @@ class _CompletionDone extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: AppColors.inputFill,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: AppColors.border),
+      border: Border.all(color: Theme.of(context).colorScheme.outline),
     ),
     child: const Row(
       children: [

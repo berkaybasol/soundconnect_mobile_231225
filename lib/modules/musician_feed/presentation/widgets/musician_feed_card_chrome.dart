@@ -30,7 +30,7 @@ class MusicianFeedSurface extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -148,7 +148,7 @@ class MusicianFeedReasonRow extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: .72),
+            color: Theme.of(context).colorScheme.outlineVariant,
           ),
         ),
       ),
@@ -229,7 +229,9 @@ class MusicianFeedAuthorHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             child: CircleAvatar(
               radius: 22,
-              backgroundColor: AppColors.navBlueSoft,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHigh,
               child: ClipOval(
                 child: AppCachedNetworkImage(
                   imageUrl: author.avatarUrl,
@@ -325,7 +327,10 @@ class MusicianFeedEngagementBar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Divider(height: 1, color: Theme.of(context).dividerColor),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
           const SizedBox(height: 2),
         ],
         Row(
@@ -448,7 +453,7 @@ Future<void> showMusicianFeedActions(
     context: context,
     useSafeArea: true,
     showDragHandle: true,
-    backgroundColor: AppColors.navBlue,
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
     builder: (sheetContext) => SafeArea(
       top: false,
       child: Padding(
@@ -597,7 +602,7 @@ class _AuthorFallback extends StatelessWidget {
         ? null
         : author.displayName.trim().characters.first.toUpperCase();
     return ColoredBox(
-      color: AppColors.navBlueSoft,
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
       child: Center(
         child: initial == null
             ? const BrandGradientIcon.social(Icons.person_outline_rounded)

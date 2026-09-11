@@ -44,7 +44,7 @@ Future<bool> showMusicianFeedOpportunityCitySheet(
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: AppColors.navBlueDeep,
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
     builder: (_) => _OpportunityCitySheet(
       preferencesRepository: preferencesRepository,
       locationRepository: locationRepository,
@@ -204,7 +204,7 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
             Text(
               'Collab ve etkinlikleri yaşadığın adrese göre değil, fırsat görmek istediğin şehre göre sıralarız.',
               style: TextStyle(
-                color: AppColors.textMuted,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -220,9 +220,14 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
                   Icons.search_rounded,
                 ),
                 filled: true,
-                fillColor: AppColors.inputFill,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
               ),
             ),
@@ -246,7 +251,9 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
                 label: 'Şehri kaydet',
                 loading: _saving,
                 onPressed: _loading || _preferences == null ? null : _save,
-                backgroundColor: AppColors.navBlue,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHigh,
                 leading: const Icon(Icons.check_rounded, size: 19),
               ),
             ),
@@ -285,7 +292,9 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
               Text(
                 'Aramana uygun şehir bulunamadı.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textMuted),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -308,7 +317,9 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
             selected
                 ? Icons.radio_button_checked_rounded
                 : Icons.radio_button_off_rounded,
-            color: selected ? AppColors.coral : AppColors.textMuted,
+            color: selected
+                ? AppColors.coral
+                : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           title: Text(
             city.name,

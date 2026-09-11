@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
-import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../analytics/presentation/widgets/analytics_exposure.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../domain/musician_feed_models.dart';
+import '../musician_feed_visual_theme.dart';
 import '../cubit/musician_feed_cubit.dart';
 import '../cubit/musician_feed_state.dart';
 import '../navigation/musician_feed_navigation_coordinator.dart';
@@ -58,8 +58,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.navBlueDeep,
+    return MusicianFeedThemeScope(
       child: BlocConsumer<MusicianFeedCubit, MusicianFeedState>(
         listenWhen: (previous, current) =>
             previous.noticeSerial != current.noticeSerial,
@@ -84,6 +83,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
               onRetry: context.read<MusicianFeedCubit>().retry,
             );
           }
+          final actions = _actions(context);
           return RefreshIndicator(
             onRefresh: context.read<MusicianFeedCubit>().refresh,
             child: ListView.separated(
@@ -125,7 +125,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
                     child: AnimatedOpacity(
                       opacity: pending ? .58 : 1,
                       duration: const Duration(milliseconds: 160),
-                      child: _registry.build(context, item, _actions()),
+                      child: _registry.build(context, item, actions),
                     ),
                   ),
                 );
@@ -145,10 +145,10 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
         ((state.hasMore || state.loadMoreError != null) ? 1 : 0);
   }
 
-  MusicianFeedCardActions _actions() {
-    final cubit = context.read<MusicianFeedCubit>();
+  MusicianFeedCardActions _actions(BuildContext feedContext) {
+    final cubit = feedContext.read<MusicianFeedCubit>();
     final navigation = MusicianFeedNavigationCoordinator(
-      context: context,
+      context: feedContext,
       cubit: cubit,
     );
     return MusicianFeedCardActions(
@@ -156,9 +156,11 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
       openAuthor: (item, author) =>
           unawaited(navigation.openAuthor(item, author)),
       toggleLike: (item) => unawaited(cubit.toggleLike(item.id)),
-      openComments: (item) => unawaited(_openComments(item)),
-      feedback: (item, action) => unawaited(_sendFeedback(item, action)),
-      muteAuthor: (item, author) => unawaited(_muteAuthor(item, author)),
+      openComments: (item) => unawaited(_openComments(feedContext, item)),
+      feedback: (item, action) =>
+          unawaited(_sendFeedback(feedContext, item, action)),
+      muteAuthor: (item, author) =>
+          unawaited(_muteAuthor(feedContext, item, author)),
       openCompletionTask: (task) =>
           unawaited(_registry.openCompletionTask(navigation, task)),
       openPromotion: (item) =>
@@ -169,17 +171,22 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
     );
   }
 
-  Future<void> _openComments(MusicianFeedItem item) async {
+  Future<void> _openComments(
+    BuildContext feedContext,
+    MusicianFeedItem item,
+  ) async {
     final engagement = item.engagement;
     if (engagement == null || !engagement.commentable) return;
-    final cubit = context.read<MusicianFeedCubit>();
+    final cubit = feedContext.read<MusicianFeedCubit>();
     unawaited(cubit.recordEvent(item, MusicianFeedTelemetryEventType.open));
     await showModalBottomSheet<void>(
-      context: context,
+      context: feedContext,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      backgroundColor: AppColors.navBlueDeep,
+      backgroundColor: Theme.of(
+        feedContext,
+      ).colorScheme.surfaceContainerHigh,
       builder: (_) => BlocProvider(
         create: (_) => serviceLocator<CommentThreadCubit>(),
         child: CommentThreadSheet(
@@ -193,71 +200,76 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
   }
 
   Future<void> _sendFeedback(
+    BuildContext feedContext,
     MusicianFeedItem item,
     MusicianFeedFeedbackAction action,
   ) async {
     String? reason;
     if (action == MusicianFeedFeedbackAction.report) {
-      reason = await _selectReportReason();
-      if (reason == null || !mounted) return;
+      reason = await _selectReportReason(feedContext);
+      if (reason == null || !mounted || !feedContext.mounted) return;
     }
-    final success = await context.read<MusicianFeedCubit>().dismiss(
+    final success = await feedContext.read<MusicianFeedCubit>().dismiss(
       item.id,
       action,
       reason: reason,
     );
-    if (!mounted || !success) return;
+    if (!mounted || !feedContext.mounted || !success) return;
     if (action == MusicianFeedFeedbackAction.report) {
-      _showInfo('Bildirimin alındı. Teşekkür ederiz.');
+      _showInfo(feedContext, 'Bildirimin alındı. Teşekkür ederiz.');
     }
   }
 
-  Future<String?> _selectReportReason() => showModalBottomSheet<String>(
-    context: context,
-    useSafeArea: true,
-    showDragHandle: true,
-    backgroundColor: AppColors.navBlue,
-    builder: (sheetContext) => SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 4, 12, 8),
-              child: Text(
-                'Neden bildiriyorsun?',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-              ),
+  Future<String?> _selectReportReason(BuildContext feedContext) =>
+      showModalBottomSheet<String>(
+        context: feedContext,
+        useSafeArea: true,
+        showDragHandle: true,
+        backgroundColor: Theme.of(
+          feedContext,
+        ).colorScheme.surfaceContainerHigh,
+        builder: (sheetContext) => SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(12, 4, 12, 8),
+                  child: Text(
+                    'Neden bildiriyorsun?',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                for (final reason in const [
+                  ('SPAM', 'Spam veya yanıltıcı'),
+                  ('INAPPROPRIATE', 'Uygunsuz içerik'),
+                  ('HARASSMENT', 'Taciz veya zorbalık'),
+                  ('OTHER', 'Diğer'),
+                ])
+                  ListTile(
+                    minTileHeight: 48,
+                    title: Text(reason.$2),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.pop(sheetContext, reason.$1),
+                  ),
+              ],
             ),
-            for (final reason in const [
-              ('SPAM', 'Spam veya yanıltıcı'),
-              ('INAPPROPRIATE', 'Uygunsuz içerik'),
-              ('HARASSMENT', 'Taciz veya zorbalık'),
-              ('OTHER', 'Diğer'),
-            ])
-              ListTile(
-                minTileHeight: 48,
-                title: Text(reason.$2),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.pop(sheetContext, reason.$1),
-              ),
-          ],
+          ),
         ),
-      ),
-    ),
-  );
+      );
 
   Future<void> _muteAuthor(
+    BuildContext feedContext,
     MusicianFeedItem item,
     MusicianFeedActor author,
   ) async {
     final identity = musicianFeedAuthorProfileIdentity(author);
     if (identity == null) return;
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: feedContext,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Paylaşımları sessize al'),
         content: Text(
@@ -275,19 +287,19 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
-    final cubit = context.read<MusicianFeedCubit>();
+    if (confirmed != true || !mounted || !feedContext.mounted) return;
+    final cubit = feedContext.read<MusicianFeedCubit>();
     final success = await cubit.muteAuthor(
       sourceItemId: item.id,
       profileType: identity.profileType,
       profileId: identity.profileId,
     );
-    if (!mounted || !success) return;
-    ScaffoldMessenger.of(context)
+    if (!mounted || !feedContext.mounted || !success) return;
+    ScaffoldMessenger.of(feedContext)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         appSnackBar(
-          context,
+          feedContext,
           tone: AppSnackBarTone.info,
           content: Text('${author.displayName} sessize alındı.'),
           action: SnackBarAction(
@@ -303,13 +315,13 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
       );
   }
 
-  void _showInfo(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
+  void _showInfo(BuildContext feedContext, String message) {
+    if (!mounted || !feedContext.mounted) return;
+    ScaffoldMessenger.of(feedContext)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         appSnackBar(
-          context,
+          feedContext,
           tone: AppSnackBarTone.info,
           content: Text(message),
         ),
@@ -346,38 +358,44 @@ class _FeedSkeleton extends StatelessWidget {
     height: tall ? 310 : 220,
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: AppColors.navBlue,
+      color: Theme.of(context).colorScheme.surfaceContainer,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: AppColors.border),
+      border: Border.all(color: Theme.of(context).colorScheme.outline),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            _block(width: 44, height: 44, radius: 22),
+            _block(context, width: 44, height: 44, radius: 22),
             const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _block(width: 150, height: 12),
+                  _block(context, width: 150, height: 12),
                   const SizedBox(height: 8),
-                  _block(width: 92, height: 9),
+                  _block(context, width: 92, height: 9),
                 ],
               ),
             ),
           ],
         ),
         const SizedBox(height: 18),
-        _block(width: double.infinity, height: tall ? 168 : 78, radius: 15),
+        _block(
+          context,
+          width: double.infinity,
+          height: tall ? 168 : 78,
+          radius: 15,
+        ),
         const SizedBox(height: 12),
-        _block(width: 180, height: 11),
+        _block(context, width: 180, height: 11),
       ],
     ),
   );
 
-  Widget _block({
+  Widget _block(
+    BuildContext context, {
     required double width,
     required double height,
     double radius = 7,
@@ -385,7 +403,7 @@ class _FeedSkeleton extends StatelessWidget {
     width: width,
     height: height,
     decoration: BoxDecoration(
-      color: AppColors.navBlueSoft,
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(radius),
     ),
   );
@@ -413,7 +431,10 @@ class _FeedFailureView extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textMuted, height: 1.4),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 16),
           TextButton.icon(
@@ -455,7 +476,10 @@ class _FeedEmptyView extends StatelessWidget {
             Text(
               'Yeni paylaşımlar ve sana uygun fırsatlar geldikçe burada göreceksin.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -493,7 +517,10 @@ class _FeedFeatureUnavailableView extends StatelessWidget {
             Text(
               'Akış açılana kadar Backstage araçlarını kullanmaya devam edebilirsin.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textMuted, height: 1.4),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
             ),
           ],
         ),

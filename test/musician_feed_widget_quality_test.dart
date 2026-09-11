@@ -1,13 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_models.dart';
+import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/musician_feed_visual_theme.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/widgets/musician_feed_card_registry.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('musician feed card layout quality', () {
+    testWidgets('native shells and inset cards use the Backstage palette', (
+      tester,
+    ) async {
+      final item = _item(
+        id: 'palette-contract',
+        type: MusicianFeedItemType.tableGroupProfileShare,
+        payload: ProfileShareFeedPayload(
+          shareId: 'palette-share',
+          note: 'Bu masayı takip ettiklerimle paylaşmak istedim.',
+          publishedAt: DateTime.utc(2026, 9, 11),
+          source: const {
+            'tableGroupId': 'palette-table',
+            'title': 'Bağımsız sahneler için ortak üretim',
+          },
+        ),
+        author: _listener,
+        reasonCode: 'FOLLOWING_PUBLICATION',
+      );
+
+      await _pumpCard(
+        tester,
+        item,
+        _actions(),
+        size: const Size(390, 844),
+        textScale: 1,
+      );
+
+      final decorations = tester
+          .widgetList<Container>(find.byType(Container))
+          .map((widget) => widget.decoration)
+          .whereType<BoxDecoration>();
+      expect(
+        decorations.any(
+          (decoration) =>
+              decoration.color == BackstagePalette.surface &&
+              decoration.border?.top.color == BackstagePalette.border,
+        ),
+        isTrue,
+      );
+      expect(
+        decorations.any(
+          (decoration) =>
+              decoration.color == BackstagePalette.input &&
+              decoration.border?.top.color == BackstagePalette.border,
+        ),
+        isTrue,
+      );
+    });
+
     testWidgets(
       'completion carousel stays usable at 320dp and 200 percent text',
       (tester) async {
@@ -434,10 +485,12 @@ Future<void> _pumpCard(
           textScaler: TextScaler.linear(textScale),
         ),
         child: Scaffold(
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(8),
-            child: Builder(
-              builder: (context) => registry.build(context, item, actions),
+          body: MusicianFeedThemeScope(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(8),
+              child: Builder(
+                builder: (context) => registry.build(context, item, actions),
+              ),
             ),
           ),
         ),

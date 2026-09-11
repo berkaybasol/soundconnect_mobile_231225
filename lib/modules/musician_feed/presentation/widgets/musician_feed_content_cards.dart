@@ -227,9 +227,9 @@ Widget buildProfileShareFeedCard(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
           decoration: BoxDecoration(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +276,7 @@ Widget buildProfileShareFeedCard(
                   maxLines: 5,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
                     height: 1.42,
                   ),
@@ -474,9 +474,13 @@ class _FeedVisualMedia extends StatelessWidget {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: AppColors.navBlueDeep.withValues(alpha: .88),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceDim.withValues(alpha: .88),
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                     child: const Center(
                       child: BrandGradientIcon.social(
@@ -642,9 +646,9 @@ class _EventPreview extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -670,7 +674,9 @@ class _EventPreview extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.navBlueDeep.withValues(alpha: .92),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceDim.withValues(alpha: .92),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -779,9 +785,9 @@ class _ActivityTargetPreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -790,9 +796,9 @@ class _ActivityTargetPreview extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: AppColors.navBlue,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
             ),
             child: Center(child: BrandGradientIcon.social(icon, size: 21)),
           ),
@@ -804,7 +810,7 @@ class _ActivityTargetPreview extends StatelessWidget {
                 Text(
                   eyebrow,
                   style: TextStyle(
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -852,7 +858,7 @@ class _ProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget fallback() => ColoredBox(
-      color: AppColors.navBlueSoft,
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
       child: Center(
         child: Text(
           displayName.trim().isEmpty
@@ -918,7 +924,7 @@ class _IconMeta extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: AppColors.textMuted,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
           ),
@@ -933,7 +939,7 @@ class _MediaFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: AppColors.navBlueSoft,
+    color: Theme.of(context).colorScheme.surfaceContainerHigh,
     child: const Center(
       child: BrandGradientIcon.social(Icons.image_outlined, size: 38),
     ),

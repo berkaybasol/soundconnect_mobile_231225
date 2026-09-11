@@ -50,6 +50,18 @@ void main() {
         ),
         'https://cdn.soundconnect.test/media/photo.webp',
       );
+      const localAliasWithQuery =
+          'https://10.0.2.2:8080/api/v1/public/simulation-media/$capability?version=2';
+      expect(
+        resolve(
+          localAliasWithQuery,
+          baseUri: Uri.parse('http://127.0.0.1:8080'),
+          isDebugBuild: false,
+          isLocalSimulationEnabled: false,
+        ),
+        localAliasWithQuery,
+        reason: 'HTTPS behavior must not enter local HTTP canonicalization',
+      );
     });
 
     test('allows HTTP only for local simulation in a debug build', () {
@@ -84,7 +96,11 @@ void main() {
         isNull,
       );
       expect(resolve('http://127.0.0.1:8080/private/media.png'), isNull);
-      expect(resolve(local), isNull, reason: 'origin must match API origin');
+      expect(
+        resolve(local),
+        'http://10.0.2.2:8080/api/v1/public/simulation-media/$capability',
+        reason: 'allowed local aliases canonicalize onto the API origin',
+      );
       expect(
         resolve(
           'http://10.0.2.2:8081/api/v1/public/simulation-media/$capability',
@@ -103,6 +119,96 @@ void main() {
           'http://10.0.2.2:8080/api/v1/public/simulation-media/$capability?token=x',
         ),
         isNull,
+      );
+      expect(
+        resolve(
+          'http://10.0.2.2:8080/api/v1/public/simulation-media/$capability#fragment',
+        ),
+        isNull,
+      );
+    });
+
+    test('rebases emulator media onto a USB-loopback API origin', () {
+      expect(
+        resolve(
+          'http://10.0.2.2:8080/api/v1/public/simulation-media/$capability',
+          baseUri: Uri.parse('http://127.0.0.1:8080'),
+        ),
+        'http://127.0.0.1:8080/api/v1/public/simulation-media/$capability',
+      );
+      expect(
+        resolve(
+          'http://localhost:8080/api/v1/public/simulation-media/$capability',
+          baseUri: Uri.parse('http://[::1]:8080'),
+        ),
+        'http://[::1]:8080/api/v1/public/simulation-media/$capability',
+      );
+      expect(
+        resolve(
+          'http://localhost:80/api/v1/public/simulation-media/$capability',
+          baseUri: Uri.parse('http://127.0.0.1'),
+        ),
+        'http://127.0.0.1/api/v1/public/simulation-media/$capability',
+        reason: 'implicit and explicit default ports are equivalent',
+      );
+    });
+
+    test('rejects unsafe local-alias rebasing boundaries', () {
+      final source =
+          'http://10.0.2.2:8080/api/v1/public/simulation-media/$capability';
+      expect(
+        resolve(source, baseUri: Uri.parse('http://192.168.1.40:8080')),
+        isNull,
+        reason: 'configured base must also be a local simulation host',
+      );
+      expect(
+        resolve(source, baseUri: Uri.parse('http://127.0.0.1:8081')),
+        isNull,
+        reason: 'ports must match',
+      );
+      expect(
+        resolve(source, baseUri: Uri.parse('https://127.0.0.1:8080')),
+        isNull,
+        reason: 'schemes must match',
+      );
+      expect(
+        resolve(
+          'http://example.test:8080/api/v1/public/simulation-media/$capability',
+          baseUri: Uri.parse('http://127.0.0.1:8080'),
+        ),
+        isNull,
+        reason: 'source must be an allowed local simulation host',
+      );
+      expect(
+        resolve(
+          'http://10.0.2.2:8080/api/v1/public/simulation-media/short',
+          baseUri: Uri.parse('http://127.0.0.1:8080'),
+        ),
+        isNull,
+        reason: 'capability shape remains exact',
+      );
+      expect(
+        resolve('$source?token=x', baseUri: Uri.parse('http://127.0.0.1:8080')),
+        isNull,
+        reason: 'query strings remain forbidden',
+      );
+      expect(
+        resolve('$source?', baseUri: Uri.parse('http://127.0.0.1:8080')),
+        isNull,
+        reason: 'an empty query marker remains forbidden',
+      );
+      expect(
+        resolve('$source#', baseUri: Uri.parse('http://127.0.0.1:8080')),
+        isNull,
+        reason: 'an empty fragment marker remains forbidden',
+      );
+      expect(
+        resolve(
+          'http://user:secret@10.0.2.2:8080/api/v1/public/simulation-media/$capability',
+          baseUri: Uri.parse('http://127.0.0.1:8080'),
+        ),
+        isNull,
+        reason: 'userinfo remains forbidden',
       );
     });
 

@@ -61,12 +61,32 @@ String? resolveMediaUrl(
       !isLocalSimulationEnabled ||
       !isLocalSimulationHost(resolved.host) ||
       baseUri == null ||
-      !_sameOrigin(resolved, baseUri) ||
       resolved.hasQuery ||
+      resolved.hasFragment ||
       !_isSimulationMediaCapabilityPath(resolved.path)) {
     return null;
   }
-  return resolved.toString();
+  if (_sameOrigin(resolved, baseUri)) return resolved.toString();
+  if (!_canCanonicalizeLocalSimulationOrigin(resolved, baseUri)) {
+    return null;
+  }
+  return Uri(
+    scheme: baseUri.scheme.toLowerCase(),
+    host: baseUri.host,
+    port: baseUri.hasPort ? baseUri.port : null,
+    path: resolved.path,
+  ).toString();
+}
+
+bool _canCanonicalizeLocalSimulationOrigin(Uri source, Uri base) {
+  final baseScheme = base.scheme.toLowerCase();
+  return baseScheme == source.scheme.toLowerCase() &&
+      isLocalSimulationHost(base.host) &&
+      base.userInfo.isEmpty &&
+      !base.hasQuery &&
+      !base.hasFragment &&
+      (base.path.isEmpty || base.path == '/') &&
+      _effectivePort(source) == _effectivePort(base);
 }
 
 bool _sameOrigin(Uri left, Uri right) {

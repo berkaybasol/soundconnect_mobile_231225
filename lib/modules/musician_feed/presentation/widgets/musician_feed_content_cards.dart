@@ -337,7 +337,7 @@ Widget buildProfileFeedCard(
           children: [
             _ProfileAvatar(
               imageUrl: payload.avatarUrl,
-              displayName: payload.displayName,
+              displayName: payload.visibleName,
               size: 60,
             ),
             const SizedBox(width: 13),
@@ -346,7 +346,7 @@ Widget buildProfileFeedCard(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    payload.displayName,
+                    payload.visibleName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -771,7 +771,7 @@ class _ActivityTargetPreview extends StatelessWidget {
       ProfileFeedPayload value => (
         Icons.person_outline_rounded,
         _profileTypeLabel(value.profileType),
-        value.displayName,
+        value.visibleName,
         value.bio ?? value.location,
       ),
       SponsoredFeedPayload value => (
@@ -968,8 +968,8 @@ CollabDiscoveryListing _toDiscoveryListing(
   required bool highlighted,
 }) => CollabDiscoveryListing(
   id: listing.id,
-  ownerName: listing.publisher.displayName,
-  ownerInitials: listing.publisher.initials,
+  ownerName: _collabPublisherVisibleName(listing),
+  ownerInitials: _collabPublisherVisibleInitials(listing),
   profileKind: listing.publisher.profileType,
   wantedKind: listing.wantedType,
   avatarUrl: listing.publisher.avatarUrl,
@@ -982,6 +982,24 @@ CollabDiscoveryListing _toDiscoveryListing(
   feeCurrency: listing.currency,
   isHighlighted: highlighted,
 );
+
+String _collabPublisherVisibleName(CollabListing listing) {
+  final publisher = listing.publisher;
+  final username = publisher.contactUsername.trim();
+  if (publisher.profileType == CollabProfileKind.musician) {
+    return username.isNotEmpty ? username : 'Müzisyen';
+  }
+  return publisher.displayName;
+}
+
+String _collabPublisherVisibleInitials(CollabListing listing) =>
+    _collabPublisherVisibleName(listing)
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part.characters.first.toUpperCase())
+        .join();
 
 double _safeAspectRatio(int? width, int? height) {
   if (width == null || height == null || width <= 0 || height <= 0) {

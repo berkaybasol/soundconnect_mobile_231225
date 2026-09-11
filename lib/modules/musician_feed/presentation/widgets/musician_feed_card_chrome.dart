@@ -83,7 +83,7 @@ class MusicianFeedSurface extends StatelessWidget {
   }
 
   String _semanticLabel(MusicianFeedItem item) {
-    final author = item.author?.displayName;
+    final author = item.author?.visibleName;
     final disclosure = item.promotion == null
         ? null
         : musicianFeedPromotionDisclosureLabel(item.promotion!.disclosure);
@@ -223,7 +223,7 @@ class MusicianFeedAuthorHeader extends StatelessWidget {
       children: [
         Semantics(
           button: true,
-          label: '${author.displayName} profilini aç',
+          label: '${author.visibleName} profilini aç',
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(24),
@@ -257,7 +257,7 @@ class MusicianFeedAuthorHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    author.displayName,
+                    author.visibleName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -475,7 +475,7 @@ Future<void> showMusicianFeedActions(
               ListTile(
                 minTileHeight: 48,
                 leading: const Icon(Icons.volume_off_outlined),
-                title: Text('${author!.displayName} paylaşımlarını sessize al'),
+                title: Text('${author!.visibleName} paylaşımlarını sessize al'),
                 onTap: () => Navigator.pop(sheetContext, _FeedMenuAction.mute),
               ),
             if (item.feedbackCapabilities.contains(
@@ -511,7 +511,7 @@ Future<void> showMusicianFeedActions(
 }
 
 String? musicianFeedReasonLabel(MusicianFeedReason reason) {
-  final actor = reason.actors.isEmpty ? null : reason.actors.first.displayName;
+  final actor = reason.actors.isEmpty ? null : reason.actors.first.visibleName;
   final others = reason.secondaryActorCount;
   final actorWithOthers = actor == null
       ? null
@@ -598,9 +598,10 @@ class _AuthorFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = author.displayName.trim().isEmpty
+    final visibleName = author.visibleName.trim();
+    final initial = visibleName.isEmpty
         ? null
-        : author.displayName.trim().characters.first.toUpperCase();
+        : visibleName.characters.first.toUpperCase();
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHigh,
       child: Center(

@@ -451,7 +451,7 @@ void main() {
             secondaryActorCount: 2,
           ),
         ),
-        'Deniz ve 2 kişi daha bunu beğendi',
+        'deniz ve 2 kişi daha bunu beğendi',
       );
       expect(
         musicianFeedReasonLabel(
@@ -2856,7 +2856,7 @@ Map<String, dynamic> _authorJson() => {
   'profileId': 'profile-id',
   'profileType': 'MUSICIAN',
   'username': 'deniz',
-  'displayName': 'Deniz',
+  'displayName': 'Kullanılmayan Sahne Adı',
   'avatarUrl': null,
   'followedByViewer': true,
 };

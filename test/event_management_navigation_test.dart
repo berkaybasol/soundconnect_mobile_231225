@@ -86,6 +86,10 @@ void main() {
 
     expect(find.text('Etkinlik Davetleri'), findsNothing);
     expect(find.text('Etkinliklerim'), findsNothing);
+    expect(find.text('bugrasahin'), findsOneWidget);
+    expect(find.text('Sahne adı kullanılmamalı'), findsNothing);
+    expect(find.text('Biyografi'), findsOneWidget);
+    expect(find.textContaining('Sahne adını'), findsNothing);
     expect(find.text('Bandlerim'), findsOneWidget);
     expect(find.text('Etkinlik Yönetimi'), findsOneWidget);
     expect(find.text('Etkinlik Onayları'), findsNothing);
@@ -422,7 +426,7 @@ const _musician = MusicianProfile(
   id: 'musician-id',
   userId: 'musician-user-id',
   username: 'bugrasahin',
-  stageName: null,
+  stageName: 'Sahne adı kullanılmamalı',
   bio: null,
   profilePicture: null,
   instagramUrl: null,

@@ -290,6 +290,19 @@ class MusicianFeedActor {
   final String? avatarUrl;
   final bool followedByViewer;
 
+  /// Musician profiles use their account username as their public identity.
+  /// `displayName` remains in the feed contract for other profile families
+  /// and for compatibility with older backend responses.
+  String get visibleName {
+    final normalizedUsername = username?.trim();
+    if (profileType == 'MUSICIAN') {
+      return normalizedUsername != null && normalizedUsername.isNotEmpty
+          ? normalizedUsername
+          : 'Müzisyen';
+    }
+    return displayName;
+  }
+
   factory MusicianFeedActor.fromJson(Object? json, {required String path}) {
     final map = _object(json, path);
     return MusicianFeedActor(
@@ -515,6 +528,18 @@ class ProfileFeedPayload extends MusicianFeedPayload {
   final String? bio;
   final String? location;
   final bool followedByViewer;
+
+  /// Musician profile suggestions follow the username identity rule used by
+  /// musician authors. Other profile types retain their canonical name.
+  String get visibleName {
+    final normalizedUsername = username?.trim();
+    if (profileType == 'MUSICIAN') {
+      return normalizedUsername != null && normalizedUsername.isNotEmpty
+          ? normalizedUsername
+          : 'Müzisyen';
+    }
+    return displayName;
+  }
 
   factory ProfileFeedPayload.fromJson(Object? json, String path) {
     final map = _object(json, path);

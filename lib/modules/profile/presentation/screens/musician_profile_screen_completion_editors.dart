@@ -11,7 +11,12 @@ MusicianProfileCompletionEditor? musicianProfileCompletionEditorForCode(
   String? code,
 ) => switch (code?.trim().toUpperCase()) {
   'INSTRUMENTS' => MusicianProfileCompletionEditor.instruments,
-  'STAGE_NAME_AND_BIO' => MusicianProfileCompletionEditor.profileDetails,
+  // STAGE_NAME_AND_BIO is kept as a rolling-deployment compatibility alias.
+  // The musician identity shown by the app is the account username; this
+  // editor therefore completes only the biography field.
+  'STAGE_NAME_AND_BIO' ||
+  'BIO' ||
+  'PROFILE_DETAILS' => MusicianProfileCompletionEditor.profileDetails,
   'PORTFOLIO' => MusicianProfileCompletionEditor.portfolio,
   'PROFILE_PHOTO_AND_SOCIAL_LINKS' =>
     MusicianProfileCompletionEditor.photoAndSocialLinks,
@@ -41,9 +46,8 @@ Future<void> showMusicianPhotoAndSocialLinksCompletionEditor(
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: AppColors.navBlueDeep,
-    builder: (_) => _MusicianPhotoAndSocialLinksCompletionEditor(
-      profile: profile,
-    ),
+    builder: (_) =>
+        _MusicianPhotoAndSocialLinksCompletionEditor(profile: profile),
   );
   if (!context.mounted || action == null) return;
   final platform = action.platform;
@@ -106,9 +110,9 @@ class _MusicianPhotoAndSocialLinksCompletionEditor extends StatelessWidget {
             icon: Icons.link_rounded,
             title:
                 '${platform.label} ${socialUrlForMusicianProfile(profile, platform)?.trim().isNotEmpty == true ? 'düzenle' : 'ekle'}',
-            onTap: () => Navigator.of(context).pop(
-              _MusicianIdentityEditorAction.social(platform),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).pop(_MusicianIdentityEditorAction.social(platform)),
           ),
           if (platform != ProfileSocialPlatform.values.last)
             const SizedBox(height: 8),
@@ -199,7 +203,6 @@ class _MusicianProfileDetailsEditor extends StatefulWidget {
 
 class _MusicianProfileDetailsEditorState
     extends State<_MusicianProfileDetailsEditor> {
-  late final TextEditingController _stageName;
   late final TextEditingController _bio;
   late final String _sessionUserId;
   late final String _sessionToken;
@@ -209,7 +212,6 @@ class _MusicianProfileDetailsEditorState
   @override
   void initState() {
     super.initState();
-    _stageName = TextEditingController(text: widget.profile.stageName ?? '');
     _bio = TextEditingController(text: widget.profile.bio ?? '');
     final session = serviceLocator<AuthSessionManager>().session;
     _sessionUserId = session.userId?.trim() ?? '';
@@ -218,7 +220,6 @@ class _MusicianProfileDetailsEditorState
 
   @override
   void dispose() {
-    _stageName.dispose();
     _bio.dispose();
     super.dispose();
   }
@@ -233,11 +234,10 @@ class _MusicianProfileDetailsEditorState
   }
 
   Future<void> _save() async {
-    final stageName = _stageName.text.trim();
     final bio = _bio.text.trim();
     if (_saving) return;
-    if (stageName.isEmpty) {
-      setState(() => _error = 'Sahne adı boş bırakılamaz.');
+    if (bio.isEmpty) {
+      setState(() => _error = 'Biyografi boş bırakılamaz.');
       return;
     }
     if (!_sessionIsCurrent) {
@@ -250,7 +250,7 @@ class _MusicianProfileDetailsEditorState
     });
     final result = await serviceLocator<MusicianProfileRepository>()
         .updateMyProfile(
-          MusicianProfileSaveRequest(stageName: stageName, description: bio),
+          MusicianProfileSaveRequest(description: bio),
           expectedSessionKey: _sessionUserId,
         );
     if (!mounted) return;
@@ -295,23 +295,11 @@ class _MusicianProfileDetailsEditorState
           children: [
             const _MusicianCompletionEditorHeading(
               icon: Icons.badge_outlined,
-              title: 'Profil bilgileri',
+              title: 'Biyografi',
               description:
-                  'Sahne adın ve biyografin hem profilinde hem de profesyonel keşif alanlarında kullanılır.',
+                  'Müziğini, deneyimini ve aradığın işleri anlatarak profilini daha anlaşılır hale getir.',
             ),
             const SizedBox(height: 18),
-            TextField(
-              controller: _stageName,
-              enabled: !_saving,
-              maxLength: 255,
-              textInputAction: TextInputAction.next,
-              decoration: _completionInputDecoration(
-                context,
-                label: 'Sahne adı',
-                hint: 'Sahnede kullandığın ad',
-              ),
-            ),
-            const SizedBox(height: 10),
             TextField(
               controller: _bio,
               enabled: !_saving,
@@ -338,7 +326,7 @@ class _MusicianProfileDetailsEditorState
             ],
             const SizedBox(height: 12),
             GradientOutlineButton(
-              label: 'Bilgileri kaydet',
+              label: 'Biyografiyi kaydet',
               loading: _saving,
               onPressed: _saving ? null : _save,
               backgroundColor: AppColors.navBlue,

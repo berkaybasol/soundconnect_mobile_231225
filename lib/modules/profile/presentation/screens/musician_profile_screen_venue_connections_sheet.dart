@@ -14,9 +14,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profileName = musicianProfile.stageName?.trim().isNotEmpty == true
-        ? musicianProfile.stageName!.trim()
-        : musicianProfile.username?.trim().isNotEmpty == true
+    final profileName = musicianProfile.username?.trim().isNotEmpty == true
         ? musicianProfile.username!.trim()
         : 'Sanatçı';
     return Scaffold(
@@ -97,8 +95,8 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.badge_outlined,
-                title: 'Profil Bilgileri',
-                message: 'Sahne adını ve biyografini düzenle.',
+                title: 'Biyografi',
+                message: 'Profilinde gösterilen biyografini düzenle.',
                 onTap: () async {
                   final changed = await showMusicianProfileDetailsEditor(
                     context,

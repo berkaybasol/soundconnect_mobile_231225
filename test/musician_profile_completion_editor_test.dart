@@ -43,13 +43,19 @@ void main() {
       MusicianProfileCompletionEditor.profileDetails,
     );
     expect(
+      musicianProfileCompletionEditorForCode('BIO'),
+      MusicianProfileCompletionEditor.profileDetails,
+    );
+    expect(
+      musicianProfileCompletionEditorForCode('PROFILE_DETAILS'),
+      MusicianProfileCompletionEditor.profileDetails,
+    );
+    expect(
       musicianProfileCompletionEditorForCode('PORTFOLIO'),
       MusicianProfileCompletionEditor.portfolio,
     );
     expect(
-      musicianProfileCompletionEditorForCode(
-        'PROFILE_PHOTO_AND_SOCIAL_LINKS',
-      ),
+      musicianProfileCompletionEditorForCode('PROFILE_PHOTO_AND_SOCIAL_LINKS'),
       MusicianProfileCompletionEditor.photoAndSocialLinks,
     );
     expect(musicianProfileCompletionEditorForCode('UNKNOWN'), isNull);
@@ -92,9 +98,7 @@ void main() {
       find.byKey(const Key('musician-photo-social-completion-editor')),
       findsOneWidget,
     );
-    await tester.tap(
-      find.byKey(const Key('musician-completion-edit-photo')),
-    );
+    await tester.tap(find.byKey(const Key('musician-completion-edit-photo')));
     await tester.pumpAndSettle();
 
     expect(photoEdits, 1);
@@ -119,9 +123,7 @@ void main() {
     await tester.tap(find.text('Aç'));
     await tester.pumpAndSettle();
     await tester.tap(
-      find.byKey(
-        const Key('musician-completion-edit-social-instagram'),
-      ),
+      find.byKey(const Key('musician-completion-edit-social-instagram')),
     );
     await tester.pumpAndSettle();
 
@@ -129,7 +131,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('profile details completion saves a fenced partial update', (
+  testWidgets('profile details completion updates only the biography', (
     tester,
   ) async {
     await _mountEditorLauncher(
@@ -141,21 +143,43 @@ void main() {
     await tester.tap(find.text('Aç'));
     await tester.pumpAndSettle();
     final fields = find.byType(TextField);
-    expect(fields, findsNWidgets(2));
-    await tester.enterText(fields.at(0), '  Sahne Adı  ');
-    await tester.enterText(fields.at(1), '  Yeni biyografi  ');
+    expect(fields, findsOneWidget);
+    expect(find.text('Eski Sahne Adı'), findsNothing);
+    expect(find.text('Sahne adı'), findsNothing);
+    await tester.enterText(fields, '  Yeni biyografi  ');
     await tester.tap(
-      find.widgetWithText(GradientOutlineButton, 'Bilgileri kaydet'),
+      find.widgetWithText(GradientOutlineButton, 'Biyografiyi kaydet'),
     );
     await tester.pumpAndSettle();
 
     expect(profiles.expectedSessionKeys, ['owner-1']);
     expect(profiles.requests, hasLength(1));
     expect(profiles.requests.single.toJson(), {
-      'stageName': 'Sahne Adı',
       'description': 'Yeni biyografi',
     });
     expect(find.byType(BottomSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('profile details completion rejects an empty biography', (
+    tester,
+  ) async {
+    await _mountEditorLauncher(
+      tester,
+      open: (context) =>
+          showMusicianProfileDetailsEditor(context, profile: _profile),
+    );
+
+    await tester.tap(find.text('Aç'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.tap(
+      find.widgetWithText(GradientOutlineButton, 'Biyografiyi kaydet'),
+    );
+    await tester.pump();
+
+    expect(find.text('Biyografi boş bırakılamaz.'), findsOneWidget);
+    expect(profiles.requests, isEmpty);
     expect(tester.takeException(), isNull);
   });
 
@@ -172,7 +196,7 @@ void main() {
     await tester.pumpAndSettle();
     session.current = _authenticated('other');
     await tester.tap(
-      find.widgetWithText(GradientOutlineButton, 'Bilgileri kaydet'),
+      find.widgetWithText(GradientOutlineButton, 'Biyografiyi kaydet'),
     );
     await tester.pump();
 
@@ -194,7 +218,7 @@ void main() {
     await tester.tap(find.text('Aç'));
     await tester.pumpAndSettle();
     await tester.tap(
-      find.widgetWithText(GradientOutlineButton, 'Bilgileri kaydet'),
+      find.widgetWithText(GradientOutlineButton, 'Biyografiyi kaydet'),
     );
     await tester.pumpAndSettle();
 

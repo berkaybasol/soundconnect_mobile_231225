@@ -184,9 +184,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      backgroundColor: Theme.of(
-        feedContext,
-      ).colorScheme.surfaceContainerHigh,
+      backgroundColor: Theme.of(feedContext).colorScheme.surfaceContainerHigh,
       builder: (_) => BlocProvider(
         create: (_) => serviceLocator<CommentThreadCubit>(),
         child: CommentThreadSheet(
@@ -225,9 +223,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
         context: feedContext,
         useSafeArea: true,
         showDragHandle: true,
-        backgroundColor: Theme.of(
-          feedContext,
-        ).colorScheme.surfaceContainerHigh,
+        backgroundColor: Theme.of(feedContext).colorScheme.surfaceContainerHigh,
         builder: (sheetContext) => SafeArea(
           top: false,
           child: Padding(
@@ -273,7 +269,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Paylaşımları sessize al'),
         content: Text(
-          '${author.displayName} tarafından paylaşılan içerikler akışında gösterilmeyecek.',
+          '${author.visibleName} tarafından paylaşılan içerikler akışında gösterilmeyecek.',
         ),
         actions: [
           TextButton(
@@ -301,7 +297,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
         appSnackBar(
           feedContext,
           tone: AppSnackBarTone.info,
-          content: Text('${author.displayName} sessize alındı.'),
+          content: Text('${author.visibleName} sessize alındı.'),
           action: SnackBarAction(
             label: 'Geri al',
             onPressed: () => unawaited(

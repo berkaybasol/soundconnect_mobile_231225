@@ -10,6 +10,67 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('musician feed card layout quality', () {
+    test(
+      'musician identities use username without changing other profiles',
+      () {
+        const musician = MusicianFeedActor(
+          userId: 'musician-user-id',
+          profileId: 'musician-profile-id',
+          profileType: 'MUSICIAN',
+          username: 'gitarci_ada',
+          displayName: 'Kullanılmayan Sahne Adı',
+          avatarUrl: null,
+          followedByViewer: true,
+        );
+        const venue = MusicianFeedActor(
+          userId: 'venue-user-id',
+          profileId: 'venue-profile-id',
+          profileType: 'VENUE',
+          username: 'venue-account',
+          displayName: 'Kadıköy Sahne',
+          avatarUrl: null,
+          followedByViewer: true,
+        );
+        const musicianWithoutUsername = MusicianFeedActor(
+          userId: 'legacy-musician-user-id',
+          profileId: 'legacy-musician-profile-id',
+          profileType: 'MUSICIAN',
+          username: null,
+          displayName: 'Kullanılmayan Legacy Sahne Adı',
+          avatarUrl: null,
+          followedByViewer: true,
+        );
+        const suggestion = ProfileFeedPayload(
+          profileId: 'suggested-musician-id',
+          profileType: 'MUSICIAN',
+          userId: 'suggested-user-id',
+          username: 'vokal_selin',
+          displayName: 'Kullanılmayan Profil Sahne Adı',
+          avatarUrl: null,
+          bio: null,
+          location: null,
+          followedByViewer: false,
+        );
+        const suggestionWithoutUsername = ProfileFeedPayload(
+          profileId: 'legacy-suggested-musician-id',
+          profileType: 'MUSICIAN',
+          userId: 'legacy-suggested-user-id',
+          username: null,
+          displayName: 'Kullanılmayan Öneri Sahne Adı',
+          avatarUrl: null,
+          bio: null,
+          location: null,
+          followedByViewer: false,
+        );
+
+        expect(musician.visibleName, 'gitarci_ada');
+        expect(musicianWithoutUsername.visibleName, 'Müzisyen');
+        expect(venue.visibleName, 'Kadıköy Sahne');
+        expect(suggestion.visibleName, 'vokal_selin');
+        expect(suggestionWithoutUsername.visibleName, 'Müzisyen');
+      },
+    );
+
     testWidgets('native shells and content cards use the Backstage palette', (
       tester,
     ) async {
@@ -221,6 +282,78 @@ void main() {
         expect(find.text('Fırsat görmek istediğin şehirde'), findsNothing);
       },
     );
+
+    testWidgets('embedded musician Collab cards show the account username', (
+      tester,
+    ) async {
+      final listing = _collabListingJson();
+      listing['publisher'] = <String, dynamic>{
+        'actorId': 'musician-actor-id',
+        'profileType': 'MUSICIAN',
+        'sourceProfileId': 'musician-profile-id',
+        'contactUserId': 'musician-user-id',
+        'contactUsername': 'basci_ipek',
+        'displayName': 'Kullanılmayan Collab Sahne Adı',
+        'avatarUrl': null,
+        'rating': 4.8,
+        'reviewCount': 12,
+        'completedJobCount': 31,
+      };
+      final item = _item(
+        id: 'musician-collab-identity',
+        type: MusicianFeedItemType.collab,
+        payload: CollabFeedPayload(listing: listing),
+        reasonCode: 'CITY_MATCH',
+      );
+
+      await _pumpCard(
+        tester,
+        item,
+        _actions(),
+        size: const Size(420, 900),
+        textScale: 1,
+      );
+
+      expect(find.text('basci_ipek'), findsOneWidget);
+      expect(find.text('Kullanılmayan Collab Sahne Adı'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('embedded musician Collab never falls back to displayName', (
+      tester,
+    ) async {
+      final listing = _collabListingJson();
+      listing['publisher'] = <String, dynamic>{
+        'actorId': 'legacy-musician-actor-id',
+        'profileType': 'MUSICIAN',
+        'sourceProfileId': 'legacy-musician-profile-id',
+        'contactUserId': 'legacy-musician-user-id',
+        'contactUsername': '',
+        'displayName': 'Kullanılmayan Legacy Collab Sahne Adı',
+        'avatarUrl': null,
+        'rating': 4.8,
+        'reviewCount': 12,
+        'completedJobCount': 31,
+      };
+      final item = _item(
+        id: 'legacy-musician-collab-identity',
+        type: MusicianFeedItemType.collab,
+        payload: CollabFeedPayload(listing: listing),
+        reasonCode: 'CITY_MATCH',
+      );
+
+      await _pumpCard(
+        tester,
+        item,
+        _actions(),
+        size: const Size(420, 900),
+        textScale: 1,
+      );
+
+      expect(find.text('Müzisyen'), findsWidgets);
+      expect(find.text('Kullanılmayan Legacy Collab Sahne Adı'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets(
       'profile recommendation keeps follow action reachable at large text',

@@ -26,6 +26,8 @@ import '../../domain/entities/dm_conversation_preview.dart';
 import '../cubit/dm_conversations_cubit.dart';
 import '../cubit/dm_conversations_state.dart';
 import '../cubit/dm_badge_cubit.dart';
+import '../dm_visual_theme.dart';
+import '../widgets/dm_visual_components.dart';
 import 'dm_chat_screen.dart';
 import 'dm_music_join_tables.dart';
 import 'dm_tab_labels.dart';
@@ -44,7 +46,7 @@ class DmConversationsScreen extends StatelessWidget {
           value: serviceLocator<DmBadgeCubit>()..ensureStarted(),
         ),
       ],
-      child: _DmConversationsView(),
+      child: DmVisualThemeScope(child: _DmConversationsView()),
     );
   }
 }
@@ -399,56 +401,83 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
 
   @override
   Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final usesLargeText = textScale > 1.4;
+    final toolbarHeight = usesLargeText ? 88.0 : 70.0;
+    final tabControlHeight = textScale > 1.8 ? 64.0 : 50.0;
+    final actionVerticalPadding = (toolbarHeight - 48) / 2;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: 'Mesajlardan cik',
-            onPressed: _exitMessages,
-            icon: const Icon(Icons.arrow_back_rounded),
+          automaticallyImplyLeading: false,
+          toolbarHeight: toolbarHeight,
+          leadingWidth: 64,
+          leading: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              top: actionVerticalPadding,
+              bottom: actionVerticalPadding,
+            ),
+            child: DmHeaderAction(
+              tooltip: 'Mesajlardan çık',
+              onPressed: _exitMessages,
+              icon: Icons.arrow_back_rounded,
+            ),
           ),
+          titleSpacing: 4,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Mesajlar'),
-              SizedBox(height: 2),
-              Text(
-                'DM kutun',
+              const Text(
+                'Mesajlar',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.35,
                 ),
               ),
+              if (textScale <= 1.8) ...[
+                const SizedBox(height: 1),
+                Text(
+                  'Bağlantıların ve sohbetlerin',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
           actions: [
-            IconButton(
-              onPressed: () {
-                context.read<DmConversationsCubit>().load();
-                _loadMusicJoinTables(force: true);
-              },
-              icon: Icon(Icons.refresh_rounded),
+            Padding(
+              padding: EdgeInsets.only(
+                right: 16,
+                top: actionVerticalPadding,
+                bottom: actionVerticalPadding,
+              ),
+              child: DmHeaderAction(
+                tooltip: 'Mesajları yenile',
+                onPressed: () {
+                  context.read<DmConversationsCubit>().load();
+                  _loadMusicJoinTables(force: true);
+                },
+                icon: Icons.refresh_rounded,
+              ),
             ),
           ],
-          bottom: TabBar(
-            tabs: [
-              const DmPrimaryMessagesTab(),
-              Tab(text: 'Müzik Birleştirir!'),
-            ],
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(tabControlHeight + 16),
+            child: _DmConversationTabs(controlHeight: tabControlHeight),
           ),
         ),
-        body: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.navBlueDeep, AppColors.navBlue],
-            ),
-          ),
-          child: TabBarView(children: [_primaryMessagesTab(), _musicJoinTab()]),
-        ),
+        body: TabBarView(children: [_primaryMessagesTab(), _musicJoinTab()]),
       ),
     );
   }
@@ -472,9 +501,10 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
           onRefresh: () => context.read<DmConversationsCubit>().load(),
           child: ListView.separated(
             physics: AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(14, 14, 14, 24),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(16, 14, 16, 28),
             itemCount: _buildListItemCount(state.items.length),
-            separatorBuilder: (_, __) => SizedBox(height: 10),
+            separatorBuilder: (_, __) => SizedBox(height: 12),
             itemBuilder: (context, index) {
               if (index == 0) {
                 return _InlineSearchBar(
@@ -537,10 +567,8 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
         onRefresh: () => _loadMusicJoinTables(force: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
-          children: [
-            _SearchInfo(text: 'Müzik Birleştirir! için aktif masa bulunamadı'),
-          ],
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+          children: const [_MusicJoinEmptyState()],
         ),
       );
     }
@@ -548,9 +576,9 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
       onRefresh: () => _loadMusicJoinTables(force: true),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
         itemCount: _musicJoinTables.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final table = _musicJoinTables[index];
           return _MusicJoinTableTile(
@@ -580,6 +608,73 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
   }
 }
 
+class _DmConversationTabs extends StatelessWidget {
+  const _DmConversationTabs({required this.controlHeight});
+
+  final double controlHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final useCompactLabels =
+        MediaQuery.textScalerOf(context).scale(1) > 1.35 ||
+        MediaQuery.sizeOf(context).width < 340;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Container(
+        height: controlHeight,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: colors.outline),
+        ),
+        child: TabBar(
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: BoxDecoration(
+            borderRadius: BorderRadius.circular(13),
+            gradient: LinearGradient(
+              colors: [
+                AppColors.socialOrange.withValues(alpha: 0.18),
+                AppColors.socialPink.withValues(alpha: 0.16),
+                AppColors.socialPurple.withValues(alpha: 0.18),
+              ],
+            ),
+            border: Border.all(
+              color: AppColors.socialPink.withValues(alpha: 0.52),
+            ),
+          ),
+          dividerColor: Colors.transparent,
+          labelColor: colors.onSurface,
+          unselectedLabelColor: colors.onSurfaceVariant,
+          labelStyle: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+          ),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          tabs: [
+            DmPrimaryMessagesTab(compact: useCompactLabels),
+            Tab(
+              child: Semantics(
+                label: 'Müzik Birleştirir!',
+                excludeSemantics: true,
+                child: Text(
+                  useCompactLabels ? 'Masalar' : 'Müzik Birleştirir!',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _InlineSearchBar extends StatelessWidget {
   _InlineSearchBar({
     required this.controller,
@@ -593,46 +688,82 @@ class _InlineSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      padding: EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.search_rounded,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+    return AnimatedBuilder(
+      animation: focusNode,
+      builder: (context, _) {
+        final colors = Theme.of(context).colorScheme;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(
+              color: focusNode.hasFocus
+                  ? AppColors.socialPink.withValues(alpha: 0.78)
+                  : colors.outline,
+              width: focusNode.hasFocus ? 1.2 : 1,
+            ),
+            boxShadow: focusNode.hasFocus
+                ? [
+                    BoxShadow(
+                      color: AppColors.socialPurple.withValues(alpha: 0.10),
+                      blurRadius: 18,
+                      spreadRadius: -5,
+                    ),
+                  ]
+                : null,
           ),
-          SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              cursorColor: Theme.of(context).colorScheme.onSurface,
-              decoration: InputDecoration(
-                hintText: 'Muzisyen veya mekan ara...',
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                isCollapsed: true,
+          child: Row(
+            children: [
+              ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: AppColors.socialGradient,
+                ).createShader(bounds),
+                child: const Icon(
+                  Icons.search_rounded,
+                  size: 21,
+                  color: AppColors.white,
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  onTapOutside: (_) => focusNode.unfocus(),
+                  cursorColor: AppColors.coralLight,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Müzisyen veya mekan ara...',
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    filled: false,
+                    isCollapsed: true,
+                  ),
+                ),
+              ),
+              if (controller.text.trim().isNotEmpty)
+                IconButton(
+                  onPressed: onClear,
+                  tooltip: 'Aramayı temizle',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                ),
+            ],
           ),
-          if (controller.text.trim().isNotEmpty)
-            IconButton(
-              onPressed: onClear,
-              splashRadius: 18,
-              icon: Icon(Icons.close_rounded, size: 18),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -645,11 +776,26 @@ class _SearchInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 1),
+      child: Row(
+        children: [
+          Icon(
+            Icons.tune_rounded,
+            size: 15,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -667,28 +813,64 @@ class _SearchResultTile extends StatelessWidget {
     final hasImage =
         imageUrl != null &&
         (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'));
+    final colors = Theme.of(context).colorScheme;
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(14),
+      color: colors.surfaceContainer,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-            backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
-            child: hasImage
-                ? null
-                : Icon(
-                    item.type == _DmSearchEntryType.musician
-                        ? Icons.person_outline
-                        : Icons.storefront_outlined,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.outline),
           ),
-          title: Text(item.title),
-          subtitle: Text(item.subtitle),
-          trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 4,
+            ),
+            leading: DmAvatar(
+              size: 46,
+              imageUrl: hasImage ? imageUrl : null,
+              fallbackText: item.title,
+              fallbackIcon: item.type == _DmSearchEntryType.musician
+                  ? Icons.person_outline_rounded
+                  : Icons.storefront_outlined,
+            ),
+            title: Text(
+              item.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                item.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
+            trailing: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHigh,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.outline),
+              ),
+              child: Icon(
+                Icons.arrow_forward_rounded,
+                size: 16,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -707,11 +889,12 @@ class _ConversationTile extends StatelessWidget {
     final hasAvatar =
         avatar != null &&
         (avatar.startsWith('http://') || avatar.startsWith('https://'));
+    final colors = Theme.of(context).colorScheme;
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(16),
+      color: colors.surfaceContainer,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: () async {
           await Navigator.of(context).pushNamed(
             AppRoutes.dmChat,
@@ -729,27 +912,22 @@ class _ConversationTile extends StatelessWidget {
           }
         },
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: hasUnread
-                  ? AppColors.coralLight
-                  : Theme.of(context).dividerColor,
+                  ? AppColors.coralLight.withValues(alpha: 0.72)
+                  : colors.outline,
+              width: hasUnread ? 1.15 : 1,
             ),
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                backgroundImage: hasAvatar ? NetworkImage(avatar) : null,
-                child: hasAvatar
-                    ? null
-                    : Icon(
-                        Icons.person_outline,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+              DmAvatar(
+                size: 50,
+                imageUrl: hasAvatar ? avatar : null,
+                fallbackText: item.otherUsername,
               ),
               SizedBox(width: 12),
               Expanded(
@@ -821,12 +999,18 @@ class _ConversationTile extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.coralLight,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.coralLight.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                      ),
+                    ],
                   ),
                 )
               else
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: colors.onSurfaceVariant,
                 ),
             ],
           ),
@@ -868,30 +1052,26 @@ class _MusicJoinTableTile extends StatelessWidget {
     final hasAvatar =
         avatar != null &&
         (avatar.startsWith('http://') || avatar.startsWith('https://'));
+    final colors = Theme.of(context).colorScheme;
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(16),
+      color: colors.surfaceContainer,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).dividerColor),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.outline),
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                backgroundImage: hasAvatar ? NetworkImage(avatar) : null,
-                child: hasAvatar
-                    ? null
-                    : Icon(
-                        Icons.groups_2_outlined,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+              DmAvatar(
+                size: 50,
+                imageUrl: hasAvatar ? avatar : null,
+                fallbackText: ownerName,
+                fallbackIcon: Icons.groups_2_outlined,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -912,11 +1092,7 @@ class _MusicJoinTableTile extends StatelessWidget {
                             subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
+                            style: TextStyle(color: colors.onSurfaceVariant),
                           ),
                         ),
                         if (table.isOwnerGhost) ...[
@@ -936,13 +1112,24 @@ class _MusicJoinTableTile extends StatelessWidget {
                     _participantSummary(table),
                     style: TextStyle(
                       fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHigh,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.outline),
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 15,
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -969,32 +1156,36 @@ class _FailureState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.wifi_off_rounded,
-              size: 40,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 420),
+          padding: const EdgeInsets.all(26),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainer,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: colors.outline),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const DmGradientIconPanel(icon: Icons.wifi_off_rounded, size: 62),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colors.onSurfaceVariant, height: 1.4),
               ),
-            ),
-            SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: Icon(Icons.refresh_rounded),
-              label: Text('Tekrar dene'),
-            ),
-          ],
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Tekrar dene'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1006,33 +1197,71 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 30, 24, 28),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        color: colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.outline),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.forum_outlined,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            size: 30,
+          const DmGradientIconPanel(icon: Icons.forum_outlined),
+          const SizedBox(height: 18),
+          const Text(
+            'Henüz konuşma yok',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              letterSpacing: -0.2,
+            ),
           ),
-          SizedBox(height: 14),
+          const SizedBox(height: 8),
           Text(
-            'Henuz konusma yok',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            'Yukarıdaki aramadan bağlantı kurmak istediğin kişiyi bul ve ilk mesajını gönder.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.onSurfaceVariant, height: 1.45),
           ),
-          SizedBox(height: 8),
-          Text(
-            'Yukaridaki arama kutusundan mesajlasmak istedigin kisiyi bul.',
+        ],
+      ),
+    );
+  }
+}
+
+class _MusicJoinEmptyState extends StatelessWidget {
+  const _MusicJoinEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 30, 24, 28),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.outline),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const DmGradientIconPanel(icon: Icons.groups_2_outlined),
+          const SizedBox(height: 18),
+          const Text(
+            'Şimdilik aktif masa yok',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              letterSpacing: -0.2,
             ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Yeni bir Müzik Birleştirir! masası açıldığında burada göreceksin.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.onSurfaceVariant, height: 1.45),
           ),
         ],
       ),

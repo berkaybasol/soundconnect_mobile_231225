@@ -16,6 +16,8 @@ import '../../../notification/presentation/cubit/notification_cubit.dart';
 import '../cubit/dm_chat_cubit.dart';
 import '../cubit/dm_chat_state.dart';
 import '../dm_profile_navigation.dart';
+import '../dm_visual_theme.dart';
+import '../widgets/dm_visual_components.dart';
 
 class DmChatScreenArgs {
   final String otherUserId;
@@ -46,7 +48,7 @@ class DmChatScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => serviceLocator<DmChatCubit>(),
-      child: _DmChatView(),
+      child: DmVisualThemeScope(child: _DmChatView()),
     );
   }
 }
@@ -164,33 +166,62 @@ class _DmChatViewState extends State<_DmChatView> {
         : resolvedUsername.isNotEmpty
         ? resolvedUsername
         : (resolvedUserId.isNotEmpty ? resolvedUserId : 'Mesajlar');
+    final colors = Theme.of(context).colorScheme;
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final toolbarHeight = textScale > 1.8
+        ? 112.0
+        : textScale > 1.4
+        ? 88.0
+        : 70.0;
+    final actionVerticalPadding = (toolbarHeight - 48) / 2;
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 8,
+        automaticallyImplyLeading: false,
+        toolbarHeight: toolbarHeight,
+        leadingWidth: 64,
+        leading: Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            top: actionVerticalPadding,
+            bottom: actionVerticalPadding,
+          ),
+          child: DmHeaderAction(
+            tooltip: 'Mesajlara dön',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: Icons.arrow_back_rounded,
+          ),
+        ),
+        titleSpacing: 4,
         title: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           onTap: deleted ? null : _openRelatedProfile,
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                backgroundImage:
-                    !deleted && _hasAvatar(args?.otherUserProfilePicture)
-                    ? NetworkImage(args!.otherUserProfilePicture!.trim())
-                    : null,
-                child: !deleted && _hasAvatar(args?.otherUserProfilePicture)
-                    ? null
-                    : Icon(Icons.person_outline, size: 18),
+              DmAvatar(
+                size: 38,
+                imageUrl: !deleted ? args?.otherUserProfilePicture : null,
+                fallbackText: deleted ? null : title,
+                fallbackIcon: deleted
+                    ? Icons.person_off_outlined
+                    : Icons.person_outline_rounded,
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    SizedBox(height: 2),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         Flexible(
@@ -199,10 +230,9 @@ class _DmChatViewState extends State<_DmChatView> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: colors.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -220,193 +250,221 @@ class _DmChatViewState extends State<_DmChatView> {
           ),
         ),
         actions: [
-          IconButton(
-            onPressed: () => context.read<DmChatCubit>().refresh(),
-            icon: Icon(Icons.refresh_rounded),
+          Padding(
+            padding: EdgeInsets.only(
+              right: 16,
+              top: actionVerticalPadding,
+              bottom: actionVerticalPadding,
+            ),
+            child: DmHeaderAction(
+              tooltip: 'Sohbeti yenile',
+              onPressed: () => context.read<DmChatCubit>().refresh(),
+              icon: Icons.refresh_rounded,
+            ),
           ),
         ],
       ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.navBlueDeep, AppColors.navBlue],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: BlocConsumer<DmChatCubit, DmChatState>(
-                  listener: (context, state) {
-                    if (state.status == DmChatStatus.failure &&
-                        state.error != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        appSnackBar(
-                          context,
-                          tone: AppSnackBarTone.error,
-                          content: Text(state.error!.message),
-                        ),
-                      );
-                    }
-                    final conversationId =
-                        state.conversationId?.trim() ??
-                        args?.conversationId?.trim() ??
-                        '';
-                    if (conversationId.isNotEmpty &&
-                        state.status == DmChatStatus.success) {
-                      if (serviceLocator.isRegistered<NotificationCubit>()) {
-                        serviceLocator<NotificationCubit>()
-                            .markDmConversationAsReadLocally(conversationId);
-                      }
-                    }
-                    final newestMessageId = state.messages.isEmpty
-                        ? null
-                        : state.messages.last.messageId;
-                    final shouldScrollToBottom =
-                        state.messages.length != _lastMessageCount &&
-                        newestMessageId != null &&
-                        newestMessageId != _lastNewestMessageId;
-                    _lastNewestMessageId = newestMessageId;
-                    if (shouldScrollToBottom) {
-                      _lastMessageCount = state.messages.length;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!_scrollController.hasClients) return;
-                        _scrollController.animateTo(
-                          _scrollController.position.maxScrollExtent,
-                          duration: Duration(milliseconds: 220),
-                          curve: Curves.easeOutCubic,
-                        );
-                      });
-                    } else {
-                      _lastMessageCount = state.messages.length;
-                    }
-                  },
-                  builder: (context, state) {
-                    if (state.status == DmChatStatus.loading &&
-                        state.messages.isEmpty) {
-                      return Center(child: CircularProgressIndicator());
-                    }
-                    if (state.messages.isEmpty) {
-                      return _ChatEmptyState();
-                    }
-                    return NotificationListener<ScrollNotification>(
-                      onNotification: (_) {
-                        _onScroll();
-                        return false;
-                      },
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: EdgeInsets.fromLTRB(12, 14, 12, 10),
-                        itemCount:
-                            state.messages.length +
-                            (state.status == DmChatStatus.loadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == 0 &&
-                              state.status == DmChatStatus.loadingMore) {
-                            return Padding(
-                              padding: EdgeInsets.symmetric(vertical: 10),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-                          final messageIndex =
-                              state.status == DmChatStatus.loadingMore
-                              ? index - 1
-                              : index;
-                          if (messageIndex < 0 ||
-                              messageIndex >= state.messages.length) {
-                            return SizedBox.shrink();
-                          }
-                          final item = state.messages[messageIndex];
-                          final previous = messageIndex > 0
-                              ? state.messages[messageIndex - 1]
-                              : null;
-                          final showDateHeader = !_isSameDay(
-                            previous?.sentAt,
-                            item.sentAt,
-                          );
-                          final isMine =
-                              args != null && item.senderId != args.otherUserId;
-                          final senderAvatarUrl = isMine
-                              ? null
-                              : args?.otherUserProfilePicture;
-                          return Column(
-                            children: [
-                              if (showDateHeader)
-                                _DateHeader(date: item.sentAt),
-                              _DmMessageBubble(
-                                message: item,
-                                isMine: isMine,
-                                senderAvatarUrl: senderAvatarUrl,
-                              ),
-                            ],
-                          );
-                        },
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: BlocConsumer<DmChatCubit, DmChatState>(
+                listener: (context, state) {
+                  if (state.status == DmChatStatus.failure &&
+                      state.error != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      appSnackBar(
+                        context,
+                        tone: AppSnackBarTone.error,
+                        content: Text(state.error!.message),
                       ),
                     );
-                  },
-                ),
+                  }
+                  final conversationId =
+                      state.conversationId?.trim() ??
+                      args?.conversationId?.trim() ??
+                      '';
+                  if (conversationId.isNotEmpty &&
+                      state.status == DmChatStatus.success) {
+                    if (serviceLocator.isRegistered<NotificationCubit>()) {
+                      serviceLocator<NotificationCubit>()
+                          .markDmConversationAsReadLocally(conversationId);
+                    }
+                  }
+                  final newestMessageId = state.messages.isEmpty
+                      ? null
+                      : state.messages.last.messageId;
+                  final shouldScrollToBottom =
+                      state.messages.length != _lastMessageCount &&
+                      newestMessageId != null &&
+                      newestMessageId != _lastNewestMessageId;
+                  _lastNewestMessageId = newestMessageId;
+                  if (shouldScrollToBottom) {
+                    _lastMessageCount = state.messages.length;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!_scrollController.hasClients) return;
+                      _scrollController.animateTo(
+                        _scrollController.position.maxScrollExtent,
+                        duration: Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                      );
+                    });
+                  } else {
+                    _lastMessageCount = state.messages.length;
+                  }
+                },
+                builder: (context, state) {
+                  if (state.status == DmChatStatus.loading &&
+                      state.messages.isEmpty) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  if (state.messages.isEmpty) {
+                    return _ChatEmptyState();
+                  }
+                  return NotificationListener<ScrollNotification>(
+                    onNotification: (_) {
+                      _onScroll();
+                      return false;
+                    },
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
+                      itemCount:
+                          state.messages.length +
+                          (state.status == DmChatStatus.loadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == 0 &&
+                            state.status == DmChatStatus.loadingMore) {
+                          return Padding(
+                            padding: EdgeInsets.symmetric(vertical: 10),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final messageIndex =
+                            state.status == DmChatStatus.loadingMore
+                            ? index - 1
+                            : index;
+                        if (messageIndex < 0 ||
+                            messageIndex >= state.messages.length) {
+                          return SizedBox.shrink();
+                        }
+                        final item = state.messages[messageIndex];
+                        final previous = messageIndex > 0
+                            ? state.messages[messageIndex - 1]
+                            : null;
+                        final showDateHeader = !_isSameDay(
+                          previous?.sentAt,
+                          item.sentAt,
+                        );
+                        final isMine =
+                            args != null && item.senderId != args.otherUserId;
+                        final senderAvatarUrl = isMine
+                            ? null
+                            : args?.otherUserProfilePicture;
+                        return Column(
+                          children: [
+                            if (showDateHeader) _DateHeader(date: item.sentAt),
+                            _DmMessageBubble(
+                              message: item,
+                              isMine: isMine,
+                              senderAvatarUrl: senderAvatarUrl,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  );
+                },
               ),
-              if (deleted)
-                const Padding(
-                  key: Key('dm-deleted-account-readonly'),
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    'Bu hesap silindi. Mesaj geçmişini okuyabilirsin; yeni mesaj gönderemezsin.',
-                  ),
-                )
-              else
-                _composer(),
-            ],
-          ),
+            ),
+            if (deleted)
+              Container(
+                key: Key('dm-deleted-account-readonly'),
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.outline),
+                ),
+                child: const Text(
+                  'Bu hesap silindi. Mesaj geçmişini okuyabilirsin; yeni mesaj gönderemezsin.',
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else
+              _composer(),
+          ],
         ),
       ),
     );
   }
 
   Widget _composer() {
+    final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       decoration: BoxDecoration(
-        color: AppColors.navBlueDeep,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+        color: colors.surfaceContainerLow.withValues(alpha: 0.96),
+        border: Border(top: BorderSide(color: colors.outlineVariant)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Theme.of(context).dividerColor),
+                color: colors.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: colors.outline),
               ),
               child: TextField(
                 controller: _messageController,
                 minLines: 1,
                 maxLines: 4,
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
-                decoration: InputDecoration(
-                  hintText: 'Mesaj yaz...',
+                cursorColor: AppColors.coralLight,
+                style: const TextStyle(fontSize: 14.5, height: 1.25),
+                decoration: const InputDecoration(
+                  hintText: 'Mesaj yaz…',
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  filled: false,
                   contentPadding: EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
+                    horizontal: 15,
+                    vertical: 12,
                   ),
                 ),
               ),
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 9),
           BlocBuilder<DmChatCubit, DmChatState>(
             builder: (context, state) {
-              return DecoratedBox(
+              return Container(
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppColors.gradientA, AppColors.gradientC],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: AppColors.socialGradient,
                   ),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.socialPink.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      spreadRadius: -4,
+                    ),
+                  ],
                 ),
                 child: IconButton(
                   onPressed: state.sending ? null : _send,
@@ -414,9 +472,16 @@ class _DmChatViewState extends State<_DmChatView> {
                       ? SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.white,
+                          ),
                         )
-                      : Icon(Icons.send_rounded, color: AppColors.white),
+                      : const Icon(
+                          Icons.arrow_upward_rounded,
+                          color: AppColors.white,
+                          size: 21,
+                        ),
                 ),
               );
             },
@@ -490,11 +555,6 @@ class _DmChatViewState extends State<_DmChatView> {
     _navigateToProfile(selected);
   }
 
-  bool _hasAvatar(String? value) {
-    final url = value?.trim() ?? '';
-    return url.startsWith('http://') || url.startsWith('https://');
-  }
-
   bool _isSameDay(DateTime? a, DateTime? b) {
     if (a == null || b == null) return false;
     final aa = a.toLocal();
@@ -516,40 +576,39 @@ class _ChatEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                border: Border.all(color: Theme.of(context).dividerColor),
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 340),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 26),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainer,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: colors.outline),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const DmGradientIconPanel(icon: Icons.mark_chat_unread_outlined),
+              const SizedBox(height: 18),
+              const Text(
+                'Sohbet burada başlıyor',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  letterSpacing: -0.2,
+                ),
               ),
-              child: Icon(
-                Icons.mark_chat_unread_outlined,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                size: 32,
+              const SizedBox(height: 8),
+              Text(
+                'İlk mesajını göndererek müziğin etrafında yeni bir bağlantı kur.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colors.onSurfaceVariant, height: 1.45),
               ),
-            ),
-            SizedBox(height: 14),
-            Text(
-              'Henuz mesaj yok',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Sohbeti baslatmak icin ilk mesaji gonderebilirsin.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -574,16 +633,19 @@ class _DateHeader extends StatelessWidget {
           ),
           Container(
             margin: EdgeInsets.symmetric(horizontal: 10),
-            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 11, vertical: 5),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Theme.of(context).dividerColor),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
@@ -625,32 +687,44 @@ class _DmMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeText = _formatTime(message.sentAt);
+    final colors = Theme.of(context).colorScheme;
     final bubble = Container(
-      constraints: BoxConstraints(maxWidth: 296),
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.72,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         gradient: isMine
-            ? LinearGradient(colors: [AppColors.gradientA, AppColors.gradientC])
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.gradientA, AppColors.gradientC],
+              )
             : null,
-        color: isMine
-            ? null
-            : Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: isMine ? null : colors.surfaceContainerHigh,
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(14),
-          topRight: Radius.circular(14),
-          bottomLeft: Radius.circular(isMine ? 14 : 6),
-          bottomRight: Radius.circular(isMine ? 6 : 14),
+          topLeft: const Radius.circular(18),
+          topRight: const Radius.circular(18),
+          bottomLeft: Radius.circular(isMine ? 18 : 6),
+          bottomRight: Radius.circular(isMine ? 6 : 18),
         ),
-        border: Border.all(
-          color: isMine ? Colors.transparent : Theme.of(context).dividerColor,
-        ),
+        border: Border.all(color: isMine ? Colors.transparent : colors.outline),
+        boxShadow: isMine
+            ? [
+                BoxShadow(
+                  color: AppColors.socialPink.withValues(alpha: 0.12),
+                  blurRadius: 14,
+                  spreadRadius: -5,
+                ),
+              ]
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             message.content,
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            style: TextStyle(color: colors.onSurface, height: 1.32),
           ),
           SizedBox(height: 4),
           Row(
@@ -661,7 +735,7 @@ class _DmMessageBubble extends StatelessWidget {
                 style: TextStyle(
                   color: isMine
                       ? AppColors.white.withValues(alpha: 0.84)
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                      : colors.onSurfaceVariant,
                   fontSize: 11,
                 ),
               ),
@@ -684,7 +758,7 @@ class _DmMessageBubble extends StatelessWidget {
     );
 
     return Container(
-      margin: EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 9),
       child: Align(
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
         child: isMine
@@ -693,25 +767,12 @@ class _DmMessageBubble extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainer,
-                    backgroundImage: _hasAvatar(senderAvatarUrl)
-                        ? NetworkImage(senderAvatarUrl!.trim())
-                        : null,
-                    child: _hasAvatar(senderAvatarUrl)
-                        ? null
-                        : Icon(
-                            Icons.person_outline,
-                            size: 12,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
+                  DmAvatar(
+                    size: 28,
+                    imageUrl: senderAvatarUrl,
+                    fallbackIcon: Icons.person_outline_rounded,
                   ),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 7),
                   bubble,
                 ],
               ),
@@ -726,11 +787,6 @@ class _DmMessageBubble extends StatelessWidget {
     final mm = local.minute.toString().padLeft(2, '0');
     return '$hh:$mm';
   }
-
-  bool _hasAvatar(String? value) {
-    final url = value?.trim() ?? '';
-    return url.startsWith('http://') || url.startsWith('https://');
-  }
 }
 
 class _ProfileTargetSheet extends StatelessWidget {
@@ -740,45 +796,70 @@ class _ProfileTargetSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return SafeArea(
-      child: ListView.separated(
-        shrinkWrap: true,
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => Divider(height: 1),
-        itemBuilder: (context, index) {
-          final item = items[index];
-          final imageUrl = item.imageUrl?.trim();
-          final hasImage =
-              imageUrl != null &&
-              (imageUrl.startsWith('http://') ||
-                  imageUrl.startsWith('https://'));
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-              backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
-              child: hasImage
-                  ? null
-                  : Icon(switch (item.type) {
-                      DmProfileTargetType.musician => Icons.person_outline,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 2, 20, 12),
+            child: Text(
+              'Profili görüntüle',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+          ),
+          ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return Material(
+                color: colors.surfaceContainer,
+                borderRadius: BorderRadius.circular(16),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: colors.outline),
+                  ),
+                  leading: DmAvatar(
+                    size: 42,
+                    imageUrl: item.imageUrl,
+                    fallbackText: item.displayName,
+                    fallbackIcon: switch (item.type) {
+                      DmProfileTargetType.musician =>
+                        Icons.person_outline_rounded,
                       DmProfileTargetType.venue => Icons.storefront_outlined,
                       DmProfileTargetType.listener => Icons.headphones_outlined,
                       DmProfileTargetType.studio => Icons.graphic_eq_outlined,
-                    }, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-            title: Text(item.displayName),
-            subtitle: item.isGhostListener
-                ? Row(
-                    children: [
-                      Text(item.type.displayLabel),
-                      const SizedBox(width: 7),
-                      const GhostProfileBadge(),
-                    ],
-                  )
-                : Text(item.type.displayLabel),
-            onTap: () => Navigator.of(context).pop(item),
-          );
-        },
+                    },
+                  ),
+                  title: Text(
+                    item.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: item.isGhostListener
+                      ? Row(
+                          children: [
+                            Text(item.type.displayLabel),
+                            const SizedBox(width: 7),
+                            const GhostProfileBadge(),
+                          ],
+                        )
+                      : Text(item.type.displayLabel),
+                  trailing: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 18,
+                    color: colors.onSurfaceVariant,
+                  ),
+                  onTap: () => Navigator.of(context).pop(item),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

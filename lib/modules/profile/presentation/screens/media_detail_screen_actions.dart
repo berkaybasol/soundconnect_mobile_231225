@@ -3,8 +3,8 @@ part of 'media_detail_screen.dart';
 extension _MediaDetailScreenActions on _MediaDetailScreenState {
   Future<void> _initVideo() async {
     if (!widget.isVideo) return;
-    final url = (widget.playbackUrl ?? '').trim();
-    if (url.isEmpty) {
+    final url = resolveAppMediaUrl(widget.playbackUrl);
+    if (url == null) {
       _updateState(() => _videoError = 'Video oynatma bağlantısı bulunamadı.');
       return;
     }
@@ -31,8 +31,8 @@ extension _MediaDetailScreenActions on _MediaDetailScreenState {
   }
 
   Future<void> _togglePlayback() async {
-    final url = widget.playbackUrl;
-    if (url == null || url.isEmpty) return;
+    final url = resolveAppMediaUrl(widget.playbackUrl);
+    if (url == null) return;
 
     final handler = serviceLocator<AudioHandler>();
     final currentId = handler.mediaItem.value?.id;

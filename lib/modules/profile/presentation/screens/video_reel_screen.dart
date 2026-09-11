@@ -2,6 +2,7 @@ import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/network/app_media_url.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';

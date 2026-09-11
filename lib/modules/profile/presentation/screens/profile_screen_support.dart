@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/network/app_media_url.dart';
 import '../../../../shared/theme/app_colors.dart';
 export '../../domain/entities/profile_upload_result.dart';
 export '../../domain/draft_media_cleanup_coordinator.dart';
@@ -31,13 +32,7 @@ enum ProfileMediaOwnerType {
 }
 
 bool isValidNetworkImageUrl(String? value) {
-  final raw = value?.trim();
-  if (raw == null || raw.isEmpty) return false;
-  final uri = Uri.tryParse(raw);
-  if (uri == null) return false;
-  return uri.hasScheme &&
-      (uri.scheme == 'http' || uri.scheme == 'https') &&
-      uri.host.isNotEmpty;
+  return resolveAppMediaUrl(value) != null;
 }
 
 String? resolveUserIdFromJwtToken(String? token) {

@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/network/app_media_url.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
@@ -92,10 +93,11 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
           final currentUrl = handler.mediaItem.value?.extras?['url']
               ?.toString();
           final isPlaying = handler.playbackState.value.playing;
+          final resolvedPlaybackUrl = resolveAppMediaUrl(widget.playbackUrl);
           final isCurrent =
-              widget.playbackUrl != null &&
-              (widget.playbackUrl == currentId ||
-                  widget.playbackUrl == currentUrl);
+              resolvedPlaybackUrl != null &&
+              (resolvedPlaybackUrl == currentId ||
+                  resolvedPlaybackUrl == currentUrl);
 
           final totalMs = widget.isVideo || !isCurrent
               ? 0
@@ -156,7 +158,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                 _AudioHero(
                   title: widget.title,
                   isSpotify: widget.isSpotify,
-                  playbackUrl: widget.playbackUrl,
+                  playbackUrl: resolvedPlaybackUrl,
                   onPlay: _togglePlayback,
                   onBack10: () => _seekRelativeSeconds(-10),
                   onForward10: () => _seekRelativeSeconds(10),

@@ -15,11 +15,11 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
   }
 
   Future<void> _initPlayer() async {
-    final primary = (widget.sourceUrl ?? '').trim();
-    final secondary = widget.playbackUrl.trim();
+    final primary = resolveAppMediaUrl(widget.sourceUrl);
+    final secondary = resolveAppMediaUrl(widget.playbackUrl);
     final candidates = <String>[
-      if (primary.isNotEmpty) primary,
-      if (secondary.isNotEmpty && secondary != primary) secondary,
+      if (primary != null) primary,
+      if (secondary != null && secondary != primary) secondary,
     ];
     if (candidates.isEmpty) return;
 

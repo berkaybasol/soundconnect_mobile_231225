@@ -314,6 +314,51 @@ void main() {
       expect(page.items.first.impressionToken, 'delivery-token-track');
     });
 
+    test('accepts safe backend-relative media references', () {
+      const mediaPath =
+          '/api/v1/public/simulation-media/opaque-audio-capability';
+      final item = _itemJson('relative-track', 'TRACK', {
+        'trackId': 'track-id',
+        'mediaAssetId': 'media-id',
+        'title': 'Yerel kayıt',
+        'playbackUrl': mediaPath,
+        'durationSeconds': 12,
+        'bpm': 108,
+      });
+      (item['author'] as Map<String, dynamic>)['avatarUrl'] =
+          '/api/v1/public/simulation-media/opaque-avatar-capability';
+
+      final page = MusicianFeedPage.fromJson(_pageJson([item]));
+      final payload = page.items.single.payload as TrackFeedPayload;
+
+      expect(payload.playbackUrl, mediaPath);
+      expect(
+        page.items.single.author?.avatarUrl,
+        '/api/v1/public/simulation-media/opaque-avatar-capability',
+      );
+    });
+
+    test(
+      'retains local absolute HTTP media for guarded runtime resolution',
+      () {
+        final item = _itemJson('http-track', 'TRACK', {
+          'trackId': 'track-id',
+          'mediaAssetId': 'media-id',
+          'title': 'Güvensiz kayıt',
+          'playbackUrl':
+              'http://127.0.0.1:8080/api/v1/public/simulation-media/token',
+          'durationSeconds': 12,
+          'bpm': 108,
+        });
+
+        final page = MusicianFeedPage.fromJson(_pageJson([item]));
+        expect(
+          (page.items.single.payload as TrackFeedPayload).playbackUrl,
+          'http://127.0.0.1:8080/api/v1/public/simulation-media/token',
+        );
+      },
+    );
+
     test('requires a valid delivery position and impression token', () {
       final missingToken = _itemJson('missing-token', 'TRACK', {
         'trackId': 'track-id',

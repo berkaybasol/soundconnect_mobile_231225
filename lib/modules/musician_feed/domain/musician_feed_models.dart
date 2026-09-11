@@ -1,5 +1,7 @@
 import 'dart:collection';
 
+import '../../../core/network/app_media_url.dart';
+
 const int musicianFeedSchemaVersion = 1;
 const Set<String> musicianFeedAuthorProfileTypes = {
   'MUSICIAN',
@@ -525,7 +527,7 @@ class ProfileFeedPayload extends MusicianFeedPayload {
       userId: _optionalText(map['userId'], '$path.userId'),
       username: _optionalText(map['username'], '$path.username'),
       displayName: _requiredText(map['displayName'], '$path.displayName'),
-      avatarUrl: _optionalHttpUrl(map['avatarUrl'], '$path.avatarUrl'),
+      avatarUrl: _optionalMediaReference(map['avatarUrl'], '$path.avatarUrl'),
       bio: _optionalText(map['bio'], '$path.bio'),
       location: _optionalText(map['location'], '$path.location'),
       followedByViewer: _requiredBool(
@@ -571,7 +573,10 @@ class TrackFeedPayload extends MusicianFeedPayload {
       trackId: _requiredText(map['trackId'], '$path.trackId'),
       mediaAssetId: _requiredText(map['mediaAssetId'], '$path.mediaAssetId'),
       title: _requiredText(map['title'], '$path.title'),
-      playbackUrl: _optionalHttpUrl(map['playbackUrl'], '$path.playbackUrl'),
+      playbackUrl: _optionalMediaReference(
+        map['playbackUrl'],
+        '$path.playbackUrl',
+      ),
       durationSeconds: _optionalNonNegativeInt(
         map['durationSeconds'],
         '$path.durationSeconds',
@@ -611,9 +616,18 @@ class ProfileMediaFeedPayload extends MusicianFeedPayload {
     return ProfileMediaFeedPayload(
       mediaAssetId: _requiredText(map['mediaAssetId'], '$path.mediaAssetId'),
       kind: _requiredText(map['kind'], '$path.kind').toUpperCase(),
-      displayUrl: _optionalHttpUrl(map['displayUrl'], '$path.displayUrl'),
-      playbackUrl: _optionalHttpUrl(map['playbackUrl'], '$path.playbackUrl'),
-      thumbnailUrl: _optionalHttpUrl(map['thumbnailUrl'], '$path.thumbnailUrl'),
+      displayUrl: _optionalMediaReference(
+        map['displayUrl'],
+        '$path.displayUrl',
+      ),
+      playbackUrl: _optionalMediaReference(
+        map['playbackUrl'],
+        '$path.playbackUrl',
+      ),
+      thumbnailUrl: _optionalMediaReference(
+        map['thumbnailUrl'],
+        '$path.thumbnailUrl',
+      ),
       title: _optionalText(map['title'], '$path.title'),
       description: _optionalText(map['description'], '$path.description'),
       durationSeconds: _optionalNonNegativeInt(
@@ -820,7 +834,7 @@ class SponsoredFeedPayload extends MusicianFeedPayload {
     return SponsoredFeedPayload(
       title: _requiredText(map['title'], '$path.title'),
       body: _requiredText(map['body'], '$path.body'),
-      mediaUrl: _optionalHttpUrl(map['mediaUrl'], '$path.mediaUrl'),
+      mediaUrl: _optionalMediaReference(map['mediaUrl'], '$path.mediaUrl'),
       ctaLabel: _requiredText(map['ctaLabel'], '$path.ctaLabel'),
       ctaUrl: _requiredNavigationTarget(map['ctaUrl'], '$path.ctaUrl'),
     );
@@ -945,10 +959,21 @@ String? _optionalNavigationTarget(Object? value, String path) {
       return uri.toString();
     }
   }
-  return _optionalHttpUrl(text, path);
+  return _optionalHttpsUrl(text, path);
 }
 
-String? _optionalHttpUrl(Object? value, String path) {
+String? _optionalMediaReference(Object? value, String path) {
+  final text = _optionalText(value, path);
+  if (text == null) return null;
+  if (!isSafeMediaReference(text)) {
+    throw MusicianFeedFormatException(
+      '$path must be an HTTP(S) URL, relative media path, or null',
+    );
+  }
+  return text;
+}
+
+String? _optionalHttpsUrl(Object? value, String path) {
   final text = _optionalText(value, path);
   if (text == null) return null;
   final uri = Uri.tryParse(text);

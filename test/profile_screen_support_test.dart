@@ -5,7 +5,7 @@ void main() {
   group('profile screen support', () {
     test('validates network image urls', () {
       expect(isValidNetworkImageUrl('https://example.com/a.png'), isTrue);
-      expect(isValidNetworkImageUrl('http://example.com/a.png'), isTrue);
+      expect(isValidNetworkImageUrl('http://example.com/a.png'), isFalse);
       expect(isValidNetworkImageUrl('file:///tmp/a.png'), isFalse);
       expect(isValidNetworkImageUrl('example.com/a.png'), isFalse);
       expect(isValidNetworkImageUrl(null), isFalse);

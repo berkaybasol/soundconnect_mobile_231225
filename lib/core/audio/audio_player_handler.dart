@@ -5,6 +5,8 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../network/app_media_url.dart';
+
 class AudioPlayerHandler extends BaseAudioHandler
     with QueueHandler, SeekHandler {
   final AudioPlayer _player = AudioPlayer();
@@ -80,8 +82,12 @@ class AudioPlayerHandler extends BaseAudioHandler
     Duration? duration,
     String? mediaId,
   }) {
-    final normalizedUrl = url.trim();
-    if (normalizedUrl.isEmpty) return Future<void>.value();
+    final normalizedUrl = resolveAppMediaUrl(url);
+    if (normalizedUrl == null) {
+      return Future<void>.error(
+        const FormatException('Unsupported media URL'),
+      );
+    }
     return _sourceMutations.run(
       () => _playUrlNow(
         normalizedUrl,

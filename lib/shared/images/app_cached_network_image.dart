@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import '../../core/network/app_media_url.dart';
+
 typedef AppImageStateBuilder = Widget Function(BuildContext context);
 typedef AppImageCacheManagerResolver =
     BaseCacheManager Function(AppImageCacheProfile profile);
@@ -53,15 +55,7 @@ class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
   Stream<FileResponse>? _fileStream;
 
   String? get _normalizedUrl {
-    final value = widget.imageUrl?.trim();
-    if (value == null || value.isEmpty) return null;
-    final uri = Uri.tryParse(value);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty) {
-      return null;
-    }
-    return value;
+    return resolveAppMediaUrl(widget.imageUrl);
   }
 
   BaseCacheManager get _cacheManager =>

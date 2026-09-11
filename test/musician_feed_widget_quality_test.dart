@@ -10,7 +10,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('musician feed card layout quality', () {
-    testWidgets('native shells and inset cards use the Backstage palette', (
+    testWidgets('native shells and content cards use the Backstage palette', (
       tester,
     ) async {
       final item = _item(
@@ -52,7 +52,7 @@ void main() {
       expect(
         decorations.any(
           (decoration) =>
-              decoration.color == BackstagePalette.input &&
+              decoration.color == BackstagePalette.surfaceRaised &&
               decoration.border?.top.color == BackstagePalette.border,
         ),
         isTrue,

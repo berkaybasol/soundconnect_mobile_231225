@@ -1,925 +1,308 @@
-import 'dart:async';
+import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart' hide Page;
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
-import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:get_it/get_it.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
-import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
-import 'package:soundconnect_23_12_25codx/core/pagination/page.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/data/admin_endpoints.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/data/models/admin_collab_report_model.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/data/admin_repository_impl.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/domain/admin_repository.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_backline_category_request.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_dashboard_summary.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_collab_report.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_studio_application.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/domain/entities/admin_venue_application.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/presentation/cubit/admin_panel_cubit.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/presentation/cubit/admin_panel_state.dart';
-import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_collab_reports.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/session_logout_action.dart';
+
+import 'support/auth_widget_test_support.dart';
+
+const _homeKey = Key('admin-home-empty');
+const _sponsorshipsKey = Key('admin-sponsorships-empty');
 
 void main() {
-  group('AdminRepositoryImpl', () {
-    test('decodes summary and sends the application status query', () async {
-      final apiClient = _AdminApiClientFake((path, query) async {
-        if (path == AdminEndpoints.dashboardSummary) {
-          return <String, dynamic>{
-            'totalUsers': '12',
-            'pendingVenueApplications': 2,
-            'approvedVenueApplications': 3,
-            'rejectedVenueApplications': 1,
-            'pendingStudioApplications': 5,
-            'approvedStudioApplications': 6,
-            'rejectedStudioApplications': 7,
-            'activePromotions': 4,
-          };
-        }
-        return <Map<String, dynamic>>[
-          <String, dynamic>{
-            'id': 'application-1',
-            'applicantUsername': 'ada',
-            'venueName': 'Salon',
-            'venueAddress': 'Istanbul',
-            'phone': '555',
-            'status': 'APPROVED',
-          },
-        ];
-      });
-      final repository = AdminRepositoryImpl(apiClient);
+  setUp(() async => GetIt.instance.reset());
+  tearDown(() async => GetIt.instance.reset());
 
-      final summary = await repository.getDashboardSummary();
-      final applications = await repository.getVenueApplicationsByStatus(
-        AdminVenueApplicationStatus.approved,
-      );
+  testWidgets('renders the empty shell without API or service registration', (
+    tester,
+  ) async {
+    expect(GetIt.instance.isRegistered<ApiClient>(), isFalse);
+    expect(GetIt.instance.isRegistered<AuthSessionManager>(), isFalse);
 
-      expect(summary.data?.totalUsers, 12);
-      expect(summary.data?.activePromotions, 4);
-      expect(summary.data?.pendingStudioApplications, 5);
-      expect(applications.data?.single.id, 'application-1');
-      expect(apiClient.lastMethod, 'GET');
-      expect(apiClient.lastPath, AdminEndpoints.venueApplicationsByStatus);
-      expect(apiClient.lastQuery, <String, dynamic>{'status': 'APPROVED'});
-    });
+    await _pumpPanel(tester);
 
-    test('decodes studio applications with authoritative location', () async {
-      final apiClient = _AdminApiClientFake((path, query) async {
-        expect(path, AdminEndpoints.studioApplicationsByStatus);
-        return <String, dynamic>{
-          'content': <Map<String, dynamic>>[
-            <String, dynamic>{
-              'id': 'studio-application-1',
-              'applicantUsername': 'faruk',
-              'studioName': 'Devo Studio',
-              'studioAddress': 'Moda Caddesi',
-              'phone': '05551234567',
-              'cityName': 'İstanbul',
-              'districtName': 'Kadıköy',
-              'neighborhoodName': 'Moda',
-              'status': 'PENDING',
-              'applicationDate': '2026-08-03T09:15:00Z',
-            },
-          ],
-          'page': 2,
-          'size': 10,
-          'totalElements': 31,
-          'totalPages': 4,
-          'first': false,
-          'last': false,
-        };
-      });
+    expect(find.text('Admin Paneli'), findsOneWidget);
+    expect(find.text('Ana Sayfa'), findsOneWidget);
+    expect(find.text('Sponsorluklar'), findsOneWidget);
+    expect(find.byKey(sessionLogoutButtonKey), findsOneWidget);
+    expect(find.byType(Tab), findsNWidgets(2));
+    expect(_controller(tester).index, 0);
+    expect(find.byKey(_homeKey), findsOneWidget);
+    _expectEmptyTabBodies(tester);
+    expect(tester.takeException(), isNull);
+  });
 
-      final result = await AdminRepositoryImpl(apiClient)
-          .getStudioApplicationsByStatus(
-            AdminVenueApplicationStatus.pending,
-            page: 2,
-            size: 10,
-          );
+  testWidgets('contains no legacy modules, dashboard metrics or placeholders', (
+    tester,
+  ) async {
+    await _pumpPanel(tester);
 
-      expect(result.data?.items.single.studioName, 'Devo Studio');
-      expect(result.data?.items.single.neighborhoodName, 'Moda');
-      expect(result.data?.items.single.applicationDate?.isUtc, isTrue);
-      expect(result.data?.items.single.applicationDate?.hour, 9);
-      expect(result.data?.hasNext, isTrue);
-      expect(result.data?.nextCursor, '3');
-      expect(apiClient.lastQuery, <String, dynamic>{
-        'status': 'PENDING',
-        'page': 2,
-        'size': 10,
-      });
-    });
-
-    test('sends Studio rejection reason only in the JSON body', () async {
-      final apiClient = _AdminApiClientFake(
-        (_, __) => throw StateError('GET is not expected'),
-        postHandler: (path, body) async => <String, dynamic>{
-          'id': 'studio-application-1',
-          'applicantUsername': 'faruk',
-          'studioName': 'Devo Studio',
-          'studioAddress': 'Moda Caddesi',
-          'phone': '05551234567',
-          'cityName': 'İstanbul',
-          'districtName': 'Kadıköy',
-          'neighborhoodName': 'Moda',
-          'status': 'REJECTED',
-          'applicationDate': '2026-08-03T09:15:00Z',
-          'rejectionReason': 'Eksik belge',
-        },
-      );
-
-      final result = await AdminRepositoryImpl(apiClient)
-          .rejectStudioApplication(
-            id: 'studio-application-1',
-            reason: '  Eksik belge  ',
-          );
-
-      expect(result.data?.status, AdminVenueApplicationStatus.rejected);
-      expect(
-        apiClient.lastPath,
-        AdminEndpoints.rejectStudioApplication('studio-application-1'),
-      );
-      expect(apiClient.lastPath, isNot(contains('reason=')));
-      expect(apiClient.lastBody, <String, dynamic>{'reason': 'Eksik belge'});
-    });
-
-    test(
-      'fails the whole Studio page when an item timestamp is malformed',
-      () async {
-        final apiClient = _AdminApiClientFake((_, __) async {
-          return <String, dynamic>{
-            'content': <Object?>[
-              <String, dynamic>{
-                'id': 'studio-application-1',
-                'applicantUsername': 'faruk',
-                'studioName': 'Devo Studio',
-                'studioAddress': 'Moda Caddesi',
-                'phone': '05551234567',
-                'cityName': 'İstanbul',
-                'districtName': 'Kadıköy',
-                'neighborhoodName': 'Moda',
-                'status': 'PENDING',
-                'applicationDate': '2026-08-03T09:15:00',
-              },
-            ],
-            'page': 0,
-            'size': 50,
-            'totalElements': 1,
-            'totalPages': 1,
-            'first': true,
-            'last': true,
-          };
-        });
-
-        final result = await AdminRepositoryImpl(
-          apiClient,
-        ).getStudioApplicationsByStatus(AdminVenueApplicationStatus.pending);
-
-        expect(result.data, isNull);
-        expect(result.error?.code, 'admin_studio_applications_unknown');
-      },
+    for (final label in <String>[
+      'Mekân Başvuruları',
+      'Stüdyo Başvuruları',
+      'Backline Kategori Talepleri',
+      'Collab Moderasyonu',
+      'Kullanıcılar',
+      'Profiller',
+      'Promosyonlar',
+      'Mekânlar',
+      'Konumlar',
+      'Enstrümanlar',
+      'DM Moderasyon',
+      'Roller',
+      'Onayla',
+      'Reddet',
+      'Onaylanan',
+      'Bekleyen',
+    ]) {
+      expect(find.text(label), findsNothing, reason: label);
+    }
+    expect(
+      tester.widgetList<Text>(find.byType(Text)).map((text) => text.data),
+      unorderedEquals(<String>['Admin Paneli', 'Ana Sayfa', 'Sponsorluklar']),
     );
+    expect(find.byType(Card), findsNothing);
+    expect(find.byType(RefreshIndicator), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.byType(BackButton), findsNothing);
+    _expectEmptyTabBodies(tester);
+  });
 
-    test('rejects inconsistent Studio page metadata', () async {
-      final apiClient = _AdminApiClientFake((_, __) async {
-        return <String, dynamic>{
-          'content': <Object?>[],
-          'page': 0,
-          'size': 50,
-          'totalElements': 1,
-          'totalPages': 1,
-          'first': false,
-          'last': true,
-        };
-      });
+  testWidgets('switches to empty sponsorships and back without loading data', (
+    tester,
+  ) async {
+    await _pumpPanel(tester);
 
-      final result = await AdminRepositoryImpl(
-        apiClient,
-      ).getStudioApplicationsByStatus(AdminVenueApplicationStatus.pending);
+    await tester.tap(find.text('Sponsorluklar'));
+    await tester.pumpAndSettle();
 
-      expect(result.data, isNull);
-      expect(result.error?.code, 'admin_studio_applications_unknown');
-    });
+    expect(_controller(tester).index, 1);
+    expect(find.byKey(_sponsorshipsKey), findsOneWidget);
+    _expectEmptyTabBodies(tester);
 
-    test('decodes and filters paged backline category requests', () async {
-      final apiClient = _AdminApiClientFake((path, query) async {
-        expect(path, AdminEndpoints.backlineCategoryRequests);
-        return <String, dynamic>{
-          'content': <Object?>[
-            _backlineCategoryRequestJson(id: 'request-1', status: 'PENDING'),
-          ],
-          'page': 1,
-          'number': 1,
-          'size': 20,
-          'totalElements': 21,
-          'totalPages': 2,
-          'first': false,
-          'last': true,
-        };
-      });
+    await tester.tap(find.text('Ana Sayfa'));
+    await tester.pumpAndSettle();
 
-      final result = await AdminRepositoryImpl(apiClient)
-          .getBacklineCategoryRequests(
-            status: AdminBacklineCategoryRequestStatus.pending,
-            page: 1,
-          );
+    expect(_controller(tester).index, 0);
+    expect(find.byKey(_homeKey), findsOneWidget);
+    expect(GetIt.instance.isRegistered<ApiClient>(), isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
-      expect(result.data?.items.single.id, 'request-1');
-      expect(result.data?.items.single.studioName, 'Atlas Stüdyo');
+  testWidgets('supports swiping between the two empty tabs', (tester) async {
+    await _pumpPanel(tester);
+
+    await tester.drag(find.byType(TabBarView), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(_controller(tester).index, 1);
+
+    await tester.drag(find.byType(TabBarView), const Offset(600, 0));
+    await tester.pumpAndSettle();
+    expect(_controller(tester).index, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tabs expose selection and working screen-reader actions', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pumpPanel(tester);
+
+      final home = tester.getSemantics(find.text('Ana Sayfa'));
+      final sponsorships = tester.getSemantics(find.text('Sponsorluklar'));
+      expect(home.hasFlag(ui.SemanticsFlag.isSelected), isTrue);
+      expect(sponsorships.hasFlag(ui.SemanticsFlag.isSelected), isFalse);
       expect(
-        result.data?.items.single.type,
-        AdminBacklineCategoryRequestType.rootCategory,
-      );
-      expect(result.data?.items.single.createdAt.isUtc, isTrue);
-      expect(
-        result.data?.items.single.proposedChildren.map((child) => child.name),
-        <String>['Akustik Piyano', 'Dijital Piyano'],
-      );
-      expect(result.data?.hasNext, isFalse);
-      expect(apiClient.lastQuery, <String, dynamic>{
-        'status': 'PENDING',
-        'page': 1,
-        'size': 20,
-      });
-    });
-
-    test('sends category rejection through the unified review body', () async {
-      final apiClient = _AdminApiClientFake(
-        (_, __) => throw StateError('GET is not expected'),
-        postHandler: (path, body) async => _backlineCategoryRequestJson(
-          id: 'request-1',
-          status: 'REJECTED',
-          decisionNote: 'Kapsam dışında',
-        ),
+        sponsorships.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+        isTrue,
       );
 
-      final result = await AdminRepositoryImpl(apiClient)
-          .reviewBacklineCategoryRequest(
-            id: 'request-1',
-            decision: AdminBacklineCategoryReviewDecision.reject,
-            note: '  Kapsam dışında  ',
-          );
-
-      expect(result.data?.status, AdminBacklineCategoryRequestStatus.rejected);
-      expect(
-        apiClient.lastPath,
-        AdminEndpoints.reviewBacklineCategoryRequest('request-1'),
-      );
-      expect(apiClient.lastBody, <String, dynamic>{
-        'decision': 'REJECT',
-        'note': 'Kapsam dışında',
-      });
-    });
-
-    test('rejects a blank category rejection note before transport', () async {
-      final apiClient = _AdminApiClientFake(
-        (_, __) => throw StateError('GET is not expected'),
-      );
-
-      final result = await AdminRepositoryImpl(apiClient)
-          .reviewBacklineCategoryRequest(
-            id: 'request-1',
-            decision: AdminBacklineCategoryReviewDecision.reject,
-            note: '   ',
-          );
-
-      expect(result.data, isNull);
-      expect(result.error?.code, 'admin_backline_category_request_validation');
-      expect(apiClient.lastMethod, isNull);
-    });
-
-    test('decodes and filters the Collab moderation queue', () async {
-      final apiClient = _AdminApiClientFake((path, query) async {
-        expect(path, AdminEndpoints.collabReports);
-        return <String, dynamic>{
-          'content': <Object?>[_collabReportJson()],
-          'page': 0,
-          'number': 0,
-          'size': 20,
-          'totalElements': 1,
-          'totalPages': 1,
-          'first': true,
-          'last': true,
-        };
-      });
-
-      final result = await AdminRepositoryImpl(apiClient).getCollabReports(
-        status: AdminCollabReportStatus.open,
-        reason: AdminCollabReportReason.spam,
-      );
-
-      expect(result.data?.items.single.id, 'report-1');
-      expect(result.data?.items.single.reportedAt.isUtc, isTrue);
-      expect(result.data?.items.single.status, AdminCollabReportStatus.open);
-      expect(result.data?.items.single.listingStatusAtReport, 'OPEN');
-      expect(result.data?.items.single.listingStatus, 'OPEN');
-      expect(
-        result.data?.items.single.listingDescription,
-        'Cuma gecesi sahne için deneyimli müzisyen.',
-      );
-      expect(result.data?.items.single.publisherActorId, 'actor-1');
-      expect(result.data?.items.single.publisherDisplayName, 'Kadıköy Sahne');
-      expect(result.data?.items.single.cadence, 'EXTRA');
-      expect(result.data?.items.single.wantedType, 'MUSICIAN');
-      expect(result.data?.items.single.instrumentName, 'Bas gitar');
-      expect(result.data?.items.single.cityName, 'İstanbul');
-      expect(result.data?.items.single.listingGenres, <String>['Rock', 'Funk']);
-      expect(result.data?.items.single.scheduledAt?.isUtc, isTrue);
-      expect(result.data?.items.single.feeAmountMinor, 150075);
-      expect(apiClient.lastQuery, <String, dynamic>{
-        'status': 'OPEN',
-        'reason': 'SPAM',
-        'page': 0,
-        'size': 20,
-      });
-    });
-
-    testWidgets('Collab moderation card shows authoritative listing evidence', (
-      tester,
-    ) async {
-      final report = AdminCollabReportModel.fromJson(
-        _collabReportJson(
-          status: 'ACTIONED',
-          decision: 'REMOVE_LISTING',
-          resolutionNote: 'İlan doğrulanıp kaldırıldı.',
-        ),
-      );
-      final repository = _AdminRepositoryFake(
-        applications: (_) async =>
-            const Result.success(<AdminVenueApplication>[]),
-        collabReports: (_, __, ___, ____) async => Result.success(
-          Page<AdminCollabReport>(
-            items: <AdminCollabReport>[report],
-            hasNext: false,
-          ),
-        ),
-      );
-      final cubit = AdminPanelCubit(repository);
-      await cubit.loadCollabReportsList(null, null);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.navy,
-          home: BlocProvider<AdminPanelCubit>.value(
-            value: cubit,
-            child: Scaffold(
-              body: Builder(
-                builder: (context) => CustomScrollView(
-                  slivers: AdminCollabReportsSection.buildSlivers(
-                    context,
-                    cubit.state,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+      tester.binding.pipelineOwner.semanticsOwner!.performAction(
+        sponsorships.id,
+        ui.SemanticsAction.tap,
       );
       await tester.pumpAndSettle();
 
+      expect(_controller(tester).index, 1);
       expect(
-        find.text(
-          'İlan açıklaması: Cuma gecesi sahne için deneyimli müzisyen.',
-        ),
-        findsOneWidget,
+        tester
+            .getSemantics(find.text('Sponsorluklar'))
+            .hasFlag(ui.SemanticsFlag.isSelected),
+        isTrue,
       );
-      expect(find.text('Rapor anındaki durum: OPEN'), findsOneWidget);
-      expect(find.text('Güncel durum: CLOSED'), findsOneWidget);
-      expect(find.text('Yayınlayan: Kadıköy Sahne (actor-1)'), findsOneWidget);
-      expect(find.text('Şehir: İstanbul'), findsOneWidget);
-      expect(find.text('İlan tipi / aranan: EXTRA / MUSICIAN'), findsOneWidget);
-      expect(find.text('Uzmanlık: Enstrüman: Bas gitar'), findsOneWidget);
-      expect(find.text('Tarzlar: Rock, Funk'), findsOneWidget);
-      expect(find.textContaining('Planlanan zaman:'), findsOneWidget);
-      expect(find.text('Ücret: 1.500,75 TRY (150075 minor)'), findsOneWidget);
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await cubit.close();
-    });
-
-    test('sends versioned Collab listing removal decision', () async {
-      final apiClient = _AdminApiClientFake(
-        (_, __) => throw StateError('GET is not expected'),
-        postHandler: (_, __) async => _collabReportJson(
-          status: 'ACTIONED',
-          decision: 'REMOVE_LISTING',
-          resolutionNote: 'Topluluk kurallarını ihlal ediyor.',
-        ),
+      expect(
+        tester
+            .getSemantics(find.text('Ana Sayfa'))
+            .hasFlag(ui.SemanticsFlag.isSelected),
+        isFalse,
       );
-
-      final result = await AdminRepositoryImpl(apiClient).reviewCollabReport(
-        id: 'report-1',
-        expectedVersion: 3,
-        decision: AdminCollabReportDecision.removeListing,
-        resolutionNote: '  Topluluk kurallarını ihlal ediyor.  ',
-      );
-
-      expect(result.data?.status, AdminCollabReportStatus.actioned);
-      expect(apiClient.lastPath, AdminEndpoints.reviewCollabReport('report-1'));
-      expect(apiClient.lastBody, <String, dynamic>{
-        'decision': 'REMOVE_LISTING',
-        'expectedVersion': 3,
-        'resolutionNote': 'Topluluk kurallarını ihlal ediyor.',
-      });
-    });
-
-    test('preserves typed API errors', () async {
-      const error = AppError(code: '403', message: 'Forbidden');
-      final repository = AdminRepositoryImpl(
-        _AdminApiClientFake((_, __) => throw ApiException(error)),
-      );
-
-      final result = await repository.getDashboardSummary();
-
-      expect(result.error, same(error));
-    });
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
   });
 
-  group('AdminPanelCubit', () {
-    test('ignores a stale application response after filter changes', () async {
-      final pending = Completer<Result<List<AdminVenueApplication>>>();
-      final approved = Completer<Result<List<AdminVenueApplication>>>();
-      final repository = _AdminRepositoryFake(
-        applications: (status) => switch (status) {
-          AdminVenueApplicationStatus.pending => pending.future,
-          AdminVenueApplicationStatus.approved => approved.future,
-          _ => Future.value(const Result.success(<AdminVenueApplication>[])),
-        },
-      );
-      final cubit = AdminPanelCubit(repository);
+  for (final viewport in <({String name, Size size, double textScale})>[
+    (name: 'small phone', size: const Size(320, 640), textScale: 1),
+    (name: '200% text', size: const Size(320, 800), textScale: 2),
+    (name: 'wide window', size: const Size(1280, 800), textScale: 1),
+  ]) {
+    testWidgets('tabs remain usable on ${viewport.name}', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = viewport.size;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      await _pumpPanel(tester, textScale: viewport.textScale);
 
-      final pendingLoad = cubit.loadVenueApplications(
-        AdminVenueApplicationStatus.pending,
-      );
-      final approvedLoad = cubit.loadVenueApplications(
-        AdminVenueApplicationStatus.approved,
-      );
-      approved.complete(
-        Result.success(<AdminVenueApplication>[
-          _application('approved', AdminVenueApplicationStatus.approved),
-        ]),
-      );
-      await approvedLoad;
-      pending.complete(
-        Result.success(<AdminVenueApplication>[
-          _application('stale', AdminVenueApplicationStatus.pending),
-        ]),
-      );
-      await pendingLoad;
+      expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Sponsorluklar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sponsorluklar'));
+      await tester.pumpAndSettle();
 
-      expect(cubit.state.selectedStatus, AdminVenueApplicationStatus.approved);
-      expect(cubit.state.venueApplications.single.id, 'approved');
-      await cubit.close();
+      expect(_controller(tester).index, 1);
+      _expectEmptyTabBodies(tester);
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Ana Sayfa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ana Sayfa'));
+      await tester.pumpAndSettle();
+
+      expect(_controller(tester).index, 0);
+      expect(tester.takeException(), isNull);
     });
+  }
 
-    test('keeps summary and application errors independent', () async {
-      const summaryError = AppError(
-        code: 'summary_failed',
-        message: 'Summary failed',
-      );
-      const applicationsError = AppError(
-        code: 'applications_failed',
-        message: 'Applications failed',
-      );
-      var failApplications = false;
-      final repository = _AdminRepositoryFake(
-        summary: () async => const Result.failure(summaryError),
-        applications: (_) async => failApplications
-            ? const Result.failure(applicationsError)
-            : Result.success(<AdminVenueApplication>[
-                _application('pending', AdminVenueApplicationStatus.pending),
-              ]),
-      );
-      final cubit = AdminPanelCubit(repository);
-
-      await cubit.initialize();
-      expect(cubit.state.summaryError, same(summaryError));
-      expect(cubit.state.applicationsError, isNull);
-      expect(cubit.state.venueApplications, hasLength(1));
-      expect(cubit.state.status, AdminPanelStatus.failure);
-
-      failApplications = true;
-      await cubit.loadVenueApplications(AdminVenueApplicationStatus.approved);
-      expect(cubit.state.summaryError, same(summaryError));
-      expect(cubit.state.applicationsError, same(applicationsError));
-      await cubit.close();
-    });
-
-    test(
-      'loads bounded Studio pages and de-duplicates page boundaries',
-      () async {
-        final repository = _AdminRepositoryFake(
-          applications: (_) async =>
-              const Result.success(<AdminVenueApplication>[]),
-          studioApplications: (_, page, __) async => Result.success(
-            Page<AdminStudioApplication>(
-              items: <AdminStudioApplication>[
-                _studioApplication(page == 0 ? 'first' : 'second'),
-                _studioApplication('boundary'),
-              ],
-              hasNext: page == 0,
-            ),
-          ),
-        );
-        final cubit = AdminPanelCubit(repository);
-
-        await cubit.loadStudioApplications(AdminVenueApplicationStatus.pending);
-        await cubit.loadMoreStudioApplications();
-
-        expect(
-          cubit.state.studioApplications.map((application) => application.id),
-          <String>['first', 'boundary', 'second'],
-        );
-        expect(cubit.state.studioApplicationsPage, 1);
-        expect(cubit.state.studioApplicationsHasNext, isFalse);
-        await cubit.close();
-      },
-    );
-
-    test(
-      'loads category request pages and de-duplicates page boundaries',
-      () async {
-        final repository = _AdminRepositoryFake(
-          applications: (_) async =>
-              const Result.success(<AdminVenueApplication>[]),
-          backlineCategoryRequests: (_, page, __) async => Result.success(
-            Page<AdminBacklineCategoryRequest>(
-              items: <AdminBacklineCategoryRequest>[
-                _backlineCategoryRequest(page == 0 ? 'first' : 'second'),
-                _backlineCategoryRequest('boundary'),
-              ],
-              hasNext: page == 0,
-            ),
-          ),
-        );
-        final cubit = AdminPanelCubit(repository);
-
-        await cubit.loadBacklineCategoryRequestsList(
-          AdminBacklineCategoryRequestStatus.pending,
-        );
-        await cubit.loadMoreBacklineCategoryRequests();
-
-        expect(
-          cubit.state.backlineCategoryRequests.map((request) => request.id),
-          <String>['first', 'boundary', 'second'],
-        );
-        expect(cubit.state.backlineCategoryRequestsPage, 1);
-        expect(cubit.state.backlineCategoryRequestsHasNext, isFalse);
-        await cubit.close();
-      },
-    );
-
-    test('reconciles the category queue after a concurrent review', () async {
-      var listCalls = 0;
-      final repository = _AdminRepositoryFake(
-        applications: (_) async =>
-            const Result.success(<AdminVenueApplication>[]),
-        backlineCategoryRequests: (_, __, ___) async {
-          listCalls++;
-          return Result.success(
-            Page<AdminBacklineCategoryRequest>(
-              items: listCalls == 1
-                  ? <AdminBacklineCategoryRequest>[
-                      _backlineCategoryRequest('request-1'),
-                    ]
-                  : const <AdminBacklineCategoryRequest>[],
-              hasNext: false,
-            ),
-          );
-        },
-        categoryReview: (_, __, ___) async => const Result.failure(
-          AppError(code: '9834', message: 'Talep daha önce incelendi.'),
-        ),
-      );
-      final cubit = AdminPanelCubit(repository);
-
-      await cubit.loadBacklineCategoryRequestsList(
-        AdminBacklineCategoryRequestStatus.pending,
-      );
-      await cubit.approveBacklineCategoryRequest(id: 'request-1');
-
-      expect(listCalls, 2);
-      expect(cubit.state.backlineCategoryRequests, isEmpty);
-      expect(cubit.state.actionIds, isEmpty);
-      await cubit.close();
-    });
-  });
-}
-
-AdminVenueApplication _application(
-  String id,
-  AdminVenueApplicationStatus status,
-) {
-  return AdminVenueApplication(
-    id: id,
-    applicantUsername: 'user',
-    venueName: 'venue',
-    venueAddress: 'address',
-    phone: 'phone',
-    status: status,
-  );
-}
-
-AdminStudioApplication _studioApplication(String id) {
-  return AdminStudioApplication(
-    id: id,
-    applicantUsername: 'studio-owner',
-    studioName: 'Studio',
-    studioAddress: 'Address',
-    phone: '05551234567',
-    cityName: 'Istanbul',
-    districtName: 'Kadikoy',
-    neighborhoodName: 'Moda',
-    status: AdminVenueApplicationStatus.pending,
-  );
-}
-
-AdminBacklineCategoryRequest _backlineCategoryRequest(String id) {
-  return AdminBacklineCategoryRequest(
-    id: id,
-    clientRequestId: 'client-$id',
-    studioProfileId: 'studio-1',
-    studioName: 'Atlas Stüdyo',
-    type: AdminBacklineCategoryRequestType.rootCategory,
-    requestedName: 'Piyano',
-    parentCategoryId: null,
-    parentCategoryName: null,
-    proposedChildren: const [],
-    requesterNote: null,
-    status: AdminBacklineCategoryRequestStatus.pending,
-    resolvedRootCategoryId: null,
-    resolvedCategoryId: null,
-    reviewedByUserId: null,
-    reviewedAt: null,
-    decisionNote: null,
-    createdAt: DateTime.utc(2026, 8, 3, 9),
-  );
-}
-
-Map<String, dynamic> _backlineCategoryRequestJson({
-  required String id,
-  required String status,
-  String? decisionNote,
-}) {
-  return <String, dynamic>{
-    'id': id,
-    'clientRequestId': 'client-$id',
-    'studioProfileId': 'studio-1',
-    'studioName': 'Atlas Stüdyo',
-    'type': 'ROOT_CATEGORY',
-    'requestedName': 'Piyano',
-    'parentCategoryId': null,
-    'parentCategoryName': null,
-    'proposedChildren': <Object?>[
-      <String, dynamic>{
-        'name': 'Dijital Piyano',
-        'position': 1,
-        'resolvedCategoryId': null,
-      },
-      <String, dynamic>{
-        'name': 'Akustik Piyano',
-        'position': 0,
-        'resolvedCategoryId': null,
-      },
-    ],
-    'requesterNote': 'Katalogda bulamadım.',
-    'status': status,
-    'resolvedRootCategoryId': null,
-    'resolvedCategoryId': null,
-    'reviewedByUserId': status == 'PENDING' ? null : 'admin-1',
-    'reviewedAt': status == 'PENDING' ? null : '2026-08-03T10:00:00Z',
-    'decisionNote': decisionNote,
-    'createdAt': '2026-08-03T09:00:00',
-    'createdAtUtc': '2026-08-03T09:00:00Z',
-  };
-}
-
-Map<String, dynamic> _collabReportJson({
-  String status = 'OPEN',
-  String? decision,
-  String? resolutionNote,
-}) {
-  final reviewed = status != 'OPEN';
-  return <String, dynamic>{
-    'id': 'report-1',
-    'version': 3,
-    'status': status,
-    'reason': 'SPAM',
-    'details': 'Aynı ilan tekrar tekrar açılıyor.',
-    'reportedAt': '2026-08-11T09:00:00Z',
-    'listingId': 'listing-1',
-    'listingTitle': 'Bas gitarist aranıyor',
-    'listingDescription': 'Cuma gecesi sahne için deneyimli müzisyen.',
-    'listingStatusAtReport': 'OPEN',
-    'listingStatus': reviewed ? 'CLOSED' : 'OPEN',
-    'publisherActorId': 'actor-1',
-    'publisherDisplayName': 'Kadıköy Sahne',
-    'cadence': 'EXTRA',
-    'wantedType': 'MUSICIAN',
-    'instrument': <String, dynamic>{'id': 'instrument-1', 'name': 'Bas gitar'},
-    'branch': null,
-    'customSpecialty': null,
-    'city': <String, dynamic>{'id': 'city-1', 'name': 'İstanbul'},
-    'listingGenres': <String>['Rock', 'Funk'],
-    'scheduledAt': '2026-08-15T18:30:00Z',
-    'feeAmountMinor': 150075,
-    'currency': 'TRY',
-    'reporterUserId': 'user-1',
-    'reviewDecision': decision,
-    'reviewedByUserId': reviewed ? 'admin-1' : null,
-    'reviewedAt': reviewed ? '2026-08-11T10:00:00Z' : null,
-    'resolutionNote': resolutionNote,
-  };
-}
-
-class _AdminRepositoryFake implements AdminRepository {
-  _AdminRepositoryFake({
-    Future<Result<AdminDashboardSummary>> Function()? summary,
-    required this.applications,
-    this.studioApplications,
-    this.backlineCategoryRequests,
-    this.categoryReview,
-    this.collabReports,
-  }) : summary =
-           summary ??
-           (() async => const Result.success(AdminDashboardSummary.empty()));
-
-  final Future<Result<AdminDashboardSummary>> Function() summary;
-  final Future<Result<List<AdminVenueApplication>>> Function(
-    AdminVenueApplicationStatus status,
-  )
-  applications;
-  final Future<Result<Page<AdminStudioApplication>>> Function(
-    AdminVenueApplicationStatus status,
-    int page,
-    int size,
-  )?
-  studioApplications;
-  final Future<Result<Page<AdminBacklineCategoryRequest>>> Function(
-    AdminBacklineCategoryRequestStatus? status,
-    int page,
-    int size,
-  )?
-  backlineCategoryRequests;
-  final Future<Result<AdminBacklineCategoryRequest>> Function(
-    String id,
-    AdminBacklineCategoryReviewDecision decision,
-    String? note,
-  )?
-  categoryReview;
-  final Future<Result<Page<AdminCollabReport>>> Function(
-    AdminCollabReportStatus? status,
-    AdminCollabReportReason? reason,
-    int page,
-    int size,
-  )?
-  collabReports;
-
-  @override
-  Future<Result<AdminDashboardSummary>> getDashboardSummary() => summary();
-
-  @override
-  Future<Result<List<AdminVenueApplication>>> getVenueApplicationsByStatus(
-    AdminVenueApplicationStatus status,
-  ) => applications(status);
-
-  @override
-  Future<Result<AdminVenueApplication>> approveVenueApplication(
-    String id,
+  testWidgets('does not add an implicit app-bar back button when pushed', (
+    tester,
   ) async {
-    return Result.success(
-      _application(id, AdminVenueApplicationStatus.approved),
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.navy,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AdminDashboardScreen(),
+                ),
+              ),
+              child: const Text('Open admin'),
+            ),
+          ),
+        ),
+      ),
     );
-  }
+    await tester.tap(find.text('Open admin'));
+    await tester.pumpAndSettle();
 
-  @override
-  Future<Result<AdminVenueApplication>> rejectVenueApplication({
-    required String id,
-    required String reason,
-  }) async {
-    return Result.success(
-      _application(id, AdminVenueApplicationStatus.rejected),
+    expect(
+      Navigator.of(tester.element(find.byType(AdminDashboardScreen))).canPop(),
+      isTrue,
     );
-  }
+    expect(find.byType(BackButton), findsNothing);
+    expect(find.byType(DrawerButton), findsNothing);
+    expect(find.byKey(sessionLogoutButtonKey), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
-  @override
-  Future<Result<Page<AdminStudioApplication>>> getStudioApplicationsByStatus(
-    AdminVenueApplicationStatus status, {
-    int page = 0,
-    int size = 50,
-  }) async =>
-      studioApplications?.call(status, page, size) ??
-      const Result.success(
-        Page<AdminStudioApplication>(items: [], hasNext: false),
-      );
+  testWidgets('canceling logout retains the admin token and metadata', (
+    tester,
+  ) async {
+    final stores = _registerAdminSession();
+    await _pumpPanel(tester);
 
-  @override
-  Future<Result<AdminStudioApplication>> approveStudioApplication(String id) =>
-      throw UnimplementedError();
+    await _openLogoutDialog(tester);
+    expect(find.text('Çıkış yapılsın mı?'), findsOneWidget);
+    await tester.tap(find.text('Vazgeç'));
+    await tester.pumpAndSettle();
 
-  @override
-  Future<Result<AdminStudioApplication>> rejectStudioApplication({
-    required String id,
-    required String reason,
-  }) => throw UnimplementedError();
+    expect(stores.token.token, 'admin-test-token');
+    expect(stores.token.clearCalls, 0);
+    expect(stores.session.metadata?.username, 'admin-test');
+    expect(stores.session.clearCalls, 0);
+    expect(find.byType(Dialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
-  @override
-  Future<Result<Page<AdminBacklineCategoryRequest>>>
-  getBacklineCategoryRequests({
-    AdminBacklineCategoryRequestStatus? status,
-    int page = 0,
-    int size = 20,
-  }) async =>
-      backlineCategoryRequests?.call(status, page, size) ??
-      const Result.success(
-        Page<AdminBacklineCategoryRequest>(items: [], hasNext: false),
-      );
+  testWidgets('confirming logout clears the session from the sponsorship tab', (
+    tester,
+  ) async {
+    final stores = _registerAdminSession();
+    await _pumpPanel(tester);
+    await tester.tap(find.text('Sponsorluklar'));
+    await tester.pumpAndSettle();
 
-  @override
-  Future<Result<AdminBacklineCategoryRequest>> reviewBacklineCategoryRequest({
-    required String id,
-    required AdminBacklineCategoryReviewDecision decision,
-    String? note,
-  }) async =>
-      categoryReview?.call(id, decision, note) ??
-      Result.success(_backlineCategoryRequest(id));
+    await _openLogoutDialog(tester);
+    await tester.tap(find.byKey(sessionLogoutConfirmKey));
+    await tester.pumpAndSettle();
 
-  @override
-  Future<Result<Page<AdminCollabReport>>> getCollabReports({
-    AdminCollabReportStatus? status,
-    AdminCollabReportReason? reason,
-    int page = 0,
-    int size = 20,
-  }) async =>
-      collabReports?.call(status, reason, page, size) ??
-      const Result.success(Page<AdminCollabReport>(items: [], hasNext: false));
-
-  @override
-  Future<Result<AdminCollabReport>> reviewCollabReport({
-    required String id,
-    required int expectedVersion,
-    required AdminCollabReportDecision decision,
-    required String resolutionNote,
-  }) => throw UnimplementedError();
+    expect(stores.token.token, isNull);
+    expect(stores.token.clearCalls, 1);
+    expect(stores.session.metadata, isNull);
+    expect(stores.session.clearCalls, 1);
+    expect(find.byType(Dialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
-class _AdminApiClientFake extends ApiClient {
-  _AdminApiClientFake(this._getHandler, {this.postHandler});
+Future<void> _pumpPanel(WidgetTester tester, {double textScale = 1}) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.navy,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: const AdminDashboardScreen(),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
 
-  final Future<Object?> Function(String path, Map<String, dynamic>? query)
-  _getHandler;
-  final Future<Object?> Function(String path, Object? body)? postHandler;
-  String? lastMethod;
-  String? lastPath;
-  Map<String, dynamic>? lastQuery;
-  Object? lastBody;
+TabController _controller(WidgetTester tester) =>
+    DefaultTabController.of(tester.element(find.byType(TabBar)));
 
-  @override
-  Future<T> get<T>(
-    String path, {
-    Map<String, dynamic>? query,
-    T Function(Object? json)? decoder,
-  }) async {
-    lastMethod = 'GET';
-    lastPath = path;
-    lastQuery = query;
-    final payload = await _getHandler(path, query);
-    return decoder == null ? payload as T : decoder(payload);
+void _expectEmptyTabBodies(WidgetTester tester) {
+  final bodies = tester.widget<TabBarView>(find.byType(TabBarView)).children;
+  expect(bodies, hasLength(2));
+  expect(bodies.map((body) => body.key), <Key>[_homeKey, _sponsorshipsKey]);
+  for (final body in bodies) {
+    expect(body, isA<SizedBox>());
+    expect((body as SizedBox).child, isNull);
   }
+}
 
-  @override
-  Future<T> delete<T>(
-    String path, {
-    Object? body,
-    T Function(Object? json)? decoder,
-  }) => throw UnimplementedError();
+({MemoryTokenStore token, MemoryAuthSessionStore session})
+_registerAdminSession() {
+  final token = MemoryTokenStore()..token = 'admin-test-token';
+  final session = MemoryAuthSessionStore()
+    ..metadata = const AuthSessionMetadata(
+      username: 'admin-test',
+      accountStatus: 'ACTIVE',
+    );
+  GetIt.instance.registerSingleton<AuthSessionManager>(
+    createSessionManager(tokenStore: token, sessionStore: session),
+    dispose: (manager) => manager.dispose(),
+  );
+  return (token: token, session: session);
+}
 
-  @override
-  Future<T> patch<T>(
-    String path, {
-    Object? body,
-    T Function(Object? json)? decoder,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<T> post<T>(
-    String path, {
-    Object? body,
-    T Function(Object? json)? decoder,
-  }) async {
-    lastMethod = 'POST';
-    lastPath = path;
-    lastBody = body;
-    final payload = await postHandler!(path, body);
-    return decoder == null ? payload as T : decoder(payload);
-  }
-
-  @override
-  Future<T> put<T>(
-    String path, {
-    Object? body,
-    T Function(Object? json)? decoder,
-  }) => throw UnimplementedError();
+Future<void> _openLogoutDialog(WidgetTester tester) async {
+  await tester.tap(find.byKey(sessionLogoutButtonKey));
+  await tester.pump();
+  // The logout button spins while its confirmation dialog is open.
+  await tester.pump(const Duration(milliseconds: 300));
 }

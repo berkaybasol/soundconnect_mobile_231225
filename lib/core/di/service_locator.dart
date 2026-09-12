@@ -12,9 +12,6 @@ import '../../modules/tablegroup/domain/table_group_profile_share_repository.dar
 import '../../modules/auth/data/auth_repository_impl.dart';
 import '../../modules/auth/data/account_deletion_repository_impl.dart';
 import '../../modules/auth/domain/account_deletion_repository.dart';
-import '../../modules/admin/data/admin_repository_impl.dart';
-import '../../modules/admin/domain/admin_repository.dart';
-import '../../modules/admin/presentation/cubit/admin_panel_cubit.dart';
 import '../../modules/auth/domain/auth_repository.dart';
 import '../../modules/auth/domain/usecases/check_username_availability_usecase.dart';
 import '../../modules/auth/domain/usecases/login_usecase.dart';
@@ -205,12 +202,6 @@ void setupDependencies() {
       ),
       dispose: (repository) =>
           (repository as EventAudienceRepositoryImpl).dispose(),
-    )
-    ..registerLazySingleton<AdminRepository>(
-      () => AdminRepositoryImpl(serviceLocator<ApiClient>()),
-    )
-    ..registerFactory<AdminPanelCubit>(
-      () => AdminPanelCubit(serviceLocator<AdminRepository>()),
     )
     ..registerLazySingleton<LocationRepository>(
       () => LocationRepositoryImpl(serviceLocator<ApiClient>()),

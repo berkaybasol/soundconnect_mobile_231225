@@ -152,8 +152,8 @@ class _MusicianPublicProfileContent extends StatelessWidget {
             ),
           ),
         ),
-        bottomNavigationBar: ProfilePublicBottomBar(
-          profileTapAlwaysOpensOwnProfile: true,
+        bottomNavigationBar: MusicianProfileChromeScope(
+          child: ProfilePublicBottomBar(profileTapAlwaysOpensOwnProfile: true),
         ),
       ),
     );

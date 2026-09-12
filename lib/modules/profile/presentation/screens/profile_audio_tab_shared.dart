@@ -28,6 +28,7 @@ import 'profile_common_widgets.dart';
 import 'profile_count_row.dart';
 import 'profile_screen_support.dart';
 import 'profile_track_upload_support.dart';
+import 'musician_audio_presentation.dart';
 
 part 'profile_audio_tab_shared_interaction_methods.dart';
 part 'profile_audio_tab_shared_interaction_spotify_picker.dart';
@@ -37,6 +38,7 @@ part 'profile_audio_tab_shared_catalog_sheet_track_tile.dart';
 part 'profile_audio_tab_shared_track_item.dart';
 
 class ProfileAudioTab extends StatelessWidget {
+  bool get _musicianPresentation => uploadOwnerType == 'MUSICIAN_PROFILE';
   final List<Track> items;
   final String profileId;
 
@@ -163,66 +165,82 @@ class ProfileAudioTab extends StatelessWidget {
                 SizedBox(height: 16),
               ],
               if (ownerMode) ...[
-                InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () => _showSoundConnectTrackUploadSheet(context),
-                  child: Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(vertical: 24, horizontal: 18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      gradient: LinearGradient(
-                        colors: AppColors.uploadCardGradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                if (_musicianPresentation)
+                  MusicianAudioUploadCard(
+                    title: uploadActionLabel,
+                    description: items.isEmpty
+                        ? '$emptyUploadPrompt. İlk kaydını burada paylaş.'
+                        : 'Demolarını, canlı kayıtlarını ve şarkılarını profiline ekle.',
+                    onTap: () => _showSoundConnectTrackUploadSheet(context),
+                  )
+                else
+                  InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => _showSoundConnectTrackUploadSheet(context),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(
+                        vertical: 24,
+                        horizontal: 18,
                       ),
-                      border: Border.all(color: Theme.of(context).dividerColor),
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest,
-                            border: Border.all(
-                              color: Theme.of(context).dividerColor,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: LinearGradient(
+                          colors: AppColors.uploadCardGradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.add,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              size: 28,
                             ),
                           ),
-                          child: Icon(
-                            Icons.add,
-                            color: Theme.of(context).colorScheme.onSurface,
-                            size: 28,
+                          SizedBox(height: 10),
+                          Text(
+                            items.isEmpty
+                                ? emptyUploadPrompt
+                                : uploadActionLabel,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          items.isEmpty ? emptyUploadPrompt : uploadActionLabel,
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
+                          SizedBox(height: 4),
+                          Text(
+                            'SoundConnect \u00FCzerinden \u015Fark\u0131 y\u00FCklemek i\u00E7in dokun.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'SoundConnect \u00FCzerinden \u015Fark\u0131 y\u00FCklemek i\u00E7in dokun.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 SizedBox(height: 16),
               ],
               if (!ownerMode && items.isEmpty)

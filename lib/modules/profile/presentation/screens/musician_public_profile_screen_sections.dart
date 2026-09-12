@@ -67,7 +67,10 @@ class _ProfileHeader extends StatelessWidget {
                     colors: AppColors.brandGradient,
                   ),
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.navBlueDeep, width: 2),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surface,
+                    width: 2,
+                  ),
                 ),
                 child: Icon(Icons.music_note, size: 14, color: AppColors.white),
               ),

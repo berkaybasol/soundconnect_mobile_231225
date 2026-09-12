@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'musician_audio_presentation.dart';
 
 class ProfileAudioTransportRow extends StatelessWidget {
   final bool isPlaying;
@@ -6,6 +7,7 @@ class ProfileAudioTransportRow extends StatelessWidget {
   final VoidCallback? onPlayPause;
   final VoidCallback? onBack10;
   final VoidCallback? onForward10;
+  final bool backstageStyle;
 
   ProfileAudioTransportRow({
     super.key,
@@ -14,10 +16,19 @@ class ProfileAudioTransportRow extends StatelessWidget {
     this.onPlayPause,
     this.onBack10,
     this.onForward10,
+    this.backstageStyle = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (backstageStyle) {
+      return MusicianAudioTransport(
+        isPlaying: isPlaying,
+        onPlayPause: onPlayPause,
+        onBack10: onBack10,
+        onForward10: onForward10,
+      );
+    }
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

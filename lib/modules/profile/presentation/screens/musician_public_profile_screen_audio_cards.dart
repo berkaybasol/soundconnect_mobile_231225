@@ -8,6 +8,7 @@ class _AudioPreviewCard extends StatelessWidget {
   final VoidCallback? onDoubleTap;
   final Widget waveform;
   final Widget? bottomControls;
+  final String? timeLabel;
 
   const _AudioPreviewCard({
     required this.title,
@@ -17,11 +18,14 @@ class _AudioPreviewCard extends StatelessWidget {
     this.onTap,
     this.onDoubleTap,
     this.bottomControls,
+    this.timeLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     return ProfileAudioPreviewCard(
+      backstageStyle: true,
+      timeLabel: timeLabel,
       title: title,
       waveform: waveform,
       actionLabel: actionLabel,

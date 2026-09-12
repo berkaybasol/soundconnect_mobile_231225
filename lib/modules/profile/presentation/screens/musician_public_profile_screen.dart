@@ -30,7 +30,9 @@ import '../../domain/entities/track.dart';
 import '../cubit/musician_profile_cubit.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
+import '../musician_profile_visual_theme.dart';
 import 'media_detail_screen.dart';
+import 'musician_audio_presentation.dart';
 import 'profile_audio_transport.dart';
 import 'profile_common_widgets.dart';
 import 'profile_carousels.dart';
@@ -69,7 +71,9 @@ class MusicianPublicProfileScreen extends StatelessWidget {
         ),
         BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
       ],
-      child: const _MusicianPublicProfileView(),
+      child: const MusicianProfileThemeScope(
+        child: _MusicianPublicProfileView(),
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import 'profile_section_support.dart';
+import 'musician_audio_presentation.dart';
 
 part 'profile_common_widgets_bio_section.dart';
 part 'profile_common_widgets_audio_preview.dart';

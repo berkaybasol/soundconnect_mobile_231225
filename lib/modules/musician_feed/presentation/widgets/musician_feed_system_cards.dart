@@ -7,6 +7,7 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/musician_feed_models.dart';
 import 'musician_feed_card_chrome.dart';
 import 'musician_feed_card_registry.dart';
+import 'musician_feed_detail_link.dart';
 
 Widget buildCompletionFeedCard(
   BuildContext context,
@@ -70,7 +71,7 @@ Widget buildSponsoredFeedCard(
             label: payload.ctaLabel,
             onPressed: () => actions.openPromotion(item),
             backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-            leading: const Icon(Icons.arrow_forward_rounded, size: 18),
+            leading: const MusicianFeedDetailChevron(),
           ),
         ),
       ],

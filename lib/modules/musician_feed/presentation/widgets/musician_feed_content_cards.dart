@@ -20,6 +20,7 @@ import '../../../event/domain/entities/discovery_event.dart';
 import '../../domain/musician_feed_models.dart';
 import 'musician_feed_card_chrome.dart';
 import 'musician_feed_card_registry.dart';
+import 'musician_feed_detail_link.dart';
 
 Widget buildTrackFeedCard(
   BuildContext context,
@@ -33,7 +34,11 @@ Widget buildTrackFeedCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _FeedTitle(title: payload.title),
+        MusicianFeedDetailHeading(
+          title: _FeedTitle(title: payload.title),
+          onTap: () => actions.openItem(item),
+          semanticLabel: 'Ses kaydının detayını aç',
+        ),
         if (payload.bpm != null) ...[
           const SizedBox(height: 4),
           Text(
@@ -63,6 +68,18 @@ Widget buildProfileMediaFeedCard(
   final description = payload.description?.trim();
   final isAudio = payload.kind == 'AUDIO';
   final isVideo = payload.kind == 'VIDEO';
+  final canOpenDetail =
+      isAudio ||
+      (isVideo
+          ? payload.playbackUrl?.trim().isNotEmpty == true
+          : payload.displayUrl?.trim().isNotEmpty == true);
+  final heading = title?.isNotEmpty == true
+      ? title!
+      : isAudio
+      ? 'Ses kaydı'
+      : isVideo
+      ? 'Video'
+      : 'Fotoğraf';
   return MusicianFeedSurface(
     item: item,
     actions: actions,
@@ -70,7 +87,14 @@ Widget buildProfileMediaFeedCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (title != null && title.isNotEmpty) ...[
+        if (canOpenDetail) ...[
+          MusicianFeedDetailHeading(
+            title: _FeedTitle(title: heading),
+            onTap: () => actions.openItem(item),
+            semanticLabel: 'Medya detayını aç',
+          ),
+          const SizedBox(height: 10),
+        ] else if (title != null && title.isNotEmpty) ...[
           _FeedTitle(title: title),
           const SizedBox(height: 10),
         ],
@@ -119,6 +143,7 @@ Widget buildCollabFeedCard(
     child: CollabListingCard(
       listing: cardModel,
       showWantedBadge: true,
+      titleTrailing: const MusicianFeedDetailChevron(),
       saved: listing.savedByMe,
       onTap: () => actions.openItem(item),
       onSave: () => actions.toggleCollabSaved(item, !listing.savedByMe),
@@ -224,95 +249,84 @@ Widget buildProfileShareFeedCard(
           ),
           const SizedBox(height: 12),
         ],
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).colorScheme.outline),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  BrandGradientIcon.social(
-                    overthinking
-                        ? Icons.psychology_alt_outlined
-                        : Icons.table_restaurant_outlined,
-                    size: 19,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      overthinking ? 'Overthinking' : 'TableGroup',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+        MusicianFeedDetailLink(
+          onTap: () => actions.openItem(item),
+          semanticLabel: overthinking
+              ? 'Overthinking paylaşımını aç'
+              : 'TableGroup paylaşımını aç',
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    BrandGradientIcon.social(
+                      overthinking
+                          ? Icons.psychology_alt_outlined
+                          : Icons.table_restaurant_outlined,
+                      size: 19,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        overthinking ? 'Overthinking' : 'TableGroup',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              if (title != null) ...[
-                const SizedBox(height: 11),
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    height: 1.24,
-                    fontWeight: FontWeight.w800,
-                  ),
+                    if (title == null) ...[
+                      const SizedBox(width: 8),
+                      const MusicianFeedDetailChevron(),
+                    ],
+                  ],
                 ),
-              ],
-              if (body != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  body,
-                  maxLines: 5,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                    height: 1.42,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => actions.openItem(item),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                if (title != null) ...[
+                  const SizedBox(height: 11),
+                  Row(
                     children: [
-                      Flexible(
+                      Expanded(
                         child: Text(
-                          overthinking ? 'Overthinking’e git' : 'Masaya git',
+                          title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            height: 1.24,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_rounded, size: 18),
+                      const MusicianFeedDetailChevron(),
                     ],
                   ),
-                ),
-              ),
-            ],
+                ],
+                if (body != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    body,
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                      height: 1.42,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ],
@@ -390,10 +404,7 @@ Widget buildProfileFeedCard(
               ),
             ),
             const SizedBox(width: 8),
-            const BrandGradientIcon.social(
-              Icons.chevron_right_rounded,
-              size: 25,
-            ),
+            const MusicianFeedDetailChevron(),
           ],
         ),
         if (_supportsProfileFollow(payload)) ...[
@@ -701,10 +712,7 @@ class _EventPreview extends StatelessWidget {
                   children: [
                     Expanded(child: _FeedTitle(title: event.title)),
                     const SizedBox(width: 8),
-                    const BrandGradientIcon.social(
-                      Icons.chevron_right_rounded,
-                      size: 24,
-                    ),
+                    const MusicianFeedDetailChevron(),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -839,7 +847,8 @@ class _ActivityTargetPreview extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, size: 22),
+          const SizedBox(width: 8),
+          const MusicianFeedDetailChevron(),
         ],
       ),
     );

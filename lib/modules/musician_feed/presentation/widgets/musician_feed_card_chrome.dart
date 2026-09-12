@@ -520,7 +520,7 @@ class MusicianFeedEngagementBar extends StatelessWidget {
               ),
             Expanded(
               child: _FeedActionButton(
-                icon: Icons.open_in_new_rounded,
+                icon: Icons.chevron_right_rounded,
                 label: 'Aç',
                 onPressed: () => actions.openItem(item),
               ),

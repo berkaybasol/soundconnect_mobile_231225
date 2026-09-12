@@ -127,6 +127,7 @@ class CollabListingCard extends StatelessWidget {
     this.showSave = true,
     this.showCadence = true,
     this.showWantedBadge = false,
+    this.titleTrailing,
     super.key,
   });
 
@@ -138,10 +139,23 @@ class CollabListingCard extends StatelessWidget {
   final bool showSave;
   final bool showCadence;
   final bool showWantedBadge;
+  // Opt-in presentation slot: discovery and other consumers stay unchanged.
+  final Widget? titleTrailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final title = Text(
+      listing.title,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: theme.colorScheme.onSurface,
+        fontSize: 16,
+        height: 1.22,
+        fontWeight: FontWeight.w900,
+      ),
+    );
     return Semantics(
       button: interactive,
       label: listing.title,
@@ -216,17 +230,16 @@ class CollabListingCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  listing.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 16,
-                    height: 1.22,
-                    fontWeight: FontWeight.w900,
+                if (titleTrailing == null)
+                  title
+                else
+                  Row(
+                    children: [
+                      Expanded(child: title),
+                      const SizedBox(width: 8),
+                      titleTrailing!,
+                    ],
                   ),
-                ),
                 if (showCadence || showWantedBadge) ...[
                   const SizedBox(height: 10),
                   Wrap(

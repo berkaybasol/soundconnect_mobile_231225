@@ -5,6 +5,7 @@ import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/co
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_models.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/musician_feed_visual_theme.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/widgets/musician_feed_card_registry.dart';
+import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/widgets/musician_feed_detail_link.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
@@ -623,41 +624,44 @@ void main() {
       },
     );
 
-    testWidgets('listener TableGroup share CTA remains reachable at large text', (
-      tester,
-    ) async {
-      MusicianFeedItem? opened;
-      final actions = _actions(openItem: (item) => opened = item);
-      final item = _item(
-        id: 'listener-share',
-        type: MusicianFeedItemType.tableGroupProfileShare,
-        payload: ProfileShareFeedPayload(
-          shareId: 'share-id',
-          note:
-              'Bu uzun tartışmayı takip ettiğim müzisyenlerle paylaşmak istedim.',
-          publishedAt: DateTime.utc(2026, 9, 11),
-          source: const {
-            'tableGroupId': 'table-id',
-            'title': 'Bağımsız müzisyenler için sürdürülebilir turne planlama',
-            'content':
-                'Şehirler arası yolculuk, ekipman ve sahne programı üzerine ayrıntılı bir masa konuşması.',
-          },
-        ),
-        author: _listener,
-        reasonCode: 'FOLLOWING_PUBLICATION',
-      );
+    testWidgets(
+      'listener TableGroup share chevron remains reachable at large text',
+      (tester) async {
+        MusicianFeedItem? opened;
+        final actions = _actions(openItem: (item) => opened = item);
+        final item = _item(
+          id: 'listener-share',
+          type: MusicianFeedItemType.tableGroupProfileShare,
+          payload: ProfileShareFeedPayload(
+            shareId: 'share-id',
+            note:
+                'Bu uzun tartışmayı takip ettiğim müzisyenlerle paylaşmak istedim.',
+            publishedAt: DateTime.utc(2026, 9, 11),
+            source: const {
+              'tableGroupId': 'table-id',
+              'title':
+                  'Bağımsız müzisyenler için sürdürülebilir turne planlama',
+              'content':
+                  'Şehirler arası yolculuk, ekipman ve sahne programı üzerine ayrıntılı bir masa konuşması.',
+            },
+          ),
+          author: _listener,
+          reasonCode: 'FOLLOWING_PUBLICATION',
+        );
 
-      await _pumpNarrowCard(tester, item, actions);
+        await _pumpNarrowCard(tester, item, actions);
 
-      expect(tester.takeException(), isNull);
-      final cta = find.text('Masaya git');
-      expect(cta, findsOneWidget);
-      await tester.ensureVisible(cta);
-      await tester.tap(cta);
-      await tester.pump();
-      expect(opened, same(item));
-      expect(tester.takeException(), isNull);
-    });
+        expect(tester.takeException(), isNull);
+        expect(find.text('Masaya git'), findsNothing);
+        final cta = find.byType(MusicianFeedDetailChevron);
+        expect(cta, findsOneWidget);
+        await tester.ensureVisible(cta);
+        await tester.tap(cta);
+        await tester.pump();
+        expect(opened, same(item));
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('engagement actions remain usable at 320dp and large text', (
       tester,

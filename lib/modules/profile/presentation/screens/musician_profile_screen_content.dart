@@ -284,13 +284,10 @@ class _MusicianPublicProfileContent extends StatelessWidget {
             ),
           ),
         ),
-        bottomNavigationBar: MusicianProfileChromeScope(
-          child: ProfileBottomBar(
-            profileImageUrl:
-                (uploadedProfilePhotoUrl?.trim().isNotEmpty == true)
-                ? uploadedProfilePhotoUrl!.trim()
-                : profile.profilePicture,
-          ),
+        bottomNavigationBar: ProfileBottomBar(
+          profileImageUrl: (uploadedProfilePhotoUrl?.trim().isNotEmpty == true)
+              ? uploadedProfilePhotoUrl!.trim()
+              : profile.profilePicture,
         ),
       ),
     );

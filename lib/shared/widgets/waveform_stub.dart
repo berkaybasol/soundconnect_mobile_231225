@@ -18,8 +18,6 @@ class WaveformStub extends StatelessWidget {
   final double waveformHeight;
   final double leadingSize;
   final List<double>? samples;
-  final bool showLeading;
-  final bool framed;
 
   const WaveformStub({
     super.key,
@@ -39,8 +37,6 @@ class WaveformStub extends StatelessWidget {
     this.waveformHeight = 44,
     this.leadingSize = 32,
     this.samples,
-    this.showLeading = true,
-    this.framed = true,
   }) : assert(leadingSize > 0);
 
   static const _samples = [
@@ -149,40 +145,36 @@ class WaveformStub extends StatelessWidget {
 
     return Container(
       height: height,
-      padding: EdgeInsets.symmetric(horizontal: framed ? 6 : 0),
-      decoration: !framed
-          ? null
-          : BoxDecoration(
-              color: panelColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: borderColor),
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             children: [
-              if (showLeading) ...[
-                Container(
-                  width: leadingSize,
-                  height: leadingSize,
-                  decoration: BoxDecoration(
-                    color: effectiveLeadingBackgroundColor,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Center(
-                    child:
-                        leading ??
-                        Icon(
-                          Icons.music_note,
-                          size: 16,
-                          color: effectiveIconColor,
-                        ),
-                  ),
+              Container(
+                width: leadingSize,
+                height: leadingSize,
+                decoration: BoxDecoration(
+                  color: effectiveLeadingBackgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor),
                 ),
-                const SizedBox(width: 6),
-              ],
+                child: Center(
+                  child:
+                      leading ??
+                      Icon(
+                        Icons.music_note,
+                        size: 16,
+                        color: effectiveIconColor,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: SizedBox(
                   height: waveformHeight,

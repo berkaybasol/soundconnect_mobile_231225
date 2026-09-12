@@ -50,8 +50,6 @@ class ProfileAudioPreviewCard extends StatefulWidget {
   final Widget? bottomControls;
   final Widget? trailing;
   final double ringSize;
-  final bool backstageStyle;
-  final String? timeLabel;
 
   ProfileAudioPreviewCard({
     super.key,
@@ -65,8 +63,6 @@ class ProfileAudioPreviewCard extends StatefulWidget {
     this.bottomControls,
     this.trailing,
     this.ringSize = 64,
-    this.backstageStyle = false,
-    this.timeLabel,
   });
 
   @override
@@ -141,85 +137,71 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (widget.backstageStyle)
-            MusicianAudioCardSurface(
-              title: widget.title,
-              waveform: widget.waveform,
-              trailing: widget.trailing,
-              bottomControls: widget.bottomControls,
-              actionLabel: widget.actionLabel,
-              actionColor: widget.actionColor,
-              onActionTap: widget.onActionTap,
-              timeLabel: widget.timeLabel,
-            )
-          else
-            Container(
-              padding: EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: AppColors.uploadedAudioCardGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Theme.of(context).dividerColor),
+          Container(
+            padding: EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: AppColors.uploadedAudioCardGradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: widget.trailing == null ? 0 : 34,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: widget.trailing == null ? 0 : 34,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: widget.trailing == null ? 0 : 24,
                     ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: widget.trailing == null ? 0 : 24,
-                      ),
-                      child: Center(
-                        heightFactor: 1,
-                        child: Text(
-                          widget.title,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
+                    child: Center(
+                      heightFactor: 1,
+                      child: Text(
+                        widget.title,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ),
-                  if (widget.actionLabel != null) ...[
-                    SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: widget.onActionTap,
-                      child: Text(
-                        widget.actionLabel!,
-                        style: TextStyle(
-                          color:
-                              widget.actionColor ??
-                              Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 12,
-                          decoration: widget.onActionTap != null
-                              ? TextDecoration.underline
-                              : null,
-                        ),
+                ),
+                if (widget.actionLabel != null) ...[
+                  SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: widget.onActionTap,
+                    child: Text(
+                      widget.actionLabel!,
+                      style: TextStyle(
+                        color:
+                            widget.actionColor ??
+                            Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                        decoration: widget.onActionTap != null
+                            ? TextDecoration.underline
+                            : null,
                       ),
                     ),
-                  ],
-                  SizedBox(height: 10),
-                  widget.waveform,
-                  if (widget.bottomControls != null) ...[
-                    SizedBox(height: 8),
-                    widget.bottomControls!,
-                  ],
+                  ),
                 ],
-              ),
+                SizedBox(height: 10),
+                widget.waveform,
+                if (widget.bottomControls != null) ...[
+                  SizedBox(height: 8),
+                  widget.bottomControls!,
+                ],
+              ],
             ),
-          if (!widget.backstageStyle && widget.trailing != null)
+          ),
+          if (widget.trailing != null)
             PositionedDirectional(top: 0, end: 0, child: widget.trailing!),
           IgnorePointer(
             child: AnimatedBuilder(

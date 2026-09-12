@@ -12,7 +12,6 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../navigation/profile_action_session.dart';
-import '../musician_profile_visual_theme.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_state.dart';
@@ -112,9 +111,7 @@ class MusicianProfileScreen extends StatelessWidget {
         ),
         BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
       ],
-      child: const MusicianProfileThemeScope(
-        child: _MusicianPublicProfileView(),
-      ),
+      child: const _MusicianPublicProfileView(),
     );
   }
 }

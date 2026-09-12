@@ -6,7 +6,6 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/theme/backstage_palette.dart';
 import '../../../../shared/widgets/gradient_border_action_button.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'profile_audio_file_support.dart';
@@ -19,7 +18,6 @@ Future<void> showProfileTrackUploadSheet({
   required String profileType,
 }) async {
   final messenger = ScaffoldMessenger.of(hostContext);
-  final musicianStyle = ownerType == 'MUSICIAN_PROFILE';
   String? pickedPath;
   Uint8List? pickedBytes;
   Stream<List<int>>? pickedStream;
@@ -33,10 +31,7 @@ Future<void> showProfileTrackUploadSheet({
   await showModalBottomSheet<void>(
     context: hostContext,
     isScrollControlled: true,
-    backgroundColor: musicianStyle
-        ? BackstagePalette.surfaceRaised
-        : AppColors.navBlueDeep,
-    showDragHandle: musicianStyle ? true : null,
+    backgroundColor: AppColors.navBlueDeep,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -217,15 +212,10 @@ Future<void> showProfileTrackUploadSheet({
                   children: [
                     Text(
                       'SoundConnect üzerinden şarkı ekle',
-                      textAlign: musicianStyle
-                          ? TextAlign.start
-                          : TextAlign.center,
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
-                        fontWeight: musicianStyle
-                            ? FontWeight.w800
-                            : FontWeight.w700,
-                        fontSize: musicianStyle ? 21 : null,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     SizedBox(height: 12),

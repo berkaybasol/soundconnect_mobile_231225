@@ -78,13 +78,6 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ProfileAudioPreviewCard(
-            backstageStyle: _musicianPresentation,
-            timeLabel: _musicianPresentation
-                ? musicianAudioTimeLabel(
-                    isCurrent ? position : Duration.zero,
-                    track.durationSeconds,
-                  )
-                : null,
             onTap: openDetails,
             onDoubleTap: () {
               if (!isLiked) {
@@ -126,7 +119,6 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
             actionLabel: isSpotify ? "Tamamini Spotify'da Dinle" : null,
             actionColor: isSpotify ? AppColors.spotifyGreen : null,
             bottomControls: ProfileAudioTransportRow(
-              backstageStyle: _musicianPresentation,
               isPlaying: isCurrent && isPlaying,
               iconColor: isSpotify
                   ? AppColors.spotifyGreen
@@ -154,8 +146,6 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
                   : null,
             ),
             waveform: WaveformStub(
-              showLeading: !_musicianPresentation,
-              framed: !_musicianPresentation,
               samples: WaveformStub.samplesFromSeed(
                 '${track.id}:${track.title}:${track.mediaAssetId}',
               ),
@@ -184,7 +174,7 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
                       height: 26,
                       fit: BoxFit.contain,
                     ),
-              height: _musicianPresentation ? 72 : 92,
+              height: 92,
               waveformHeight: 44,
               isPlaying: isCurrent && isPlaying,
               progress: isCurrent ? progress : 0,

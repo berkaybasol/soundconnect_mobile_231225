@@ -121,8 +121,15 @@ class MusicianFeedReasonRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final promotion = item.promotion;
+    // The reason actor can differ from the content author: a followed venue
+    // can surface an event whose author header identifies the performer.
+    final publicationActor =
+        promotion == null && item.reason.code == 'FOLLOWING_PUBLICATION'
+        ? item.reason.actors.firstOrNull ??
+              (item.author?.followedByViewer == true ? item.author : null)
+        : null;
     final label = promotion == null
-        ? musicianFeedReasonLabel(item.reason)
+        ? musicianFeedReasonLabel(item.reason, publicationAuthor: item.author)
         : musicianFeedPromotionDisclosureLabel(promotion.disclosure);
     final icon = promotion == null
         ? _reasonIcon(item.reason.code)
@@ -154,7 +161,17 @@ class MusicianFeedReasonRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (label != null) ...[
+          if (publicationActor != null)
+            Expanded(
+              child: _PublicationReasonLink(
+                actor: publicationActor,
+                onTap:
+                    musicianFeedAuthorProfileIdentity(publicationActor) == null
+                    ? null
+                    : () => actions.openAuthor(item, publicationActor),
+              ),
+            )
+          else if (label != null) ...[
             Icon(
               icon,
               size: 16,
@@ -198,6 +215,82 @@ class MusicianFeedReasonRow extends StatelessWidget {
               padding: EdgeInsets.zero,
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _PublicationReasonLink extends StatelessWidget {
+  const _PublicationReasonLink({required this.actor, required this.onTap});
+
+  final MusicianFeedActor actor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final name = actor.visibleName;
+    return Semantics(
+      button: onTap != null,
+      label: onTap == null ? '$name paylaştı' : '$name profilini aç',
+      value: onTap == null ? null : 'Paylaştı',
+      onTap: onTap,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          excludeFromSemantics: true,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(0, 7, 6, 7),
+              child: Row(
+                children: [
+                  ClipOval(
+                    child: AppCachedNetworkImage(
+                      imageUrl: actor.avatarUrl,
+                      width: 26,
+                      height: 26,
+                      cacheWidth: 78,
+                      cacheHeight: 78,
+                      placeholderBuilder: (_) =>
+                          _AuthorFallback(author: actor, compact: true),
+                      errorBuilder: (_) =>
+                          _AuthorFallback(author: actor, compact: true),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: name,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const TextSpan(text: ' paylaştı'),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 12,
+                        height: 1.3,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -510,8 +603,16 @@ Future<void> showMusicianFeedActions(
   }
 }
 
-String? musicianFeedReasonLabel(MusicianFeedReason reason) {
+String? musicianFeedReasonLabel(
+  MusicianFeedReason reason, {
+  MusicianFeedActor? publicationAuthor,
+}) {
   final actor = reason.actors.isEmpty ? null : reason.actors.first.visibleName;
+  final publicationName =
+      actor ??
+      (publicationAuthor?.followedByViewer == true
+          ? publicationAuthor?.visibleName
+          : null);
   final others = reason.secondaryActorCount;
   final actorWithOthers = actor == null
       ? null
@@ -519,7 +620,8 @@ String? musicianFeedReasonLabel(MusicianFeedReason reason) {
       ? '$actor ve $others kişi daha'
       : actor;
   return switch (reason.code) {
-    'FOLLOWING_PUBLICATION' => 'Takip ettiğin bir profil paylaştı',
+    'FOLLOWING_PUBLICATION' =>
+      publicationName != null ? '$publicationName paylaştı' : 'Paylaşım',
     'FOLLOWED_USER_COMMENTED' || 'FOLLOWING_COMMENTED' =>
       '${actorWithOthers ?? 'Takip ettiğin biri'} yorum yaptı',
     'FOLLOWED_USER_LIKED' || 'FOLLOWING_LIKED' =>
@@ -593,8 +695,9 @@ String _profileTypeLabel(String value) => switch (value.toUpperCase()) {
 };
 
 class _AuthorFallback extends StatelessWidget {
-  const _AuthorFallback({required this.author});
+  const _AuthorFallback({required this.author, this.compact = false});
   final MusicianFeedActor author;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -609,7 +712,11 @@ class _AuthorFallback extends StatelessWidget {
             ? const BrandGradientIcon.social(Icons.person_outline_rounded)
             : Text(
                 initial,
-                style: const TextStyle(fontWeight: FontWeight.w900),
+                textScaler: compact ? TextScaler.noScaling : null,
+                style: TextStyle(
+                  fontSize: compact ? 11 : null,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
       ),
     );

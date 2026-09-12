@@ -11,7 +11,7 @@ Kullanıcı müzisyen akışına kısa bir ara verdi. Yeni hedef, gerçek yönet
 3. Admin giriş/yetki/oturum kapatma güvenliğini koruyarak boş ana sayfa ve yalnızca **Sponsorluklar** sekmesi bırakmak.
 4. Sonrasında kullanıcının yeni talimatını beklemek.
 
-Admin temizliği, uygulamanın kullanıcılarını, ilanlarını, başvurularını, etkinliklerini veya veritabanını silmek değildir. Backend iş kuralları ve diğer profillerin kendi “Yönetim Paneli” ekranları kapsam dışıdır. Bu not oluşturulduğunda admin sadeleştirme henüz uygulanmamıştı; sonucu dosyanın sonundaki kontrol noktasına işle.
+Admin temizliği, uygulamanın kullanıcılarını, ilanlarını, başvurularını, etkinliklerini veya veritabanını silmek değildir. Backend iş kuralları ve diğer profillerin kendi “Yönetim Paneli” ekranları kapsam dışıdır. **Admin sadeleştirme tamamlandı**; dosyanın sonundaki kontrol noktasından devam et.
 
 ## Çalışma ortamı ve korunacak sınırlar
 
@@ -208,7 +208,14 @@ Aynı Flutter snapshot ile `build apk --debug --no-pub --dart-define-from-file=.
 
 ## Son kontrol noktası — admin sadeleştirme
 
-- Durum: devam notu tamamlandı; eski admin içeriğinin güvenli sökümü sıradaki iş.
-- Eski admin açılışı `AdminPanelCubit.initialize()` ile özet/başvuru istekleri yapıyor. Boş panel bu istekleri yapmamalı.
-- `/admin` route'u ve admin role guard korunacak. Backend admin endpoint'leri, venue/studio onay kuralları ve simülasyon admin hesabı silinmeyecek.
-- Tamamlandığında kaldırılan frontend yüzeylerini, testleri ve kurulumu buraya ekle; gerçek sponsorluk uygulamasına kullanıcı yeni talimat vermeden başlama.
+- Durum: **tamamlandı**, kullanıcıdan gerçek sponsorluk yönetiminin sonraki adımını bekliyoruz. Boş sekmeyi kendiliğinden doldurma.
+- Önce devam notu `a5714a9` ile kaydedildi. Admin kod değişikliği ayrı geri alınabilir commit: **`567932d` — `refactor(admin): replace legacy panel with empty sponsorship shell`**.
+- `AdminDashboardScreen` artık yalnız AppBar, ortak güvenli çıkış düğmesi, **Ana Sayfa / Sponsorluklar** sekmeleri ve iki tamamen boş gövdeden oluşur. Varsayılan sekme Ana Sayfa. Sayaç, liste, açıklama/coming-soon kartı, mock kampanya veya yeni kampanya düğmesi yok.
+- Eski admin modülünden ekranın dışındaki **18 frontend dosyası** silindi: başvuru filtreleri, Backline kategori talepleri, Collab şikâyetleri, eski Cubit/state, repository/endpoints, ona özel model/entity sınıfları. Dashboard içindeki eski modül kartları/başvuru listeleri/istatistikler de kaldırıldı. Bu istemci sınıflarını başka modül kullanmadığı import taramasıyla doğrulandı.
+- `lib/core/di/service_locator.dart` içindeki 3 eski import ve AdminRepository/AdminPanelCubit kayıtları kaldırıldı. Açılışta `initialize()` veya özet/başvuru API çağrısı artık yok.
+- `/admin`, uygulama açılışında admin yönlendirmesi, role guard, ortak `SessionLogoutIconButton`, logout onayı ve oturum temizliği **korundu**. Yeni bir korumasız sponsor route'u eklenmedi; sekme mevcut korumalı ekranın içinde.
+- Backend admin endpoint'leri, venue/studio onayları, Collab moderasyonu, genel Promotion modülü ve simülasyon admin hesabı **duruyor**. Veritabanı/hesap/içerik silinmedi; backend repo değişmedi. Eski başvuru/moderasyon işlerini artık panel UI'sinden yapamayız; gerekirse ileride ayrıca yeniden kurulur.
+- `test/admin_panel_test.dart` eski panele ait testler yerine **11** yeni shell testi içerir: servis/API kaydı olmadan render, eski içeriğin yokluğu, iki boş sekme, dokunma/swipe/geri geçiş, erişilebilirlik, 320px/%200 yazı ve geniş ekran, istenmeyen back button yokluğu, logout iptal/onay davranışı.
+- Giriş/yetki/route/logout/simülasyon ve akış regresyonlarından **173** test daha geçti; toplam **184** test başarılı. Analiz temiz. İlgili ek dosyalar: `session_security_test.dart`, `app_router_contract_test.dart`, `app_launch_target_test.dart`, `session_logout_ui_test.dart`, `local_simulation_persona_launcher_test.dart`.
+- Android debug paketi mevcut simülasyon ayarlarıyla başarıyla derlendi ve `10GCA400GT0001N` fiziksel telefonuna `install -r` ile yüklendi (`Success`). Uygulama verileri korundu; uygulama/backend süreçleri başlatılmadı. Kullanıcının uygulamayı yeniden açıp admin hesabıyla giriş yapması yeterli; backend restart gerekmiyor.
+- Admin ekranının kendisi veri yüklemediğinden yeni Sponsorluklar yönetimi için gerekli state/repository/API sözleşmesi sonraki ürün görüşmesinde **yeniden ve bilinçli** tasarlanacak. Eski genel Promotion API'sini otomatik doğru model varsayma.

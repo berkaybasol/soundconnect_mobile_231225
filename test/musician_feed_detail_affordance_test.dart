@@ -369,6 +369,82 @@ void main() {
     expect(opened.single, same(item));
   });
 
+  for (final likable in [false, true]) {
+    for (final commentable in [false, true]) {
+      for (final hasCounts in [false, true]) {
+        testWidgets(
+          'no redundant open: likes=$likable comments=$commentable counts=$hasCounts',
+          (tester) async {
+            final item = _item(
+              MusicianFeedItemType.eventProfileShare,
+              _event,
+              engagement: MusicianFeedEngagement(
+                targetType: 'EVENT_PROFILE_SHARE',
+                targetId: 'event-publication',
+                likeCount: hasCounts ? 7 : 0,
+                commentCount: hasCounts ? 3 : 0,
+                likedByMe: false,
+                likable: likable,
+                commentable: commentable,
+              ),
+            );
+            final opened = <MusicianFeedItem>[];
+            final liked = <MusicianFeedItem>[];
+            final commented = <MusicianFeedItem>[];
+            final actions = _actions(
+              openItem: opened.add,
+              toggleLike: liked.add,
+              openComments: commented.add,
+            );
+            await _pumpCard(tester, item, actions);
+
+            expect(find.text('Beğen'), likable ? findsOneWidget : findsNothing);
+            expect(
+              find.text('Yorum'),
+              commentable ? findsOneWidget : findsNothing,
+            );
+            expect(find.text('7'), hasCounts ? findsOneWidget : findsNothing);
+            expect(
+              find.text('3 yorum'),
+              hasCounts ? findsOneWidget : findsNothing,
+            );
+            if (likable) {
+              await tester.tap(find.text('Beğen'));
+              expect(liked.single, same(item));
+            }
+            if (commentable) {
+              await tester.tap(find.text('Yorum'));
+              expect(commented.single, same(item));
+            }
+            expect(opened, isEmpty);
+            await tester.tap(find.byType(MusicianFeedDetailChevron));
+            expect(opened.single, same(item));
+
+            if (!likable && !commentable && !hasCounts) {
+              final withoutActionsHeight = tester
+                  .getSize(find.byKey(ValueKey('musician-feed-${item.id}')))
+                  .height;
+              await _pumpCard(
+                tester,
+                _item(MusicianFeedItemType.eventProfileShare, _event),
+                actions,
+              );
+              expect(
+                tester
+                    .getSize(find.byKey(ValueKey('musician-feed-${item.id}')))
+                    .height,
+                withoutActionsHeight,
+                reason:
+                    'Removing the last action must not leave an empty footer gap.',
+              );
+            }
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
   testWidgets('detail link provides a 48dp screen-reader tap target', (
     tester,
   ) async {
@@ -592,4 +668,5 @@ Future<void> _pumpCard(
     ),
   );
   await tester.pump();
+  expect(find.text('Aç'), findsNothing);
 }

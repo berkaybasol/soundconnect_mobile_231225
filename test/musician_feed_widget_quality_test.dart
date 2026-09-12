@@ -696,7 +696,8 @@ void main() {
       await _pumpNarrowCard(tester, item, actions);
 
       expect(tester.takeException(), isNull);
-      for (final label in const ['Beğen', 'Yorum', 'Aç']) {
+      expect(find.text('Aç'), findsNothing);
+      for (final label in const ['Beğen', 'Yorum']) {
         final action = find.text(label);
         expect(action, findsOneWidget);
         expect(action.hitTestable(), findsOneWidget);

@@ -60,7 +60,7 @@ class MusicianFeedSurface extends StatelessWidget {
                   const SizedBox(height: 13),
                 ],
                 child,
-                if (item.engagement != null) ...[
+                if (_hasEngagementContent(item.engagement)) ...[
                   const SizedBox(height: 12),
                   MusicianFeedEngagementBar(item: item, actions: actions),
                 ],
@@ -455,6 +455,13 @@ class MusicianFeedAuthorHeader extends StatelessWidget {
   }
 }
 
+bool _hasEngagementContent(MusicianFeedEngagement? engagement) =>
+    engagement != null &&
+    (engagement.likable ||
+        engagement.commentable ||
+        engagement.likeCount > 0 ||
+        engagement.commentCount > 0);
+
 class MusicianFeedEngagementBar extends StatelessWidget {
   const MusicianFeedEngagementBar({
     super.key,
@@ -467,7 +474,11 @@ class MusicianFeedEngagementBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!_hasEngagementContent(item.engagement)) {
+      return const SizedBox.shrink();
+    }
     final engagement = item.engagement!;
+    final hasActions = engagement.likable || engagement.commentable;
     return Column(
       children: [
         if (engagement.likeCount > 0 || engagement.commentCount > 0) ...[
@@ -490,43 +501,39 @@ class MusicianFeedEngagementBar extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
-          Divider(
-            height: 1,
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-          const SizedBox(height: 2),
-        ],
-        Row(
-          children: [
-            if (engagement.likable)
-              Expanded(
-                child: _FeedActionButton(
-                  icon: engagement.likedByMe
-                      ? Icons.favorite_rounded
-                      : Icons.favorite_border_rounded,
-                  label: engagement.likedByMe ? 'Beğendin' : 'Beğen',
-                  color: engagement.likedByMe ? AppColors.likeHeart : null,
-                  onPressed: () => actions.toggleLike(item),
-                ),
-              ),
-            if (engagement.commentable)
-              Expanded(
-                child: _FeedActionButton(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  label: 'Yorum',
-                  onPressed: () => actions.openComments(item),
-                ),
-              ),
-            Expanded(
-              child: _FeedActionButton(
-                icon: Icons.chevron_right_rounded,
-                label: 'Aç',
-                onPressed: () => actions.openItem(item),
-              ),
+          if (hasActions) ...[
+            const SizedBox(height: 8),
+            Divider(
+              height: 1,
+              color: Theme.of(context).colorScheme.outlineVariant,
             ),
+            const SizedBox(height: 2),
           ],
-        ),
+        ],
+        if (hasActions)
+          Row(
+            children: [
+              if (engagement.likable)
+                Expanded(
+                  child: _FeedActionButton(
+                    icon: engagement.likedByMe
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    label: engagement.likedByMe ? 'Beğendin' : 'Beğen',
+                    color: engagement.likedByMe ? AppColors.likeHeart : null,
+                    onPressed: () => actions.toggleLike(item),
+                  ),
+                ),
+              if (engagement.commentable)
+                Expanded(
+                  child: _FeedActionButton(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    label: 'Yorum',
+                    onPressed: () => actions.openComments(item),
+                  ),
+                ),
+            ],
+          ),
       ],
     );
   }

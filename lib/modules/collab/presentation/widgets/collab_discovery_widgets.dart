@@ -126,6 +126,7 @@ class CollabListingCard extends StatelessWidget {
     this.interactive = true,
     this.showSave = true,
     this.showCadence = true,
+    this.showWantedBadge = false,
     super.key,
   });
 
@@ -136,6 +137,7 @@ class CollabListingCard extends StatelessWidget {
   final bool interactive;
   final bool showSave;
   final bool showCadence;
+  final bool showWantedBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -225,16 +227,22 @@ class CollabListingCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                if (showCadence) ...[
+                if (showCadence || showWantedBadge) ...[
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 7,
                     runSpacing: 7,
                     children: [
-                      CollabStatusPill(
-                        label: listing.cadence.label,
-                        color: AppColors.socialPink,
-                      ),
+                      if (showCadence)
+                        CollabStatusPill(
+                          label: listing.cadence.label,
+                          color: AppColors.socialPink,
+                        ),
+                      if (showWantedBadge)
+                        CollabStatusPill(
+                          label: listing.wantedSummary,
+                          color: AppColors.socialOrange,
+                        ),
                     ],
                   ),
                   const SizedBox(height: 13),

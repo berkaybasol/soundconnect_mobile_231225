@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_discovery_models.dart';
+import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/collab_discovery_widgets.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_models.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/musician_feed_visual_theme.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/widgets/musician_feed_card_registry.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 
 void main() {
@@ -280,8 +283,191 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.text('Öne Çıkan'), findsNWidgets(2));
         expect(find.text('Fırsat görmek istediğin şehirde'), findsNothing);
+        expect(_wantedBadge('Müzisyen arayan: Bas Gitar'), findsOneWidget);
       },
     );
+
+    for (final kind in CollabProfileKind.values) {
+      for (final cadence in CollabCadence.values) {
+        testWidgets(
+          '${cadence.apiValue} Collab shows the ${kind.apiValue} wanted badge',
+          (tester) async {
+            final listing = _collabListingJson()
+              ..['wantedType'] = kind.apiValue
+              ..['cadence'] = cadence.apiValue;
+            if (kind != CollabProfileKind.musician) {
+              listing['instrument'] = null;
+            }
+            if (cadence == CollabCadence.extra) {
+              listing['scheduledAt'] = '2026-09-21T18:00:00Z';
+            }
+            final item = _item(
+              id: 'wanted-${kind.apiValue}-${cadence.apiValue}',
+              type: MusicianFeedItemType.collab,
+              payload: CollabFeedPayload(listing: listing),
+              reasonCode: 'CITY_MATCH',
+            );
+
+            await _pumpCard(
+              tester,
+              item,
+              _actions(),
+              size: const Size(420, 900),
+              textScale: 1,
+            );
+
+            final expected = kind == CollabProfileKind.musician
+                ? '${kind.wantedLabel}: Bas Gitar'
+                : kind.wantedLabel;
+            expect(_wantedBadge(expected), findsOneWidget);
+            expect(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is CollabStatusPill &&
+                    widget.label == cadence.label &&
+                    widget.color == AppColors.socialPink,
+              ),
+              findsOneWidget,
+            );
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+
+    testWidgets('musician wanted badge handles a missing specialty', (
+      tester,
+    ) async {
+      final listing = _collabListingJson()..['instrument'] = null;
+      final item = _item(
+        id: 'wanted-musician-without-specialty',
+        type: MusicianFeedItemType.collab,
+        payload: CollabFeedPayload(listing: listing),
+        reasonCode: 'CITY_MATCH',
+      );
+
+      await _pumpNarrowCard(tester, item, _actions());
+
+      expect(_wantedBadge('Müzisyen arayan'), findsOneWidget);
+      expect(_wantedBadge('Müzisyen arayan: '), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('long wanted badge wraps at 320dp and 200 percent text', (
+      tester,
+    ) async {
+      const specialty =
+          'Orkestra ve sahne düzenlemelerinde çok enstrümanlı canlı performans';
+      final listing = _collabListingJson()
+        ..['instrument'] = null
+        ..['branch'] = 'OTHER'
+        ..['customSpecialty'] = specialty;
+      final item = _item(
+        id: 'wanted-long-specialty',
+        type: MusicianFeedItemType.collab,
+        payload: CollabFeedPayload(listing: listing),
+        reasonCode: 'CITY_MATCH',
+      );
+
+      await _pumpNarrowCard(tester, item, _actions());
+
+      final badge = _wantedBadge('Müzisyen arayan: $specialty');
+      expect(badge, findsOneWidget);
+      await tester.ensureVisible(badge);
+      final badgeRect = tester.getRect(badge);
+      expect(badgeRect.left, greaterThanOrEqualTo(0));
+      expect(badgeRect.right, lessThanOrEqualTo(320));
+      expect(
+        tester
+            .widget<Text>(
+              find.descendant(of: badge, matching: find.byType(Text)),
+            )
+            .maxLines,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('wanted badge keeps Collab opening and saving independent', (
+      tester,
+    ) async {
+      final opened = <MusicianFeedItem>[];
+      final saved = <(MusicianFeedItem, bool)>[];
+      final item = _item(
+        id: 'wanted-actions',
+        type: MusicianFeedItemType.collab,
+        payload: CollabFeedPayload(listing: _collabListingJson()),
+        reasonCode: 'CITY_MATCH',
+      );
+
+      await _pumpCard(
+        tester,
+        item,
+        _actions(
+          openItem: opened.add,
+          toggleCollabSaved: (item, value) => saved.add((item, value)),
+        ),
+        size: const Size(420, 900),
+        textScale: 1,
+      );
+
+      await tester.tap(_wantedBadge('Müzisyen arayan: Bas Gitar'));
+      await tester.pump();
+      expect(opened, [item]);
+      expect(saved, isEmpty);
+      await tester.tap(find.byTooltip('İlanı kaydet'));
+      await tester.pump();
+      expect(saved, [(item, true)]);
+      expect(opened, [item]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('shared discovery card keeps its wanted badge opt-in', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.navy,
+          home: Scaffold(
+            body: CollabListingCard(
+              listing: _discoveryListing,
+              saved: false,
+              onTap: () {},
+              onSave: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(_wantedBadge('Müzisyen arayan: Bas Gitar'), findsNothing);
+      expect(find.text('Müzisyen arayan: Bas Gitar'), findsOneWidget);
+      expect(find.text('Düzenli'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('wanted badge can show independently of cadence', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.navy,
+          home: Scaffold(
+            body: CollabListingCard(
+              listing: _discoveryListing,
+              saved: false,
+              showCadence: false,
+              showWantedBadge: true,
+              onTap: () {},
+              onSave: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(_wantedBadge('Müzisyen arayan: Bas Gitar'), findsOneWidget);
+      expect(find.text('Düzenli'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('embedded musician Collab cards show the account username', (
       tester,
@@ -580,6 +766,7 @@ MusicianFeedCardActions _actions({
   void Function(MusicianFeedItem)? openPromotion,
   void Function(MusicianFeedItem)? followProfile,
   void Function(MusicianFeedItem)? toggleLike,
+  void Function(MusicianFeedItem, bool)? toggleCollabSaved,
 }) => MusicianFeedCardActions(
   openItem: openItem ?? (_) {},
   openAuthor: (_, _) {},
@@ -590,7 +777,7 @@ MusicianFeedCardActions _actions({
   muteAuthor: (_, _) {},
   openCompletionTask: openCompletionTask ?? (_) {},
   openPromotion: openPromotion ?? (_) {},
-  toggleCollabSaved: (_, _) {},
+  toggleCollabSaved: toggleCollabSaved ?? (_, _) {},
   followProfile: followProfile ?? (_) {},
 );
 
@@ -633,6 +820,25 @@ Future<void> _pumpCard(
   );
   await tester.pump();
 }
+
+Finder _wantedBadge(String label) => find.byWidgetPredicate(
+  (widget) =>
+      widget is CollabStatusPill &&
+      widget.label == label &&
+      widget.color == AppColors.socialOrange,
+);
+
+const _discoveryListing = CollabDiscoveryListing(
+  id: 'discovery-listing',
+  ownerName: 'Kadıköy Sahne',
+  ownerInitials: 'KS',
+  profileKind: CollabProfileKind.venue,
+  wantedKind: CollabProfileKind.musician,
+  title: 'Bas gitarist aranıyor',
+  cadence: CollabCadence.regular,
+  location: 'İstanbul',
+  role: 'Bas Gitar',
+);
 
 Map<String, dynamic> _collabListingJson() => <String, dynamic>{
   'id': 'listing-id',

@@ -118,6 +118,7 @@ Widget buildCollabFeedCard(
     contentPadding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
     child: CollabListingCard(
       listing: cardModel,
+      showWantedBadge: true,
       saved: listing.savedByMe,
       onTap: () => actions.openItem(item),
       onSave: () => actions.toggleCollabSaved(item, !listing.savedByMe),

@@ -9,7 +9,6 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/deep_link/app_deep_link_policy.dart';
 import '../../../../core/deep_link/pending_app_deep_link_store.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/simulation/local_simulation_config.dart';
 import '../../../collab/presentation/collab_route_args.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
@@ -19,7 +18,6 @@ import '../../domain/password_policy.dart';
 import '../../domain/username_policy.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
-import '../widgets/local_simulation_persona_launcher.dart';
 
 class LoginRouteArgs {
   const LoginRouteArgs({this.initialNotice});
@@ -73,19 +71,6 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
     return username;
-  }
-
-  Future<void> _loginAsSimulationPersona(
-    LocalSimulationPersona persona,
-    String password,
-  ) async {
-    if (!LocalSimulationConfig.isEnabled || _loginNavigationStarted) return;
-    _usernameController.text = persona.username;
-    _passwordController.text = password;
-    if (!_isPasswordObscured && mounted) {
-      setState(() => _isPasswordObscured = true);
-    }
-    _submitLogin();
   }
 
   void _submitLogin() {
@@ -253,14 +238,6 @@ class _LoginScreenState extends State<LoginScreen> {
           child: AppScaffold(
             title: '',
             actions: [
-              if (LocalSimulationConfig.isEnabled)
-                LocalSimulationPersonaLauncher(
-                  enabled: true,
-                  isBusy: navigationLocked,
-                  personas: LocalSimulationConfig.musicianObservers,
-                  configuredPassword: LocalSimulationConfig.commonPassword,
-                  onSelected: _loginAsSimulationPersona,
-                ),
               PopupMenuButton<AppThemeMenuOption>(
                 tooltip: 'Tema seç',
                 enabled: !navigationLocked,
@@ -350,9 +327,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(height: 18),
                 InkWell(
                   borderRadius: BorderRadius.circular(18),
-                  onTap: navigationLocked
-                      ? null
-                      : _submitLogin,
+                  onTap: navigationLocked ? null : _submitLogin,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(

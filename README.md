@@ -59,41 +59,8 @@ Debug builds can fall back to the local development default in
 `lib/core/network/network_config.dart`. Non-debug builds require
 `SOUNDCONNECT_BASE_URL` and enforce HTTPS.
 
-### Local simulation observer accounts
-
-To expose the three musician-feed observer shortcuts on the login screen,
-create the ignored `.local-simulation.json` file:
-
-```json
-{
-  "SOUNDCONNECT_LOCAL_SIMULATION": true,
-  "SOUNDCONNECT_BASE_URL": "http://10.0.2.2:8080",
-  "SOUNDCONNECT_SIMULATION_PASSWORD": "<local common password>"
-}
-```
-
-Add only `--dart-define-from-file=.local-simulation.json` to an Android
-Studio/IntelliJ Flutter run configuration. The secret stays out of both the
-shared configuration and command output.
-
-With `adb reverse tcp:8080 tcp:8080`, use `http://127.0.0.1:8080` here and
-set the backend `SOUNDCONNECT_SIMULATION_MEDIA_PUBLIC_BASE_URL` to that exact
-origin as well.
-Existing simulation checkpoints may still contain capability URLs issued for
-another allowed local alias, such as `10.0.2.2`. In an explicitly enabled
-debug-local simulation only, those URLs are canonicalized onto the configured
-local API origin when their scheme, effective port, and capability path match.
-Release and non-simulation media transport remain unchanged.
-The password argument is optional; when omitted, the developer picker asks for
-it without saving it. Never commit the password in a shared run configuration.
-The shortcut is disabled outside debug builds and whenever the API origin is
-not loopback/`10.0.2.2`.
-
-The backend's simulation media contract is
-`/api/v1/public/simulation-media/{opaqueCapability}`. HTTP media from that
-route is accepted only under the same explicit debug-local simulation guard,
-from the configured API origin, and with a single opaque capability segment;
-all non-local and release media remains HTTPS-only.
+Media delivery is HTTPS-only, including when the API uses a local HTTP URL.
+Use the normal backend media/storage configuration for uploaded content.
 
 ## Realtime STOMP Contract
 

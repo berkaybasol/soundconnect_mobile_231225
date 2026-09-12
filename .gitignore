@@ -49,6 +49,3 @@ app.*.map.json
 # Local verification output and generated golden-test diagnostics
 /.local-verification/
 /test/failures/
-
-# Optional local simulation dart-define file; may contain a disposable secret.
-/.local-simulation.json

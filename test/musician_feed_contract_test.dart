@@ -315,8 +315,7 @@ void main() {
     });
 
     test('accepts safe backend-relative media references', () {
-      const mediaPath =
-          '/api/v1/public/simulation-media/opaque-audio-capability';
+      const mediaPath = '/media/audio/track.mp3';
       final item = _itemJson('relative-track', 'TRACK', {
         'trackId': 'track-id',
         'mediaAssetId': 'media-id',
@@ -326,7 +325,7 @@ void main() {
         'bpm': 108,
       });
       (item['author'] as Map<String, dynamic>)['avatarUrl'] =
-          '/api/v1/public/simulation-media/opaque-avatar-capability';
+          '/media/avatars/profile.webp';
 
       final page = MusicianFeedPage.fromJson(_pageJson([item]));
       final payload = page.items.single.payload as TrackFeedPayload;
@@ -334,7 +333,7 @@ void main() {
       expect(payload.playbackUrl, mediaPath);
       expect(
         page.items.single.author?.avatarUrl,
-        '/api/v1/public/simulation-media/opaque-avatar-capability',
+        '/media/avatars/profile.webp',
       );
     });
 
@@ -345,8 +344,7 @@ void main() {
           'trackId': 'track-id',
           'mediaAssetId': 'media-id',
           'title': 'Güvensiz kayıt',
-          'playbackUrl':
-              'http://127.0.0.1:8080/api/v1/public/simulation-media/token',
+          'playbackUrl': 'http://127.0.0.1:8080/media/audio/track.mp3',
           'durationSeconds': 12,
           'bpm': 108,
         });
@@ -354,7 +352,7 @@ void main() {
         final page = MusicianFeedPage.fromJson(_pageJson([item]));
         expect(
           (page.items.single.payload as TrackFeedPayload).playbackUrl,
-          'http://127.0.0.1:8080/api/v1/public/simulation-media/token',
+          'http://127.0.0.1:8080/media/audio/track.mp3',
         );
       },
     );

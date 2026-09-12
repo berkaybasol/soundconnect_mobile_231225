@@ -3,8 +3,21 @@ import '../../../core/error/app_error.dart';
 import 'entities/comment_item.dart';
 import 'entities/comment_page.dart';
 import 'entities/comment_like_state.dart';
+import 'entities/like_user_page.dart';
 
 abstract class EngagementRepository {
+  Future<Result<LikeUserPage>> listLikeUsers({
+    required String targetType,
+    required String targetId,
+    String? cursor,
+    int size = 20,
+  }) async => const Result.failure(
+    AppError(
+      code: 'engagement_like_users_unavailable',
+      message: 'Beğenenler getirilemedi. Yeniden dene.',
+    ),
+  );
+
   Future<Result<CommentLikeState>> setCommentLike({
     required String commentId,
     required bool liked,

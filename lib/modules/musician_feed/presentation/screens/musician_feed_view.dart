@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../analytics/presentation/widgets/analytics_exposure.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
+import '../../../engagement/domain/engagement_repository.dart';
+import '../../../engagement/presentation/widgets/like_users_sheet.dart';
+import '../../domain/musician_feed_like_users_target.dart';
 import '../../domain/musician_feed_models.dart';
 import '../musician_feed_visual_theme.dart';
 import '../cubit/musician_feed_cubit.dart';
@@ -32,6 +36,7 @@ class MusicianFeedView extends StatefulWidget {
 
 class _MusicianFeedViewState extends State<MusicianFeedView> {
   final _scrollController = ScrollController();
+  bool _likesSheetOpen = false;
   late final MusicianFeedCardRegistry _registry =
       widget.registry ?? MusicianFeedCardRegistry.standard();
 
@@ -157,6 +162,7 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
           unawaited(navigation.openAuthor(item, author)),
       toggleLike: (item) => unawaited(cubit.toggleLike(item.id)),
       openComments: (item) => unawaited(_openComments(feedContext, item)),
+      openLikes: (item) => unawaited(_openLikes(feedContext, item)),
       feedback: (item, action) =>
           unawaited(_sendFeedback(feedContext, item, action)),
       muteAuthor: (item, author) =>
@@ -169,6 +175,46 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
           unawaited(cubit.toggleCollabSaved(item.id, saved)),
       followProfile: (item) => unawaited(cubit.followProfile(item.id)),
     );
+  }
+
+  Future<void> _openLikes(
+    BuildContext feedContext,
+    MusicianFeedItem item,
+  ) async {
+    final target = musicianFeedLikeUsersTarget(item);
+    if (_likesSheetOpen || target == null || !feedContext.mounted) return;
+    final cubit = feedContext.read<MusicianFeedCubit>();
+    final fence = cubit.captureSessionFence();
+    bool isCurrent() =>
+        mounted &&
+        feedContext.mounted &&
+        cubit.acceptsSessionFence(fence) &&
+        identical(feedContext.read<MusicianFeedCubit>(), cubit);
+    if (!isCurrent()) return;
+    _likesSheetOpen = true;
+    try {
+      await showModalBottomSheet<void>(
+        context: feedContext,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        backgroundColor: Theme.of(feedContext).colorScheme.surfaceContainerHigh,
+        builder: (_) => MusicianFeedThemeScope(
+          child: FractionallySizedBox(
+            heightFactor: .75,
+            child: LikeUsersSheet(
+              targetType: target.targetType,
+              targetId: target.targetId,
+              repository: serviceLocator<EngagementRepository>(),
+              sessions: serviceLocator<AuthSessionManager>(),
+              isCurrent: isCurrent,
+            ),
+          ),
+        ),
+      );
+    } finally {
+      _likesSheetOpen = false;
+    }
   }
 
   Future<void> _openComments(

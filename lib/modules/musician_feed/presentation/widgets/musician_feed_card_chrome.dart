@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../domain/musician_feed_like_users_target.dart';
 import '../../domain/musician_feed_models.dart';
 import 'musician_feed_card_registry.dart';
 
@@ -134,6 +135,11 @@ class MusicianFeedReasonRow extends StatelessWidget {
     final icon = promotion == null
         ? _reasonIcon(item.reason.code)
         : _promotionDisclosureIcon(promotion.disclosure);
+    final canOpenLikes =
+        promotion == null &&
+        (item.reason.code == 'FOLLOWED_USER_LIKED' ||
+            item.reason.code == 'FOLLOWING_LIKED') &&
+        musicianFeedLikeUsersTarget(item) != null;
     final canHide = item.feedbackCapabilities.contains(
       MusicianFeedFeedbackAction.hide,
     );
@@ -169,6 +175,14 @@ class MusicianFeedReasonRow extends StatelessWidget {
                     musicianFeedAuthorProfileIdentity(publicationActor) == null
                     ? null
                     : () => actions.openAuthor(item, publicationActor),
+              ),
+            )
+          else if (label != null && canOpenLikes)
+            Expanded(
+              child: _LikesReasonLink(
+                label: label,
+                icon: icon,
+                onTap: () => actions.openLikes(item),
               ),
             )
           else if (label != null) ...[
@@ -218,6 +232,63 @@ class MusicianFeedReasonRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LikesReasonLink extends StatelessWidget {
+  const _LikesReasonLink({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '$label. Beğenenleri göster',
+    onTap: onTap,
+    excludeSemantics: true,
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        excludeFromSemantics: true,
+        borderRadius: BorderRadius.circular(8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(0, 7, 6, 7),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _PublicationReasonLink extends StatelessWidget {

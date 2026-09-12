@@ -585,6 +585,7 @@ MusicianFeedCardActions _actions({
   openAuthor: (_, _) {},
   toggleLike: toggleLike ?? (_) {},
   openComments: (_) {},
+  openLikes: (_) {},
   feedback: (_, _) {},
   muteAuthor: (_, _) {},
   openCompletionTask: openCompletionTask ?? (_) {},

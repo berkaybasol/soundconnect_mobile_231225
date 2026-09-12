@@ -303,6 +303,7 @@ class _Calls {
     },
     toggleLike: (_) {},
     openComments: (_) {},
+    openLikes: (_) {},
     feedback: (item, action) {
       feedbackItems.add(item);
       feedbackActions.add(action);

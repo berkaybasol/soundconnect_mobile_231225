@@ -15,6 +15,9 @@ class EngagementEndpoints {
   static String likeCount(String targetType, String targetId) =>
       '${like(targetType, targetId)}/count';
 
+  static String likeUsers(String targetType, String targetId) =>
+      '${like(targetType, targetId)}/users';
+
   static String isLiked(String targetType, String targetId) =>
       '${like(targetType, targetId)}/is-liked';
 

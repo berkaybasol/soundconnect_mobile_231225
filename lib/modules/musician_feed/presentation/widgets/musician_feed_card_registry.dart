@@ -77,6 +77,7 @@ class MusicianFeedCardActions {
     required this.openAuthor,
     required this.toggleLike,
     required this.openComments,
+    required this.openLikes,
     required this.feedback,
     required this.muteAuthor,
     required this.openCompletionTask,
@@ -90,6 +91,7 @@ class MusicianFeedCardActions {
   openAuthor;
   final void Function(MusicianFeedItem item) toggleLike;
   final void Function(MusicianFeedItem item) openComments;
+  final void Function(MusicianFeedItem item) openLikes;
   final void Function(MusicianFeedItem item, MusicianFeedFeedbackAction action)
   feedback;
   final void Function(MusicianFeedItem item, MusicianFeedActor author)

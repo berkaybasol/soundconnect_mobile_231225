@@ -15,6 +15,7 @@ import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/domain/entities/comment_item.dart';
 import '../../../engagement/domain/entities/comment_like_state.dart';
 import '../../../engagement/domain/entities/comment_page.dart';
+import '../../../engagement/domain/entities/like_user_page.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/comment_thread_state.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
@@ -469,6 +470,24 @@ class _PublicationCommentsRepository implements EngagementRepository {
   Future<Result<CommentLikeState>> readCommentLike({
     required String commentId,
   }) => _guard(() => delegate.readCommentLike(commentId: commentId));
+
+  @override
+  Future<Result<LikeUserPage>> listLikeUsers({
+    required String targetType,
+    required String targetId,
+    String? cursor,
+    int size = 20,
+  }) => !_scope(targetType, targetId)
+      ? Future.value(Result.failure(_wrongScope))
+      : _guard(
+          () => delegate.listLikeUsers(
+            targetType: targetType,
+            targetId: targetId,
+            cursor: cursor,
+            size: size,
+          ),
+          publicationScoped: true,
+        );
 
   @override
   Future<Result<int>> getLikeCount({

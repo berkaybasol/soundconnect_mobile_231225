@@ -8,8 +8,11 @@ import '../domain/entities/comment_item.dart';
 import '../domain/entities/comment_page.dart';
 import '../domain/entities/comment_like_state.dart';
 import '../domain/entities/comment_text.dart';
+import '../domain/entities/comment_user_summary.dart';
+import '../domain/entities/like_user_page.dart';
 import 'engagement_endpoints.dart';
 import 'models/comment_item_model.dart';
+import 'models/comment_user_summary_model.dart';
 import 'models/comment_wire_date.dart';
 
 class EngagementRepositoryImpl implements EngagementRepository {
@@ -59,6 +62,103 @@ class EngagementRepositoryImpl implements EngagementRepository {
     if (id.trim().isEmpty || id != id.trim() || id.length > 128) {
       throw const FormatException('Invalid comment identity');
     }
+  }
+
+  @override
+  Future<Result<LikeUserPage>> listLikeUsers({
+    required String targetType,
+    required String targetId,
+    String? cursor,
+    int size = 20,
+  }) => _commentRequest(
+    ApiHttpMethod.get,
+    () => EngagementEndpoints.likeUsers(targetType, targetId),
+    query: {'size': size, if (cursor != null) 'cursor': cursor},
+    validate: () {
+      _validateLikeTarget(targetType, targetId);
+      if (size < 1 || size > 50) {
+        throw const FormatException('Invalid like users page size');
+      }
+      if (cursor != null) _validateLikeUsersCursor(cursor);
+    },
+    decoder: (raw) => _likeUsersPageFromJson(raw, size, cursor),
+    errorCode: 'engagement_like_users_invalid_response',
+    errorMessage: 'Beğenenler getirilemedi. Yeniden dene.',
+  );
+
+  static void _validateLikeUsersCursor(String cursor) {
+    if (cursor.trim().isEmpty ||
+        cursor != cursor.trim() ||
+        cursor.length > 1024) {
+      throw const FormatException('Invalid like users cursor');
+    }
+  }
+
+  static LikeUserPage _likeUsersPageFromJson(
+    Object? raw,
+    int size,
+    String? cursor,
+  ) {
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException('Invalid like users page');
+    }
+    final content = raw['items'];
+    final hasMore = raw['hasMore'];
+    final nextCursor = raw['nextCursor'];
+    if (content is! List || content.length > size || hasMore is! bool) {
+      throw const FormatException('Invalid like users pagination');
+    }
+    if (nextCursor != null) {
+      if (nextCursor is! String) {
+        throw const FormatException('Invalid like users cursor type');
+      }
+      _validateLikeUsersCursor(nextCursor);
+    }
+    if ((hasMore &&
+            (content.isEmpty || nextCursor == null || nextCursor == cursor)) ||
+        (!hasMore && nextCursor != null)) {
+      throw const FormatException('Inconsistent like users pagination');
+    }
+
+    final items = <CommentUserSummary>[];
+    final ids = <String>{};
+    for (final entry in content) {
+      if (entry is! Map<String, dynamic>) {
+        throw const FormatException('Invalid like user');
+      }
+      final id = entry['id'];
+      final username = entry['username'];
+      final avatarUrl = entry['avatarUrl'];
+      final visibilityMode = entry['visibilityMode'];
+      if (id is! String ||
+          username is! String ||
+          username.trim().isEmpty ||
+          (avatarUrl != null && avatarUrl is! String) ||
+          (visibilityMode != null &&
+              visibilityMode != 'STANDARD' &&
+              visibilityMode != 'GHOST')) {
+        throw const FormatException('Invalid like user identity');
+      }
+      _validateCommentLikeId(id);
+      if (!ids.add(id)) {
+        throw const FormatException('Duplicate like user');
+      }
+      // Only the endpoint's explicit fields may supply an identity. Legacy
+      // comment aliases and fallback usernames do not apply to this list.
+      items.add(
+        CommentUserSummaryModel.fromJson({
+          'id': id,
+          'username': username,
+          'avatarUrl': avatarUrl,
+          'visibilityMode': visibilityMode,
+        }),
+      );
+    }
+    return LikeUserPage(
+      items: List.unmodifiable(items),
+      nextCursor: nextCursor as String?,
+      hasMore: hasMore,
+    );
   }
 
   @override

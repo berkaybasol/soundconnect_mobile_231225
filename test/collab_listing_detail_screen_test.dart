@@ -170,7 +170,9 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(ownerCard);
+    await tester.tap(
+      find.byKey(const ValueKey('collab-owner-actions-trigger')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Profili görüntüle'), findsOneWidget);
@@ -216,7 +218,9 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(ownerCard);
+    await tester.tap(
+      find.byKey(const ValueKey('collab-owner-actions-trigger')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey<String>('collab-owner-reviews-action')),

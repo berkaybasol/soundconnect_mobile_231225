@@ -203,7 +203,10 @@ class _DetailViewState extends State<_DetailView> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 7, 14, 30),
         children: [
-          _ListingHero(listing: listing),
+          _ListingHero(
+            listing: listing,
+            onProfileTap: () => _openPublisherProfile(listing.publisher),
+          ),
           const SizedBox(height: 20),
           const CollabSectionTitle('Açıklama'),
           const SizedBox(height: 9),
@@ -257,6 +260,7 @@ class _DetailViewState extends State<_DetailView> {
           _OwnerCard(
             actor: listing.publisher,
             onTap: () => _openOwnerActions(listing.publisher),
+            onProfileTap: () => _openPublisherProfile(listing.publisher),
           ),
           const SizedBox(height: 18),
           CollabPrimaryAction(
@@ -344,6 +348,20 @@ class _DetailViewState extends State<_DetailView> {
     if (listing.ownedByMe) return Icons.close_rounded;
     if (listing.appliedByMe) return Icons.check_rounded;
     return Icons.rocket_launch_outlined;
+  }
+
+  void _openPublisherProfile(CollabActor actor) {
+    if (!mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        actor.sourceProfileId.trim().isEmpty) {
+      return;
+    }
+    final listing = context.read<CollabListingDetailCubit>().state.listing;
+    if (listing?.id != widget.listingId ||
+        listing?.publisher.actorId != actor.actorId) {
+      return;
+    }
+    openCollabActorProfile(context, actor);
   }
 
   Future<void> _openOwnerActions(CollabActor actor) async {
@@ -487,9 +505,10 @@ class _DetailViewState extends State<_DetailView> {
 }
 
 class _ListingHero extends StatelessWidget {
-  const _ListingHero({required this.listing});
+  const _ListingHero({required this.listing, required this.onProfileTap});
 
   final CollabListing listing;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -500,41 +519,46 @@ class _ListingHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CollabIdentityAvatar(
-                initials: listing.publisher.initials,
-                profileKind: listing.publisher.profileType,
-                avatarUrl: listing.publisher.avatarUrl,
-                size: 62,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      listing.publisher.displayName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      listing.publisher.profileType.label,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+          _PublisherProfileLink(
+            key: const ValueKey('collab-listing-publisher-profile'),
+            actor: listing.publisher,
+            onTap: onProfileTap,
+            child: Row(
+              children: [
+                CollabIdentityAvatar(
+                  initials: listing.publisher.initials,
+                  profileKind: listing.publisher.profileType,
+                  avatarUrl: listing.publisher.avatarUrl,
+                  size: 62,
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        listing.publisher.displayName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        listing.publisher.profileType.label,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -680,10 +704,15 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _OwnerCard extends StatelessWidget {
-  const _OwnerCard({required this.actor, required this.onTap});
+  const _OwnerCard({
+    required this.actor,
+    required this.onTap,
+    required this.onProfileTap,
+  });
 
   final CollabActor actor;
   final VoidCallback onTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -698,98 +727,185 @@ class _OwnerCard extends StatelessWidget {
         child: CollabGradientFrame(
           radius: 18,
           padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              CollabIdentityAvatar(
-                initials: actor.initials,
-                profileKind: actor.profileType,
-                avatarUrl: actor.avatarUrl,
-                size: 58,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      actor.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      actor.profileType.label,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star_rounded,
-                          color: AppColors.socialPurple,
-                          size: 18,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked =
+                  constraints.maxWidth < 290 ||
+                  MediaQuery.textScalerOf(context).scale(14.5) > 20;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      _PublisherProfileLink(
+                        key: const ValueKey('collab-owner-avatar-profile'),
+                        actor: actor,
+                        onTap: onProfileTap,
+                        child: CollabIdentityAvatar(
+                          initials: actor.initials,
+                          profileKind: actor.profileType,
+                          avatarUrl: actor.avatarUrl,
+                          size: 58,
                         ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            actor.reviewCount == 0
-                                ? 'Henüz değerlendirme yok'
-                                : '${actor.rating.toStringAsFixed(1)} / 5 · ${actor.reviewCount} değerlendirme',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 11.5,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _PublisherProfileLink(
+                              key: const ValueKey('collab-owner-name-profile'),
+                              actor: actor,
+                              onTap: onProfileTap,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    actor.displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    actor.profileType.label,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.star_rounded,
+                                  color: AppColors.socialPurple,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    actor.reviewCount == 0
+                                        ? 'Henüz değerlendirme yok'
+                                        : '${actor.rating.toStringAsFixed(1)} / 5 · ${actor.reviewCount} değerlendirme',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
+                      ),
+                      if (!stacked) ...[
+                        Container(
+                          width: 1,
+                          height: 43,
+                          color: theme.dividerColor,
+                          margin: const EdgeInsets.symmetric(horizontal: 11),
+                        ),
+                        _completedJobs(theme),
                       ],
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        key: const ValueKey('collab-owner-actions-trigger'),
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                  if (stacked) ...[
+                    const SizedBox(height: 12),
+                    Divider(height: 1, color: theme.dividerColor),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: _completedJobs(theme),
+                      ),
                     ),
                   ],
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 43,
-                color: theme.dividerColor,
-                margin: const EdgeInsets.symmetric(horizontal: 11),
-              ),
-              Column(
-                children: [
-                  Text(
-                    '${actor.completedJobCount}',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    'Tamamlanan\nİş',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 9.5,
-                      height: 1.15,
-                    ),
-                  ),
                 ],
-              ),
-              const SizedBox(width: 2),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _completedJobs(ThemeData theme) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        '${actor.completedJobCount}',
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 17,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      Text(
+        'Tamamlanan\nİş',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontSize: 9.5,
+          height: 1.15,
+        ),
+      ),
+    ],
+  );
+}
+
+/// Identity taps go directly to the publisher; adjacent review/job controls
+/// keep the existing owner-actions sheet instead of competing for the tap.
+class _PublisherProfileLink extends StatelessWidget {
+  const _PublisherProfileLink({
+    super.key,
+    required this.actor,
+    required this.onTap,
+    required this.child,
+  });
+
+  final CollabActor actor;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = actor.sourceProfileId.trim().isNotEmpty;
+    return Semantics(
+      button: enabled,
+      label: '${actor.displayName} profilini aç',
+      onTap: enabled ? onTap : null,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          excludeFromSemantics: true,
+          borderRadius: BorderRadius.circular(12),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: child,
+            ),
           ),
         ),
       ),

@@ -11,12 +11,14 @@ class StageHomeTopBar extends StatelessWidget {
   final VoidCallback? onSearchTap;
   final VoidCallback? onNotificationsTap;
   final VoidCallback? onMenuTap;
+  final int? unreadCountOverride;
 
   const StageHomeTopBar({
     super.key,
     this.onSearchTap,
     this.onNotificationsTap,
     this.onMenuTap,
+    this.unreadCountOverride,
   });
 
   @override
@@ -61,21 +63,13 @@ class StageHomeTopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          BlocBuilder<NotificationCubit, NotificationState>(
-            builder: (context, state) {
-              return IconButton(
-                onPressed:
-                    onNotificationsTap ??
-                    () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.notifications),
-                icon: _NotificationBell(unreadCount: state.unreadCount),
-                iconSize: 31,
-                splashRadius: 24,
-                tooltip: 'Bildirimler',
-              );
-            },
-          ),
+          if (unreadCountOverride case final count?)
+            _notificationButton(context, count)
+          else
+            BlocBuilder<NotificationCubit, NotificationState>(
+              builder: (context, state) =>
+                  _notificationButton(context, state.unreadCount),
+            ),
           IconButton(
             onPressed: onMenuTap,
             icon: const ProfileMenuLogo(),
@@ -86,6 +80,16 @@ class StageHomeTopBar extends StatelessWidget {
       ),
     );
   }
+
+  Widget _notificationButton(BuildContext context, int count) => IconButton(
+    onPressed:
+        onNotificationsTap ??
+        () => Navigator.of(context).pushNamed(AppRoutes.notifications),
+    icon: _NotificationBell(unreadCount: count),
+    iconSize: 31,
+    splashRadius: 24,
+    tooltip: 'Bildirimler',
+  );
 }
 
 class _NotificationBell extends StatelessWidget {

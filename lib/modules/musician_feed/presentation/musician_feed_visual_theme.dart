@@ -117,18 +117,7 @@ class MusicianFeedThemeScope extends StatelessWidget {
     return Theme(
       data: scopedTheme,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              BackstagePalette.canvasTop,
-              BackstagePalette.canvasMid,
-              BackstagePalette.canvasTop,
-            ],
-            stops: [0, 0.48, 1],
-          ),
-        ),
+        decoration: BoxDecoration(color: AppColors.navBlueDeep),
         child: child,
       ),
     );

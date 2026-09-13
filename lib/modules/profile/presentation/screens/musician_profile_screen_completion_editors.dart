@@ -351,152 +351,49 @@ class _MusicianInstrumentEditor extends StatefulWidget {
 
 class _MusicianInstrumentEditorState extends State<_MusicianInstrumentEditor> {
   final _search = TextEditingController();
-  late final String _sessionUserId;
-  late final String _sessionToken;
-  List<Instrument> _instruments = const [];
-  Set<String> _selectedIds = const {};
-  bool _loading = true;
-  bool _saving = false;
-  String? _error;
+  late final MusicianInstrumentController _controller;
+
+  bool get _loading => _controller.loading;
+  bool get _saving => _controller.saving;
+  String? get _error => _controller.error;
+  List<Instrument> get _instruments => _controller.instruments;
+  Set<String> get _selectedIds => _controller.selectedIds;
 
   @override
   void initState() {
     super.initState();
-    final session = serviceLocator<AuthSessionManager>().session;
-    _sessionUserId = session.userId?.trim() ?? '';
-    _sessionToken = session.token?.trim() ?? '';
+    _controller = MusicianInstrumentController(
+      profile: widget.profile,
+      instrumentsRepository: serviceLocator<InstrumentRepository>(),
+      preferencesRepository:
+          serviceLocator<MusicianFeedPreferencesRepository>(),
+      profileRepository: serviceLocator<MusicianProfileRepository>(),
+      sessions: serviceLocator<AuthSessionManager>(),
+    )..addListener(_rebuild);
     unawaited(_load());
+  }
+
+  void _rebuild() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _controller.dispose();
     _search.dispose();
     super.dispose();
   }
 
-  bool get _sessionIsCurrent {
-    final session = serviceLocator<AuthSessionManager>().session;
-    return session.isAuthenticated &&
-        session.isActive &&
-        session.userId?.trim() == _sessionUserId &&
-        session.token?.trim() == _sessionToken &&
-        widget.profile.userId.trim() == _sessionUserId;
-  }
-
-  Future<void> _load() async {
-    if (_loading && _instruments.isNotEmpty) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    late Result<List<Instrument>> catalogResult;
-    late Result<MusicianFeedPreferences> preferencesResult;
-    await Future.wait<void>([
-      () async {
-        catalogResult = await serviceLocator<InstrumentRepository>().getAll();
-      }(),
-      () async {
-        preferencesResult =
-            await serviceLocator<MusicianFeedPreferencesRepository>().get();
-      }(),
-    ]);
-    if (!mounted || !_sessionIsCurrent) return;
-    final instruments = catalogResult.data;
-    if (!catalogResult.isSuccess || instruments == null) {
-      setState(() {
-        _loading = false;
-        _error = catalogResult.error?.message ?? 'Enstrümanlar yüklenemedi.';
-      });
-      return;
-    }
-    final validIds = instruments.map((instrument) => instrument.id).toSet();
-    final selected = preferencesResult.isSuccess
-        ? preferencesResult.data?.instruments
-              .map((instrument) => instrument.id)
-              .where(validIds.contains)
-              .toSet()
-        : null;
-    final fallbackNames = widget.profile.instruments
-        .map(_completionSearchKey)
-        .toSet();
-    setState(() {
-      _instruments = List.unmodifiable(instruments);
-      _selectedIds = Set.unmodifiable(
-        selected ??
-            instruments
-                .where(
-                  (instrument) => fallbackNames.contains(
-                    _completionSearchKey(instrument.name),
-                  ),
-                )
-                .map((instrument) => instrument.id)
-                .toSet(),
-      );
-      _loading = false;
-      _error = preferencesResult.isSuccess
-          ? null
-          : 'Mevcut seçim doğrulanamadı; profildeki bilgiler gösteriliyor.';
-    });
-  }
+  Future<void> _load() => _controller.load();
 
   Future<void> _save() async {
-    if (_saving || _loading) return;
-    if (!_sessionIsCurrent) {
-      setState(() => _error = 'Oturum değişti. Lütfen yeniden dene.');
-      return;
+    final saved = await _controller.save();
+    if (saved && mounted && ModalRoute.of(context)?.isCurrent == true) {
+      Navigator.of(context).pop(true);
     }
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    final result = await serviceLocator<MusicianProfileRepository>()
-        .updateMyProfile(
-          MusicianProfileSaveRequest(
-            instrumentIds: _selectedIds.toList(growable: false)..sort(),
-          ),
-          expectedSessionKey: _sessionUserId,
-        );
-    if (!mounted) return;
-    if (!_sessionIsCurrent) {
-      setState(() {
-        _saving = false;
-        _error = 'Oturum değişti. Değişiklik sonucu gösterilmedi.';
-      });
-      return;
-    }
-    final updatedProfile = result.data;
-    if (!result.isSuccess || updatedProfile == null) {
-      setState(() {
-        _saving = false;
-        _error = result.error?.message ?? 'Enstrümanlar kaydedilemedi.';
-      });
-      return;
-    }
-    if (!_sameMusicianIdentity(updatedProfile, widget.profile)) {
-      setState(() {
-        _saving = false;
-        _error = 'Profil kimliği doğrulanamadı. Lütfen yeniden dene.';
-      });
-      return;
-    }
-    Navigator.of(context).pop(true);
   }
 
-  void _toggle(String id) {
-    if (_saving) return;
-    final next = Set<String>.of(_selectedIds);
-    if (!next.remove(id)) {
-      if (next.length >= 50) {
-        setState(() => _error = 'En fazla 50 enstrüman seçebilirsin.');
-        return;
-      }
-      next.add(id);
-    }
-    setState(() {
-      _selectedIds = Set.unmodifiable(next);
-      _error = null;
-    });
-  }
+  void _toggle(String id) => _controller.toggle(id);
 
   @override
   Widget build(BuildContext context) {

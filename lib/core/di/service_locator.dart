@@ -1,4 +1,6 @@
 import 'package:get_it/get_it.dart';
+import '../../modules/admin/data/musician_feed_report_admin_repository_impl.dart';
+import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
 import '../../modules/analytics/data/analytics_collection_repository_impl.dart';
 import '../../modules/analytics/data/analytics_tracker.dart';
 import '../../modules/analytics/data/venue_analytics_repository_impl.dart';
@@ -63,6 +65,9 @@ import '../../modules/location/domain/location_repository.dart';
 import '../../modules/location/presentation/cubit/location_cubit.dart';
 import '../../modules/musician_feed/data/musician_feed_preferences_repository_impl.dart';
 import '../../modules/musician_feed/data/musician_feed_repository_impl.dart';
+import '../../modules/musician_feed/data/musician_feed_muted_authors_repository_impl.dart';
+import '../../modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
+import '../../modules/musician_feed/domain/musician_feed_mute_changes.dart';
 import '../../modules/musician_feed/domain/musician_feed_preferences_repository.dart';
 import '../../modules/musician_feed/domain/musician_feed_repository.dart';
 import '../../modules/musician_feed/presentation/cubit/musician_feed_cubit.dart';
@@ -179,6 +184,12 @@ void setupDependencies() {
       () => DioApiClient(
         tokenStore: serviceLocator<TokenStore>(),
         sessionManager: serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<MusicianFeedReportAdminRepository>(
+      () => MusicianFeedReportAdminRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
       ),
     )
     ..registerLazySingleton<AnalyticsCollectionRepository>(
@@ -334,7 +345,10 @@ void setupDependencies() {
       () => ProfileMediaRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<MediaGalleryRepository>(
-      () => MediaGalleryRepositoryImpl(serviceLocator<ApiClient>()),
+      () => MediaGalleryRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<ProfileMediaManagementRepository>(
       () => ProfileMediaManagementRepositoryImpl(serviceLocator<ApiClient>()),
@@ -347,6 +361,7 @@ void setupDependencies() {
             SharedPreferencesPendingDraftMediaCleanupStore(),
         sessionKeyProvider: () =>
             serviceLocator<AuthSessionManager>().session.userId,
+        tokenProvider: () => serviceLocator<AuthSessionManager>().session.token,
       ),
     )
     ..registerLazySingleton<VenueDirectoryRepository>(
@@ -415,7 +430,10 @@ void setupDependencies() {
       ),
     )
     ..registerLazySingleton<PromotionRepository>(
-      () => PromotionRepositoryImpl(serviceLocator<ApiClient>()),
+      () => PromotionRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerFactory<VenueProfileCubit>(
       () => VenueProfileCubit(serviceLocator<VenueProfileRepository>()),
@@ -459,6 +477,27 @@ void setupDependencies() {
         sessions: serviceLocator<AuthSessionManager>(),
       ),
     )
+    ..registerLazySingleton<MusicianFeedMuteChanges>(
+      MusicianFeedMuteChanges.new,
+      dispose: (changes) => changes.close(),
+    )
+    ..registerLazySingleton<MusicianFeedMutedAuthorsRepository>(
+      () => MusicianFeedMutedAuthorsRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+        onUnmuted: (author) {
+          final session = serviceLocator<AuthSessionManager>().session;
+          final userId = session.userId?.trim();
+          final token = session.token?.trim();
+          if (userId == null || token == null) return;
+          serviceLocator<MusicianFeedMuteChanges>().notifyUnmuted(
+            userId: userId,
+            token: token,
+            author: author,
+          );
+        },
+      ),
+    )
     ..registerLazySingleton<MusicianFeedRepository>(
       () => MusicianFeedRepositoryImpl(
         serviceLocator<ApiClient>(),
@@ -475,10 +514,16 @@ void setupDependencies() {
       () => MusicianFeedCubit(
         serviceLocator<MusicianFeedRepository>(),
         serviceLocator<EngagementRepository>(),
+        announcementEngagementRepository: EngagementRepositoryImpl(
+          serviceLocator<ApiClient>(),
+          sessions: serviceLocator<AuthSessionManager>(),
+          announcementSource: 'FEED',
+        ),
         collabRepository: serviceLocator<CollabRepository>(),
         followRepository: serviceLocator<FollowRepository>(),
         bandFollowRepository: serviceLocator<BandFollowRepository>(),
         sessions: serviceLocator<AuthSessionManager>(),
+        muteChanges: serviceLocator<MusicianFeedMuteChanges>(),
       ),
     )
     ..registerFactory<TableGroupCreateCubit>(

@@ -21,9 +21,12 @@ class AnalyticsCollectionRepositoryImpl
         observations.isEmpty ||
         observations.length > 20 ||
         observations.any((value) => !value.isValid) ||
+        (expectedUserId == null &&
+            observations.any((value) => value.type.isAnnouncement)) ||
         observations.map((value) => value.id).toSet().length !=
             observations.length ||
-        (expectedUserId != null && expectedUserId.trim().isEmpty)) {
+        (expectedUserId != null && expectedUserId.trim().isEmpty) ||
+        analyticsRequestBytes(clientId, observations) > analyticsMaxBodyBytes) {
       return const Result.failure(
         AppError(code: 'analytics_invalid', message: 'Geçersiz ölçüm bilgisi.'),
       );
@@ -32,10 +35,7 @@ class AnalyticsCollectionRepositoryImpl
       final acknowledged = await _api.request<List<String>>(
         ApiHttpMethod.post,
         '/api/v1/analytics/observations',
-        body: {
-          'clientId': clientId,
-          'observations': observations.map((value) => value.toJson()).toList(),
-        },
+        body: analyticsRequestBody(clientId, observations),
         requestContext: ApiRequestContext(
           expectedSessionKey: expectedUserId,
           requireGuestSession: expectedUserId == null,

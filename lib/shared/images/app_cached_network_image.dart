@@ -31,6 +31,9 @@ class AppCachedNetworkImage extends StatefulWidget {
   final BaseCacheManager? cacheManager;
   final AppImageCacheManagerResolver? cacheManagerResolver;
 
+  /// Private, expiring media must never enter the persistent public disk cache.
+  final bool persistentCache;
+
   const AppCachedNetworkImage({
     super.key,
     required this.imageUrl,
@@ -45,6 +48,7 @@ class AppCachedNetworkImage extends StatefulWidget {
     this.cacheProfile = AppImageCacheProfile.compact,
     this.cacheManager,
     this.cacheManagerResolver,
+    this.persistentCache = true,
   });
 
   @override
@@ -53,6 +57,7 @@ class AppCachedNetworkImage extends StatefulWidget {
 
 class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
   Stream<FileResponse>? _fileStream;
+  ImageProvider? _privateProvider;
 
   String? get _normalizedUrl {
     return resolveAppMediaUrl(widget.imageUrl);
@@ -76,16 +81,38 @@ class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
     if (oldWidget.imageUrl != widget.imageUrl ||
         oldWidget.cacheProfile != widget.cacheProfile ||
         oldWidget.cacheManager != widget.cacheManager ||
+        oldWidget.persistentCache != widget.persistentCache ||
+        oldWidget.cacheWidth != widget.cacheWidth ||
+        oldWidget.cacheHeight != widget.cacheHeight ||
         oldWidget.cacheManagerResolver != widget.cacheManagerResolver) {
       _refreshStream();
     }
   }
 
   void _refreshStream() {
+    _privateProvider?.evict();
+    _privateProvider = null;
     final url = _normalizedUrl;
+    if (!widget.persistentCache) {
+      _fileStream = null;
+      if (url != null) {
+        _privateProvider = ResizeImage.resizeIfNeeded(
+          widget.cacheWidth,
+          widget.cacheHeight,
+          NetworkImage(url),
+        );
+      }
+      return;
+    }
     _fileStream = url == null
         ? null
         : _cacheManager.getFileStream(url, withProgress: true);
+  }
+
+  @override
+  void dispose() {
+    _privateProvider?.evict();
+    super.dispose();
   }
 
   Widget _placeholder(BuildContext context, {double? progress}) {
@@ -148,6 +175,21 @@ class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.persistentCache) {
+      final provider = _privateProvider;
+      if (provider == null) return _error(context);
+      return Image(
+        image: provider,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        alignment: widget.alignment,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, __, ___) => _error(context),
+        frameBuilder: (context, child, frame, synchronous) =>
+            frame != null || synchronous ? child : _placeholder(context),
+      );
+    }
     final stream = _fileStream;
     if (stream == null) return _error(context);
 

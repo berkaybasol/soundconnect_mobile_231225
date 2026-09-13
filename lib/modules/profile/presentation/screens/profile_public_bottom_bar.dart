@@ -30,6 +30,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
   final int? mainstageCurrentIndex;
   final bool profileTapAlwaysOpensOwnProfile;
   final FutureOr<bool> Function()? onBeforeNavigate;
+  final ValueChanged<int>? onDestinationSelected;
+  final int? unreadCountOverride;
 
   ProfilePublicBottomBar({
     super.key,
@@ -39,6 +41,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
     this.mainstageCurrentIndex,
     this.profileTapAlwaysOpensOwnProfile = false,
     this.onBeforeNavigate,
+    this.onDestinationSelected,
+    this.unreadCountOverride,
   });
 
   Widget _profileAvatar(BuildContext context, bool active) {
@@ -77,7 +81,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
   List<BottomNavigationBarItem> _backstageItems(
     BuildContext context,
-    DmBadgeState state,
+    int unreadCount,
   ) {
     return [
       BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Akış'),
@@ -90,7 +94,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
         label: 'Git',
       ),
       BottomNavigationBarItem(
-        icon: _ForumIconWithBadge(unreadCount: state.unreadCount),
+        icon: _ForumIconWithBadge(unreadCount: unreadCount),
         label: 'Mesajlar',
       ),
       BottomNavigationBarItem(
@@ -103,7 +107,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
   List<BottomNavigationBarItem> _mainstageItems(
     BuildContext context,
-    DmBadgeState state,
+    int unreadCount,
   ) {
     return [
       BottomNavigationBarItem(
@@ -123,7 +127,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
         label: 'Müzik Birleştirir!',
       ),
       BottomNavigationBarItem(
-        icon: _ForumIconWithBadge(unreadCount: state.unreadCount),
+        icon: _ForumIconWithBadge(unreadCount: unreadCount),
         label: 'Mesajlar',
       ),
       BottomNavigationBarItem(
@@ -473,36 +477,39 @@ class ProfilePublicBottomBar extends StatelessWidget {
         : ProfileBottomBarAvatarCache.lastProfileImageUrl;
     ProfileBottomBarAvatarCache.remember(resolvedProfileImageUrl);
 
+    Widget navigation(int unreadCount) => BottomNavigationBar(
+      currentIndex: effectiveStage == StageMode.mainstage
+          ? mainstageCurrentIndex ?? currentIndex
+          : currentIndex,
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: AppColors.navBlueDeep,
+      selectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      onTap: (index) {
+        if (manager != null && !identical(manager.session, session)) {
+          return;
+        }
+        final selected = onDestinationSelected;
+        if (selected != null) {
+          selected(index);
+          return;
+        }
+        if (effectiveStage == StageMode.mainstage) {
+          unawaited(_handleMainstageTap(context, index));
+          return;
+        }
+        unawaited(_handleBackstageTap(context, index, resolvedProfileImageUrl));
+      },
+      items: effectiveStage == StageMode.mainstage
+          ? _mainstageItems(context, unreadCount)
+          : _backstageItems(context, unreadCount),
+    );
+    if (unreadCountOverride case final count?) return navigation(count);
     final badgeCubit = serviceLocator<DmBadgeCubit>()..ensureStarted();
     return BlocProvider<DmBadgeCubit>.value(
       value: badgeCubit,
       child: BlocBuilder<DmBadgeCubit, DmBadgeState>(
-        builder: (context, state) {
-          return BottomNavigationBar(
-            currentIndex: effectiveStage == StageMode.mainstage
-                ? mainstageCurrentIndex ?? currentIndex
-                : currentIndex,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: AppColors.navBlueDeep,
-            selectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-            unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-            onTap: (index) {
-              if (manager != null && !identical(manager.session, session)) {
-                return;
-              }
-              if (effectiveStage == StageMode.mainstage) {
-                unawaited(_handleMainstageTap(context, index));
-                return;
-              }
-              unawaited(
-                _handleBackstageTap(context, index, resolvedProfileImageUrl),
-              );
-            },
-            items: effectiveStage == StageMode.mainstage
-                ? _mainstageItems(context, state)
-                : _backstageItems(context, state),
-          );
-        },
+        builder: (context, state) => navigation(state.unreadCount),
       ),
     );
   }

@@ -186,6 +186,49 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const AccountProfileSettingsSection(),
+                        ListenableBuilder(
+                          listenable: serviceLocator<AuthSessionManager>(),
+                          builder: (context, _) {
+                            final session =
+                                serviceLocator<AuthSessionManager>().session;
+                            if (!session.isAuthenticated ||
+                                !session.isActive ||
+                                !session.hasAnyRole(const [
+                                  'ROLE_MUSICIAN',
+                                  'MUSICIAN',
+                                ])) {
+                              return const SizedBox.shrink();
+                            }
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ListTile(
+                                  key: const Key(
+                                    'account-settings-muted-feed-authors',
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  leading: const Icon(
+                                    Icons.volume_off_outlined,
+                                  ),
+                                  title: const Text('Akışta sessize alınanlar'),
+                                  subtitle: const Text(
+                                    'Paylaşımlarını gizlediğin hesapları yönet.',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_rounded,
+                                  ),
+                                  onTap: () => Navigator.of(context).pushNamed(
+                                    AppRoutes.musicianFeedMutedAuthors,
+                                  ),
+                                ),
+                                Divider(color: Theme.of(context).dividerColor),
+                                const SizedBox(height: 12),
+                              ],
+                            );
+                          },
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Text(

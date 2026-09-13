@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import '../../../core/network/app_media_url.dart';
+import '../../promotion/domain/entities/announcement.dart';
 
 const int musicianFeedSchemaVersion = 1;
 const Set<String> musicianFeedAuthorProfileTypes = {
@@ -46,7 +47,8 @@ enum MusicianFeedItemType {
   activityComment('ACTIVITY_COMMENT'),
   profile('PROFILE'),
   profileCompletion('PROFILE_COMPLETION'),
-  sponsored('SPONSORED');
+  sponsored('SPONSORED'),
+  announcement('ANNOUNCEMENT');
 
   const MusicianFeedItemType(this.apiValue);
   final String apiValue;
@@ -502,7 +504,28 @@ sealed class MusicianFeedPayload {
         json,
         path,
       ),
+      MusicianFeedItemType.announcement => AnnouncementFeedPayload.fromJson(
+        json,
+      ),
     };
+  }
+}
+
+class AnnouncementFeedPayload extends MusicianFeedPayload {
+  const AnnouncementFeedPayload(this.announcement);
+  final Announcement announcement;
+  factory AnnouncementFeedPayload.fromJson(Object? json) {
+    try {
+      final value = Announcement.fromJson(json);
+      if (value.status != AnnouncementStatus.published) {
+        throw const FormatException('Unpublished announcement in feed');
+      }
+      return AnnouncementFeedPayload(value);
+    } on FormatException {
+      throw const MusicianFeedFormatException(
+        'Invalid announcement feed payload',
+      );
+    }
   }
 }
 

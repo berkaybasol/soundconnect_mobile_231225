@@ -12,6 +12,8 @@ import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/account_settings_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_muted_authors.dart';
+import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/listener_profile_repository.dart';
@@ -142,6 +144,64 @@ void main() {
       expect(find.text('Etkinlik Ayarları'), findsNothing);
       expect(calendar.settingsReads, 0);
       expect(find.textContaining('Davetleri incelemek'), findsNothing);
+      expect(
+        find.byKey(const Key('account-settings-muted-feed-authors')),
+        findsOneWidget,
+      );
+      await sessionManager.logout();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('account-settings-muted-feed-authors')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'musician settings opens persisted mutes and reloads after reopening',
+    (tester) async {
+      final muted = _MutedAuthorsRepositoryFake();
+      serviceLocator.registerSingleton<MusicianFeedMutedAuthorsRepository>(
+        muted,
+      );
+      serviceLocator.registerSingleton<MusicianProfileRepository>(
+        _MusicianProfileRepositoryFake(),
+      );
+      await sessionManager.startSession(
+        token: _jwt(subject: 'musician-user', roles: const ['ROLE_MUSICIAN']),
+        username: 'musician',
+        accountStatus: 'ACTIVE',
+      );
+      await tester.pumpWidget(
+        BlocProvider<AuthCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const AccountSettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('account-settings-muted-feed-authors')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Persisted Artist'), findsOneWidget);
+      expect(muted.reads, 1);
+      await tester.tap(find.text('Sessizi kaldır'));
+      await tester.pumpAndSettle();
+      expect(muted.unmutes, 1);
+      expect(find.text('Akışında sessize aldığın hesap yok.'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('account-settings-muted-feed-authors')),
+      );
+      await tester.pumpAndSettle();
+      expect(muted.reads, 2);
+      expect(find.text('Persisted Artist'), findsNothing);
+      expect(find.text('Akışında sessize aldığın hesap yok.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await sessionManager.logout();
     },
   );
@@ -161,6 +221,10 @@ void main() {
       findsNothing,
     );
     expect(calendar.settingsReads, 0);
+    expect(
+      find.byKey(const Key('account-settings-muted-feed-authors')),
+      findsNothing,
+    );
   });
 
   testWidgets('account settings opens directly to the compact username row', (
@@ -548,6 +612,51 @@ void main() {
       isNotNull,
     );
   });
+}
+
+class _MutedAuthorsRepositoryFake
+    implements MusicianFeedMutedAuthorsRepository {
+  int reads = 0;
+  int unmutes = 0;
+  bool muted = true;
+
+  @override
+  Future<Result<MusicianFeedMutedAuthorsPage>> load({
+    int limit = 30,
+    String? cursor,
+  }) async {
+    reads++;
+    return Result.success(
+      MusicianFeedMutedAuthorsPage(
+        items: [
+          if (muted)
+            MusicianFeedMutedAuthor(
+              identity: (
+                profileType: 'MUSICIAN',
+                profileId: 'persisted-profile',
+              ),
+              available: true,
+              mutedAt: DateTime.utc(2026, 9, 13),
+              displayName: 'Persisted Artist',
+            ),
+        ],
+        nextCursor: null,
+        hasMore: false,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> unmute({
+    required String profileType,
+    required String profileId,
+  }) async {
+    expect(profileType, 'MUSICIAN');
+    expect(profileId, 'persisted-profile');
+    unmutes++;
+    muted = false;
+    return const Result.success(null);
+  }
 }
 
 class _ListenerProfileRepositoryFake extends ListenerProfileRepository {

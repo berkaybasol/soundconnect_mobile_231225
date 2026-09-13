@@ -68,60 +68,13 @@ class MusicianManagementPanelScreen extends StatelessWidget {
               const SizedBox(height: 20),
               _buildMusicianVenueManagementCard(
                 context: context,
-                icon: Icons.tune_rounded,
-                title: 'Akış Tercihleri',
-                message:
-                    'Collab ve etkinlik fırsatlarını görmek istediğin şehri yönet.',
-                onTap: () async {
-                  final changed = await showMusicianFeedOpportunityCitySheet(
-                    context,
-                    preferencesRepository:
-                        serviceLocator<MusicianFeedPreferencesRepository>(),
-                    locationRepository: serviceLocator<LocationRepository>(),
-                  );
-                  if (!changed || !context.mounted) return;
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      appSnackBar(
-                        context,
-                        tone: AppSnackBarTone.success,
-                        content: const Text('Akış tercihlerin güncellendi.'),
-                      ),
-                    );
-                },
-              ),
-              const SizedBox(height: 14),
-              _buildMusicianVenueManagementCard(
-                context: context,
-                icon: Icons.badge_outlined,
-                title: 'Biyografi',
-                message: 'Profilinde gösterilen biyografini düzenle.',
-                onTap: () async {
-                  final changed = await showMusicianProfileDetailsEditor(
-                    context,
-                    profile: musicianProfile,
-                  );
-                  if (changed && context.mounted) {
-                    Navigator.of(context).pop();
-                  }
-                },
-              ),
-              const SizedBox(height: 14),
-              _buildMusicianVenueManagementCard(
-                context: context,
-                icon: Icons.music_note_rounded,
-                title: 'Enstrümanlarım',
-                message: 'Çaldığın enstrümanları ve branşlarını yönet.',
-                onTap: () async {
-                  final changed = await showMusicianInstrumentEditor(
-                    context,
-                    profile: musicianProfile,
-                  );
-                  if (changed && context.mounted) {
-                    Navigator.of(context).pop();
-                  }
-                },
+                icon: Icons.person_outline_rounded,
+                title: 'Profil Tamamlama',
+                message: 'Akış tercihlerini ve enstrümanlarını yönet.',
+                onTap: () => _showMusicianProfileCompletionHub(
+                  context: context,
+                  profile: musicianProfile,
+                ),
               ),
               const SizedBox(height: 14),
               _buildMusicianVenueManagementCard(
@@ -197,6 +150,32 @@ class MusicianManagementPanelScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+Future<void> _showMusicianProfileCompletionHub({
+  required BuildContext context,
+  required MusicianProfile profile,
+}) async {
+  final originRoute = ModalRoute.of(context);
+  final session = ProfileActionSession(
+    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+  );
+  if (!session.isCurrent ||
+      session.userId != profile.userId ||
+      originRoute?.isCurrent == false) {
+    return;
+  }
+  final changed = await Navigator.of(context).push<bool>(
+    MaterialPageRoute<bool>(
+      builder: (_) => MusicianProfileCompletionScreen(profile: profile),
+    ),
+  );
+  if (changed == true &&
+      context.mounted &&
+      session.isCurrent &&
+      originRoute?.isCurrent != false) {
+    Navigator.of(context).pop();
   }
 }
 

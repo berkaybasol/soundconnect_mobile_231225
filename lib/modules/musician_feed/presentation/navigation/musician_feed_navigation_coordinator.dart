@@ -21,6 +21,7 @@ import '../../../profile/presentation/navigation/profile_route_resolver.dart';
 import '../../../profile/presentation/screens/media_detail_screen.dart';
 import '../../../profile/presentation/screens/musician_profile_screen.dart';
 import '../../../profile/presentation/screens/video_reel_screen.dart';
+import '../../../promotion/presentation/screens/announcement_detail_screen.dart';
 import '../../../profile/presentation/screens/weekly_event_detail_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_detail_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_route_args.dart';
@@ -77,6 +78,24 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
   void recordOpen(MusicianFeedItem item) {
     if (!_isCurrentFeed) return;
     unawaited(cubit.recordEvent(item, MusicianFeedTelemetryEventType.open));
+  }
+
+  @override
+  Future<void> openAnnouncement(
+    MusicianFeedItem item,
+    AnnouncementFeedPayload payload,
+  ) async {
+    if (!_isCurrentFeed) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => AnnouncementDetailScreen(
+          id: payload.announcement.id,
+          source: 'FEED',
+          impressionToken: item.impressionToken,
+        ),
+      ),
+    );
+    if (_isCurrentFeed) await cubit.refresh();
   }
 
   Future<void> openAuthor(

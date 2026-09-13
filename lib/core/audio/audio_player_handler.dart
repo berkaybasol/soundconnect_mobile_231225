@@ -18,9 +18,11 @@ class AudioPlayerHandler extends BaseAudioHandler
   final AudioSourceMutationSequencer _sourceMutations =
       AudioSourceMutationSequencer();
 
-  AudioPlayerHandler() {
+  AudioPlayerHandler({this.audioSourceFactory}) {
     _init();
   }
+
+  final AudioSource Function(String url)? audioSourceFactory;
 
   Stream<Duration> get positionStream => _positionStream;
 
@@ -84,9 +86,7 @@ class AudioPlayerHandler extends BaseAudioHandler
   }) {
     final normalizedUrl = resolveAppMediaUrl(url);
     if (normalizedUrl == null) {
-      return Future<void>.error(
-        const FormatException('Unsupported media URL'),
-      );
+      return Future<void>.error(const FormatException('Unsupported media URL'));
     }
     return _sourceMutations.run(
       () => _playUrlNow(
@@ -116,7 +116,9 @@ class AudioPlayerHandler extends BaseAudioHandler
       previousItem: mediaItem.value,
       previousPosition: _player.position,
       previousWasPlaying: _player.playing,
-      setUrl: _player.setUrl,
+      setUrl: (value) => audioSourceFactory == null
+          ? _player.setUrl(value)
+          : _player.setAudioSource(audioSourceFactory!(value)),
       seek: _player.seek,
       play: _player.play,
       publish: mediaItem.add,

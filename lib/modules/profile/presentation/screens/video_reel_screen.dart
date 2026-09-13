@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,8 +10,12 @@ import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import 'video_frame_preset_store.dart';
+import '../../domain/video_playback_observations.dart';
 
 part 'video_reel_screen_actions.dart';
+
+typedef VideoReelDataSourceFactory =
+    BetterPlayerDataSource Function(BetterPlayerDataSource source);
 
 class VideoReelScreen extends StatefulWidget {
   final String title;
@@ -21,6 +27,16 @@ class VideoReelScreen extends StatefulWidget {
   final String targetId;
   final int? initialLikeCount;
   final int? initialCommentCount;
+  final VoidCallback? onPlaybackStarted;
+  final VoidCallback? onPlaybackCompleted;
+  final Listenable? accessChanges;
+  final bool Function()? isPlaybackAllowed;
+  final bool showEngagement;
+  final bool looping;
+  final VideoReelDataSourceFactory? dataSourceFactory;
+
+  /// Private media resolves a new short-lived capability before user retries.
+  final Future<String?> Function()? refreshPlaybackUrl;
 
   const VideoReelScreen({
     super.key,
@@ -33,6 +49,14 @@ class VideoReelScreen extends StatefulWidget {
     required this.targetId,
     required this.initialLikeCount,
     required this.initialCommentCount,
+    this.onPlaybackStarted,
+    this.onPlaybackCompleted,
+    this.accessChanges,
+    this.isPlaybackAllowed,
+    this.showEngagement = true,
+    this.looping = true,
+    this.dataSourceFactory,
+    this.refreshPlaybackUrl,
   });
 
   @override
@@ -43,6 +67,60 @@ class _VideoReelScreenState extends State<VideoReelScreen>
     with WidgetsBindingObserver {
   BetterPlayerController? _playerController;
   String? _playerError;
+  bool _retrying = false;
+  bool _disposing = false;
+  bool _dependenciesReady = false;
+  ModalRoute<dynamic>? _route;
+  final _observations = VideoPlaybackObservations();
+  void _checkAccess() {
+    if (widget.isPlaybackAllowed?.call() != false) return;
+    _stopPlayback(dispose: true);
+    _updateState(() => _playerError = 'Medya erişimi sona erdi.');
+  }
+
+  void _playbackEvent(BetterPlayerEvent event) {
+    if (!mounted || _disposing) return;
+    if (widget.isPlaybackAllowed?.call() == false) {
+      _checkAccess();
+      return;
+    }
+    if (event.betterPlayerEventType == BetterPlayerEventType.exception) {
+      _stopPlayback();
+      _updateState(
+        () => _playerError = 'Video oynatılamadı. Yeniden deneyebilirsin.',
+      );
+      return;
+    }
+    // BetterPlayer emits setupDataSource synchronously from its constructor.
+    // Such events are not playback and must not read route dependencies while
+    // this State is still inside initState.
+    if (event.betterPlayerEventType != BetterPlayerEventType.progress &&
+        event.betterPlayerEventType != BetterPlayerEventType.finished) {
+      return;
+    }
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (!_dependenciesReady ||
+        (lifecycle != null && lifecycle != AppLifecycleState.resumed) ||
+        _route?.isCurrent == false) {
+      return;
+    }
+    if (event.betterPlayerEventType == BetterPlayerEventType.progress) {
+      final progress = event.parameters?['progress'];
+      if (progress is Duration &&
+          _observations.progress(
+            position: progress,
+            playing:
+                _playerController?.videoPlayerController?.value.isPlaying ==
+                true,
+          )) {
+        widget.onPlaybackStarted?.call();
+      }
+    }
+    if (event.betterPlayerEventType == BetterPlayerEventType.finished &&
+        _observations.finished()) {
+      widget.onPlaybackCompleted?.call();
+    }
+  }
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -53,16 +131,28 @@ class _VideoReelScreenState extends State<VideoReelScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.accessChanges?.addListener(_checkAccess);
     _initPlayer();
-    context.read<InteractionStatsCubit>().load(
-      targetType: widget.targetType,
-      targetId: widget.targetId,
-    );
+    if (widget.showEngagement) {
+      context.read<InteractionStatsCubit>().load(
+        targetType: widget.targetType,
+        targetId: widget.targetId,
+      );
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+    _dependenciesReady = true;
   }
 
   @override
   void dispose() {
+    _disposing = true;
     WidgetsBinding.instance.removeObserver(this);
+    widget.accessChanges?.removeListener(_checkAccess);
     _stopPlayback(dispose: true);
     super.dispose();
   }
@@ -81,7 +171,9 @@ class _VideoReelScreenState extends State<VideoReelScreen>
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
     final statsKey = '${widget.targetType}:${widget.targetId}';
-    final stats = context.watch<InteractionStatsCubit>().state.items[statsKey];
+    final stats = widget.showEngagement
+        ? context.watch<InteractionStatsCubit>().state.items[statsKey]
+        : null;
     final likeCount = stats == null
         ? widget.initialLikeCount
         : stats.visibleLikeCount;
@@ -92,12 +184,23 @@ class _VideoReelScreenState extends State<VideoReelScreen>
     final likeLoading = stats?.loading ?? false;
     final preset = widget.framePreset;
     final Widget playerLayer;
-    if (_playerController == null) {
+    if (_playerController == null || _playerError != null) {
       playerLayer = Center(
-        child: Text(
-          _playerError ?? 'Video yükleniyor...',
-          style: TextStyle(color: AppColors.white.withValues(alpha: 0.70)),
-          textAlign: TextAlign.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _playerError ?? 'Video yükleniyor...',
+              style: TextStyle(color: AppColors.white.withValues(alpha: 0.70)),
+              textAlign: TextAlign.center,
+            ),
+            if (_playerError != null &&
+                widget.isPlaybackAllowed?.call() != false)
+              TextButton(
+                onPressed: _retrying ? null : _retryPlayer,
+                child: const Text('Yeniden dene'),
+              ),
+          ],
         ),
       );
     } else if (preset != null && preset.verticalCrop) {
@@ -155,38 +258,39 @@ class _VideoReelScreenState extends State<VideoReelScreen>
                 ),
               ),
             ),
-            Positioned(
-              right: 10,
-              bottom: 120,
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    _ReelActionButton(
-                      icon: liked
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      iconColor: AppColors.likeHeart,
-                      label: likeCount?.toString() ?? '—',
-                      active: liked,
-                      onTap: likeLoading
-                          ? null
-                          : () => context
-                                .read<InteractionStatsCubit>()
-                                .toggleLike(
-                                  targetType: widget.targetType,
-                                  targetId: widget.targetId,
-                                ),
-                    ),
-                    const SizedBox(height: 14),
-                    _ReelActionButton(
-                      icon: Icons.chat_bubble_outline,
-                      label: commentCount?.toString() ?? '—',
-                      onTap: _openCommentsSheet,
-                    ),
-                  ],
+            if (widget.showEngagement)
+              Positioned(
+                right: 10,
+                bottom: 120,
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      _ReelActionButton(
+                        icon: liked
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        iconColor: AppColors.likeHeart,
+                        label: likeCount?.toString() ?? '—',
+                        active: liked,
+                        onTap: likeLoading
+                            ? null
+                            : () => context
+                                  .read<InteractionStatsCubit>()
+                                  .toggleLike(
+                                    targetType: widget.targetType,
+                                    targetId: widget.targetId,
+                                  ),
+                      ),
+                      const SizedBox(height: 14),
+                      _ReelActionButton(
+                        icon: Icons.chat_bubble_outline,
+                        label: commentCount?.toString() ?? '—',
+                        onTap: _openCommentsSheet,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             Positioned(
               left: 12,
               right: 80,

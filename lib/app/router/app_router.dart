@@ -3,6 +3,9 @@ import '../../core/auth/auth_session_manager.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/policy/stage_mode.dart';
 import '../../modules/admin/presentation/screens/admin_dashboard_screen.dart';
+import '../../modules/promotion/presentation/screens/announcement_directory_screen.dart';
+import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
+import '../../modules/admin/presentation/screens/musician_feed_report_admin_screen.dart';
 import '../../modules/auth/presentation/screens/account_settings_screen.dart';
 import '../../modules/auth/presentation/screens/forgot_password_screen.dart';
 import '../../modules/auth/presentation/screens/login_screen.dart';
@@ -20,6 +23,8 @@ import '../../modules/event/presentation/screens/event_discovery_screen.dart';
 import '../../modules/event_audience/presentation/event_audience_profile_draft.dart';
 import '../../modules/overthinking/presentation/overthinking_profile_draft.dart';
 import '../../modules/notification/presentation/screens/notification_screen.dart';
+import '../../modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
+import '../../modules/musician_feed/presentation/screens/musician_feed_muted_authors_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/create_band_screen.dart';
@@ -73,10 +78,26 @@ class AppRouter {
     }
 
     switch (settings.name) {
+      case AppRoutes.announcements:
+      case AppRoutes.adminAnnouncements:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => AnnouncementDirectoryScreen(
+            admin: settings.name == AppRoutes.adminAnnouncements,
+          ),
+        );
       case AppRoutes.adminDashboard:
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AdminDashboardScreen(),
+        );
+      case AppRoutes.adminMusicianFeedReports:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MusicianFeedReportAdminScreen(
+            repository: serviceLocator<MusicianFeedReportAdminRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
         );
       case AppRoutes.login:
         final args = _arguments<LoginRouteArgs>(settings);
@@ -103,6 +124,14 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AccountSettingsScreen(),
+        );
+      case AppRoutes.musicianFeedMutedAuthors:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MusicianFeedMutedAuthorsScreen(
+            repository: serviceLocator<MusicianFeedMutedAuthorsRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
         );
       case AppRoutes.otpVerify:
         return MaterialPageRoute(

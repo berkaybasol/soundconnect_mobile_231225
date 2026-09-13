@@ -9,6 +9,7 @@ import '../../../location/domain/location_repository.dart';
 import '../../domain/musician_feed_preferences.dart';
 import '../../domain/musician_feed_preferences_repository.dart';
 import '../musician_feed_visual_theme.dart';
+import 'musician_feed_opportunity_city_controller.dart';
 
 String musicianFeedCitySearchKey(String value) => value
     .trim()
@@ -38,6 +39,7 @@ Future<bool> showMusicianFeedOpportunityCitySheet(
   BuildContext context, {
   required MusicianFeedPreferencesRepository preferencesRepository,
   required LocationRepository locationRepository,
+  bool Function()? isCurrent,
 }) async {
   final changed = await showModalBottomSheet<bool>(
     context: context,
@@ -49,6 +51,7 @@ Future<bool> showMusicianFeedOpportunityCitySheet(
     builder: (_) => _OpportunityCitySheetFrame(
       preferencesRepository: preferencesRepository,
       locationRepository: locationRepository,
+      isCurrent: isCurrent,
     ),
   );
   return changed ?? false;
@@ -58,10 +61,12 @@ class _OpportunityCitySheetFrame extends StatelessWidget {
   const _OpportunityCitySheetFrame({
     required this.preferencesRepository,
     required this.locationRepository,
+    this.isCurrent,
   });
 
   final MusicianFeedPreferencesRepository preferencesRepository;
   final LocationRepository locationRepository;
+  final bool Function()? isCurrent;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +95,7 @@ class _OpportunityCitySheetFrame extends StatelessWidget {
               compactLayout: compactLayout,
               preferencesRepository: preferencesRepository,
               locationRepository: locationRepository,
+              isCurrent: isCurrent,
             ),
           ),
         ),
@@ -104,130 +110,59 @@ class _OpportunityCitySheet extends StatefulWidget {
     required this.compactLayout,
     required this.preferencesRepository,
     required this.locationRepository,
+    this.isCurrent,
   });
 
   final double height;
   final bool compactLayout;
   final MusicianFeedPreferencesRepository preferencesRepository;
   final LocationRepository locationRepository;
+  final bool Function()? isCurrent;
 
   @override
   State<_OpportunityCitySheet> createState() => _OpportunityCitySheetState();
 }
 
 class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
-  static const _preferenceVersionConflictCode = '1317';
-
   final _search = TextEditingController();
-  MusicianFeedPreferences? _preferences;
-  List<City> _cities = const [];
-  String? _selectedId;
-  bool _loading = true;
-  bool _saving = false;
-  String? _error;
+  late final MusicianFeedOpportunityCityController _controller;
+
+  MusicianFeedPreferences? get _preferences => _controller.preferences;
+  List<City> get _cities => _controller.cities;
+  String? get _selectedId => _controller.selectedId;
+  bool get _loading => _controller.loading;
+  bool get _saving => _controller.saving;
+  String? get _error => _controller.error;
 
   @override
   void initState() {
     super.initState();
+    _controller = MusicianFeedOpportunityCityController(
+      preferencesRepository: widget.preferencesRepository,
+      locationRepository: widget.locationRepository,
+      isCurrent: widget.isCurrent,
+    )..addListener(_onChanged);
     unawaited(_load());
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _controller
+      ..removeListener(_onChanged)
+      ..dispose();
     _search.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final results = await Future.wait([
-      widget.preferencesRepository.get(),
-      widget.locationRepository.getCities(),
-    ]);
-    if (!mounted) return;
-    final preferencesResult = results[0];
-    final citiesResult = results[1];
-    final preferences = preferencesResult.data as MusicianFeedPreferences?;
-    final cities = citiesResult.data as List<City>?;
-    if (!preferencesResult.isSuccess ||
-        !citiesResult.isSuccess ||
-        preferences == null ||
-        cities == null) {
-      setState(() {
-        _loading = false;
-        _error =
-            preferencesResult.error?.message ??
-            citiesResult.error?.message ??
-            'Şehirler yüklenemedi.';
-      });
-      return;
-    }
-    setState(() {
-      _preferences = preferences;
-      _cities = List.unmodifiable(cities);
-      _selectedId = preferences.opportunityCity?.id;
-      _loading = false;
-    });
-  }
+  Future<void> _load() => _controller.load();
 
   Future<void> _save() async {
-    final preferences = _preferences;
-    if (_saving || preferences == null) return;
-    final requestedCityId = _selectedId;
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-
-    var expectedVersion = preferences.version;
-    var refreshedAfterConflict = false;
-    while (mounted) {
-      final result = await widget.preferencesRepository.updateOpportunityCity(
-        cityId: requestedCityId,
-        expectedVersion: expectedVersion,
-      );
-      if (!mounted) return;
-      if (result.isSuccess && result.data != null) {
-        Navigator.of(context).pop(true);
-        return;
-      }
-
-      final error = result.error;
-      if (!refreshedAfterConflict &&
-          error?.code == _preferenceVersionConflictCode) {
-        refreshedAfterConflict = true;
-        final latestResult = await widget.preferencesRepository.get();
-        if (!mounted) return;
-        final latest = latestResult.data;
-        if (!latestResult.isSuccess || latest == null) {
-          setState(() {
-            _saving = false;
-            _selectedId = requestedCityId;
-            _error =
-                latestResult.error?.message ??
-                'Güncel akış tercihlerin yüklenemedi. Seçimini koruduk; lütfen tekrar dene.';
-          });
-          return;
-        }
-        expectedVersion = latest.version;
-        setState(() {
-          _preferences = latest;
-          _selectedId = requestedCityId;
-        });
-        continue;
-      }
-
-      setState(() {
-        _saving = false;
-        _selectedId = requestedCityId;
-        _error = error?.code == _preferenceVersionConflictCode
-            ? 'Akış tercihlerin yeniden değişti. Seçimini koruduk; lütfen tekrar dene.'
-            : error?.message ?? 'Şehir tercihi kaydedilemedi.';
-      });
-      return;
+    if (await _controller.save() && mounted) {
+      Navigator.of(context).pop(true);
     }
   }
 
@@ -236,140 +171,131 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
     final colors = Theme.of(context).colorScheme;
     final selectedCity = _cityForId(_selectedId);
     final compactLayout = widget.compactLayout;
-    if (compactLayout) {
-      return SizedBox(
-        key: const Key('musician-feed-opportunity-city-sheet'),
-        height: widget.height,
-        child: _compactLayout(colors),
-      );
-    }
     return SizedBox(
       key: const Key('musician-feed-opportunity-city-sheet'),
       height: widget.height,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 10),
-          Center(
-            child: Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colors.onSurfaceVariant.withValues(alpha: 0.78),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _OpportunityCityHeaderIcon(size: 54),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'AKIŞ TERCİHİ',
-                        style: TextStyle(
-                          color: AppColors.socialPink,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Fırsat şehrin',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.35,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Collab ve etkinlikleri yaşadığın adrese göre değil, fırsat görmek istediğin şehre göre sıralarız.',
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 12.5,
-                          height: 1.42,
-                        ),
-                      ),
-                    ],
-                  ),
+          Expanded(
+            child: CustomScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: compactLayout
+                      ? _compactHeader(colors)
+                      : _header(colors, selectedCity),
                 ),
+                // Keep the editor in the same element slot when keyboard
+                // insets switch the header to its compact presentation.
+                SliverToBoxAdapter(child: _searchField(compact: compactLayout)),
+                SliverToBoxAdapter(
+                  child: compactLayout && _error != null && !_loading
+                      ? Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+                          child: _OpportunityCityError(message: _error!),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                _body(),
               ],
             ),
           ),
-          if (selectedCity != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-              child: _SelectedCitySummary(city: selectedCity),
-            ),
-          _searchField(compact: false),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: _body(),
-            ),
-          ),
-          _saveArea(compact: false, includeError: true),
+          _saveArea(compact: compactLayout, includeError: !compactLayout),
         ],
       ),
     );
   }
 
-  Widget _compactLayout(ColorScheme colors) {
+  Widget _header(ColorScheme colors, City? selectedCity) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: CustomScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 9, 20, 0),
-                  child: Row(
-                    children: [
-                      const BrandGradientIcon.social(
-                        Icons.location_on_rounded,
-                        size: 19,
+        const SizedBox(height: 10),
+        Center(
+          child: Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colors.onSurfaceVariant.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _OpportunityCityHeaderIcon(size: 54),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AKIŞ TERCİHİ',
+                      style: TextStyle(
+                        color: AppColors.socialPink,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.25,
                       ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Text(
-                          'Fırsat şehrin',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.onSurface,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Fırsat şehrin',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.35,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Collab ve etkinlikleri yaşadığın adrese göre değil, fırsat görmek istediğin şehre göre sıralarız.',
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 12.5,
+                        height: 1.42,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SliverToBoxAdapter(child: _searchField(compact: true)),
-              if (_error != null && !_loading)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-                    child: _OpportunityCityError(message: _error!),
-                  ),
-                ),
-              _compactBody(),
             ],
           ),
         ),
-        _saveArea(compact: true, includeError: false),
+        if (selectedCity != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: _SelectedCitySummary(city: selectedCity),
+          ),
       ],
+    );
+  }
+
+  Widget _compactHeader(ColorScheme colors) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 9, 20, 0),
+      child: Row(
+        children: [
+          const BrandGradientIcon.social(Icons.location_on_rounded, size: 19),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              'Fırsat şehrin',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -448,7 +374,7 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
     return null;
   }
 
-  Widget _compactBody() {
+  Widget _body() {
     if (_loading) {
       return const SliverFillRemaining(
         hasScrollBody: false,
@@ -481,32 +407,6 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (_, index) => _cityTile(visible[index]),
       ),
-    );
-  }
-
-  Widget _body() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_preferences == null) {
-      return Center(
-        child: TextButton.icon(
-          onPressed: _load,
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Tekrar dene'),
-        ),
-      );
-    }
-    final visible = filterMusicianFeedOpportunityCities(_cities, _search.text);
-    if (visible.isEmpty) {
-      return _emptySearchResult();
-    }
-    return ListView.separated(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(6, 2, 6, 8),
-      itemCount: visible.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, index) => _cityTile(visible[index]),
     );
   }
 
@@ -543,7 +443,7 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: _saving ? null : () => setState(() => _selectedId = city.id),
+          onTap: _saving ? null : () => _controller.selectCity(city.id),
           child: AnimatedContainer(
             key: Key('musician-feed-city-${city.id}'),
             duration: const Duration(milliseconds: 180),
@@ -762,7 +662,7 @@ class _OpportunityCitySaveButton extends StatelessWidget {
         opacity: highlighted ? 1 : 0.58,
         child: Container(
           key: const Key('musician-feed-city-save'),
-          height: 52,
+          constraints: const BoxConstraints(minHeight: 52),
           decoration: BoxDecoration(
             color: highlighted ? null : colors.surfaceContainerHigh,
             gradient: highlighted
@@ -790,37 +690,46 @@ class _OpportunityCitySaveButton extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: enabled ? onPressed : null,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (loading)
-                    const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.white,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (loading)
+                      const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.white,
+                        ),
+                      )
+                    else
+                      Icon(
+                        Icons.check_rounded,
+                        size: 20,
+                        color: highlighted
+                            ? AppColors.white
+                            : colors.onSurfaceVariant,
                       ),
-                    )
-                  else
-                    Icon(
-                      Icons.check_rounded,
-                      size: 20,
-                      color: highlighted
-                          ? AppColors.white
-                          : colors.onSurfaceVariant,
+                    const SizedBox(width: 9),
+                    Flexible(
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: highlighted
+                              ? AppColors.white
+                              : colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
-                  const SizedBox(width: 9),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: highlighted
-                          ? AppColors.white
-                          : colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -4,35 +4,86 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
   void _stopPlayback({bool dispose = false}) {
     final controller = _playerController;
     if (controller == null) return;
-    try {
-      controller.pause();
-      controller.setVolume(0);
-    } catch (_) {}
+    if (controller.videoPlayerController != null) {
+      // Pause/mute return Futures: a synchronous try/catch cannot handle a
+      // native teardown error. These are best-effort stop operations; decode
+      // failures continue to surface through _playbackEvent's retry UI.
+      unawaited(controller.pause().catchError((Object _) {}));
+      unawaited(controller.setVolume(0).catchError((Object _) {}));
+    }
     if (dispose) {
-      controller.dispose();
       _playerController = null;
+      controller.removeEventsListener(_playbackEvent);
+      controller.dispose();
     }
   }
 
-  Future<void> _initPlayer() async {
-    final primary = resolveAppMediaUrl(widget.sourceUrl);
-    final secondary = resolveAppMediaUrl(widget.playbackUrl);
+  Future<void> _retryPlayer() async {
+    if (!mounted || _retrying || widget.isPlaybackAllowed?.call() == false) {
+      return;
+    }
+    final position = _playerController?.videoPlayerController?.value.position;
+    _updateState(() => _retrying = true);
+    try {
+      final refresh = widget.refreshPlaybackUrl;
+      final url = refresh == null ? null : await refresh();
+      if (!mounted || widget.isPlaybackAllowed?.call() == false) return;
+      if (refresh != null && resolveAppMediaUrl(url) == null) {
+        _updateState(
+          () => _playerError = 'Video erişimi yenilenemedi. Yeniden dene.',
+        );
+        return;
+      }
+      _stopPlayback(dispose: true);
+      await _initPlayer(overrideUrl: url, startAt: position);
+    } catch (_) {
+      _updateState(
+        () => _playerError = 'Video erişimi yenilenemedi. Yeniden dene.',
+      );
+    } finally {
+      _updateState(() => _retrying = false);
+    }
+  }
+
+  Future<void> _initPlayer({String? overrideUrl, Duration? startAt}) async {
+    if (widget.isPlaybackAllowed?.call() == false) {
+      _checkAccess();
+      return;
+    }
+    final primary = resolveAppMediaUrl(overrideUrl ?? widget.sourceUrl);
+    final secondary = overrideUrl == null
+        ? resolveAppMediaUrl(widget.playbackUrl)
+        : null;
     final candidates = <String>[
       if (primary != null) primary,
       if (secondary != null && secondary != primary) secondary,
     ];
-    if (candidates.isEmpty) return;
+    if (candidates.isEmpty) {
+      _updateState(() => _playerError = 'Video kaynağı açılamadı.');
+      return;
+    }
 
     BetterPlayerController buildController(
       String url, {
       required BetterPlayerVideoFormat format,
       required bool useAsms,
     }) {
+      final source = BetterPlayerDataSource(
+        BetterPlayerDataSourceType.network,
+        url,
+        videoFormat: format,
+        useAsmsTracks: useAsms,
+        useAsmsSubtitles: useAsms,
+        useAsmsAudioTracks: useAsms,
+        placeholder: ColoredBox(color: AppColors.pureBlack),
+      );
       return BetterPlayerController(
         BetterPlayerConfiguration(
+          startAt: startAt,
+          eventListener: _playbackEvent,
           autoDispose: true,
           autoPlay: true,
-          looping: true,
+          looping: widget.looping,
           fit: BoxFit.cover,
           expandToFill: false,
           handleLifecycle: true,
@@ -54,15 +105,8 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
             progressBarBackgroundColor: Color(0x55FFFFFF),
           ),
         ),
-        betterPlayerDataSource: BetterPlayerDataSource(
-          BetterPlayerDataSourceType.network,
-          url,
-          videoFormat: format,
-          useAsmsTracks: useAsms,
-          useAsmsSubtitles: useAsms,
-          useAsmsAudioTracks: useAsms,
-          placeholder: ColoredBox(color: AppColors.pureBlack),
-        ),
+        betterPlayerDataSource:
+            widget.dataSourceFactory?.call(source) ?? source,
       );
     }
 
@@ -76,7 +120,7 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
               : BetterPlayerVideoFormat.other,
           useAsms: isHls,
         );
-        if (!mounted) {
+        if (!mounted || widget.isPlaybackAllowed?.call() == false) {
           controller.dispose();
           return;
         }
@@ -92,7 +136,7 @@ extension _VideoReelScreenStateActions on _VideoReelScreenState {
             format: BetterPlayerVideoFormat.other,
             useAsms: false,
           );
-          if (!mounted) {
+          if (!mounted || widget.isPlaybackAllowed?.call() == false) {
             alt.dispose();
             return;
           }

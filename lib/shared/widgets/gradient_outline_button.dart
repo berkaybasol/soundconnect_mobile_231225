@@ -31,14 +31,11 @@ class GradientOutlineButton extends StatelessWidget {
     final borderRadius = BorderRadius.circular(18);
     final isEnabled = onPressed != null && !loading;
 
-    return CustomPaint(
-      foregroundPainter: _GradientOutlinePainter(
-        radius: 18,
-        strokeWidth: strokeWidth,
-        colors: isEnabled
-            ? AppColors.brandGradient
-            : [theme.dividerColor, theme.dividerColor],
-      ),
+    return GradientOutline(
+      strokeWidth: strokeWidth,
+      colors: isEnabled
+          ? AppColors.brandGradient
+          : [theme.dividerColor, theme.dividerColor],
       child: ClipRRect(
         borderRadius: borderRadius,
         child: Material(
@@ -89,6 +86,34 @@ class GradientOutlineButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The same hollow brand frame used by [GradientOutlineButton], for content
+/// and icon controls that own their own layout and interaction semantics.
+class GradientOutline extends StatelessWidget {
+  const GradientOutline({
+    super.key,
+    required this.child,
+    this.radius = 18,
+    this.strokeWidth = 1.4,
+    this.colors,
+  }) : assert(radius >= 0),
+       assert(strokeWidth > 0);
+
+  final Widget child;
+  final double radius;
+  final double strokeWidth;
+  final List<Color>? colors;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    foregroundPainter: _GradientOutlinePainter(
+      radius: radius,
+      strokeWidth: strokeWidth,
+      colors: colors ?? AppColors.brandGradient,
+    ),
+    child: child,
+  );
 }
 
 class _GradientOutlinePainter extends CustomPainter {

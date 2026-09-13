@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../domain/musician_feed_models.dart';
 import 'musician_feed_content_cards.dart';
 import 'musician_feed_system_cards.dart';
+import 'musician_feed_card_chrome.dart';
+import '../../../promotion/presentation/widgets/announcement_content.dart';
 
 typedef MusicianFeedCardRenderer =
     Widget Function(
@@ -69,6 +71,10 @@ abstract interface class MusicianFeedNavigation {
   });
 
   Future<void> openCompletionTask(MusicianFeedCompletionTask task);
+  Future<void> openAnnouncement(
+    MusicianFeedItem item,
+    AnnouncementFeedPayload payload,
+  );
 }
 
 class MusicianFeedCardActions {
@@ -172,6 +178,10 @@ class MusicianFeedCardRegistry {
       renderer: buildSponsoredFeedCard,
       open: _openPromotion,
     ),
+    MusicianFeedItemType.announcement: const MusicianFeedCardRegistration(
+      renderer: _buildAnnouncement,
+      open: _openAnnouncement,
+    ),
   });
 
   final Map<MusicianFeedItemType, MusicianFeedCardRegistration> _registrations;
@@ -223,6 +233,28 @@ class MusicianFeedCardRegistry {
     return registration.open(this, navigation, item, payload, type);
   }
 }
+
+Widget _buildAnnouncement(
+  BuildContext context,
+  MusicianFeedItem item,
+  MusicianFeedCardActions actions,
+) => MusicianFeedSurface(
+  item: item,
+  actions: actions,
+  showAuthor: false,
+  child: AnnouncementContent(
+    announcement: (item.payload as AnnouncementFeedPayload).announcement,
+    showIdentity: false,
+    onOpen: () => actions.openItem(item),
+  ),
+);
+Future<void> _openAnnouncement(
+  MusicianFeedCardRegistry registry,
+  MusicianFeedNavigation navigation,
+  MusicianFeedItem item,
+  MusicianFeedPayload payload,
+  MusicianFeedItemType type,
+) => navigation.openAnnouncement(item, payload as AnnouncementFeedPayload);
 
 Future<void> _openTrack(
   MusicianFeedCardRegistry _,

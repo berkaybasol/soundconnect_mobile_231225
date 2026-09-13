@@ -325,6 +325,19 @@ class DioApiClient implements ApiClient {
     T Function(Object? json)? decoder,
     ApiRequestContext? requestContext,
   }) async {
+    final announcementSource = requestContext?.announcementSource;
+    if (announcementSource != null &&
+        (!const {'FEED', 'DIRECTORY'}.contains(announcementSource) ||
+            requestContext?.expectedSessionKey?.trim().isNotEmpty != true ||
+            requestContext?.requireGuestSession == true ||
+            isPublicApiRequest(method, path))) {
+      throw ApiException(
+        const AppError(
+          code: 'announcement_source_invalid',
+          message: 'Geçersiz duyuru işlem bağlamı.',
+        ),
+      );
+    }
     try {
       final response = await _dio.request<dynamic>(
         path,
@@ -332,6 +345,9 @@ class DioApiClient implements ApiClient {
         queryParameters: query,
         options: Options(
           method: method,
+          headers: announcementSource == null
+              ? null
+              : {'X-Announcement-Source': announcementSource},
           extra: <String, Object?>{
             if (requestContext?.expectedSessionKey case final value?)
               _expectedSessionKey: value,

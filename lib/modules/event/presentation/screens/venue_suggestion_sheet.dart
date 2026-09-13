@@ -13,6 +13,7 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../location/domain/entities/city.dart';
 import '../../../location/domain/entities/district.dart';
 import '../../../location/domain/location_repository.dart';
+import '../../../location/presentation/widgets/location_picker_sheet.dart';
 import '../../domain/venue_suggestion_repository.dart';
 
 Future<bool?> showVenueSuggestionSheet(
@@ -645,111 +646,9 @@ Future<String?> _pickOption(
   required String title,
   required Map<String, String> options,
   String? selected,
-}) => showModalBottomSheet<String>(
-  context: context,
-  useSafeArea: true,
-  isScrollControlled: true,
-  showDragHandle: true,
-  backgroundColor: AppColors.navBlueDeep,
-  builder: (_) => _SuggestionLocationPicker(
-    title: title,
-    options: options,
-    selected: selected,
-  ),
+}) => showLocationPickerSheet(
+  context,
+  title: title,
+  options: options,
+  selected: selected,
 );
-
-class _SuggestionLocationPicker extends StatefulWidget {
-  const _SuggestionLocationPicker({
-    required this.title,
-    required this.options,
-    this.selected,
-  });
-  final String title;
-  final Map<String, String> options;
-  final String? selected;
-  @override
-  State<_SuggestionLocationPicker> createState() =>
-      _SuggestionLocationPickerState();
-}
-
-class _SuggestionLocationPickerState extends State<_SuggestionLocationPicker> {
-  String _query = '';
-  String _fold(String value) => value
-      .trim()
-      .toLowerCase()
-      .replaceAll('ı', 'i')
-      .replaceAll('İ', 'i')
-      .replaceAll('ş', 's')
-      .replaceAll('ğ', 'g')
-      .replaceAll('ü', 'u')
-      .replaceAll('ö', 'o')
-      .replaceAll('ç', 'c');
-  @override
-  Widget build(BuildContext context) {
-    final options = widget.options.entries
-        .where((item) => _fold(item.value).contains(_fold(_query)))
-        .toList();
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .65,
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                  child: Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                  child: TextField(
-                    onChanged: (value) => setState(() => _query = value),
-                    decoration: _decoration('Ara').copyWith(
-                      prefixIcon: const BrandGradientIcon.social(
-                        Icons.search_rounded,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (options.isEmpty)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(22),
-                    child: Text('Sonuç bulunamadı.'),
-                  ),
-                ),
-              SliverList.builder(
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final item = options[index];
-                  return ListTile(
-                    title: Text(item.value),
-                    selected: item.key == widget.selected,
-                    trailing: item.key == widget.selected
-                        ? const BrandGradientIcon.social(Icons.check_rounded)
-                        : null,
-                    onTap: () => Navigator.of(context).pop(item.key),
-                  );
-                },
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

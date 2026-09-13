@@ -30,6 +30,9 @@ import 'support/collab_test_support.dart';
 
 // Preserve the original Koyu surfaces. Listener/ghost baselines also capture
 // their intentional alignment with the shared musician/venue profile design.
+// The collab baseline includes the 48px publisher-profile link tap targets.
+// Controls/sheet also capture the approved waveform fit correction: bars use
+// the available width without overflowing or leaving a blank trailing region.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {

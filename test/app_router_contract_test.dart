@@ -14,6 +14,8 @@ import 'package:soundconnect_23_12_25codx/modules/event/presentation/screens/eve
 import 'package:soundconnect_23_12_25codx/modules/event_audience/presentation/event_audience_profile_draft.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/domain/musician_feed_report_admin_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/musician_feed_report_admin_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_pending_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
@@ -49,6 +51,117 @@ void main() {
       final screen = route.builder(context) as ListenerProfileScreen;
       expect(screen.eventDraft, arguments == draft ? same(draft) : isNull);
     }
+  });
+
+  test('muted feed settings require an active musician account', () {
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.musicianFeedMutedAuthors,
+        const AuthSession.guest(),
+      ),
+      AppRoutes.login,
+    );
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.musicianFeedMutedAuthors,
+        _activeSession(['ROLE_MUSICIAN']),
+      ),
+      isNull,
+    );
+    for (final role in ['ROLE_LISTENER', 'ROLE_VENUE', 'ROLE_STUDIO']) {
+      final session = _activeSession([role]);
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.musicianFeedMutedAuthors, session),
+        AppRouteGuard.startRouteFor(session),
+      );
+    }
+  });
+
+  test('feed moderation requires its exact permission and active session', () {
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.adminMusicianFeedReports,
+        const AuthSession.guest(),
+      ),
+      AppRoutes.login,
+    );
+    for (final session in <AuthSession>[
+      _activeSession(['ROLE_MUSICIAN']),
+      _activeSession(['ROLE_ADMIN'], isAdmin: true),
+      _activeSession(
+        ['ROLE_OWNER'],
+        isAdmin: true,
+        permissions: ['ADMIN_PANEL_ACCESS', 'MANAGE_COLLAB_REPORTS'],
+      ),
+    ]) {
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.adminMusicianFeedReports, session),
+        AppRouteGuard.startRouteFor(session),
+      );
+    }
+    final allowed = _activeSession(
+      ['ROLE_ADMIN'],
+      isAdmin: true,
+      permissions: ['MANAGE_MUSICIAN_FEED_REPORTS'],
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.adminMusicianFeedReports, allowed),
+      isNull,
+    );
+    final suspended = _activeSession(
+      ['ROLE_ADMIN'],
+      isAdmin: true,
+      permissions: ['MANAGE_MUSICIAN_FEED_REPORTS'],
+      accountStatus: 'SUSPENDED',
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.adminMusicianFeedReports, suspended),
+      AppRoutes.login,
+    );
+  });
+
+  testWidgets('real moderation route injects the authenticated repository', (
+    tester,
+  ) async {
+    _registerSession(
+      _activeSession(
+        ['ROLE_ADMIN'],
+        isAdmin: true,
+        permissions: ['MANAGE_MUSICIAN_FEED_REPORTS'],
+      ),
+    );
+    final repository = _UnusedReportAdminRepository();
+    GetIt.instance.registerSingleton<MusicianFeedReportAdminRepository>(
+      repository,
+    );
+    await tester.pumpWidget(
+      const MaterialApp(home: SizedBox(key: Key('moderation-route-host'))),
+    );
+    final route =
+        AppRouter.onGenerateRoute(
+              const RouteSettings(name: AppRoutes.adminMusicianFeedReports),
+            )
+            as MaterialPageRoute;
+    final screen =
+        route.builder(
+              tester.element(find.byKey(const Key('moderation-route-host'))),
+            )
+            as MusicianFeedReportAdminScreen;
+    expect(route.settings.name, AppRoutes.adminMusicianFeedReports);
+    expect(screen.repository, same(repository));
+    expect(screen.sessions, same(GetIt.instance<AuthSessionManager>()));
+  });
+
+  test('real moderation route redirects an admin without its permission', () {
+    _registerSession(_activeSession(['ROLE_ADMIN'], isAdmin: true));
+    final route = AppRouter.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.adminMusicianFeedReports),
+    );
+    expect(route.settings.name, AppRoutes.adminDashboard);
+    expect(
+      GetIt.instance.isRegistered<MusicianFeedReportAdminRepository>(),
+      isFalse,
+    );
   });
 
   test('member discovery keeps authentication and onboarding gates', () {
@@ -506,16 +619,19 @@ void main() {
 AuthSession _activeSession(
   List<String> roles, {
   bool requiresListenerProfileChoice = false,
+  List<String> permissions = const [],
+  bool isAdmin = false,
+  String accountStatus = 'ACTIVE',
 }) {
   return AuthSession.authenticated(
     token: 'table-group-token',
     userId: 'table-group-user',
     username: 'table-group-user',
-    accountStatus: 'ACTIVE',
+    accountStatus: accountStatus,
     roles: roles,
-    permissions: const <String>[],
+    permissions: permissions,
     expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
-    isAdmin: false,
+    isAdmin: isAdmin,
     requiresListenerProfileChoice: requiresListenerProfileChoice,
   );
 }
@@ -535,6 +651,13 @@ class _FixedAuthSessionManager extends AuthSessionManager {
 
   @override
   AuthSession get session => _fixedSession;
+}
+
+class _UnusedReportAdminRepository
+    implements MusicianFeedReportAdminRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('Building a route must not load moderation data');
 }
 
 class _NoopTokenStore implements TokenStore {

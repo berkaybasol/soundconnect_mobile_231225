@@ -27,26 +27,36 @@ class MusicianFeedSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasAuthor = showAuthor && item.author != null;
+    final authorIdentity = musicianFeedAuthorProfileIdentity(item.author);
+    final publicationActor =
+        item.reason.actors.firstOrNull ??
+        (item.author?.followedByViewer == true ? item.author : null);
+    // A publication needs one identity row. Preserve a different publisher
+    // (for example a venue sharing a performer), social context and disclosures.
+    final mergedPublication =
+        hasAuthor &&
+        item.promotion == null &&
+        item.reason.code == 'FOLLOWING_PUBLICATION' &&
+        authorIdentity != null &&
+        musicianFeedAuthorProfileIdentity(publicationActor) == authorIdentity;
     final surface = Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
-      ),
+      color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MusicianFeedReasonRow(
-            item: item,
-            actions: actions,
-            showOverflow: !showAuthor,
-          ),
+          if (!mergedPublication)
+            MusicianFeedReasonRow(
+              item: item,
+              actions: actions,
+              showOverflow: !hasAuthor,
+            ),
           Padding(
             padding: contentPadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (showAuthor && item.author != null) ...[
+                if (hasAuthor) ...[
                   MusicianFeedAuthorHeader(
                     author: item.author!,
                     occurredAt: item.occurredAt,
@@ -56,8 +66,18 @@ class MusicianFeedSurface extends StatelessWidget {
                       item: item,
                       actions: actions,
                     ),
+                    onHide:
+                        mergedPublication &&
+                            item.feedbackCapabilities.contains(
+                              MusicianFeedFeedbackAction.hide,
+                            )
+                        ? () => actions.feedback(
+                            item,
+                            MusicianFeedFeedbackAction.hide,
+                          )
+                        : null,
                   ),
-                  const SizedBox(height: 13),
+                  const SizedBox(height: 12),
                 ],
                 child,
                 if (_hasEngagementContent(item.engagement)) ...[
@@ -76,8 +96,6 @@ class MusicianFeedSurface extends StatelessWidget {
       label: _semanticLabel(item),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        clipBehavior: Clip.antiAlias,
         child: InkWell(onTap: onTap, child: surface),
       ),
     );
@@ -100,6 +118,7 @@ class MusicianFeedSurface extends StatelessWidget {
       MusicianFeedItemType.profile => 'profil önerisi',
       MusicianFeedItemType.profileCompletion => 'profil tamamlama önerisi',
       MusicianFeedItemType.sponsored => 'sponsorlu içerik',
+      MusicianFeedItemType.announcement => 'SoundConnect duyurusu',
       _ => 'sosyal aktivite',
     };
     final content = author == null ? kind : '$author tarafından $kind';
@@ -135,11 +154,15 @@ class MusicianFeedReasonRow extends StatelessWidget {
     final icon = promotion == null
         ? _reasonIcon(item.reason.code)
         : _promotionDisclosureIcon(promotion.disclosure);
-    final canOpenLikes =
+    final isAnnouncement =
+        (promotion?.disclosure ?? item.reason.code).trim().toUpperCase() ==
+        'PLATFORM_ANNOUNCEMENT';
+    final isLikeReason =
         promotion == null &&
         (item.reason.code == 'FOLLOWED_USER_LIKED' ||
-            item.reason.code == 'FOLLOWING_LIKED') &&
-        musicianFeedLikeUsersTarget(item) != null;
+            item.reason.code == 'FOLLOWING_LIKED');
+    final canOpenLikes =
+        isLikeReason && musicianFeedLikeUsersTarget(item) != null;
     final canHide = item.feedbackCapabilities.contains(
       MusicianFeedFeedbackAction.hide,
     );
@@ -158,13 +181,6 @@ class MusicianFeedReasonRow extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(minHeight: 44),
       padding: const EdgeInsetsDirectional.only(start: 14, end: 4),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-      ),
       child: Row(
         children: [
           if (publicationActor != null)
@@ -186,11 +202,16 @@ class MusicianFeedReasonRow extends StatelessWidget {
               ),
             )
           else if (label != null) ...[
-            Icon(
-              icon,
-              size: 16,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            if (isAnnouncement)
+              BrandGradientIcon(icon, size: 18)
+            else
+              Icon(
+                icon,
+                size: isLikeReason ? 18 : 16,
+                color: isLikeReason
+                    ? AppColors.likeHeart
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -224,7 +245,9 @@ class MusicianFeedReasonRow extends StatelessWidget {
               onPressed: () =>
                   actions.feedback(item, MusicianFeedFeedbackAction.hide),
               icon: const Icon(Icons.close_rounded, size: 20),
-              tooltip: 'Bu kartı gizle',
+              tooltip: item.type == MusicianFeedItemType.announcement
+                  ? 'Bu duyuruyu akışta bir daha gösterme'
+                  : 'Bu kartı gizle',
               constraints: const BoxConstraints.tightFor(width: 44, height: 44),
               padding: EdgeInsets.zero,
             ),
@@ -263,11 +286,7 @@ class _LikesReasonLink extends StatelessWidget {
             padding: const EdgeInsetsDirectional.fromSTEB(0, 7, 6, 7),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                Icon(icon, size: 18, color: AppColors.likeHeart),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -374,12 +393,14 @@ class MusicianFeedAuthorHeader extends StatelessWidget {
     required this.occurredAt,
     required this.onTap,
     required this.onOverflow,
+    this.onHide,
   });
 
   final MusicianFeedActor author;
   final DateTime occurredAt;
   final VoidCallback onTap;
   final VoidCallback onOverflow;
+  final VoidCallback? onHide;
 
   @override
   Widget build(BuildContext context) {
@@ -450,6 +471,14 @@ class MusicianFeedAuthorHeader extends StatelessWidget {
           tooltip: 'Kart seçenekleri',
           constraints: const BoxConstraints.tightFor(width: 44, height: 44),
         ),
+        if (onHide != null)
+          IconButton(
+            onPressed: onHide,
+            icon: const Icon(Icons.close_rounded, size: 20),
+            tooltip: 'Bu kartı gizle',
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            padding: EdgeInsets.zero,
+          ),
       ],
     );
   }
@@ -485,9 +514,9 @@ class MusicianFeedEngagementBar extends StatelessWidget {
           Row(
             children: [
               if (engagement.likeCount > 0) ...[
-                Icon(
+                const Icon(
                   Icons.favorite_rounded,
-                  size: 14,
+                  size: 18,
                   color: AppColors.likeHeart,
                 ),
                 const SizedBox(width: 5),
@@ -521,6 +550,8 @@ class MusicianFeedEngagementBar extends StatelessWidget {
                         : Icons.favorite_border_rounded,
                     label: engagement.likedByMe ? 'Beğendin' : 'Beğen',
                     color: engagement.likedByMe ? AppColors.likeHeart : null,
+                    iconColor: AppColors.likeHeart,
+                    iconSize: 18,
                     onPressed: () => actions.toggleLike(item),
                   ),
                 ),
@@ -551,12 +582,16 @@ class _FeedActionButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.color,
+    this.iconColor,
+    this.iconSize = 19,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
   final Color? color;
+  final Color? iconColor;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -573,7 +608,7 @@ class _FeedActionButton extends StatelessWidget {
             ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 19, color: foreground),
+                  Icon(icon, size: iconSize, color: iconColor ?? foreground),
                   const SizedBox(height: 2),
                   Flexible(
                     child: Text(
@@ -593,7 +628,7 @@ class _FeedActionButton extends StatelessWidget {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 19, color: foreground),
+                  Icon(icon, size: iconSize, color: iconColor ?? foreground),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -753,13 +788,14 @@ IconData _reasonIcon(String code) => switch (code) {
   'PROFILE_INCOMPLETE' || 'PROFILE_COMPLETION' => Icons.auto_awesome_rounded,
   'SPONSORED' => Icons.campaign_outlined,
   'FEATURED' => Icons.workspace_premium_outlined,
+  'PLATFORM_ANNOUNCEMENT' => Icons.campaign_rounded,
   _ => Icons.people_alt_outlined,
 };
 
 IconData _promotionDisclosureIcon(String disclosure) =>
     switch (disclosure.trim().toUpperCase()) {
       'FEATURED' => Icons.workspace_premium_outlined,
-      'PLATFORM_ANNOUNCEMENT' => Icons.notifications_active_outlined,
+      'PLATFORM_ANNOUNCEMENT' => Icons.campaign_rounded,
       _ => Icons.campaign_outlined,
     };
 

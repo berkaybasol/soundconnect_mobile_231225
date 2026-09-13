@@ -81,6 +81,12 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
             }
           : null,
       onManagement: () => _openBackstageManagementPanel(context),
+      onAnnouncements:
+          roles.contains('ROLE_MUSICIAN') || roles.contains('MUSICIAN')
+          ? () async {
+              await Navigator.of(context).pushNamed(AppRoutes.announcements);
+            }
+          : null,
     );
   }
 

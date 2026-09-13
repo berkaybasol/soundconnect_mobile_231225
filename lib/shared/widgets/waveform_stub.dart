@@ -299,16 +299,18 @@ class _WaveformPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (samples.isEmpty) return;
+    if (samples.isEmpty || size.width <= 0 || size.height <= 0) return;
     final rect = Offset.zero & size;
     final centerY = rect.height / 2;
     final maxAmp = rect.height / 2;
     final barCount = samples.length;
-    final gap = 1.5;
-    final barWidth = ((rect.width - (gap * (barCount - 1))) / barCount).clamp(
-      1.2,
-      3.0,
-    );
+    // Fit every sample into the actual available width. A fixed minimum bar
+    // width plus fixed gaps can paint beyond a compact player, while a maximum
+    // bar width alone leaves the end of a wide player's seek track empty.
+    final barWidth = (rect.width / barCount * .64).clamp(0.0, 3.0);
+    final gap = barCount == 1
+        ? 0.0
+        : (rect.width - barWidth * barCount) / (barCount - 1);
     final basePaint = Paint()
       ..isAntiAlias = true
       ..shader = LinearGradient(

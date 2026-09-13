@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/theme/collab_visual_theme.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/musician_feed_visual_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 
 void main() {
@@ -74,12 +75,7 @@ void main() {
       ),
     );
     final decoration = decoratedBox.decoration as BoxDecoration;
-    final gradient = decoration.gradient! as LinearGradient;
-    expect(gradient.colors, const [
-      BackstagePalette.canvasTop,
-      BackstagePalette.canvasMid,
-      BackstagePalette.canvasTop,
-    ]);
-    expect(gradient.stops, const [0, 0.48, 1]);
+    expect(decoration.color, AppColors.navBlueDeep);
+    expect(decoration.gradient, isNull);
   });
 }

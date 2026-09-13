@@ -3,14 +3,18 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/domain/musician_feed_report_admin.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/session_logout_action.dart';
 
 import 'support/auth_widget_test_support.dart';
+import 'support/event_audience_fakes.dart';
 
 const _homeKey = Key('admin-home-empty');
 const _sponsorshipsKey = Key('admin-sponsorships-empty');
@@ -18,6 +22,75 @@ const _sponsorshipsKey = Key('admin-sponsorships-empty');
 void main() {
   setUp(() async => GetIt.instance.reset());
   tearDown(() async => GetIt.instance.reset());
+
+  testWidgets(
+    'feed reports entry requires its exact permission and reacts to revocation',
+    (tester) async {
+      final sessions = AudienceTestSessions(
+        _moderatorSession(
+          permissions: const ['ADMIN_PANEL_ACCESS', 'MANAGE_USERS'],
+        ),
+      );
+      GetIt.instance.registerSingleton<AuthSessionManager>(
+        sessions,
+        dispose: (value) => value.dispose(),
+      );
+      final opened = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.navy,
+          home: const AdminDashboardScreen(),
+          onGenerateRoute: (settings) {
+            opened.add(settings.name!);
+            return MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('Report queue')),
+            );
+          },
+        ),
+      );
+      expect(find.byKey(const Key('admin-feed-reports-entry')), findsNothing);
+      sessions.replace(_moderatorSession());
+      await tester.pump();
+      final entry = find.byKey(const Key('admin-feed-reports-entry'));
+      expect(entry, findsOneWidget);
+      expect(GetIt.instance.isRegistered<ApiClient>(), isFalse);
+      final staleTap = tester.widget<InkWell>(entry).onTap!;
+      sessions.replace(_moderatorSession(permissions: const []));
+      staleTap();
+      await tester.pump();
+      expect(opened, isEmpty);
+      expect(entry, findsNothing);
+      sessions.replace(_moderatorSession());
+      await tester.pump();
+      await tester.tap(entry);
+      await tester.pumpAndSettle();
+      expect(opened, [AppRoutes.adminMusicianFeedReports]);
+      expect(find.text('Report queue'), findsOneWidget);
+    },
+  );
+
+  testWidgets('feed reports entry wraps on a 320dp screen at 200% text', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final sessions = AudienceTestSessions(_moderatorSession());
+    GetIt.instance.registerSingleton<AuthSessionManager>(
+      sessions,
+      dispose: (value) => value.dispose(),
+    );
+    await _pumpPanel(tester, textScale: 2);
+    expect(find.text('Akış şikâyetleri'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('Sponsorluklar'));
+    await tester.tap(find.text('Sponsorluklar'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_sponsorshipsKey), findsOneWidget);
+    expect(GetIt.instance.isRegistered<ApiClient>(), isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('renders the empty shell without API or service registration', (
     tester,
@@ -31,7 +104,7 @@ void main() {
     expect(find.text('Ana Sayfa'), findsOneWidget);
     expect(find.text('Sponsorluklar'), findsOneWidget);
     expect(find.byKey(sessionLogoutButtonKey), findsOneWidget);
-    expect(find.byType(Tab), findsNWidgets(2));
+    expect(find.byType(Tab), findsNWidgets(3));
     expect(_controller(tester).index, 0);
     expect(find.byKey(_homeKey), findsOneWidget);
     _expectEmptyTabBodies(tester);
@@ -65,7 +138,7 @@ void main() {
     }
     expect(
       tester.widgetList<Text>(find.byType(Text)).map((text) => text.data),
-      unorderedEquals(<String>['Admin Paneli', 'Ana Sayfa', 'Sponsorluklar']),
+      unorderedEquals(<String>['Admin Paneli', 'Ana Sayfa', 'Sponsorluklar', 'Akış Yönetimi']),
     );
     expect(find.byType(Card), findsNothing);
     expect(find.byType(RefreshIndicator), findsNothing);
@@ -256,6 +329,19 @@ void main() {
   });
 }
 
+AuthSession _moderatorSession({
+  List<String> permissions = const [musicianFeedReportAdminPermission],
+}) => AuthSession.authenticated(
+  token: 'admin-token',
+  userId: 'admin',
+  username: 'admin',
+  accountStatus: 'ACTIVE',
+  roles: const ['ROLE_ADMIN'],
+  permissions: permissions,
+  expiresAt: DateTime.utc(2100),
+  isAdmin: true,
+);
+
 Future<void> _pumpPanel(WidgetTester tester, {double textScale = 1}) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -277,8 +363,8 @@ TabController _controller(WidgetTester tester) =>
 
 void _expectEmptyTabBodies(WidgetTester tester) {
   final bodies = tester.widget<TabBarView>(find.byType(TabBarView)).children;
-  expect(bodies, hasLength(2));
-  expect(bodies.map((body) => body.key), <Key>[_homeKey, _sponsorshipsKey]);
+  expect(bodies, hasLength(3));
+  expect(bodies.map((body) => body.key), <Key?>[_homeKey, _sponsorshipsKey, null]);
   for (final body in bodies) {
     expect(body, isA<SizedBox>());
     expect((body as SizedBox).child, isNull);

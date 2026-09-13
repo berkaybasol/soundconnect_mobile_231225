@@ -19,9 +19,19 @@ class EngagementRepositoryImpl implements EngagementRepository {
   final ApiClient _apiClient;
 
   final AuthSessionManager? _sessions;
+  final String? _announcementSource;
 
-  EngagementRepositoryImpl(this._apiClient, {AuthSessionManager? sessions})
-    : _sessions = sessions;
+  EngagementRepositoryImpl(
+    this._apiClient, {
+    AuthSessionManager? sessions,
+    String? announcementSource,
+  }) : assert(
+         announcementSource == null ||
+             announcementSource == 'FEED' ||
+             announcementSource == 'DIRECTORY',
+       ),
+       _sessions = sessions,
+       _announcementSource = announcementSource;
 
   // Public EVENT adapters intentionally omit the JWT in DioApiClient. Their
   // counts are public, but likedByMe cannot represent a signed-in viewer.
@@ -225,6 +235,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
       'MEDIA',
       'OVERTHINKING',
       'COMMENT',
+      'ANNOUNCEMENT',
     }.contains(type)) {
       throw const FormatException('Invalid engagement target');
     }
@@ -373,6 +384,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
                     : null,
                 expectedToken: session.isAuthenticated ? session.token : null,
                 requireGuestSession: !session.isAuthenticated,
+                announcementSource: _announcementSource,
               ),
       );
       return current()

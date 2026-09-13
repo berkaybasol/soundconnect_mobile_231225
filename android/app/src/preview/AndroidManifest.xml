@@ -1,0 +1,50 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" tools:node="remove" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
+    <application
+        android:name="${applicationName}"
+        android:label="SoundConnect Önizleme"
+        android:icon="@drawable/ic_preview_launcher"
+        android:roundIcon="@drawable/ic_preview_launcher"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        tools:replace="android:label,android:icon,android:allowBackup">
+        <meta-data android:name="com.soundconnect.preview.QA" android:value="${previewQa}" />
+        <activity
+            android:name="com.berkayb.soundconnect.soundconnect_23_12_25codx.PreviewActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:enableOnBackInvokedCallback="true"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <service android:name="com.ryanheise.audioservice.AudioService" tools:node="remove" />
+        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver" tools:node="remove" />
+        <provider android:name="androidx.core.content.FileProvider" tools:node="remove" />
+        <provider android:name="dev.fluttercommunity.plus.share.ShareFileProvider" tools:node="remove" />
+        <provider android:name="io.flutter.plugins.imagepicker.ImagePickerFileProvider" tools:node="remove" />
+        <service android:name="com.google.android.gms.metadata.ModuleDependencies" tools:node="remove" />
+        <receiver android:name="dev.fluttercommunity.plus.share.SharePlusPendingIntent" tools:node="remove" />
+        <activity android:name="com.yalantis.ucrop.UCropActivity" tools:node="remove" />
+        <activity android:name="io.flutter.plugins.urllauncher.WebViewActivity" tools:node="remove" />
+        <meta-data android:name="flutterEmbedding" android:value="2" />
+    </application>
+    <queries tools:node="removeAll" />
+</manifest>

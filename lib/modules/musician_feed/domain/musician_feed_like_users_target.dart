@@ -17,6 +17,7 @@ MusicianFeedLikeUsersTarget? musicianFeedLikeUsersTarget(
     'OVERTHINKING_PROFILE_SHARE',
     'OVERTHINKING',
     'COMMENT',
+    'ANNOUNCEMENT',
   };
   final id = engagement.targetId;
   if (!supportedTypes.contains(engagement.targetType) ||

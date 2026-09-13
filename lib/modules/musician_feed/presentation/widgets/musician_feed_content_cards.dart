@@ -10,6 +10,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/event_poster_fallback.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../../collab/data/models/collab_api_models.dart';
 import '../../../collab/domain/collab_discovery_models.dart';
@@ -17,6 +18,10 @@ import '../../../collab/domain/entities/collab_listing.dart';
 import '../../../collab/presentation/widgets/collab_discovery_widgets.dart';
 import '../../../event/data/models/discovery_event_model.dart';
 import '../../../event/domain/entities/discovery_event.dart';
+import '../../../tablegroup/data/models/table_group_profile_share_source_model.dart';
+import '../../../tablegroup/domain/entities/table_group_profile_share.dart';
+import '../../../tablegroup/domain/table_group_expiry_policy.dart';
+import '../../../tablegroup/presentation/widgets/table_group_share_preview.dart';
 import '../../domain/musician_feed_models.dart';
 import 'musician_feed_card_chrome.dart';
 import 'musician_feed_card_registry.dart';
@@ -87,26 +92,28 @@ Widget buildProfileMediaFeedCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (!isAudio) ...[
+          _FeedVisualMedia(payload: payload, isVideo: isVideo),
+          const SizedBox(height: 13),
+        ],
         if (canOpenDetail) ...[
           MusicianFeedDetailHeading(
             title: _FeedTitle(title: heading),
             onTap: () => actions.openItem(item),
             semanticLabel: 'Medya detayını aç',
           ),
-          const SizedBox(height: 10),
         ] else if (title != null && title.isNotEmpty) ...[
           _FeedTitle(title: title),
-          const SizedBox(height: 10),
         ],
-        if (isAudio)
+        if (isAudio) ...[
+          const SizedBox(height: 10),
           _FeedAudioPreview(
             mediaId: payload.mediaAssetId,
             title: title?.isNotEmpty == true ? title! : 'Ses kaydı',
             playbackUrl: payload.playbackUrl,
             durationSeconds: payload.durationSeconds,
-          )
-        else
-          _FeedVisualMedia(payload: payload, isVideo: isVideo),
+          ),
+        ],
         if (description != null && description.isNotEmpty) ...[
           const SizedBox(height: 11),
           Text(
@@ -139,7 +146,7 @@ Widget buildCollabFeedCard(
     item: item,
     actions: actions,
     showAuthor: false,
-    contentPadding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+    contentPadding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
     child: CollabListingCard(
       listing: cardModel,
       showWantedBadge: true,
@@ -222,6 +229,28 @@ Widget buildProfileShareFeedCard(
   final overthinking =
       item.type == MusicianFeedItemType.overthinkingProfileShare;
   final source = payload.source;
+  if (!overthinking) {
+    return MusicianFeedSurface(
+      item: item,
+      actions: actions,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (payload.note?.trim().isNotEmpty == true) ...[
+            Text(
+              payload.note!.trim(),
+              style: const TextStyle(fontSize: 13.5, height: 1.42),
+            ),
+            const SizedBox(height: 14),
+          ],
+          _FeedTableGroupPreview(
+            source: source,
+            onOpen: () => actions.openItem(item),
+          ),
+        ],
+      ),
+    );
+  }
   final title = _firstText(source, const [
     'title',
     'topic',
@@ -256,11 +285,16 @@ Widget buildProfileShareFeedCard(
               : 'TableGroup paylaşımını aç',
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            padding: const EdgeInsets.fromLTRB(14, 4, 0, 4),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).colorScheme.outline),
+              border: Border(
+                left: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: .6),
+                  width: 2,
+                ),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,6 +366,149 @@ Widget buildProfileShareFeedCard(
       ],
     ),
   );
+}
+
+/// Reuses the listener publication's public table view. Feed engagement stays
+/// on its publication target; this widget only opens the existing source route.
+class _FeedTableGroupPreview extends StatefulWidget {
+  const _FeedTableGroupPreview({required this.source, required this.onOpen});
+
+  final Map<String, dynamic> source;
+  final VoidCallback onOpen;
+
+  @override
+  State<_FeedTableGroupPreview> createState() => _FeedTableGroupPreviewState();
+}
+
+class _FeedTableGroupPreviewState extends State<_FeedTableGroupPreview>
+    with WidgetsBindingObserver {
+  TableGroupProfileShareSource? _table;
+  Timer? _expiry;
+  late final TableGroupLocalDayRefreshScheduler _dayRefresh;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _dayRefresh = TableGroupLocalDayRefreshScheduler(
+      now: DateTime.now,
+      onRefresh: () {
+        if (mounted) setState(() {});
+      },
+    )..start();
+    _readSource();
+  }
+
+  void _readSource() {
+    try {
+      _table = parseTableGroupProfileShareSource(widget.source);
+    } on FormatException {
+      // A legacy/incomplete projection must not invent seats or a live status.
+      _table = null;
+    }
+    _scheduleExpiry();
+  }
+
+  void _scheduleExpiry() {
+    _expiry?.cancel();
+    final table = _table;
+    final now = DateTime.now();
+    if (table != null && table.isActiveAt(now)) {
+      _expiry = Timer(table.expiresAt!.difference(now), () {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _FeedTableGroupPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.source, widget.source)) _readSource();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    setState(() {});
+    _scheduleExpiry();
+    _dayRefresh.reschedule();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _expiry?.cancel();
+    _dayRefresh.dispose();
+    super.dispose();
+  }
+
+  void _open() {
+    // Recheck the clock on tap even when the expiry callback is still queued.
+    if (_table?.isActiveAt(DateTime.now()) ?? true) {
+      widget.onOpen();
+    } else {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final table = _table;
+    if (table == null) {
+      final description = _firstText(widget.source, const [
+        'description',
+        'content',
+        'title',
+      ]);
+      return MusicianFeedDetailLink(
+        onTap: _open,
+        semanticLabel: 'TableGroup paylaşımını aç',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _FeedTitle(title: description ?? 'Birlikte bir masada'),
+            const SizedBox(height: 12),
+            const Row(
+              children: [
+                Expanded(child: Text('Masa ayrıntılarını gör')),
+                MusicianFeedDetailChevron(),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+    final now = DateTime.now();
+    final active = table.isActiveAt(now);
+    final preview = TableGroupSharePreview(
+      table: table,
+      now: now,
+      compact: true,
+      openAction: active
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Masayı gör',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  SizedBox(width: 3),
+                  MusicianFeedDetailChevron(),
+                ],
+              ),
+            )
+          : null,
+    );
+    return active
+        ? MusicianFeedDetailLink(
+            onTap: _open,
+            semanticLabel: 'TableGroup paylaşımını aç',
+            child: preview,
+          )
+        : preview;
+  }
 }
 
 Widget buildProfileFeedCard(
@@ -545,63 +722,119 @@ class _FeedAudioPreview extends StatelessWidget {
               stream: positionStream,
               builder: (context, positionSnapshot) {
                 final duration = Duration(
-                  seconds: durationSeconds ?? current?.duration?.inSeconds ?? 0,
+                  seconds:
+                      durationSeconds ??
+                      (isCurrent ? current?.duration?.inSeconds : null) ??
+                      0,
                 );
                 final progress = isCurrent && duration.inMilliseconds > 0
                     ? (positionSnapshot.data?.inMilliseconds ?? 0) /
                           duration.inMilliseconds
                     : 0.0;
-                return WaveformStub(
-                  height: 78,
-                  waveformHeight: 42,
-                  leadingSize: 44,
-                  samples: WaveformStub.samplesFromSeed(mediaId),
-                  isPlaying: playing,
-                  progress: progress.clamp(0.0, 1.0),
-                  leading: IconButton(
-                    onPressed: playbackUrl == null
-                        ? null
-                        : () => _toggleAudio(
-                            context,
-                            handler: handler,
-                            isCurrent: isCurrent,
-                            isPlaying: playing,
-                          ),
-                    tooltip: playing ? 'Duraklat' : 'Çal',
-                    padding: EdgeInsets.zero,
-                    icon: Icon(
-                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      size: 23,
-                    ),
-                  ),
-                  onSeek: isCurrent && duration.inMilliseconds > 0
-                      ? (ratio) => unawaited(
-                          handler.seek(
-                            Duration(
-                              milliseconds: (duration.inMilliseconds * ratio)
-                                  .round(),
+                final theme = Theme.of(context);
+                final position = Duration(
+                  milliseconds: isCurrent
+                      ? (positionSnapshot.data?.inMilliseconds ?? 0).clamp(
+                          0,
+                          duration.inMilliseconds,
+                        )
+                      : 0,
+                );
+                return GradientOutline(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Keep the shared waveform and its seek semantics; only
+                        // the feed's nested panel chrome is transparent.
+                        Theme(
+                          data: theme.copyWith(
+                            dividerColor: Colors.transparent,
+                            colorScheme: theme.colorScheme.copyWith(
+                              surfaceContainerHighest: Colors.transparent,
                             ),
                           ),
-                        )
-                      : null,
-                  footer: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
+                          child: WaveformStub(
+                            height: 56,
+                            waveformHeight: 42,
+                            leadingSize: 44,
+                            leadingBackgroundColor: Colors.transparent,
+                            samples: WaveformStub.samplesFromSeed(mediaId),
+                            isPlaying: playing,
+                            progress: progress.clamp(0.0, 1.0),
+                            leading: GradientOutline(
+                              radius: 14,
+                              colors: playbackUrl == null
+                                  ? [theme.dividerColor, theme.dividerColor]
+                                  : null,
+                              child: IconButton(
+                                onPressed: playbackUrl == null
+                                    ? null
+                                    : () => _toggleAudio(
+                                        context,
+                                        handler: handler,
+                                        isCurrent: isCurrent,
+                                        isPlaying: playing,
+                                      ),
+                                tooltip: playing ? 'Duraklat' : 'Çal',
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  minimumSize: const Size.square(44),
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                icon: playbackUrl == null
+                                    ? Icon(
+                                        Icons.play_arrow_rounded,
+                                        size: 25,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      )
+                                    : BrandGradientIcon(
+                                        playing
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        size: 25,
+                                      ),
+                              ),
+                            ),
+                            onSeek: isCurrent && duration.inMilliseconds > 0
+                                ? (ratio) => unawaited(
+                                    handler.seek(
+                                      Duration(
+                                        milliseconds:
+                                            (duration.inMilliseconds * ratio)
+                                                .round(),
+                                      ),
+                                    ),
+                                  )
+                                : null,
                           ),
                         ),
-                      ),
-                      Text(
-                        _durationLabel(duration),
-                        style: _mutedStyle(context, fontSize: 10.5),
-                      ),
-                    ],
+                        Padding(
+                          padding: const EdgeInsets.only(left: 56, right: 6),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _durationLabel(
+                                  position,
+                                  unknownWhenZero: false,
+                                ),
+                                style: _mutedStyle(context, fontSize: 10.5),
+                              ),
+                              Text(
+                                _durationLabel(duration),
+                                style: _mutedStyle(context, fontSize: 10.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -655,83 +888,56 @@ class _EventPreview extends StatelessWidget {
       event.venueDistrict,
       event.venueCity,
     ].whereType<String>().where((part) => part.trim().isNotEmpty).join(' · ');
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: 154,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                AppCachedNetworkImage(
-                  imageUrl: event.posterImageUrl,
-                  cacheWidth: 1080,
-                  placeholderBuilder: (_) =>
-                      EventPosterFallback(title: event.title),
-                  errorBuilder: (_) => EventPosterFallback(title: event.title),
-                ),
-                Positioned(
-                  left: 12,
-                  bottom: 11,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceDim.withValues(alpha: .92),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _eventDateLabel(event),
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: ColoredBox(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              child: AppCachedNetworkImage(
+                imageUrl: event.posterImageUrl,
+                cacheWidth: 1080,
+                // Uploaded posters can contain their own type and credits.
+                // Keep all of that visible without adding text over the art.
+                fit: BoxFit.contain,
+                placeholderBuilder: (_) =>
+                    EventPosterFallback(title: event.title),
+                errorBuilder: (_) => EventPosterFallback(title: event.title),
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: _FeedTitle(title: event.title)),
-                    const SizedBox(width: 8),
-                    const MusicianFeedDetailChevron(),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _IconMeta(
-                  icon: Icons.music_note_rounded,
-                  text: event.performerName,
-                ),
-                const SizedBox(height: 8),
-                _IconMeta(
-                  icon: Icons.location_on_outlined,
-                  text: location.isEmpty
-                      ? event.venueName
-                      : '${event.venueName} · $location',
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(height: 15),
+        Text(
+          _eventDateLabel(event),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            height: 1.35,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 7),
+        Row(
+          children: [
+            Expanded(child: _FeedTitle(title: event.title)),
+            const SizedBox(width: 8),
+            const MusicianFeedDetailChevron(),
+          ],
+        ),
+        const SizedBox(height: 11),
+        _IconMeta(icon: Icons.music_note_rounded, text: event.performerName),
+        const SizedBox(height: 8),
+        _IconMeta(
+          icon: Icons.location_on_outlined,
+          text: location.isEmpty
+              ? event.venueName
+              : '${event.venueName} · $location',
+        ),
+      ],
     );
   }
 }
@@ -791,13 +997,8 @@ class _ActivityTargetPreview extends StatelessWidget {
       ),
       _ => (Icons.auto_awesome_rounded, 'SoundConnect', 'Yeni aktivite', null),
     };
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -806,8 +1007,7 @@ class _ActivityTargetPreview extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).colorScheme.outline),
+              shape: BoxShape.circle,
             ),
             child: Center(child: BrandGradientIcon.social(icon, size: 21)),
           ),
@@ -912,8 +1112,9 @@ class _FeedTitle extends StatelessWidget {
     overflow: TextOverflow.ellipsis,
     style: const TextStyle(
       fontSize: 18,
-      height: 1.22,
-      fontWeight: FontWeight.w900,
+      height: 1.25,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -.3,
     ),
   );
 }
@@ -1018,8 +1219,8 @@ double _safeAspectRatio(int? width, int? height) {
   return (width / height).clamp(.8, 1.8);
 }
 
-String _durationLabel(Duration value) {
-  if (value <= Duration.zero) return '--:--';
+String _durationLabel(Duration value, {bool unknownWhenZero = true}) {
+  if (value <= Duration.zero) return unknownWhenZero ? '--:--' : '0:00';
   final minutes = value.inMinutes;
   final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
   return '$minutes:$seconds';

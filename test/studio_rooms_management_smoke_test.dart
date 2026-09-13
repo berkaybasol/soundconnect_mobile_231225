@@ -313,6 +313,7 @@ class _ProfileMediaUploadRepositoryFake
     required String mediaKind,
     required String mimeType,
     required String originalFileName,
+    String visibility = 'PUBLIC',
     ProfileUploadAttachmentIntent attachmentIntent =
         const ProfileUploadAttachmentIntent.none(),
     ProfileUploadProgress? onProgress,

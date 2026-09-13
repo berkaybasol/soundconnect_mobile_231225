@@ -5,10 +5,10 @@ import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/co
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_models.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/musician_feed_visual_theme.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/widgets/musician_feed_card_registry.dart';
+import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/widgets/musician_feed_card_chrome.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/widgets/musician_feed_detail_link.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
-import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -75,54 +75,61 @@ void main() {
       },
     );
 
-    testWidgets('native shells and content cards use the Backstage palette', (
-      tester,
-    ) async {
-      final item = _item(
-        id: 'palette-contract',
-        type: MusicianFeedItemType.tableGroupProfileShare,
-        payload: ProfileShareFeedPayload(
-          shareId: 'palette-share',
-          note: 'Bu masayı takip ettiklerimle paylaşmak istedim.',
-          publishedAt: DateTime.utc(2026, 9, 11),
-          source: const {
-            'tableGroupId': 'palette-table',
-            'title': 'Bağımsız sahneler için ortak üretim',
-          },
-        ),
-        author: _listener,
-        reasonCode: 'FOLLOWING_PUBLICATION',
-      );
+    testWidgets(
+      'Overthinking shares keep a flat surface and one source accent',
+      (tester) async {
+        final item = _item(
+          id: 'palette-contract',
+          type: MusicianFeedItemType.overthinkingProfileShare,
+          payload: ProfileShareFeedPayload(
+            shareId: 'palette-share',
+            note: 'Bu masayı takip ettiklerimle paylaşmak istedim.',
+            publishedAt: DateTime.utc(2026, 9, 11),
+            source: const {
+              'overthinkingId': 'palette-source',
+              'title': 'Bağımsız sahneler için ortak üretim',
+            },
+          ),
+          author: _listener,
+          reasonCode: 'FOLLOWING_PUBLICATION',
+        );
 
-      await _pumpCard(
-        tester,
-        item,
-        _actions(),
-        size: const Size(390, 844),
-        textScale: 1,
-      );
+        await _pumpCard(
+          tester,
+          item,
+          _actions(),
+          size: const Size(390, 844),
+          textScale: 1,
+        );
 
-      final decorations = tester
-          .widgetList<Container>(find.byType(Container))
-          .map((widget) => widget.decoration)
-          .whereType<BoxDecoration>();
-      expect(
-        decorations.any(
-          (decoration) =>
-              decoration.color == BackstagePalette.surface &&
-              decoration.border?.top.color == BackstagePalette.border,
-        ),
-        isTrue,
-      );
-      expect(
-        decorations.any(
-          (decoration) =>
-              decoration.color == BackstagePalette.surfaceRaised &&
-              decoration.border?.top.color == BackstagePalette.border,
-        ),
-        isTrue,
-      );
-    });
+        final surface = tester.widget<Container>(
+          find
+              .descendant(
+                of: find.byType(MusicianFeedSurface),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        expect(surface.color, Colors.transparent);
+        expect(surface.decoration, isNull);
+        final source = tester.widget<Container>(
+          find
+              .descendant(
+                of: find.byType(MusicianFeedDetailLink),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        final sourceDecoration = source.decoration! as BoxDecoration;
+        final sourceBorder = sourceDecoration.border! as Border;
+        expect(sourceDecoration.color, isNull);
+        expect(sourceBorder.left.width, 2);
+        expect(sourceBorder.top, BorderSide.none);
+        expect(sourceBorder.right, BorderSide.none);
+        expect(sourceBorder.bottom, BorderSide.none);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets(
       'completion carousel stays usable at 320dp and 200 percent text',

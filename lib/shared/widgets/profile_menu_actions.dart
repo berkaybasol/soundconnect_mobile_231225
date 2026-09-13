@@ -31,6 +31,7 @@ Future<void> showProfileQuickMenu(
   BuildContext context, {
   required ProfileQuickMenuAction onSettings,
   ProfileQuickMenuAction? onManagement,
+  ProfileQuickMenuAction? onAnnouncements,
   ProfileQuickMenuAction? onProfileContact,
   Key? settingsTileKey,
   Key? profileContactTileKey,
@@ -87,6 +88,13 @@ Future<void> showProfileQuickMenu(
                             ),
                             title: const Text('Yönetim Paneli'),
                             onTap: () async => closeThen(onManagement),
+                          ),
+                        if (onAnnouncements != null)
+                          ListTile(
+                            key: const Key('profile-menu-announcements'),
+                            leading: const Icon(Icons.campaign_outlined),
+                            title: const Text('Tüm duyurular'),
+                            onTap: () async => closeThen(onAnnouncements),
                           ),
                         ListTile(
                           key: profileMenuThemeTileKey,

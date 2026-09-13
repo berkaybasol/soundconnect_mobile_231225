@@ -7,6 +7,7 @@ import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../profile/data/profile_share_api.dart';
 import '../domain/table_group_profile_share_repository.dart';
+import 'models/table_group_profile_share_source_model.dart';
 import 'models/table_group_wire_date.dart';
 
 class TableGroupProfileShareRepositoryImpl
@@ -160,7 +161,7 @@ class TableGroupProfileShareRepositoryImpl
     }
     final source = json['tableGroup'] == null
         ? null
-        : _source(json['tableGroup']);
+        : parseTableGroupProfileShareSource(json['tableGroup']);
     if (source != null && source.id != tableGroupId) {
       throw const FormatException('Wrong table source');
     }
@@ -209,45 +210,10 @@ class TableGroupProfileShareRepositoryImpl
       shareId: _id(row['shareId']),
       note: _note(row['note']),
       publishedAt: _instant(row['publishedAt']),
-      tableGroup: _source(row['tableGroup']),
+      tableGroup: parseTableGroupProfileShareSource(row['tableGroup']),
       likeCount: _count(row['likeCount']),
       commentCount: _count(row['commentCount']),
       likedByMe: _bool(row['likedByMe']),
-    );
-  }
-
-  static TableGroupProfileShareSource _source(Object? raw) {
-    final json = _map(raw);
-    final status = _text(json['status']);
-    if (!const {'ACTIVE', 'INACTIVE', 'CANCELLED'}.contains(status)) {
-      throw const FormatException('Invalid table status');
-    }
-    final capacity = _count(json['maxPersonCount']);
-    final accepted = _count(json['acceptedCount']);
-    if (capacity == 0 || accepted > capacity) {
-      throw const FormatException('Invalid table capacity');
-    }
-    final description = _optionalText(json['description']);
-    final meetingAt = json['meetingAt'] == null
-        ? null
-        : _instant(json['meetingAt']);
-    final expiresAt = json['expiresAt'] == null
-        ? null
-        : _instant(json['expiresAt']);
-    if (description == null || meetingAt == null || expiresAt == null) {
-      throw const FormatException('Table preview is incomplete');
-    }
-    return TableGroupProfileShareSource(
-      id: _id(json['id']),
-      description: description,
-      venueName: _optionalText(json['venueName']),
-      cityName: _text(json['cityName']),
-      districtName: _optionalText(json['districtName']),
-      meetingAt: meetingAt,
-      expiresAt: expiresAt,
-      status: status,
-      maxPersonCount: capacity,
-      acceptedCount: accepted,
     );
   }
 
@@ -256,20 +222,6 @@ class TableGroupProfileShareRepositoryImpl
       throw const FormatException('Invalid count');
     }
     return raw;
-  }
-
-  static String _text(Object? raw) {
-    if (raw is! String || raw.trim().isEmpty) {
-      throw const FormatException('Invalid text');
-    }
-    return raw.trim();
-  }
-
-  static String? _optionalText(Object? raw) {
-    if (raw == null) return null;
-    if (raw is! String) throw const FormatException('Invalid optional text');
-    final value = raw.trim();
-    return value.isEmpty ? null : value;
   }
 
   static Map<String, dynamic> _map(Object? raw) {

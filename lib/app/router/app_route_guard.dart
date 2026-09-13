@@ -1,5 +1,7 @@
 import '../../core/auth/auth_session.dart';
 import '../../core/policy/access_policy.dart';
+import '../../modules/admin/domain/musician_feed_report_admin.dart';
+import '../../modules/promotion/domain/announcement_access.dart';
 import 'app_routes.dart';
 
 class AppRouteGuard {
@@ -87,6 +89,15 @@ class AppRouteGuard {
     if (requested == AppRoutes.adminDashboard && !session.isAdmin) {
       return startRouteFor(session);
     }
+    if (requested == AppRoutes.adminAnnouncements &&
+        announcementSessionIdentity(session, admin: true) == null) {
+      return startRouteFor(session);
+    }
+
+    if (requested == AppRoutes.adminMusicianFeedReports &&
+        !canManageMusicianFeedReports(session)) {
+      return startRouteFor(session);
+    }
 
     if (_musicianOwnerRoutes.contains(requested) &&
         !session.hasAnyRole(const ['ROLE_MUSICIAN', 'MUSICIAN'])) {
@@ -144,6 +155,7 @@ class AppRouteGuard {
       session.hasAnyRole(const ['ROLE_STUDIO', 'STUDIO']);
 
   static const Set<String> _musicianOwnerRoutes = <String>{
+    AppRoutes.musicianFeedMutedAuthors,
     AppRoutes.musicianProfile,
     AppRoutes.myBands,
     AppRoutes.createBand,

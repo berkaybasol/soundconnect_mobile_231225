@@ -14,6 +14,83 @@ import 'package:soundconnect_23_12_25codx/core/network/dio_api_client.dart';
 void main() {
   group('DioApiClient transport contract', () {
     test(
+      'announcement attribution travels only on its fenced request',
+      () async {
+        final adapter = _RecordingHttpClientAdapter(
+          (_) => _jsonResponse(
+            statusCode: 200,
+            payload: {
+              'success': true,
+              'code': 200,
+              'data': {'value': '7'},
+            },
+          ),
+        );
+        final dio = _dio(adapter);
+        addTearDown(() => _closeDio(dio, adapter));
+        final token = _jwt(
+          subject: 'account-a',
+          roles: const ['ROLE_MUSICIAN'],
+        );
+        final client = DioApiClient(
+          dio: dio,
+          tokenStore: _MemoryTokenStore(token),
+        );
+        await client.request<int>(
+          ApiHttpMethod.post,
+          '/api/v1/likes',
+          decoder: _decodeValue,
+          requestContext: ApiRequestContext(
+            expectedSessionKey: 'account-a',
+            expectedToken: token,
+            announcementSource: 'FEED',
+          ),
+        );
+        await client.get<int>('/api/v1/events/discover', decoder: _decodeValue);
+        expect(adapter.requests.first.headers['X-Announcement-Source'], 'FEED');
+        expect(
+          adapter.requests.last.headers.containsKey('X-Announcement-Source'),
+          isFalse,
+        );
+        for (final context in [
+          const ApiRequestContext(announcementSource: 'FEED'),
+          const ApiRequestContext(
+            expectedSessionKey: 'account-a',
+            announcementSource: 'ADMIN_PREVIEW',
+          ),
+          const ApiRequestContext(
+            expectedSessionKey: 'account-a',
+            requireGuestSession: true,
+            announcementSource: 'DIRECTORY',
+          ),
+        ]) {
+          await expectLater(
+            client.request<int>(
+              ApiHttpMethod.post,
+              '/api/v1/likes',
+              decoder: _decodeValue,
+              requestContext: context,
+            ),
+            throwsA(isA<ApiException>()),
+          );
+        }
+        await expectLater(
+          client.request<int>(
+            ApiHttpMethod.post,
+            '/api/v1/likes',
+            decoder: _decodeValue,
+            requestContext: ApiRequestContext(
+              expectedSessionKey: 'account-b',
+              expectedToken: token,
+              announcementSource: 'FEED',
+            ),
+          ),
+          throwsA(isA<ApiException>()),
+        );
+        expect(adapter.requests, hasLength(2));
+      },
+    );
+    test(
       'authenticates private requests but leaves public requests clean',
       () async {
         final _RecordingHttpClientAdapter adapter = _RecordingHttpClientAdapter(

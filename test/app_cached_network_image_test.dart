@@ -10,6 +10,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/shared/images/app_cached_network_image.dart';
 
 void main() {
+  testWidgets('private expiring media bypasses the persistent cache and uses bounded decoding', (tester) async {
+    final cache = _FakeCacheManager();
+    await tester.pumpWidget(MaterialApp(home: AppCachedNetworkImage(imageUrl: 'https://cdn.soundconnect.test/private.png?signature=temporary', persistentCache: false, cacheWidth: 384, cacheManager: cache)));
+    expect(cache.requestedUrls, isEmpty);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(image.image, isA<ResizeImage>());
+    expect((image.image as ResizeImage).width, 384);
+    expect(image.gaplessPlayback, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
   late io.Directory temporaryDirectory;
   late File validImageFile;
 

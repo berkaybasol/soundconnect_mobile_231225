@@ -18,6 +18,7 @@ import 'package:soundconnect_23_12_25codx/modules/analytics/presentation/widgets
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/data/musician_feed_preferences_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/data/musician_feed_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_models.dart';
+import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_mute_changes.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_preferences.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_preferences_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_repository.dart';
@@ -36,6 +37,7 @@ import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 import 'support/event_audience_fakes.dart';
 import 'support/recording_api_client.dart';
+import 'support/announcement_fixtures.dart';
 
 void main() {
   group('musician feed wire contract', () {
@@ -301,10 +303,18 @@ void main() {
             'ctaLabel': 'İncele',
             'ctaUrl': '/collab',
           }, promotion: true),
+          {
+            ..._itemJson('announcement', 'ANNOUNCEMENT', announcementFixture()),
+            'author': null,
+            'reason': {'code': 'PLATFORM_ANNOUNCEMENT', 'actors': [], 'secondaryActorCount': 0},
+            'target': {'type': 'ANNOUNCEMENT', 'id': announcementFixtureId},
+            'engagement': {'targetType':'ANNOUNCEMENT','targetId':announcementFixtureId,'likeCount':7,'commentCount':3,'likedByMe':false,'likable':true,'commentable':true},
+            'feedbackCapabilities': ['HIDE'],
+          },
         ]),
       );
 
-      expect(page.items, hasLength(13));
+      expect(page.items, hasLength(14));
       expect(
         page.items.map((item) => item.type).toSet(),
         containsAll(MusicianFeedItemType.values),
@@ -1574,6 +1584,156 @@ void main() {
       },
     );
 
+    for (final delayedMuteResponse in [false, true]) {
+      test(
+        'settings unmute supersedes feed mute (delayed response: $delayedMuteResponse)',
+        () async {
+          final sessions = _musicianSessions();
+          final changes = MusicianFeedMuteChanges();
+          final mute = Completer<Result<void>>();
+          final items = [_trackItem('first', authorUserId: 'author-a')];
+          final feed = _FeedRepository()
+            ..responses.add(Future.value(Result.success(_itemsPage(items))))
+            ..muteFuture = delayedMuteResponse ? mute.future : null;
+          final cubit = MusicianFeedCubit(
+            feed,
+            _EngagementRepository(),
+            collabRepository: _CollabRepository(),
+            followRepository: _FollowRepository(),
+            bandFollowRepository: _BandFollowRepository(),
+            sessions: sessions,
+            muteChanges: changes,
+          );
+          addTearDown(changes.close);
+          addTearDown(sessions.dispose);
+          addTearDown(cubit.close);
+          await cubit.initialize();
+          final muting = cubit.muteAuthor(
+            sourceItemId: 'first',
+            profileType: 'MUSICIAN',
+            profileId: 'profile-author-a',
+          );
+          if (!delayedMuteResponse) expect(await muting, isTrue);
+          expect(cubit.state.items, isEmpty);
+          feed.responses.add(Future.value(Result.success(_itemsPage(items))));
+          final restored = cubit.stream.firstWhere(
+            (state) => state.items.isNotEmpty && !state.refreshing,
+          );
+          changes.notifyUnmuted(
+            userId: sessions.session.userId!,
+            token: sessions.session.token!,
+            author: (profileType: 'MUSICIAN', profileId: 'profile-author-a'),
+          );
+          await restored;
+          if (delayedMuteResponse) {
+            mute.complete(const Result.success(null));
+            expect(await muting, isFalse);
+          }
+          expect(cubit.state.items.map((item) => item.id), ['first']);
+          expect(cubit.state.pendingItemIds, isEmpty);
+          // A late old PUT must not silently reintroduce suppression on refresh.
+          feed.responses.add(Future.value(Result.success(_itemsPage(items))));
+          await cubit.refresh();
+          expect(cubit.state.items.map((item) => item.id), ['first']);
+          expect(feed.unmuteCalls, isEmpty);
+        },
+      );
+    }
+
+    test(
+      'settings events ignore other logins and closed feed instances',
+      () async {
+        final sessions = _musicianSessions();
+        final changes = MusicianFeedMuteChanges();
+        final feed = _FeedRepository()
+          ..responses.add(
+            Future.value(Result.success(_itemsPage([_trackItem('first')]))),
+          );
+        final cubit = MusicianFeedCubit(
+          feed,
+          _EngagementRepository(),
+          collabRepository: _CollabRepository(),
+          followRepository: _FollowRepository(),
+          bandFollowRepository: _BandFollowRepository(),
+          sessions: sessions,
+          muteChanges: changes,
+        );
+        addTearDown(changes.close);
+        addTearDown(sessions.dispose);
+        await cubit.initialize();
+        for (final identity in [
+          (userId: 'other-viewer', token: sessions.session.token!),
+          (userId: sessions.session.userId!, token: 'old-token'),
+        ]) {
+          changes.notifyUnmuted(
+            userId: identity.userId,
+            token: identity.token,
+            author: (profileType: 'MUSICIAN', profileId: 'profile-author-a'),
+          );
+        }
+        expect(feed.loadCursors, [null]);
+        await cubit.close();
+        changes.notifyUnmuted(
+          userId: sessions.session.userId!,
+          token: sessions.session.token!,
+          author: (profileType: 'MUSICIAN', profileId: 'profile-author-a'),
+        );
+        expect(feed.loadCursors, [null]);
+      },
+    );
+
+    test(
+      'pending mute from another account does not suppress a newly loaded page',
+      () async {
+        final mute = Completer<Result<void>>();
+        final sessions = _musicianSessions();
+        final feed = _FeedRepository()
+          ..responses.add(
+            Future.value(
+              Result.success(
+                _itemsPage([_trackItem('first', authorUserId: 'same-author')]),
+              ),
+            ),
+          )
+          ..responses.add(
+            Future.value(
+              Result.success(
+                _itemsPage([_trackItem('second', authorUserId: 'same-author')]),
+              ),
+            ),
+          )
+          ..muteFuture = mute.future;
+        final cubit = MusicianFeedCubit(
+          feed,
+          _EngagementRepository(),
+          collabRepository: _CollabRepository(),
+          followRepository: _FollowRepository(),
+          bandFollowRepository: _BandFollowRepository(),
+          sessions: sessions,
+        );
+        addTearDown(sessions.dispose);
+        addTearDown(cubit.close);
+        await cubit.initialize();
+        final muting = cubit.muteAuthor(
+          sourceItemId: 'first',
+          profileType: 'MUSICIAN',
+          profileId: 'profile-same-author',
+        );
+        sessions.replace(
+          audienceSession(
+            user: 'other-viewer',
+            token: 'other-token',
+            role: 'ROLE_MUSICIAN',
+          ),
+        );
+        await cubit.refresh();
+        expect(cubit.state.items.map((item) => item.id), ['second']);
+        mute.complete(const Result.success(null));
+        expect(await muting, isFalse);
+        expect(cubit.state.items.map((item) => item.id), ['second']);
+      },
+    );
+
     test('does not carry an accepted mute into another account', () async {
       final sessions = _musicianSessions();
       final feed = _FeedRepository()
@@ -1706,6 +1866,177 @@ void main() {
           everyElement(2),
         );
         expect(cubit.state.pendingItemIds, isEmpty);
+      },
+    );
+
+    for (final initiallyLiked in [false, true]) {
+      for (final succeeds in [false, true]) {
+        test(
+          'paging aliases share a pending ${initiallyLiked ? 'unlike' : 'like'} '
+          'and its ${succeeds ? 'success' : 'rollback'}',
+          () async {
+            final native = _trackItem('native').copyWith(
+              engagement: _trackItem(
+                'native',
+              ).engagement!.copyWith(likedByMe: initiallyLiked),
+            );
+            final alias = _commentActivityItem('activity-comment', native);
+            final write = Completer<Result<void>>();
+            final feed = _FeedRepository()
+              ..responses.add(
+                Future.value(
+                  Result.success(
+                    _itemsPage([native], hasMore: true, nextCursor: 'page-2'),
+                  ),
+                ),
+              )
+              ..responses.add(
+                Future.value(Result.success(_itemsPage([alias]))),
+              );
+            final engagement = _EngagementRepository()
+              ..likeFuture = write.future
+              ..unlikeFuture = write.future;
+            final sessions = _musicianSessions();
+            final cubit = MusicianFeedCubit(
+              feed,
+              engagement,
+              collabRepository: _CollabRepository(),
+              followRepository: _FollowRepository(),
+              bandFollowRepository: _BandFollowRepository(),
+              sessions: sessions,
+            );
+            addTearDown(cubit.close);
+            addTearDown(sessions.dispose);
+            await cubit.initialize();
+
+            final pending = cubit.toggleLike(native.id);
+            await cubit.loadMore();
+
+            expect(cubit.state.pendingItemIds, {native.id, alias.id});
+            expect(
+              cubit.state.items.map((item) => item.engagement!.likedByMe),
+              everyElement(!initiallyLiked),
+            );
+            expect(
+              cubit.state.items.map((item) => item.engagement!.likeCount),
+              everyElement(initiallyLiked ? 1 : 3),
+            );
+            expect(await cubit.toggleLike(alias.id), isFalse);
+
+            write.complete(
+              succeeds
+                  ? const Result.success(null)
+                  : const Result.failure(
+                      AppError(code: 'like-failed', message: 'Olmadı'),
+                    ),
+            );
+            expect(await pending, succeeds);
+            expect(cubit.state.pendingItemIds, isEmpty);
+            expect(
+              cubit.state.items.map((item) => item.engagement!.likedByMe),
+              everyElement(succeeds ? !initiallyLiked : initiallyLiked),
+            );
+            expect(
+              cubit.state.items.map((item) => item.engagement!.likeCount),
+              everyElement(succeeds ? (initiallyLiked ? 1 : 3) : 2),
+            );
+          },
+        );
+      }
+    }
+
+    test(
+      'a page already in flight retains a like completed before its response',
+      () async {
+        final native = _trackItem('native');
+        final alias = _commentActivityItem('activity-comment', native);
+        final page = Completer<Result<MusicianFeedPage>>();
+        final feed = _FeedRepository()
+          ..responses.add(
+            Future.value(
+              Result.success(
+                _itemsPage([native], hasMore: true, nextCursor: 'page-2'),
+              ),
+            ),
+          )
+          ..responses.add(page.future);
+        final sessions = _musicianSessions();
+        final cubit = MusicianFeedCubit(
+          feed,
+          _EngagementRepository(),
+          collabRepository: _CollabRepository(),
+          followRepository: _FollowRepository(),
+          bandFollowRepository: _BandFollowRepository(),
+          sessions: sessions,
+        );
+        addTearDown(cubit.close);
+        addTearDown(sessions.dispose);
+        await cubit.initialize();
+
+        final paging = cubit.loadMore();
+        expect(await cubit.toggleLike(native.id), isTrue);
+        page.complete(Result.success(_itemsPage([alias])));
+        await paging;
+
+        expect(cubit.state.pendingItemIds, isEmpty);
+        expect(
+          cubit.state.items.map((item) => item.engagement!.likedByMe),
+          everyElement(isTrue),
+        );
+        expect(
+          cubit.state.items.map((item) => item.engagement!.likeCount),
+          everyElement(3),
+        );
+      },
+    );
+
+    test(
+      'a refreshed page and its aliases stay authoritative during an older like',
+      () async {
+        final native = _trackItem('native');
+        final fresh = native.copyWith(
+          engagement: native.engagement!.copyWith(likeCount: 18),
+        );
+        final alias = _commentActivityItem('activity-comment', fresh);
+        final write = Completer<Result<void>>();
+        final feed = _FeedRepository()
+          ..responses.add(Future.value(Result.success(_itemsPage([native]))))
+          ..responses.add(
+            Future.value(
+              Result.success(
+                _itemsPage([fresh], hasMore: true, nextCursor: 'fresh-page-2'),
+              ),
+            ),
+          )
+          ..responses.add(Future.value(Result.success(_itemsPage([alias]))));
+        final sessions = _musicianSessions();
+        final cubit = MusicianFeedCubit(
+          feed,
+          _EngagementRepository()..likeFuture = write.future,
+          collabRepository: _CollabRepository(),
+          followRepository: _FollowRepository(),
+          bandFollowRepository: _BandFollowRepository(),
+          sessions: sessions,
+        );
+        addTearDown(cubit.close);
+        addTearDown(sessions.dispose);
+        await cubit.initialize();
+
+        final pending = cubit.toggleLike(native.id);
+        await cubit.refresh();
+        await cubit.loadMore();
+        write.complete(const Result.success(null));
+        expect(await pending, isFalse);
+
+        expect(cubit.state.pendingItemIds, isEmpty);
+        expect(
+          cubit.state.items.map((item) => item.engagement!.likedByMe),
+          everyElement(isFalse),
+        );
+        expect(
+          cubit.state.items.map((item) => item.engagement!.likeCount),
+          everyElement(18),
+        );
       },
     );
 
@@ -2638,6 +2969,88 @@ void main() {
     },
   );
 
+  for (final afterConfirmation in [false, true]) {
+    testWidgets(
+      'mute dialog and undo remain bound to their opening login ($afterConfirmation)',
+      (tester) async {
+        final sessions = _musicianSessions();
+        final items = [_trackItem('first', authorUserId: 'author-a')];
+        final feed = _FeedRepository()
+          ..responses.add(Future.value(Result.success(_itemsPage(items))));
+        final cubit = MusicianFeedCubit(
+          feed,
+          _EngagementRepository(),
+          collabRepository: _CollabRepository(),
+          followRepository: _FollowRepository(),
+          bandFollowRepository: _BandFollowRepository(),
+          sessions: sessions,
+        );
+        addTearDown(sessions.dispose);
+        addTearDown(cubit.close);
+        await cubit.initialize();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.navy,
+            home: Scaffold(
+              body: BlocProvider.value(
+                value: cubit,
+                child: MusicianFeedView(
+                  registry: MusicianFeedCardRegistry({
+                    for (final type in MusicianFeedItemType.values)
+                      type: MusicianFeedCardRegistration.presentationOnly(
+                        (context, item, actions) => TextButton(
+                          onPressed: () =>
+                              actions.muteAuthor(item, item.author!),
+                          child: const Text('Open mute dialog'),
+                        ),
+                      ),
+                  }),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open mute dialog'));
+        await tester.pumpAndSettle();
+        VoidCallback? oldUndo;
+        if (afterConfirmation) {
+          await tester.tap(find.text('Sessize al'));
+          await tester.pumpAndSettle();
+          oldUndo = tester
+              .widget<SnackBarAction>(find.byType(SnackBarAction))
+              .onPressed;
+        }
+        sessions.replace(
+          audienceSession(
+            user: 'other-viewer',
+            token: 'other-token',
+            role: 'ROLE_MUSICIAN',
+          ),
+        );
+        if (afterConfirmation) {
+          feed.responses.add(Future.value(Result.success(_itemsPage(items))));
+          await cubit.refresh();
+          expect(
+            await cubit.muteAuthor(
+              sourceItemId: 'first',
+              profileType: 'MUSICIAN',
+              profileId: 'profile-author-a',
+            ),
+            isTrue,
+          );
+          oldUndo!();
+          await tester.pump();
+          expect(feed.unmuteCalls, isEmpty);
+        } else {
+          await tester.tap(find.text('Sessize al'));
+          await tester.pumpAndSettle();
+          expect(feed.muteCalls, isEmpty);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('initial skeleton announces feed loading as a live region', (
     tester,
   ) async {
@@ -2926,6 +3339,36 @@ MusicianFeedPage _itemsPage(
   nextCursor: nextCursor,
   hasMore: hasMore,
 );
+
+MusicianFeedItem _commentActivityItem(String id, MusicianFeedItem target) =>
+    MusicianFeedItem(
+      id: id,
+      type: MusicianFeedItemType.activityComment,
+      payloadVersion: 1,
+      occurredAt: target.occurredAt,
+      position: target.position + 1,
+      impressionToken: 'delivery-token-$id',
+      reason: target.reason,
+      author: target.author,
+      target: target.target,
+      engagement: target.engagement,
+      promotion: null,
+      feedbackCapabilities: target.feedbackCapabilities,
+      payload: ActivityFeedPayload(
+        action: 'COMMENT',
+        actor: const MusicianFeedActor(
+          userId: 'commenter-user',
+          profileId: 'commenter-profile',
+          profileType: 'MUSICIAN',
+          username: 'commenter',
+          displayName: 'Commenter',
+          avatarUrl: null,
+          followedByViewer: true,
+        ),
+        targetItemType: target.type,
+        targetPayload: target.payload,
+      ),
+    );
 
 MusicianFeedItem _trackItem(
   String id, {
@@ -3216,6 +3659,7 @@ class _FeedRepository extends Fake implements MusicianFeedRepository {
 class _EngagementRepository extends Fake implements EngagementRepository {
   Result<void> likeResult = const Result.success(null);
   Future<Result<void>>? likeFuture;
+  Future<Result<void>>? unlikeFuture;
   final likeCalls = <(String, String)>[];
 
   @override
@@ -3231,7 +3675,7 @@ class _EngagementRepository extends Fake implements EngagementRepository {
   Future<Result<void>> unlike({
     required String targetType,
     required String targetId,
-  }) async => const Result.success(null);
+  }) => unlikeFuture ?? Future.value(const Result.success(null));
 }
 
 class _CollabRepository extends Fake implements CollabRepository {

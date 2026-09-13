@@ -88,7 +88,10 @@ void main() {
     expect(find.text('Etkinliklerim'), findsNothing);
     expect(find.text('bugrasahin'), findsOneWidget);
     expect(find.text('Sahne adı kullanılmamalı'), findsNothing);
-    expect(find.text('Biyografi'), findsOneWidget);
+    expect(find.text('Profil Tamamlama'), findsOneWidget);
+    expect(find.text('Biyografi'), findsNothing);
+    expect(find.text('Akış Tercihleri'), findsNothing);
+    expect(find.text('Enstrümanlarım'), findsNothing);
     expect(find.textContaining('Sahne adını'), findsNothing);
     expect(find.text('Bandlerim'), findsOneWidget);
     expect(find.text('Etkinlik Yönetimi'), findsOneWidget);
@@ -406,6 +409,8 @@ class _Invitations implements EventPerformerRequestRepository {
 }
 
 class _Promotions implements PromotionRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   @override
   Future<Result<List<PromotionItem>>> getDisplayableByPlacement(
     String placement,

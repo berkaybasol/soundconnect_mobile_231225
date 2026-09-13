@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
+import 'package:soundconnect_23_12_25codx/core/network/dio_api_client.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/profile_media_upload_repository_impl.dart';
@@ -11,11 +15,193 @@ import 'package:soundconnect_23_12_25codx/modules/profile/data/pending_profile_u
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_media_upload_repository.dart';
 
 import 'support/recording_api_client.dart';
+import 'support/event_audience_fakes.dart';
 
 part 'support/profile_upload_repository_test_support.dart';
 
 void main() {
   group('ProfileMediaUploadRepositoryImpl', () {
+    test(
+      'private init cannot adopt same-account relogin token while token storage is pending',
+      () async {
+        String jwt(String nonce) {
+          String encode(Object data) => base64Url
+              .encode(utf8.encode(jsonEncode(data)))
+              .replaceAll('=', '');
+          return '${encode({'alg': 'none'})}.${encode({'sub': 'account-A', 'jti': nonce, 'exp': 4102444800})}.signature';
+        }
+
+        final oldToken = jwt('old');
+        final newToken = jwt('new');
+        final sessions = AudienceTestSessions(
+          audienceSession(user: 'account-A', token: oldToken),
+        );
+        addTearDown(sessions.dispose);
+        final tokens = _InitBlockedTokens();
+        final apiAdapter = _UploadAdapter(statusCode: 200);
+        final uploadAdapter = _UploadAdapter(statusCode: 200);
+        final apiDio = Dio(BaseOptions(baseUrl: 'https://soundconnect.test'))
+          ..httpClientAdapter = apiAdapter;
+        final uploadDio = Dio()..httpClientAdapter = uploadAdapter;
+        addTearDown(() {
+          apiDio.close(force: true);
+          uploadDio.close(force: true);
+        });
+        final repository = ProfileMediaUploadRepositoryImpl(
+          DioApiClient(
+            dio: apiDio,
+            tokenStore: tokens,
+            sessionManager: sessions,
+          ),
+          uploadClient: uploadDio,
+          sessionKeyProvider: () => sessions.session.userId,
+          tokenProvider: () => sessions.session.token,
+        );
+        final pending = repository.uploadAsset(
+          source: ProfileUploadSource.bytes([1, 2, 3]),
+          ownerType: 'PROMOTION',
+          ownerId: 'draft-id',
+          mediaKind: 'IMAGE',
+          mimeType: 'image/jpeg',
+          originalFileName: 'poster.jpg',
+          visibility: 'PRIVATE',
+          attachmentIntent: const ProfileUploadAttachmentIntent.draft(),
+        );
+        await tokens.started.future;
+        sessions.replace(const AuthSession.guest());
+        sessions.replace(audienceSession(user: 'account-A', token: newToken));
+        tokens.release.complete(newToken);
+        expect((await pending).isSuccess, isFalse);
+        expect(apiAdapter.requests, isEmpty);
+        expect(uploadAdapter.requests, isEmpty);
+      },
+    );
+    test(
+      'private draft upload init cannot adopt another account after token await',
+      () async {
+        String jwt(String user) {
+          String encode(Object data) => base64Url
+              .encode(utf8.encode(jsonEncode(data)))
+              .replaceAll('=', '');
+          return '${encode({'alg': 'none'})}.${encode({'sub': user, 'exp': 4102444800})}.signature';
+        }
+
+        final sessions = AudienceTestSessions(
+          audienceSession(user: 'account-A', token: jwt('account-A')),
+        );
+        addTearDown(sessions.dispose);
+        final tokens = _InitBlockedTokens();
+        final apiAdapter = _UploadAdapter(statusCode: 200);
+        final uploadAdapter = _UploadAdapter(statusCode: 200);
+        final apiDio = Dio(BaseOptions(baseUrl: 'https://soundconnect.test'))
+          ..httpClientAdapter = apiAdapter;
+        final uploadDio = Dio()..httpClientAdapter = uploadAdapter;
+        addTearDown(() {
+          apiDio.close(force: true);
+          uploadDio.close(force: true);
+        });
+        final repository = ProfileMediaUploadRepositoryImpl(
+          DioApiClient(
+            dio: apiDio,
+            tokenStore: tokens,
+            sessionManager: sessions,
+          ),
+          uploadClient: uploadDio,
+          sessionKeyProvider: () => sessions.session.userId,
+        );
+        final pending = repository.uploadAsset(
+          source: ProfileUploadSource.bytes([1, 2, 3]),
+          ownerType: 'PROMOTION',
+          ownerId: 'draft-id',
+          mediaKind: 'IMAGE',
+          mimeType: 'image/jpeg',
+          originalFileName: 'poster.jpg',
+          visibility: 'PRIVATE',
+          attachmentIntent: const ProfileUploadAttachmentIntent.draft(),
+        );
+        await tokens.started.future;
+        sessions.replace(
+          audienceSession(user: 'account-B', token: jwt('account-B')),
+        );
+        tokens.release.complete(jwt('account-B'));
+        expect((await pending).isSuccess, isFalse);
+        expect(apiAdapter.requests, isEmpty);
+        expect(uploadAdapter.requests, isEmpty);
+      },
+    );
+    for (final visibility in ['PUBLIC', 'PRIVATE']) {
+      test(
+        'uses existing upload/recovery pipeline for $visibility media',
+        () async {
+          final api = RecordingApiClient((request) {
+            if (request.path.endsWith('/init-upload')) {
+              return {
+                'assetId': 'announcement-media',
+                'uploadUrl': 'https://upload.example.test/announcement',
+              };
+            }
+            if (request.path.endsWith('/complete-upload')) {
+              return {
+                'uuid': 'announcement-media',
+                'sourceUrl': null,
+                'playbackUrl': null,
+              };
+            }
+            throw StateError('Unexpected request ${request.path}');
+          });
+          final adapter = _UploadAdapter(statusCode: 200);
+          final dio = Dio()..httpClientAdapter = adapter;
+          addTearDown(() => dio.close(force: true));
+          final repository = ProfileMediaUploadRepositoryImpl(
+            api,
+            uploadClient: dio,
+            sessionKeyProvider: () => 'admin',
+            tokenProvider: () => 'admin-token',
+          );
+          final result = await repository.uploadAsset(
+            source: ProfileUploadSource.bytes([1, 2, 3]),
+            ownerType: 'PROMOTION',
+            ownerId: 'draft-id',
+            mediaKind: 'IMAGE',
+            mimeType: 'image/jpeg',
+            originalFileName: 'poster.jpg',
+            visibility: visibility,
+            attachmentIntent: const ProfileUploadAttachmentIntent.draft(),
+          );
+          expect(result.isSuccess, isTrue);
+          expect(result.data!.sourceUrl, isNull);
+          expect((api.requests.first.body as Map)['visibility'], visibility);
+          expect(
+            api.requests.first.requestContext?.expectedSessionKey,
+            'admin',
+          );
+          expect(
+            api.requests.first.requestContext?.expectedToken,
+            'admin-token',
+          );
+          expect((api.requests.first.body as Map)['ownerType'], 'PROMOTION');
+          expect((api.requests.first.body as Map)['ownerId'], 'draft-id');
+          expect(adapter.requests.single.bytes, [1, 2, 3]);
+        },
+      );
+    }
+    test(
+      'invalid visibility is rejected before init upload or bytes',
+      () async {
+        final api = RecordingApiClient((_) => throw StateError('No transport'));
+        final result = await ProfileMediaUploadRepositoryImpl(api).uploadAsset(
+          source: ProfileUploadSource.bytes([1]),
+          ownerType: 'PROMOTION',
+          ownerId: 'draft',
+          mediaKind: 'IMAGE',
+          mimeType: 'image/jpeg',
+          originalFileName: 'poster.jpg',
+          visibility: 'UNLISTED',
+        );
+        expect(result.error?.code, 'profile_upload_visibility');
+        expect(api.requests, isEmpty);
+      },
+    );
     test(
       'recovers a completed unattached draft after process restart',
       () async {

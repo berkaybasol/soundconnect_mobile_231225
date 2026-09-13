@@ -1,10 +1,15 @@
 class AppRoutes {
   static const adminDashboard = '/admin';
+  static const adminAnnouncements = '/admin/feed/announcements';
+  static const announcements = '/announcements';
+  static const adminMusicianFeedReports = '/admin/musician-feed/reports';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
   static const settings = '/settings';
   static const accountSettings = '/account-settings';
+  static const musicianFeedMutedAuthors =
+      '/settings/musician-feed/muted-authors';
   static const otpVerify = '/otp-verify';
   static const venueApplication = '/venue-application';
   static const venuePending = '/venue-pending';

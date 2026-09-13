@@ -5,9 +5,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../analytics/presentation/widgets/analytics_exposure.dart';
+import '../../../analytics/data/analytics_tracker.dart';
+import '../../../engagement/data/engagement_repository_impl.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../engagement/domain/engagement_repository.dart';
@@ -25,10 +28,18 @@ export '../navigation/musician_feed_navigation_coordinator.dart'
         musicianFeedOverthinkingSourceId,
         parseMusicianFeedExternalPromotionUri;
 
+typedef MusicianFeedActionsBuilder =
+    MusicianFeedCardActions Function(
+      BuildContext context,
+      MusicianFeedCubit cubit,
+      MusicianFeedCardRegistry registry,
+    );
+
 class MusicianFeedView extends StatefulWidget {
-  const MusicianFeedView({super.key, this.registry});
+  const MusicianFeedView({super.key, this.registry, this.actionsBuilder});
 
   final MusicianFeedCardRegistry? registry;
+  final MusicianFeedActionsBuilder? actionsBuilder;
 
   @override
   State<MusicianFeedView> createState() => _MusicianFeedViewState();
@@ -88,7 +99,13 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
               onRetry: context.read<MusicianFeedCubit>().retry,
             );
           }
-          final actions = _actions(context);
+          final actions =
+              widget.actionsBuilder?.call(
+                context,
+                context.read<MusicianFeedCubit>(),
+                _registry,
+              ) ??
+              _actions(context);
           return RefreshIndicator(
             onRefresh: context.read<MusicianFeedCubit>().refresh,
             child: ListView.separated(
@@ -96,9 +113,15 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 118),
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, 118),
               itemCount: _itemCount(state),
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (context, _) => Divider(
+                height: 26,
+                thickness: 1,
+                indent: 16,
+                endIndent: 16,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               itemBuilder: (context, index) {
                 if (state.items.isEmpty && index == 0) {
                   return state.status == MusicianFeedStatus.featureUnavailable
@@ -119,12 +142,24 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
                     'musician-feed-exposure-${state.feedSessionId}-'
                     '${item.position}-${item.id}',
                   ),
-                  onExposed: () => unawaited(
-                    context.read<MusicianFeedCubit>().recordEvent(
-                      item,
-                      MusicianFeedTelemetryEventType.impression,
-                    ),
-                  ),
+                  onExposed: () {
+                    unawaited(
+                      context.read<MusicianFeedCubit>().recordEvent(
+                        item,
+                        MusicianFeedTelemetryEventType.impression,
+                      ),
+                    );
+                    final payload = item.payload;
+                    if (payload is AnnouncementFeedPayload &&
+                        serviceLocator.isRegistered<AnalyticsTracker>()) {
+                      serviceLocator<AnalyticsTracker>()
+                          .recordAnnouncementImpression(
+                            announcementId: payload.announcement.id,
+                            source: 'FEED',
+                            impressionToken: item.impressionToken,
+                          );
+                    }
+                  },
                   child: IgnorePointer(
                     ignoring: pending,
                     child: AnimatedOpacity(
@@ -232,7 +267,16 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
       showDragHandle: true,
       backgroundColor: Theme.of(feedContext).colorScheme.surfaceContainerHigh,
       builder: (_) => BlocProvider(
-        create: (_) => serviceLocator<CommentThreadCubit>(),
+        create: (_) => engagement.targetType == 'ANNOUNCEMENT'
+            ? CommentThreadCubit(
+                EngagementRepositoryImpl(
+                  serviceLocator<ApiClient>(),
+                  sessions: serviceLocator<AuthSessionManager>(),
+                  announcementSource: 'FEED',
+                ),
+                sessions: serviceLocator<AuthSessionManager>(),
+              )
+            : serviceLocator<CommentThreadCubit>(),
         child: CommentThreadSheet(
           targetType: engagement.targetType,
           targetId: engagement.targetId,
@@ -261,6 +305,12 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
     if (!mounted || !feedContext.mounted || !success) return;
     if (action == MusicianFeedFeedbackAction.report) {
       _showInfo(feedContext, 'Bildirimin alındı. Teşekkür ederiz.');
+    } else if (action == MusicianFeedFeedbackAction.hide &&
+        item.type == MusicianFeedItemType.announcement) {
+      _showInfo(
+        feedContext,
+        'Bu duyuru akışında tekrar gösterilmeyecek. Tüm duyurular bölümünden açabilirsin.',
+      );
     }
   }
 
@@ -310,6 +360,9 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
   ) async {
     final identity = musicianFeedAuthorProfileIdentity(author);
     if (identity == null) return;
+    final cubit = feedContext.read<MusicianFeedCubit>();
+    final fence = cubit.captureSessionFence();
+    if (!cubit.acceptsSessionFence(fence)) return;
     final confirmed = await showDialog<bool>(
       context: feedContext,
       builder: (dialogContext) => AlertDialog(
@@ -329,14 +382,25 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
         ],
       ),
     );
-    if (confirmed != true || !mounted || !feedContext.mounted) return;
-    final cubit = feedContext.read<MusicianFeedCubit>();
+    if (confirmed != true ||
+        !mounted ||
+        !feedContext.mounted ||
+        !cubit.acceptsSessionFence(fence) ||
+        !identical(feedContext.read<MusicianFeedCubit>(), cubit)) {
+      return;
+    }
     final success = await cubit.muteAuthor(
       sourceItemId: item.id,
       profileType: identity.profileType,
       profileId: identity.profileId,
     );
-    if (!mounted || !feedContext.mounted || !success) return;
+    if (!mounted ||
+        !feedContext.mounted ||
+        !success ||
+        !cubit.acceptsSessionFence(fence) ||
+        !identical(feedContext.read<MusicianFeedCubit>(), cubit)) {
+      return;
+    }
     ScaffoldMessenger.of(feedContext)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -346,12 +410,20 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
           content: Text('${author.visibleName} sessize alındı.'),
           action: SnackBarAction(
             label: 'Geri al',
-            onPressed: () => unawaited(
-              cubit.unmuteAuthor(
-                profileType: identity.profileType,
-                profileId: identity.profileId,
-              ),
-            ),
+            onPressed: () {
+              if (!mounted ||
+                  !feedContext.mounted ||
+                  !cubit.acceptsSessionFence(fence) ||
+                  !identical(feedContext.read<MusicianFeedCubit>(), cubit)) {
+                return;
+              }
+              unawaited(
+                cubit.unmuteAuthor(
+                  profileType: identity.profileType,
+                  profileId: identity.profileId,
+                ),
+              );
+            },
           ),
         ),
       );

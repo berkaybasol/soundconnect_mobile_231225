@@ -224,7 +224,7 @@ class _CompletionTaskCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: AppColors.navBlueDeep,
         borderRadius: BorderRadius.circular(17),
         border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
@@ -303,7 +303,7 @@ class _CompletionDone extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      color: AppColors.navBlueDeep,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: Theme.of(context).colorScheme.outline),
     ),

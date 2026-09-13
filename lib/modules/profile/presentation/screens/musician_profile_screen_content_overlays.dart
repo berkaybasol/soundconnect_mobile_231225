@@ -12,6 +12,10 @@ extension _MusicianPublicProfileContentOverlays
         await context.read<MusicianProfileCubit>().loadMyProfile();
       },
       onManagement: () async {
+        final session = ProfileActionSession(
+          roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+        );
+        if (!session.isCurrent) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
             builder: (_) => MusicianManagementPanelScreen(
@@ -20,6 +24,7 @@ extension _MusicianPublicProfileContentOverlays
             ),
           ),
         );
+        if (context.mounted && session.isCurrent) await onRefresh();
       },
     );
   }

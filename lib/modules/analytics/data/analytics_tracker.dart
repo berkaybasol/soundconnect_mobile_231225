@@ -165,7 +165,11 @@ class AnalyticsTracker with WidgetsBindingObserver {
 
   bool _isFresh(AnalyticsObservation observation) {
     final age = _clock().toUtc().difference(observation.observedAt);
-    return !age.isNegative && age <= observationTtl;
+    return !age.isNegative &&
+        age <= observationTtl &&
+        _clientId != null &&
+        analyticsRequestBytes(_clientId!, [observation]) <=
+            analyticsMaxBodyBytes;
   }
 
   void recordEventImpression(String eventId) =>
@@ -181,17 +185,75 @@ class AnalyticsTracker with WidgetsBindingObserver {
         sourceEventId: sourceEventId,
       );
 
+  void recordAnnouncementImpression({
+    required String announcementId,
+    required String source,
+    String? impressionToken,
+  }) => _record(
+    AnalyticsObservationType.announcementImpression,
+    announcementId: announcementId,
+    source: source,
+    impressionToken: impressionToken,
+  );
+
+  void recordAnnouncementDetailView({
+    required String announcementId,
+    required String source,
+    String? impressionToken,
+  }) => _record(
+    AnalyticsObservationType.announcementDetailView,
+    announcementId: announcementId,
+    source: source,
+    impressionToken: impressionToken,
+  );
+
+  void recordAnnouncementVideoStart({
+    required String announcementId,
+    required String source,
+    required String playbackId,
+    String? impressionToken,
+  }) => _record(
+    AnalyticsObservationType.announcementVideoStart,
+    announcementId: announcementId,
+    source: source,
+    playbackId: playbackId,
+    impressionToken: impressionToken,
+  );
+
+  void recordAnnouncementVideoComplete({
+    required String announcementId,
+    required String source,
+    required String playbackId,
+    String? impressionToken,
+  }) => _record(
+    AnalyticsObservationType.announcementVideoComplete,
+    announcementId: announcementId,
+    source: source,
+    playbackId: playbackId,
+    impressionToken: impressionToken,
+  );
+
   void _record(
     AnalyticsObservationType type, {
     String? eventId,
     String? venueId,
     String? sourceEventId,
+    String? announcementId,
+    String? source,
+    String? playbackId,
+    String? impressionToken,
   }) {
     if (_disposed || !_foreground || !_mayObserve(_session)) return;
+    if (type.isAnnouncement &&
+        (!_session.isAuthenticated ||
+            _session.permissions.contains('MANAGE_PROMOTIONS'))) {
+      return;
+    }
     final now = _clock().toUtc();
     final istanbulDate = now.add(const Duration(hours: 3));
     final recentKey =
-        '${type.wireValue}|${eventId ?? venueId}|${sourceEventId ?? ''}|'
+        '${type.wireValue}|${announcementId ?? eventId ?? venueId}|${sourceEventId ?? ''}|'
+        '${source ?? ''}|${playbackId ?? ''}|${impressionToken ?? ''}|'
         '${istanbulDate.year}-${istanbulDate.month}-${istanbulDate.day}';
     final previous = _recent[recentKey];
     if (previous != null &&
@@ -207,6 +269,10 @@ class AnalyticsTracker with WidgetsBindingObserver {
       eventId: eventId,
       venueId: venueId,
       sourceEventId: sourceEventId,
+      announcementId: announcementId,
+      source: source,
+      playbackId: playbackId,
+      impressionToken: impressionToken,
     );
     if (!observation.isValid) return;
     _recent.removeWhere((_, time) => now.difference(time) >= _recentTtl);
@@ -224,6 +290,7 @@ class AnalyticsTracker with WidgetsBindingObserver {
   ) async {
     await _ready;
     if (_disposed || generation != _generation || _clientId == null) return;
+    if (!_isFresh(observation)) return;
     _queue.removeWhere((value) => !_isFresh(value));
     while (_queue.length >= maxQueueSize) {
       _queue.removeAt(0);
@@ -267,9 +334,18 @@ class AnalyticsTracker with WidgetsBindingObserver {
       await _persist();
       return;
     }
-    final batch = List<AnalyticsObservation>.unmodifiable(
-      _queue.take(maxBatchSize),
-    );
+    final selected = <AnalyticsObservation>[];
+    for (final observation in _queue.take(maxBatchSize)) {
+      if (analyticsRequestBytes(_clientId!, [...selected, observation]) >
+          analyticsMaxBodyBytes) {
+        break;
+      }
+      selected.add(observation);
+    }
+    // Every valid observation fits alone; preserve the original IDs/order when
+    // long signed delivery proofs make a twenty-row batch exceed 16 KiB.
+    final batch = List<AnalyticsObservation>.unmodifiable(selected);
+    if (batch.isEmpty) return;
     final userId = _session.isAuthenticated ? _session.userId : null;
     try {
       final result = await _repository.collect(

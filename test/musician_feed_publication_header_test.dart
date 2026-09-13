@@ -10,6 +10,141 @@ import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 void main() {
   group('musician feed publication header', () {
     testWidgets(
+      'surface shows one author for their own publication and keeps hide and menu',
+      (tester) async {
+        for (final useReasonActor in [true, false]) {
+          final author = _actor(
+            username: 'cok_uzun_bir_muzisyen_kullanici_adi_ve_devami',
+          );
+          final item = _item(
+            author: author,
+            reasonActors: useReasonActor ? [_actor()] : const [],
+            feedbackCapabilities: const {
+              MusicianFeedFeedbackAction.hide,
+              MusicianFeedFeedbackAction.showLess,
+            },
+          );
+          final calls = _Calls();
+          await _pumpSurface(
+            tester,
+            item,
+            calls,
+            size: const Size(320, 640),
+            textScale: 2,
+          );
+
+          expect(find.byType(MusicianFeedReasonRow), findsNothing);
+          expect(find.byType(MusicianFeedAuthorHeader), findsOneWidget);
+          expect(find.byType(AppCachedNetworkImage), findsOneWidget);
+          expect(
+            find.textContaining('paylaştı', findRichText: true),
+            findsNothing,
+          );
+          expect(find.byTooltip('Kart seçenekleri'), findsOneWidget);
+          expect(find.byTooltip('Bu kartı gizle'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+
+          await tester.tap(find.byTooltip('Bu kartı gizle'));
+          await tester.pump();
+          expect(calls.feedbackItems, [item]);
+          expect(calls.feedbackActions, [MusicianFeedFeedbackAction.hide]);
+          expect(calls.openedAuthors, isEmpty);
+          expect(calls.openedItems, isEmpty);
+
+          await tester.tap(find.byTooltip('Kart seçenekleri'));
+          await tester.pumpAndSettle();
+          expect(find.text('Bunun gibi daha az göster'), findsOneWidget);
+          await tester.tap(find.text('Bunun gibi daha az göster'));
+          await tester.pumpAndSettle();
+          expect(calls.feedbackItems, [item, item]);
+          expect(
+            calls.feedbackActions.last,
+            MusicianFeedFeedbackAction.showLess,
+          );
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+
+    testWidgets(
+      'surface keeps a distinct publisher and original content author independently tappable',
+      (tester) async {
+        final publisher = _actor();
+        // The same account can own different profile families. Identity must
+        // use the profile type and profile ID, not account ID or display name.
+        final author = _actor(
+          profileType: 'VENUE',
+          profileId: 'venue-profile-id',
+          username: 'venue-account',
+          displayName: 'Kadıköy Sahne',
+        );
+        final item = _item(author: author, reasonActors: [publisher]);
+        final calls = _Calls();
+        await _pumpSurface(tester, item, calls);
+
+        expect(find.byType(MusicianFeedReasonRow), findsOneWidget);
+        expect(find.byType(MusicianFeedAuthorHeader), findsOneWidget);
+        await tester.tap(find.text('selinaksoy paylaştı', findRichText: true));
+        await tester.pump();
+        await tester.tap(find.text('Kadıköy Sahne'));
+        await tester.pump();
+        expect(calls.openedAuthors, [publisher, author]);
+        expect(calls.authorItems, [item, item]);
+        expect(calls.openedItems, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'surface never removes promotion disclosure when publisher matches author',
+      (tester) async {
+        for (final disclosure in const [
+          ('SPONSORED', 'Sponsorlu'),
+          ('FEATURED', 'Öne Çıkan'),
+          ('PLATFORM_ANNOUNCEMENT', 'SoundConnect duyurusu'),
+          ('FUTURE_PROMOTION', 'Sponsorlu'),
+        ]) {
+          final item = _item(
+            author: _actor(),
+            reasonActors: [_actor()],
+            promotion: MusicianFeedPromotion(
+              campaignId: 'campaign-id',
+              disclosure: disclosure.$1,
+              ctaLabel: null,
+              ctaUrl: null,
+            ),
+          );
+          await _pumpSurface(tester, item, _Calls());
+          expect(find.text(disclosure.$2), findsOneWidget);
+          expect(find.byType(MusicianFeedReasonRow), findsOneWidget);
+          expect(find.byType(MusicianFeedAuthorHeader), findsOneWidget);
+          expect(
+            find.textContaining('paylaştı', findRichText: true),
+            findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+
+    testWidgets(
+      'surface preserves publication when its author header is absent',
+      (tester) async {
+        final author = _actor();
+        final item = _item(author: author, reasonActors: [author]);
+        final calls = _Calls();
+        await _pumpSurface(tester, item, calls, showAuthor: false);
+
+        expect(find.byType(MusicianFeedReasonRow), findsOneWidget);
+        expect(find.byType(MusicianFeedAuthorHeader), findsNothing);
+        await tester.tap(find.text('selinaksoy paylaştı', findRichText: true));
+        await tester.pump();
+        expect(calls.openedAuthors, [author]);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       'reason actor owns both name and avatar navigation, not content author',
       (tester) async {
         final publisher = _actor();
@@ -347,6 +482,42 @@ Future<void> _pumpHeader(
                     showOverflow: showOverflow,
                   ),
                 ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _pumpSurface(
+  WidgetTester tester,
+  MusicianFeedItem item,
+  _Calls calls, {
+  Size size = const Size(390, 844),
+  double textScale = 1,
+  bool showAuthor = true,
+}) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.navy,
+      home: MediaQuery(
+        data: MediaQueryData(
+          size: size,
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: Scaffold(
+          body: MusicianFeedThemeScope(
+            child: SingleChildScrollView(
+              child: MusicianFeedSurface(
+                item: item,
+                actions: calls.actions,
+                showAuthor: showAuthor,
+                child: const Text('Etkinlik içeriği'),
               ),
             ),
           ),

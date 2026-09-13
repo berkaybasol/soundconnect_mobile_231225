@@ -49,3 +49,4 @@ app.*.map.json
 # Local verification output and generated golden-test diagnostics
 /.local-verification/
 /test/failures/
+/tmp/

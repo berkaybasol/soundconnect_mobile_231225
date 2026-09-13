@@ -11,10 +11,33 @@ import '../../../engagement/domain/engagement_repository.dart';
 import '../../../follow/domain/band_follow_repository.dart';
 import '../../../follow/domain/follow_repository.dart';
 import '../../domain/musician_feed_models.dart';
+import '../../domain/musician_feed_mute_changes.dart';
 import '../../domain/musician_feed_repository.dart';
 import 'musician_feed_state.dart';
 
 typedef _EngagementTarget = ({String targetType, String targetId});
+
+class _LikeOperation {
+  _LikeOperation({
+    required this.session,
+    required this.contentRevision,
+    required this.optimistic,
+    required this.snapshots,
+  });
+
+  final ({String userId, String token}) session;
+  final int contentRevision;
+  final MusicianFeedEngagement optimistic;
+  final Map<String, MusicianFeedEngagement> snapshots;
+  bool? succeeded;
+}
+
+class _MuteOperation {
+  const _MuteOperation(this.itemIds, this.session);
+
+  final Set<String> itemIds;
+  final ({String userId, String token}) session;
+}
 
 class MusicianFeedCubit extends Cubit<MusicianFeedState> {
   MusicianFeedCubit(
@@ -24,15 +47,21 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     required FollowRepository followRepository,
     required BandFollowRepository bandFollowRepository,
     required AuthSessionManager sessions,
+    MusicianFeedMuteChanges? muteChanges,
+    EngagementRepository? announcementEngagementRepository,
     String Function()? eventIdFactory,
     this.pageSize = 20,
-  }) : _collabRepository = collabRepository,
+  }) : _announcementEngagementRepository =
+           announcementEngagementRepository ?? _engagementRepository,
+       _collabRepository = collabRepository,
        _followRepository = followRepository,
        _bandFollowRepository = bandFollowRepository,
        _sessions = sessions,
        _eventIdFactory = eventIdFactory ?? const Uuid().v4,
        assert(pageSize > 0 && pageSize <= 30),
-       super(const MusicianFeedState());
+       super(const MusicianFeedState()) {
+    _unmuteSubscription = muteChanges?.unmuted.listen(_authorUnmutedElsewhere);
+  }
 
   static const AppError _invalidPage = AppError(
     code: 'musician_feed_page_identity_mismatch',
@@ -53,24 +82,27 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
 
   final MusicianFeedRepository _feedRepository;
   final EngagementRepository _engagementRepository;
+  final EngagementRepository _announcementEngagementRepository;
   final CollabRepository _collabRepository;
   final FollowRepository _followRepository;
   final BandFollowRepository _bandFollowRepository;
   final AuthSessionManager _sessions;
   final String Function() _eventIdFactory;
   final int pageSize;
+  StreamSubscription<MusicianFeedAuthorUnmuted>? _unmuteSubscription;
+  final Map<MusicianFeedAuthorProfileIdentity, _MuteOperation> _muteOperations =
+      <MusicianFeedAuthorProfileIdentity, _MuteOperation>{};
   final Map<String, String> _acceptedDismissedItemOwners = <String, String>{};
   final Set<String> _pendingDismissedItemIds = <String>{};
   final Map<MusicianFeedAuthorProfileIdentity, String>
   _acceptedMutedAuthorOwners = <MusicianFeedAuthorProfileIdentity, String>{};
-  final Set<MusicianFeedAuthorProfileIdentity> _pendingMutedAuthors =
-      <MusicianFeedAuthorProfileIdentity>{};
   final Map<String, String> _acceptedFollowProfileOwners = <String, String>{};
   final Map<String, String> _pendingFollowProfileOwners = <String, String>{};
   final Map<String, String> _pendingFollowItemOwners = <String, String>{};
   final Map<String, Object> _profileFollowOperations = <String, Object>{};
-  final Map<_EngagementTarget, Object> _engagementOperations =
-      <_EngagementTarget, Object>{};
+  final Map<_EngagementTarget, _LikeOperation> _engagementOperations =
+      <_EngagementTarget, _LikeOperation>{};
+  Map<_EngagementTarget, List<_LikeOperation>>? _pagingEngagementOperations;
   final Map<String, Object> _collabSaveOperations = <String, Object>{};
   List<MusicianFeedItem> _backingItems = const <MusicianFeedItem>[];
   int _generation = 0;
@@ -95,6 +127,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
   Future<void> _loadFirst({required bool keepItems}) async {
     if (isClosed) return;
     final generation = ++_generation;
+    _pagingEngagementOperations = null;
     if (!keepItems) _backingItems = const <MusicianFeedItem>[];
     emit(
       state.copyWith(
@@ -194,7 +227,17 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         actionError: null,
       ),
     );
+    // Retain writes overlapping this request until its response is merged,
+    // including writes that finish before the page arrives.
+    final pageOperations = <_EngagementTarget, List<_LikeOperation>>{
+      for (final entry in _engagementOperations.entries)
+        entry.key: [entry.value],
+    };
+    _pagingEngagementOperations = pageOperations;
     final result = await _feedRepository.load(limit: pageSize, cursor: cursor);
+    if (identical(_pagingEngagementOperations, pageOperations)) {
+      _pagingEngagementOperations = null;
+    }
     if (isClosed || generation != _generation) return;
     final page = result.data;
     if (!result.isSuccess || page == null) {
@@ -217,8 +260,11 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     }
     final seen = _backingItems.map((item) => item.id).toSet();
     final merged = <MusicianFeedItem>[..._backingItems];
+    final pending = Set<String>.from(state.pendingItemIds);
     for (final item in page.items) {
-      if (!_isAcceptedSuppressed(item) && seen.add(item.id)) merged.add(item);
+      if (!_isAcceptedSuppressed(item) && seen.add(item.id)) {
+        merged.add(_applyPagedLikes(item, pageOperations, pending));
+      }
     }
     _backingItems = List.unmodifiable(merged);
     emit(
@@ -228,6 +274,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         generatedAt: page.generatedAt,
         nextCursor: page.nextCursor,
         hasMore: page.hasMore,
+        pendingItemIds: Set.unmodifiable(pending),
         loadMoreError: null,
         actionError: null,
       ),
@@ -342,8 +389,9 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         removed.any((item) => state.pendingItemIds.contains(item.id))) {
       return false;
     }
-    _pendingMutedAuthors.add(author);
     final removedIds = removed.map((item) => item.id).toSet();
+    final operation = _MuteOperation(removedIds, session);
+    _muteOperations[author] = operation;
     final pending = Set<String>.from(state.pendingItemIds)..addAll(removedIds);
     emit(
       state.copyWith(
@@ -356,8 +404,10 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
       profileType: author.profileType,
       profileId: author.profileId,
     );
-    if (isClosed) return false;
-    _pendingMutedAuthors.remove(author);
+    if (isClosed || !identical(_muteOperations[author], operation)) {
+      return false;
+    }
+    _muteOperations.remove(author);
     final nextPending = Set<String>.from(state.pendingItemIds)
       ..removeAll(removedIds);
     if (!_sameSession(session)) {
@@ -439,6 +489,31 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     return true;
   }
 
+  void _authorUnmutedElsewhere(MusicianFeedAuthorUnmuted change) {
+    if (isClosed ||
+        !_sameSession((userId: change.userId, token: change.token))) {
+      return;
+    }
+    if (_acceptedMutedAuthorOwners[change.author] == change.userId) {
+      _acceptedMutedAuthorOwners.remove(change.author);
+    }
+    // A PUT may have committed before the settings DELETE while its response
+    // is still in flight. That older response must not restore the local mute.
+    final superseded = _muteOperations.remove(change.author);
+    if (superseded != null) {
+      emit(
+        state.copyWith(
+          items: _visibleBackingItems(),
+          pendingItemIds: Set.unmodifiable(
+            Set<String>.from(state.pendingItemIds)
+              ..removeAll(superseded.itemIds),
+          ),
+        ),
+      );
+    }
+    if (state.status != MusicianFeedStatus.initial) unawaited(refresh());
+  }
+
   Future<bool> toggleLike(String itemId) async {
     if (isClosed || state.pendingItemIds.contains(itemId)) return false;
     final index = state.items.indexWhere((item) => item.id == itemId);
@@ -475,8 +550,16 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         if (_engagementTarget(candidate) == target)
           candidate.id: candidate.engagement!,
     };
-    final operation = Object();
+    final operation = _LikeOperation(
+      session: session,
+      contentRevision: contentRevision,
+      optimistic: optimistic,
+      snapshots: snapshots,
+    );
     _engagementOperations[target] = operation;
+    _pagingEngagementOperations
+        ?.putIfAbsent(target, () => <_LikeOperation>[])
+        .add(operation);
     final pending = Set<String>.from(state.pendingItemIds)..addAll(affectedIds);
     _setEngagementForTarget(
       target,
@@ -486,12 +569,15 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     );
     Result<void> result;
     try {
+      final repository = engagement.targetType == 'ANNOUNCEMENT'
+          ? _announcementEngagementRepository
+          : _engagementRepository;
       result = nextLiked
-          ? await _engagementRepository.like(
+          ? await repository.like(
               targetType: engagement.targetType,
               targetId: engagement.targetId,
             )
-          : await _engagementRepository.unlike(
+          : await repository.unlike(
               targetType: engagement.targetType,
               targetId: engagement.targetId,
             );
@@ -502,6 +588,10 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
       return false;
     }
     _engagementOperations.remove(target);
+    operation.succeeded =
+        result.isSuccess &&
+        contentRevision == _contentRevision &&
+        _sameSession(session);
     if (generation != _generation && contentRevision != _contentRevision) {
       return false;
     }
@@ -510,7 +600,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         .map((candidate) => candidate.id)
         .toSet();
     final nextPending = Set<String>.from(state.pendingItemIds)
-      ..removeAll(affectedIds)
+      ..removeAll(snapshots.keys)
       ..removeAll(currentAffectedIds);
     if (!_sameSession(session)) {
       _restoreEngagementSnapshots(snapshots, pending: nextPending);
@@ -760,6 +850,35 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     return (targetType: targetType, targetId: targetId);
   }
 
+  MusicianFeedItem _applyPagedLikes(
+    MusicianFeedItem item,
+    Map<_EngagementTarget, List<_LikeOperation>> pageOperations,
+    Set<String> pending,
+  ) {
+    final operations = pageOperations[_engagementTarget(item)];
+    if (operations == null) return item;
+    var updated = item;
+    for (final operation in operations) {
+      if (operation.contentRevision != _contentRevision ||
+          !_sameSession(operation.session) ||
+          operation.succeeded == false) {
+        continue;
+      }
+      final engagement = updated.engagement!;
+      if (operation.succeeded == null) {
+        operation.snapshots.putIfAbsent(item.id, () => engagement);
+        pending.add(item.id);
+      }
+      updated = updated.copyWith(
+        engagement: engagement.copyWith(
+          likedByMe: operation.optimistic.likedByMe,
+          likeCount: operation.optimistic.likeCount,
+        ),
+      );
+    }
+    return updated;
+  }
+
   void _setEngagementForTarget(
     _EngagementTarget target, {
     bool? likedByMe,
@@ -821,12 +940,15 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         .where(
           (item) =>
               !_pendingDismissedItemIds.contains(item.id) &&
-              !_pendingMutedAuthors.contains(
-                musicianFeedAuthorProfileIdentity(item.author),
-              ),
+              !_hasPendingMute(musicianFeedAuthorProfileIdentity(item.author)),
         )
         .map(_applyFollowOverlay),
   );
+
+  bool _hasPendingMute(MusicianFeedAuthorProfileIdentity? author) {
+    final operation = _muteOperations[author];
+    return operation != null && _sameSession(operation.session);
+  }
 
   MusicianFeedItem _applyFollowOverlay(MusicianFeedItem item) {
     final payload = item.payload;
@@ -907,7 +1029,10 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
   @override
   Future<void> close() {
     _generation += 1;
+    unawaited(_unmuteSubscription?.cancel());
+    _muteOperations.clear();
     _engagementOperations.clear();
+    _pagingEngagementOperations = null;
     _collabSaveOperations.clear();
     _profileFollowOperations.clear();
     _pendingFollowProfileOwners.clear();

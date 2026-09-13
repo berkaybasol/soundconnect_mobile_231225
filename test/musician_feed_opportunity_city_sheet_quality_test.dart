@@ -98,6 +98,88 @@ void main() {
       ]);
     },
   );
+
+  for (final scenario in [
+    (size: const Size(390, 844), textScale: 1.0),
+    (size: const Size(320, 640), textScale: 2.0),
+  ]) {
+    testWidgets(
+      'keeps the focused editor and input connection through keyboard '
+      'inset changes at ${scenario.size.width}dp and ${scenario.textScale}x text',
+      (tester) async {
+        tester.view.physicalSize = scenario.size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewInsets);
+
+        await _openSheet(
+          tester,
+          preferences: _PreferencesRepository(),
+          textScale: scenario.textScale,
+        );
+        expect(tester.takeException(), isNull);
+        final search = find.byKey(const Key('musician-feed-city-search'));
+        final editable = find.descendant(
+          of: search,
+          matching: find.byType(EditableText),
+        );
+        await tester.tap(search);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final originalEditor = tester.state<EditableTextState>(editable);
+        const composingValue = TextEditingValue(
+          text: 'An',
+          selection: TextSelection.collapsed(offset: 2),
+          composing: TextRange(start: 0, end: 2),
+        );
+        tester.testTextInput.updateEditingValue(composingValue);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        // Exercise normal -> compact -> normal, including intermediate
+        // keyboard animation sizes. Large-text layouts start compact already.
+        for (final inset in [80.0, 260.0, 0.0, 260.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+          expect(
+            tester.state<EditableTextState>(editable),
+            same(originalEditor),
+          );
+          expect(originalEditor.widget.focusNode.hasFocus, isTrue);
+          expect(tester.testTextInput.hasAnyClients, isTrue);
+          expect(tester.testTextInput.isVisible, isTrue);
+          expect(originalEditor.widget.controller.value, composingValue);
+          expect(search.hitTestable(), findsOneWidget);
+          final save = find.byKey(const Key('musician-feed-city-save'));
+          expect(save.hitTestable(), findsOneWidget);
+          expect(
+            tester.getRect(save).bottom,
+            lessThanOrEqualTo(scenario.size.height - inset),
+          );
+        }
+
+        // Send text through the existing IME client, without refocusing the
+        // field through tester.enterText (which would hide a lost-focus bug).
+        tester.testTextInput.enterText('Ankara');
+        await tester.pumpAndSettle();
+        expect(originalEditor.widget.controller.text, 'Ankara');
+        expect(
+          find.byKey(const Key('musician-feed-city-ankara')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('musician-feed-city-istanbul')),
+          findsNothing,
+        );
+        expect(find.byKey(const Key('musician-feed-city-izmir')), findsNothing);
+        expect(originalEditor.widget.focusNode.hasFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Future<void> _openSheet(

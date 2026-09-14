@@ -32,6 +32,7 @@ Future<void> showProfileQuickMenu(
   required ProfileQuickMenuAction onSettings,
   ProfileQuickMenuAction? onManagement,
   ProfileQuickMenuAction? onAnnouncements,
+  ProfileQuickMenuAction? onFeed,
   ProfileQuickMenuAction? onProfileContact,
   Key? settingsTileKey,
   Key? profileContactTileKey,
@@ -68,6 +69,13 @@ Future<void> showProfileQuickMenu(
                     SliverList.list(
                       children: [
                         const SizedBox(height: 8),
+                        if (onFeed != null)
+                          ListTile(
+                            key: const Key('profile-menu-feed'),
+                            leading: const Icon(Icons.home_outlined),
+                            title: const Text('Akış'),
+                            onTap: () async => closeThen(onFeed),
+                          ),
                         ListTile(
                           key: settingsTileKey,
                           leading: const Icon(Icons.settings_outlined),

@@ -340,6 +340,104 @@ void main() {
       },
     );
 
+    test(
+      'login exposes only the verified account email for error 1113',
+      () async {
+        final result = await AuthRepositoryImpl(
+          _RecordingApiClient(
+            error: ApiException(
+              const AppError(
+                code: '1113',
+                message: 'Internal inactive account detail',
+                details: <String>['  berna@example.com  '],
+              ),
+            ),
+          ),
+        ).login(username: 'berna', password: 'correct-password');
+
+        expect(result.isSuccess, isFalse);
+        expect(result.data, isNull);
+        expect(result.error?.code, 'auth_email_verification_required');
+        expect(result.error?.details, <String>['berna@example.com']);
+        expect(result.error?.message, isNot(contains('Internal')));
+      },
+    );
+
+    for (final details in <List<String>>[
+      <String>[],
+      <String>[''],
+      <String>['   '],
+      <String>['berna'],
+      <String>['berna@'],
+      <String>['berna @example.com'],
+      <String>['berna@example.com', 'other@example.com'],
+      <String>['berna@example.com', 'Internal inactive account detail'],
+    ]) {
+      test(
+        'login safely rejects ambiguous verification details $details',
+        () async {
+          final result = await AuthRepositoryImpl(
+            _RecordingApiClient(
+              error: ApiException(
+                AppError(
+                  code: '1113',
+                  message: 'Internal inactive account detail',
+                  details: details,
+                ),
+              ),
+            ),
+          ).login(username: 'berna', password: 'correct-password');
+
+          expect(result.isSuccess, isFalse);
+          expect(result.data, isNull);
+          expect(result.error?.code, 'auth_login_failed');
+          expect(result.error?.details, isEmpty);
+          expect(result.error?.message, isNot(contains('Internal')));
+        },
+      );
+    }
+
+    test('wrong-password error 1100 never carries an account email', () async {
+      final result = await AuthRepositoryImpl(
+        _RecordingApiClient(
+          error: ApiException(
+            const AppError(
+              code: '1100',
+              message: 'Internal credential mismatch',
+              details: <String>['berna@example.com'],
+            ),
+          ),
+        ),
+      ).login(username: 'berna', password: 'wrong-password');
+
+      expect(result.isSuccess, isFalse);
+      expect(result.error?.code, 'auth_invalid_credentials');
+      expect(result.error?.details, isEmpty);
+      expect(result.error?.message, isNot(contains('Internal')));
+    });
+
+    test(
+      'legacy login error 1101 does not ask the user to log in first',
+      () async {
+        final result = await AuthRepositoryImpl(
+          _RecordingApiClient(
+            error: ApiException(
+              const AppError(
+                code: '1101',
+                message: 'Bunun için önce giriş yapmalısınız.',
+                details: <String>['Internal authorization detail'],
+              ),
+            ),
+          ),
+        ).login(username: 'berna', password: 'correct-password');
+
+        expect(result.error?.code, 'auth_login_failed');
+        expect(result.error?.details, isEmpty);
+        expect(result.error?.message, isNotEmpty);
+        expect(result.error?.message, isNot(contains('önce giriş')));
+      },
+    );
+
     for (final pendingCase in <({String apiCode, String normalizedCode})>[
       (apiCode: '1105', normalizedCode: 'auth_pending_venue_approval'),
       (apiCode: '1106', normalizedCode: 'auth_pending_studio_approval'),

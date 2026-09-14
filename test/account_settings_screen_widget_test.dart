@@ -206,6 +206,44 @@ void main() {
     },
   );
 
+  for (final role in ['VENUE', 'LISTENER']) {
+    testWidgets('$role settings opens shared muted authors management', (
+      tester,
+    ) async {
+      final muted = _MutedAuthorsRepositoryFake();
+      serviceLocator.registerSingleton<MusicianFeedMutedAuthorsRepository>(
+        muted,
+      );
+      await sessionManager.startSession(
+        token: _jwt(subject: 'profile-user', roles: ['ROLE_$role']),
+        username: 'profile',
+        accountStatus: 'ACTIVE',
+      );
+      await tester.pumpWidget(
+        BlocProvider<AuthCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const AccountSettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('account-settings-muted-feed-authors')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Persisted Artist'), findsOneWidget);
+      expect(muted.reads, 1);
+      await tester.tap(find.text('Sessizi kaldır'));
+      await tester.pumpAndSettle();
+      expect(muted.unmutes, 1);
+      expect(find.text('Akışında sessize aldığın hesap yok.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await sessionManager.logout();
+    });
+  }
+
   testWidgets('listener account settings never load the musician calendar', (
     tester,
   ) async {
@@ -223,7 +261,7 @@ void main() {
     expect(calendar.settingsReads, 0);
     expect(
       find.byKey(const Key('account-settings-muted-feed-authors')),
-      findsNothing,
+      findsOneWidget,
     );
   });
 

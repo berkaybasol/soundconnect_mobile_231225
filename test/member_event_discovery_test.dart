@@ -42,6 +42,28 @@ void main() {
   });
   tearDown(() async => serviceLocator.reset());
 
+  testWidgets(
+    'listener opens feed without replacing discovery or its saved search',
+    (tester) async {
+      final search = _Search();
+      await _mount(tester, search: search);
+      await _chooseCity(tester);
+      final reads = search.calls.length;
+      await tester.ensureVisible(
+        find.byKey(const Key('listener-discovery-feed')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('listener-discovery-feed')));
+      await tester.pumpAndSettle();
+      expect(find.text('LISTENER FEED'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Ankara'), findsOneWidget);
+      expect(search.calls.length, reads);
+      expect(find.text('Keşfet'), findsOneWidget);
+    },
+  );
+
   if (Platform.environment['MEMBER_DISCOVERY_RENDER_DIR'] != null) {
     testWidgets('render authenticated discovery with real fonts and actual bar', (
       tester,
@@ -448,6 +470,8 @@ Future<void> _mount(
         ),
       ),
       routes: {
+        AppRoutes.listenerFeed: (_) =>
+            Scaffold(appBar: AppBar(), body: const Text('LISTENER FEED')),
         AppRoutes.tableGroupList: (context) {
           onTable?.call(
             ModalRoute.of(context)!.settings.arguments! as TableGroupListArgs,

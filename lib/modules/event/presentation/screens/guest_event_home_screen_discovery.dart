@@ -12,6 +12,7 @@ class GuestEventDiscoveryScreen extends StatefulWidget {
     this.showGuestFooter = true,
     this.bottomNavigationBar,
     this.onTableTap,
+    this.headerAction,
     this.tableHint = 'Masa açmak için\ndokunun',
   });
 
@@ -23,6 +24,7 @@ class GuestEventDiscoveryScreen extends StatefulWidget {
   final bool showGuestFooter;
   final Widget? bottomNavigationBar;
   final VoidCallback? onTableTap;
+  final Widget? headerAction;
   final String tableHint;
 
   @override
@@ -491,6 +493,11 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                               ),
                             ),
                             const SizedBox(height: 10),
+                            if (widget.headerAction != null)
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: widget.headerAction,
+                              ),
                             Text(
                               'Canlı müzik nerede?',
                               style: TextStyle(

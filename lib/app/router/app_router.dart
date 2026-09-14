@@ -25,6 +25,7 @@ import '../../modules/overthinking/presentation/overthinking_profile_draft.dart'
 import '../../modules/notification/presentation/screens/notification_screen.dart';
 import '../../modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
 import '../../modules/musician_feed/presentation/screens/musician_feed_muted_authors_screen.dart';
+import '../../modules/musician_feed/presentation/screens/listener_feed_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/create_band_screen.dart';
@@ -335,6 +336,11 @@ class AppRouter {
           builder: (_) => BackstageProfilesHomeScreen(
             profileImageUrl: args?.profileImageUrl,
           ),
+        );
+      case AppRoutes.listenerFeed:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ListenerFeedScreen(),
         );
       case AppRoutes.collabDiscovery:
         final args = _arguments<CollabDiscoveryRouteArgs>(settings);

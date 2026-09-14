@@ -32,6 +32,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
   final FutureOr<bool> Function()? onBeforeNavigate;
   final ValueChanged<int>? onDestinationSelected;
   final int? unreadCountOverride;
+  final bool allowCurrentDestinationNavigation;
 
   ProfilePublicBottomBar({
     super.key,
@@ -43,6 +44,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
     this.onBeforeNavigate,
     this.onDestinationSelected,
     this.unreadCountOverride,
+    this.allowCurrentDestinationNavigation = false,
   });
 
   Widget _profileAvatar(BuildContext context, bool active) {
@@ -420,7 +422,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
   Future<void> _handleMainstageTap(BuildContext context, int index) async {
     final current = _navigationFence(context);
     if (!context.mounted || !current()) return;
-    if (index == (mainstageCurrentIndex ?? currentIndex) &&
+    if (!allowCurrentDestinationNavigation &&
+        index == (mainstageCurrentIndex ?? currentIndex) &&
         !(index == 4 && profileTapAlwaysOpensOwnProfile)) {
       return;
     }

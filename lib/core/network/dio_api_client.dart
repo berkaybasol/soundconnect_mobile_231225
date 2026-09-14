@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../auth/auth_session.dart';
 import '../auth/auth_session_manager.dart';
 import '../auth/jwt_claims.dart';
 import '../auth/token_store.dart';
@@ -56,6 +57,22 @@ bool isPublicApiRequest(String method, String rawPath) {
 
 bool _isPathOrDescendant(String path, String basePath) {
   return path == basePath || path.startsWith('$basePath/');
+}
+
+// These guest-readable sources have a narrower projection for listeners. They
+// must carry that identity without changing public event/location discovery.
+bool _isAudienceAwarePublicSource(String method, String rawPath) {
+  if (method.trim().toUpperCase() != 'GET') return false;
+  final path = Uri.tryParse(rawPath)?.path ?? rawPath;
+  return RegExp(r'^/api/v1/profiles/[^/]+/[^/]+/media$').hasMatch(path) ||
+      path == '/api/v1/public/search/profiles' ||
+      const [
+        '/api/v1/public/media',
+        '/api/v1/public/musician-profiles',
+        '/api/v1/public/bands',
+        '/api/v1/public/venue-profiles',
+        '/api/v1/public/studio-profiles',
+      ].any((base) => _isPathOrDescendant(path, base));
 }
 
 /// Retry-After accepts delta-seconds or an IMF-fixdate. Invalid dates and past
@@ -134,6 +151,10 @@ class DioApiClient implements ApiClient {
   static const String _expectedTokenKey = 'soundconnect.expected_token';
   static const String _requireGuestSessionKey =
       'soundconnect.require_guest_session';
+  static const String _sourceSessionFenceKey =
+      'soundconnect.source_session_fence';
+  static const String _authenticatedPublicSourceKey =
+      'soundconnect.authenticated_public_source';
 
   DioApiClient({
     Dio? dio,
@@ -161,11 +182,35 @@ class DioApiClient implements ApiClient {
           final requireGuestSession =
               options.extra[_requireGuestSessionKey] == true;
           final expectedToken = options.extra[_expectedTokenKey] as String?;
+          final sourceFence =
+              options.extra[_sourceSessionFenceKey]
+                  as _PublicSourceSessionFence?;
+          final attachListenerIdentity =
+              !requireGuestSession && sourceFence?.isListener == true;
+          if (sourceFence != null && !sourceFence.isCurrent) {
+            handler.reject(_sourceSessionChanged(options));
+            return;
+          }
+          if (sourceFence != null) {
+            options.headers.removeWhere(
+              (key, _) => key.toLowerCase() == 'authorization',
+            );
+          }
           if (!isPublic ||
+              attachListenerIdentity ||
               expectedSession.isNotEmpty ||
               requireGuestSession ||
               expectedToken != null) {
             final token = await _tokenStore.readToken();
+            if (sourceFence != null &&
+                (!sourceFence.isCurrent ||
+                    (attachListenerIdentity &&
+                        (token != sourceFence.session.token ||
+                            JwtClaims.tryParse(token)?.subject !=
+                                sourceFence.session.userId)))) {
+              handler.reject(_sourceSessionChanged(options));
+              return;
+            }
             if (expectedToken != null &&
                 (token != expectedToken ||
                     (_sessionManager != null &&
@@ -212,9 +257,14 @@ class DioApiClient implements ApiClient {
                 return;
               }
             }
-            if (!isPublic && token != null && token.isNotEmpty) {
+            if ((!isPublic || attachListenerIdentity) &&
+                token != null &&
+                token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
               options.extra[_requestTokenKey] = token;
+              if (isPublic) {
+                options.extra[_authenticatedPublicSourceKey] = true;
+              }
             }
             if (requireGuestSession) {
               options.headers.removeWhere(
@@ -250,7 +300,26 @@ class DioApiClient implements ApiClient {
   }
 
   bool _isPublicRequest(RequestOptions options) {
-    return isPublicApiRequest(options.method, options.path);
+    return isPublicApiRequest(options.method, options.path) &&
+        options.extra[_authenticatedPublicSourceKey] != true;
+  }
+
+  DioException _sourceSessionChanged(RequestOptions options) => DioException(
+    requestOptions: options,
+    type: DioExceptionType.cancel,
+    error: const ApiSessionFenceException(),
+    message: 'Source audience session changed',
+  );
+
+  bool _isSameApiOrigin(String path) {
+    final requested = Uri.tryParse(path);
+    if (requested == null) return false;
+    if (!requested.hasScheme && !requested.hasAuthority) return true;
+    final base = Uri.tryParse(_dio.options.baseUrl);
+    return base != null &&
+        requested.scheme == base.scheme &&
+        requested.host == base.host &&
+        requested.port == base.port;
   }
 
   @override
@@ -338,6 +407,13 @@ class DioApiClient implements ApiClient {
         ),
       );
     }
+    final sessions = _sessionManager;
+    final sourceFence =
+        sessions != null &&
+            _isAudienceAwarePublicSource(method, path) &&
+            _isSameApiOrigin(path)
+        ? _PublicSourceSessionFence(sessions)
+        : null;
     try {
       final response = await _dio.request<dynamic>(
         path,
@@ -349,6 +425,7 @@ class DioApiClient implements ApiClient {
               ? null
               : {'X-Announcement-Source': announcementSource},
           extra: <String, Object?>{
+            if (sourceFence != null) _sourceSessionFenceKey: sourceFence,
             if (requestContext?.expectedSessionKey case final value?)
               _expectedSessionKey: value,
             if (requestContext?.expectedToken case final value?)
@@ -359,6 +436,9 @@ class DioApiClient implements ApiClient {
         ),
       );
 
+      if (sourceFence != null && !sourceFence.isCurrent) {
+        throw _sourceSessionChanged(response.requestOptions);
+      }
       final payload = response.data;
       if (payload is Map<String, dynamic>) {
         final baseResponse = BaseResponse<T>.fromJson(payload, decoder);
@@ -393,7 +473,7 @@ class DioApiClient implements ApiClient {
         throw ApiException(
           const AppError(
             code: 'api_session_fence',
-            message: 'Oturum istek gonderilmeden once degisti',
+            message: 'Oturum istek tamamlanmadan önce değişti.',
           ),
         );
       }
@@ -412,6 +492,8 @@ class DioApiClient implements ApiClient {
           retryAfter: _responseRetryAfter(e.response, code),
         ),
       );
+    } finally {
+      sourceFence?.dispose();
     }
   }
 
@@ -499,4 +581,28 @@ class DioApiClient implements ApiClient {
 
 class ApiSessionFenceException implements Exception {
   const ApiSessionFenceException();
+}
+
+/// Observe transitions as well as comparing snapshots: A -> B -> A must not
+/// revive a response produced for an earlier audience, including guest reads.
+class _PublicSourceSessionFence {
+  _PublicSourceSessionFence(this.manager) : session = manager.session {
+    manager.addListener(_onSessionChanged);
+  }
+
+  final AuthSessionManager manager;
+  final AuthSession session;
+  bool _invalidated = false;
+
+  bool get isListener =>
+      session.isAuthenticated &&
+      session.hasAnyRole(const ['LISTENER', 'ROLE_LISTENER']);
+
+  bool get isCurrent => !_invalidated && identical(manager.session, session);
+
+  void _onSessionChanged() {
+    if (!identical(manager.session, session)) _invalidated = true;
+  }
+
+  void dispose() => manager.removeListener(_onSessionChanged);
 }

@@ -15,9 +15,11 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/app_theme_menu_option.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../domain/password_policy.dart';
+import '../../domain/password_reset_identifier_policy.dart';
 import '../../domain/username_policy.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
+import 'otp_verify_screen.dart';
 
 class LoginRouteArgs {
   const LoginRouteArgs({this.initialNotice});
@@ -197,6 +199,35 @@ class _LoginScreenState extends State<LoginScreen> {
         } else if (state.status == AuthStatus.failure) {
           final route = ModalRoute.of(context);
           if (route?.isCurrent != true) return;
+          final error = state.error;
+          if (error?.code == 'auth_email_verification_required' &&
+              error!.details.length == 1 &&
+              PasswordResetIdentifierPolicy.isValidEmail(
+                error.details.single,
+              )) {
+            if (_loginNavigationStarted) return;
+            _loginNavigationStarted = true;
+            final navigator = Navigator.of(context);
+            final email = error.details.single.trim();
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted || !navigator.mounted || route?.isCurrent != true) {
+                if (mounted) setState(() => _loginNavigationStarted = false);
+                return;
+              }
+              try {
+                await navigator.pushNamed<void>(
+                  AppRoutes.otpVerify,
+                  arguments: OtpVerifyArgs(
+                    email: email,
+                    resumedRegistration: true,
+                  ),
+                );
+              } finally {
+                if (mounted) setState(() => _loginNavigationStarted = false);
+              }
+            });
+            return;
+          }
           final pendingRoute = switch (state.error?.code) {
             'auth_pending_venue_approval' => AppRoutes.venuePending,
             'auth_pending_studio_approval' => AppRoutes.studioPending,

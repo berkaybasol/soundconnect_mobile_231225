@@ -1,5 +1,9 @@
 # SoundConnect — 13 Eylül 2026 oturum devri
 
+14 Eylül'deki giriş/OTP ve müzisyen akışı düzeltmeleri ile doğrulama sonuçları
+[session-handoff-20260914.md](session-handoff-20260914.md) içindedir. Aşağıdaki
+13 Eylül kaydı önceki commit'lerin tarihsel durumunu anlatır.
+
 Bu belge uzun müzisyen akışı oturumunun **son kabul edilen durumunu** anlatır. Tasarım karar belgesindeki önceki denemeler ve eski yerel raporlardaki bekleyen işler tarihsel kayıttır; aşağıdaki son durum önceliklidir. Kullanıcı oturumu kapatırken her iki repoya commit/push ve yeni oturum için devam notu istedi. Sonraki özellik henüz belirtilmedi.
 
 ## Çalışma alanı ve kapsam

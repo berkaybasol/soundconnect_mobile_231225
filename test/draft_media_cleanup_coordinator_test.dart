@@ -224,6 +224,7 @@ class _CleanupRepository implements ProfileMediaUploadRepository {
     required String mimeType,
     required String originalFileName,
     String visibility = 'PUBLIC',
+    String contentAudience = 'MAINSTAGE',
     ProfileUploadAttachmentIntent attachmentIntent =
         const ProfileUploadAttachmentIntent.none(),
     ProfileUploadProgress? onProgress,

@@ -3,17 +3,20 @@ import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../domain/backstage_feed_session.dart';
+import '../domain/feed_item_access.dart';
 import '../domain/musician_feed_models.dart';
 import '../domain/musician_feed_repository.dart';
 
 class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
   MusicianFeedRepositoryImpl(this._api, this._sessions);
 
-  static const String _path = '/api/v1/feed/musician';
   static const int _maximumCursorLength = 4096;
-  static final String _supportedItemTypes = MusicianFeedItemType.values
-      .map((type) => type.apiValue)
-      .join(',');
+  static String _supportedItemTypes(BackstageFeedAudience audience) =>
+      MusicianFeedItemType.values
+          .where((type) => feedSupportsItemType(audience, type))
+          .map((type) => type.apiValue)
+          .join(',');
 
   static const AppError _sessionChanged = AppError(
     code: 'musician_feed_session_changed',
@@ -33,7 +36,7 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
   );
   static const AppError _featureUnavailable = AppError(
     code: musicianFeedFeatureUnavailableCode,
-    message: 'Backstage akışı bu sürümde henüz açık değil.',
+    message: 'Akış bu sürümde henüz açık değil.',
   );
   static const AppError _cursorInvalid = AppError(
     code: musicianFeedCursorInvalidCode,
@@ -47,27 +50,12 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
   final ApiClient _api;
   final AuthSessionManager _sessions;
 
-  ({String userId, String token})? get _identity {
-    final session = _sessions.session;
-    final userId = session.userId?.trim() ?? '';
-    final token = session.token?.trim() ?? '';
-    if (!session.isAuthenticated ||
-        !session.isActive ||
-        userId.isEmpty ||
-        token.isEmpty) {
-      return null;
-    }
-    return (userId: userId, token: token);
-  }
+  BackstageFeedIdentity? get _identity =>
+      backstageFeedSessionIdentity(_sessions.session);
 
-  bool _sameIdentity(({String userId, String token}) expected) {
-    final current = _identity;
-    return current != null &&
-        current.userId == expected.userId &&
-        current.token == expected.token;
-  }
+  bool _sameIdentity(BackstageFeedIdentity expected) => _identity == expected;
 
-  ApiRequestContext _context(({String userId, String token}) identity) {
+  ApiRequestContext _context(BackstageFeedIdentity identity) {
     return ApiRequestContext(
       expectedSessionKey: identity.userId,
       expectedToken: identity.token,
@@ -92,10 +80,10 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
     try {
       final page = await _api.request<MusicianFeedPage>(
         ApiHttpMethod.get,
-        _path,
+        identity.audience.apiPath,
         query: {
           'limit': limit,
-          'supportedItemTypes': _supportedItemTypes,
+          'supportedItemTypes': _supportedItemTypes(identity.audience),
           if (normalizedCursor != null) 'cursor': normalizedCursor,
         },
         requestContext: _context(identity),
@@ -104,7 +92,21 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
       if (!_sameIdentity(identity)) {
         return const Result.failure(_sessionChanged);
       }
-      return Result.success(page);
+      return Result.success(
+        MusicianFeedPage(
+          schemaVersion: page.schemaVersion,
+          algorithmVersion: page.algorithmVersion,
+          feedSessionId: page.feedSessionId,
+          generatedAt: page.generatedAt,
+          items: List.unmodifiable(
+            page.items.where(
+              (item) => feedCanShowItem(identity.audience, item),
+            ),
+          ),
+          nextCursor: page.nextCursor,
+          hasMore: page.hasMore,
+        ),
+      );
     } on ApiException catch (error) {
       if (!_sameIdentity(identity)) {
         return const Result.failure(_sessionChanged);
@@ -132,12 +134,17 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
     return code == '404' ||
         code == '4006' ||
         code == 'endpoint_not_found' ||
-        code == 'musician_feed_disabled';
+        code == 'musician_feed_disabled' ||
+        code == 'venue_feed_disabled' ||
+        code == 'listener_feed_disabled';
   }
 
   static bool _isCursorInvalid(AppError error) {
     final code = error.code.trim().toLowerCase();
-    return code == '1318' || code == 'musician_feed_cursor_invalid';
+    return code == '1318' ||
+        code == 'musician_feed_cursor_invalid' ||
+        code == 'venue_feed_cursor_invalid' ||
+        code == 'listener_feed_cursor_invalid';
   }
 
   @override
@@ -159,7 +166,7 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
     }
     return _mutation(
       ApiHttpMethod.post,
-      '$_path/items/${Uri.encodeComponent(id)}/feedback',
+      '/items/${Uri.encodeComponent(id)}/feedback',
       body: {
         'action': action.apiValue,
         if (normalizedReason?.isNotEmpty == true) 'reason': normalizedReason,
@@ -184,7 +191,7 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
     }
     return _mutation(
       ApiHttpMethod.post,
-      '$_path/events',
+      '/events',
       body: {
         'clientEventId': eventId,
         'impressionToken': token,
@@ -209,7 +216,7 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
     }
     return _mutation(
       ApiHttpMethod.put,
-      '$_path/authors/${Uri.encodeComponent(author.profileType)}/${Uri.encodeComponent(author.profileId)}/mute',
+      '/authors/${Uri.encodeComponent(author.profileType)}/${Uri.encodeComponent(author.profileId)}/mute',
     );
   }
 
@@ -227,13 +234,13 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
     }
     return _mutation(
       ApiHttpMethod.delete,
-      '$_path/authors/${Uri.encodeComponent(author.profileType)}/${Uri.encodeComponent(author.profileId)}/mute',
+      '/authors/${Uri.encodeComponent(author.profileType)}/${Uri.encodeComponent(author.profileId)}/mute',
     );
   }
 
   Future<Result<void>> _mutation(
     ApiHttpMethod method,
-    String path, {
+    String suffix, {
     Object? body,
   }) async {
     final identity = _identity;
@@ -241,7 +248,7 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
     try {
       await _api.request<Object?>(
         method,
-        path,
+        '${identity.audience.apiPath}$suffix',
         body: body,
         requestContext: _context(identity),
         decoder: (_) => null,

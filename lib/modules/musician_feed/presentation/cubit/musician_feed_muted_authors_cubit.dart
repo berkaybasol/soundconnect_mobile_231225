@@ -6,6 +6,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/error/app_error.dart';
 import '../../../../core/error/result.dart';
 import '../../../../core/state/copy_with.dart';
+import '../../domain/backstage_feed_session.dart';
 import '../../domain/musician_feed_models.dart';
 import '../../domain/musician_feed_muted_authors.dart';
 import '../../domain/musician_feed_muted_authors_repository.dart';
@@ -86,7 +87,7 @@ class MusicianFeedMutedAuthorsCubit
   final MusicianFeedMutedAuthorsRepository _repository;
   final AuthSessionManager _sessions;
   final void Function(MusicianFeedAuthorProfileIdentity author)? onUnmuted;
-  ({String userId, String token})? _owner;
+  BackstageFeedIdentity? _owner;
   final _acceptedUnmuted = <MusicianFeedAuthorProfileIdentity>{};
   final _operations = <MusicianFeedAuthorProfileIdentity, Object>{};
   int _generation = 0;
@@ -103,26 +104,14 @@ class MusicianFeedMutedAuthorsCubit
     message: 'Listenin devamı yüklenemedi. Lütfen tekrar dene.',
   );
 
-  ({String userId, String token})? get _identity {
-    final session = _sessions.session;
-    final userId = session.userId?.trim() ?? '';
-    final token = session.token?.trim() ?? '';
-    if (!session.isAuthenticated ||
-        !session.isActive ||
-        session.requiresListenerProfileChoice ||
-        !session.hasAnyRole(const ['ROLE_MUSICIAN', 'MUSICIAN']) ||
-        userId.isEmpty ||
-        token.isEmpty) {
-      return null;
-    }
-    return (userId: userId, token: token);
-  }
+  BackstageFeedIdentity? get _identity =>
+      backstageFeedSessionIdentity(_sessions.session);
 
   Future<void> initialize() async {
     if (state.status == MusicianFeedMutedAuthorsStatus.initial) await refresh();
   }
 
-  bool _current(int generation, ({String userId, String token}) identity) =>
+  bool _current(int generation, BackstageFeedIdentity identity) =>
       !isClosed && generation == _generation && identity == _identity;
 
   void _onSessionChanged() {

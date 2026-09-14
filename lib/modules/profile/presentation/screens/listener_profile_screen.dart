@@ -1029,6 +1029,12 @@ PreferredSizeWidget _listenerOwnerAppBar(
             context,
             settingsTileKey: const Key('listener-account-settings'),
             onSettings: onSettings,
+            onFeed: () async {
+              await Navigator.of(context).pushNamed(AppRoutes.listenerFeed);
+            },
+            onAnnouncements: () async {
+              await Navigator.of(context).pushNamed(AppRoutes.announcements);
+            },
           );
         },
         icon: ClipRRect(

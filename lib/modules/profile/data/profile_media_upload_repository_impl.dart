@@ -7,6 +7,7 @@ import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../domain/entities/media_content_audience.dart';
 import '../domain/entities/profile_upload_result.dart';
 import '../domain/profile_media_upload_repository.dart';
 import 'pending_draft_media_cleanup_store.dart';
@@ -87,12 +88,21 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
     required String mimeType,
     required String originalFileName,
     String visibility = 'PUBLIC',
+    String contentAudience = 'MAINSTAGE',
     ProfileUploadAttachmentIntent attachmentIntent =
         const ProfileUploadAttachmentIntent.none(),
     ProfileUploadProgress? onProgress,
     ProfileUploadStageChanged? onStageChanged,
     ProfileUploadCancellation? cancellation,
   }) async {
+    if (!MediaContentAudience.isValid(contentAudience)) {
+      return const Result.failure(
+        AppError(
+          code: 'profile_upload_audience',
+          message: 'Hedef kitle geçersiz.',
+        ),
+      );
+    }
     if (visibility != 'PUBLIC' && visibility != 'PRIVATE') {
       return const Result.failure(
         AppError(
@@ -143,6 +153,10 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
           'ownerId': ownerId,
           'kind': mediaKind,
           'visibility': visibility,
+          'contentAudience': MediaContentAudience.forOwner(
+            ownerType,
+            contentAudience,
+          ),
           'mimeType': mimeType,
           'sizeBytes': source.sizeBytes,
           'originalFileName': originalFileName,

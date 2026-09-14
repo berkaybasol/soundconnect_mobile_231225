@@ -342,7 +342,10 @@ void setupDependencies() {
       ),
     )
     ..registerLazySingleton<ProfileMediaRepository>(
-      () => ProfileMediaRepositoryImpl(serviceLocator<ApiClient>()),
+      () => ProfileMediaRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<MediaGalleryRepository>(
       () => MediaGalleryRepositoryImpl(
@@ -371,7 +374,10 @@ void setupDependencies() {
       () => VenueArtistDirectoryRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<ProfileSearchRepository>(
-      () => ProfileSearchRepositoryImpl(serviceLocator<ApiClient>()),
+      () => ProfileSearchRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<StudioProfileRepository>(
       () => StudioProfileRepositoryImpl(serviceLocator<ApiClient>()),

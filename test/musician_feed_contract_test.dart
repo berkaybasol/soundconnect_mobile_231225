@@ -306,9 +306,21 @@ void main() {
           {
             ..._itemJson('announcement', 'ANNOUNCEMENT', announcementFixture()),
             'author': null,
-            'reason': {'code': 'PLATFORM_ANNOUNCEMENT', 'actors': [], 'secondaryActorCount': 0},
+            'reason': {
+              'code': 'PLATFORM_ANNOUNCEMENT',
+              'actors': [],
+              'secondaryActorCount': 0,
+            },
             'target': {'type': 'ANNOUNCEMENT', 'id': announcementFixtureId},
-            'engagement': {'targetType':'ANNOUNCEMENT','targetId':announcementFixtureId,'likeCount':7,'commentCount':3,'likedByMe':false,'likable':true,'commentable':true},
+            'engagement': {
+              'targetType': 'ANNOUNCEMENT',
+              'targetId': announcementFixtureId,
+              'likeCount': 7,
+              'commentCount': 3,
+              'likedByMe': false,
+              'likable': true,
+              'commentable': true,
+            },
             'feedbackCapabilities': ['HIDE'],
           },
         ]),
@@ -2412,7 +2424,7 @@ void main() {
     });
 
     test(
-      'keeps a successful user-profile follow optimistic through refresh',
+      'keeps a successful user-profile follow optimistic until an authoritative refresh',
       () async {
         final write = Completer<Result<void>>();
         final refresh = Completer<Result<MusicianFeedPage>>();
@@ -2478,6 +2490,7 @@ void main() {
                 profileType: 'STUDIO',
                 profileId: 'studio-id',
                 userId: 'studio-owner-id',
+                followedByViewer: true,
               ),
             ]),
           ),
@@ -2552,7 +2565,19 @@ void main() {
       );
       final feed = _FeedRepository()
         ..responses.add(Future.value(Result.success(_itemsPage([profile]))))
-        ..responses.add(Future.value(Result.success(_itemsPage([profile]))))
+        ..responses.add(
+          Future.value(
+            Result.success(
+              _itemsPage([
+                profile.copyWith(
+                  payload: (profile.payload as ProfileFeedPayload).copyWith(
+                    followedByViewer: true,
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        )
         ..responses.add(Future.value(Result.success(_itemsPage([profile]))));
       final cubit = MusicianFeedCubit(
         feed,
@@ -3429,6 +3454,7 @@ MusicianFeedItem _profileItem(
   required String profileType,
   required String profileId,
   required String userId,
+  bool followedByViewer = false,
 }) => MusicianFeedItem(
   id: id,
   type: MusicianFeedItemType.profile,
@@ -3458,7 +3484,7 @@ MusicianFeedItem _profileItem(
     avatarUrl: null,
     bio: null,
     location: null,
-    followedByViewer: false,
+    followedByViewer: followedByViewer,
   ),
 );
 

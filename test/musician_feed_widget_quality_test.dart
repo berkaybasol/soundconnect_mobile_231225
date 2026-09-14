@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_discovery_models.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/widgets/collab_discovery_widgets.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_models.dart';
@@ -10,10 +12,62 @@ import 'package:soundconnect_23_12_25codx/modules/musician_feed/presentation/wid
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 
+import 'support/event_audience_fakes.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('musician feed card layout quality', () {
+    for (final entry in const {
+      'ROLE_VENUE': 'Mekânınla aynı şehirde',
+      'ROLE_MUSICIAN': 'Fırsat görmek istediğin şehirde',
+    }.entries) {
+      testWidgets('city reason uses the current ${entry.key} feed audience', (
+        tester,
+      ) async {
+        await serviceLocator.reset();
+        final sessions = AudienceTestSessions(audienceSession(role: entry.key));
+        serviceLocator.registerSingleton<AuthSessionManager>(sessions);
+        addTearDown(() async {
+          sessions.dispose();
+          await serviceLocator.reset();
+        });
+        final item = _item(
+          id: 'city-artist',
+          type: MusicianFeedItemType.profile,
+          reasonCode: 'CITY_MATCH',
+          payload: const ProfileFeedPayload(
+            profileId: 'artist-profile',
+            profileType: 'MUSICIAN',
+            userId: 'artist',
+            username: 'ada_gitar',
+            displayName: 'Ada',
+            avatarUrl: null,
+            bio: 'Akustik gitar ve canlı performans.',
+            location: 'İstanbul',
+            followedByViewer: false,
+          ),
+        );
+        await _pumpCard(
+          tester,
+          item,
+          _actions(),
+          size: const Size(390, 844),
+          textScale: 1,
+        );
+        expect(find.text(entry.value), findsOneWidget);
+        expect(
+          find.text(
+            entry.key == 'ROLE_VENUE'
+                ? 'Fırsat görmek istediğin şehirde'
+                : 'Mekânınla aynı şehirde',
+          ),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     test(
       'musician identities use username without changing other profiles',
       () {

@@ -17,8 +17,13 @@ import 'login_screen.dart';
 class OtpVerifyArgs {
   final String? email;
   final String? role;
+  final bool resumedRegistration;
 
-  const OtpVerifyArgs({this.email, this.role});
+  const OtpVerifyArgs({
+    this.email,
+    this.role,
+    this.resumedRegistration = false,
+  });
 }
 
 class OtpVerifyScreen extends StatefulWidget {
@@ -32,14 +37,16 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
   final _codeController = TextEditingController();
   String? _email;
   String? _role;
+  bool _resumedRegistration = false;
   bool _emailInitialized = false;
   bool _completionNavigationScheduled = false;
   Timer? _countdownTimer;
-  int _remainingSeconds = 180;
+  int? _remainingSeconds = 180;
 
   String get _formattedRemaining {
-    final minutes = _remainingSeconds ~/ 60;
-    final seconds = _remainingSeconds % 60;
+    final remaining = _remainingSeconds ?? 0;
+    final minutes = remaining ~/ 60;
+    final seconds = remaining % 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
@@ -54,12 +61,13 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
         timer.cancel();
         return;
       }
-      if (_remainingSeconds <= 0) {
+      final remaining = _remainingSeconds;
+      if (remaining == null || remaining <= 0) {
         timer.cancel();
         return;
       }
       setState(() {
-        _remainingSeconds -= 1;
+        _remainingSeconds = remaining - 1;
       });
     });
   }
@@ -82,10 +90,17 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     if (arg is OtpVerifyArgs) {
       _email = arg.email;
       _role = arg.role;
+      _resumedRegistration = arg.resumedRegistration;
     } else if (arg is String && arg.isNotEmpty) {
       _email = arg;
     }
-    _startCountdown(180);
+    if (_resumedRegistration) {
+      // Reopening registration does not issue a new code. Only the server can
+      // determine the remaining lifetime of a code sent in an earlier session.
+      _remainingSeconds = null;
+    } else {
+      _startCountdown(180);
+    }
     _emailInitialized = true;
   }
 
@@ -100,26 +115,35 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
   Widget build(BuildContext context) {
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
+        if (ModalRoute.of(context)?.isCurrent != true) return;
         if (state.action == AuthAction.verify &&
             state.status == AuthStatus.success) {
           final route = ModalRoute.of(context);
           if (_completionNavigationScheduled || route?.isCurrent != true) {
             return;
           }
-          final registrationStatus = state.registerResult?.status;
+          final registrationStatus = _resumedRegistration
+              ? null
+              : state.registerResult?.status;
           final listenerVerification = VerifyCodeResult(
             listenerSession: state.loginResult,
           );
           final hasServerRegistrationStatus = registrationStatus != null;
           final isVenuePending =
               registrationStatus == UserStatus.pendingVenueRequest ||
-              (!hasServerRegistrationStatus && _role == 'ROLE_VENUE');
+              (!_resumedRegistration &&
+                  !hasServerRegistrationStatus &&
+                  _role == 'ROLE_VENUE');
           final isStudioRegistration =
               registrationStatus == UserStatus.pendingStudioRequest ||
-              (!hasServerRegistrationStatus && _role == 'ROLE_STUDIO');
+              (!_resumedRegistration &&
+                  !hasServerRegistrationStatus &&
+                  _role == 'ROLE_STUDIO');
           final successMessage = isStudioRegistration
               ? 'E-posta doğrulandı. Başvuru durumunu görmek için '
                     'kullanıcı adın ve şifrenle giriş yap.'
+              : _resumedRegistration
+              ? 'E-posta doğrulandı. Şimdi kullanıcı adın ve şifrenle giriş yapabilirsin.'
               : "SoundConnect'e hoş geldin!";
           _completionNavigationScheduled = true;
           _countdownTimer?.cancel();
@@ -178,7 +202,9 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
             state.action == AuthAction.resend;
         final isOtpActionInFlight = isVerifying || isResending;
         final resendInfo = state.resendResult;
-        final effectiveEmail = _email ?? state.registerResult?.email;
+        final effectiveEmail =
+            _email ??
+            (_resumedRegistration ? null : state.registerResult?.email);
         final canSubmit = effectiveEmail != null && effectiveEmail.isNotEmpty;
 
         return PopScope(
@@ -189,10 +215,22 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 24),
+                if (_resumedRegistration) ...[
+                  const Text(
+                    'Kayıt işlemin yarım kalmış. E-posta doğrulamasını tamamlayarak devam edebilirsin.',
+                  ),
+                  const SizedBox(height: 12),
+                  if (effectiveEmail != null) ...[
+                    Text(effectiveEmail),
+                    const SizedBox(height: 12),
+                  ],
+                ],
                 const Text('E-postana gelen 6 haneli kodu gir.'),
                 const SizedBox(height: 6),
                 Text(
-                  'Kod geçerliliği: $_formattedRemaining',
+                  _remainingSeconds == null
+                      ? 'Mevcut kodunu kullanabilir veya yeni kod isteyebilirsin.'
+                      : 'Kod geçerliliği: $_formattedRemaining',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 16),
@@ -262,7 +300,8 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                             );
                             return;
                           }
-                          if (_remainingSeconds <= 0) {
+                          if (_remainingSeconds != null &&
+                              _remainingSeconds! <= 0) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               appSnackBar(
                                 context,

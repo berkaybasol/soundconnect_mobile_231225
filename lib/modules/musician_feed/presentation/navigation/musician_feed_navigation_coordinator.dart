@@ -26,6 +26,7 @@ import '../../../profile/presentation/screens/weekly_event_detail_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_detail_screen.dart';
 import '../../../tablegroup/presentation/screens/table_group_route_args.dart';
 import '../../domain/musician_feed_models.dart';
+import '../../domain/backstage_feed_session.dart';
 import '../../domain/musician_feed_preferences_repository.dart';
 import '../cubit/musician_feed_cubit.dart';
 import '../widgets/musician_feed_card_registry.dart';
@@ -63,6 +64,11 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
   final MusicianFeedCollabRouteLauncher _collabRouteLauncher;
   final MusicianFeedEventRouteLauncher _eventRouteLauncher;
 
+  bool get _listener => cubit.audience == BackstageFeedAudience.listener;
+  StageMode get _stage => _listener ? StageMode.mainstage : StageMode.backstage;
+  bool _canOpen(MusicianFeedItem item) =>
+      _isCurrentFeed && cubit.canDisplayItem(item);
+
   bool get _isCurrentFeed {
     if (!context.mounted || !cubit.acceptsSessionFence(_sessionFence)) {
       return false;
@@ -76,7 +82,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
 
   @override
   void recordOpen(MusicianFeedItem item) {
-    if (!_isCurrentFeed) return;
+    if (!_canOpen(item)) return;
     unawaited(cubit.recordEvent(item, MusicianFeedTelemetryEventType.open));
   }
 
@@ -85,7 +91,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
     MusicianFeedItem item,
     AnnouncementFeedPayload payload,
   ) async {
-    if (!_isCurrentFeed) return;
+    if (!_canOpen(item)) return;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => AnnouncementDetailScreen(
@@ -95,13 +101,14 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
         ),
       ),
     );
-    if (_isCurrentFeed) await cubit.refresh();
+    if (_isCurrentFeed) await cubit.refreshEngagement(item);
   }
 
   Future<void> openAuthor(
     MusicianFeedItem item,
     MusicianFeedActor author,
   ) async {
+    if (!_canOpen(item)) return;
     recordOpen(item);
     await _openProfile(
       profileId: author.profileId,
@@ -121,6 +128,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
     required bool isVideo,
     required bool isImage,
   }) async {
+    if (!_canOpen(item)) return;
     if (isVideo && (playbackUrl?.trim().isEmpty ?? true)) {
       _showInfo('Video şu anda oynatılamıyor.');
       return;
@@ -169,7 +177,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
         ),
       ),
     );
-    if (_isCurrentFeed) await cubit.refresh();
+    if (_isCurrentFeed) await cubit.refreshEngagement(item);
   }
 
   @override
@@ -177,6 +185,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
     MusicianFeedItem item,
     CollabFeedPayload payload,
   ) async {
+    if (!_canOpen(item) || _listener) return;
     final snapshot = tryParseMusicianFeedCollab(payload.listing);
     if (snapshot == null || snapshot.id.trim().isEmpty) {
       _showInfo('Collab ilanı açılamadı.');
@@ -210,6 +219,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
     MusicianFeedItem item,
     EventFeedPayload payload,
   ) async {
+    if (!_canOpen(item)) return;
     final event = tryParseMusicianFeedEvent(payload.event);
     if (event == null) {
       _showInfo('Etkinlik şu anda görüntülenemiyor.');
@@ -231,18 +241,20 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
     ProfileShareFeedPayload payload,
     MusicianFeedItemType type,
   ) async {
-    if (!_isCurrentFeed) return;
+    if (!_canOpen(item)) return;
     if (type == MusicianFeedItemType.overthinkingProfileShare) {
       final sourceId = musicianFeedOverthinkingSourceId(payload);
       if (sourceId != null) {
-        await openOverthinkingSource(context, sourceId);
+        await openOverthinkingSource(
+          context,
+          sourceId,
+          isCurrent: () => _isCurrentFeed,
+        );
         return;
       }
       await Navigator.of(context).pushNamed(
         AppRoutes.overthinkingFeed,
-        arguments: const OverthinkingFeedArgs(
-          bottomBarStageMode: StageMode.backstage,
-        ),
+        arguments: OverthinkingFeedArgs(bottomBarStageMode: _stage),
       );
       return;
     }
@@ -255,15 +267,13 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
         AppRoutes.tableGroupDetail,
         arguments: TableGroupDetailArgs(
           tableGroupId: tableId,
-          bottomBarStageMode: StageMode.backstage,
+          bottomBarStageMode: _stage,
         ),
       );
     } else {
       await Navigator.of(context).pushNamed(
         AppRoutes.tableGroupList,
-        arguments: const TableGroupListArgs(
-          bottomBarStageMode: StageMode.backstage,
-        ),
+        arguments: TableGroupListArgs(bottomBarStageMode: _stage),
       );
     }
   }
@@ -278,6 +288,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
     required String? profileId,
     required String profileType,
   }) async {
+    if (_listener && profileType.trim().toUpperCase() == 'STUDIO') return;
     final id = profileId?.trim() ?? '';
     final kind = _profileKind(profileType);
     if (id.isEmpty || kind == null) {
@@ -293,7 +304,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
 
   @override
   Future<void> openCompletionTask(MusicianFeedCompletionTask task) async {
-    if (!_isCurrentFeed) return;
+    if (!_isCurrentFeed || !cubit.supportsProfileCompletion) return;
     if (task.code == 'OPPORTUNITY_CITY') {
       final changed = await showMusicianFeedOpportunityCitySheet(
         context,
@@ -320,7 +331,7 @@ class MusicianFeedNavigationCoordinator implements MusicianFeedNavigation {
     MusicianFeedItem item, {
     SponsoredFeedPayload? payload,
   }) async {
-    if (!_isCurrentFeed) return;
+    if (!_canOpen(item) || _listener) return;
     final raw = payload?.ctaUrl ?? item.promotion?.ctaUrl;
     if (raw?.startsWith('/') == true) {
       final uri = Uri.tryParse(raw!);

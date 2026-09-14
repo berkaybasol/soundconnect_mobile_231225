@@ -6,6 +6,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
+import '../../../musician_feed/domain/backstage_feed_session.dart';
 import '../../../musician_feed/presentation/cubit/musician_feed_cubit.dart';
 import '../../../musician_feed/presentation/screens/musician_feed_view.dart';
 import 'backstage_profile_search_sheet.dart';
@@ -27,9 +28,15 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roles = serviceLocator<AuthSessionManager>().session.normalizedRoles;
-    final isMusician =
-        roles.contains('ROLE_MUSICIAN') || roles.contains('MUSICIAN');
+    final sessions = serviceLocator<AuthSessionManager>();
+    return ListenableBuilder(
+      listenable: sessions,
+      builder: (context, _) =>
+          _buildHome(context, backstageFeedSessionIdentity(sessions.session)),
+    );
+  }
+
+  Widget _buildHome(BuildContext context, BackstageFeedIdentity? identity) {
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -40,8 +47,13 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
               onMenuTap: () => _showHomeQuickMenu(context),
             ),
             Expanded(
-              child: isMusician
+              child:
+                  identity != null &&
+                      identity.audience != BackstageFeedAudience.listener
                   ? BlocProvider(
+                      // Feed state and its saved scroll position belong to
+                      // this login and profile audience together.
+                      key: PageStorageKey(identity),
                       create: (_) =>
                           serviceLocator<MusicianFeedCubit>()..initialize(),
                       child: const MusicianFeedView(),
@@ -82,7 +94,10 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
           : null,
       onManagement: () => _openBackstageManagementPanel(context),
       onAnnouncements:
-          roles.contains('ROLE_MUSICIAN') || roles.contains('MUSICIAN')
+          backstageFeedSessionIdentity(
+                serviceLocator<AuthSessionManager>().session,
+              ) !=
+              null
           ? () async {
               await Navigator.of(context).pushNamed(AppRoutes.announcements);
             }

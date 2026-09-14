@@ -504,6 +504,7 @@ void main() {
           'ownerId': 'owner-1',
           'kind': 'IMAGE',
           'visibility': 'PUBLIC',
+          'contentAudience': 'MAINSTAGE',
           'mimeType': 'image/jpeg',
           'sizeBytes': 4,
           'originalFileName': 'avatar.jpg',

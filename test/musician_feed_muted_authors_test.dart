@@ -183,7 +183,7 @@ void main() {
           audienceSession(
             user: 'viewer',
             token: 'token-a',
-            role: 'ROLE_LISTENER',
+            role: 'ROLE_STUDIO',
           ),
         );
         expect((await repository.load()).isSuccess, isFalse);
@@ -435,40 +435,51 @@ void main() {
       },
     );
 
-    test(
-      'role revocation clears rows and fences an in-flight DELETE success',
-      () async {
-        final sessions = _sessions();
-        addTearDown(sessions.dispose);
-        final write = Completer<Result<void>>();
-        final repository = _Repository()
-          ..reads.add(Future.value(Result.success(_page([_author('a')]))))
-          ..write = write.future;
-        final callbacks = <MusicianFeedAuthorProfileIdentity>[];
-        final cubit = MusicianFeedMutedAuthorsCubit(
-          repository,
-          sessions,
-          onUnmuted: callbacks.add,
-        );
-        addTearDown(cubit.close);
-        await cubit.initialize();
-        final unmuting = cubit.unmute(_author('a').identity);
-        sessions.replace(
-          audienceSession(
-            user: 'viewer',
-            token: 'token-a',
-            role: 'ROLE_LISTENER',
-          ),
-        );
-        expect(cubit.state.items, isEmpty);
-        expect(cubit.state.pendingAuthors, isEmpty);
-        write.complete(const Result.success(null));
-        expect(await unmuting, isFalse);
-        expect(callbacks, isEmpty);
-        await cubit.refresh();
-        expect(repository.cursors.length, 1);
-      },
-    );
+    for (final nextRole in ['ROLE_STUDIO', 'ROLE_LISTENER']) {
+      test(
+        'musician to $nextRole clears rows and fences an in-flight DELETE success',
+        () async {
+          final sessions = _sessions();
+          addTearDown(sessions.dispose);
+          final write = Completer<Result<void>>();
+          final repository = _Repository()
+            ..reads.add(Future.value(Result.success(_page([_author('a')]))))
+            ..write = write.future;
+          if (nextRole == 'ROLE_LISTENER') {
+            repository.reads.add(
+              Future.value(Result.success(_page([_author('listener-row')]))),
+            );
+          }
+          final callbacks = <MusicianFeedAuthorProfileIdentity>[];
+          final cubit = MusicianFeedMutedAuthorsCubit(
+            repository,
+            sessions,
+            onUnmuted: callbacks.add,
+          );
+          addTearDown(cubit.close);
+          await cubit.initialize();
+          final unmuting = cubit.unmute(_author('a').identity);
+          sessions.replace(
+            audienceSession(user: 'viewer', token: 'token-a', role: nextRole),
+          );
+          expect(cubit.state.items, isEmpty);
+          expect(cubit.state.pendingAuthors, isEmpty);
+          write.complete(const Result.success(null));
+          expect(await unmuting, isFalse);
+          expect(callbacks, isEmpty);
+          await cubit.refresh();
+          expect(
+            repository.cursors.length,
+            nextRole == 'ROLE_LISTENER' ? 2 : 1,
+          );
+          expect(
+            cubit.state.items.map((author) => author.identity.profileId),
+            nextRole == 'ROLE_LISTENER' ? ['listener-row'] : isEmpty,
+          );
+          expect(repository.unmutes, [_author('a').identity]);
+        },
+      );
+    }
   });
 
   group('muted author screen', () {

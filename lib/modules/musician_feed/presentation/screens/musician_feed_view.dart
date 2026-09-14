@@ -17,6 +17,7 @@ import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/presentation/widgets/like_users_sheet.dart';
 import '../../domain/musician_feed_like_users_target.dart';
 import '../../domain/musician_feed_models.dart';
+import '../../domain/backstage_feed_session.dart';
 import '../musician_feed_visual_theme.dart';
 import '../cubit/musician_feed_cubit.dart';
 import '../cubit/musician_feed_state.dart';
@@ -124,9 +125,12 @@ class _MusicianFeedViewState extends State<MusicianFeedView> {
               ),
               itemBuilder: (context, index) {
                 if (state.items.isEmpty && index == 0) {
+                  final listener =
+                      context.read<MusicianFeedCubit>().audience ==
+                      BackstageFeedAudience.listener;
                   return state.status == MusicianFeedStatus.featureUnavailable
-                      ? const _FeedFeatureUnavailableView()
-                      : const _FeedEmptyView();
+                      ? _FeedFeatureUnavailableView(listener: listener)
+                      : _FeedEmptyView(listener: listener);
                 }
                 if (index >= state.items.length) {
                   return _FeedPagingFooter(
@@ -563,7 +567,8 @@ class _FeedFailureView extends StatelessWidget {
 }
 
 class _FeedEmptyView extends StatelessWidget {
-  const _FeedEmptyView();
+  const _FeedEmptyView({this.listener = false});
+  final bool listener;
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
@@ -581,14 +586,16 @@ class _FeedEmptyView extends StatelessWidget {
               size: 43,
             ),
             const SizedBox(height: 14),
-            const Text(
-              'Backstage sessiz görünüyor',
+            Text(
+              listener ? 'Akışın henüz sessiz' : 'Backstage sessiz görünüyor',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 7),
             Text(
-              'Yeni paylaşımlar ve sana uygun fırsatlar geldikçe burada göreceksin.',
+              listener
+                  ? 'Yeni müzikler, etkinlikler ve takip ettiğin kişilerin paylaşımları burada buluşacak.'
+                  : 'Yeni paylaşımlar ve sana uygun fırsatlar geldikçe burada göreceksin.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -603,7 +610,8 @@ class _FeedEmptyView extends StatelessWidget {
 }
 
 class _FeedFeatureUnavailableView extends StatelessWidget {
-  const _FeedFeatureUnavailableView();
+  const _FeedFeatureUnavailableView({this.listener = false});
+  final bool listener;
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
@@ -622,14 +630,18 @@ class _FeedFeatureUnavailableView extends StatelessWidget {
               size: 43,
             ),
             const SizedBox(height: 14),
-            const Text(
-              'Backstage akışın hazırlanıyor',
+            Text(
+              listener
+                  ? 'Akışın hazırlanıyor'
+                  : 'Backstage akışın hazırlanıyor',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 7),
             Text(
-              'Akış açılana kadar Backstage araçlarını kullanmaya devam edebilirsin.',
+              listener
+                  ? 'Bu sırada Keşfet ile etkinliklere göz atabilirsin.'
+                  : 'Akış açılana kadar Backstage araçlarını kullanmaya devam edebilirsin.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,

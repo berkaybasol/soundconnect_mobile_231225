@@ -8,8 +8,11 @@ import '../../../../core/error/app_error.dart';
 import '../../../../core/error/result.dart';
 import '../../../collab/domain/collab_repository.dart';
 import '../../../engagement/domain/engagement_repository.dart';
+import '../../../engagement/domain/entities/comment_page.dart';
 import '../../../follow/domain/band_follow_repository.dart';
 import '../../../follow/domain/follow_repository.dart';
+import '../../domain/backstage_feed_session.dart';
+import '../../domain/feed_item_access.dart';
 import '../../domain/musician_feed_models.dart';
 import '../../domain/musician_feed_mute_changes.dart';
 import '../../domain/musician_feed_repository.dart';
@@ -25,10 +28,11 @@ class _LikeOperation {
     required this.snapshots,
   });
 
-  final ({String userId, String token}) session;
+  final BackstageFeedIdentity session;
   final int contentRevision;
   final MusicianFeedEngagement optimistic;
   final Map<String, MusicianFeedEngagement> snapshots;
+  final Completer<void> finished = Completer<void>();
   bool? succeeded;
 }
 
@@ -36,7 +40,7 @@ class _MuteOperation {
   const _MuteOperation(this.itemIds, this.session);
 
   final Set<String> itemIds;
-  final ({String userId, String token}) session;
+  final BackstageFeedIdentity session;
 }
 
 class MusicianFeedCubit extends Cubit<MusicianFeedState> {
@@ -96,13 +100,16 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
   final Set<String> _pendingDismissedItemIds = <String>{};
   final Map<MusicianFeedAuthorProfileIdentity, String>
   _acceptedMutedAuthorOwners = <MusicianFeedAuthorProfileIdentity, String>{};
-  final Map<String, String> _acceptedFollowProfileOwners = <String, String>{};
+  final Map<String, ({String userId, int revision})> _acceptedFollows = {};
+  int _followRevision = 0;
   final Map<String, String> _pendingFollowProfileOwners = <String, String>{};
   final Map<String, String> _pendingFollowItemOwners = <String, String>{};
   final Map<String, Object> _profileFollowOperations = <String, Object>{};
   final Map<_EngagementTarget, _LikeOperation> _engagementOperations =
       <_EngagementTarget, _LikeOperation>{};
   Map<_EngagementTarget, List<_LikeOperation>>? _pagingEngagementOperations;
+  final Map<_EngagementTarget, Object> _engagementReads = {};
+  Map<_EngagementTarget, MusicianFeedEngagement>? _pagingEngagementReads;
   final Map<String, Object> _collabSaveOperations = <String, Object>{};
   List<MusicianFeedItem> _backingItems = const <MusicianFeedItem>[];
   int _generation = 0;
@@ -127,7 +134,10 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
   Future<void> _loadFirst({required bool keepItems}) async {
     if (isClosed) return;
     final generation = ++_generation;
+    final session = _sessionIdentity;
+    final followRevision = _followRevision;
     _pagingEngagementOperations = null;
+    _pagingEngagementReads = null;
     if (!keepItems) _backingItems = const <MusicianFeedItem>[];
     emit(
       state.copyWith(
@@ -148,7 +158,9 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
       ),
     );
     final result = await _feedRepository.load(limit: pageSize);
-    if (isClosed || generation != _generation) return;
+    if (isClosed || generation != _generation || session != _sessionIdentity) {
+      return;
+    }
     final page = result.data;
     if (!result.isSuccess || page == null) {
       final error = result.error ?? _unknownLoadError;
@@ -184,6 +196,14 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
       );
       return;
     }
+    // A successful read begun after a follow write is authoritative, including
+    // a later unfollow from another screen. Writes overlapping this read still
+    // need their overlay until their own subsequent read succeeds.
+    _acceptedFollows.removeWhere(
+      (_, follow) =>
+          follow.userId == session?.userId && follow.revision <= followRevision,
+    );
+    _engagementReads.clear();
     _backingItems = _withoutAcceptedSuppressions(page.items);
     _contentRevision += 1;
     emit(
@@ -220,6 +240,8 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
       return;
     }
     final generation = _generation;
+    final session = _sessionIdentity;
+    if (session == null) return;
     emit(
       state.copyWith(
         status: MusicianFeedStatus.loadingMore,
@@ -234,11 +256,16 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         entry.key: [entry.value],
     };
     _pagingEngagementOperations = pageOperations;
+    final pageReads = <_EngagementTarget, MusicianFeedEngagement>{};
+    _pagingEngagementReads = pageReads;
     final result = await _feedRepository.load(limit: pageSize, cursor: cursor);
     if (identical(_pagingEngagementOperations, pageOperations)) {
       _pagingEngagementOperations = null;
     }
-    if (isClosed || generation != _generation) return;
+    if (identical(_pagingEngagementReads, pageReads)) {
+      _pagingEngagementReads = null;
+    }
+    if (isClosed || generation != _generation || !_sameSession(session)) return;
     final page = result.data;
     if (!result.isSuccess || page == null) {
       final error = result.error ?? _unknownLoadError;
@@ -261,9 +288,19 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     final seen = _backingItems.map((item) => item.id).toSet();
     final merged = <MusicianFeedItem>[..._backingItems];
     final pending = Set<String>.from(state.pendingItemIds);
-    for (final item in page.items) {
+    for (final item in _withoutAcceptedSuppressions(page.items)) {
       if (!_isAcceptedSuppressed(item) && seen.add(item.id)) {
-        merged.add(_applyPagedLikes(item, pageOperations, pending));
+        final latest = pageReads[_engagementTarget(item)];
+        final reconciled = latest == null
+            ? item
+            : item.copyWith(
+                engagement: item.engagement!.copyWith(
+                  likedByMe: latest.likedByMe,
+                  likeCount: latest.likeCount,
+                  commentCount: latest.commentCount,
+                ),
+              );
+        merged.add(_applyPagedLikes(reconciled, pageOperations, pending));
       }
     }
     _backingItems = List.unmodifiable(merged);
@@ -491,7 +528,8 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
 
   void _authorUnmutedElsewhere(MusicianFeedAuthorUnmuted change) {
     if (isClosed ||
-        !_sameSession((userId: change.userId, token: change.token))) {
+        (_sessionIdentity?.userId != change.userId ||
+            _sessionIdentity?.token != change.token)) {
       return;
     }
     if (_acceptedMutedAuthorOwners[change.author] == change.userId) {
@@ -557,6 +595,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
       snapshots: snapshots,
     );
     _engagementOperations[target] = operation;
+    _engagementReads.remove(target);
     _pagingEngagementOperations
         ?.putIfAbsent(target, () => <_LikeOperation>[])
         .add(operation);
@@ -584,6 +623,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     } catch (_) {
       result = const Result.failure(_unknownActionError);
     }
+    if (!operation.finished.isCompleted) operation.finished.complete();
     if (isClosed || !identical(_engagementOperations[target], operation)) {
       return false;
     }
@@ -695,7 +735,10 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
       return false;
     }
 
-    _acceptedFollowProfileOwners[profileKey] = identity.userId;
+    _acceptedFollows[profileKey] = (
+      userId: identity.userId,
+      revision: ++_followRevision,
+    );
     emit(
       state.copyWith(
         items: _visibleBackingItems(),
@@ -793,12 +836,97 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     final engagement = item.engagement;
     final target = _engagementTarget(item);
     if (engagement == null || target == null) return;
+    _engagementReads.remove(target);
     final next = (engagement.commentCount + delta).clamp(0, 0x7fffffff).toInt();
     _setEngagementForTarget(
       target,
       commentCount: next,
       pending: Set<String>.from(state.pendingItemIds),
     );
+  }
+
+  /// Reconciles a detail target without replacing the feed session or pages.
+  /// Route callers fence the opening session; this read also fences account,
+  /// replaced content, newer reads, and local like/comment changes in flight.
+  Future<void> refreshEngagement(MusicianFeedItem item) async {
+    final target = _engagementTarget(item);
+    final session = _sessionIdentity;
+    if (isClosed || target == null || session == null) return;
+    if (!_backingItems.any(
+      (candidate) => _engagementTarget(candidate) == target,
+    )) {
+      return;
+    }
+    final contentRevision = _contentRevision;
+    final operation = Object();
+    _engagementReads[target] = operation;
+    bool current() =>
+        !isClosed &&
+        _sameSession(session) &&
+        contentRevision == _contentRevision &&
+        identical(_engagementReads[target], operation);
+    try {
+      // A read started behind an optimistic write must observe its completed
+      // result, otherwise an older server count could undo a successful tap.
+      final write = _engagementOperations[target];
+      if (write != null) await write.finished.future;
+      if (!current()) return;
+      final repository = target.targetType == 'ANNOUNCEMENT'
+          ? _announcementEngagementRepository
+          : _engagementRepository;
+      final results = await Future.wait<Object>([
+        repository.getLikeCount(
+          targetType: target.targetType,
+          targetId: target.targetId,
+        ),
+        repository.isLiked(
+          targetType: target.targetType,
+          targetId: target.targetId,
+        ),
+        repository.listComments(
+          targetType: target.targetType,
+          targetId: target.targetId,
+          page: 0,
+          size: 1,
+        ),
+      ]);
+      if (!current()) return;
+      final likes = results[0] as Result<int>;
+      final liked = results[1] as Result<bool>;
+      final comments = results[2] as Result<CommentPage>;
+      // Like state and count are one projection. Preserve both on a partial
+      // failure; independent authoritative comments can still be reconciled.
+      final hasLikes =
+          likes.isSuccess &&
+          likes.data != null &&
+          liked.isSuccess &&
+          liked.data != null;
+      final hasComments = comments.isSuccess && comments.data != null;
+      if (!hasLikes && !hasComments) return;
+      _setEngagementForTarget(
+        target,
+        likedByMe: hasLikes ? liked.data : null,
+        likeCount: hasLikes ? likes.data : null,
+        commentCount: hasComments ? comments.data!.totalElements : null,
+        pending: Set<String>.from(state.pendingItemIds),
+      );
+      // This read follows all earlier writes. A late page must not reapply an
+      // earlier optimistic count over this newer server projection.
+      _pagingEngagementOperations?.remove(target);
+      for (final candidate in _backingItems) {
+        if (_engagementTarget(candidate) == target) {
+          _pagingEngagementReads?[target] = candidate.engagement!;
+          break;
+        }
+      }
+    } catch (_) {
+      // Returning from a detail should remain usable if its stats read fails.
+      // Retain known counts and allow the next detail return/pull to reconcile.
+    } finally {
+      if (identical(_engagementReads[target], operation)) {
+        _engagementReads.remove(target);
+      }
+    }
   }
 
   /// Best-effort delivery-scoped telemetry. It never mutates feed UI state.
@@ -892,13 +1020,26 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         if (engagement == null || _engagementTarget(candidate) != target) {
           return candidate;
         }
-        return candidate.copyWith(
+        final updated = candidate.copyWith(
           engagement: engagement.copyWith(
             likedByMe: likedByMe,
             likeCount: likeCount,
             commentCount: commentCount,
           ),
         );
+        final pageSnapshot = _pagingEngagementReads?[target];
+        if (pageSnapshot != null) {
+          // Keep the authoritative like baseline for aliases arriving during
+          // a write: _applyPagedLikes captures it before applying optimism so
+          // a failed write can roll every alias back to the same known count.
+          _pagingEngagementReads![target] =
+              _engagementOperations.containsKey(target)
+              ? pageSnapshot.copyWith(
+                  commentCount: updated.engagement!.commentCount,
+                )
+              : updated.engagement!;
+        }
+        return updated;
       }),
     );
     emit(
@@ -917,9 +1058,18 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     _backingItems = List<MusicianFeedItem>.unmodifiable(
       _backingItems.map((candidate) {
         final snapshot = snapshots[candidate.id];
-        return snapshot == null
-            ? candidate
-            : candidate.copyWith(engagement: snapshot);
+        if (snapshot == null || candidate.engagement == null) return candidate;
+        final updated = candidate.copyWith(
+          engagement: candidate.engagement!.copyWith(
+            likedByMe: snapshot.likedByMe,
+            likeCount: snapshot.likeCount,
+          ),
+        );
+        final target = _engagementTarget(candidate);
+        if (_pagingEngagementReads?.containsKey(target) == true) {
+          _pagingEngagementReads![target!] = updated.engagement!;
+        }
+        return updated;
       }),
     );
     emit(
@@ -933,7 +1083,9 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
 
   List<MusicianFeedItem> _withoutAcceptedSuppressions(
     Iterable<MusicianFeedItem> items,
-  ) => List.unmodifiable(items.where((item) => !_isAcceptedSuppressed(item)));
+  ) => List.unmodifiable(
+    items.where((item) => canDisplayItem(item) && !_isAcceptedSuppressed(item)),
+  );
 
   List<MusicianFeedItem> _visibleBackingItems() => List.unmodifiable(
     _backingItems
@@ -958,7 +1110,7 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     if (key == null ||
         ownerUserId == null ||
         (_pendingFollowProfileOwners[key] != ownerUserId &&
-            _acceptedFollowProfileOwners[key] != ownerUserId)) {
+            _acceptedFollows[key]?.userId != ownerUserId)) {
       return item;
     }
     return item.copyWith(payload: payload.copyWith(followedByViewer: true));
@@ -974,26 +1126,19 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
         .map((entry) => entry.key),
   );
 
-  ({String userId, String token})? get _sessionIdentity {
-    final session = _sessions.session;
-    final userId = session.userId?.trim() ?? '';
-    final token = session.token?.trim() ?? '';
-    if (!session.isAuthenticated ||
-        !session.isActive ||
-        session.requiresListenerProfileChoice ||
-        userId.isEmpty ||
-        token.isEmpty) {
-      return null;
-    }
-    return (userId: userId, token: token);
-  }
+  BackstageFeedIdentity? get _sessionIdentity =>
+      backstageFeedSessionIdentity(_sessions.session);
 
-  bool _sameSession(({String userId, String token}) expected) {
-    final current = _sessionIdentity;
-    return current != null &&
-        current.userId == expected.userId &&
-        current.token == expected.token;
-  }
+  bool _sameSession(BackstageFeedIdentity expected) =>
+      _sessionIdentity == expected;
+
+  bool get supportsProfileCompletion =>
+      _sessionIdentity?.audience.supportsProfileCompletion == true;
+
+  BackstageFeedAudience? get audience => _sessionIdentity?.audience;
+
+  bool canDisplayItem(MusicianFeedItem item) =>
+      audience != null && feedCanShowItem(audience!, item);
 
   String? _profileFollowKey(ProfileFeedPayload payload) {
     final type = payload.profileType.toUpperCase();
@@ -1031,8 +1176,13 @@ class MusicianFeedCubit extends Cubit<MusicianFeedState> {
     _generation += 1;
     unawaited(_unmuteSubscription?.cancel());
     _muteOperations.clear();
+    for (final operation in _engagementOperations.values) {
+      if (!operation.finished.isCompleted) operation.finished.complete();
+    }
     _engagementOperations.clear();
     _pagingEngagementOperations = null;
+    _pagingEngagementReads = null;
+    _engagementReads.clear();
     _collabSaveOperations.clear();
     _profileFollowOperations.clear();
     _pendingFollowProfileOwners.clear();

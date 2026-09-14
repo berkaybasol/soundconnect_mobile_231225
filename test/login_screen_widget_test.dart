@@ -25,6 +25,7 @@ import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/update_us
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/usecases/verify_code_usecase.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/otp_verify_screen.dart';
 
 void main() {
   late _RecordingAuthRepository repository;
@@ -350,6 +351,102 @@ void main() {
     expect(find.text('Forgot password destination'), findsOneWidget);
   });
 
+  testWidgets(
+    'unverified login resumes OTP with the server email and allows login after back',
+    (tester) async {
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+      repository.loginResult = const Result<LoginResult>.failure(
+        AppError(
+          code: 'auth_email_verification_required',
+          message: 'E-posta doğrulaması gerekli.',
+          details: <String>['berna.account@example.com'],
+        ),
+      );
+      final observer = _RecordingNavigatorObserver();
+      await tester.pumpWidget(
+        app(
+          observer: observer,
+          routes: <String, WidgetBuilder>{
+            AppRoutes.otpVerify: (_) => BlocProvider<AuthCubit>.value(
+              value: cubit,
+              child: const OtpVerifyScreen(),
+            ),
+            AppRoutes.home: (_) =>
+                const Scaffold(body: Text('home-destination')),
+          },
+        ),
+      );
+      await tester.enterText(find.byType(TextField).at(0), 'berna');
+      await tester.enterText(find.byType(TextField).at(1), 'new-password');
+
+      _invokeLoginSubmit(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OtpVerifyScreen), findsOneWidget);
+      expect(find.text('berna.account@example.com'), findsOneWidget);
+      final otpRoute = observer.pushedRouteSettings.singleWhere(
+        (settings) => settings.name == AppRoutes.otpVerify,
+      );
+      final args = otpRoute.arguments! as OtpVerifyArgs;
+      expect(args.email, 'berna.account@example.com');
+      expect(args.resumedRegistration, isTrue);
+      expect(args.role, isNull);
+      expect(repository.loginCalls, 1);
+      expect(repository.resendCalls, 0);
+      expect(tokenStore.token, isNull);
+      expect(cubit.state.loginResult, isNull);
+      expect(sessionManager.session.isAuthenticated, isFalse);
+      expect(find.text('home-destination'), findsNothing);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsOneWidget);
+      repository.loginResult = Result<LoginResult>.success(
+        LoginResult(
+          token: _token(role: 'ROLE_MUSICIAN'),
+          username: 'berna',
+        ),
+      );
+
+      _invokeLoginSubmit(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.loginCalls, 2);
+      expect(repository.lastUsername, 'berna');
+      expect(repository.lastPassword, 'new-password');
+      expect(find.text('home-destination'), findsOneWidget);
+      expect(sessionManager.session.isAuthenticated, isTrue);
+      expect(tester.takeException(), isNull);
+      await sessionManager.logout();
+    },
+  );
+
+  testWidgets('wrong credentials stay on login without creating a session', (
+    tester,
+  ) async {
+    repository.loginResult = const Result<LoginResult>.failure(
+      AppError(
+        code: 'auth_invalid_credentials',
+        message: 'Kullanıcı adı veya şifre hatalı.',
+      ),
+    );
+    final observer = _RecordingNavigatorObserver();
+    await tester.pumpWidget(app(observer: observer));
+    await tester.enterText(find.byType(TextField).at(0), 'berna');
+    await tester.enterText(find.byType(TextField).at(1), 'wrong-password');
+
+    _invokeLoginSubmit(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.text('Kullanıcı adı veya şifre hatalı.'), findsOneWidget);
+    expect(observer.pushedRouteNames, isNot(contains(AppRoutes.otpVerify)));
+    expect(tokenStore.token, isNull);
+    expect(sessionManager.session.isAuthenticated, isFalse);
+  });
+
   for (final pendingCase
       in <({String errorCode, String route, String destination})>[
         (
@@ -443,6 +540,7 @@ void _invokeLoginSubmit(WidgetTester tester) {
 
 class _RecordingAuthRepository extends AuthRepository {
   int loginCalls = 0;
+  int resendCalls = 0;
   String? lastUsername;
   String? lastPassword;
   Result<LoginResult> loginResult = const Result<LoginResult>.failure(
@@ -485,6 +583,7 @@ class _RecordingAuthRepository extends AuthRepository {
 
   @override
   Future<Result<ResendCodeResult>> resendCode({required String email}) async {
+    resendCalls++;
     return const Result<ResendCodeResult>.failure(
       AppError(code: 'not_used', message: 'Not used'),
     );
@@ -531,10 +630,12 @@ class _RecordingAuthRepository extends AuthRepository {
 
 class _RecordingNavigatorObserver extends NavigatorObserver {
   final List<String?> pushedRouteNames = <String?>[];
+  final List<RouteSettings> pushedRouteSettings = <RouteSettings>[];
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     pushedRouteNames.add(route.settings.name);
+    pushedRouteSettings.add(route.settings);
   }
 }
 

@@ -8,6 +8,7 @@ import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import 'media_detail_screen.dart';
 import 'profile_image_url_resolver.dart';
+import 'media_content_audience_controls.dart';
 
 class ProfilePhotoGalleryTab extends StatelessWidget {
   final List<MediaAsset> items;
@@ -16,6 +17,8 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
   final bool uploading;
   final double uploadProgress;
   final String? uploadStatusLabel;
+  final String ownerType;
+  final Future<void> Function()? onAudienceChanged;
 
   ProfilePhotoGalleryTab({
     super.key,
@@ -25,6 +28,8 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
     this.uploading = false,
     this.uploadProgress = 0,
     this.uploadStatusLabel,
+    this.ownerType = '',
+    this.onAudienceChanged,
   });
 
   void _openImage(BuildContext context, MediaAsset item) {
@@ -223,6 +228,17 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
                           );
                         },
                       ),
+                      if (ownerMode && onAudienceChanged != null)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: MediaContentAudienceMenu(
+                            assetId: item.id,
+                            ownerType: ownerType,
+                            contentAudience: item.contentAudience,
+                            onChanged: onAudienceChanged!,
+                          ),
+                        ),
                     ],
                   ),
                 ),

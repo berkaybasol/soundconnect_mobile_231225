@@ -606,6 +606,7 @@ class TrackFeedPayload extends MusicianFeedPayload {
     required this.playbackUrl,
     required this.durationSeconds,
     required this.bpm,
+    this.contentAudience = 'MAINSTAGE',
   });
 
   final String trackId;
@@ -614,6 +615,7 @@ class TrackFeedPayload extends MusicianFeedPayload {
   final String? playbackUrl;
   final int? durationSeconds;
   final int? bpm;
+  final String contentAudience;
 
   factory TrackFeedPayload.fromJson(Object? json, String path) {
     final map = _object(json, path);
@@ -630,6 +632,12 @@ class TrackFeedPayload extends MusicianFeedPayload {
         '$path.durationSeconds',
       ),
       bpm: _optionalNonNegativeInt(map['bpm'], '$path.bpm'),
+      contentAudience:
+          (_optionalText(map['contentAudience'], '$path.contentAudience') ??
+                  (map.containsKey('contentAudience')
+                      ? 'UNKNOWN'
+                      : 'MAINSTAGE'))
+              .toUpperCase(),
     );
   }
 }
@@ -646,6 +654,7 @@ class ProfileMediaFeedPayload extends MusicianFeedPayload {
     required this.durationSeconds,
     required this.width,
     required this.height,
+    this.contentAudience = 'MAINSTAGE',
   });
 
   final String mediaAssetId;
@@ -658,6 +667,7 @@ class ProfileMediaFeedPayload extends MusicianFeedPayload {
   final int? durationSeconds;
   final int? width;
   final int? height;
+  final String contentAudience;
 
   factory ProfileMediaFeedPayload.fromJson(Object? json, String path) {
     final map = _object(json, path);
@@ -684,6 +694,12 @@ class ProfileMediaFeedPayload extends MusicianFeedPayload {
       ),
       width: _optionalNonNegativeInt(map['width'], '$path.width'),
       height: _optionalNonNegativeInt(map['height'], '$path.height'),
+      contentAudience:
+          (_optionalText(map['contentAudience'], '$path.contentAudience') ??
+                  (map.containsKey('contentAudience')
+                      ? 'UNKNOWN'
+                      : 'MAINSTAGE'))
+              .toUpperCase(),
     );
   }
 }

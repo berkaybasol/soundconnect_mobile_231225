@@ -3,6 +3,7 @@ import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../domain/backstage_feed_session.dart';
 import '../domain/musician_feed_models.dart';
 import '../domain/musician_feed_muted_authors.dart';
 import '../domain/musician_feed_muted_authors_repository.dart';
@@ -18,7 +19,6 @@ class MusicianFeedMutedAuthorsRepositoryImpl
   final ApiClient _api;
   final AuthSessionManager _sessions;
   final void Function(MusicianFeedAuthorProfileIdentity author)? onUnmuted;
-  static const _path = '/api/v1/feed/musician';
   static const _invalid = AppError(
     code: 'musician_feed_muted_authors_invalid',
     message: 'Sessize alınan hesaplar doğrulanamadı.',
@@ -32,20 +32,8 @@ class MusicianFeedMutedAuthorsRepositoryImpl
     message: 'İşlem tamamlanamadı. Lütfen tekrar dene.',
   );
 
-  ({String userId, String token})? get _identity {
-    final session = _sessions.session;
-    final userId = session.userId?.trim() ?? '';
-    final token = session.token?.trim() ?? '';
-    if (!session.isAuthenticated ||
-        !session.isActive ||
-        session.requiresListenerProfileChoice ||
-        !session.hasAnyRole(const ['ROLE_MUSICIAN', 'MUSICIAN']) ||
-        userId.isEmpty ||
-        token.isEmpty) {
-      return null;
-    }
-    return (userId: userId, token: token);
-  }
+  BackstageFeedIdentity? get _identity =>
+      backstageFeedSessionIdentity(_sessions.session);
 
   @override
   Future<Result<MusicianFeedMutedAuthorsPage>> load({
@@ -61,7 +49,7 @@ class MusicianFeedMutedAuthorsRepositoryImpl
     }
     return _request(
       ApiHttpMethod.get,
-      '$_path/muted-authors',
+      '/muted-authors',
       query: {'limit': limit, if (normalized != null) 'cursor': normalized},
       decoder: MusicianFeedMutedAuthorsPage.fromJson,
     );
@@ -80,7 +68,7 @@ class MusicianFeedMutedAuthorsRepositoryImpl
     final identity = _identity;
     final result = await _request<void>(
       ApiHttpMethod.delete,
-      '$_path/authors/${Uri.encodeComponent(author.profileType)}/${Uri.encodeComponent(author.profileId)}/mute',
+      '/authors/${Uri.encodeComponent(author.profileType)}/${Uri.encodeComponent(author.profileId)}/mute',
       decoder: (_) {},
     );
     if (identity == null || identity != _identity) {
@@ -100,7 +88,7 @@ class MusicianFeedMutedAuthorsRepositoryImpl
 
   Future<Result<T>> _request<T>(
     ApiHttpMethod method,
-    String path, {
+    String suffix, {
     required T Function(Object?) decoder,
     Map<String, dynamic>? query,
   }) async {
@@ -109,7 +97,7 @@ class MusicianFeedMutedAuthorsRepositoryImpl
     try {
       final response = await _api.request<T>(
         method,
-        path,
+        '${identity.audience.apiPath}$suffix',
         query: query,
         requestContext: ApiRequestContext(
           expectedSessionKey: identity.userId,

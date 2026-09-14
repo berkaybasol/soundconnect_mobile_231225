@@ -3,6 +3,7 @@ import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/auth_repository.dart';
+import '../domain/password_reset_identifier_policy.dart';
 import '../domain/entities/login_result.dart';
 import '../domain/entities/password_reset_account.dart';
 import '../domain/entities/register_result.dart';
@@ -62,6 +63,33 @@ class AuthRepositoryImpl implements AuthRepository {
   AppError _normalizeLoginError(AppError error) {
     final message = error.message.trim();
     final lowerMessage = message.toLowerCase();
+    if (error.code == '1113') {
+      // This login-only contract is emitted after password validation. Generic
+      // server details must never select an account for verification.
+      final email = error.details.length == 1
+          ? error.details.single.trim()
+          : null;
+      if (email != null && PasswordResetIdentifierPolicy.isValidEmail(email)) {
+        return AppError(
+          code: 'auth_email_verification_required',
+          message: 'Giriş yapmak için e-posta doğrulamasını tamamla.',
+          details: [email],
+        );
+      }
+      return const AppError(
+        code: 'auth_login_failed',
+        message: 'Giriş tamamlanamadı. Lütfen tekrar dene.',
+      );
+    }
+    if (error.code == '1101') {
+      // Older servers use this generic authorization error for incomplete
+      // registrations. It cannot safely identify the account or its status.
+      return const AppError(
+        code: 'auth_login_failed',
+        message:
+            'Giriş tamamlanamadı. Bilgilerini ve e-posta doğrulamanı kontrol edip tekrar dene.',
+      );
+    }
     if (error.code == '1105') {
       return const AppError(
         code: 'auth_pending_venue_approval',

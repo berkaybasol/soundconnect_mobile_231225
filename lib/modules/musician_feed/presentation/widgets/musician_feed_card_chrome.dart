@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../domain/backstage_feed_session.dart';
 import '../../domain/musician_feed_like_users_target.dart';
 import '../../domain/musician_feed_models.dart';
 import 'musician_feed_card_registry.dart';
@@ -148,8 +151,17 @@ class MusicianFeedReasonRow extends StatelessWidget {
         ? item.reason.actors.firstOrNull ??
               (item.author?.followedByViewer == true ? item.author : null)
         : null;
+    final audience = serviceLocator.isRegistered<AuthSessionManager>()
+        ? backstageFeedSessionIdentity(
+            serviceLocator<AuthSessionManager>().session,
+          )?.audience
+        : null;
     final label = promotion == null
-        ? musicianFeedReasonLabel(item.reason, publicationAuthor: item.author)
+        ? musicianFeedReasonLabel(
+            item.reason,
+            publicationAuthor: item.author,
+            audience: audience,
+          )
         : musicianFeedPromotionDisclosureLabel(promotion.disclosure);
     final icon = promotion == null
         ? _reasonIcon(item.reason.code)
@@ -719,6 +731,7 @@ Future<void> showMusicianFeedActions(
 String? musicianFeedReasonLabel(
   MusicianFeedReason reason, {
   MusicianFeedActor? publicationAuthor,
+  BackstageFeedAudience? audience,
 }) {
   final actor = reason.actors.isEmpty ? null : reason.actors.first.visibleName;
   final publicationName =
@@ -742,7 +755,12 @@ String? musicianFeedReasonLabel(
     'FOLLOWED_USER_FOLLOWED' || 'FOLLOWING_FOLLOWED' =>
       '${actorWithOthers ?? 'Takip ettiğin biri'} bu profili takip ediyor',
     'CITY_AND_INSTRUMENT_MATCH' => 'Şehrin ve enstrümanınla eşleşiyor',
-    'CITY_MATCH' => 'Fırsat görmek istediğin şehirde',
+    'CITY_MATCH' =>
+      audience == BackstageFeedAudience.venue
+          ? 'Mekânınla aynı şehirde'
+          : audience == BackstageFeedAudience.listener
+          ? 'Senin şehrinde'
+          : 'Fırsat görmek istediğin şehirde',
     'INSTRUMENT_MATCH' => 'Enstrümanınla eşleşiyor',
     'DISCOVERY' => 'Senin için keşfedildi',
     'PROFILE_INCOMPLETE' ||

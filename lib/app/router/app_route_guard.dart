@@ -1,6 +1,7 @@
 import '../../core/auth/auth_session.dart';
 import '../../core/policy/access_policy.dart';
 import '../../modules/admin/domain/musician_feed_report_admin.dart';
+import '../../modules/musician_feed/domain/backstage_feed_session.dart';
 import '../../modules/promotion/domain/announcement_access.dart';
 import 'app_routes.dart';
 
@@ -78,6 +79,20 @@ class AppRouteGuard {
     if (isListener && requested == AppRoutes.listenerProfileChoice) {
       return AppRoutes.listenerProfile;
     }
+    if (isListener &&
+        const {
+          AppRoutes.studioProfile,
+          AppRoutes.studioPublicProfile,
+          AppRoutes.studioReservationCalendar,
+          AppRoutes.collabDiscovery,
+        }.contains(requested)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.listenerFeed &&
+        backstageFeedSessionIdentity(session)?.audience !=
+            BackstageFeedAudience.listener) {
+      return startRouteFor(session);
+    }
 
     if (_anonymousRoutes.contains(requested) ||
         requested == AppRoutes.venuePending ||
@@ -99,6 +114,10 @@ class AppRouteGuard {
       return startRouteFor(session);
     }
 
+    if (requested == AppRoutes.musicianFeedMutedAuthors &&
+        backstageFeedSessionIdentity(session) == null) {
+      return startRouteFor(session);
+    }
     if (_musicianOwnerRoutes.contains(requested) &&
         !session.hasAnyRole(const ['ROLE_MUSICIAN', 'MUSICIAN'])) {
       return startRouteFor(session);
@@ -155,7 +174,6 @@ class AppRouteGuard {
       session.hasAnyRole(const ['ROLE_STUDIO', 'STUDIO']);
 
   static const Set<String> _musicianOwnerRoutes = <String>{
-    AppRoutes.musicianFeedMutedAuthors,
     AppRoutes.musicianProfile,
     AppRoutes.myBands,
     AppRoutes.createBand,

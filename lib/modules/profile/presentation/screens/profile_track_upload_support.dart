@@ -7,6 +7,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_border_action_button.dart';
+import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/di/service_locator.dart';
+import '../../domain/entities/media_content_audience.dart';
+import 'media_content_audience_controls.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'profile_audio_file_support.dart';
 import 'profile_screen_support.dart';
@@ -18,6 +22,13 @@ Future<void> showProfileTrackUploadSheet({
   required String profileType,
 }) async {
   final messenger = ScaffoldMessenger.of(hostContext);
+  final sessions = serviceLocator<AuthSessionManager>();
+  final session = sessions.session;
+  bool current() => hostContext.mounted && identical(session, sessions.session);
+  String contentAudience = MediaContentAudience.forOwner(
+    ownerType,
+    MediaContentAudience.mainstage,
+  );
   String? pickedPath;
   Uint8List? pickedBytes;
   Stream<List<int>>? pickedStream;
@@ -57,6 +68,7 @@ Future<void> showProfileTrackUploadSheet({
             final file = result?.files.isNotEmpty == true
                 ? result!.files.first
                 : null;
+            if (!current() || !sheetContext.mounted) return;
             if (file == null) return;
             final name = file.name.trim().isNotEmpty
                 ? file.name.trim()
@@ -79,6 +91,7 @@ Future<void> showProfileTrackUploadSheet({
           }
 
           Future<void> uploadTrack() async {
+            if (!current()) return;
             final mediaCubit = hostContext.read<ProfileMediaCubit>();
             final path = pickedPath;
             final bytesFromPicker = pickedBytes;
@@ -125,6 +138,7 @@ Future<void> showProfileTrackUploadSheet({
                 sizeBytes: pickedSize,
               );
               final mimeType = profileAudioMimeTypeFromFileName(name);
+              if (!current()) return;
 
               final completed = await uploadProfileMediaAsset(
                 source: source,
@@ -133,12 +147,13 @@ Future<void> showProfileTrackUploadSheet({
                 mediaKind: 'AUDIO',
                 mimeType: mimeType,
                 originalFileName: name,
+                contentAudience: contentAudience,
                 attachmentIntent: ProfileUploadAttachmentIntent.track(
                   ownerType: ownerType,
                   title: title,
                 ),
                 onStageChanged: (stage) {
-                  if (!sheetContext.mounted) return;
+                  if (!sheetContext.mounted || !current()) return;
                   final label = switch (stage) {
                     ProfileUploadStage.initializing => 'Yükleme hazırlanıyor',
                     ProfileUploadStage.uploading => 'Ses dosyası yükleniyor',
@@ -156,6 +171,7 @@ Future<void> showProfileTrackUploadSheet({
               );
 
               final mediaAssetId = completed.uuid.trim();
+              if (!current()) return;
               if (mediaAssetId.isEmpty) {
                 throw Exception('Medya kimliği alınamadı');
               }
@@ -168,7 +184,7 @@ Future<void> showProfileTrackUploadSheet({
               } catch (_) {
                 // Liste yenileme hatası kritik değildir.
               }
-              if (!sheetContext.mounted) return;
+              if (!sheetContext.mounted || !current()) return;
               final feedback = appSnackBar(
                 sheetContext,
                 tone: AppSnackBarTone.success,
@@ -177,7 +193,7 @@ Future<void> showProfileTrackUploadSheet({
               Navigator.of(sheetContext).pop();
               messenger.showSnackBar(feedback);
             } catch (e) {
-              if (!sheetContext.mounted) return;
+              if (!sheetContext.mounted || !current()) return;
               final message = profileAudioUploadFailureMessage(e);
               setSheetState(() {
                 infoText = message;
@@ -204,7 +220,7 @@ Future<void> showProfileTrackUploadSheet({
             ),
             child: SafeArea(
               top: false,
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -267,6 +283,17 @@ Future<void> showProfileTrackUploadSheet({
                         ),
                       ),
                     ),
+                    if (MediaContentAudience.canChoose(ownerType)) ...[
+                      const SizedBox(height: 12),
+                      MediaContentAudienceField(
+                        ownerType: ownerType,
+                        value: contentAudience,
+                        onChanged: uploading
+                            ? null
+                            : (value) =>
+                                  setSheetState(() => contentAudience = value),
+                      ),
+                    ],
                     if (infoText != null) ...[
                       SizedBox(height: 10),
                       Text(

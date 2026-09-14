@@ -94,6 +94,13 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
                     ownerType: uploadOwnerType,
                     ownerId: profileId,
                     trackId: track.id,
+                    mediaAssetId: track.mediaAssetId,
+                    contentAudience: track.contentAudience,
+                    onAudienceChanged: () =>
+                        context.read<ProfileMediaCubit>().loadMedia(
+                          profileType: uploadProfileType,
+                          profileId: profileId,
+                        ),
                     onDeleted: () async {
                       final sessions = serviceLocator<AuthSessionManager>();
                       final session = sessions.session;

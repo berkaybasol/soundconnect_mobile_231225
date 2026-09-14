@@ -22,11 +22,13 @@ class ProfileUploadedMedia {
   final String uuid;
   final String? sourceUrl;
   final String? playbackUrl;
+  final String contentAudience;
 
   const ProfileUploadedMedia({
     required this.uuid,
     required this.sourceUrl,
     required this.playbackUrl,
+    this.contentAudience = 'MAINSTAGE',
   });
 
   factory ProfileUploadedMedia.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,7 @@ class ProfileUploadedMedia {
       uuid: json['uuid']?.toString() ?? '',
       sourceUrl: json['sourceUrl']?.toString(),
       playbackUrl: json['playbackUrl']?.toString(),
+      contentAudience: json['contentAudience']?.toString() ?? 'MAINSTAGE',
     );
   }
 }

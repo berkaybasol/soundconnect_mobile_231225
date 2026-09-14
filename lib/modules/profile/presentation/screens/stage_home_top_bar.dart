@@ -12,6 +12,7 @@ class StageHomeTopBar extends StatelessWidget {
   final VoidCallback? onNotificationsTap;
   final VoidCallback? onMenuTap;
   final int? unreadCountOverride;
+  final String searchHint;
 
   const StageHomeTopBar({
     super.key,
@@ -19,6 +20,7 @@ class StageHomeTopBar extends StatelessWidget {
     this.onNotificationsTap,
     this.onMenuTap,
     this.unreadCountOverride,
+    this.searchHint = 'Müzisyen, dinleyici, grup, stüdyo veya mekân ara',
   });
 
   @override
@@ -47,7 +49,7 @@ class StageHomeTopBar extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Müzisyen, dinleyici, grup, stüdyo veya mekân ara',
+                        searchHint,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

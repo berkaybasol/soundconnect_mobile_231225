@@ -9,6 +9,7 @@ class MediaAssetModel extends MediaAsset {
     required super.thumbnailUrl,
     required super.title,
     required super.durationSeconds,
+    super.contentAudience,
   });
 
   factory MediaAssetModel.fromJson(Map<String, dynamic> json) {
@@ -20,6 +21,9 @@ class MediaAssetModel extends MediaAsset {
       thumbnailUrl: json['thumbnailUrl']?.toString(),
       title: json['title']?.toString(),
       durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
+      contentAudience:
+          json['contentAudience']?.toString() ??
+          (json['ownerType'] == 'STUDIO_PROFILE' ? 'BACKSTAGE' : 'MAINSTAGE'),
     );
   }
 }

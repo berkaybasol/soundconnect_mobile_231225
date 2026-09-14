@@ -6,6 +6,8 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/auth/auth_session_manager.dart';
+import 'media_content_audience_controls.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
@@ -45,6 +47,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
   int _pollAttempt = 0;
   static int _maxPollAttempt = 45;
   bool _videoUploading = false;
+  bool _videoSelecting = false;
   double _videoUploadProgress = 0;
   String? _videoUploadStatus;
 

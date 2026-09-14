@@ -7,6 +7,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../musician_feed/domain/backstage_feed_session.dart';
 import '../../../profile/presentation/screens/account_profile_settings_section.dart';
 import '../../domain/username_policy.dart';
 import '../../domain/account_deletion_repository.dart';
@@ -191,12 +192,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                           builder: (context, _) {
                             final session =
                                 serviceLocator<AuthSessionManager>().session;
-                            if (!session.isAuthenticated ||
-                                !session.isActive ||
-                                !session.hasAnyRole(const [
-                                  'ROLE_MUSICIAN',
-                                  'MUSICIAN',
-                                ])) {
+                            if (backstageFeedSessionIdentity(session) == null) {
                               return const SizedBox.shrink();
                             }
                             return Column(

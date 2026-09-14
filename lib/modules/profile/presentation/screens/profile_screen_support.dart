@@ -194,6 +194,7 @@ Future<ProfileUploadedMedia> uploadProfileMediaAsset({
   required String mediaKind,
   required String mimeType,
   required String originalFileName,
+  String contentAudience = 'MAINSTAGE',
   ProfileUploadAttachmentIntent attachmentIntent =
       const ProfileUploadAttachmentIntent.none(),
   ProfileUploadProgress? onProgress,
@@ -212,6 +213,7 @@ Future<ProfileUploadedMedia> uploadProfileMediaAsset({
     mediaKind: mediaKind,
     mimeType: mimeType,
     originalFileName: originalFileName,
+    contentAudience: contentAudience,
     attachmentIntent: attachmentIntent,
     onProgress: onProgress,
     onStageChanged: onStageChanged,

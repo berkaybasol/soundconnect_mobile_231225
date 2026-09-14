@@ -2003,7 +2003,7 @@ void main() {
     );
 
     test(
-      'a refreshed page and its aliases stay authoritative during an older like',
+      'a successful overlapping like rebases onto the refreshed page and its aliases',
       () async {
         final native = _trackItem('native');
         final fresh = native.copyWith(
@@ -2038,16 +2038,16 @@ void main() {
         await cubit.refresh();
         await cubit.loadMore();
         write.complete(const Result.success(null));
-        expect(await pending, isFalse);
+        expect(await pending, isTrue);
 
         expect(cubit.state.pendingItemIds, isEmpty);
         expect(
           cubit.state.items.map((item) => item.engagement!.likedByMe),
-          everyElement(isFalse),
+          everyElement(isTrue),
         );
         expect(
           cubit.state.items.map((item) => item.engagement!.likeCount),
-          everyElement(18),
+          everyElement(19),
         );
       },
     );

@@ -463,7 +463,7 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
         '${effectiveDate.day.toString().padLeft(2, '0')}.'
         '${effectiveDate.month.toString().padLeft(2, '0')}.'
         '${effectiveDate.year}';
-    return await showDialog<bool>(
+    return await showStudioDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
             backgroundColor: const Color(0xFF101722),
@@ -532,7 +532,7 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
     _deleteDialogOpen = true;
     bool? shouldDelete;
     try {
-      shouldDelete = await showDialog<bool>(
+      shouldDelete = await showStudioDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: const Color(0xFF101722),
@@ -609,7 +609,7 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
   Future<void> _confirmDiscardChanges() async {
     if (_isExitDialogOpen) return;
     _isExitDialogOpen = true;
-    final shouldDiscard = await showDialog<bool>(
+    final shouldDiscard = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),
@@ -805,7 +805,7 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
       );
       return;
     }
-    final shouldReload = await showDialog<bool>(
+    final shouldReload = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),

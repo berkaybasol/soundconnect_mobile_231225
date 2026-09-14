@@ -9,6 +9,7 @@ extension _ProfileAudioTabInteractionMethods on ProfileAudioTab {
       profileId: profileId,
       ownerType: uploadOwnerType,
       profileType: uploadProfileType,
+      routeBoundary: routeBoundary,
     );
   }
 

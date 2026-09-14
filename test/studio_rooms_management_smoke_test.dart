@@ -1,10 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/profile_upload_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/studio_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_media_upload_repository.dart';
@@ -12,6 +16,8 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/s
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/entities/studio_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/entities/studio_room.dart';
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/studio_room_repository.dart';
+
+import 'support/event_audience_fakes.dart';
 
 void main() {
   setUp(() async {
@@ -21,6 +27,116 @@ void main() {
     );
   });
   tearDown(() async => serviceLocator.reset());
+
+  testWidgets(
+    'listener switch hides an already pushed room settings snapshot',
+    (tester) async {
+      final sessions = _registerSessions();
+      var reads = 0;
+      serviceLocator.registerSingleton<StudioRoomRepository>(
+        _RoomRepositoryFake(() async {
+          reads++;
+          return Result.success(
+            StudioPage<StudioRoom>(
+              items: [_scheduledPolicyRoom],
+              pageIndex: 0,
+              pageSize: 10,
+              totalItems: 1,
+              totalPages: 1,
+              isFirst: true,
+              isLast: true,
+            ),
+          );
+        }),
+      );
+      await _openRooms(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Oda Ayarları'));
+      await tester.pumpAndSettle();
+      expect(find.text('Oda Ayarları'), findsOneWidget);
+      // The lazy list starts with tall photo/policy cards; build the actual
+      // name input below them before asserting that a cached draft is shown.
+      final settingsScroll = find.descendant(
+        of: find.byType(Form),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      expect(settingsScroll, findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Oda adı'),
+        240,
+        scrollable: settingsScroll,
+      );
+      final nameInput = find.widgetWithText(TextFormField, 'Oda adı');
+      expect(nameInput, findsOneWidget);
+      expect(
+        tester.widget<TextFormField>(nameInput).controller!.text,
+        'Planlı Politika Odası',
+      );
+
+      final listener = audienceSession();
+      sessions.replace(listener);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('studio-listener-info')), findsOneWidget);
+      expect(find.byType(TextFormField, skipOffstage: false), findsNothing);
+      expect(
+        find.text('Planlı Politika Odası', skipOffstage: false),
+        findsNothing,
+      );
+      expect(reads, 1);
+
+      // Each surviving studio route has its own boundary: popping the settings
+      // must not reveal the cached rooms list or owner management beneath it.
+      for (var i = 0; i < 2; i++) {
+        await tester.ensureVisible(
+          find.byKey(const Key('studio-listener-return')),
+        );
+        await tester.tap(find.byKey(const Key('studio-listener-return')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('studio-listener-info')), findsOneWidget);
+        expect(find.text('Oda Yönetimi'), findsNothing);
+        expect(find.text('Yönetim Paneli'), findsNothing);
+      }
+      expect(identical(sessions.session, listener), isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('listener switch removes the open studio room creation sheet', (
+    tester,
+  ) async {
+    final sessions = _registerSessions();
+    var creates = 0;
+    serviceLocator.registerSingleton<StudioRoomRepository>(
+      _RoomRepositoryFake(
+        () async => Result.success(_emptyPage),
+        createRoomCallback: (_, _) async {
+          creates++;
+          return Result.success(_createdRoom);
+        },
+      ),
+    );
+    await _openRooms(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yeni Oda Oluştur'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextFormField).first,
+      'Özel oda taslağı',
+    );
+
+    sessions.replace(audienceSession());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('studio-listener-info')), findsWidgets);
+    expect(find.byType(TextFormField, skipOffstage: false), findsNothing);
+    expect(find.text('Özel oda taslağı', skipOffstage: false), findsNothing);
+    expect(find.text('Odayı Oluştur'), findsNothing);
+    expect(creates, 0);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('owner room management renders loading then empty state', (
     tester,
@@ -179,6 +295,29 @@ void main() {
     );
     expect(find.textContaining('01.01.2035'), findsNothing);
   });
+}
+
+AudienceTestSessions _registerSessions() {
+  final sessions = AudienceTestSessions(
+    audienceSession(role: 'ROLE_STUDIO', user: 'user-1'),
+  );
+  serviceLocator.registerSingleton<AuthSessionManager>(
+    sessions,
+    dispose: (value) => value.dispose(),
+  );
+  serviceLocator.registerSingleton<DmBadgeCubit>(
+    _Badge(),
+    dispose: (value) => value.close(),
+  );
+  return sessions;
+}
+
+class _Badge extends Cubit<DmBadgeState> implements DmBadgeCubit {
+  _Badge() : super(const DmBadgeState.initial());
+  @override
+  Future<void> ensureStarted() async {}
+  @override
+  Future<void> stop() async {}
 }
 
 Future<void> _openRooms(WidgetTester tester) async {

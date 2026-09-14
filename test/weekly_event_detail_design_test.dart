@@ -53,6 +53,7 @@ import 'support/event_audience_fakes.dart';
 part 'weekly_event_detail_self_navigation_cases.dart';
 part 'weekly_event_detail_band_navigation_cases.dart';
 part 'weekly_event_detail_profile_chip_cases.dart';
+part 'weekly_event_detail_profile_auth_cases.dart';
 part 'weekly_event_detail_comment_auth_cases.dart';
 part 'weekly_event_detail_comment_quality_cases.dart';
 part 'weekly_event_detail_reference_cases.dart';
@@ -89,6 +90,7 @@ void main() {
   _selfProfileNavigationTests(() => musicians);
   _bandProfileNavigationTests(() => bands);
   _adaptiveProfileChipTests(() => venues);
+  _profileAuthenticationTests(() => musicians, () => bands, () => venues);
   _commentAuthenticationTests(() => comments);
   _commentQualityTests(() => comments);
   _replyDesignTests(() => comments);
@@ -998,6 +1000,7 @@ void main() {
   testWidgets('accepted musician retains its explicit public profile route', (
     tester,
   ) async {
+    _registerCommentMember();
     RouteSettings? destination;
     await _openDetail(
       tester,
@@ -1030,6 +1033,7 @@ void main() {
   testWidgets('accepted band retains the band route without musician lookup', (
     tester,
   ) async {
+    _registerCommentMember();
     RouteSettings? destination;
     await _openDetail(
       tester,

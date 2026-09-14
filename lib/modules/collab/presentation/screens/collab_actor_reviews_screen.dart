@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
@@ -17,7 +19,7 @@ import '../cubit/collab_paged_cubit.dart';
 import '../widgets/collab_discovery_widgets.dart';
 import '../widgets/collab_management_widgets.dart';
 
-class CollabActorReviewsScreen extends StatefulWidget {
+class CollabActorReviewsScreen extends StatelessWidget {
   const CollabActorReviewsScreen({
     required this.actor,
     this.initialReviewId,
@@ -32,11 +34,36 @@ class CollabActorReviewsScreen extends StatefulWidget {
   final CollabActorReviewsCubit? cubit;
 
   @override
-  State<CollabActorReviewsScreen> createState() =>
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabActorReviewsScreenContent(
+      actor: actor,
+      initialReviewId: initialReviewId,
+      showBottomNavigation: showBottomNavigation,
+      cubit: cubit,
+    ),
+  );
+}
+
+class _CollabActorReviewsScreenContent extends StatefulWidget {
+  const _CollabActorReviewsScreenContent({
+    required this.actor,
+    this.initialReviewId,
+    this.showBottomNavigation = true,
+    this.cubit,
+  });
+
+  final CollabActor actor;
+  final String? initialReviewId;
+  final bool showBottomNavigation;
+  final CollabActorReviewsCubit? cubit;
+
+  @override
+  State<_CollabActorReviewsScreenContent> createState() =>
       _CollabActorReviewsScreenState();
 }
 
-class _CollabActorReviewsScreenState extends State<CollabActorReviewsScreen> {
+class _CollabActorReviewsScreenState
+    extends State<_CollabActorReviewsScreenContent> {
   late final CollabActorReviewsCubit _cubit;
   late final bool _ownsCubit;
   late final ScrollController _scrollController;
@@ -55,7 +82,7 @@ class _CollabActorReviewsScreenState extends State<CollabActorReviewsScreen> {
   }
 
   @override
-  void didUpdateWidget(covariant CollabActorReviewsScreen oldWidget) {
+  void didUpdateWidget(covariant _CollabActorReviewsScreenContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.actor.actorId != widget.actor.actorId) {
       unawaited(_cubit.loadForActor(widget.actor.actorId));

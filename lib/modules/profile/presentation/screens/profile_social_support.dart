@@ -130,40 +130,43 @@ Future<String?> promptForSocialLink(
   required ProfileSocialPlatform platform,
   required String initialValue,
   bool allowRemoval = false,
+  WidgetBuilder Function(WidgetBuilder)? routeBoundary,
 }) async {
   var draftValue = initialValue;
   final isEditing = draftValue.trim().isNotEmpty;
 
+  Widget dialogBuilder(BuildContext dialogContext) {
+    return AlertDialog(
+      title: Text('${platform.label} ${isEditing ? 'düzenle' : 'ekle'}'),
+      content: TextFormField(
+        initialValue: draftValue,
+        autofocus: true,
+        keyboardType: TextInputType.url,
+        decoration: InputDecoration(hintText: platform.placeholder),
+        onChanged: (value) => draftValue = value,
+      ),
+      actions: [
+        if (allowRemoval && isEditing)
+          TextButton(
+            key: const Key('profile-social-remove'),
+            onPressed: () => Navigator.of(dialogContext).pop(''),
+            child: const Text('Bağlantıyı kaldır'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Vazgeç'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(draftValue),
+          child: const Text('Kaydet'),
+        ),
+      ],
+    );
+  }
+
   final submitted = await showDialog<String>(
     context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text('${platform.label} ${isEditing ? 'düzenle' : 'ekle'}'),
-        content: TextFormField(
-          initialValue: draftValue,
-          autofocus: true,
-          keyboardType: TextInputType.url,
-          decoration: InputDecoration(hintText: platform.placeholder),
-          onChanged: (value) => draftValue = value,
-        ),
-        actions: [
-          if (allowRemoval && isEditing)
-            TextButton(
-              key: const Key('profile-social-remove'),
-              onPressed: () => Navigator.of(dialogContext).pop(''),
-              child: const Text('Bağlantıyı kaldır'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(draftValue),
-            child: const Text('Kaydet'),
-          ),
-        ],
-      );
-    },
+    builder: routeBoundary?.call(dialogBuilder) ?? dialogBuilder,
   );
   if (submitted == null) return null;
   final trimmed = submitted.trim();

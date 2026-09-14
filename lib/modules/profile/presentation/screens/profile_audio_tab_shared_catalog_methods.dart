@@ -13,10 +13,12 @@ extension _ProfileAudioTabCatalogMethods on ProfileAudioTab {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => _SpotifyCatalogSheet(
-        tab: this,
-        hostContext: hostContext,
-        initialTracks: tracks,
+      builder: _guardRoute(
+        (_) => _SpotifyCatalogSheet(
+          tab: this,
+          hostContext: hostContext,
+          initialTracks: tracks,
+        ),
       ),
     );
   }

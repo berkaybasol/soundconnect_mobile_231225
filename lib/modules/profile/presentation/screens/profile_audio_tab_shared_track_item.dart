@@ -50,22 +50,28 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
     void openDetails() {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => MultiBlocProvider(
-            providers: [
-              BlocProvider.value(value: context.read<InteractionStatsCubit>()),
-              BlocProvider(create: (_) => serviceLocator<CommentThreadCubit>()),
-            ],
-            child: MediaDetailScreen(
-              title: track.title,
-              isVideo: false,
-              playbackUrl: track.playbackUrl,
-              thumbnailUrl: null,
-              durationSeconds: track.durationSeconds,
-              targetType: targetType,
-              targetId: targetId,
-              likeCount: likeCount,
-              commentCount: commentCount,
-              isSpotify: isSpotify,
+          builder: _guardRoute(
+            (_) => MultiBlocProvider(
+              providers: [
+                BlocProvider.value(
+                  value: context.read<InteractionStatsCubit>(),
+                ),
+                BlocProvider(
+                  create: (_) => serviceLocator<CommentThreadCubit>(),
+                ),
+              ],
+              child: MediaDetailScreen(
+                title: track.title,
+                isVideo: false,
+                playbackUrl: track.playbackUrl,
+                thumbnailUrl: null,
+                durationSeconds: track.durationSeconds,
+                targetType: targetType,
+                targetId: targetId,
+                likeCount: likeCount,
+                commentCount: commentCount,
+                isSpotify: isSpotify,
+              ),
             ),
           ),
         ),

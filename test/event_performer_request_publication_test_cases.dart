@@ -344,13 +344,13 @@ class _ApprovalChoiceSession extends AuthSessionManager {
   int _revision = 0;
   @override
   AuthSession get session => _current;
-  void signIn(String userId) {
+  void signIn(String userId, {List<String> roles = const ['ROLE_MUSICIAN']}) {
     _current = AuthSession.authenticated(
       token: 'token-${++_revision}',
       userId: userId,
       username: 'bugrasahin',
       accountStatus: 'ACTIVE',
-      roles: const ['ROLE_MUSICIAN'],
+      roles: roles,
       permissions: const [],
       expiresAt: DateTime.now().add(const Duration(hours: 1)),
       isAdmin: false,

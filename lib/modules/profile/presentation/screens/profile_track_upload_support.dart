@@ -20,7 +20,10 @@ Future<void> showProfileTrackUploadSheet({
   required String profileId,
   required String ownerType,
   required String profileType,
+  WidgetBuilder Function(WidgetBuilder)? routeBoundary,
 }) async {
+  WidgetBuilder guardRoute(WidgetBuilder builder) =>
+      routeBoundary?.call(builder) ?? builder;
   final messenger = ScaffoldMessenger.of(hostContext);
   final sessions = serviceLocator<AuthSessionManager>();
   final session = sessions.session;
@@ -46,7 +49,7 @@ Future<void> showProfileTrackUploadSheet({
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (sheetContext) {
+    builder: guardRoute((sheetContext) {
       return StatefulBuilder(
         builder: (context, setSheetState) {
           Future<void> pickAudio() async {
@@ -322,6 +325,6 @@ Future<void> showProfileTrackUploadSheet({
           );
         },
       );
-    },
+    }),
   );
 }

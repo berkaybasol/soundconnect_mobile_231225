@@ -183,7 +183,7 @@ void main() {
           audienceSession(
             user: 'viewer',
             token: 'token-a',
-            role: 'ROLE_STUDIO',
+            role: 'ROLE_PRODUCER',
           ),
         );
         expect((await repository.load()).isSuccess, isFalse);
@@ -445,11 +445,12 @@ void main() {
           final repository = _Repository()
             ..reads.add(Future.value(Result.success(_page([_author('a')]))))
             ..write = write.future;
-          if (nextRole == 'ROLE_LISTENER') {
-            repository.reads.add(
-              Future.value(Result.success(_page([_author('listener-row')]))),
-            );
-          }
+          final nextId = nextRole == 'ROLE_LISTENER'
+              ? 'listener-row'
+              : 'studio-row';
+          repository.reads.add(
+            Future.value(Result.success(_page([_author(nextId)]))),
+          );
           final callbacks = <MusicianFeedAuthorProfileIdentity>[];
           final cubit = MusicianFeedMutedAuthorsCubit(
             repository,
@@ -468,14 +469,10 @@ void main() {
           expect(await unmuting, isFalse);
           expect(callbacks, isEmpty);
           await cubit.refresh();
-          expect(
-            repository.cursors.length,
-            nextRole == 'ROLE_LISTENER' ? 2 : 1,
-          );
-          expect(
-            cubit.state.items.map((author) => author.identity.profileId),
-            nextRole == 'ROLE_LISTENER' ? ['listener-row'] : isEmpty,
-          );
+          expect(repository.cursors.length, 2);
+          expect(cubit.state.items.map((author) => author.identity.profileId), [
+            nextId,
+          ]);
           expect(repository.unmutes, [_author('a').identity]);
         },
       );

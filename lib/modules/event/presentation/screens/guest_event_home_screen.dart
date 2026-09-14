@@ -13,6 +13,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/event_poster_fallback.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
+import '../../../../shared/widgets/guest_access_sheet.dart';
 import '../../../auth/presentation/widgets/registration_options_sheet.dart';
 import '../../../analytics/presentation/widgets/analytics_tracking.dart';
 import '../../data/event_discovery_search_repository_impl.dart';
@@ -379,7 +380,7 @@ class _GuestEventHomeScreenState extends State<_LegacyGuestEventHomeScreen> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _GradientActionButton(
+                                child: GuestAccessActionButton(
                                   label: 'Üye Ol',
                                   backgroundColor: AppColors.navBlueDeep,
                                   onPressed: () {
@@ -704,7 +705,7 @@ class _InlineFilterPanel extends StatelessWidget {
             onChanged: onNeighborhoodChanged,
           ),
           const SizedBox(height: 8),
-          _GradientActionButton(
+          GuestAccessActionButton(
             label: 'Ara',
             icon: Icons.search,
             backgroundColor: Theme.of(
@@ -1272,7 +1273,7 @@ class _GuestLockFooter extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: _GradientActionButton(
+            child: GuestAccessActionButton(
               label: 'Üye Ol',
               backgroundColor: AppColors.navBlueDeep,
               onPressed: () {
@@ -1281,90 +1282,6 @@ class _GuestLockFooter extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GradientActionButton extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final Color backgroundColor;
-  final VoidCallback? onPressed;
-
-  const _GradientActionButton({
-    required this.label,
-    this.icon,
-    required this.backgroundColor,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isEnabled = onPressed != null;
-    final gradientColors = isEnabled
-        ? AppColors.brandGradient
-        : <Color>[
-            Theme.of(context).dividerColor.withValues(alpha: 0.7),
-            Theme.of(context).dividerColor.withValues(alpha: 0.7),
-          ];
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onPressed,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: gradientColors),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(1),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.circular(17),
-              ),
-              child: icon == null
-                  ? Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isEnabled
-                            ? Theme.of(context).colorScheme.onSurface
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          icon,
-                          size: 18,
-                          color: isEnabled
-                              ? Theme.of(context).colorScheme.onSurface
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            color: isEnabled
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -35,7 +35,9 @@ class AccessPolicy {
   }
 
   static bool canAccessCollab(List<String> roles) {
-    return roles.map(_normalizeRole).any(collabRoles.contains);
+    final normalized = roles.map(_normalizeRole).toSet();
+    return !normalized.contains('ROLE_LISTENER') &&
+        normalized.any(collabRoles.contains);
   }
 
   static bool canCreateOrJoinTableGroups(List<String> roles) {

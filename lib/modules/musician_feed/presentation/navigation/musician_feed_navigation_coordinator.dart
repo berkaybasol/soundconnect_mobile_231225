@@ -467,6 +467,7 @@ Future<void> _pushCollabDetailRoute(
   required VoidCallback onApplied,
 }) => Navigator.of(context).push<void>(
   collabPageRoute(
+    context: context,
     builder: (_) => CollabListingDetailScreen(
       listingId: listingId,
       showBottomNavigation: false,

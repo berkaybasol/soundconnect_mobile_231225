@@ -133,12 +133,177 @@ void main() {
         cubit.state.items.map((item) => item.engagement!.likedByMe),
         everyElement(isTrue),
       );
-      expect(engagement.commentReads.single, (
-        type: 'MEDIA',
-        id: 'media-id',
-        page: 0,
-        size: 1,
-      ));
+      expect(engagement.commentReads.single, (type: 'MEDIA', id: 'media-id'));
+    },
+  );
+
+  test(
+    'detail return preserves five active comments across two root threads',
+    () async {
+      final item = _mediaItem('item').copyWith(
+        engagement: _mediaItem('item').engagement!.copyWith(commentCount: 5),
+      );
+      final server = _FeedServer()..enqueue(_page([item]));
+      final engagement = _Engagement()
+        ..commentCount = 5
+        ..rootCommentCount = 2;
+      final cubit = _cubit(server, engagement: engagement);
+      await cubit.initialize();
+      await cubit.refreshEngagement(item);
+      expect(cubit.state.items.single.engagement!.commentCount, 5);
+      expect(engagement.commentReads, [(type: 'MEDIA', id: 'media-id')]);
+      expect(engagement.rootCommentReads, 0);
+    },
+  );
+
+  for (final delta in [1, -1]) {
+    test('a direct comment delta $delta reaches a late alias page', () async {
+      final item = _mediaItem('native');
+      final page = Completer<Result<MusicianFeedPage>>();
+      final server = _FeedServer()
+        ..enqueue(_page([item], cursor: 'page-2'))
+        ..responses.add(page.future);
+      final cubit = _cubit(server);
+      await cubit.initialize();
+      final paging = cubit.loadMore();
+      cubit.adjustCommentCount(item.id, delta);
+      page.complete(Result.success(_page([_mediaItem('activity')])));
+      await paging;
+      expect(cubit.state.items, hasLength(2));
+      expect(
+        cubit.state.items.map((item) => item.engagement!.commentCount),
+        everyElement(1 + delta),
+      );
+      expect(
+        cubit.state.items.map((item) => item.engagement!.likeCount),
+        everyElement(2),
+      );
+    });
+  }
+
+  for (final detailFinishesFirst in [true, false]) {
+    for (final refreshSucceeds in [true, false]) {
+      test(
+        'older detail read stays scoped to the retained page '
+        '(detail finishes first=$detailFinishesFirst refresh success=$refreshSucceeds)',
+        () async {
+          final item = _mediaItem('item');
+          final page = Completer<Result<MusicianFeedPage>>();
+          final stats = Completer<Result<int>>();
+          final server = _FeedServer()
+            ..enqueue(_page([item]))
+            ..responses.add(page.future);
+          final engagement = _Engagement()
+            ..liked = true
+            ..commentCount = 7
+            ..likeCountFuture = stats.future;
+          final cubit = _cubit(server, engagement: engagement);
+          await cubit.initialize();
+          final reading = cubit.refreshEngagement(item);
+          final refreshing = cubit.refresh();
+          if (detailFinishesFirst) {
+            stats.complete(const Result.success(77));
+            await reading;
+            expect(cubit.state.items.single.engagement!.likeCount, 77);
+          }
+          page.complete(
+            refreshSucceeds
+                ? Result.success(
+                    _page([
+                      item.copyWith(
+                        engagement: item.engagement!.copyWith(
+                          likeCount: 4,
+                          commentCount: 3,
+                          likedByMe: false,
+                        ),
+                      ),
+                    ]),
+                  )
+                : const Result.failure(_readFailure),
+          );
+          await refreshing;
+          if (!detailFinishesFirst) {
+            stats.complete(const Result.success(77));
+            await reading;
+          }
+          final current = cubit.state.items.single.engagement!;
+          expect(current.likeCount, refreshSucceeds ? 4 : 77);
+          expect(current.commentCount, refreshSucceeds ? 3 : 7);
+          expect(current.likedByMe, !refreshSucceeds);
+        },
+      );
+    }
+
+    test('newer detail stats supersede a refresh-overlapping like '
+        '(detail finishes first=$detailFinishesFirst)', () async {
+      final item = _mediaItem('item');
+      final page = Completer<Result<MusicianFeedPage>>();
+      final stats = Completer<Result<int>>();
+      final server = _FeedServer()
+        ..enqueue(_page([item]))
+        ..responses.add(page.future);
+      final engagement = _Engagement()
+        ..liked = false
+        ..commentCount = 7
+        ..likeCountFuture = stats.future;
+      final cubit = _cubit(server, engagement: engagement);
+      await cubit.initialize();
+      final refreshing = cubit.refresh();
+      expect(await cubit.toggleLike(item.id), isTrue);
+      // The detail screen successfully unlikes before asking for fresh stats.
+      final reading = cubit.refreshEngagement(item);
+      if (detailFinishesFirst) {
+        stats.complete(const Result.success(10));
+        await reading;
+      }
+      page.complete(Result.success(_page([item])));
+      await refreshing;
+      if (!detailFinishesFirst) {
+        stats.complete(const Result.success(10));
+        await reading;
+      }
+      final current = cubit.state.items.single.engagement!;
+      expect(current.likedByMe, isFalse);
+      expect(current.likeCount, 10);
+      expect(current.commentCount, 7);
+    });
+  }
+
+  test(
+    'a failed newer like restores detail stats after the first page arrives',
+    () async {
+      final item = _mediaItem('item');
+      final page = Completer<Result<MusicianFeedPage>>();
+      final write = Completer<Result<void>>();
+      final server = _FeedServer()
+        ..enqueue(_page([item]))
+        ..responses.add(page.future);
+      final engagement = _Engagement()
+        ..likeCount = 10
+        ..commentCount = 7;
+      final cubit = _cubit(server, engagement: engagement);
+      await cubit.initialize();
+      final refreshing = cubit.refresh();
+      await cubit.refreshEngagement(item);
+      engagement.writeFuture = write.future;
+      final liking = cubit.toggleLike(item.id);
+      cubit.adjustCommentCount(item.id, 1);
+      page.complete(Result.success(_page([item, _mediaItem('alias')])));
+      await refreshing;
+      write.complete(const Result.failure(_readFailure));
+      expect(await liking, isFalse);
+      expect(
+        cubit.state.items.map((item) => item.engagement!.likeCount),
+        everyElement(10),
+      );
+      expect(
+        cubit.state.items.map((item) => item.engagement!.likedByMe),
+        everyElement(isFalse),
+      );
+      expect(
+        cubit.state.items.map((item) => item.engagement!.commentCount),
+        everyElement(8),
+      );
     },
   );
 
@@ -163,6 +328,75 @@ void main() {
       expect(server.cursors, [null]);
     },
   );
+
+  test(
+    'comment-only stats preserve a completed like for first-page rebasing',
+    () async {
+      final item = _mediaItem('item');
+      final page = Completer<Result<MusicianFeedPage>>();
+      final server = _FeedServer()
+        ..enqueue(_page([item]))
+        ..responses.add(page.future);
+      final engagement = _Engagement()
+        ..likeCountFuture = Future.value(const Result.failure(_readFailure))
+        ..commentCount = 7;
+      final cubit = _cubit(server, engagement: engagement);
+      await cubit.initialize();
+      final refreshing = cubit.refresh();
+      expect(await cubit.toggleLike(item.id), isTrue);
+      await cubit.refreshEngagement(item);
+      page.complete(
+        Result.success(
+          _page([
+            item.copyWith(
+              engagement: item.engagement!.copyWith(
+                likeCount: 9,
+                commentCount: 8,
+              ),
+            ),
+          ]),
+        ),
+      );
+      await refreshing;
+      final current = cubit.state.items.single.engagement!;
+      expect(current.likedByMe, isTrue);
+      expect(current.likeCount, 10);
+      expect(current.commentCount, 7);
+    },
+  );
+
+  test('like-only stats preserve the fresh first-page comment total', () async {
+    final item = _mediaItem('item');
+    final page = Completer<Result<MusicianFeedPage>>();
+    final server = _FeedServer()
+      ..enqueue(_page([item]))
+      ..responses.add(page.future);
+    final engagement = _Engagement()
+      ..likeCount = 12
+      ..liked = true
+      ..commentCountFuture = Future.value(const Result.failure(_readFailure));
+    final cubit = _cubit(server, engagement: engagement);
+    await cubit.initialize();
+    final refreshing = cubit.refresh();
+    await cubit.refreshEngagement(item);
+    page.complete(
+      Result.success(
+        _page([
+          item.copyWith(
+            engagement: item.engagement!.copyWith(
+              likeCount: 9,
+              commentCount: 8,
+            ),
+          ),
+        ]),
+      ),
+    );
+    await refreshing;
+    final current = cubit.state.items.single.engagement!;
+    expect(current.likedByMe, isTrue);
+    expect(current.likeCount, 12);
+    expect(current.commentCount, 8);
+  });
 
   for (final mutation in ['like', 'comment']) {
     test('a late detail read cannot undo a newer $mutation change', () async {
@@ -670,11 +904,14 @@ class _FollowServer extends _FeedServer implements FollowRepository {
 class _Engagement extends Fake implements EngagementRepository {
   int likeCount = 2;
   int commentCount = 1;
+  int rootCommentCount = 1;
+  int rootCommentReads = 0;
   bool liked = false;
   Future<Result<int>>? likeCountFuture;
+  Future<Result<int>>? commentCountFuture;
   Future<Result<void>>? writeFuture;
   final likeReads = <({String type, String id})>[];
-  final commentReads = <({String type, String id, int page, int size})>[];
+  final commentReads = <({String type, String id})>[];
   @override
   Future<Result<int>> getLikeCount({
     required String targetType,
@@ -690,17 +927,26 @@ class _Engagement extends Fake implements EngagementRepository {
     required String targetId,
   }) async => Result.success(liked);
   @override
+  Future<Result<int>> getCommentCount({
+    required String targetType,
+    required String targetId,
+  }) async {
+    commentReads.add((type: targetType, id: targetId));
+    return commentCountFuture ?? Future.value(Result.success(commentCount));
+  }
+
+  @override
   Future<Result<CommentPage>> listComments({
     required String targetType,
     required String targetId,
     int page = 0,
     int size = 20,
   }) async {
-    commentReads.add((type: targetType, id: targetId, page: page, size: size));
+    rootCommentReads += 1;
     return Result.success(
       CommentPage(
         items: const [],
-        totalElements: commentCount,
+        totalElements: rootCommentCount,
         page: page,
         size: size,
       ),

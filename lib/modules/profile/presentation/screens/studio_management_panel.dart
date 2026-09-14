@@ -7,6 +7,10 @@ class StudioManagementPanelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return StudioListenerAccessGate(builder: _buildPanel);
+  }
+
+  Widget _buildPanel(BuildContext context) {
     final profileName = profile.displayName.trim().isNotEmpty
         ? profile.displayName.trim()
         : 'Studio';
@@ -65,7 +69,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Mevcut odaları yönet ve yeni oda oluştur.',
                 trailingLabel: 'Yönet',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) => _StudioRoomsManagementScreen(
                       studioProfileId: profile.id,
                     ),
@@ -79,7 +83,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Tüm odaların rezervasyonlarını yönet.',
                 trailingLabel: 'Yönet',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) => _StudioReservationsHubScreen(
                       studioProfileId: profile.id,
                       timeZone: profile.timeZone,
@@ -94,7 +98,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Backline ekipmanlarını ekle, düzenle veya kaldır.',
                 trailingLabel: 'Yönet',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) => _StudioBacklineInventoryScreen(
                       studioProfileId: profile.id,
                     ),
@@ -108,7 +112,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Ekipmanların dolu ve bakımda olduğu tarihleri yönet.',
                 trailingLabel: 'Yönet',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) =>
                         const _BacklineAvailabilityManagementScreen(),
                   ),
@@ -128,7 +132,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Yeni bir backline kategorisi veya alt kategori öner.',
                 trailingLabel: 'Talep Et',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) =>
                         const _StudioBacklineCategoryManagementScreen(),
                   ),

@@ -87,7 +87,7 @@ class _StudioRoomsManagementScreenState
       );
       return;
     }
-    final room = await showModalBottomSheet<_StudioRoomItem>(
+    final room = await showStudioModalBottomSheet<_StudioRoomItem>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

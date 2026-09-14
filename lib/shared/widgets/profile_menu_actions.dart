@@ -36,14 +36,19 @@ Future<void> showProfileQuickMenu(
   ProfileQuickMenuAction? onProfileContact,
   Key? settingsTileKey,
   Key? profileContactTileKey,
+  WidgetBuilder Function(WidgetBuilder)? routeBoundary,
 }) {
+  WidgetBuilder guardRoute(WidgetBuilder builder) =>
+      routeBoundary?.call(builder) ?? builder;
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Kapat',
     barrierColor: AppColors.pureBlack.withValues(alpha: 0.35),
     transitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (dialogContext, animation, secondaryAnimation) {
+    pageBuilder: (dialogContext, animation, secondaryAnimation) => guardRoute((
+      dialogContext,
+    ) {
       Future<void> closeThen(ProfileQuickMenuAction action) async {
         Navigator.of(dialogContext).pop();
         await action();
@@ -140,7 +145,7 @@ Future<void> showProfileQuickMenu(
           ),
         ),
       );
-    },
+    })(dialogContext),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(
         parent: animation,

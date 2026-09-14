@@ -691,7 +691,7 @@ class _BacklineInventoryItemManagementScreenState
   }
 
   Future<void> _handleStaleEquipment() async {
-    final refresh = await showDialog<bool>(
+    final refresh = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Ekipman başka bir oturumda değişti'),
@@ -728,7 +728,7 @@ class _BacklineInventoryItemManagementScreenState
   }
 
   Future<void> _confirmDelete() async {
-    final shouldDelete = await showDialog<bool>(
+    final shouldDelete = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),
@@ -794,7 +794,7 @@ class _BacklineInventoryItemManagementScreenState
   Future<void> _confirmDiscardChanges() async {
     if (_exitDialogOpen) return;
     _exitDialogOpen = true;
-    final shouldDiscard = await showDialog<bool>(
+    final shouldDiscard = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),

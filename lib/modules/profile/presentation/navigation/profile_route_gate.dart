@@ -8,6 +8,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import 'profile_route_resolver.dart';
+import '../screens/studio_listener_info_screen.dart';
 
 class ProfileRouteGate extends StatefulWidget {
   final ProfileRouteTarget target;
@@ -82,6 +83,14 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
     final generation = ++_generation;
     final session = _manager?.session ?? const AuthSession.guest();
     final target = widget.target;
+    if (target.kind == ProfileRouteKind.studio &&
+        isStudioRestrictedListener(session)) {
+      setState(() {
+        _public = false;
+        _loading = false;
+      });
+      return;
+    }
     setState(() {
       _public = false;
       _loading = true;
@@ -165,6 +174,10 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.target.kind == ProfileRouteKind.studio &&
+        isStudioRestrictedListener(_manager?.session)) {
+      return const StudioListenerInfoScreen();
+    }
     if (_public) return widget.publicBuilder(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),

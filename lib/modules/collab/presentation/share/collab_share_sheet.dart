@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../domain/entities/collab_listing.dart';
@@ -9,7 +11,7 @@ import 'collab_share_service.dart';
 Future<CollabShareTarget?> showCollabShareSheet(
   BuildContext context,
   CollabListing listing,
-) => showModalBottomSheet<CollabShareTarget>(
+) => showCollabModalBottomSheet<CollabShareTarget>(
   context: context,
   useSafeArea: true,
   showDragHandle: true,

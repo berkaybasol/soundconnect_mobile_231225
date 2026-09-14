@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../collab_access_gate.dart';
+
 import '../../../../shared/theme/app_colors.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_types.dart';
@@ -7,7 +9,7 @@ import '../../domain/entities/collab_actor.dart';
 import '../widgets/collab_action_widgets.dart';
 import '../widgets/collab_discovery_widgets.dart';
 
-class CollabProfileSelectionScreen extends StatefulWidget {
+class CollabProfileSelectionScreen extends StatelessWidget {
   const CollabProfileSelectionScreen({
     required this.actors,
     required this.wantedType,
@@ -22,12 +24,36 @@ class CollabProfileSelectionScreen extends StatefulWidget {
   final bool showBottomNavigation;
 
   @override
-  State<CollabProfileSelectionScreen> createState() =>
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabProfileSelectionScreenContent(
+      actors: actors,
+      wantedType: wantedType,
+      initialActor: initialActor,
+      showBottomNavigation: showBottomNavigation,
+    ),
+  );
+}
+
+class _CollabProfileSelectionScreenContent extends StatefulWidget {
+  const _CollabProfileSelectionScreenContent({
+    required this.actors,
+    required this.wantedType,
+    this.initialActor,
+    this.showBottomNavigation = true,
+  });
+
+  final List<CollabActor> actors;
+  final CollabProfileKind wantedType;
+  final CollabActor? initialActor;
+  final bool showBottomNavigation;
+
+  @override
+  State<_CollabProfileSelectionScreenContent> createState() =>
       _CollabProfileSelectionScreenState();
 }
 
 class _CollabProfileSelectionScreenState
-    extends State<CollabProfileSelectionScreen> {
+    extends State<_CollabProfileSelectionScreenContent> {
   CollabActor? _selectedActor;
 
   List<CollabActor> get _eligibleActors => widget.actors

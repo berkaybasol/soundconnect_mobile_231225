@@ -103,6 +103,7 @@ class _StudioRecordingsPanelState extends State<_StudioRecordingsPanel> {
       uploadActionLabel: 'Kayıt ekle',
       spotifyCatalogTitle: 'Stüdyonun Spotify Kataloğu',
       onSpotifyTracksChanged: _updateSpotifyTracks,
+      routeBoundary: studioRouteBoundary,
     );
   }
 }

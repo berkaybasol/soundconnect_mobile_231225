@@ -17,7 +17,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (sheetContext) {
+      builder: _guardRoute((sheetContext) {
         var loading = false;
         var results = <SpotifyTrackPreview>[];
         var errorText = '';
@@ -27,7 +27,8 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             Future<void> selectTrack(SpotifyTrackPreview track) async {
-              if (existingIds.contains(track.id) ||
+              if (!context.mounted ||
+                  existingIds.contains(track.id) ||
                   savingIds.contains(track.id)) {
                 return;
               }
@@ -40,7 +41,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
                 errorText = '';
               });
               final ok = await onTrackSelected(track);
-              if (!sheetContext.mounted) return;
+              if (!context.mounted) return;
               setSheetState(() {
                 savingIds.remove(track.id);
                 if (ok) {
@@ -52,6 +53,8 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
             }
 
             Future<void> runSearch() async {
+              // A queued debounce can run after the picker body is removed.
+              if (!context.mounted) return;
               final q = queryController.text.trim();
               final token = ++lastSearchToken;
               if (q.length < 2) {
@@ -66,7 +69,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
                 errorText = '';
               });
               final result = await repository.searchTracks(q, limit: 10);
-              if (!sheetContext.mounted || token != lastSearchToken) return;
+              if (!context.mounted || token != lastSearchToken) return;
               setSheetState(() {
                 loading = false;
                 if (result.isSuccess && result.data != null) {
@@ -253,7 +256,7 @@ extension _ProfileAudioTabSpotifyPickerMethods on ProfileAudioTab {
             );
           },
         );
-      },
+      }),
     );
     searchDebounce?.cancel();
     // Intentionally not disposing here; route teardown can still touch TextField

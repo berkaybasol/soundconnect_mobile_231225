@@ -6,10 +6,11 @@ Her iki repo `feature/local-simulation` dalında. Eşleşen backend kapanış co
 commit'tir. `2b8d4f3` / `0bc4f70` bu çalışmanın başlangıç commit'leridir.
 Yeni oturumda HEAD, uzak dal ve çalışma ağacını ayrıca doğrula.
 
-Aşağıdaki ara aşamalardaki “DB uygulanmadı / uygulama başlatılmadı / commit yok”
-ifadeleri tarihsel kayıttır. Güncel durum en sondaki **Gerçek cihaz ve yerel DB
-kapanışı** bölümüdür: migrationlar uygulandı, güncel normal APK gerçek backend ile
-telefonda kontrol edildi. Stüdyo akışı henüz yapılmadı; sıradaki görüşme konusudur.
+Aşağıdaki aşamalar tarihsel kayıttır; aynı gün birden çok oturum/kapanış vardır.
+**En güncel özet ve cihaz/backend/Git durumu
+[session-handoff-20260914-listener-boundaries.md](session-handoff-20260914-listener-boundaries.md)
+belgesindedir.** Eski “APK kurulmadı”, “oturum korundu” ve commit kayıtlarını son
+kapanışla karıştırma. Stüdyo akışının ürün tasarımı henüz yapılmadı.
 
 ## Kullanıcının son kapsamı
 
@@ -351,3 +352,299 @@ korundu. Telefonun USB'de ekranı açık tutma ayarı 0 → 2 → 0 olarak geri 
 kilit/parola ayarı değiştirilmedi. Kullanıcı normal uygulama ve backend'i kendisi
 yeniden açabilir. Yerel log, yedek, APK, ekran görüntüsü ve geçici betikler Git'e
 alınmaz. Sıradaki iş stüdyo akışının ürün mantığını konuşmaktır.
+
+## Akış kod incelemesi ve dört hata düzeltmesi — 14 Eylül
+
+Sonraki oturumda kullanıcı, stüdyoyu konuşmadan önce müzisyen, dinleyici ve mekân
+akışlarının kod kalitesinin incelenmesini, ardından bulunan açıkların kapatılmasını
+istedi. İnceleme başlangıcında her iki çalışma ağacı temizdi; dallar
+`feature/local-simulation`, frontend HEAD `47d3079`, backend HEAD `1ec3fa2` idi.
+İnceleme raporu workspace
+`.local-verification/feed-professional-review-20260914/review.md` dosyasındadır.
+
+### Düzeltilen davranışlar
+
+- Tam akış yenilemesiyle çakışan başarılı beğeni/kaydetme işlemleri artık gecikmiş
+  sayfa cevabıyla geri alınmıyor. İşlem sonucu yeni kartın bilgilerine uygulanıyor;
+  başarısız işlemin geri alınması diğer güncel alanları bozmuyor. Aynı içeriğin
+  farklı kartları, art arda yenilemeler, eski detay cevapları, kısmi istatistik
+  okuma hataları ve hesap/oturum değişimleri regresyonlarla kapsandı.
+- Detaydan dönünce akışın yorum toplamı artık kök yorum sayfasının eleman sayısından
+  üretilmiyor. Ortak `GET /api/v1/comments/{targetType}/{targetId}/count` endpoint'i,
+  mevcut içerik okuma yetkisini denetleyerek silinmemiş kök yorumları ve yanıtları
+  birlikte sayıyor. Yanıtı kalan silinmiş kök, aktif yanıtı toplamdan düşürmüyor.
+  Yanıt `private, no-store`; dinleyici/Mainstage ve duyuru görünürlük sınırları
+  mevcut doğrulayıcılarla korunuyor. Flutter repository, önizleme ve yayın kapsamı
+  sarmalayıcısı aynı sözleşmeyi kullanıyor.
+- Sayfalama sürerken yapılan yorum ekleme/silme güncellemeleri, aynı içeriğin
+  sonradan gelen kartlarına da uygulanıyor; kartlar arasında eski sayaç kalmıyor.
+- Başlatılmış isteğe bağlı organik akış kaynağı hata verdiğinde veya zaman aşımına
+  uğradığında sonuç boş/son sayfa olacaksa, bu eksik sonuç kalıcı teslim veya replay
+  olarak yazılmıyor. Mevcut `1324 / HTTP 503` cevabı aynı cursor ile yeniden denemeye
+  izin veriyor. Sağlıklı ara sayfalar, gerçek boş/son sayfalar, açık oturum teslim
+  sınırı ve isteğe bağlı yardımcı kaynakların mevcut davranışı korunuyor.
+
+### Son doğrulama ve bırakılan durum
+
+- Son tek tam Flutter koşusu: **4.941 geçti, 0 hata, 2 atlanan test**. Atlananlar,
+  çıktı yolu verilmesini gerektiren mevcut isteğe bağlı PNG üretim testleridir.
+  `flutter analyze --no-pub lib test`: **No issues found**.
+- Backend ilgili geniş regresyon: **88 test paketinde 698 test geçti**; hata,
+  başarısızlık veya atlama yok. Akış, yorum, duyuru ve ilgili erişim kontrolleri
+  kapsandı; PostgreSQL/Redis entegrasyonları izole Testcontainers ortamında çalıştı.
+  Bu sayı tüm backend deposunun test sayısı veya yeni üretim yük testi değildir.
+- Son testlerle eşleşen değişmiş kaynak/test dosyalarının SHA-256 kayıtları
+  doğrulandı. Her iki repoda `git diff --check` temizdir.
+- Kanıtlar workspace `.local-verification/feed-professional-fixes-20260914/`
+  altında: `report.md`, `verification-manifest.json`, `frontend-full-tests-final.log`,
+  `frontend-analyze-final.log`, `frontend-final-run-summary.json`,
+  `frontend-final-source-hashes.json`, `backend-regression.log`,
+  `backend-summary.json`, `backend-tested-source-hashes.json` ve
+  `backend-build/test-results/test/`.
+- Bu düzeltmeler henüz commit/push edilmedi; yukarıdaki HEAD'ler değişmedi.
+  Bu turda migration gerekmedi, gerçek uygulama DB'si ve hesap verisi değiştirilmedi,
+  mock içerik eklenmedi. Normal backend başlatılmadı; yeni APK üretilip telefona
+  kurulmadı. Telefonda önceki kapanış APK'sı bulunuyor; buradaki düzeltmeleri içermez.
+- Onaylanan tasarım, alt bar, arama ve detay yönlendirmeleri korundu. Stüdyo akışı
+  uygulanmadı; sıradaki konu yine stüdyonun ürün mantığı ve içerik dengesidir.
+
+## Dinleyici business görünürlüğü genel denetimi — 14 Eylül
+
+Kullanıcı, stüdyo profili istisnası dışında dinleyicinin hiçbir iş içeriğini
+göremediğini doğrulamamızı ve doğrulanamayanları da listelememizi istedi.
+**Bu mutlak sonuç doğrulanmadı.** Ortak akış düzeltmelerinin tamamlanması, tüm
+uygulamanın business sınırlarının eksiksiz olduğu anlamına gelmez.
+
+Akış/arama/Collab/BACKSTAGE medya/duyuru hedefleme ve mesleki yönetim-davet
+kapıları kaynak kodundan kontrol edildi. Bu turda 9 ilgili Flutter test dosyasında
+**255 test**, 10 backend paketinde **114 test** geçti; hata ve atlama yok.
+Bu sayılar önceki turdaki tüm paket sayılarına eklenmez.
+
+Çözülmemiş bulgular:
+
+- `GET /api/v1/setlists/{setlistId}/pdf-html`: JSON detayındaki MUSICIAN rolü ve
+  sahiplik kontrolü PDF metodunda yok. Bilinen setlist kimliğiyle dinleyicinin
+  profesyonel hazırlık içeriğini okumasını engelleyen kapı eksik.
+- Bildirim listesi ve realtime hattında listener için business türü filtresi yok.
+  Stüdyo rezervasyonu müşteri talebi onay/red/iptal olayları dinleyici müşteriye
+  stüdyo/oda/tarih metni taşıyabilir. Hedef route engeli bildirim metnini gizlemez.
+- Stüdyo public profil/oda/ekipman/availability ve normal named route zaten kapalı;
+  fakat müşteri rezervasyon API'leri yalnız authenticated kontrolüyle açık. Bilinen
+  oda kimliğiyle create ve kendi rezervasyon/fiyatlarını okuma yolu korunmamış.
+- Herkese açık bio/açıklama/yorum/mesaj gibi serbest metni ve MAINSTAGE seçilmiş
+  içeriği otomatik business sınıflandırması ayırmıyor. Eski kayıtların varsayılanı
+  MAINSTAGE; gerçek DB'deki içeriklerin doğru etiketlendiği bu turda taranmadı.
+- Önceden paylaşılmış PUBLIC CDN adresleri BACKSTAGE seçilince iptal edilmiyor.
+
+MEDIA sosyal bildirim resolver'ı ayrıca incelendi: alıcı sahipliği ve güncel
+Mainstage erişimini denetler; bildirim payload'ı medya URL/thumbnail/yorum metni
+taşımaz. Bu yolda ek medya içerik kaçağı doğrulanmadı.
+
+Detaylı görünmez listesi, açık/garanti sınırları ve kanıtlar workspace
+`.local-verification/listener-business-boundaries-20260914/report.md` ile
+`verification-manifest.json` dosyalarındadır. Açıklar kaynak/çağrı zinciriyle
+tespit edildi; gerçek setlist indirilmedi, rezervasyon/bildirim oluşturulmadı.
+Bu denetimde uygulama kaynakları değiştirilmedi ve bulgular henüz düzeltilmedi.
+Telefon/APK, gerçek DB ve hesap verisine dokunulmadı; önceki çalışma ağacı
+değişiklikleri korundu. Sonraki iş kararlaştırılırken bu bulgular atlanmamalıdır.
+
+## Kullanıcı kapsam netleştirmesi — 14 Eylül 2026
+
+- Setlist PDF bulgusu bu işin önceliği ve kapsamı dışında bırakıldı; düzeltilmedi.
+- Dinleyiciye stüdyo profilini tümden kapatma konusu sonraya bırakıldı. Şu an
+  stüdyo koduna dokunulmaması istendi; mevcut route engeliyle ilgili önceki bulgu
+  geçerlidir.
+- Teknik açıklama: “müşteri rezervasyonu” oda rezervasyonudur. Profil UI kapısı
+  tek başına backend müşteri rezervasyon API'lerini ve mevcut bildirimleri
+  kapatmaz. Bu açıklama kullanıcıya veriliyor; bir çözüm onayı değildir.
+- Bio, yorum ve benzeri serbest metinlerde iş ifadelerinin görünmesi kullanıcıca
+  kabul edildi. Hedef business modüllerine erişimi engellemektir; semantik içerik
+  sınıflandırması kapsam dışıdır.
+- PUBLIC CDN/ham medya adresi konusu kullanıcıya örneklerle açıklanıyor.
+  Bu konuda henüz çözüm veya kapsam kararı verilmedi.
+
+## Son kapsam kararı ve stüdyo erişiminin kapatılması — 14 Eylül 2026
+
+Bu bölüm önceki kapsam netleştirmesindeki bekleme kararlarını günceller.
+Kullanıcı bilinen PUBLIC dosya adresinin açılmasını kabul etti; özel depolama veya
+URL iptali kapsam dışıdır. Ardından kritik açıkların kapatılmasını ve dinleyicinin
+stüdyo avatarına/profiline dokunduğunda açıklama ekranı görmesini açıkça istedi.
+Stüdyo erişimi ve müşteri oda rezervasyonu artık kapsam içindedir ve uygulandı.
+Setlist PDF bulgusu hâlâ kullanıcının kararıyla kapsam dışında; düzeltilmedi.
+Bio/yorum/mesaj gibi serbest metinlerde iş ifadeleri kabul edilen sınırdır.
+
+### Uygulanan davranış
+
+- Stüdyo owner/public/calendar named route ve doğrudan widget girişleri dinleyiciyi
+  stüdyo provider/veri isteği kurulmadan **“Stüdyolar Backstage’de”** ekranına götürür.
+  Ekran SoundConnect'in mevcut lacivert/gradient tasarımını ve Mainstage alt barını
+  kullanır; müzisyen hesabı oluşturma seçeneğini metinle anlatır. Geri ve Keşfet
+  çıkışları vardır; otomatik çıkış, rol dönüşümü veya hesap değişimi yapmaz.
+- DM, masa, yorum, beğeni ve Overthinking gibi kullanıcı kimliğinden profil açan
+  yollar ortak resolver üzerinden aynı ekrana ulaşır. Backend erişilebilir profil
+  kalmadığında yalnız `profiles: []` ve `STUDIO_MAINSTAGE_RESTRICTED` işareti
+  döndürebilir; stüdyo adı/kimliği/avatar/medya döndürmez. Ghost ve profil seçimi
+  gizliliği önce gelir. Yanıt `private, no-store`; frontend cache ve gecikmiş
+  cevaplar oturuma göre ayrılır. Mevcut stüdyo içerik filtreleri korunur; stüdyoya
+  yeni Overthinking veya masa özelliği açılmadı.
+- Müşteri rezervasyonu create/list/room-calendar/cancel API'leri listener'ı reddeder.
+  Servis güncel DB rolünü ve kişisel profil kaydını da denetler; create kontrolü
+  mevcut hesap kilidi altında, oda/fiyat verisinden önce çalışır. Eski rezervasyonlar
+  korunur. Profil/oda/ekipman/müsaitlik/medya/parça için mevcut engeller korunur.
+- Backend ve Flutter 33 açık business bildirim türünü gizler: stüdyo, Collab,
+  sanatçı–mekân talepleri, grup üyelik/davetleri ve sahne/mekân onayları. Filtre
+  backend'de sayfalama/sayım öncesindedir; liste, recent, tür filtresi, ID erişimi,
+  rozet ve kullanıcı okuma/silme işlemleri aynı sınırı kullanır. Eski business
+  kayıtları depoda kalır; liste veya sayaca yansımaz.
+- Yeni bildirim kabulü ve sıradaki WebSocket/e-posta teslimi mevcut hesap teslim
+  kilidinde alıcının güncel rolünü denetler. Sosyal, DM, masa, hesap, medya ve uygun
+  Overthinking bildirimleri korunur. Gerçek alıcıya deneme bildirimi gönderilmedi.
+- Flutter oturum değişiminde eski bildirim satırlarını anında temizler ve gecikmiş
+  cevapları eler. Yalnız sayaç içeren realtime mesajları listener'da doğrudan rozeti
+  artırmaz; backend sayımıyla uzlaşır. Son incelemede eski startup'ın yeni hesabın
+  bağlantısını kapatabildiği yarış ayrıca yeniden üretilip düzeltildi.
+
+### Kanıtlar ve bırakılan durum
+
+Kanıtlar workspace `.local-verification/listener-studio-closure-20260914/`
+altındadır. `report.md` kapsamı, değişiklikleri ve gerçek cihaz doğrulamasından
+ayrımı açıklar. `screens/` altındaki 390 px normal ve 320 px / %200 yazı boyutlu
+PNG'ler gerçek Flutter widget render'larıdır; taşma ve Keşfet düğmesine erişim
+test edildi, görüntüler ayrıca incelendi.
+
+Bu değişiklikler önceki akış düzeltmeleriyle birlikte henüz commit/push edilmedi.
+Dallar ve HEAD'ler aynı: frontend `feature/local-simulation` / `47d3079`, backend
+`feature/local-simulation` / `1ec3fa2`. Yeni migration gerekmedi; gerçek DB,
+hesap, telefon ve APK değiştirilmedi, mock içerik eklenmedi. Telefonda önceki
+kapanış APK'sı bulunur ve bu değişiklikleri içermez. Stüdyo akışının ürün mantığı
+ve içerik dengesi henüz uygulanmadı; sonraki konuşmanın konusudur.
+
+Son doğrulama: tek tam Flutter koşusunda **4.971 geçti, 0 hata, 2 atlama**;
+atlananlar mevcut isteğe bağlı PNG üretim testleridir. `flutter analyze --no-pub
+lib test`: **No issues found**. Backend ilgili regresyonunda **54 test paketinde
+392 test geçti**, hata/atlama yok; tüm backend deposu veya üretim yük testi değildir.
+Bildirim startup yarışı eski kodda deterministik testle yeniden üretildi ve
+düzeltildi. Eski lifecycle fake'inin iptal edilmiş bağlantıyı yeniden canlandıran
+modeli gerçek NotificationRealtimeClient + kontrollü transport ile değiştirildi;
+iki bağlantı girişimi/tek REST yenilemesi ve eski callback'lerin yeni bağlantıyı
+bozamaması doğrulandı. Üç ilgili dosyada ayrıca 29 test geçti.
+
+Son testlerdeki 32 frontend ve 33 backend değişmiş kaynak/test dosyası SHA-256 ile
+yeniden eşleştirildi; uyuşmazlık yok. Her iki repoda `git diff --check` temiz.
+`verification-manifest.json`, `frontend-full-tests-final.log`,
+`frontend-analyze-final.log`, `backend-result-summary.json`, kaynak hash dosyaları
+ve `backend-build/test-results/test/` son kanıtlardır. Önceki denetim/koşu sayıları
+bu sonuçlara eklenmez; kapsam dışındaki setlist PDF hâlâ çözülmüş sayılmaz.
+
+## Stüdyo bilgilendirme ekranında geri dönüş ve metin düzeltmesi — 14 Eylül
+
+Kullanıcının geri bildirimiyle ana düğme **“Geri dön”** oldu. Normal profil/avatar
+girişlerinde mevcut route `pop()` edilir; DM, masa, Overthinking veya diğer kaynak
+sayfa mevcut durumuyla geri gelir. Bu yolların `pushNamed` kullandığı doğrulandı.
+Yalnız geçmişi olmayan doğrudan/kök girişte mevcut
+`AppRouteGuard.startRouteFor(session)` başlangıç yönlendirmesi kullanılır.
+Keşfet'e zorunlu yönlendirme kaldırıldı; üstteki geri oku ve alt bar korundu.
+
+Üst açıklama: “Stüdyolar, SoundConnect’in iş birliği tarafında yer alıyor. Stüdyo
+profilleri ve SoundConnect’in sunduğu diğer iş birliği akışları dinleyici hesabına
+açık değil.”
+
+Alt açıklama: “Sen de müzik sektörünün bir parçasıysan, sana uygun farklı bir hesap
+oluşturarak iş birliği akışlarına katılabilirsin.”
+
+Bu küçük takip değişikliği yalnız `studio_listener_info_screen.dart` ve mevcut
+`studio_listener_access_test.dart` dosyalarını etkiledi. Beş ilgili test dosyasında
+**73 test geçti**, hata/atlama yok; `flutter analyze --no-pub lib test` temiz.
+Normal 390 px ve 320 px / %200 yazı boyutunda gerçek Flutter render'ları yeniden
+üretildi ve incelendi. Kanıtlar workspace
+`.local-verification/studio-listener-back-copy-20260914/` altındadır. Önceki tam
+4.971 test koşusu bu metin/geri dönüş düzeltmesinden öncedir; bu turda tüm paket
+veya backend testleri tekrar çalıştırılmış sayılmaz. Backend, telefon, APK ve
+gerçek hesap verisi değiştirilmedi; commit/push yapılmadı.
+
+## Uygulama çapında stüdyo ve Collab erişim denetimi — 14 Eylül 2026
+
+Kullanıcı, dinleyicinin uygulamanın hiçbir girişinden stüdyo profiline veya
+Collab'a erişemediğinin taranmasını istedi. Bu kapsam, önceki kritik açıkları
+kapatma yetkisiyle uygulandı. Onaylı stüdyo bilgi ekranı, metinleri, Mainstage alt
+barı ve kaynağa dönen **Geri dön** davranışı korundu.
+
+Tarama; named route, doğrudan widget, avatar/userId resolver, DM/masa/Overthinking/
+yorum/beğeni, paylaşım bağlantısı, bildirim, feed/arama, açık alt ekranlar ve API/
+servis girişlerini kapsadı. Normal tek rollü listener'ın önceki backend
+engellerine ek olarak şu sınırlar kapatıldı:
+
+- Açık stüdyo oda/backline/rezervasyon/ayar/galeri route'ları, yönetim/iletişim
+  ekranları ve ortak Spotify/ses yükleme/sosyal URL/hızlı menü yüzeyleri canlı
+  stüdyo kapısından geçer. Listener'a geçiş eski içerik ağacını kaldırır.
+  Ortak bileşenlerde sınır yalnız stüdyo çağrısına verilir; müzisyen gibi diğer
+  profil türlerinin aynı bileşenleri kullanması korunur.
+- On Collab ekranı veri provider'ı kurulmadan canlı kimlik kontrolü yapar.
+  Sayfa/dialog/sheet/share snapshot'ı açan hesabın kimliği ilk frame öncesinde
+  yakalanır; başka hesap veya listener oturumu eski veriyi göremez. Aynı hesabın
+  yalnız token yenilemesi form/scroll durumunu sıfırlamaz.
+- Frontend Collab politikası ve ilgili backend controller'ları karma
+  LISTENER+business/yönetici yetkilerinde listener reddini öncelikli uygular.
+  Stüdyo owner/admin/başvuru/backline yönetimi ve generic STUDIO_PROFILE medya/
+  attachment sahiplik yollarında da listener vetosu vardır.
+- Collab'ın 23 ana, 2 aktör ve 2 moderasyon servis girişi güncel DB kimliğini
+  doğrulayan merkezi guard kullanır. Business rolü tek kişisel profille eşleşir;
+  kalmış listener profili reddedilir. Moderasyon izni DB'den doğrulanır.
+  Aktör yorumları ve moderasyon listesi viewerId alır; yanıtlar private, no-store.
+- Spotify picker için geç cevap ve bekleyen arama debounce'u, dinleyici
+  geçişinde kaldırılmış StatefulBuilder'a dönmez. Stüdyo gate'i callback context'ini
+  de kaldırılan alt ağaca bağlar. Oda ayarı testi gerçek alanı görünür hale
+  getirmek için dikey Form listesini seçer; yatay fotoğraf galerisiyle karışmaz.
+
+Dinleyici tanımı oturum/sunucu kimliğinde ROLE_LISTENER bulunan hesaptır; karma
+rol olsa da veto edilir. JWT filtresi kullanıcıyı DB üzerinden güncel yükler.
+Collab'ın canonical profil kontrolü ek savunmadır; uygulama genelindeki her
+bozuk DB kaydı yeniden sınıflandırılmadı.
+
+Sosyal yüzeyde stüdyo avatarı/userId bulunması kabul edilen davranıştır; profile
+dokununca yalnız açıklama açılır. Bilinen PUBLIC dosya adresleri, serbest metin
+ve önceki setlist PDF kapsam kararı değişmedi. Gerçek kimliksiz guest'in public
+API sözleşmesi korunur; oturumlu uygulama audience-aware isteğe JWT ekler,
+geçersiz Bearer guest erişimine düşmez.
+
+Kanıtlar workspace `.local-verification/listener-studio-collab-audit-20260914/`
+altında; `report.md` ayrıntılı yol/API envanterini içerir. Önceki uncommitted
+işler korundu. Backend/Flutter kaynak değişiklikleri henüz commit/push edilmedi.
+İki dal/HEAD aynı: frontend feature/local-simulation / 47d3079; backend
+feature/local-simulation / 1ec3fa2. Gerçek DB, hesap ve telefon değiştirilmedi;
+mock içerik, rezervasyon veya mesaj/bildirim üretilmedi. Telefonda eski APK var.
+Stüdyo akışının ürün/içerik tasarımı bu denetimin konusu değildir, hâlâ bekliyor.
+
+Son doğrulama: tek tam Flutter koşusunda **5.001 geçti, 0 hata, 2 atlama**;
+atlananlar mevcut isteğe bağlı PNG üretim testleri. `flutter analyze --no-pub lib
+test`: **No issues found**. İlgili backend regresyonunda **83 test paketinde 711
+test geçti**, hata/atlama yok; tüm backend deposu veya canlı cihaz/yük testi
+değildir. Önceki test koşularının sayıları bu sonuçlara eklenmez.
+
+Son koşudaki 73 frontend ve 61 backend değişmiş kaynak/test dosyası SHA-256 ile
+eşleşti, dosya kümesi farkı yok; her iki `git diff --check` temiz. Kanıtların
+`verification-manifest.json`, `frontend-full-tests-final.log`,
+`frontend-analyze-final.log`, kaynak hash dosyaları, `backend-result-summary.json`
+ve `backend-build/test-results/test/` çıktıları son duruma aittir. İlk hata
+üreten koşular teşhis kanıtı olarak ayrıca saklandı; son sonuçları geçersiz kılan
+çözülmemiş test hatası yok.
+
+## Son APK/backend güncellemesi ve devir — 14 Eylül akşam
+
+Güncel kapanışın tam özeti
+`session-handoff-20260914-listener-boundaries.md`, yeni oturum promptu
+`new-session-prompt-20260914-listener-boundaries.txt` dosyasındadır.
+
+Normal APK Vivo'ya aynı paket üzerine kuruldu; güncel API/worker JAR'ları üretildi.
+İlk backend başlatmasındaki environment/JWT ayarı uyuşmazlığı qwe oturumunu
+geçersiz kıldı; ayar mevcut dev ortam yükleme sözleşmesiyle düzeltildi ve kullanıcı
+mmelikeunal dinleyici hesabıyla yeniden giriş yaptı. Son **6 temel cihaz kontrolü
+geçti**, bu yeni dinleyici oturumu soğuk açılışta korundu. Eski qwe oturumunun
+kurulum boyunca korunduğu iddia edilmez. APK ve backend güncel, API PID433068
+readiness UP; uygulama dinleyici profilinde ve backend çalışır bırakıldı.
+
+Gerçek DB'ye mock eklenmedi, migration/reset/restore yapılmadı. Son test edilen
+73 frontend/61 backend kaynak hash'i değişmedi. Bu oturumun kod/belgeleri
+**commit/push edilmedi**; iki çalışma ağacı değişiklik içeriyor. HEAD'ler aynı
+47d3079 / 1ec3fa2. Cihaz kontrolünün sınırları ve operasyon hatasının ayrıntıları
+yeni devir belgesinde; stüdyo akışının ürün/içerik tasarımı hâlâ sıradaki konudur.

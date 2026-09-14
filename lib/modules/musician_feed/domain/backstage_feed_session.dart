@@ -3,6 +3,7 @@ import '../../../core/auth/auth_session.dart';
 enum BackstageFeedAudience {
   musician('musician'),
   venue('venue'),
+  studio('studio'),
   listener('listener');
 
   const BackstageFeedAudience(this.pathSegment);
@@ -47,6 +48,7 @@ BackstageFeedIdentity? backstageFeedSessionIdentity(AuthSession session) {
   final audience = switch (profileRoles.single) {
     'MUSICIAN' => BackstageFeedAudience.musician,
     'VENUE' => BackstageFeedAudience.venue,
+    'STUDIO' => BackstageFeedAudience.studio,
     'LISTENER' => BackstageFeedAudience.listener,
     _ => null,
   };

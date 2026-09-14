@@ -486,6 +486,10 @@ void main() {
     testWidgets('accepted musician chip routes to the fresh musician id', (
       tester,
     ) async {
+      serviceLocator.registerSingleton<AuthSessionManager>(
+        _ApprovalChoiceSession()
+          ..signIn('event-viewer', roles: const ['ROLE_LISTENER']),
+      );
       RouteSettings? pushedSettings;
       await tester.pumpWidget(
         _eventNavigationApp(
@@ -513,6 +517,10 @@ void main() {
     testWidgets('accepted band chip routes to the fresh band id', (
       tester,
     ) async {
+      serviceLocator.registerSingleton<AuthSessionManager>(
+        _ApprovalChoiceSession()
+          ..signIn('event-viewer', roles: const ['ROLE_LISTENER']),
+      );
       RouteSettings? pushedSettings;
       await tester.pumpWidget(
         _eventNavigationApp(

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
@@ -22,7 +24,7 @@ import 'collab_actor_reviews_screen.dart';
 import 'collab_application_compose_screen.dart';
 import 'collab_profile_selection_screen.dart';
 
-class CollabListingDetailScreen extends StatefulWidget {
+class CollabListingDetailScreen extends StatelessWidget {
   const CollabListingDetailScreen({
     required this.listingId,
     this.showBottomNavigation = true,
@@ -44,11 +46,45 @@ class CollabListingDetailScreen extends StatefulWidget {
   final CollabShareService? shareService;
 
   @override
-  State<CollabListingDetailScreen> createState() =>
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabListingDetailScreenContent(
+      listingId: listingId,
+      showBottomNavigation: showBottomNavigation,
+      onListingChanged: onListingChanged,
+      onApplied: onApplied,
+      detailCubit: detailCubit,
+      shareService: shareService,
+    ),
+  );
+}
+
+class _CollabListingDetailScreenContent extends StatefulWidget {
+  const _CollabListingDetailScreenContent({
+    required this.listingId,
+    this.showBottomNavigation = true,
+    this.onListingChanged,
+    this.onApplied,
+    this.detailCubit,
+    this.shareService,
+  });
+
+  final String listingId;
+  final bool showBottomNavigation;
+  final ValueChanged<CollabListing>? onListingChanged;
+  final VoidCallback? onApplied;
+
+  /// Test/embedding seam. Production callers use the route-scoped GetIt
+  /// factory and should leave this null.
+  final CollabListingDetailCubit? detailCubit;
+  final CollabShareService? shareService;
+
+  @override
+  State<_CollabListingDetailScreenContent> createState() =>
       _CollabListingDetailScreenState();
 }
 
-class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
+class _CollabListingDetailScreenState
+    extends State<_CollabListingDetailScreenContent> {
   late final CollabListingDetailCubit _cubit;
   late final bool _ownsCubit;
 
@@ -61,7 +97,7 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
   }
 
   @override
-  void didUpdateWidget(covariant CollabListingDetailScreen oldWidget) {
+  void didUpdateWidget(covariant _CollabListingDetailScreenContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.listingId != widget.listingId) {
       _cubit.load(widget.listingId);
@@ -365,7 +401,7 @@ class _DetailViewState extends State<_DetailView> {
   }
 
   Future<void> _openOwnerActions(CollabActor actor) async {
-    final action = await showModalBottomSheet<_OwnerAction>(
+    final action = await showCollabModalBottomSheet<_OwnerAction>(
       context: context,
       showDragHandle: true,
       useSafeArea: true,
@@ -379,6 +415,7 @@ class _DetailViewState extends State<_DetailView> {
       case _OwnerAction.reviews:
         await Navigator.of(context).push<void>(
           collabPageRoute(
+            context: context,
             builder: (_) => CollabActorReviewsScreen(
               actor: actor,
               showBottomNavigation: widget.showBottomNavigation,
@@ -408,6 +445,7 @@ class _DetailViewState extends State<_DetailView> {
     } else {
       actor = await Navigator.of(context).push<CollabActor>(
         collabPageRoute(
+          context: context,
           builder: (_) => CollabProfileSelectionScreen(
             actors: actors,
             wantedType: listing.wantedType,
@@ -421,6 +459,7 @@ class _DetailViewState extends State<_DetailView> {
     if (selectedActor == null) return;
     final submitted = await Navigator.of(context).push<bool>(
       collabPageRoute(
+        context: context,
         builder: (_) => BlocProvider<CollabListingDetailCubit>.value(
           value: cubit,
           child: CollabApplicationComposeScreen(
@@ -443,7 +482,7 @@ class _DetailViewState extends State<_DetailView> {
   }
 
   Future<void> _confirmClose(CollabListing listing) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showCollabDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('İlanı kapat'),
@@ -468,7 +507,7 @@ class _DetailViewState extends State<_DetailView> {
   }
 
   Future<void> _showReportSheet() async {
-    final input = await showModalBottomSheet<CollabReportInput>(
+    final input = await showCollabModalBottomSheet<CollabReportInput>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

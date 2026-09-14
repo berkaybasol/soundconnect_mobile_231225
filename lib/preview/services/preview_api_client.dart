@@ -179,6 +179,13 @@ class PreviewApiClient extends ApiClient {
       return _unsupported(path);
     }
     if (parts[0] == 'comments') {
+      if (parts.length == 4 &&
+          parts[3] == 'count' &&
+          method == ApiHttpMethod.get) {
+        final item = _target(parts[1], parts[2]);
+        if (item == null) return _unsupported(path);
+        return item.engagement?.commentCount ?? 0;
+      }
       if (parts.length == 2 && method == ApiHttpMethod.delete) {
         store.deleteComment(parts[1]);
         return null;

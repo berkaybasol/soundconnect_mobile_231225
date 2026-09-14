@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/pagination/page.dart';
+import 'package:soundconnect_23_12_25codx/core/realtime/stomp_realtime_transport.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/data/dm_realtime_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/entities/dm_conversation_preview.dart';
@@ -16,35 +17,57 @@ import 'package:soundconnect_23_12_25codx/modules/notification/domain/notificati
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
 
 void main() {
-  test(
-    'notification restart is not lost behind an invalidated start',
-    () async {
-      final realtime = _ControlledNotificationRealtimeClient();
-      final repository = _NotificationRepositoryFake();
-      final cubit = NotificationCubit(
-        repository,
-        _MemoryTokenStore(_jwt('user-1')),
-        realtimeClient: realtime,
-      );
-      addTearDown(() async {
-        await cubit.close();
-        await realtime.closeStreams();
-      });
+  test('notification restart is not lost behind an invalidated start', () async {
+    final transports = <_DelayedNotificationTransport>[];
+    final realtime = NotificationRealtimeClient(
+      transportFactory: (config) {
+        final transport = _DelayedNotificationTransport(config);
+        transports.add(transport);
+        return transport;
+      },
+    );
+    final repository = _NotificationRepositoryFake();
+    final cubit = NotificationCubit(
+      repository,
+      _MemoryTokenStore(_jwt('user-1')),
+      realtimeClient: realtime,
+    );
+    addTearDown(() async {
+      await cubit.close();
+      await realtime.dispose();
+    });
 
-      final firstStart = cubit.ensureStarted();
-      await realtime.firstConnectStarted.future;
-      await cubit.stop();
-      final restarted = cubit.ensureStarted();
+    final firstStart = cubit.ensureStarted();
+    await _eventually(() => transports.length == 1);
+    final oldTransport = transports.single;
+    await cubit.stop();
+    expect(oldTransport.deactivated, isTrue);
+    final restarted = cubit.ensureStarted();
+    await _eventually(() => transports.length == 2);
+    final currentTransport = transports.last;
 
-      realtime.allowConnect.complete();
-      await Future.wait<void>(<Future<void>>[firstStart, restarted]);
+    // Exercise the real client's cancellation boundary, including a late
+    // handshake from the retired transport, instead of reviving a fake socket.
+    oldTransport.config.onConnect();
+    expect(realtime.isConnected, isFalse);
+    expect(oldTransport.subscriptions, isEmpty);
+    currentTransport.config.onConnect();
+    await Future.wait<void>(<Future<void>>[firstStart, restarted]);
 
-      expect(realtime.connectCalls, 2);
-      expect(realtime.connected, isTrue);
-      expect(cubit.state.initialized, isTrue);
-      expect(repository.listCalls, 1);
-    },
-  );
+    expect(transports, hasLength(2));
+    expect(realtime.isConnected, isTrue);
+    expect(currentTransport.subscriptions, <String>{
+      '/topic/notifications.user-1',
+      '/topic/notifications.user-1.badge',
+    });
+    expect(cubit.state.initialized, isTrue);
+    expect(repository.listCalls, 1);
+
+    oldTransport.config.onDisconnect();
+    oldTransport.config.onConnect();
+    expect(realtime.isConnected, isTrue);
+    expect(currentTransport.deactivated, isFalse);
+  });
 
   test(
     'notification resume reconnects a dropped socket and refreshes missed data',
@@ -159,6 +182,29 @@ void main() {
     expect(repository.conversationCalls, 0);
     expect(cubit.state.initialized, isFalse);
   });
+}
+
+class _DelayedNotificationTransport implements RealtimeTransport {
+  _DelayedNotificationTransport(this.config);
+
+  final RealtimeTransportConfig config;
+  final subscriptions = <String>{};
+  bool deactivated = false;
+
+  @override
+  void activate() {}
+
+  @override
+  void deactivate() => deactivated = true;
+
+  @override
+  void subscribe({
+    required String destination,
+    required RealtimeMessageCallback callback,
+  }) => subscriptions.add(destination);
+
+  @override
+  void send({required String destination, required String body}) {}
 }
 
 class _ControlledNotificationRealtimeClient extends NotificationRealtimeClient {

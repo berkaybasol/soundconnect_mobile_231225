@@ -26,6 +26,7 @@ class AppRoutes {
   static const venuePublicProfile = '/venue-public-profile';
   static const studioProfile = '/studio-profile';
   static const studioPublicProfile = '/studio-public-profile';
+  static const studioListenerInfo = '/studio-listener-info';
   static const studioReservationCalendar = '/studio-reservation-calendar';
   static const listenerProfile = '/listener-profile';
   static const listenerFeed = '/listener-feed';

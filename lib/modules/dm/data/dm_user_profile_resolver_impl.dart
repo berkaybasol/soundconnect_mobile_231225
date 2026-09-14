@@ -1,5 +1,7 @@
 import 'dart:collection';
 
+import '../../../core/auth/auth_session.dart';
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/network/api_client.dart';
 import '../../profile/domain/entities/listener_visibility_context.dart';
 import '../domain/dm_user_profile_resolver.dart';
@@ -14,18 +16,22 @@ typedef DmProfileResolverClock = DateTime Function();
 class DmUserProfileResolverImpl implements DmUserProfileResolver {
   DmUserProfileResolverImpl({
     required ApiClient apiClient,
+    AuthSessionManager? sessions,
     Duration cacheTtl = const Duration(minutes: 5),
     Duration failureCacheTtl = const Duration(seconds: 15),
     int maxCacheEntries = 128,
     DmProfileResolverClock? clock,
   }) : assert(maxCacheEntries > 0),
        _apiClient = apiClient,
+       _sessions = sessions,
        _cacheTtl = cacheTtl,
        _failureCacheTtl = failureCacheTtl,
        _maxCacheEntries = maxCacheEntries,
        _clock = clock ?? DateTime.now;
 
   final ApiClient _apiClient;
+  final AuthSessionManager? _sessions;
+  AuthSession? _cacheSession;
   final Duration _cacheTtl;
   final Duration _failureCacheTtl;
   final int _maxCacheEntries;
@@ -41,6 +47,12 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
     required String userId,
     String? usernameHint,
   }) {
+    final session = _sessions?.session;
+    if (!identical(_cacheSession, session)) {
+      _cacheSession = session;
+      _cache.clear();
+      _inFlight.clear();
+    }
     final normalizedUserId = userId.trim();
     if (normalizedUserId.isEmpty) {
       return Future<List<DmProfileTarget>>.value(const []);
@@ -54,7 +66,7 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
     final existingRequest = _inFlight[normalizedUserId];
     if (existingRequest != null) return existingRequest;
 
-    final request = _resolveAndCache(normalizedUserId);
+    final request = _resolveAndCache(normalizedUserId, session);
     _inFlight[normalizedUserId] = request;
     request.whenComplete(() {
       if (identical(_inFlight[normalizedUserId], request)) {
@@ -64,12 +76,16 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
     return request;
   }
 
-  Future<List<DmProfileTarget>> _resolveAndCache(String userId) async {
+  Future<List<DmProfileTarget>> _resolveAndCache(
+    String userId,
+    AuthSession? session,
+  ) async {
     try {
       final targets = await _apiClient.get<List<DmProfileTarget>>(
         '/api/v1/public/profiles/by-user/${Uri.encodeComponent(userId)}',
         decoder: _decodeTargets,
       );
+      if (!identical(_sessions?.session, session)) return const [];
       final immutableTargets = List<DmProfileTarget>.unmodifiable(targets);
       // Listener visibility is mutable and changes how every contextual
       // identity must be projected. Keeping either a STANDARD or GHOST
@@ -77,12 +93,15 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
       // In-flight calls are still coalesced, while stable non-listener target
       // collections retain the bounded TTL cache.
       if (!immutableTargets.any(
-        (target) => target.type == DmProfileTargetType.listener,
+        (target) =>
+            target.type == DmProfileTargetType.listener ||
+            target.isStudioRestricted,
       )) {
         _writeCache(userId, immutableTargets, _cacheTtl);
       }
       return immutableTargets;
     } catch (_) {
+      if (!identical(_sessions?.session, session)) return const [];
       // The domain contract predates Result<T>. Preserve its safe empty-list
       // fallback while negative-caching briefly to prevent request storms.
       const empty = <DmProfileTarget>[];
@@ -95,6 +114,10 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
     if (json is! Map<String, dynamic>) return const [];
     final profiles = json['profiles'];
     if (profiles is! List) return const [];
+    if (profiles.isEmpty &&
+        json['accessRestriction'] == 'STUDIO_MAINSTAGE_RESTRICTED') {
+      return const [DmProfileTarget.studioRestricted()];
+    }
 
     final targets = <DmProfileTarget>[];
     final seen = <String>{};

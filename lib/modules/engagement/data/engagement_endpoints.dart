@@ -27,6 +27,9 @@ class EngagementEndpoints {
   static String listComments(String targetType, String targetId) =>
       createComment(targetType, targetId);
 
+  static String commentCount(String targetType, String targetId) =>
+      '${listComments(targetType, targetId)}/count';
+
   static String deleteComment(String commentId) =>
       '$_commentsBase/${Uri.encodeComponent(commentId)}';
 

@@ -177,10 +177,12 @@ class _StudioRoomSettingsPhotoSectionState
         barrierColor: Colors.black,
         transitionDuration: const Duration(milliseconds: 220),
         reverseTransitionDuration: const Duration(milliseconds: 180),
-        pageBuilder: (_, __, ___) => _StudioRoomFullScreenGallery(
-          photos: photos,
-          room: widget.room,
-          initialIndex: initialIndex,
+        pageBuilder: (_, __, ___) => StudioListenerAccessGate(
+          builder: (_) => _StudioRoomFullScreenGallery(
+            photos: photos,
+            room: widget.room,
+            initialIndex: initialIndex,
+          ),
         ),
         transitionsBuilder: (_, animation, __, child) => FadeTransition(
           opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),

@@ -46,12 +46,14 @@ import '../../domain/studio_profile_repository.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../cubit/studio_profile_cubit.dart';
 import '../cubit/studio_profile_state.dart';
+import '../navigation/studio_navigation.dart';
 import 'profile_audio_tab_shared.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_route_args.dart';
 import 'profile_screen_support.dart';
 import 'profile_social_support.dart';
 import 'studio_profile_website_link.dart';
+import 'studio_listener_info_screen.dart';
 import 'studio_room_photo_order_controls.dart';
 
 part 'studio_profile_backline_taxonomy.dart';
@@ -98,18 +100,21 @@ class StudioProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) => serviceLocator<StudioProfileCubit>()..loadMyProfile(),
+    return StudioListenerAccessGate(
+      builder: (context) => MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) =>
+                serviceLocator<StudioProfileCubit>()..loadMyProfile(),
+          ),
+          BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
+          BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
+          BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
+        ],
+        child: _StudioProfileView(
+          isPublic: false,
+          openContactEditor: openContactEditor,
         ),
-        BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
-        BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
-        BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
-      ],
-      child: _StudioProfileView(
-        isPublic: false,
-        openContactEditor: openContactEditor,
       ),
     );
   }
@@ -120,15 +125,20 @@ class StudioPublicProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) => serviceLocator<StudioProfileCubit>()),
-        BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
-        BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
-        BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),
-        BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
-      ],
-      child: const _StudioProfileView(isPublic: true, openContactEditor: false),
+    return StudioListenerAccessGate(
+      builder: (context) => MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => serviceLocator<StudioProfileCubit>()),
+          BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
+          BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
+          BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),
+          BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
+        ],
+        child: const _StudioProfileView(
+          isPublic: true,
+          openContactEditor: false,
+        ),
+      ),
     );
   }
 }
@@ -151,18 +161,29 @@ class StudioReservationCalendarArgs {
   final String? reservationId;
 }
 
-class StudioReservationCalendarScreen extends StatefulWidget {
+class StudioReservationCalendarScreen extends StatelessWidget {
   const StudioReservationCalendarScreen({required this.args, super.key});
 
   final StudioReservationCalendarArgs args;
 
   @override
-  State<StudioReservationCalendarScreen> createState() =>
+  Widget build(BuildContext context) => StudioListenerAccessGate(
+    builder: (_) => _StudioReservationCalendarView(args: args),
+  );
+}
+
+class _StudioReservationCalendarView extends StatefulWidget {
+  const _StudioReservationCalendarView({required this.args});
+
+  final StudioReservationCalendarArgs args;
+
+  @override
+  State<_StudioReservationCalendarView> createState() =>
       _StudioReservationCalendarScreenState();
 }
 
 class _StudioReservationCalendarScreenState
-    extends State<StudioReservationCalendarScreen> {
+    extends State<_StudioReservationCalendarView> {
   final StudioRoomRepository _repository =
       serviceLocator<StudioRoomRepository>();
   _StudioRoomItem? _room;
@@ -575,7 +596,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
 
   Future<void> _showDescriptionEditor(String? currentDescription) async {
     final profileCubit = context.read<StudioProfileCubit>();
-    await showModalBottomSheet<void>(
+    await showStudioModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -605,6 +626,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       platform: platform,
       initialValue: currentUrl,
       allowRemoval: true,
+      routeBoundary: studioRouteBoundary,
     );
     if (!mounted ||
         normalizedUrl == null ||
@@ -643,7 +665,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       return;
     }
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+      studioPageRoute<void>(
         builder: (_) => StudioManagementPanelScreen(profile: profile),
       ),
     );
@@ -657,6 +679,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       context,
       settingsTileKey: const Key('studio-account-settings'),
       profileContactTileKey: const Key('studio-profile-contact-editor'),
+      routeBoundary: studioRouteBoundary,
       onSettings: () async {
         await Navigator.of(context).pushNamed(AppRoutes.settings);
         if (!context.mounted) return;

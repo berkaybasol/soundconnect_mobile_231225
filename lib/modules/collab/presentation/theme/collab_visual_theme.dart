@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/backstage_palette.dart';
+import '../collab_access_gate.dart';
 
 /// Compatibility facade for Collab's intentionally deeper visual hierarchy.
 ///
@@ -151,9 +152,13 @@ class CollabThemeScope extends StatelessWidget {
 Route<T> collabPageRoute<T>({
   required WidgetBuilder builder,
   RouteSettings? settings,
+  BuildContext? context,
 }) {
+  final identity = collabAccessIdentityFor(context);
   return MaterialPageRoute<T>(
     settings: settings,
-    builder: (context) => CollabThemeScope(child: builder(context)),
+    builder: (context) => CollabThemeScope(
+      child: CollabAccessGate(builder: builder, expectedIdentity: identity),
+    ),
   );
 }

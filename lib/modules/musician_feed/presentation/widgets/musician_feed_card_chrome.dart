@@ -758,6 +758,8 @@ String? musicianFeedReasonLabel(
     'CITY_MATCH' =>
       audience == BackstageFeedAudience.venue
           ? 'Mekânınla aynı şehirde'
+          : audience == BackstageFeedAudience.studio
+          ? 'Stüdyonla aynı şehirde'
           : audience == BackstageFeedAudience.listener
           ? 'Senin şehrinde'
           : 'Fırsat görmek istediğin şehirde',

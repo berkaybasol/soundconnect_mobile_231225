@@ -255,6 +255,22 @@ void main() {
     },
   );
 
+  testWidgets('studio restriction with no profile ID opens its explanation', (
+    tester,
+  ) async {
+    final repo = _Repository()
+      ..responses.add(() async => _page([_user('leyla')]));
+    final resolver = _Resolver()
+      ..targets = const [DmProfileTarget.studioRestricted()];
+    final routes = <RouteSettings>[];
+    await _mount(tester, repo, resolver: resolver, routes: routes);
+    await tester.tap(find.text('leyla'));
+    await tester.pumpAndSettle();
+    expect(routes.single.name, AppRoutes.studioListenerInfo);
+    expect((routes.single.arguments as PublicProfileArgs).profileId, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('multiple resolved profiles offer a chooser and correct route', (
     tester,
   ) async {

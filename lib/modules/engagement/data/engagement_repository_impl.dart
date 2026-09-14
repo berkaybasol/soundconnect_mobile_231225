@@ -185,6 +185,24 @@ class EngagementRepositoryImpl implements EngagementRepository {
   );
 
   @override
+  Future<Result<int>> getCommentCount({
+    required String targetType,
+    required String targetId,
+  }) => _commentRequest(
+    ApiHttpMethod.get,
+    () => EngagementEndpoints.commentCount(targetType, targetId),
+    decoder: _count,
+    validate: () {
+      _validateLikeTarget(targetType, targetId);
+      if (targetType == 'COMMENT') {
+        throw const FormatException('Replies belong to their content target');
+      }
+    },
+    errorCode: 'engagement_comment_count_unknown',
+    errorMessage: 'Yorum sayısı getirilemedi.',
+  );
+
+  @override
   Future<Result<bool>> isLiked({
     required String targetType,
     required String targetId,

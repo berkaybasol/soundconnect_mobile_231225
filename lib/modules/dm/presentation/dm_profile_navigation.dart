@@ -19,6 +19,12 @@ String ownerProfileRouteFor(DmProfileTargetType type) => switch (type) {
 
 /// Returns the public profile surface for a resolved DM target.
 DmProfileRoute? dmProfileRouteFor(DmProfileTarget target) {
+  if (target.isStudioRestricted) {
+    return const DmProfileRoute(
+      routeName: AppRoutes.studioListenerInfo,
+      arguments: PublicProfileArgs(),
+    );
+  }
   final routeName = switch (target.type) {
     DmProfileTargetType.musician => AppRoutes.musicianPublicProfile,
     DmProfileTargetType.venue => AppRoutes.venuePublicProfile,

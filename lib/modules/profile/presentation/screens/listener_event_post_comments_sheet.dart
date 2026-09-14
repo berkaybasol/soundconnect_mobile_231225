@@ -502,6 +502,20 @@ class _PublicationCommentsRepository implements EngagementRepository {
         );
 
   @override
+  Future<Result<int>> getCommentCount({
+    required String targetType,
+    required String targetId,
+  }) => !_scope(targetType, targetId)
+      ? Future.value(Result.failure(_wrongScope))
+      : _guard(
+          () => delegate.getCommentCount(
+            targetType: targetType,
+            targetId: targetId,
+          ),
+          publicationScoped: true,
+        );
+
+  @override
   Future<Result<bool>> isLiked({
     required String targetType,
     required String targetId,

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
@@ -17,7 +19,7 @@ import '../widgets/collab_discovery_widgets.dart';
 import '../widgets/collab_management_widgets.dart';
 import 'collab_listing_detail_screen.dart';
 
-class CollabSavedListingsScreen extends StatefulWidget {
+class CollabSavedListingsScreen extends StatelessWidget {
   const CollabSavedListingsScreen({
     this.showBottomNavigation = true,
     this.cubit,
@@ -28,11 +30,30 @@ class CollabSavedListingsScreen extends StatefulWidget {
   final CollabSavedListingsCubit? cubit;
 
   @override
-  State<CollabSavedListingsScreen> createState() =>
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabSavedListingsScreenContent(
+      showBottomNavigation: showBottomNavigation,
+      cubit: cubit,
+    ),
+  );
+}
+
+class _CollabSavedListingsScreenContent extends StatefulWidget {
+  const _CollabSavedListingsScreenContent({
+    this.showBottomNavigation = true,
+    this.cubit,
+  });
+
+  final bool showBottomNavigation;
+  final CollabSavedListingsCubit? cubit;
+
+  @override
+  State<_CollabSavedListingsScreenContent> createState() =>
       _CollabSavedListingsScreenState();
 }
 
-class _CollabSavedListingsScreenState extends State<CollabSavedListingsScreen> {
+class _CollabSavedListingsScreenState
+    extends State<_CollabSavedListingsScreenContent> {
   late final CollabSavedListingsCubit _cubit;
   late final bool _ownsCubit;
   late final ScrollController _scrollController;
@@ -172,6 +193,7 @@ class _CollabSavedListingsScreenState extends State<CollabSavedListingsScreen> {
   Future<void> _openDetail(CollabListing listing) async {
     await Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabListingDetailScreen(
           listingId: listing.id,
           showBottomNavigation: widget.showBottomNavigation,

@@ -294,7 +294,6 @@ void _selfProfileNavigationTests(_MusicianRepository Function() repository) {
     });
 
     for (final viewer in <String, AuthSession>{
-      'guest': const AuthSession.guest(),
       'listener': _detailSession(roles: const ['ROLE_LISTENER']),
       'inactive musician': _detailSession(status: 'SUSPENDED'),
     }.entries) {

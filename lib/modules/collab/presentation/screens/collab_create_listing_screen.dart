@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
@@ -54,7 +56,7 @@ String _formatFeeAmountMinor(int amountMinor) {
   return '$major,${minor.toString().padLeft(2, '0')}';
 }
 
-class CollabCreateListingScreen extends StatefulWidget {
+class CollabCreateListingScreen extends StatelessWidget {
   const CollabCreateListingScreen({
     this.initialListing,
     this.showBottomNavigation = true,
@@ -71,11 +73,39 @@ class CollabCreateListingScreen extends StatefulWidget {
   final InstrumentRepository? instrumentRepository;
 
   @override
-  State<CollabCreateListingScreen> createState() =>
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabCreateListingScreenContent(
+      initialListing: initialListing,
+      showBottomNavigation: showBottomNavigation,
+      cubit: cubit,
+      locationRepository: locationRepository,
+      instrumentRepository: instrumentRepository,
+    ),
+  );
+}
+
+class _CollabCreateListingScreenContent extends StatefulWidget {
+  const _CollabCreateListingScreenContent({
+    this.initialListing,
+    this.showBottomNavigation = true,
+    this.cubit,
+    this.locationRepository,
+    this.instrumentRepository,
+  });
+
+  final CollabListing? initialListing;
+  final bool showBottomNavigation;
+  final CollabListingEditorCubit? cubit;
+  final LocationRepository? locationRepository;
+  final InstrumentRepository? instrumentRepository;
+
+  @override
+  State<_CollabCreateListingScreenContent> createState() =>
       _CollabCreateListingScreenState();
 }
 
-class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
+class _CollabCreateListingScreenState
+    extends State<_CollabCreateListingScreenContent> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
@@ -391,7 +421,7 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
 
   Future<bool> _confirmDiscardIfNeeded() async {
     if (!_cubit.state.isDirty) return true;
-    final discard = await showDialog<bool>(
+    final discard = await showCollabDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Değişiklikler silinsin mi?'),
@@ -418,7 +448,7 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
     if (_conflictDialogOpen || !mounted) return;
     _conflictDialogOpen = true;
     try {
-      final loadLatest = await showDialog<bool>(
+      final loadLatest = await showCollabDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) => PopScope<void>(
@@ -632,7 +662,7 @@ class _CollabCreateListingScreenState extends State<CollabCreateListingScreen> {
     final state = _cubit.state;
     final choices = _publisherChoices(state);
     if (choices.length < 2) return;
-    final profile = await showModalBottomSheet<CollabActor>(
+    final profile = await showCollabModalBottomSheet<CollabActor>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
@@ -1324,7 +1354,7 @@ class _ListingInformationStep extends StatelessWidget {
     BuildContext context,
     List<_CreateSpecialtyOption> options,
     _CreateSpecialtyOption? selected,
-  ) => showModalBottomSheet<_CreateSpecialtyOption>(
+  ) => showCollabModalBottomSheet<_CreateSpecialtyOption>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,

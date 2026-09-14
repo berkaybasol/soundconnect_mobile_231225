@@ -415,7 +415,7 @@ void main() {
   });
 
   test(
-    'listener routing rejects studio and collab but allows feed and mute management',
+    'listener routing explains studios, rejects collab and allows feed management',
     () {
       final session = audienceSession();
       for (final route in [
@@ -426,7 +426,9 @@ void main() {
       ]) {
         expect(
           AppRouteGuard.redirectFor(route, session),
-          AppRoutes.listenerProfile,
+          route == AppRoutes.collabDiscovery
+              ? AppRoutes.listenerProfile
+              : AppRoutes.studioListenerInfo,
         );
       }
       expect(

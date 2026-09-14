@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
@@ -28,7 +30,7 @@ import 'collab_listing_detail_screen.dart';
 
 enum CollabApplicationsSection { applications, jobs }
 
-class CollabMyApplicationsScreen extends StatefulWidget {
+class CollabMyApplicationsScreen extends StatelessWidget {
   const CollabMyApplicationsScreen({
     this.showBottomNavigation = true,
     this.applicationsCubit,
@@ -51,12 +53,48 @@ class CollabMyApplicationsScreen extends StatefulWidget {
   final String? initialAction;
 
   @override
-  State<CollabMyApplicationsScreen> createState() =>
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabMyApplicationsScreenContent(
+      showBottomNavigation: showBottomNavigation,
+      applicationsCubit: applicationsCubit,
+      jobsCubit: jobsCubit,
+      initialSection: initialSection,
+      initialApplicationId: initialApplicationId,
+      initialJobId: initialJobId,
+      initialReviewId: initialReviewId,
+      initialAction: initialAction,
+    ),
+  );
+}
+
+class _CollabMyApplicationsScreenContent extends StatefulWidget {
+  const _CollabMyApplicationsScreenContent({
+    this.showBottomNavigation = true,
+    this.applicationsCubit,
+    this.jobsCubit,
+    this.initialSection = CollabApplicationsSection.applications,
+    this.initialApplicationId,
+    this.initialJobId,
+    this.initialReviewId,
+    this.initialAction,
+  });
+
+  final bool showBottomNavigation;
+  final CollabMyApplicationsCubit? applicationsCubit;
+  final CollabJobsCubit? jobsCubit;
+  final CollabApplicationsSection initialSection;
+  final String? initialApplicationId;
+  final String? initialJobId;
+  final String? initialReviewId;
+  final String? initialAction;
+
+  @override
+  State<_CollabMyApplicationsScreenContent> createState() =>
       _CollabMyApplicationsScreenState();
 }
 
 class _CollabMyApplicationsScreenState
-    extends State<CollabMyApplicationsScreen> {
+    extends State<_CollabMyApplicationsScreenContent> {
   late final CollabMyApplicationsCubit _applicationsCubit;
   late final CollabJobsCubit _jobsCubit;
   late final bool _ownsApplicationsCubit;
@@ -513,6 +551,7 @@ class _CollabMyApplicationsScreenState
           unawaited(
             Navigator.of(context).push<void>(
               collabPageRoute(
+                context: context,
                 builder: (_) => CollabActorReviewsScreen(
                   actor: reviewedActor,
                   initialReviewId: widget.initialReviewId,
@@ -600,6 +639,7 @@ class _CollabMyApplicationsScreenState
   Future<void> _openDetail(String listingId) async {
     await Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabListingDetailScreen(
           listingId: listingId,
           showBottomNavigation: widget.showBottomNavigation,
@@ -612,7 +652,7 @@ class _CollabMyApplicationsScreenState
   }
 
   Future<void> _confirmWithdraw(CollabApplication application) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showCollabDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Başvuruyu geri çek'),
@@ -637,7 +677,7 @@ class _CollabMyApplicationsScreenState
   }
 
   Future<void> _confirmCompletion(CollabJob job) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showCollabDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('İş tamamlandı mı?'),
@@ -663,7 +703,7 @@ class _CollabMyApplicationsScreenState
   }
 
   Future<void> _openReview(CollabJob job) async {
-    final input = await showModalBottomSheet<CollabReviewInput>(
+    final input = await showCollabModalBottomSheet<CollabReviewInput>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,

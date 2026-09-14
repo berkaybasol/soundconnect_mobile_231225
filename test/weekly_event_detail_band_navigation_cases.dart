@@ -65,7 +65,6 @@ void _bandProfileNavigationTests(_BandRepository Function() repository) {
     }
 
     for (final viewer in <String, AuthSession>{
-      'guest': const AuthSession.guest(),
       'listener': _detailSession(roles: const ['ROLE_LISTENER']),
       'venue': _detailSession(roles: const ['ROLE_VENUE']),
       'inactive musician': _detailSession(status: 'SUSPENDED'),

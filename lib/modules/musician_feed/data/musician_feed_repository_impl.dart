@@ -136,6 +136,7 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
         code == 'endpoint_not_found' ||
         code == 'musician_feed_disabled' ||
         code == 'venue_feed_disabled' ||
+        code == 'studio_feed_disabled' ||
         code == 'listener_feed_disabled';
   }
 
@@ -144,6 +145,7 @@ class MusicianFeedRepositoryImpl implements MusicianFeedRepository {
     return code == '1318' ||
         code == 'musician_feed_cursor_invalid' ||
         code == 'venue_feed_cursor_invalid' ||
+        code == 'studio_feed_cursor_invalid' ||
         code == 'listener_feed_cursor_invalid';
   }
 

@@ -87,7 +87,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       endOptions.add(index + 1);
     }
     if (endOptions.isEmpty || !mounted) return;
-    final endIndex = await showModalBottomSheet<int>(
+    final endIndex = await showStudioModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -127,7 +127,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
 
   Future<void> _removeManualBusyRange(_StudioManualBusyRange range) async {
     if (_calendarMutationInFlight) return;
-    final shouldRemove = await showDialog<bool>(
+    final shouldRemove = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),
@@ -172,7 +172,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     _StudioOwnerReservation reservation,
   ) async {
     final profileTarget = _resolveReservationGuestProfileTarget(reservation);
-    await showModalBottomSheet<void>(
+    await showStudioModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -235,7 +235,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       await _loadCalendarData(showLoading: false);
       return;
     }
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),
@@ -294,7 +294,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       await _loadCalendarData(showLoading: false);
       return;
     }
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),
@@ -346,7 +346,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
   }
 
   Future<void> _showReservationDetails(_StudioOwnerReservation reservation) {
-    return showDialog<void>(
+    return showStudioDialog<void>(
       context: context,
       builder: (_) => _StudioReservationDetailsDialog(
         reservation: reservation,
@@ -417,7 +417,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
             onSurface: Colors.white,
           ),
         ),
-        child: child!,
+        child: StudioListenerAccessGate(builder: (_) => child!),
       ),
     );
     if (date == null || !mounted) return;
@@ -506,7 +506,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       reservation.localEndTime,
       reservation.endsAt,
     );
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),
@@ -631,7 +631,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
   Future<void> _confirmReservation() async {
     final time = _selectedTime;
     if (time == null || !_canUseDuration(_durationHours)) return;
-    final contactPhone = await showDialog<String>(
+    final contactPhone = await showStudioDialog<String>(
       context: context,
       builder: (_) => _StudioReservationConfirmDialog(
         roomName: _room.name,

@@ -13,6 +13,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/event_poster_fallback.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../../shared/widgets/guest_access_sheet.dart';
 import '../../../auth/presentation/widgets/registration_options_sheet.dart';
 import '../../../analytics/presentation/widgets/analytics_tracking.dart';
 import '../../../analytics/data/analytics_tracker.dart';

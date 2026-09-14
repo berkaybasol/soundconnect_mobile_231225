@@ -413,8 +413,7 @@ class _StudioBacklineInventoryScreenState
     if (!mounted) return;
     if (!result.isSuccess || result.data == null) {
       setState(() {
-        _summaryError =
-            result.error?.message ?? 'Envanter özeti yüklenemedi.';
+        _summaryError = result.error?.message ?? 'Envanter özeti yüklenemedi.';
       });
       return;
     }
@@ -515,7 +514,7 @@ class _StudioBacklineInventoryScreenState
 
   Future<void> _selectCategory() async {
     final selected = await Navigator.of(context).push<String>(
-      MaterialPageRoute<String>(
+      studioPageRoute<String>(
         builder: (_) => const _BacklineCategoriesScreen(
           allSelectionValue: _allCategoriesFilterValue,
         ),
@@ -572,7 +571,7 @@ class _StudioBacklineInventoryScreenState
     required T currentValue,
     required List<_BacklineInventoryFilterOption<T>> options,
   }) {
-    return showModalBottomSheet<T>(
+    return showStudioModalBottomSheet<T>(
       context: context,
       backgroundColor: const Color(0xFF0B1321),
       shape: const RoundedRectangleBorder(
@@ -618,7 +617,7 @@ class _StudioBacklineInventoryScreenState
   }
 
   Future<void> _showAddEquipmentInfo() async {
-    final item = await showModalBottomSheet<_StudioBacklineInventoryItem>(
+    final item = await showStudioModalBottomSheet<_StudioBacklineInventoryItem>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -647,7 +646,7 @@ class _StudioBacklineInventoryScreenState
   Future<void> _manageEquipment(_StudioBacklineInventoryItem item) async {
     final result = await Navigator.of(context)
         .push<_BacklineInventoryItemManagementResult>(
-          MaterialPageRoute<_BacklineInventoryItemManagementResult>(
+          studioPageRoute<_BacklineInventoryItemManagementResult>(
             builder: (_) => _BacklineInventoryItemManagementScreen(
               item: item,
               studioProfileId: widget.studioProfileId,

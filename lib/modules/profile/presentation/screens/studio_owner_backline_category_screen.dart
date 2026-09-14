@@ -146,7 +146,9 @@ class _StudioBacklineCategoryManagementScreenState
     CreateBacklineCategoryRequestCommand? command;
     try {
       command =
-          await showModalBottomSheet<CreateBacklineCategoryRequestCommand>(
+          await showStudioModalBottomSheet<
+            CreateBacklineCategoryRequestCommand
+          >(
             context: context,
             isScrollControlled: true,
             useSafeArea: true,
@@ -161,7 +163,7 @@ class _StudioBacklineCategoryManagementScreenState
     if (!mounted || submitted == null) return;
     await _loadRequests(0, preserveItems: true);
     if (!mounted) return;
-    await showDialog<void>(
+    await showStudioDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF101722),
@@ -212,7 +214,7 @@ class _StudioBacklineCategoryManagementScreenState
       if (!mounted) return null;
       setState(() => _isSubmitting = false);
       if (result.isSuccess && result.data != null) return result.data;
-      final retry = await showDialog<bool>(
+      final retry = await showStudioDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Talep gönderilemedi'),
@@ -303,7 +305,7 @@ class _StudioBacklineCategoryManagementScreenState
     _withdrawDialogOpen = true;
     bool? confirmed;
     try {
-      confirmed = await showDialog<bool>(
+      confirmed = await showStudioDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Talep geri çekilsin mi?'),

@@ -42,6 +42,18 @@ abstract class EngagementRepository {
     required String targetId,
   });
 
+  /// Total active root comments and replies, not the root-page totalElements.
+  /// Older adapters may leave the last known count intact until upgraded.
+  Future<Result<int>> getCommentCount({
+    required String targetType,
+    required String targetId,
+  }) async => const Result.failure(
+    AppError(
+      code: 'engagement_comment_count_unavailable',
+      message: 'Yorum sayısı getirilemedi.',
+    ),
+  );
+
   Future<Result<bool>> isLiked({
     required String targetType,
     required String targetId,

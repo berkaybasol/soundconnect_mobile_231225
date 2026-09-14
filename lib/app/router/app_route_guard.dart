@@ -84,8 +84,10 @@ class AppRouteGuard {
           AppRoutes.studioProfile,
           AppRoutes.studioPublicProfile,
           AppRoutes.studioReservationCalendar,
-          AppRoutes.collabDiscovery,
         }.contains(requested)) {
+      return AppRoutes.studioListenerInfo;
+    }
+    if (isListener && requested == AppRoutes.collabDiscovery) {
       return startRouteFor(session);
     }
     if (requested == AppRoutes.listenerFeed &&

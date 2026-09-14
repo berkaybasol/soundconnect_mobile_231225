@@ -164,7 +164,7 @@ class _StudioRoomsPanelState extends State<_StudioRoomsPanel> {
       );
       return;
     }
-    final room = await showModalBottomSheet<_StudioRoomItem>(
+    final room = await showStudioModalBottomSheet<_StudioRoomItem>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -390,7 +390,7 @@ class _StudioRoomCard extends StatelessWidget {
 
   void _openRoom(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      studioPageRoute<void>(
         builder: (_) => _StudioRoomDetailScreen(
           room: room,
           studioProfileId: profileId,
@@ -402,7 +402,7 @@ class _StudioRoomCard extends StatelessWidget {
 
   Future<void> _openSettings(BuildContext context) async {
     final result = await Navigator.of(context).push<_StudioRoomSettingsResult>(
-      MaterialPageRoute<_StudioRoomSettingsResult>(
+      studioPageRoute<_StudioRoomSettingsResult>(
         builder: (_) =>
             _StudioRoomSettingsScreen(room: room, studioProfileId: profileId),
       ),

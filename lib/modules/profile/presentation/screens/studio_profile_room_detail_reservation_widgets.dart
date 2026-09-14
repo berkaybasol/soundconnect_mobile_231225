@@ -129,7 +129,7 @@ class _StudioOwnerReservationTimeline extends StatelessWidget {
       onReservationTap(matchingReservations.first);
       return;
     }
-    final selected = await showModalBottomSheet<_StudioOwnerReservation>(
+    final selected = await showStudioModalBottomSheet<_StudioOwnerReservation>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,

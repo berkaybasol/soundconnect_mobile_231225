@@ -147,19 +147,20 @@ class _BacklineAvailabilityManagementScreenState
   }
 
   Future<void> _selectEquipment() async {
-    final selected = await showModalBottomSheet<_StudioBacklineInventoryItem>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: const Color(0xFF0B1321),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => _BacklineAvailabilityEquipmentPicker(
-        repository: _repository,
-        selected: _selectedEquipment,
-      ),
-    );
+    final selected =
+        await showStudioModalBottomSheet<_StudioBacklineInventoryItem>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: const Color(0xFF0B1321),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (_) => _BacklineAvailabilityEquipmentPicker(
+            repository: _repository,
+            selected: _selectedEquipment,
+          ),
+        );
     if (!mounted || selected == null || selected == _selectedEquipment) return;
     setState(() => _selectedEquipment = selected);
   }
@@ -616,19 +617,20 @@ class _BacklineDateAvailabilityCalendarState
 
   Future<void> _editDateRange(DateTime startDate, DateTime endDate) async {
     final rangeStats = _rangeStats(startDate, endDate);
-    final result = await showModalBottomSheet<_BacklineAvailabilityRangeUpdate>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _BacklineAvailabilityRangeSheet(
-        equipmentName: widget.equipmentName,
-        total: widget.total,
-        startDate: startDate,
-        endDate: endDate,
-        stats: rangeStats,
-      ),
-    );
+    final result =
+        await showStudioModalBottomSheet<_BacklineAvailabilityRangeUpdate>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _BacklineAvailabilityRangeSheet(
+            equipmentName: widget.equipmentName,
+            total: widget.total,
+            startDate: startDate,
+            endDate: endDate,
+            stats: rangeStats,
+          ),
+        );
     if (!mounted) return;
     if (result == null) {
       setState(() {
@@ -639,7 +641,7 @@ class _BacklineDateAvailabilityCalendarState
     }
     final dayCount = studioCivilRangeLength(startDate, endDate);
     if (dayCount >= 30) {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await showStudioDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Uzun tarih aralığı'),
@@ -707,7 +709,7 @@ class _BacklineDateAvailabilityCalendarState
         await _loadVisibleMonth();
         return;
       }
-      final retry = await showDialog<bool>(
+      final retry = await showStudioDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Takvim güncellenemedi'),
@@ -876,7 +878,7 @@ class _BacklineDateAvailabilityCalendarState
             backgroundColor: Color(0xFF101722),
           ),
         ),
-        child: child!,
+        child: StudioListenerAccessGate(builder: (_) => child!),
       ),
     );
     if (!mounted || picked == null) return;

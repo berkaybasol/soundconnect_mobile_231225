@@ -95,6 +95,7 @@ void _detailAnalyticsTests(
     testWidgets('verified detail carries source through the venue route', (
       tester,
     ) async {
+      _registerCommentMember();
       details().result = Result.success(_analyticsDetail());
       final routes = <RouteSettings>[];
       await _openDetail(

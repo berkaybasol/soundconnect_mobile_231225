@@ -204,7 +204,7 @@ class _LikeUsersSheetState extends State<LikeUsersSheet> {
       final seen = <String>{};
       final targets = resolved
           .where((target) {
-            return target.id.trim().isNotEmpty &&
+            return (target.isStudioRestricted || target.id.trim().isNotEmpty) &&
                 seen.add('${target.type.name}:${target.id.trim()}');
           })
           .toList(growable: false);

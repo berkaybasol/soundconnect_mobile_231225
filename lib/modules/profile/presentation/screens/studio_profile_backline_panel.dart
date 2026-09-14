@@ -398,7 +398,7 @@ class _BacklineFilters extends StatelessWidget {
             trailingIcon: Icons.chevron_right,
             onTap: () async {
               final selected = await Navigator.of(context).push<String>(
-                MaterialPageRoute(
+                studioPageRoute(
                   builder: (_) => const _BacklineCategoriesScreen(),
                 ),
               );
@@ -637,7 +637,7 @@ class _BacklineItemCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       onTap: () async {
         await Navigator.of(context).push<void>(
-          MaterialPageRoute<void>(
+          studioPageRoute<void>(
             builder: (_) => _BacklineItemDetailScreen(
               item: item,
               ownerMode: ownerMode,

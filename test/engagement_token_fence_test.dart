@@ -12,6 +12,63 @@ import 'package:soundconnect_23_12_25codx/modules/engagement/data/engagement_rep
 import 'support/event_audience_fakes.dart';
 
 void main() {
+  for (final target in ['MEDIA', 'ANNOUNCEMENT']) {
+    for (final replaceSession in [true, false]) {
+      test(
+        '$target comment total ${replaceSession ? 'rejects relogin before dispatch' : 'retains its authenticated token'}',
+        () async {
+          final oldToken = _jwt('old');
+          final newToken = _jwt('new');
+          final sessions = AudienceTestSessions(
+            audienceSession(user: 'author', token: oldToken),
+          );
+          final tokens = _BlockedTokens();
+          final adapter = _RecordingAdapter();
+          final dio = Dio(BaseOptions(baseUrl: 'https://soundconnect.test'))
+            ..httpClientAdapter = adapter;
+          addTearDown(() {
+            dio.close(force: true);
+            sessions.dispose();
+          });
+          final repository = EngagementRepositoryImpl(
+            DioApiClient(
+              dio: dio,
+              tokenStore: tokens,
+              sessionManager: sessions,
+            ),
+            sessions: sessions,
+          );
+          final pending = repository.getCommentCount(
+            targetType: target,
+            targetId: 'post',
+          );
+          await tokens.started.future;
+          if (replaceSession) {
+            sessions.replace(const AuthSession.guest());
+            sessions.replace(audienceSession(user: 'author', token: newToken));
+          }
+          tokens.release.complete(replaceSession ? newToken : oldToken);
+          final result = await pending;
+          if (replaceSession) {
+            expect(result.error?.code, 'engagement_comment_session_changed');
+            expect(adapter.requests, isEmpty);
+          } else {
+            expect(result.data, 5);
+            expect(adapter.requests, hasLength(1));
+            expect(adapter.requests.single.method, 'GET');
+            expect(
+              adapter.requests.single.path,
+              '/api/v1/comments/$target/post/count',
+            );
+            expect(
+              adapter.requests.single.headers['Authorization'],
+              'Bearer $oldToken',
+            );
+          }
+        },
+      );
+    }
+  }
   for (final target in ['OVERTHINKING', 'OVERTHINKING_PROFILE_SHARE']) {
     for (final liked in [true, false]) {
       final action = liked ? 'like' : 'unlike';
@@ -107,7 +164,11 @@ class _RecordingAdapter implements HttpClientAdapter {
   ) async {
     requests.add(options);
     return ResponseBody.fromString(
-      jsonEncode({'success': true, 'code': 200, 'data': null}),
+      jsonEncode({
+        'success': true,
+        'code': 200,
+        'data': options.path.startsWith('/api/v1/comments/') ? 5 : null,
+      }),
       200,
       headers: {
         Headers.contentTypeHeader: ['application/json'],

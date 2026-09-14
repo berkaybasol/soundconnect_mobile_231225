@@ -40,6 +40,7 @@ import '../../modules/profile/presentation/navigation/profile_route_resolver.dar
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/studio_profile_screen.dart';
+import '../../modules/profile/presentation/screens/studio_listener_info_screen.dart';
 import '../../modules/overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_create_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_list_screen.dart';
@@ -79,6 +80,11 @@ class AppRouter {
     }
 
     switch (settings.name) {
+      case AppRoutes.studioListenerInfo:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const StudioListenerInfoScreen(),
+        );
       case AppRoutes.announcements:
       case AppRoutes.adminAnnouncements:
         return MaterialPageRoute(

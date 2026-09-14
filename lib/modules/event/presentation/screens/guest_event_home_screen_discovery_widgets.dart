@@ -756,48 +756,8 @@ class _DiscoveryEventTile extends StatelessWidget {
 }
 
 Future<void> _openDiscoveryTableGate(BuildContext context) =>
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: AppColors.navBlueDeep,
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Masalar',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Masaları görmek veya masa açmak için giriş yap.',
-                style: TextStyle(color: AppColors.textMuted, height: 1.5),
-              ),
-              const SizedBox(height: 22),
-              _GradientActionButton(
-                label: 'Giriş yap',
-                backgroundColor: AppColors.navBlueDeep,
-                onPressed: () {
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushNamed(AppRoutes.login);
-                },
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushNamed(AppRoutes.register);
-                },
-                child: const Text('Üye ol'),
-              ),
-            ],
-          ),
-        ),
-      ),
+    showGuestAccessSheet(
+      context,
+      title: 'Masalar',
+      message: 'Masaları görmek veya masa açmak için giriş yap.',
     );

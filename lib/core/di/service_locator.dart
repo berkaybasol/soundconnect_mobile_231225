@@ -298,6 +298,7 @@ void setupDependencies() {
         serviceLocator<NotificationRepository>(),
         serviceLocator<TokenStore>(),
         realtimeClient: serviceLocator<NotificationRealtimeClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
       ),
     )
     ..registerLazySingleton<MusicianProfileRepository>(
@@ -672,7 +673,10 @@ void setupDependencies() {
       () => DmRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<DmUserProfileResolver>(
-      () => DmUserProfileResolverImpl(apiClient: serviceLocator<ApiClient>()),
+      () => DmUserProfileResolverImpl(
+        apiClient: serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<DmRealtimeClient>(() => DmRealtimeClient())
     ..registerLazySingleton<DmBadgeCubit>(

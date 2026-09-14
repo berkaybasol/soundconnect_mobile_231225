@@ -134,7 +134,7 @@ Future<void> openOverthinkingUserProfile(
     if (!context.mounted || !current()) return;
     final targets = <String, DmProfileTarget>{
       for (final target in resolved)
-        if (target.id.trim().isNotEmpty)
+        if (target.isStudioRestricted || target.id.trim().isNotEmpty)
           '${target.type.name}:${target.id.trim()}': target,
     }.values.toList(growable: false);
     if (targets.isEmpty) {

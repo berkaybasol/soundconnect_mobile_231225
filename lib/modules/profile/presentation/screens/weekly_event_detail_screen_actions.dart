@@ -231,6 +231,19 @@ extension _WeeklyEventDetailScreenStateActions
     }
   }
 
+  bool _allowProfileNavigation() {
+    final session = serviceLocator.isRegistered<AuthSessionManager>()
+        ? serviceLocator<AuthSessionManager>().session
+        : null;
+    if (session?.isAuthenticated == true) return true;
+    showGuestAccessSheet(
+      context,
+      title: 'Profiller',
+      message: 'Profilleri görüntülemek için giriş yap veya üye ol.',
+    );
+    return false;
+  }
+
   Future<void> _openArtistProfile() async {
     if (!mounted ||
         _isOpeningArtistProfile ||
@@ -238,6 +251,7 @@ extension _WeeklyEventDetailScreenStateActions
         !widget.event.hasLinkedPerformerProfile) {
       return;
     }
+    if (!_allowProfileNavigation()) return;
     final event = widget.event;
     final bandId = event.linkedBandProfileId;
     final profileId = event.linkedArtistProfileId;
@@ -346,6 +360,7 @@ extension _WeeklyEventDetailScreenStateActions
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     final venueId = widget.event.venueId?.trim();
     if (venueId == null || venueId.isEmpty) return;
+    if (!_allowProfileNavigation()) return;
     // A tap on the verified, current detail is also an actual page visit. Queue
     // it before navigation so a very quick profile tap retains attribution.
     if (_analyticsEventVerified &&

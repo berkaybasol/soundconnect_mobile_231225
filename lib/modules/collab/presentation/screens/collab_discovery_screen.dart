@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
@@ -30,7 +32,7 @@ import 'collab_my_applications_screen.dart';
 import 'collab_my_listings_screen.dart';
 import 'collab_saved_listings_screen.dart';
 
-class CollabDiscoveryScreen extends StatefulWidget {
+class CollabDiscoveryScreen extends StatelessWidget {
   const CollabDiscoveryScreen({
     this.showBottomNavigation = true,
     this.initialListingId,
@@ -49,10 +51,41 @@ class CollabDiscoveryScreen extends StatefulWidget {
   final InstrumentRepository? instrumentRepository;
 
   @override
-  State<CollabDiscoveryScreen> createState() => _CollabDiscoveryScreenState();
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabDiscoveryScreenContent(
+      showBottomNavigation: showBottomNavigation,
+      initialListingId: initialListingId,
+      initialRouteArgs: initialRouteArgs,
+      cubit: cubit,
+      locationRepository: locationRepository,
+      instrumentRepository: instrumentRepository,
+    ),
+  );
 }
 
-class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
+class _CollabDiscoveryScreenContent extends StatefulWidget {
+  const _CollabDiscoveryScreenContent({
+    this.showBottomNavigation = true,
+    this.initialListingId,
+    this.initialRouteArgs,
+    this.cubit,
+    this.locationRepository,
+    this.instrumentRepository,
+  });
+
+  final bool showBottomNavigation;
+  final String? initialListingId;
+  final CollabDiscoveryRouteArgs? initialRouteArgs;
+  final CollabDiscoveryCubit? cubit;
+  final LocationRepository? locationRepository;
+  final InstrumentRepository? instrumentRepository;
+
+  @override
+  State<_CollabDiscoveryScreenContent> createState() =>
+      _CollabDiscoveryScreenState();
+}
+
+class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final CollabDiscoveryCubit _cubit;
@@ -83,7 +116,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   }
 
   @override
-  void didUpdateWidget(covariant CollabDiscoveryScreen oldWidget) {
+  void didUpdateWidget(covariant _CollabDiscoveryScreenContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_routeArgsFor(oldWidget).signature != _routeArgsFor(widget).signature) {
       _scheduleInitialDetail();
@@ -101,7 +134,9 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     });
   }
 
-  CollabDiscoveryRouteArgs _routeArgsFor(CollabDiscoveryScreen screen) =>
+  CollabDiscoveryRouteArgs _routeArgsFor(
+    _CollabDiscoveryScreenContent screen,
+  ) =>
       screen.initialRouteArgs ??
       CollabDiscoveryRouteArgs(initialListingId: screen.initialListingId);
 
@@ -118,6 +153,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
         if (listingId != null) {
           await Navigator.of(context).push<void>(
             collabPageRoute(
+              context: context,
               builder: (_) => CollabIncomingApplicationsScreen(
                 listingId: listingId,
                 initialApplicationId: args.applicationId,
@@ -617,7 +653,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     required T? selected,
     required String Function(T value) labelFor,
   }) async {
-    final result = await showModalBottomSheet<_QuickSelection<T>>(
+    final result = await showCollabModalBottomSheet<_QuickSelection<T>>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
@@ -637,7 +673,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     required Set<T> selected,
     required String Function(T value) labelFor,
   }) {
-    return showModalBottomSheet<Set<T>>(
+    return showCollabModalBottomSheet<Set<T>>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -684,6 +720,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   Future<void> _openListingId(String listingId) async {
     await Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabListingDetailScreen(
           listingId: listingId,
           showBottomNavigation: widget.showBottomNavigation,
@@ -713,6 +750,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     String? initialAction,
   }) => Navigator.of(context).push<void>(
     collabPageRoute(
+      context: context,
       builder: (_) => CollabMyApplicationsScreen(
         showBottomNavigation: widget.showBottomNavigation,
         initialSection: initialSection,
@@ -727,6 +765,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   void _openMyListings() {
     Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabMyListingsScreen(
           showBottomNavigation: widget.showBottomNavigation,
         ),
@@ -737,6 +776,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   void _openSavedListings() {
     Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabSavedListingsScreen(
           showBottomNavigation: widget.showBottomNavigation,
         ),
@@ -747,6 +787,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   Future<void> _openCreateListing() async {
     final result = await Navigator.of(context).push<CollabCreateListingResult>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabCreateListingScreen(
           showBottomNavigation: widget.showBottomNavigation,
         ),

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,7 +23,7 @@ import '../widgets/collab_discovery_widgets.dart';
 import '../widgets/collab_management_widgets.dart';
 import 'collab_listing_detail_screen.dart';
 
-class CollabIncomingApplicationsScreen extends StatefulWidget {
+class CollabIncomingApplicationsScreen extends StatelessWidget {
   const CollabIncomingApplicationsScreen({
     required this.listingId,
     this.listingTitle,
@@ -38,12 +40,39 @@ class CollabIncomingApplicationsScreen extends StatefulWidget {
   final CollabIncomingApplicationsCubit? cubit;
 
   @override
-  State<CollabIncomingApplicationsScreen> createState() =>
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabIncomingApplicationsScreenContent(
+      listingId: listingId,
+      listingTitle: listingTitle,
+      initialApplicationId: initialApplicationId,
+      showBottomNavigation: showBottomNavigation,
+      cubit: cubit,
+    ),
+  );
+}
+
+class _CollabIncomingApplicationsScreenContent extends StatefulWidget {
+  const _CollabIncomingApplicationsScreenContent({
+    required this.listingId,
+    this.listingTitle,
+    this.initialApplicationId,
+    this.showBottomNavigation = true,
+    this.cubit,
+  });
+
+  final String listingId;
+  final String? listingTitle;
+  final String? initialApplicationId;
+  final bool showBottomNavigation;
+  final CollabIncomingApplicationsCubit? cubit;
+
+  @override
+  State<_CollabIncomingApplicationsScreenContent> createState() =>
       _CollabIncomingApplicationsScreenState();
 }
 
 class _CollabIncomingApplicationsScreenState
-    extends State<CollabIncomingApplicationsScreen> {
+    extends State<_CollabIncomingApplicationsScreenContent> {
   late final CollabIncomingApplicationsCubit _cubit;
   late final bool _ownsCubit;
   late final ScrollController _scrollController;
@@ -62,7 +91,9 @@ class _CollabIncomingApplicationsScreenState
   }
 
   @override
-  void didUpdateWidget(covariant CollabIncomingApplicationsScreen oldWidget) {
+  void didUpdateWidget(
+    covariant _CollabIncomingApplicationsScreenContent oldWidget,
+  ) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.listingId != widget.listingId) {
       unawaited(_cubit.loadForListing(widget.listingId));
@@ -334,7 +365,7 @@ class _CollabIncomingApplicationsScreenState
     CollabApplication application, {
     required bool accept,
   }) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showCollabDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(accept ? 'Başvuruyu kabul et' : 'Başvuruyu reddet'),
@@ -371,6 +402,7 @@ class _CollabIncomingApplicationsScreenState
   Future<void> _openDetail(String listingId) async {
     await Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabListingDetailScreen(
           listingId: listingId,
           showBottomNavigation: widget.showBottomNavigation,

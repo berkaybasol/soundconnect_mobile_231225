@@ -55,7 +55,7 @@ void main() {
         ['ROLE_MUSICIAN', 'ROLE_STUDIO'],
         ['ROLE_VENUE', 'ROLE_PRODUCER'],
         ['ROLE_VENUE', 'ROLE_ORGANIZER'],
-        ['ROLE_STUDIO'],
+        ['ROLE_PRODUCER'],
         ['ROLE_ADMIN'],
       ]) {
         expect(
@@ -187,7 +187,7 @@ void main() {
     'unsupported roles do not send a read or mutation to another feed',
     () async {
       final sessions = AudienceTestSessions(
-        audienceSession(role: 'ROLE_STUDIO'),
+        audienceSession(role: 'ROLE_PRODUCER'),
       );
       addTearDown(sessions.dispose);
       final api = RecordingApiClient((_) => null);
@@ -312,7 +312,7 @@ void main() {
       expect(
         AppRouteGuard.redirectFor(
           AppRoutes.musicianFeedMutedAuthors,
-          audienceSession(role: 'ROLE_STUDIO'),
+          audienceSession(role: 'ROLE_PRODUCER'),
         ),
         AppRoutes.home,
       );

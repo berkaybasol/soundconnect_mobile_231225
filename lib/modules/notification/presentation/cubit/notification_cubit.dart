@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/auth_session.dart';
+import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../data/notification_auth_support.dart';
 import '../../data/notification_realtime_client.dart';
 import '../../domain/entities/app_notification.dart';
+import '../../domain/notification_audience_policy.dart';
 import '../../domain/notification_repository.dart';
 import 'notification_state.dart';
 
@@ -13,14 +16,77 @@ class NotificationCubit extends Cubit<NotificationState> {
   final NotificationRepository _repository;
   final TokenStore _tokenStore;
   final NotificationRealtimeClient _realtimeClient;
+  final AuthSessionManager? _sessions;
+  AuthSession? _observedSession;
+  bool _closing = false;
 
   NotificationCubit(
     this._repository,
     this._tokenStore, {
     NotificationRealtimeClient? realtimeClient,
+    AuthSessionManager? sessions,
   }) : _realtimeClient = realtimeClient ?? NotificationRealtimeClient(),
+       _sessions = sessions,
        super(const NotificationState.initial()) {
     _realtimeClient.retain();
+    _observedSession = _sessions?.session;
+    _sessions?.addListener(_onSessionChanged);
+  }
+
+  bool get _listener =>
+      _sessions?.session.hasAnyRole(const ['LISTENER', 'ROLE_LISTENER']) ==
+      true;
+
+  bool _canShowNotification(AppNotification notification) {
+    final session = _sessions?.session;
+    if (session != null &&
+        (!session.isAuthenticated ||
+            !session.isActive ||
+            session.requiresListenerProfileChoice ||
+            session.userId != notification.recipientId.trim())) {
+      return false;
+    }
+    return !_listener ||
+        NotificationAudiencePolicy.visibleToListener(notification.type);
+  }
+
+  void _onSessionChanged() {
+    final session = _sessions!.session;
+    final previous = _observedSession;
+    _observedSession = session;
+    if (previous?.userId == session.userId &&
+        previous?.token == session.token &&
+        previous?.isActive == session.isActive &&
+        previous?.requiresListenerProfileChoice ==
+            session.requiresListenerProfileChoice &&
+        previous?.roles.join('|') == session.roles.join('|')) {
+      return;
+    }
+    // Clear the old audience synchronously, before socket cancellation or any
+    // pending REST/mutation can complete. stop also fences those callbacks.
+    emit(const NotificationState.initial());
+    unawaited(_restartForSession());
+  }
+
+  Future<void> _restartForSession() async {
+    await stop();
+    if (_closing || isClosed) return;
+    final session = _sessions!.session;
+    if (session.isAuthenticated &&
+        session.isActive &&
+        !session.requiresListenerProfileChoice) {
+      await ensureStarted();
+    }
+  }
+
+  Future<String?> _currentUserId() async {
+    final session = _sessions?.session;
+    if (session == null) return resolveNotificationUserId(_tokenStore);
+    return session.isAuthenticated &&
+            session.isActive &&
+            !session.requiresListenerProfileChoice
+        ? session.userId
+        : null;
   }
 
   StreamSubscription<AppNotification>? _notificationSubscription;
@@ -70,7 +136,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   Future<void> _ensureStartedInternal(int generation) async {
-    final currentUserId = await resolveNotificationUserId(_tokenStore);
+    final currentUserId = await _currentUserId();
     if (!_isCurrent(generation)) return;
     if (currentUserId == null || currentUserId.trim().isEmpty) {
       if (_startedUserId != null) _sessionRevision += 1;
@@ -118,7 +184,9 @@ class NotificationCubit extends Cubit<NotificationState> {
     });
     _badgeSubscription = _realtimeClient.badgeStream.listen((count) {
       if (_isCurrentSession(generation, subscriptionSessionRevision)) {
-        if (_verifyRealtimeAfterClear) {
+        if (_verifyRealtimeAfterClear || _listener) {
+          // A count-only frame cannot identify its audience. Reconcile through
+          // the server's current recipient/type projection before displaying it.
           _scheduleBadgeReconciliation(generation, subscriptionSessionRevision);
           return;
         }
@@ -145,10 +213,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     });
 
     await _connectRealtimeIfNeeded(currentUserId, generation);
-    if (!_isCurrent(generation)) {
-      await _realtimeClient.disconnect();
-      return;
-    }
+    // stop() already retires the previous generation's transport. An old
+    // token read or handshake may finish after the next account connected;
+    // it must not disconnect that account's shared realtime client.
+    if (!_isCurrent(generation)) return;
     await _reconcileAfterRealtimeGap(generation);
   }
 
@@ -220,7 +288,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (startInFlight != null) await startInFlight;
     if (!_isCurrent(generation)) return;
 
-    final currentUserId = await resolveNotificationUserId(_tokenStore);
+    final currentUserId = await _currentUserId();
     if (!_isCurrent(generation)) return;
     if (currentUserId == null || currentUserId.trim().isEmpty) {
       await stop();
@@ -295,10 +363,10 @@ class NotificationCubit extends Cubit<NotificationState> {
           ? item.copyWith(read: true)
           : item,
     );
-    final mergedItems = _mergeById(<AppNotification>[
-      ...realtimeItems,
-      ...pageItems,
-    ]).where((item) => !_isDeleted(item.id)).toList();
+    final mergedItems =
+        _mergeById(<AppNotification>[...realtimeItems, ...pageItems])
+            .where((item) => !_isDeleted(item.id) && _canShowNotification(item))
+            .toList();
     final mergedIds = mergedItems.map((item) => item.id).toSet();
     _realtimeRevisionById.removeWhere((id, _) => !mergedIds.contains(id));
     _localReadRevisionById.removeWhere((id, _) => !mergedIds.contains(id));
@@ -356,6 +424,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     final seenIds = state.items.map((item) => item.id).toSet();
     final uniqueNextItems = result.data!.items
         .where((item) => !_isDeleted(item.id))
+        .where(_canShowNotification)
         .where((item) => seenIds.add(item.id))
         .toList(growable: false);
     emit(
@@ -370,7 +439,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   Future<void> markAsRead(AppNotification notification) async {
-    if (notification.read) return;
+    if (notification.read || !_canShowNotification(notification)) return;
     final generation = _lifecycleGeneration;
     final sessionRevision = _sessionRevision;
     final badgeRevision = _badgeRevision;
@@ -558,6 +627,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     _sessionRevision += 1;
     _refreshSequence += 1;
     _startedUserId = null;
+    // A previous audience's network request may remain pending after logout.
+    // Its generation is fenced; a new session must not wait for it to finish.
+    _startInFlight = null;
+    _resumeReconciliationInFlight = null;
     _badgeReconciliationTimer?.cancel();
     _badgeReconciliationTimer = null;
     _gapReconciliationQueued = false;
@@ -578,7 +651,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   bool _isCurrent(int generation) {
-    return !isClosed && generation == _lifecycleGeneration;
+    return !_closing && !isClosed && generation == _lifecycleGeneration;
   }
 
   bool _isDeleted(String id) =>
@@ -604,6 +677,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   void _onRealtimeNotification(AppNotification notification) {
     final recipientId = notification.recipientId.trim();
     if (_startedUserId == null || recipientId != _startedUserId) return;
+    if (!_canShowNotification(notification)) return;
     if (_isDeleted(notification.id)) return;
     if (_verifyRealtimeAfterClear) {
       unawaited(_reconcileAfterRealtimeGap(_lifecycleGeneration));
@@ -642,6 +716,8 @@ class NotificationCubit extends Cubit<NotificationState> {
 
   @override
   Future<void> close() async {
+    _closing = true;
+    _sessions?.removeListener(_onSessionChanged);
     await stop();
     await _realtimeClient.release();
     return super.close();

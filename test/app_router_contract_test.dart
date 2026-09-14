@@ -54,7 +54,7 @@ void main() {
   });
 
   test(
-    'muted feed settings allow active musician, venue and listener accounts',
+    'muted feed settings allow active musician, venue, studio and listener accounts',
     () {
       expect(
         AppRouteGuard.redirectFor(
@@ -63,7 +63,12 @@ void main() {
         ),
         AppRoutes.login,
       );
-      for (final role in ['ROLE_MUSICIAN', 'ROLE_VENUE', 'ROLE_LISTENER']) {
+      for (final role in [
+        'ROLE_MUSICIAN',
+        'ROLE_VENUE',
+        'ROLE_STUDIO',
+        'ROLE_LISTENER',
+      ]) {
         expect(
           AppRouteGuard.redirectFor(
             AppRoutes.musicianFeedMutedAuthors,
@@ -72,7 +77,7 @@ void main() {
           isNull,
         );
       }
-      for (final role in ['ROLE_STUDIO', 'ROLE_PRODUCER', 'ROLE_ORGANIZER']) {
+      for (final role in ['ROLE_PRODUCER', 'ROLE_ORGANIZER']) {
         final session = _activeSession([role]);
         expect(
           AppRouteGuard.redirectFor(
@@ -517,9 +522,9 @@ void main() {
         ),
       );
 
-      expect(invalidArgsRoute.settings.name, AppRoutes.listenerProfile);
-      expect(unauthorizedOwnerRoute.settings.name, AppRoutes.listenerProfile);
-      expect(customerRoute.settings.name, AppRoutes.listenerProfile);
+      expect(invalidArgsRoute.settings.name, AppRoutes.studioListenerInfo);
+      expect(unauthorizedOwnerRoute.settings.name, AppRoutes.studioListenerInfo);
+      expect(customerRoute.settings.name, AppRoutes.studioListenerInfo);
       expect(
         AppRouteGuard.canOpenStudioOwnerReservationCalendar(listener),
         isFalse,

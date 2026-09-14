@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
@@ -17,7 +19,7 @@ import '../cubit/collab_listing_detail_cubit.dart';
 import '../cubit/collab_listing_detail_state.dart';
 import 'collab_profile_selection_screen.dart';
 
-class CollabApplicationComposeScreen extends StatefulWidget {
+class CollabApplicationComposeScreen extends StatelessWidget {
   const CollabApplicationComposeScreen({
     required this.listing,
     required this.initialActor,
@@ -32,12 +34,36 @@ class CollabApplicationComposeScreen extends StatefulWidget {
   final bool showBottomNavigation;
 
   @override
-  State<CollabApplicationComposeScreen> createState() =>
+  Widget build(BuildContext context) => CollabAccessGate(
+    builder: (_) => _CollabApplicationComposeScreenContent(
+      listing: listing,
+      initialActor: initialActor,
+      eligibleActors: eligibleActors,
+      showBottomNavigation: showBottomNavigation,
+    ),
+  );
+}
+
+class _CollabApplicationComposeScreenContent extends StatefulWidget {
+  const _CollabApplicationComposeScreenContent({
+    required this.listing,
+    required this.initialActor,
+    required this.eligibleActors,
+    this.showBottomNavigation = true,
+  });
+
+  final CollabListing listing;
+  final CollabActor initialActor;
+  final List<CollabActor> eligibleActors;
+  final bool showBottomNavigation;
+
+  @override
+  State<_CollabApplicationComposeScreenContent> createState() =>
       _CollabApplicationComposeScreenState();
 }
 
 class _CollabApplicationComposeScreenState
-    extends State<CollabApplicationComposeScreen> {
+    extends State<_CollabApplicationComposeScreenContent> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _phoneController;
   late final TextEditingController _messageController;
@@ -240,6 +266,7 @@ class _CollabApplicationComposeScreenState
   Future<void> _changeActor() async {
     final actor = await Navigator.of(context).push<CollabActor>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabProfileSelectionScreen(
           actors: widget.eligibleActors,
           wantedType: widget.listing.wantedType,

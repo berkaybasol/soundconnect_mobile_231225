@@ -81,6 +81,7 @@ class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final title = _showConnections
         ? 'Bağlantılarım'
         : _showOutgoing

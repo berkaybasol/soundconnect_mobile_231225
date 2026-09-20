@@ -111,6 +111,7 @@ class _StudioRoomsManagementScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Odalar'), centerTitle: true),
       body: SafeArea(
@@ -123,10 +124,10 @@ class _StudioRoomsManagementScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Oda Yönetimi',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.legacy(Colors.white),
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
                         ),
@@ -134,8 +135,8 @@ class _StudioRoomsManagementScreenState
                       const SizedBox(height: 5),
                       Text(
                         '${_rooms.length} oda listeleniyor',
-                        style: const TextStyle(
-                          color: Color(0xFFA3ABB8),
+                        style: TextStyle(
+                          color: AppColors.legacy(Color(0xFFA3ABB8)),
                           fontSize: 13,
                         ),
                       ),
@@ -148,14 +149,16 @@ class _StudioRoomsManagementScreenState
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF101722),
+                    color: AppColors.legacy(const Color(0xFF101722)),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: const Color(0xFF263244)),
+                    border: Border.all(
+                      color: AppColors.legacyBorder(const Color(0xFF263244)),
+                    ),
                   ),
                   child: Text(
                     '${_rooms.length} / 10',
-                    style: const TextStyle(
-                      color: Color(0xFFD5DBE5),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFFD5DBE5)),
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
                     ),
@@ -171,10 +174,10 @@ class _StudioRoomsManagementScreenState
               onTap: _createRoom,
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Mevcut Odalar',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.legacy(Colors.white),
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
               ),
@@ -254,12 +257,15 @@ class _StudioRoomsEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 26, 20, 22),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
+        color: AppColors.legacy(const Color(0xFF0E1622)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Column(
         children: [
@@ -274,16 +280,18 @@ class _StudioRoomsEmptyState extends StatelessWidget {
                   height: 58,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF172336),
-                    border: Border.all(color: const Color(0xFF334158)),
+                    color: AppColors.legacy(const Color(0xFF172336)),
+                    border: Border.all(
+                      color: AppColors.legacyBorder(const Color(0xFF334158)),
+                    ),
                   ),
                   child: InkWell(
                     key: const Key('studio-owner-empty-room-create'),
                     customBorder: const CircleBorder(),
                     onTap: onCreateRoom,
-                    child: const Icon(
+                    child: Icon(
                       Icons.add_rounded,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                       size: 32,
                     ),
                   ),
@@ -296,20 +304,22 @@ class _StudioRoomsEmptyState extends StatelessWidget {
               height: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF172336),
-                border: Border.all(color: const Color(0xFF334158)),
+                color: AppColors.legacy(const Color(0xFF172336)),
+                border: Border.all(
+                  color: AppColors.legacyBorder(const Color(0xFF334158)),
+                ),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.meeting_room_outlined,
-                color: _roomFormIconColor,
+                color: AppColors.legacy(_roomFormIconColor),
                 size: 29,
               ),
             ),
           const SizedBox(height: 14),
-          const Text(
+          Text(
             'Henüz bir oda yok',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.legacy(Colors.white),
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
@@ -323,7 +333,7 @@ class _StudioRoomsEmptyState extends StatelessWidget {
                 : 'Bu stüdyo henüz rezervasyona açık bir oda eklememiş.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF98A3B3),
+              color: AppColors.legacy(Color(0xFF98A3B3)),
               fontSize: 12,
               height: 1.4,
             ),
@@ -400,6 +410,7 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return PopScope(
       canPop: !_submitting && !_photoUploading,
@@ -408,10 +419,12 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
         curve: Curves.easeOut,
         padding: EdgeInsets.only(bottom: bottomInset),
         child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF0B111B),
+          decoration: BoxDecoration(
+            color: AppColors.legacy(Color(0xFF0B111B)),
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(top: BorderSide(color: Color(0xFF293548))),
+            border: Border(
+              top: BorderSide(color: AppColors.legacyBorder(Color(0xFF293548))),
+            ),
           ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -425,7 +438,7 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                       width: 44,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF445064),
+                        color: AppColors.legacy(const Color(0xFF445064)),
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
@@ -438,24 +451,28 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                         width: 46,
                         height: 46,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF151E2C),
+                          color: AppColors.legacy(const Color(0xFF151E2C)),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFF2D394C)),
+                          border: Border.all(
+                            color: AppColors.legacyBorder(
+                              const Color(0xFF2D394C),
+                            ),
+                          ),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.add_business_outlined,
-                          color: _roomFormIconColor,
+                          color: AppColors.legacy(_roomFormIconColor),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Yeni Oda Oluştur',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.legacy(Colors.white),
                                 fontSize: 21,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -464,7 +481,7 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                             Text(
                               'Odanı tanımla ve öne çıkan özelliklerini etiketle.',
                               style: TextStyle(
-                                color: Color(0xFF9EA8B7),
+                                color: AppColors.legacy(Color(0xFF9EA8B7)),
                                 fontSize: 12,
                                 height: 1.35,
                               ),
@@ -475,7 +492,10 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                       IconButton(
                         tooltip: 'Kapat',
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, color: Color(0xFFB5BDCA)),
+                        icon: Icon(
+                          Icons.close,
+                          color: AppColors.legacy(Color(0xFFB5BDCA)),
+                        ),
                       ),
                     ],
                   ),
@@ -498,12 +518,12 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                     textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.next,
                     maxLength: 100,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Oda adı',
                       hintText: 'Örn. Davul Odası',
                       prefixIcon: Icon(
                         Icons.edit_outlined,
-                        color: _roomFormIconColor,
+                        color: AppColors.legacy(_roomFormIconColor),
                       ),
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
@@ -516,12 +536,12 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                     textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.next,
                     maxLength: 60,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Kısa açıklama (opsiyonel)',
                       hintText: 'Örn. Prova',
                       prefixIcon: Icon(
                         Icons.short_text_rounded,
-                        color: _roomFormIconColor,
+                        color: AppColors.legacy(_roomFormIconColor),
                       ),
                     ),
                   ),
@@ -533,12 +553,12 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9\-–— ]')),
                     ],
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Kapasite',
                       hintText: 'Örn. 4-6',
                       prefixIcon: Icon(
                         Icons.people_outline,
-                        color: _roomFormIconColor,
+                        color: AppColors.legacy(_roomFormIconColor),
                       ),
                       suffixText: 'kişi',
                     ),
@@ -555,12 +575,12 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                     controller: _hourlyPriceController,
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Saatlik ücret (opsiyonel)',
                       hintText: 'Örn. 750',
                       prefixIcon: Icon(
                         Icons.payments_outlined,
-                        color: _roomFormIconColor,
+                        color: AppColors.legacy(_roomFormIconColor),
                       ),
                       prefixText: '₺ ',
                       suffixText: '/ saat',
@@ -593,9 +613,12 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                     label: 'Oda Özellikleri',
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Bir özellik yazıp Enter’a veya ekle butonuna bas.',
-                    style: TextStyle(color: Color(0xFF8F99A9), fontSize: 12),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFF8F99A9)),
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -609,9 +632,9 @@ class _NewStudioRoomSheetState extends State<_NewStudioRoomSheet> {
                           onSubmitted: (_) => _addFeature(),
                           decoration: InputDecoration(
                             hintText: 'Örn. Akustik izolasyon',
-                            prefixIcon: const Icon(
+                            prefixIcon: Icon(
                               Icons.add_circle_outline,
-                              color: _roomFormIconColor,
+                              color: AppColors.legacy(_roomFormIconColor),
                             ),
                             errorText: _featureError,
                           ),
@@ -901,6 +924,7 @@ class _StudioCircularOutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -919,7 +943,7 @@ class _StudioCircularOutlineButton extends StatelessWidget {
               shape: BoxShape.circle,
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
-            child: Icon(icon, color: Colors.white, size: 19),
+            child: Icon(icon, color: AppColors.legacy(Colors.white), size: 19),
           ),
         ),
       ),
@@ -935,14 +959,15 @@ class _RoomFormSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       children: [
-        Icon(icon, color: _roomFormIconColor, size: 18),
+        Icon(icon, color: AppColors.legacy(_roomFormIconColor), size: 18),
         const SizedBox(width: 7),
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFFE5E9F0),
+          style: TextStyle(
+            color: AppColors.legacy(Color(0xFFE5E9F0)),
             fontSize: 13,
             fontWeight: FontWeight.w800,
           ),

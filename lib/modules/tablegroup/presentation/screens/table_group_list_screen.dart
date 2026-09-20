@@ -11,6 +11,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/access_policy.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../dm/data/dm_auth_support.dart';
@@ -37,6 +38,7 @@ class TableGroupListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocProvider(
       create: (_) => serviceLocator<TableGroupListCubit>()..initialize(),
       child: _TableGroupListView(args: args, now: now),
@@ -377,17 +379,27 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                 .setNeighborhood(value),
                     ),
                     SizedBox(height: 14),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.gradientC,
-                        foregroundColor: AppColors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                    GradientOutline(
+                      enabled: AppColors.isLight,
+                      radius: 14,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.isLight
+                              ? Colors.transparent
+                              : AppColors.gradientC,
+                          foregroundColor: AppColors.onAccent,
+                          elevation: AppColors.isLight ? 0 : null,
+                          shadowColor: AppColors.isLight
+                              ? Colors.transparent
+                              : null,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: EdgeInsets.symmetric(vertical: 13),
                         ),
-                        padding: EdgeInsets.symmetric(vertical: 13),
+                        child: Text('Kapat'),
                       ),
-                      child: Text('Kapat'),
                     ),
                   ],
                 );
@@ -490,6 +502,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<TableGroupListCubit, TableGroupListState>(
       listenWhen: (previous, current) =>
           current.status == TableGroupListStatus.failure &&
@@ -563,7 +576,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                       IconButton(
                                         onPressed: () =>
                                             Navigator.of(context).maybePop(),
-                                        icon: const Icon(
+                                        icon: Icon(
                                           Icons.arrow_back_ios_new_rounded,
                                           color:
                                               TableGroupOverviewStyle.bodyMuted,
@@ -578,11 +591,11 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                         onPressed: _openFilterSheet,
                                         icon: ShaderMask(
                                           shaderCallback: (bounds) =>
-                                              const LinearGradient(
+                                              LinearGradient(
                                                 begin: Alignment.topLeft,
                                                 end: Alignment.bottomRight,
                                                 colors: TableGroupOverviewStyle
-                                                    .brandGradient,
+                                                    .decorativeGradient,
                                               ).createShader(bounds),
                                           blendMode: BlendMode.srcIn,
                                           child: const Icon(
@@ -595,7 +608,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                     ],
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.fromLTRB(23, 14, 23, 0),
                                   child: Text(
                                     'Müzik Birleştirir!',
@@ -611,7 +624,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                     ),
                                   ),
                                 ),
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.fromLTRB(23, 6, 23, 0),
                                   child: Text(
                                     'Hadi sana bir masa bulalim',
@@ -633,7 +646,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                             padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
                             child: Row(
                               children: [
-                                const Expanded(
+                                Expanded(
                                   child: Text(
                                     'Açık Masalar',
                                     key: Key('table_group_section_title'),
@@ -656,7 +669,9 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                     vertical: 9,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF111B2A),
+                                    color: (AppColors.isOriginalDark
+                                        ? const Color(0xFF111B2A)
+                                        : AppColors.navBlueSoft),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
                                       color: TableGroupOverviewStyle.cardBorder,
@@ -666,7 +681,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                     _tableCountLabel(state),
                                     key: const Key('table_group_count_label'),
                                     maxLines: 1,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color:
                                           TableGroupOverviewStyle.primaryText,
                                       fontSize: 14,
@@ -830,18 +845,34 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                                 ),
                                               ),
                                               const SizedBox(height: 16),
-                                              FilledButton.icon(
-                                                key: const Key(
-                                                  'table_group_retry_feed',
-                                                ),
-                                                onPressed: () => context
-                                                    .read<TableGroupListCubit>()
-                                                    .refresh(),
-                                                icon: const Icon(
-                                                  Icons.refresh_rounded,
-                                                ),
-                                                label: const Text(
-                                                  'Tekrar dene',
+                                              GradientOutline(
+                                                enabled: AppColors.isLight,
+                                                radius: 999,
+                                                child: FilledButton.icon(
+                                                  style: AppColors.isLight
+                                                      ? FilledButton.styleFrom(
+                                                          backgroundColor:
+                                                              Colors
+                                                                  .transparent,
+                                                          foregroundColor:
+                                                              AppColors
+                                                                  .textPrimary,
+                                                        )
+                                                      : null,
+                                                  key: const Key(
+                                                    'table_group_retry_feed',
+                                                  ),
+                                                  onPressed: () => context
+                                                      .read<
+                                                        TableGroupListCubit
+                                                      >()
+                                                      .refresh(),
+                                                  icon: const Icon(
+                                                    Icons.refresh_rounded,
+                                                  ),
+                                                  label: const Text(
+                                                    'Tekrar dene',
+                                                  ),
                                                 ),
                                               ),
                                             ],

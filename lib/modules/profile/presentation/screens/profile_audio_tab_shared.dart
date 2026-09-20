@@ -111,6 +111,7 @@ class ProfileAudioTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final positionStream = audioHandler is AudioPlayerHandler
         ? (audioHandler as AudioPlayerHandler).positionStream
         : Stream<Duration>.empty();

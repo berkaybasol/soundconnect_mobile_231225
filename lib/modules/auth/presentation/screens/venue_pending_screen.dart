@@ -59,6 +59,7 @@ class VenuePendingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -86,7 +87,11 @@ class VenuePendingScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.coralAlt.withValues(alpha: 0.35),
+                        color:
+                            (AppColors.isLight
+                                    ? AppColors.decorativeGradient.first
+                                    : AppColors.coralAlt)
+                                .withValues(alpha: 0.35),
                         blurRadius: 24,
                         spreadRadius: 2,
                       ),
@@ -218,11 +223,12 @@ class _GradientIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) {
         return LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.decorativeGradient,
         ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height));
       },
       child: Icon(icon, size: size),
@@ -238,6 +244,7 @@ class _GradientOutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SizedBox(
       width: double.infinity,
       height: 52,
@@ -245,7 +252,7 @@ class _GradientOutlineButton extends StatelessWidget {
         painter: _GradientBorderPainter(
           borderRadius: 18,
           strokeWidth: 1.4,
-          colors: AppColors.brandGradient,
+          colors: AppColors.decorativeGradient,
         ),
         child: Material(
           color: Colors.transparent,

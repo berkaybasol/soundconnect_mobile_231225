@@ -148,7 +148,9 @@ extension _BandAudioTabSpotifyCatalogDialogs on _BandAudioTab {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: feedbackIsError
-                                ? AppColors.coralAlt
+                                ? (AppColors.isLight
+                                      ? AppColors.accentText
+                                      : AppColors.coralAlt)
                                 : Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,

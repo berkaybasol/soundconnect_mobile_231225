@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/images/app_cached_network_image.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 /// The compact identity card shared by profile members, venues and artists.
 class ProfileMiniCard extends StatelessWidget {
@@ -23,10 +24,16 @@ class ProfileMiniCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final caption = subtitle?.trim();
-    Widget fallback(BuildContext _) =>
-        Icon(fallbackIcon, color: colors.onSurfaceVariant, size: 20);
+    Widget fallback(BuildContext _) => Icon(
+      fallbackIcon,
+      color: (AppColors.isLight
+          ? AppColors.avatarForeground
+          : colors.onSurfaceVariant),
+      size: 20,
+    );
 
     return SizedBox(
       width: 168,
@@ -45,7 +52,9 @@ class ProfileMiniCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: colors.surfaceContainer,
+                  backgroundColor: (AppColors.isLight
+                      ? AppColors.avatarBackground
+                      : colors.surfaceContainer),
                   child: ClipOval(
                     child: AppCachedNetworkImage(
                       imageUrl: imageUrl,
@@ -133,6 +142,7 @@ class ProfileMiniCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     final textHeight =
         scaler.scale(13) * 1.35 +

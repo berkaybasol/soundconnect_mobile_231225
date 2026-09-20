@@ -1,5 +1,7 @@
 import 'package:get_it/get_it.dart';
+import '../../shared/images/private_media_image_cache.dart';
 import '../../modules/admin/data/musician_feed_report_admin_repository_impl.dart';
+import '../../modules/admin/data/marketplace_report_admin_repository.dart';
 import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
 import '../../modules/analytics/data/analytics_collection_repository_impl.dart';
 import '../../modules/analytics/data/analytics_tracker.dart';
@@ -28,6 +30,8 @@ import '../../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../../modules/collab/data/collab_repository_impl.dart';
 import '../../modules/collab/data/collab_idempotency_store.dart';
 import '../../modules/collab/domain/collab_repository.dart';
+import '../../modules/marketplace/data/marketplace_repository_impl.dart';
+import '../../modules/marketplace/domain/marketplace_repository.dart';
 import '../../modules/collab/presentation/cubit/collab_actor_reviews_cubit.dart';
 import '../../modules/collab/presentation/cubit/collab_discovery_cubit.dart';
 import '../../modules/collab/presentation/cubit/collab_incoming_applications_cubit.dart';
@@ -177,6 +181,10 @@ void setupDependencies() {
     ..registerLazySingleton<PendingAppDeepLinkStore>(
       SharedPreferencesPendingAppDeepLinkStore.new,
     )
+    ..registerLazySingleton<PrivateMediaImageCache>(
+      () => PrivateMediaImageCache(sessions: serviceLocator<AuthSessionManager>()),
+      dispose: (cache) => cache.dispose(),
+    )
     ..registerLazySingleton<AppDeepLinkInbox>(
       () => AppDeepLinkInbox(store: serviceLocator<PendingAppDeepLinkStore>()),
     )
@@ -239,6 +247,18 @@ void setupDependencies() {
     )
     ..registerLazySingleton<CollabRepository>(
       () => CollabRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<MarketplaceRepository>(
+      () => MarketplaceRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<MarketplaceReportAdminRepository>(
+      () => MarketplaceReportAdminRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<CollabIdempotencyStore>(
       () => SharedPreferencesCollabIdempotencyStore(

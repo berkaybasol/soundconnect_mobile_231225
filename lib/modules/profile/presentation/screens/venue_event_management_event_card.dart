@@ -31,6 +31,7 @@ class VenueCalendarEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return _VenueCalendarCompactCard(
       posterImage: posterImage,
       title: title,
@@ -69,6 +70,7 @@ class VenueCalendarPastEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return _VenueCalendarCompactCard(
       posterImage: posterImage,
       title: title,
@@ -108,6 +110,7 @@ class _VenueCalendarCompactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final showPoster = textScale < 1.6;

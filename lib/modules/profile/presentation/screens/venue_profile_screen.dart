@@ -76,6 +76,7 @@ class VenueProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => serviceLocator<VenueProfileCubit>()),

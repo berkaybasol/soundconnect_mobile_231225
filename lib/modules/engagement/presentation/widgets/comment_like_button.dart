@@ -210,6 +210,7 @@ class _CommentLikeButtonState extends State<CommentLikeButton> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (widget.comment.deleted) return const SizedBox.shrink();
     final expectedGeneration = _generation;
     final expectedSession = _sessions?.session;

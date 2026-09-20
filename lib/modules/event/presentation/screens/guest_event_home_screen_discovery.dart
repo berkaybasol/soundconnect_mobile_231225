@@ -450,6 +450,7 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final tomorrow = DateTime(_today.year, _today.month, _today.day + 1);
     final later = _date.isAfter(tomorrow);
     return Scaffold(
@@ -935,71 +936,77 @@ class _DiscoveryTableOverlayState extends State<_DiscoveryTableOverlay> {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final scaler = MediaQuery.textScalerOf(context);
-      final maxWidth = (constraints.maxWidth - 24).clamp(72.0, double.infinity);
-      final width = (130 * scaler.scale(12) / 12).clamp(72.0, maxWidth);
-      final hintStyle = DefaultTextStyle.of(context).style.merge(
-        const TextStyle(
-          fontSize: 12,
-          height: 1.15,
-          fontWeight: FontWeight.w500,
-        ),
-      );
-      final painter = TextPainter(
-        text: TextSpan(text: widget.hint, style: hintStyle),
-        textDirection: Directionality.of(context),
-        textScaler: scaler,
-      )..layout(maxWidth: width - 24);
-      final fullHeight = painter.height + 16 + 8 + 72;
-      painter.dispose();
-      final showHint = constraints.maxHeight >= fullHeight + 24;
-      final height = showHint ? fullHeight : 72.0;
-      final fabWidth = showHint ? width : 88.0;
-      final maxLeft = (constraints.maxWidth - fabWidth - 12).clamp(
-        0.0,
-        double.infinity,
-      );
-      final maxTop = (constraints.maxHeight - height - 12).clamp(
-        0.0,
-        double.infinity,
-      );
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          widget.child,
-          Positioned(
-            left: (maxLeft + _offset.dx).clamp(0.0, maxLeft),
-            top: (maxTop + _offset.dy).clamp(0.0, maxTop),
-            width: fabWidth,
-            child: Tooltip(
-              message: 'Masalar',
-              excludeFromSemantics: true,
-              child: Semantics(
-                container: true,
-                excludeSemantics: true,
-                button: true,
-                label: 'Masalar',
-                onTap: _openTables,
-                child: _GuestTableAccessFab(
-                  hintText: widget.hint,
-                  showHint: showHint,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaler = MediaQuery.textScalerOf(context);
+        final maxWidth = (constraints.maxWidth - 24).clamp(
+          72.0,
+          double.infinity,
+        );
+        final width = (130 * scaler.scale(12) / 12).clamp(72.0, maxWidth);
+        final hintStyle = DefaultTextStyle.of(context).style.merge(
+          const TextStyle(
+            fontSize: 12,
+            height: 1.15,
+            fontWeight: FontWeight.w500,
+          ),
+        );
+        final painter = TextPainter(
+          text: TextSpan(text: widget.hint, style: hintStyle),
+          textDirection: Directionality.of(context),
+          textScaler: scaler,
+        )..layout(maxWidth: width - 24);
+        final fullHeight = painter.height + 16 + 8 + 72;
+        painter.dispose();
+        final showHint = constraints.maxHeight >= fullHeight + 24;
+        final height = showHint ? fullHeight : 72.0;
+        final fabWidth = showHint ? width : 88.0;
+        final maxLeft = (constraints.maxWidth - fabWidth - 12).clamp(
+          0.0,
+          double.infinity,
+        );
+        final maxTop = (constraints.maxHeight - height - 12).clamp(
+          0.0,
+          double.infinity,
+        );
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            widget.child,
+            Positioned(
+              left: (maxLeft + _offset.dx).clamp(0.0, maxLeft),
+              top: (maxTop + _offset.dy).clamp(0.0, maxTop),
+              width: fabWidth,
+              child: Tooltip(
+                message: 'Masalar',
+                excludeFromSemantics: true,
+                child: Semantics(
+                  container: true,
+                  excludeSemantics: true,
+                  button: true,
+                  label: 'Masalar',
                   onTap: _openTables,
-                  onDragDelta: (delta) => setState(() {
-                    final left = (maxLeft + _offset.dx).clamp(0.0, maxLeft);
-                    final top = (maxTop + _offset.dy).clamp(0.0, maxTop);
-                    _offset = Offset(
-                      (left + delta.dx).clamp(0.0, maxLeft) - maxLeft,
-                      (top + delta.dy).clamp(0.0, maxTop) - maxTop,
-                    );
-                  }),
+                  child: _GuestTableAccessFab(
+                    hintText: widget.hint,
+                    showHint: showHint,
+                    onTap: _openTables,
+                    onDragDelta: (delta) => setState(() {
+                      final left = (maxLeft + _offset.dx).clamp(0.0, maxLeft);
+                      final top = (maxTop + _offset.dy).clamp(0.0, maxTop);
+                      _offset = Offset(
+                        (left + delta.dx).clamp(0.0, maxLeft) - maxLeft,
+                        (top + delta.dy).clamp(0.0, maxTop) - maxTop,
+                      );
+                    }),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      );
-    },
-  );
+          ],
+        );
+      },
+    );
+  }
 }

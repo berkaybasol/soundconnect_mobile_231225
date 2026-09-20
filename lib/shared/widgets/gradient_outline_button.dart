@@ -34,7 +34,7 @@ class GradientOutlineButton extends StatelessWidget {
     return GradientOutline(
       strokeWidth: strokeWidth,
       colors: isEnabled
-          ? AppColors.brandGradient
+          ? AppColors.decorativeGradient
           : [theme.dividerColor, theme.dividerColor],
       child: ClipRRect(
         borderRadius: borderRadius,
@@ -94,6 +94,7 @@ class GradientOutline extends StatelessWidget {
   const GradientOutline({
     super.key,
     required this.child,
+    this.enabled = true,
     this.radius = 18,
     this.strokeWidth = 1.4,
     this.colors,
@@ -101,19 +102,26 @@ class GradientOutline extends StatelessWidget {
        assert(strokeWidth > 0);
 
   final Widget child;
+
+  /// Whether to draw the frame; this does not change the child's interaction.
+  final bool enabled;
   final double radius;
   final double strokeWidth;
   final List<Color>? colors;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    foregroundPainter: _GradientOutlinePainter(
-      radius: radius,
-      strokeWidth: strokeWidth,
-      colors: colors ?? AppColors.brandGradient,
-    ),
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    if (!enabled) return child;
+    return CustomPaint(
+      foregroundPainter: _GradientOutlinePainter(
+        radius: radius,
+        strokeWidth: strokeWidth,
+        colors: colors ?? AppColors.decorativeGradient,
+      ),
+      child: child,
+    );
+  }
 }
 
 class _GradientOutlinePainter extends CustomPainter {

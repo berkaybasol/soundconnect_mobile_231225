@@ -134,7 +134,7 @@ void main() {
 
   for (final owner in [true, false]) {
     testWidgets(
-      '${owner ? 'owner' : 'public'} chrome inherits app theme while publications retain their palette',
+      '${owner ? 'owner' : 'public'} chrome follows the app and publications preserve dark or inherit light',
       (tester) async {
         for (final appTheme in [AppTheme.navy, ThemeData.light()]) {
           const sentinelKey = Key('publication-theme-sentinel');
@@ -171,18 +171,24 @@ void main() {
             appTheme.colorScheme.surfaceContainerHighest,
           );
           final post = tester.widget<ColoredBox>(find.byKey(sentinelKey));
-          expect(post.color, listenerProfileDeepSurface);
+          final light = appTheme.brightness == Brightness.light;
+          expect(
+            post.color,
+            light ? appTheme.colorScheme.surface : listenerProfileDeepSurface,
+          );
           expect(
             DefaultTextStyle.of(
               tester.element(find.byKey(sentinelKey)),
             ).style.color,
-            Colors.white,
+            light ? appTheme.textTheme.bodyMedium!.color : Colors.white,
           );
           expect(
             Theme.of(
               tester.element(find.byKey(sentinelKey)),
             ).colorScheme.onSurfaceVariant,
-            listenerProfileMuted,
+            light
+                ? appTheme.colorScheme.onSurfaceVariant
+                : listenerProfileMuted,
           );
           expect(tester.takeException(), isNull);
         }

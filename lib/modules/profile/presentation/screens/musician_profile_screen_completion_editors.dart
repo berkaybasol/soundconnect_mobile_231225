@@ -71,55 +71,58 @@ class _MusicianPhotoAndSocialLinksCompletionEditor extends StatelessWidget {
   final MusicianProfile profile;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    key: const Key('musician-photo-social-completion-editor'),
-    padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _MusicianCompletionEditorHeading(
-          icon: Icons.account_circle_outlined,
-          title: 'Fotoğraf ve bağlantılar',
-          description:
-              'Profil fotoğrafını ve sana ulaşılabilecek müzik bağlantılarını buradan tamamla.',
-        ),
-        const SizedBox(height: 20),
-        _MusicianCompletionActionTile(
-          actionKey: const Key('musician-completion-edit-photo'),
-          icon: Icons.add_a_photo_outlined,
-          title: profile.profilePicture?.trim().isNotEmpty == true
-              ? 'Profil fotoğrafını değiştir'
-              : 'Profil fotoğrafı ekle',
-          onTap: () => Navigator.of(
-            context,
-          ).pop(const _MusicianIdentityEditorAction.photo()),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'Sosyal bağlantılar',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 10),
-        for (final platform in ProfileSocialPlatform.values) ...[
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return SingleChildScrollView(
+      key: const Key('musician-photo-social-completion-editor'),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _MusicianCompletionEditorHeading(
+            icon: Icons.account_circle_outlined,
+            title: 'Fotoğraf ve bağlantılar',
+            description:
+                'Profil fotoğrafını ve sana ulaşılabilecek müzik bağlantılarını buradan tamamla.',
+          ),
+          const SizedBox(height: 20),
           _MusicianCompletionActionTile(
-            actionKey: ValueKey(
-              'musician-completion-edit-social-${platform.name}',
-            ),
-            icon: Icons.link_rounded,
-            title:
-                '${platform.label} ${socialUrlForMusicianProfile(profile, platform)?.trim().isNotEmpty == true ? 'düzenle' : 'ekle'}',
+            actionKey: const Key('musician-completion-edit-photo'),
+            icon: Icons.add_a_photo_outlined,
+            title: profile.profilePicture?.trim().isNotEmpty == true
+                ? 'Profil fotoğrafını değiştir'
+                : 'Profil fotoğrafı ekle',
             onTap: () => Navigator.of(
               context,
-            ).pop(_MusicianIdentityEditorAction.social(platform)),
+            ).pop(const _MusicianIdentityEditorAction.photo()),
           ),
-          if (platform != ProfileSocialPlatform.values.last)
-            const SizedBox(height: 8),
+          const SizedBox(height: 14),
+          Text(
+            'Sosyal bağlantılar',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          for (final platform in ProfileSocialPlatform.values) ...[
+            _MusicianCompletionActionTile(
+              actionKey: ValueKey(
+                'musician-completion-edit-social-${platform.name}',
+              ),
+              icon: Icons.link_rounded,
+              title:
+                  '${platform.label} ${socialUrlForMusicianProfile(profile, platform)?.trim().isNotEmpty == true ? 'düzenle' : 'ekle'}',
+              onTap: () => Navigator.of(
+                context,
+              ).pop(_MusicianIdentityEditorAction.social(platform)),
+            ),
+            if (platform != ProfileSocialPlatform.values.last)
+              const SizedBox(height: 8),
+          ],
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _MusicianCompletionActionTile extends StatelessWidget {
@@ -136,31 +139,34 @@ class _MusicianCompletionActionTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: AppColors.inputFill,
-    borderRadius: BorderRadius.circular(16),
-    child: InkWell(
-      key: actionKey,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Material(
+      color: AppColors.inputFill,
       borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        child: Row(
-          children: [
-            BrandGradientIcon.social(icon, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+      child: InkWell(
+        key: actionKey,
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              BrandGradientIcon.social(icon, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right_rounded),
-          ],
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 Future<bool> showMusicianProfileDetailsEditor(
@@ -281,6 +287,7 @@ class _MusicianProfileDetailsEditorState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         18,
@@ -397,6 +404,7 @@ class _MusicianInstrumentEditorState extends State<_MusicianInstrumentEditor> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final query = _completionSearchKey(_search.text);
     final visible = _instruments
         .where(
@@ -537,42 +545,48 @@ class _MusicianCompletionEditorHeading extends StatelessWidget {
   final String description;
 
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppColors.navBlue,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.navBlue,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Center(child: BrandGradientIcon.social(icon, size: 23)),
         ),
-        child: Center(child: BrandGradientIcon.social(icon, size: 23)),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              description,
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 12.5,
-                height: 1.4,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 5),
+              Text(
+                description,
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 InputDecoration _completionInputDecoration(

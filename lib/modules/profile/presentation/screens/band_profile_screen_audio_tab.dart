@@ -23,6 +23,7 @@ class _BandAudioTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final audioHandler = serviceLocator<AudioHandler>();
     final positionStream = audioHandler is AudioPlayerHandler
         ? audioHandler.positionStream
@@ -67,7 +68,7 @@ class _BandAudioTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(18),
                     gradient: LinearGradient(
                       colors: [
-                        Color(0x1AFFFFFF),
+                        AppColors.legacy(Color(0x1AFFFFFF)),
                         Color(0x1A8A5CFF),
                         Color(0x1AFF7A3D),
                       ],
@@ -182,7 +183,9 @@ class _BandAudioTab extends StatelessWidget {
                               : AppColors.brandGradient,
                           iconColor: isSpotify
                               ? AppColors.spotifyGreen
-                              : AppColors.coralAlt,
+                              : (AppColors.isLight
+                                    ? AppColors.accentText
+                                    : AppColors.coralAlt),
                           playIconColor: isSpotify
                               ? AppColors.spotifyGreen
                               : Theme.of(context).colorScheme.onSurfaceVariant,

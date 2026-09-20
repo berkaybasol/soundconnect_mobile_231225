@@ -6,6 +6,7 @@ class _PostPreviewSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final hasMusic =
         (post.spotifyTrackName?.trim().isNotEmpty ?? false) ||
         (post.spotifyTrackUrl?.trim().isNotEmpty ?? false) ||
@@ -28,7 +29,7 @@ class _PostPreviewSheet extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text('Yazı önizlemesi', style: _manageEyebrow),
                   ),
                   IconButton(
@@ -58,14 +59,14 @@ class _PostPreviewSheet extends StatelessWidget {
               const SizedBox(height: 24),
               SelectableText(
                 post.content,
-                style: const TextStyle(
+                style: TextStyle(
                   color: OverthinkingPalette.text,
                   fontSize: 16,
                   height: 1.85,
                 ),
               ),
               const SizedBox(height: 26),
-              const Divider(color: OverthinkingPalette.border),
+              Divider(color: OverthinkingPalette.border),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 20,
@@ -97,11 +98,14 @@ class _PreviewAuthorLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final visible = post.hasVisibleAuthor;
     final imageUrl = visible ? post.authorAvatarUrl?.trim() : null;
     final fallback = Icon(
       visible ? Icons.person_outline_rounded : Icons.visibility_off_outlined,
-      color: OverthinkingPalette.lilac,
+      color: AppColors.isLight
+          ? AppColors.avatarForeground
+          : OverthinkingPalette.lilac,
       size: 22,
     );
     return OverthinkingProfileLink(
@@ -116,9 +120,13 @@ class _PreviewAuthorLine extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: OverthinkingPalette.lilac.withValues(alpha: .13),
+              color: AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : OverthinkingPalette.lilac.withValues(alpha: .13),
               border: Border.all(
-                color: OverthinkingPalette.lilac.withValues(alpha: .2),
+                color: AppColors.isLight
+                    ? AppColors.border
+                    : OverthinkingPalette.lilac.withValues(alpha: .2),
               ),
             ),
             clipBehavior: Clip.antiAlias,
@@ -136,7 +144,7 @@ class _PreviewAuthorLine extends StatelessWidget {
               visible ? '@${post.authorUsername}' : 'Anonim',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 color: OverthinkingPalette.text,
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
@@ -156,14 +164,17 @@ class _PreviewAuthorLine extends StatelessWidget {
 class _SheetHandle extends StatelessWidget {
   const _SheetHandle();
   @override
-  Widget build(BuildContext context) => Center(
-    child: Container(
-      width: 34,
-      height: 4,
-      decoration: BoxDecoration(
-        color: OverthinkingPalette.muted.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(999),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Center(
+      child: Container(
+        width: 34,
+        height: 4,
+        decoration: BoxDecoration(
+          color: OverthinkingPalette.muted.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(999),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

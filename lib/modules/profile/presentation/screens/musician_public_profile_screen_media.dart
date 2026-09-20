@@ -13,6 +13,7 @@ class _MediaContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final audioItems = media.audios;
     final videoItems = media.videos;
     final controller = DefaultTabController.of(context);

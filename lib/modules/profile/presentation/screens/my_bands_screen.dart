@@ -242,6 +242,7 @@ class _MyBandsScreenState extends State<MyBandsScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     Widget box(Widget child) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -469,10 +470,18 @@ class _BandListTile extends StatelessWidget {
   final bool invitation;
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     Widget fallback(BuildContext _) => ColoredBox(
-      color: colors.surfaceContainerHighest,
-      child: Icon(Icons.groups_rounded, color: AppColors.brandGradient[1]),
+      color: AppColors.isLight
+          ? AppColors.avatarBackground
+          : colors.surfaceContainerHighest,
+      child: Icon(
+        Icons.groups_rounded,
+        color: AppColors.isLight
+            ? AppColors.avatarForeground
+            : AppColors.brandGradient[1],
+      ),
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -494,7 +503,7 @@ class _BandListTile extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: invitation
-                        ? LinearGradient(colors: AppColors.brandGradient)
+                        ? LinearGradient(colors: AppColors.decorativeGradient)
                         : null,
                   ),
                   child: ClipOval(

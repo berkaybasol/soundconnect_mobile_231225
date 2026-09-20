@@ -7,6 +7,7 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/access_policy.dart';
+import '../../../../core/policy/profile_feed_availability.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../location/domain/location_repository.dart';
 import '../../../musician_feed/domain/backstage_feed_session.dart';
@@ -103,8 +104,9 @@ class _MemberDiscoveryState extends State<MemberEventDiscoveryScreen> {
       watchClock: widget.watchClock,
       showGuestFooter: false,
       headerAction:
-          backstageFeedSessionIdentity(session)?.audience ==
-              BackstageFeedAudience.listener
+          ProfileFeedAvailability.enabled &&
+              backstageFeedSessionIdentity(session)?.audience ==
+                  BackstageFeedAudience.listener
           ? TextButton.icon(
               key: const Key('listener-discovery-feed'),
               onPressed: () {

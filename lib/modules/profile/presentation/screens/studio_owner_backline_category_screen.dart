@@ -33,6 +33,7 @@ class _StudioBacklineCategoryManagementScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Kategori Talep Et'), centerTitle: true),
       body: SafeArea(
@@ -76,10 +77,10 @@ class _StudioBacklineCategoryManagementScreenState
               ],
               if (_submittedRequests.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Talepleriniz',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
@@ -113,10 +114,10 @@ class _StudioBacklineCategoryManagementScreenState
                   ),
               ],
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'SoundConnect Kategorileri',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -125,7 +126,10 @@ class _StudioBacklineCategoryManagementScreenState
               Text(
                 '${_catalog.length} ana kategori • '
                 '${_catalog.fold<int>(0, (sum, item) => sum + item.children.length)} alt kategori',
-                style: const TextStyle(color: Color(0xFF929DAC), fontSize: 12),
+                style: TextStyle(
+                  color: AppColors.legacy(Color(0xFF929DAC)),
+                  fontSize: 12,
+                ),
               ),
               const SizedBox(height: 10),
               for (final category in _catalog)
@@ -166,10 +170,10 @@ class _StudioBacklineCategoryManagementScreenState
     await showStudioDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF2D394C)),
+          side: BorderSide(color: AppColors.legacyBorder(Color(0xFF2D394C))),
         ),
         title: const Row(
           children: [
@@ -178,13 +182,13 @@ class _StudioBacklineCategoryManagementScreenState
             Expanded(child: Text('Talebiniz iletildi')),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Talep ettiğiniz kategori veya alt kategori SoundConnect '
           'yetkililerine ulaştırıldı. İnceleme ve onay sonrasında yalnızca '
           'bu stüdyo için değil, tüm SoundConnect kullanıcıları için '
           'geçerli olacaktır.',
           style: TextStyle(
-            color: Color(0xFFB8C0CC),
+            color: AppColors.legacy(Color(0xFFB8C0CC)),
             fontSize: 14,
             height: 1.45,
           ),

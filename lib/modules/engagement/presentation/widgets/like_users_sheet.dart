@@ -7,6 +7,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
+import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
@@ -414,10 +415,17 @@ class _LikeUserRow extends StatelessWidget {
     final url = user.avatarUrl?.trim() ?? '';
     final placeholder = Center(
       child: name.isEmpty
-          ? const Icon(Icons.person_outline_rounded)
+          ? Icon(
+              Icons.person_outline_rounded,
+              color: AppColors.isLight ? AppColors.avatarForeground : null,
+            )
           : Text(
               name.characters.first.toUpperCase(),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: AppColors.isLight ? AppColors.avatarForeground : null,
+              ),
             ),
     );
     return Semantics(
@@ -440,7 +448,9 @@ class _LikeUserRow extends StatelessWidget {
                     child: SizedBox.square(
                       dimension: 44,
                       child: ColoredBox(
-                        color: colors.surfaceContainerHigh,
+                        color: AppColors.isLight
+                            ? AppColors.avatarBackground
+                            : colors.surfaceContainerHigh,
                         child: url.isEmpty
                             ? placeholder
                             : AppCachedNetworkImage(

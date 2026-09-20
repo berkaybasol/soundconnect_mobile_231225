@@ -65,10 +65,13 @@ class StudioProfileContactEditorSheet extends StatelessWidget {
   final Future<String?> Function(StudioProfileContactDraft draft) onSave;
 
   @override
-  Widget build(BuildContext context) => StudioListenerAccessGate(
-    builder: (_) =>
-        _StudioProfileContactEditorView(profile: profile, onSave: onSave),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return StudioListenerAccessGate(
+      builder: (_) =>
+          _StudioProfileContactEditorView(profile: profile, onSave: onSave),
+    );
+  }
 }
 
 class _StudioProfileContactEditorView extends StatefulWidget {
@@ -152,6 +155,7 @@ class _StudioProfileContactEditorSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Material(

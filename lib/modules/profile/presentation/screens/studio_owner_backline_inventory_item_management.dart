@@ -123,6 +123,7 @@ class _BacklineInventoryItemManagementScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return PopScope<_BacklineInventoryItemManagementResult>(
       canPop: _allowPop || !_isDirty,
       onPopInvokedWithResult: (didPop, _) {
@@ -191,12 +192,12 @@ class _BacklineInventoryItemManagementScreenState
                 TextFormField(
                   controller: _totalController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Toplam adet',
                     suffixText: 'adet',
                     prefixIcon: Icon(
                       Icons.numbers_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                   onChanged: (_) => _markDirtyAndRebuild(),
@@ -215,11 +216,11 @@ class _BacklineInventoryItemManagementScreenState
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
                   maxLength: 100,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Ekipman adı',
                     prefixIcon: Icon(
                       Icons.edit_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                   validator: (value) => value == null || value.trim().isEmpty
@@ -230,11 +231,11 @@ class _BacklineInventoryItemManagementScreenState
                 DropdownButtonFormField<_BacklineCategory>(
                   initialValue: _selectedCategory,
                   isExpanded: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Ana kategori',
                     prefixIcon: Icon(
                       Icons.category_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                   items: [
@@ -261,11 +262,11 @@ class _BacklineInventoryItemManagementScreenState
                   key: ValueKey(_selectedCategory.name),
                   initialValue: _selectedSubcategory,
                   isExpanded: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Alt kategori',
                     prefixIcon: Icon(
                       Icons.account_tree_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                   items: [
@@ -295,11 +296,11 @@ class _BacklineInventoryItemManagementScreenState
                         controller: _brandController,
                         textCapitalization: TextCapitalization.words,
                         maxLength: 60,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Marka (opsiyonel)',
                           prefixIcon: Icon(
                             Icons.label_outline_rounded,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                         ),
                       ),
@@ -310,11 +311,11 @@ class _BacklineInventoryItemManagementScreenState
                         controller: _modelController,
                         textCapitalization: TextCapitalization.words,
                         maxLength: 60,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Model (opsiyonel)',
                           prefixIcon: Icon(
                             Icons.numbers_rounded,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                         ),
                       ),
@@ -328,12 +329,12 @@ class _BacklineInventoryItemManagementScreenState
                   minLines: 2,
                   maxLines: 4,
                   maxLength: 300,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Kısa açıklama (opsiyonel)',
                     alignLabelWithHint: true,
                     prefixIcon: Icon(
                       Icons.notes_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                 ),
@@ -355,9 +356,9 @@ class _BacklineInventoryItemManagementScreenState
                         decoration: InputDecoration(
                           hintText: 'Yeni özellik ekle',
                           errorText: _featureError,
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.add_circle_outline,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                         ),
                       ),
@@ -731,10 +732,10 @@ class _BacklineInventoryItemManagementScreenState
     final shouldDelete = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF3A2630)),
+          side: BorderSide(color: AppColors.legacyBorder(Color(0xFF3A2630))),
         ),
         title: const Row(
           children: [
@@ -747,8 +748,8 @@ class _BacklineInventoryItemManagementScreenState
           '“${widget.item.name}” ekipmanını kaldırırsanız ekipmana bağlı '
           'gelecek müsaitlik planı artık kullanılamaz. Geçmiş değişiklik '
           'kayıtları denetim için korunur. Yine de devam etmek istiyor musunuz?',
-          style: const TextStyle(
-            color: Color(0xFFB8C0CC),
+          style: TextStyle(
+            color: AppColors.legacy(Color(0xFFB8C0CC)),
             fontSize: 14,
             height: 1.45,
           ),
@@ -797,7 +798,7 @@ class _BacklineInventoryItemManagementScreenState
     final shouldDiscard = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Değişiklikler kaydedilmedi'),
         content: const Text(
           'Bu ekrandan çıkarsanız ekipmanda yaptığınız değişiklikler '
@@ -852,12 +853,15 @@ class _BacklineInventoryManagementHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _ownerManagementCardBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementCardBorderColor),
+        ),
       ),
       child: Row(
         children: [
@@ -865,11 +869,17 @@ class _BacklineInventoryManagementHero extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: _ownerManagementInsetColor,
+              color: AppColors.legacy(_ownerManagementInsetColor),
               borderRadius: BorderRadius.circular(13),
-              border: Border.all(color: _ownerManagementInsetBorderColor),
+              border: Border.all(
+                color: AppColors.legacyBorder(_ownerManagementInsetBorderColor),
+              ),
             ),
-            child: Icon(item.icon, color: _roomFormIconColor, size: 27),
+            child: Icon(
+              item.icon,
+              color: AppColors.legacy(_roomFormIconColor),
+              size: 27,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -880,8 +890,8 @@ class _BacklineInventoryManagementHero extends StatelessWidget {
                   item.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
@@ -891,8 +901,8 @@ class _BacklineInventoryManagementHero extends StatelessWidget {
                   category,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF9FA9B8),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF9FA9B8)),
                     fontSize: 11,
                   ),
                 ),
@@ -910,17 +920,24 @@ class _BacklineAvailabilitySourceInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _ownerManagementInsetColor,
+        color: AppColors.legacy(_ownerManagementInsetColor),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _ownerManagementInsetBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementInsetBorderColor),
+        ),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, color: _roomFormIconColor, size: 19),
+          Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.legacy(_roomFormIconColor),
+            size: 19,
+          ),
           SizedBox(width: 9),
           Expanded(
             child: Text(
@@ -928,7 +945,7 @@ class _BacklineAvailabilitySourceInfo extends StatelessWidget {
               'düzenlenir. Burada yalnızca toplam envanter adedini '
               'değiştirebilirsin.',
               style: TextStyle(
-                color: Color(0xFFAAB3C1),
+                color: AppColors.legacy(Color(0xFFAAB3C1)),
                 fontSize: 11,
                 height: 1.4,
               ),
@@ -947,6 +964,7 @@ class _BacklineInventoryDeleteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SizedBox(
       height: 44,
       child: OutlinedButton.icon(

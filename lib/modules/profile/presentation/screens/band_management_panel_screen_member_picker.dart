@@ -197,9 +197,11 @@ extension _BandManagementPanelScreenStateMemberPicker
                                     children: [
                                       CircleAvatar(
                                         radius: 20,
-                                        backgroundColor: Theme.of(
-                                          context,
-                                        ).colorScheme.surfaceContainer,
+                                        backgroundColor: (AppColors.isLight
+                                            ? AppColors.avatarBackground
+                                            : Theme.of(
+                                                context,
+                                              ).colorScheme.surfaceContainer),
                                         child: ClipOval(
                                           child:
                                               musician.profilePictureUrl
@@ -302,7 +304,9 @@ extension _BandManagementPanelScreenStateMemberPicker
                                           },
                                           icon: Icon(
                                             Icons.add_circle_outline,
-                                            color: AppColors.coralAlt,
+                                            color: (AppColors.isLight
+                                                ? AppColors.accentText
+                                                : AppColors.coralAlt),
                                           ),
                                         ),
                                     ],

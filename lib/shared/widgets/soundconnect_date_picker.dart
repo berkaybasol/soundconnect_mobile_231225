@@ -13,13 +13,18 @@ Future<DateTime?> showSoundConnectDatePicker({
   String helpText = 'Tarih seç',
 }) {
   final base = Theme.of(context);
-  const surface = Color(0xFF101827);
-  const header = Color(0xFF151F31);
-  const ink = Color(0xFFEFF2F8);
-  const muted = Color(0xFFA8B4C9);
-  const border = Color(0xFF2A3447);
+  final isLight = base.brightness == Brightness.light;
+  final surface = isLight ? base.colorScheme.surface : const Color(0xFF101827);
+  final header = isLight
+      ? base.colorScheme.surfaceContainerHighest
+      : const Color(0xFF151F31);
+  final ink = isLight ? base.colorScheme.onSurface : const Color(0xFFEFF2F8);
+  final muted = isLight
+      ? base.colorScheme.onSurfaceVariant
+      : const Color(0xFFA8B4C9);
+  final border = isLight ? base.colorScheme.outline : const Color(0xFF2A3447);
   final accent = AppColors.brandGradient[1];
-  final selectedInk = const Color(0xFF111827);
+  final selectedInk = isLight ? AppColors.onAccent : const Color(0xFF111827);
   final foreground = WidgetStateProperty.resolveWith<Color?>((states) {
     if (states.contains(WidgetState.disabled)) {
       return muted.withValues(alpha: 0.38);

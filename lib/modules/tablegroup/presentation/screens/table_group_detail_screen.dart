@@ -14,6 +14,7 @@ import '../../../../core/policy/stage_mode.dart';
 import '../../../../core/realtime/realtime_client_error.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../dm/data/dm_auth_support.dart';
@@ -1133,6 +1134,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final group = _group;
     final description = _tableDescription(group);
     final showOverview =
@@ -1151,7 +1153,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
           toolbarHeight: 56,
           leadingWidth: 56,
           titleSpacing: 12,
-          title: const Text(
+          title: Text(
             'Masa Detayı',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1211,9 +1213,19 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                     children: [
                       Text(_error!, textAlign: TextAlign.center),
                       const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: _bootstrap,
-                        child: const Text('Tekrar dene'),
+                      GradientOutline(
+                        enabled: AppColors.isLight,
+                        radius: 999,
+                        child: FilledButton(
+                          onPressed: _bootstrap,
+                          style: AppColors.isLight
+                              ? FilledButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  foregroundColor: AppColors.textPrimary,
+                                )
+                              : null,
+                          child: const Text('Tekrar dene'),
+                        ),
                       ),
                     ],
                   ),
@@ -1342,7 +1354,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                         action.message,
                         maxLines: 1,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: TableGroupOverviewStyle.bodyMuted,
                           fontSize: 14,
                           height: 1.3,
@@ -1389,7 +1401,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                   description ?? 'Masa buluşması',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: TableGroupOverviewStyle.primaryText,
                     fontSize: 21,
                     height: 1.16,
@@ -1416,7 +1428,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                                 : '@$ownerName',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: TableGroupOverviewStyle.headingMuted,
                               fontSize: 16,
                               height: 1.1,
@@ -1429,7 +1441,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                             spacing: 7,
                             runSpacing: 4,
                             children: [
-                              const Text(
+                              Text(
                                 'Masa sahibi',
                                 style: TextStyle(
                                   color: TableGroupOverviewStyle.tertiaryText,
@@ -1443,7 +1455,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                           const SizedBox(height: 5),
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.location_on_outlined,
                                 size: 18,
                                 color: TableGroupOverviewStyle.bodyMuted,
@@ -1454,7 +1466,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                                   _detailLocationLabel(group),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: TableGroupOverviewStyle.bodyMuted,
                                     fontSize: 14,
                                     height: 1.15,
@@ -1532,7 +1544,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
           for (var index = 0; index < rows.length; index++) ...[
             rows[index],
             if (index != rows.length - 1)
-              const Divider(height: 1, color: TableGroupOverviewStyle.divider),
+              Divider(height: 1, color: TableGroupOverviewStyle.divider),
           ],
         ],
       ),
@@ -1578,7 +1590,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                           username.startsWith('@') ? username : '@$username',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: TableGroupOverviewStyle.headingMuted,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -1594,7 +1606,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                   ),
                   if (isOwner) ...[
                     const SizedBox(height: 2),
-                    const Text(
+                    Text(
                       'Masa sahibi',
                       style: TextStyle(
                         color: TableGroupOverviewStyle.tertiaryText,
@@ -1678,7 +1690,14 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
     final enabled = action.onTap != null;
     final colors = enabled
         ? TableGroupOverviewStyle.brandGradient
-        : const <Color>[Color(0xFF334054), Color(0xFF334054)];
+        : <Color>[
+            (AppColors.isOriginalDark
+                ? const Color(0xFF334054)
+                : AppColors.navBlueSoft),
+            (AppColors.isOriginalDark
+                ? const Color(0xFF334054)
+                : AppColors.navBlueSoft),
+          ];
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -1714,7 +1733,9 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                           size: 28,
                           color: enabled
                               ? TableGroupOverviewStyle.primaryText
-                              : const Color(0xFF7F8A9B),
+                              : (AppColors.isOriginalDark
+                                    ? const Color(0xFF7F8A9B)
+                                    : AppColors.textMuted),
                         ),
                       const SizedBox(width: 12),
                       Text(
@@ -1723,7 +1744,9 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                         style: TextStyle(
                           color: enabled
                               ? TableGroupOverviewStyle.primaryText
-                              : const Color(0xFF7F8A9B),
+                              : (AppColors.isOriginalDark
+                                    ? const Color(0xFF7F8A9B)
+                                    : AppColors.textMuted),
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                         ),
@@ -1813,7 +1836,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
                     key: const Key('table_group_description'),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: TableGroupOverviewStyle.bodyMuted,
                       fontSize: 15,
                       height: 1.42,
@@ -2495,7 +2518,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       painter: _GradientOutlinePainter(
         radius: 14,
         strokeWidth: 1.2,
-        colors: AppColors.brandGradient,
+        colors: AppColors.decorativeGradient,
       ),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
@@ -2640,7 +2663,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
             Theme.of(context).dividerColor.withValues(alpha: 0.7),
             Theme.of(context).dividerColor.withValues(alpha: 0.7),
           ]
-        : AppColors.brandGradient;
+        : AppColors.decorativeGradient;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2716,7 +2739,11 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         gradient: mine
-            ? LinearGradient(colors: [AppColors.gradientA, AppColors.gradientC])
+            ? LinearGradient(
+                colors: AppColors.isLight
+                    ? AppColors.actionGradient
+                    : [AppColors.gradientA, AppColors.gradientC],
+              )
             : null,
         color: mine
             ? null
@@ -2736,7 +2763,11 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
         children: [
           Text(
             message.content,
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            style: TextStyle(
+              color: mine && AppColors.isLight
+                  ? AppColors.onAccent
+                  : Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -2744,7 +2775,7 @@ class _TableGroupDetailScreenState extends State<TableGroupDetailScreen>
             style: TextStyle(
               fontSize: 11,
               color: mine
-                  ? AppColors.white.withValues(alpha: 0.84)
+                  ? AppColors.onAccent.withValues(alpha: 0.84)
                   : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
@@ -2829,9 +2860,10 @@ class _DetailSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         color: TableGroupOverviewStyle.headingMuted,
         fontSize: 21,
         height: 1.15,
@@ -2848,6 +2880,7 @@ class _DetailEmptyInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -2858,10 +2891,7 @@ class _DetailEmptyInfoCard extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: const TextStyle(
-          color: TableGroupOverviewStyle.bodyMuted,
-          height: 1.4,
-        ),
+        style: TextStyle(color: TableGroupOverviewStyle.bodyMuted, height: 1.4),
       ),
     );
   }
@@ -2874,16 +2904,19 @@ class _DetailCountPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFF111B2A),
+        color: (AppColors.isOriginalDark
+            ? const Color(0xFF111B2A)
+            : AppColors.navBlueSoft),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: TableGroupOverviewStyle.cardBorder),
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: TableGroupOverviewStyle.headingMuted,
           fontSize: 13,
           fontWeight: FontWeight.w600,
@@ -2906,17 +2939,20 @@ class _DetailAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final innerSize = size - 3;
     return Container(
       width: size,
       height: size,
       padding: const EdgeInsets.all(1.4),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[Color(0xFFFF755B), Color(0xFFD33EFF)],
+          colors: AppColors.isLight
+              ? AppColors.decorativeGradient
+              : const <Color>[Color(0xFFFF755B), Color(0xFFD33EFF)],
         ),
       ),
       child: ClipOval(
@@ -2935,13 +2971,17 @@ class _DetailAvatar extends StatelessWidget {
 
   Widget _fallback() {
     return ColoredBox(
-      color: const Color(0xFF070D17),
+      color: (AppColors.isOriginalDark
+          ? const Color(0xFF070D17)
+          : AppColors.avatarBackground),
       child: Center(
         child: Text(
           initials,
           maxLines: 1,
           style: TextStyle(
-            color: const Color(0xFFF2F4F8),
+            color: (AppColors.isOriginalDark
+                ? const Color(0xFFF2F4F8)
+                : AppColors.avatarForeground),
             fontSize: size * 0.28,
             fontWeight: FontWeight.w800,
           ),
@@ -2959,6 +2999,7 @@ class _DetailStatsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final normalizedVenue = group.venueName?.trim();
     final venue = normalizedVenue?.isNotEmpty == true
         ? normalizedVenue!
@@ -2999,7 +3040,7 @@ class _DetailStatsStrip extends StatelessWidget {
             key: const Key('table_group_detail_capacity'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: TableGroupOverviewStyle.bodyMuted,
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -3078,11 +3119,12 @@ class _DetailIconText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final textWidget = Text(
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
+      style: TextStyle(
         color: TableGroupOverviewStyle.bodyMuted,
         fontSize: 14,
         fontWeight: FontWeight.w600,
@@ -3116,6 +3158,7 @@ class _DetailStatDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: 1,
       height: 24,
@@ -3136,6 +3179,7 @@ class _DetailCapacityGlyphs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final total = maxPersonCount.clamp(0, 6);
     final accepted = acceptedCount.clamp(0, total);
     return Row(
@@ -3147,8 +3191,10 @@ class _DetailCapacityGlyphs extends StatelessWidget {
             padding: EdgeInsets.only(right: index == total - 1 ? 0 : 1),
             child: index < accepted
                 ? ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: <Color>[Color(0xFFFF755B), Color(0xFFD33EFF)],
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: AppColors.isLight
+                          ? AppColors.decorativeGradient
+                          : const <Color>[Color(0xFFFF755B), Color(0xFFD33EFF)],
                     ).createShader(bounds),
                     child: const Icon(
                       Icons.person_rounded,
@@ -3156,10 +3202,12 @@ class _DetailCapacityGlyphs extends StatelessWidget {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(
+                : Icon(
                     Icons.person_outline_rounded,
                     size: 18,
-                    color: Color(0xFFC04DFF),
+                    color: AppColors.isLight
+                        ? AppColors.decorativeGradient.last
+                        : const Color(0xFFC04DFF),
                   ),
           ),
       ],
@@ -3174,6 +3222,7 @@ class _DetailEmptyParticipantRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       key: ValueKey<String>('table_group_detail_empty_participant-$index'),
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
@@ -3236,6 +3285,7 @@ class _TableGroupProfileTargetSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SafeArea(
       child: ListView.separated(
         shrinkWrap: true,
@@ -3287,8 +3337,9 @@ class _PremiumDescriptionDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = AppColors.white;
-    final muted = AppColors.white.withValues(alpha: 0.72);
+    Theme.of(context);
+    final foreground = AppColors.legacy(AppColors.white);
+    final muted = AppColors.legacy(AppColors.white).withValues(alpha: 0.72);
 
     return Dialog(
       key: const Key('table_group_description_dialog'),
@@ -3304,7 +3355,7 @@ class _PremiumDescriptionDialog extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: AppColors.brandGradient
+              colors: AppColors.decorativeGradient
                   .map((color) => color.withValues(alpha: 0.72))
                   .toList(growable: false),
             ),
@@ -3318,7 +3369,9 @@ class _PremiumDescriptionDialog extends StatelessWidget {
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFF0A1526),
+              color: (AppColors.isOriginalDark
+                  ? const Color(0xFF0A1526)
+                  : AppColors.navBlue),
               borderRadius: BorderRadius.circular(21),
             ),
             child: Padding(
@@ -3336,13 +3389,15 @@ class _PremiumDescriptionDialog extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors: AppColors.brandGradient,
+                            colors: AppColors.decorativeGradient,
                           ),
                         ),
                         child: DecoratedBox(
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Color(0xFF101D31),
+                            color: (AppColors.isOriginalDark
+                                ? const Color(0xFF101D31)
+                                : AppColors.navBlueSoft),
                           ),
                           child: Icon(
                             Icons.subject_rounded,
@@ -3384,9 +3439,15 @@ class _PremiumDescriptionDialog extends StatelessWidget {
                     constraints: const BoxConstraints(maxHeight: 260),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF071321),
+                      color: (AppColors.isOriginalDark
+                          ? const Color(0xFF071321)
+                          : AppColors.inputFill),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFF2A4059)),
+                      border: Border.all(
+                        color: (AppColors.isOriginalDark
+                            ? const Color(0xFF2A4059)
+                            : AppColors.border),
+                      ),
                     ),
                     child: SingleChildScrollView(
                       child: Text(
@@ -3404,12 +3465,16 @@ class _PremiumDescriptionDialog extends StatelessWidget {
                   DecoratedBox(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      gradient: LinearGradient(colors: AppColors.brandGradient),
+                      gradient: LinearGradient(
+                        colors: AppColors.decorativeGradient,
+                      ),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(1),
                       child: Material(
-                        color: const Color(0xFF0A1526),
+                        color: (AppColors.isOriginalDark
+                            ? const Color(0xFF0A1526)
+                            : AppColors.navBlue),
                         borderRadius: BorderRadius.circular(13),
                         child: InkWell(
                           key: const Key('table_group_description_close'),
@@ -3454,8 +3519,9 @@ class _PremiumConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = AppColors.white;
-    final muted = AppColors.white.withValues(alpha: 0.72);
+    Theme.of(context);
+    final foreground = AppColors.legacy(AppColors.white);
+    final muted = AppColors.legacy(AppColors.white).withValues(alpha: 0.72);
     final screenHeight = MediaQuery.sizeOf(context).height;
     final maxDialogHeight = screenHeight > 48
         ? screenHeight - 48
@@ -3474,7 +3540,7 @@ class _PremiumConfirmationDialog extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: AppColors.brandGradient
+            colors: AppColors.decorativeGradient
                 .map((color) => color.withValues(alpha: 0.76))
                 .toList(growable: false),
           ),
@@ -3488,7 +3554,9 @@ class _PremiumConfirmationDialog extends StatelessWidget {
         ),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFF0A1526),
+            color: (AppColors.isOriginalDark
+                ? const Color(0xFF0A1526)
+                : AppColors.navBlue),
             borderRadius: BorderRadius.circular(21),
           ),
           child: Padding(
@@ -3513,13 +3581,15 @@ class _PremiumConfirmationDialog extends StatelessWidget {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
-                                  colors: AppColors.brandGradient,
+                                  colors: AppColors.decorativeGradient,
                                 ),
                               ),
                               child: DecoratedBox(
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFF101D31),
+                                  color: (AppColors.isOriginalDark
+                                      ? const Color(0xFF101D31)
+                                      : AppColors.navBlueSoft),
                                 ),
                                 child: Icon(
                                   Icons.warning_amber_rounded,
@@ -3549,9 +3619,15 @@ class _PremiumConfirmationDialog extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF071321),
+                            color: (AppColors.isOriginalDark
+                                ? const Color(0xFF071321)
+                                : AppColors.inputFill),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFF2A4059)),
+                            border: Border.all(
+                              color: (AppColors.isOriginalDark
+                                  ? const Color(0xFF2A4059)
+                                  : AppColors.border),
+                            ),
                           ),
                           child: Text(
                             message,
@@ -3575,7 +3651,11 @@ class _PremiumConfirmationDialog extends StatelessWidget {
                         onPressed: () => Navigator.of(context).pop(false),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: muted,
-                          side: const BorderSide(color: Color(0xFF2A4059)),
+                          side: BorderSide(
+                            color: (AppColors.isOriginalDark
+                                ? const Color(0xFF2A4059)
+                                : AppColors.border),
+                          ),
                           minimumSize: const Size.fromHeight(48),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -3589,45 +3669,64 @@ class _PremiumConfirmationDialog extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          gradient: LinearGradient(
-                            colors: AppColors.brandGradient,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.brandGradient.last.withValues(
-                                alpha: 0.22,
+                      child: GradientOutline(
+                        enabled: AppColors.isLight,
+                        radius: 14,
+                        child: DecoratedBox(
+                          decoration: AppColors.isLight
+                              ? BoxDecoration(
+                                  color: AppColors.navBlue,
+                                  borderRadius: BorderRadius.circular(14),
+                                )
+                              : BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  gradient: LinearGradient(
+                                    colors: AppColors.actionGradient,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          (AppColors.isLight
+                                                  ? AppColors.avatarShadow
+                                                  : AppColors
+                                                        .brandGradient
+                                                        .last)
+                                              .withValues(
+                                                alpha: AppColors.isLight
+                                                    ? 0.12
+                                                    : 0.22,
+                                              ),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                          child: SizedBox(
+                            height: 48,
+                            child: FilledButton(
+                              key: const Key(
+                                'table_group_confirmation_confirm',
                               ),
-                              blurRadius: 14,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: SizedBox(
-                          height: 48,
-                          child: FilledButton(
-                            key: const Key('table_group_confirmation_confirm'),
-                            onPressed: () => Navigator.of(context).pop(true),
-                            style: FilledButton.styleFrom(
-                              foregroundColor: AppColors.white,
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                              onPressed: () => Navigator.of(context).pop(true),
+                              style: FilledButton.styleFrom(
+                                foregroundColor: AppColors.onAccent,
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(
-                              confirmLabel,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
+                              child: Text(
+                                confirmLabel,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ),
@@ -3688,8 +3787,9 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = AppColors.white;
-    final muted = AppColors.white.withValues(alpha: 0.72);
+    Theme.of(context);
+    final foreground = AppColors.legacy(AppColors.white);
+    final muted = AppColors.legacy(AppColors.white).withValues(alpha: 0.72);
 
     return Dialog(
       key: const Key('table_group_join_dialog'),
@@ -3705,7 +3805,7 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: AppColors.brandGradient
+              colors: AppColors.decorativeGradient
                   .map((color) => color.withValues(alpha: 0.72))
                   .toList(growable: false),
             ),
@@ -3719,7 +3819,9 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFF0A1526),
+              color: (AppColors.isOriginalDark
+                  ? const Color(0xFF0A1526)
+                  : AppColors.navBlue),
               borderRadius: BorderRadius.circular(21),
             ),
             child: Padding(
@@ -3738,13 +3840,15 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors: AppColors.brandGradient,
+                            colors: AppColors.decorativeGradient,
                           ),
                         ),
                         child: DecoratedBox(
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Color(0xFF101D31),
+                            color: (AppColors.isOriginalDark
+                                ? const Color(0xFF101D31)
+                                : AppColors.navBlueSoft),
                           ),
                           child: Icon(
                             Icons.person_add_alt_1_rounded,
@@ -3790,8 +3894,12 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          AppColors.brandGradient.first.withValues(alpha: 0.18),
-                          AppColors.brandGradient.last.withValues(alpha: 0.14),
+                          AppColors.decorativeGradient.first.withValues(
+                            alpha: 0.18,
+                          ),
+                          AppColors.decorativeGradient.last.withValues(
+                            alpha: 0.14,
+                          ),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(13),
@@ -3813,7 +3921,9 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                             'Aktif bir masan varsa bu istek onaylandığında '
                             'kapanır.',
                             style: TextStyle(
-                              color: AppColors.white.withValues(alpha: 0.94),
+                              color: AppColors.legacy(
+                                AppColors.white,
+                              ).withValues(alpha: 0.94),
                               fontSize: 12.5,
                               height: 1.35,
                               fontWeight: FontWeight.w600,
@@ -3841,9 +3951,15 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF111F34),
+                          color: (AppColors.isOriginalDark
+                              ? const Color(0xFF111F34)
+                              : AppColors.inputFill),
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: const Color(0xFF263A52)),
+                          border: Border.all(
+                            color: (AppColors.isOriginalDark
+                                ? const Color(0xFF263A52)
+                                : AppColors.border),
+                          ),
                         ),
                         child: Text(
                           'İsteğe bağlı',
@@ -3863,9 +3979,16 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(15),
                       gradient: _noteFocusNode.hasFocus
-                          ? LinearGradient(colors: AppColors.brandGradient)
-                          : const LinearGradient(
-                              colors: [Color(0xFF2A4059), Color(0xFF2A4059)],
+                          ? LinearGradient(colors: AppColors.decorativeGradient)
+                          : LinearGradient(
+                              colors: [
+                                (AppColors.isOriginalDark
+                                    ? const Color(0xFF2A4059)
+                                    : AppColors.border),
+                                (AppColors.isOriginalDark
+                                    ? const Color(0xFF2A4059)
+                                    : AppColors.border),
+                              ],
                             ),
                     ),
                     child: TextField(
@@ -3884,7 +4007,9 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                         hintStyle: TextStyle(color: muted, fontSize: 14),
                         counterText: '',
                         filled: true,
-                        fillColor: const Color(0xFF071321),
+                        fillColor: (AppColors.isOriginalDark
+                            ? const Color(0xFF071321)
+                            : AppColors.inputFill),
                         contentPadding: const EdgeInsets.fromLTRB(
                           15,
                           14,
@@ -3927,7 +4052,11 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                           onPressed: _cancel,
                           style: OutlinedButton.styleFrom(
                             foregroundColor: muted,
-                            side: const BorderSide(color: Color(0xFF2A4059)),
+                            side: BorderSide(
+                              color: (AppColors.isOriginalDark
+                                  ? const Color(0xFF2A4059)
+                                  : AppColors.border),
+                            ),
                             minimumSize: const Size.fromHeight(48),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -3941,36 +4070,53 @@ class _PremiumJoinDialogState extends State<_PremiumJoinDialog> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: LinearGradient(
-                              colors: AppColors.brandGradient,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.brandGradient.last.withValues(
-                                  alpha: 0.22,
-                                ),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              key: const Key('table_group_join_confirm'),
-                              onTap: _confirm,
-                              borderRadius: BorderRadius.circular(14),
-                              child: const SizedBox(
-                                height: 48,
-                                child: Center(
-                                  child: Text(
-                                    'Gönder',
-                                    style: TextStyle(
-                                      color: AppColors.white,
-                                      fontWeight: FontWeight.w800,
+                        child: GradientOutline(
+                          enabled: AppColors.isLight,
+                          radius: 14,
+                          child: DecoratedBox(
+                            decoration: AppColors.isLight
+                                ? BoxDecoration(
+                                    color: AppColors.navBlue,
+                                    borderRadius: BorderRadius.circular(14),
+                                  )
+                                : BoxDecoration(
+                                    borderRadius: BorderRadius.circular(14),
+                                    gradient: LinearGradient(
+                                      colors: AppColors.actionGradient,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            (AppColors.isLight
+                                                    ? AppColors.avatarShadow
+                                                    : AppColors
+                                                          .brandGradient
+                                                          .last)
+                                                .withValues(
+                                                  alpha: AppColors.isLight
+                                                      ? 0.12
+                                                      : 0.22,
+                                                ),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                key: const Key('table_group_join_confirm'),
+                                onTap: _confirm,
+                                borderRadius: BorderRadius.circular(14),
+                                child: SizedBox(
+                                  height: 48,
+                                  child: Center(
+                                    child: Text(
+                                      'Gönder',
+                                      style: TextStyle(
+                                        color: AppColors.onAccent,
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
                                   ),
                                 ),

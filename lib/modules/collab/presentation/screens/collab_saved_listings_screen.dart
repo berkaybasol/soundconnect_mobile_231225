@@ -30,12 +30,15 @@ class CollabSavedListingsScreen extends StatelessWidget {
   final CollabSavedListingsCubit? cubit;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabSavedListingsScreenContent(
-      showBottomNavigation: showBottomNavigation,
-      cubit: cubit,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabSavedListingsScreenContent(
+        showBottomNavigation: showBottomNavigation,
+        cubit: cubit,
+      ),
+    );
+  }
 }
 
 class _CollabSavedListingsScreenContent extends StatefulWidget {
@@ -309,23 +312,26 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.bookmarks_outlined,
-            size: 38,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 12),
-          const Text('Henüz kaydettiğin bir ilan yok.'),
-        ],
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.bookmarks_outlined,
+              size: 38,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            const Text('Henüz kaydettiğin bir ilan yok.'),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _LoadError extends StatelessWidget {
@@ -335,21 +341,24 @@ class _LoadError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(message ?? 'Kaydedilen ilanlar yüklenemedi.'),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Yeniden dene'),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message ?? 'Kaydedilen ilanlar yüklenemedi.'),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Yeniden dene'),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

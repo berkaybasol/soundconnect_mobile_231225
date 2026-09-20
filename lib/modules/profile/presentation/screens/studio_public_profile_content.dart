@@ -30,6 +30,7 @@ class _StudioPublicDashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final description = profile.description?.trim() ?? '';
 
     return Padding(
@@ -58,8 +59,8 @@ class _StudioPublicDashboardContent extends StatelessWidget {
                         profile.displayName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppColors.legacy(Colors.white),
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
                           height: 1.05,
@@ -68,9 +69,9 @@ class _StudioPublicDashboardContent extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.location_on_outlined,
-                            color: Color(0xFF8C95A3),
+                            color: AppColors.legacy(Color(0xFF8C95A3)),
                             size: 14,
                           ),
                           const SizedBox(width: 4),
@@ -79,8 +80,8 @@ class _StudioPublicDashboardContent extends StatelessWidget {
                               location,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFFA3ABB8),
+                              style: TextStyle(
+                                color: AppColors.legacy(Color(0xFFA3ABB8)),
                                 fontSize: 12,
                               ),
                             ),
@@ -94,8 +95,8 @@ class _StudioPublicDashboardContent extends StatelessWidget {
                           description,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFC1C8D2),
+                          style: TextStyle(
+                            color: AppColors.legacy(Color(0xFFC1C8D2)),
                             fontSize: 12,
                             height: 1.42,
                           ),
@@ -183,6 +184,7 @@ class _StudioPublicTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return _StudioTabsFrame(
       profileId: profileId,
       canReserve: true,

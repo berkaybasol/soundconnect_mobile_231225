@@ -209,6 +209,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action == AuthAction.forgotPassword) {
@@ -633,7 +634,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(99),
         gradient: active
-            ? LinearGradient(colors: AppColors.brandGradient)
+            ? LinearGradient(colors: AppColors.decorativeGradient)
             : null,
         color: active ? null : Theme.of(context).dividerColor,
       ),
@@ -651,19 +652,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         borderRadius: borderRadius,
         gradient: active
             ? LinearGradient(
-                colors: [
-                  AppColors.neonPurpleGradient[0],
-                  AppColors.neonPurpleGradient[1],
-                  AppColors.neonPurpleGradient[2],
-                  AppColors.neonPurpleGradient[3],
-                ],
+                colors: AppColors.isLight
+                    ? AppColors.brandGradient
+                    : [
+                        AppColors.decorativeNeonPurpleGradient[0],
+                        AppColors.decorativeNeonPurpleGradient[1],
+                        AppColors.decorativeNeonPurpleGradient[2],
+                        AppColors.decorativeNeonPurpleGradient[3],
+                      ],
               )
             : null,
         color: active ? null : Theme.of(context).dividerColor,
         boxShadow: current
             ? [
                 BoxShadow(
-                  color: AppColors.neonPurpleGradient[1].withValues(
+                  color: AppColors.decorativeNeonPurpleGradient[1].withValues(
                     alpha: 0.16,
                   ),
                   blurRadius: 8,
@@ -685,7 +688,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             icon,
             size: 18,
             color: active
-                ? AppColors.coralAlt
+                ? AppColors.isLight
+                      ? AppColors.decorativeGradient.last
+                      : AppColors.coralAlt
                 : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
@@ -723,24 +728,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             height: compact ? 40 : 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: avatarUrl == null
+              gradient: avatarUrl == null && AppColors.isOriginalDark
                   ? LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        AppColors.brandGradient.first,
-                        AppColors.brandGradient[3],
+                        AppColors.decorativeGradient.first,
+                        AppColors.decorativeGradient[3],
                       ],
                     )
                   : null,
-              color: avatarUrl == null ? null : colors.surfaceContainerHighest,
+              color: AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : avatarUrl == null
+                  ? null
+                  : colors.surfaceContainerHighest,
             ),
             child: avatarUrl == null
                 ? Center(
                     child: Text(
                       fallbackLetter,
-                      style: const TextStyle(
-                        color: AppColors.white,
+                      style: TextStyle(
+                        color: AppColors.isLight
+                            ? AppColors.avatarForeground
+                            : AppColors.white,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -756,7 +767,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         child: Text(
                           fallbackLetter,
                           style: TextStyle(
-                            color: colors.onSurfaceVariant,
+                            color: AppColors.isLight
+                                ? AppColors.avatarForeground
+                                : colors.onSurfaceVariant,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -765,7 +778,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         child: Text(
                           fallbackLetter,
                           style: TextStyle(
-                            color: colors.onSurfaceVariant,
+                            color: AppColors.isLight
+                                ? AppColors.avatarForeground
+                                : colors.onSurfaceVariant,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -808,7 +823,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: AppColors.brandGradient),
+              gradient: LinearGradient(colors: AppColors.decorativeGradient),
             ),
             child: Padding(
               padding: const EdgeInsets.all(1.2),
@@ -868,10 +883,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: AppColors.brandGradient),
+              gradient: LinearGradient(colors: AppColors.decorativeGradient),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.brandGradient[2].withValues(alpha: 0.18),
+                  color: AppColors.decorativeGradient[2].withValues(
+                    alpha: 0.18,
+                  ),
                   blurRadius: 12,
                   spreadRadius: 1,
                 ),
@@ -889,7 +906,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: Icon(
                   Icons.check_rounded,
                   size: 30,
-                  color: AppColors.coralAlt,
+                  color: AppColors.isLight
+                      ? AppColors.decorativeGradient.last
+                      : AppColors.coralAlt,
                 ),
               ),
             ),

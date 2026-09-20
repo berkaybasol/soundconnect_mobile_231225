@@ -282,6 +282,7 @@ class _VenueWeeklyCalendarEditorScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.navBlueDeep,
       appBar: AppBar(
@@ -312,7 +313,9 @@ class _VenueWeeklyCalendarEditorScreenState
               child: Stack(
                 children: [
                   RefreshIndicator(
-                    color: AppColors.coralAlt,
+                    color: (AppColors.isLight
+                        ? AppColors.accentText
+                        : AppColors.coralAlt),
                     onRefresh: _saving ? () async {} : _loadEvents,
                     child: CustomScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),

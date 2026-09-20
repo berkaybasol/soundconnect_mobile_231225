@@ -49,10 +49,13 @@ class OverthinkingFeedScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) => serviceLocator<OverthinkingFeedCubit>()..load(),
-    child: _OverthinkingFeedView(bottomBarStageMode: bottomBarStageMode),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return BlocProvider(
+      create: (_) => serviceLocator<OverthinkingFeedCubit>()..load(),
+      child: _OverthinkingFeedView(bottomBarStageMode: bottomBarStageMode),
+    );
+  }
 }
 
 class _OverthinkingFeedView extends StatefulWidget {
@@ -249,210 +252,222 @@ class _OverthinkingFeedViewState extends State<_OverthinkingFeedView>
   }
 
   @override
-  Widget build(BuildContext context) => Theme(
-    data: OverthinkingPalette.theme(context),
-    child: Builder(
-      builder: (context) => BlocConsumer<OverthinkingFeedCubit, OverthinkingFeedState>(
-        listenWhen: (previous, current) =>
-            current.error != null &&
-            previous.error != current.error &&
-            current.posts.isNotEmpty,
-        listener: (context, state) =>
-            ScaffoldMessenger.of(context).showSnackBar(
-              appSnackBar(
-                context,
-                tone: AppSnackBarTone.error,
-                content: Text(state.error!.message),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Theme(
+      data: OverthinkingPalette.theme(context),
+      child: Builder(
+        builder: (context) => BlocConsumer<OverthinkingFeedCubit, OverthinkingFeedState>(
+          listenWhen: (previous, current) =>
+              current.error != null &&
+              previous.error != current.error &&
+              current.posts.isNotEmpty,
+          listener: (context, state) =>
+              ScaffoldMessenger.of(context).showSnackBar(
+                appSnackBar(
+                  context,
+                  tone: AppSnackBarTone.error,
+                  content: Text(state.error!.message),
+                ),
               ),
-            ),
-        builder: (context, state) =>
-            !context.read<OverthinkingFeedCubit>().isSessionCurrent
-            ? const OverthinkingUnavailableScreen()
-            : Scaffold(
-                body: TableGroupOverviewBackdrop(
-                  child: SafeArea(
-                    bottom: false,
-                    child: RefreshIndicator(
-                      color: OverthinkingPalette.accent,
-                      onRefresh: _refresh,
-                      child: CustomScrollView(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: _FeedHeading(onCreate: _openCreate),
-                          ),
-                          SliverToBoxAdapter(
-                            child:
-                                BlocBuilder<
-                                  OverthinkingIncomingUnreadScope,
-                                  bool?
-                                >(
-                                  bloc: _incomingUnread,
-                                  builder: (context, hasUnread) =>
-                                      _FeedShortcuts(
-                                        hasUnread: hasUnread,
-                                        onMine: () => _openManage(),
-                                        onIncoming: () =>
-                                            _openManage(initialTabIndex: 1),
-                                        onSent: () =>
-                                            _openManage(initialTabIndex: 2),
-                                      ),
-                                ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: _FeedSection(
-                              sort: state.sort,
-                              onSortChanged: _changeSort,
-                            ),
-                          ),
-                          if (state.status == OverthinkingFeedStatus.loading &&
-                              state.posts.isEmpty)
-                            const SliverToBoxAdapter(child: _FeedLoadingState())
-                          else if (state.posts.isEmpty)
+          builder: (context, state) =>
+              !context.read<OverthinkingFeedCubit>().isSessionCurrent
+              ? const OverthinkingUnavailableScreen()
+              : Scaffold(
+                  body: TableGroupOverviewBackdrop(
+                    child: SafeArea(
+                      bottom: false,
+                      child: RefreshIndicator(
+                        color: OverthinkingPalette.accent,
+                        onRefresh: _refresh,
+                        child: CustomScrollView(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          slivers: [
                             SliverToBoxAdapter(
-                              child: OverthinkingEmptyState(
-                                icon:
-                                    state.status ==
-                                        OverthinkingFeedStatus.failure
-                                    ? Icons.cloud_off_rounded
-                                    : Icons.edit_note_rounded,
-                                title:
-                                    state.status ==
-                                        OverthinkingFeedStatus.failure
-                                    ? 'Akışa ulaşamadık'
-                                    : 'İlk satır senden gelsin.',
-                                message:
-                                    state.status ==
-                                        OverthinkingFeedStatus.failure
-                                    ? state.error?.message ??
-                                          'Bağlantını kontrol edip yeniden deneyebilirsin.'
-                                    : 'Bazen bir şarkı, bazen tek bir cümle.\nAklından geçenlere burada yer var.',
-                                action: FilledButton.icon(
-                                  onPressed:
+                              child: _FeedHeading(onCreate: _openCreate),
+                            ),
+                            SliverToBoxAdapter(
+                              child:
+                                  BlocBuilder<
+                                    OverthinkingIncomingUnreadScope,
+                                    bool?
+                                  >(
+                                    bloc: _incomingUnread,
+                                    builder: (context, hasUnread) =>
+                                        _FeedShortcuts(
+                                          hasUnread: hasUnread,
+                                          onMine: () => _openManage(),
+                                          onIncoming: () =>
+                                              _openManage(initialTabIndex: 1),
+                                          onSent: () =>
+                                              _openManage(initialTabIndex: 2),
+                                        ),
+                                  ),
+                            ),
+                            SliverToBoxAdapter(
+                              child: _FeedSection(
+                                sort: state.sort,
+                                onSortChanged: _changeSort,
+                              ),
+                            ),
+                            if (state.status ==
+                                    OverthinkingFeedStatus.loading &&
+                                state.posts.isEmpty)
+                              const SliverToBoxAdapter(
+                                child: _FeedLoadingState(),
+                              )
+                            else if (state.posts.isEmpty)
+                              SliverToBoxAdapter(
+                                child: OverthinkingEmptyState(
+                                  icon:
                                       state.status ==
                                           OverthinkingFeedStatus.failure
-                                      ? () => context
-                                            .read<OverthinkingFeedCubit>()
-                                            .load()
-                                      : _openCreate,
-                                  icon: Icon(
-                                    state.status ==
-                                            OverthinkingFeedStatus.failure
-                                        ? Icons.refresh_rounded
-                                        : Icons.edit_outlined,
-                                    size: 18,
-                                  ),
-                                  label: Text(
-                                    state.status ==
-                                            OverthinkingFeedStatus.failure
-                                        ? 'Yeniden dene'
-                                        : 'Bir şeyler yaz',
-                                  ),
-                                ),
-                              ),
-                            )
-                          else
-                            SliverPadding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                              ),
-                              sliver: SliverList.builder(
-                                itemCount: state.posts.length,
-                                itemBuilder: (context, index) {
-                                  final post = state.posts[index];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 14),
-                                    child: OverthinkingPostCard(
-                                      key: ValueKey(
-                                        'overthinking-post-${post.id}',
-                                      ),
-                                      post: post,
-                                      onTap: () => _openDetail(post),
-                                      onLike: () => context
-                                          .read<OverthinkingFeedCubit>()
-                                          .toggleLike(post),
-                                      onComments: () => _openComments(post),
-                                      onDelete: _isOwnPost(post)
-                                          ? () => _deletePost(post)
-                                          : null,
-                                      busy: _deletingPostId == post.id,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          if (state.posts.isNotEmpty)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  20,
-                                  4,
-                                  20,
-                                  28,
-                                ),
-                                child: Center(
-                                  child:
+                                      ? Icons.cloud_off_rounded
+                                      : Icons.edit_note_rounded,
+                                  title:
                                       state.status ==
-                                              OverthinkingFeedStatus
-                                                  .loadingMore ||
-                                          state.status ==
-                                              OverthinkingFeedStatus.loading
-                                      ? const Padding(
-                                          padding: EdgeInsets.all(12),
-                                          child: SizedBox.square(
-                                            dimension: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
+                                          OverthinkingFeedStatus.failure
+                                      ? 'Akışa ulaşamadık'
+                                      : 'İlk satır senden gelsin.',
+                                  message:
+                                      state.status ==
+                                          OverthinkingFeedStatus.failure
+                                      ? state.error?.message ??
+                                            'Bağlantını kontrol edip yeniden deneyebilirsin.'
+                                      : 'Bazen bir şarkı, bazen tek bir cümle.\nAklından geçenlere burada yer var.',
+                                  action: FilledButton.icon(
+                                    onPressed:
+                                        state.status ==
+                                            OverthinkingFeedStatus.failure
+                                        ? () => context
+                                              .read<OverthinkingFeedCubit>()
+                                              .load()
+                                        : _openCreate,
+                                    icon: Icon(
+                                      state.status ==
+                                              OverthinkingFeedStatus.failure
+                                          ? Icons.refresh_rounded
+                                          : Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      state.status ==
+                                              OverthinkingFeedStatus.failure
+                                          ? 'Yeniden dene'
+                                          : 'Bir şeyler yaz',
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                ),
+                                sliver: SliverList.builder(
+                                  itemCount: state.posts.length,
+                                  itemBuilder: (context, index) {
+                                    final post = state.posts[index];
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 14,
+                                      ),
+                                      child: OverthinkingPostCard(
+                                        key: ValueKey(
+                                          'overthinking-post-${post.id}',
+                                        ),
+                                        post: post,
+                                        onTap: () => _openDetail(post),
+                                        onLike: () => context
+                                            .read<OverthinkingFeedCubit>()
+                                            .toggleLike(post),
+                                        onComments: () => _openComments(post),
+                                        onDelete: _isOwnPost(post)
+                                            ? () => _deletePost(post)
+                                            : null,
+                                        busy: _deletingPostId == post.id,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            if (state.posts.isNotEmpty)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    4,
+                                    20,
+                                    28,
+                                  ),
+                                  child: Center(
+                                    child:
+                                        state.status ==
+                                                OverthinkingFeedStatus
+                                                    .loadingMore ||
+                                            state.status ==
+                                                OverthinkingFeedStatus.loading
+                                        ? const Padding(
+                                            padding: EdgeInsets.all(12),
+                                            child: SizedBox.square(
+                                              dimension: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
+                                          )
+                                        : state.hasNext
+                                        ? TextButton.icon(
+                                            onPressed: () => context
+                                                .read<OverthinkingFeedCubit>()
+                                                .loadMore(),
+                                            icon: Icon(
+                                              state.status ==
+                                                      OverthinkingFeedStatus
+                                                          .failure
+                                                  ? Icons.refresh_rounded
+                                                  : Icons
+                                                        .arrow_downward_rounded,
+                                              size: 16,
+                                            ),
+                                            label: Text(
+                                              state.status ==
+                                                      OverthinkingFeedStatus
+                                                          .failure
+                                                  ? 'Yüklenemedi · Yeniden dene'
+                                                  : 'Daha fazla yazı',
+                                            ),
+                                          )
+                                        : Text(
+                                            'Şimdilik bütün satırlar bu kadar.',
+                                            style: TextStyle(
+                                              color: OverthinkingPalette.muted,
+                                              fontSize: 12,
                                             ),
                                           ),
-                                        )
-                                      : state.hasNext
-                                      ? TextButton.icon(
-                                          onPressed: () => context
-                                              .read<OverthinkingFeedCubit>()
-                                              .loadMore(),
-                                          icon: Icon(
-                                            state.status ==
-                                                    OverthinkingFeedStatus
-                                                        .failure
-                                                ? Icons.refresh_rounded
-                                                : Icons.arrow_downward_rounded,
-                                            size: 16,
-                                          ),
-                                          label: Text(
-                                            state.status ==
-                                                    OverthinkingFeedStatus
-                                                        .failure
-                                                ? 'Yüklenemedi · Yeniden dene'
-                                                : 'Daha fazla yazı',
-                                          ),
-                                        )
-                                      : const Text(
-                                          'Şimdilik bütün satırlar bu kadar.',
-                                          style: TextStyle(
-                                            color: OverthinkingPalette.muted,
-                                            fontSize: 12,
-                                          ),
-                                        ),
+                                  ),
                                 ),
                               ),
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 24),
                             ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
+                  bottomNavigationBar: ProfilePublicBottomBar(
+                    mainstageCurrentIndex: 1,
+                    currentIndex:
+                        widget.bottomBarStageMode == StageMode.mainstage
+                        ? 1
+                        : 2,
+                    stageMode: widget.bottomBarStageMode,
+                  ),
                 ),
-                bottomNavigationBar: ProfilePublicBottomBar(
-                  mainstageCurrentIndex: 1,
-                  currentIndex: widget.bottomBarStageMode == StageMode.mainstage
-                      ? 1
-                      : 2,
-                  stageMode: widget.bottomBarStageMode,
-                ),
-              ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

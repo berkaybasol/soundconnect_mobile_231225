@@ -14,6 +14,7 @@ import '../../../../shared/widgets/event_poster_fallback.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../shared/widgets/guest_access_sheet.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../auth/presentation/widgets/registration_options_sheet.dart';
 import '../../../analytics/presentation/widgets/analytics_tracking.dart';
 import '../../data/event_discovery_search_repository_impl.dart';
@@ -40,6 +41,7 @@ class GuestEventHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     const updated = bool.fromEnvironment(
       'GUEST_DISCOVERY_V2',
       defaultValue: true,
@@ -341,7 +343,7 @@ class _GuestEventHomeScreenState extends State<_LegacyGuestEventHomeScreen> {
                             return LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: AppColors.brandGradient,
+                              colors: AppColors.decorativeGradient,
                             ).createShader(bounds);
                           },
                           blendMode: BlendMode.srcIn,
@@ -411,6 +413,7 @@ class _GuestEventHomeScreenState extends State<_LegacyGuestEventHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final cityOptions = _cities
         .map((e) => _FilterOption(value: e.id, label: e.name))
         .toList();
@@ -559,15 +562,26 @@ class _HeroPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A2740), Color(0xFF10243B), Color(0xFF1B1E37)],
+          colors: [
+            (AppColors.isOriginalDark
+                ? const Color(0xFF1A2740)
+                : AppColors.navBlue),
+            (AppColors.isOriginalDark
+                ? const Color(0xFF10243B)
+                : AppColors.inputFill),
+            (AppColors.isOriginalDark
+                ? const Color(0xFF1B1E37)
+                : AppColors.navBlueSoft),
+          ],
         ),
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
@@ -581,17 +595,21 @@ class _HeroPanel extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: AppColors.brandGradient),
+                  gradient: LinearGradient(
+                    colors: AppColors.decorativeGradient,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.brandGradient[2].withValues(alpha: 0.35),
+                      color: AppColors.decorativeGradient[2].withValues(
+                        alpha: 0.35,
+                      ),
                       blurRadius: 10,
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.music_note,
-                  color: AppColors.white,
+                  color: AppColors.decorativeForeground,
                   size: 18,
                 ),
               ),
@@ -650,6 +668,7 @@ class _InlineFilterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -743,6 +762,7 @@ class _FilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return _GradientDropdownField(
       hint: label,
       value: value,
@@ -804,6 +824,7 @@ class _GradientDropdownFieldState extends State<_GradientDropdownField> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final borderRadius = BorderRadius.circular(12);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
@@ -811,7 +832,7 @@ class _GradientDropdownFieldState extends State<_GradientDropdownField> {
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         gradient: _isFocused
-            ? LinearGradient(colors: AppColors.brandGradient)
+            ? LinearGradient(colors: AppColors.decorativeGradient)
             : null,
         color: _isFocused ? null : Theme.of(context).dividerColor,
       ),
@@ -898,6 +919,7 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final location = [
       item.venueDistrict ?? '',
       item.venueNeighborhood ?? '',
@@ -981,12 +1003,14 @@ class _EventCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
-                      gradient: LinearGradient(colors: AppColors.brandGradient),
+                      gradient: LinearGradient(
+                        colors: AppColors.decorativeGradient,
+                      ),
                     ),
                     child: Text(
                       _timeLabel(),
-                      style: const TextStyle(
-                        color: AppColors.white,
+                      style: TextStyle(
+                        color: AppColors.decorativeForeground,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1095,6 +1119,7 @@ class _GuestEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1143,6 +1168,7 @@ class _SearchFirstState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1191,6 +1217,7 @@ class _CenteredLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return const Center(child: CircularProgressIndicator());
   }
 }
@@ -1208,6 +1235,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1250,6 +1278,7 @@ class _GuestLockFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: BoxDecoration(
@@ -1337,6 +1366,7 @@ class _GuestTableAccessFabState extends State<_GuestTableAccessFab>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return GestureDetector(
       onTap: widget.onTap,
       onPanUpdate: (details) => widget.onDragDelta(details.delta),
@@ -1377,28 +1407,39 @@ class _GuestTableAccessFabState extends State<_GuestTableAccessFab>
                   textAlign: TextAlign.center,
                 ),
               ),
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: AppColors.brandGradient,
+            GradientOutline(
+              enabled: AppColors.isLight,
+              radius: 999,
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: AppColors.isLight
+                    ? BoxDecoration(
+                        color: AppColors.navBlue,
+                        shape: BoxShape.circle,
+                      )
+                    : BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: AppColors.decorativeGradient,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.decorativeGradient.last.withValues(
+                              alpha: 0.42,
+                            ),
+                            blurRadius: 16,
+                            offset: const Offset(0, 7),
+                          ),
+                        ],
+                      ),
+                child: Icon(
+                  Icons.groups_2_rounded,
+                  color: AppColors.decorativeForeground,
+                  size: 34,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.brandGradient.last.withValues(alpha: 0.42),
-                    blurRadius: 16,
-                    offset: const Offset(0, 7),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.groups_2_rounded,
-                color: AppColors.white,
-                size: 34,
               ),
             ),
           ],

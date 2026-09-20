@@ -9,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../data/models/table_group_create_request.dart';
 import '../../domain/entities/table_group_venue_option.dart';
 import '../../domain/table_group_expiry_policy.dart';
@@ -275,7 +276,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppColors.brandGradient.last,
+              primary: AppColors.isLight
+                  ? AppColors.accentText
+                  : AppColors.brandGradient.last,
               surface: Theme.of(context).colorScheme.surfaceContainer,
               onSurface: Theme.of(context).colorScheme.onSurface,
             ),
@@ -412,7 +415,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
           borderRadius: BorderRadius.circular(14),
           side: selected
               ? BorderSide(
-                  color: AppColors.brandGradient.last.withValues(alpha: 0.72),
+                  color: AppColors.decorativeGradient.last.withValues(
+                    alpha: 0.72,
+                  ),
                   width: 1.2,
                 )
               : BorderSide.none,
@@ -564,7 +569,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
               counterText: '',
               contentPadding: const EdgeInsets.fromLTRB(16, 11, 16, 11),
               filled: true,
-              fillColor: const Color(0xFF071321),
+              fillColor: (AppColors.isOriginalDark
+                  ? const Color(0xFF071321)
+                  : AppColors.inputFill),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
@@ -748,6 +755,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocProvider.value(
       value: _cubit,
       child: BlocConsumer<TableGroupCreateCubit, TableGroupCreateState>(
@@ -1021,7 +1029,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                           )
                                         : null,
                                     filled: true,
-                                    fillColor: const Color(0xFF071321),
+                                    fillColor: (AppColors.isOriginalDark
+                                        ? const Color(0xFF071321)
+                                        : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide.none,
@@ -1118,7 +1128,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                       vertical: 10,
                                     ),
                                     filled: true,
-                                    fillColor: const Color(0xFF071321),
+                                    fillColor: (AppColors.isOriginalDark
+                                        ? const Color(0xFF071321)
+                                        : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide.none,
@@ -1186,7 +1198,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                       vertical: 10,
                                     ),
                                     filled: true,
-                                    fillColor: const Color(0xFF071321),
+                                    fillColor: (AppColors.isOriginalDark
+                                        ? const Color(0xFF071321)
+                                        : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide.none,
@@ -1253,7 +1267,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                       vertical: 10,
                                     ),
                                     filled: true,
-                                    fillColor: const Color(0xFF071321),
+                                    fillColor: (AppColors.isOriginalDark
+                                        ? const Color(0xFF071321)
+                                        : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide.none,
@@ -1385,7 +1401,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                 foregroundColor: Theme.of(
                                   context,
                                 ).colorScheme.onSurface,
-                                backgroundColor: const Color(0xFF071321),
+                                backgroundColor: (AppColors.isOriginalDark
+                                    ? const Color(0xFF071321)
+                                    : AppColors.inputFill),
                                 side: BorderSide(
                                   color: Theme.of(
                                     context,
@@ -1460,7 +1478,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                           context,
                                         ).dividerColor.withValues(alpha: 0.7),
                                       ]
-                                    : AppColors.brandGradient,
+                                    : AppColors.decorativeGradient,
                               ),
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -1605,7 +1623,7 @@ class _TableSeatPreview extends StatelessWidget {
   _TableSeatPreview({required this.seatGenders, required this.totalSeats});
 
   List<Color> _seatGradient() {
-    return AppColors.brandGradient;
+    return AppColors.decorativeGradient;
   }
 
   IconData _seatIcon(_SeatGender gender) {
@@ -1628,6 +1646,7 @@ class _TableSeatPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SizedBox(
       height: 194,
       child: LayoutBuilder(
@@ -1692,7 +1711,7 @@ class _TableSeatPreview extends StatelessWidget {
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: AppColors.brandGradient
+                            colors: AppColors.decorativeGradient
                                 .map((color) => color.withValues(alpha: 0.32))
                                 .toList(),
                           ),
@@ -1741,61 +1760,72 @@ class _TableSeatPreview extends StatelessWidget {
                 child: SizedBox(
                   width: 36,
                   height: 36,
-                  child: Container(
-                    width: 27,
-                    height: 27,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: seatGradient,
-                      ),
-                      border: Border.all(
-                        color: AppColors.white.withValues(alpha: 0.96),
-                        width: 1.7,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.pureBlack.withValues(alpha: 0.20),
-                          blurRadius: 4.8,
-                          offset: inwardShadowOffset,
-                        ),
-                      ],
-                    ),
-                    child: isMe
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Icon(
-                                  Icons.bookmark_rounded,
-                                  size: 18,
-                                  color: AppColors.white.withValues(
-                                    alpha: 0.98,
+                  child: GradientOutline(
+                    enabled: AppColors.isLight,
+                    radius: 999,
+                    child: Container(
+                      width: 27,
+                      height: 27,
+                      alignment: Alignment.center,
+                      decoration: AppColors.isLight
+                          ? BoxDecoration(
+                              color: AppColors.navBlue,
+                              shape: BoxShape.circle,
+                            )
+                          : BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: seatGradient,
+                              ),
+                              border: Border.all(
+                                color: AppColors.white.withValues(alpha: 0.96),
+                                width: 1.7,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.pureBlack.withValues(
+                                    alpha: 0.20,
                                   ),
-                                ),
-                                Positioned(
-                                  top: 5.5,
-                                  child: Icon(
-                                    Icons.star_rounded,
-                                    size: 8,
-                                    color: AppColors.white.withValues(
-                                      alpha: 0.98,
-                                    ),
-                                  ),
+                                  blurRadius: 4.8,
+                                  offset: inwardShadowOffset,
                                 ),
                               ],
                             ),
-                          )
-                        : Icon(
-                            _seatIcon(seatGenders[i]),
-                            size: _seatIconSize(seatGenders[i]),
-                            color: AppColors.white.withValues(alpha: 0.98),
-                          ),
+                      child: isMe
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.bookmark_rounded,
+                                    size: 18,
+                                    color: AppColors.decorativeForeground
+                                        .withValues(alpha: 0.98),
+                                  ),
+                                  Positioned(
+                                    top: 5.5,
+                                    child: Icon(
+                                      Icons.star_rounded,
+                                      size: 8,
+                                      color: AppColors.decorativeForeground
+                                          .withValues(alpha: 0.98),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Icon(
+                              _seatIcon(seatGenders[i]),
+                              size: _seatIconSize(seatGenders[i]),
+                              color: AppColors.decorativeForeground.withValues(
+                                alpha: 0.98,
+                              ),
+                            ),
+                    ),
                   ),
                 ),
               ),
@@ -1822,6 +1852,7 @@ class _PremiumVenueToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final enabled = onChanged != null;
     final accent = AppColors.brandGradient.last;
@@ -1849,11 +1880,15 @@ class _PremiumVenueToggle extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  color: const Color(0xFF071321),
+                  color: (AppColors.isOriginalDark
+                      ? const Color(0xFF071321)
+                      : AppColors.inputFill),
                   border: Border.all(
                     color: value
                         ? accent.withValues(alpha: 0.82)
-                        : const Color(0xFF263A52),
+                        : (AppColors.isOriginalDark
+                              ? const Color(0xFF263A52)
+                              : AppColors.border),
                     width: value ? 1.2 : 1,
                   ),
                 ),
@@ -1868,7 +1903,7 @@ class _PremiumVenueToggle extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: AppColors.brandGradient,
+                          colors: AppColors.decorativeGradient,
                         ),
                       ),
                       child: DecoratedBox(
@@ -1915,44 +1950,64 @@ class _PremiumVenueToggle extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      width: 56,
-                      height: 34,
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        gradient: value
-                            ? LinearGradient(colors: AppColors.brandGradient)
-                            : null,
-                        color: value ? null : const Color(0xFF0B1829),
-                        border: Border.all(
-                          color: value
-                              ? AppColors.white.withValues(alpha: 0.18)
-                              : const Color(0xFF2A4059),
-                        ),
-                      ),
-                      child: AnimatedAlign(
+                    GradientOutline(
+                      enabled: AppColors.isLight,
+                      radius: 999,
+                      colors: value && enabled
+                          ? AppColors.decorativeGradient
+                          : [AppColors.border, AppColors.border],
+                      child: AnimatedContainer(
                         duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        alignment: value
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.pureBlack.withValues(
-                                  alpha: 0.22,
+                        width: 56,
+                        height: 34,
+                        padding: const EdgeInsets.all(3),
+                        decoration: AppColors.isLight
+                            ? BoxDecoration(
+                                color: AppColors.navBlue,
+                                borderRadius: BorderRadius.circular(999),
+                              )
+                            : BoxDecoration(
+                                borderRadius: BorderRadius.circular(999),
+                                gradient: value
+                                    ? LinearGradient(
+                                        colors: AppColors.decorativeGradient,
+                                      )
+                                    : null,
+                                color: value
+                                    ? null
+                                    : (AppColors.isOriginalDark
+                                          ? const Color(0xFF0B1829)
+                                          : AppColors.inputFill),
+                                border: Border.all(
+                                  color: value
+                                      ? AppColors.white.withValues(alpha: 0.18)
+                                      : (AppColors.isOriginalDark
+                                            ? const Color(0xFF2A4059)
+                                            : AppColors.border),
                                 ),
-                                blurRadius: 5,
-                                offset: const Offset(0, 2),
                               ),
-                            ],
+                        child: AnimatedAlign(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          alignment: value
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.pureBlack.withValues(
+                                    alpha: 0.22,
+                                  ),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1975,6 +2030,7 @@ class _DescriptionCounter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: controller,
       builder: (context, value, _) {
@@ -2021,6 +2077,7 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
@@ -2058,6 +2115,7 @@ class _FieldCaption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Text(
       text,
       style: TextStyle(
@@ -2077,6 +2135,7 @@ class _GradientFocusFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       padding: const EdgeInsets.all(1.1),
@@ -2086,10 +2145,17 @@ class _GradientFocusFrame extends StatelessWidget {
             ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: AppColors.brandGradient,
+                colors: AppColors.decorativeGradient,
               )
-            : const LinearGradient(
-                colors: [Color(0xFF263A52), Color(0xFF263A52)],
+            : LinearGradient(
+                colors: [
+                  (AppColors.isOriginalDark
+                      ? const Color(0xFF263A52)
+                      : AppColors.border),
+                  (AppColors.isOriginalDark
+                      ? const Color(0xFF263A52)
+                      : AppColors.border),
+                ],
               ),
       ),
       child: child,
@@ -2114,6 +2180,7 @@ class _PremiumAgeRangeSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final startPercent = ((values.start - min) / (max - min)).clamp(0.0, 1.0);
     final endPercent = ((values.end - min) / (max - min)).clamp(0.0, 1.0);
 
@@ -2153,7 +2220,7 @@ class _PremiumAgeRangeSlider extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
-                      colors: AppColors.brandGradient,
+                      colors: AppColors.decorativeGradient,
                     ),
                   ),
                 ),
@@ -2170,9 +2237,11 @@ class _PremiumAgeRangeSlider extends StatelessWidget {
                   ),
                   rangeValueIndicatorShape:
                       PaddleRangeSliderValueIndicatorShape(),
-                  valueIndicatorColor: AppColors.brandGradient.last,
+                  valueIndicatorColor: AppColors.isLight
+                      ? AppColors.actionGradient.last
+                      : AppColors.brandGradient.last,
                   valueIndicatorTextStyle: TextStyle(
-                    color: AppColors.white,
+                    color: AppColors.onAccent,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -2212,33 +2281,45 @@ class _GenderSeatMiniControl extends StatelessWidget {
   });
 
   List<Color> _seatGradient() {
-    return AppColors.brandGradient;
+    return AppColors.decorativeGradient;
   }
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Column(
       children: [
-        Container(
-          width: 42,
-          height: 42,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: _seatGradient(),
+        GradientOutline(
+          enabled: AppColors.isLight,
+          radius: 999,
+          child: Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: AppColors.isLight
+                ? BoxDecoration(
+                    color: AppColors.navBlue,
+                    shape: BoxShape.circle,
+                  )
+                : BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: _seatGradient(),
+                    ),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: 0.95),
+                      width: 1.2,
+                    ),
+                  ),
+            child: Icon(
+              icon,
+              size: 24,
+              color:
+                  (AppColors.isLight ? AppColors.textPrimary : AppColors.white)
+                      .withValues(alpha: 0.98),
             ),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.95),
-              width: 1.2,
-            ),
-          ),
-          child: Icon(
-            icon,
-            size: 24,
-            color: AppColors.white.withValues(alpha: 0.98),
           ),
         ),
         SizedBox(height: 5),

@@ -1,18 +1,15 @@
 part of 'overthinking_manage_screen.dart';
 
-const _manageHeading = TextStyle(
+TextStyle get _manageHeading => TextStyle(
   color: OverthinkingPalette.text,
   fontSize: 22,
   fontWeight: FontWeight.w800,
   height: 1.2,
   letterSpacing: -0.5,
 );
-const _manageBody = TextStyle(
-  color: OverthinkingPalette.muted,
-  fontSize: 13,
-  height: 1.5,
-);
-const _manageEyebrow = TextStyle(
+TextStyle get _manageBody =>
+    TextStyle(color: OverthinkingPalette.muted, fontSize: 13, height: 1.5);
+TextStyle get _manageEyebrow => TextStyle(
   color: TableGroupOverviewStyle.headingMuted,
   fontSize: 13,
   fontWeight: FontWeight.w800,
@@ -40,7 +37,7 @@ ButtonStyle _manageSecondaryButton(BuildContext context) =>
     OutlinedButton.styleFrom(
       foregroundColor: OverthinkingPalette.text,
       disabledForegroundColor: OverthinkingPalette.muted,
-      side: const BorderSide(color: OverthinkingPalette.border),
+      side: BorderSide(color: OverthinkingPalette.border),
       minimumSize: const Size(0, 46),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
       textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -69,24 +66,24 @@ class _ManageMetric extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: '$value $label',
-    excludeSemantics: true,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: iconColor ?? OverthinkingPalette.muted),
-        const SizedBox(width: 5),
-        Text(
-          '$value',
-          style: const TextStyle(
-            color: OverthinkingPalette.muted,
-            fontSize: 12,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      label: '$value $label',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: iconColor ?? OverthinkingPalette.muted),
+          const SizedBox(width: 5),
+          Text(
+            '$value',
+            style: TextStyle(color: OverthinkingPalette.muted, fontSize: 12),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _RevealRequestCard extends StatelessWidget {
@@ -106,6 +103,7 @@ class _RevealRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final pending = request.status == 'PENDING';
     final date = request.createdAt?.toLocal();
     return Container(
@@ -134,7 +132,7 @@ class _RevealRequestCard extends StatelessWidget {
                                 '@${request.requesterUsername}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: OverthinkingPalette.text,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
@@ -174,14 +172,14 @@ class _RevealRequestCard extends StatelessWidget {
                     color: OverthinkingPalette.lilac.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.north_east_rounded,
                     size: 18,
                     color: OverthinkingPalette.lilac,
                   ),
                 ),
                 const SizedBox(width: 11),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Gönderdiğin kimlik isteği',
                     style: TextStyle(
@@ -222,7 +220,7 @@ class _RevealRequestCard extends StatelessWidget {
                   request.postTitle,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: OverthinkingPalette.text,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -254,7 +252,7 @@ class _RevealRequestCard extends StatelessWidget {
                     onPressed: busy ? null : onApprove,
                     style: _managePrimaryButton(context),
                     child: busy
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
@@ -287,10 +285,7 @@ class _RevealRequestCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}',
-              style: const TextStyle(
-                color: OverthinkingPalette.muted,
-                fontSize: 10,
-              ),
+              style: TextStyle(color: OverthinkingPalette.muted, fontSize: 10),
             ),
           ],
         ],
@@ -305,13 +300,16 @@ class _RevealRequesterAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final avatarUrl = request.requesterAvatarUrl?.trim();
     final fallback = Text(
       request.requesterUsername.trim().isEmpty
           ? '?'
           : request.requesterUsername.trim().characters.first.toUpperCase(),
-      style: const TextStyle(
-        color: OverthinkingPalette.lilac,
+      style: TextStyle(
+        color: AppColors.isLight
+            ? AppColors.avatarForeground
+            : OverthinkingPalette.lilac,
         fontWeight: FontWeight.w800,
       ),
     );
@@ -321,9 +319,13 @@ class _RevealRequesterAvatar extends StatelessWidget {
       height: 42,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: OverthinkingPalette.lilac.withValues(alpha: 0.13),
+        color: AppColors.isLight
+            ? AppColors.avatarBackground
+            : OverthinkingPalette.lilac.withValues(alpha: 0.13),
         border: Border.all(
-          color: OverthinkingPalette.lilac.withValues(alpha: 0.2),
+          color: AppColors.isLight
+              ? AppColors.border
+              : OverthinkingPalette.lilac.withValues(alpha: 0.2),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -346,54 +348,57 @@ class _ManageMusicStrip extends StatelessWidget {
   const _ManageMusicStrip({required this.post});
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(9),
-    decoration: BoxDecoration(
-      gradient: TableGroupOverviewStyle.insetGradient,
-      borderRadius: BorderRadius.circular(9),
-      border: Border.all(color: TableGroupOverviewStyle.insetBorder),
-    ),
-    child: Row(
-      children: [
-        _MusicThumb(post: post),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                post.spotifyTrackName?.trim().isNotEmpty == true
-                    ? post.spotifyTrackName!
-                    : 'Yazıya eşlik eden parça',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: OverthinkingPalette.text,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        gradient: TableGroupOverviewStyle.insetGradient,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: TableGroupOverviewStyle.insetBorder),
+      ),
+      child: Row(
+        children: [
+          _MusicThumb(post: post),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  post.spotifyTrackName?.trim().isNotEmpty == true
+                      ? post.spotifyTrackName!
+                      : 'Yazıya eşlik eden parça',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: OverthinkingPalette.text,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                post.spotifyArtistName?.trim().isNotEmpty == true
-                    ? post.spotifyArtistName!
-                    : 'Bu düşüncenin müziği',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _manageBody.copyWith(fontSize: 10),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  post.spotifyArtistName?.trim().isNotEmpty == true
+                      ? post.spotifyArtistName!
+                      : 'Bu düşüncenin müziği',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _manageBody.copyWith(fontSize: 10),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        const Icon(
-          Icons.graphic_eq_rounded,
-          color: OverthinkingPalette.lilac,
-          size: 20,
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: 8),
+          Icon(
+            Icons.graphic_eq_rounded,
+            color: OverthinkingPalette.lilac,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MusicThumb extends StatelessWidget {
@@ -402,8 +407,9 @@ class _MusicThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageUrl = trustedSpotifyArtworkUrl(post.spotifyAlbumImageUrl);
-    const fallback = Icon(
+    final fallback = Icon(
       Icons.music_note_rounded,
       color: OverthinkingPalette.lilac,
       size: 19,
@@ -434,39 +440,45 @@ class _VisibilityPill extends StatelessWidget {
   final OverthinkingPost post;
   const _VisibilityPill({required this.post});
   @override
-  Widget build(BuildContext context) => _ManagePill(
-    icon: post.anonymous
-        ? Icons.lock_outline_rounded
-        : Icons.person_outline_rounded,
-    text: post.anonymous ? 'Anonim' : 'Profilinle',
-    color: post.anonymous
-        ? OverthinkingPalette.lilac
-        : OverthinkingPalette.muted,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _ManagePill(
+      icon: post.anonymous
+          ? Icons.lock_outline_rounded
+          : Icons.person_outline_rounded,
+      text: post.anonymous ? 'Anonim' : 'Profilinle',
+      color: post.anonymous
+          ? OverthinkingPalette.lilac
+          : OverthinkingPalette.muted,
+    );
+  }
 }
 
 class _StatusPill extends StatelessWidget {
   final String status;
   const _StatusPill({required this.status});
   @override
-  Widget build(BuildContext context) => _ManagePill(
-    text: switch (status) {
-      'APPROVED' => 'Kabul edildi',
-      'REJECTED' => 'Reddedildi',
-      'PENDING' => 'Yanıt bekliyor',
-      _ => 'Durum bilinmiyor',
-    },
-    icon: switch (status) {
-      'APPROVED' => Icons.check_rounded,
-      'REJECTED' => Icons.close_rounded,
-      _ => Icons.schedule_rounded,
-    },
-    color: switch (status) {
-      'APPROVED' => AppColors.tableGroupApplyGreen,
-      'REJECTED' => OverthinkingPalette.muted,
-      _ => OverthinkingPalette.lilac,
-    },
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _ManagePill(
+      text: switch (status) {
+        'APPROVED' => 'Kabul edildi',
+        'REJECTED' => 'Reddedildi',
+        'PENDING' => 'Yanıt bekliyor',
+        _ => 'Durum bilinmiyor',
+      },
+      icon: switch (status) {
+        'APPROVED' => Icons.check_rounded,
+        'REJECTED' => Icons.close_rounded,
+        _ => Icons.schedule_rounded,
+      },
+      color: switch (status) {
+        'APPROVED' => AppColors.tableGroupApplyGreen,
+        'REJECTED' => OverthinkingPalette.muted,
+        _ => OverthinkingPalette.lilac,
+      },
+    );
+  }
 }
 
 class _ManagePill extends StatelessWidget {
@@ -479,28 +491,31 @@ class _ManagePill extends StatelessWidget {
     required this.color,
   });
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.09),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: color),
-        const SizedBox(width: 5),
-        Text(
-          text,
-          style: TextStyle(
-            color: color,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _ManageEmptyState extends StatelessWidget {
@@ -516,43 +531,46 @@ class _ManageEmptyState extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 62,
-              height: 62,
-              decoration: BoxDecoration(
-                color: OverthinkingPalette.surfaceRaised,
-                borderRadius: BorderRadius.circular(20),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  color: OverthinkingPalette.surfaceRaised,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(icon, size: 28, color: OverthinkingPalette.lilac),
               ),
-              child: Icon(icon, size: 28, color: OverthinkingPalette.lilac),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: _manageHeading.copyWith(fontSize: 21),
-            ),
-            const SizedBox(height: 9),
-            Text(message, textAlign: TextAlign.center, style: _manageBody),
-            if (onRetry != null) ...[
-              const SizedBox(height: 18),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                style: _manageSecondaryButton(context),
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Tekrar dene'),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: _manageHeading.copyWith(fontSize: 21),
               ),
+              const SizedBox(height: 9),
+              Text(message, textAlign: TextAlign.center, style: _manageBody),
+              if (onRetry != null) ...[
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: onRetry,
+                  style: _manageSecondaryButton(context),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Tekrar dene'),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

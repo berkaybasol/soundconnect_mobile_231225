@@ -63,6 +63,7 @@ class _StudioBacklinePanelState extends State<_StudioBacklinePanel> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: _StudioPanel(
@@ -71,23 +72,26 @@ class _StudioBacklinePanelState extends State<_StudioBacklinePanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 2),
                 child: Text(
                   'Backline Envanteri',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
               const SizedBox(height: 3),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 2),
                 child: Text(
                   'Stüdyo içi ve kiralanabilir ekipmanlar',
-                  style: TextStyle(color: Color(0xFF9AA4B2), fontSize: 12),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF9AA4B2)),
+                    fontSize: 12,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -197,8 +201,8 @@ class _StudioBacklinePanelState extends State<_StudioBacklinePanel> {
                 Text(
                   'Toplam $_totalItems ekipman kaydı',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF7F8998),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF7F8998)),
                     fontSize: 10,
                   ),
                 ),
@@ -308,11 +312,14 @@ class _StudioPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0B111B),
+        color: AppColors.legacy(const Color(0xFF0B111B)),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF1E2836)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF1E2836)),
+        ),
       ),
       child: child,
     );
@@ -332,12 +339,15 @@ class _BacklineSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF202B3A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -349,8 +359,8 @@ class _BacklineSummary extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 value,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.legacy(Colors.white),
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -359,7 +369,10 @@ class _BacklineSummary extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(color: Color(0xFF9AA4B2), fontSize: 10),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFF9AA4B2)),
+              fontSize: 10,
+            ),
           ),
         ],
       ),
@@ -378,6 +391,7 @@ class _BacklineFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     const filters = _backlineQuickFilters;
     final hasCustomSelection = !filters.contains(selectedFilter);
     return SingleChildScrollView(
@@ -427,6 +441,7 @@ class _BacklineFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final radius = BorderRadius.circular(8);
     return InkWell(
       borderRadius: radius,
@@ -441,12 +456,16 @@ class _BacklineFilterChip extends StatelessWidget {
                 )
               : null,
           borderRadius: radius,
-          border: selected ? null : Border.all(color: const Color(0xFF263244)),
+          border: selected
+              ? null
+              : Border.all(
+                  color: AppColors.legacyBorder(const Color(0xFF263244)),
+                ),
         ),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF101722),
+            color: AppColors.legacy(const Color(0xFF101722)),
             borderRadius: BorderRadius.circular(7.2),
           ),
           alignment: Alignment.center,
@@ -458,14 +477,18 @@ class _BacklineFilterChip extends StatelessWidget {
                 style: TextStyle(
                   color: selected
                       ? const Color(0xFFFF8A8A)
-                      : const Color(0xFFB5BDCA),
+                      : AppColors.legacy(const Color(0xFFB5BDCA)),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               if (trailingIcon != null) ...[
                 const SizedBox(width: 4),
-                Icon(trailingIcon, color: const Color(0xFFB5BDCA), size: 15),
+                Icon(
+                  trailingIcon,
+                  color: AppColors.legacy(const Color(0xFFB5BDCA)),
+                  size: 15,
+                ),
               ],
             ],
           ),
@@ -482,6 +505,7 @@ class _BacklineSearch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SizedBox(
       height: 42,
       child: TextField(
@@ -502,22 +526,29 @@ class _BacklineSearchEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF202B3A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+        ),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.search_off_rounded, color: Color(0xFF8C95A3), size: 28),
+          Icon(
+            Icons.search_off_rounded,
+            color: AppColors.legacy(Color(0xFF8C95A3)),
+            size: 28,
+          ),
           SizedBox(height: 8),
           Text(
             'Eşleşen ekipman bulunamadı.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFFB5BDCA),
+              color: AppColors.legacy(Color(0xFFB5BDCA)),
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -633,6 +664,7 @@ class _BacklineItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () async {
@@ -651,9 +683,11 @@ class _BacklineItemCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF101722),
+          color: AppColors.legacy(const Color(0xFF101722)),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF202B3A)),
+          border: Border.all(
+            color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+          ),
         ),
         child: Row(
           children: [
@@ -661,9 +695,11 @@ class _BacklineItemCard extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: const Color(0xFF080D15),
+                color: AppColors.legacy(const Color(0xFF080D15)),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFF263244)),
+                border: Border.all(
+                  color: AppColors.legacyBorder(const Color(0xFF263244)),
+                ),
               ),
               clipBehavior: Clip.antiAlias,
               child: item.photoUrls.isNotEmpty
@@ -674,11 +710,15 @@ class _BacklineItemCard extends StatelessWidget {
                       cacheHeight: 216,
                       errorBuilder: (_) => Icon(
                         item.icon,
-                        color: const Color(0xFFD4D9E2),
+                        color: AppColors.legacy(const Color(0xFFD4D9E2)),
                         size: 34,
                       ),
                     )
-                  : Icon(item.icon, color: const Color(0xFFD4D9E2), size: 34),
+                  : Icon(
+                      item.icon,
+                      color: AppColors.legacy(const Color(0xFFD4D9E2)),
+                      size: 34,
+                    ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -693,8 +733,8 @@ class _BacklineItemCard extends StatelessWidget {
                           item.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.legacy(Colors.white),
                             fontWeight: FontWeight.w900,
                             fontSize: 13,
                           ),
@@ -710,8 +750,8 @@ class _BacklineItemCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     item.type,
-                    style: const TextStyle(
-                      color: Color(0xFFB7C0CE),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFFB7C0CE)),
                       fontSize: 11,
                     ),
                   ),
@@ -742,7 +782,11 @@ class _BacklineItemCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Color(0xFF7B8493), size: 20),
+            Icon(
+              Icons.chevron_right,
+              color: AppColors.legacy(Color(0xFF7B8493)),
+              size: 20,
+            ),
           ],
         ),
       ),

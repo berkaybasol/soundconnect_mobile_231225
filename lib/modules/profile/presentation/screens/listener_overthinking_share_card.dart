@@ -74,6 +74,7 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final source = share?.post ?? _draftPost!;
     final note = share?.note?.trim() ?? '';
     final anonymous =
@@ -99,9 +100,11 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
             : 'listener-overthinking-share-${share!.shareId}',
       ),
       decoration: BoxDecoration(
-        color: listenerProfileSurface,
+        color: AppColors.legacy(listenerProfileSurface),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: listenerProfileBorder),
+        border: Border.all(
+          color: AppColors.legacyBorder(listenerProfileBorder),
+        ),
       ),
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -119,8 +122,8 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                       '@${username.replaceFirst(RegExp(r'^@+'), '')}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.legacy(Colors.white),
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
                       ),
@@ -129,8 +132,8 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         subtitle!,
-                        style: const TextStyle(
-                          color: listenerProfileMuted,
+                        style: TextStyle(
+                          color: AppColors.legacy(listenerProfileMuted),
                           fontSize: 11,
                           height: 1.4,
                         ),
@@ -152,7 +155,7 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                   style: IconButton.styleFrom(
                     minimumSize: const Size(48, 48),
                     maximumSize: const Size(48, 48),
-                    foregroundColor: const Color(0xFFA0A9B6),
+                    foregroundColor: AppColors.legacy(const Color(0xFFA0A9B6)),
                   ),
                   onSelected: (action) {
                     if (action == 'delete' &&
@@ -177,8 +180,8 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               note,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.legacy(Colors.white),
                 fontSize: 14,
                 height: 1.6,
               ),
@@ -188,9 +191,11 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
           Container(
             key: const Key('listener-overthinking-source-quote'),
             decoration: BoxDecoration(
-              color: const Color(0xFF151D2D),
+              color: AppColors.legacy(const Color(0xFF151D2D)),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: listenerProfileBorder),
+              border: Border.all(
+                color: AppColors.legacyBorder(listenerProfileBorder),
+              ),
             ),
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -216,8 +221,8 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                               : 'Anonim yazar',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: listenerProfileMuted,
+                          style: TextStyle(
+                            color: AppColors.legacy(listenerProfileMuted),
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -235,8 +240,8 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                   source.title,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     height: 1.25,
@@ -269,8 +274,8 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                             height: 36,
                             cacheWidth: 108,
                             cacheHeight: 108,
-                            errorBuilder: (_) => const ColoredBox(
-                              color: Color(0xFF1B2433),
+                            errorBuilder: (_) => ColoredBox(
+                              color: AppColors.legacy(Color(0xFF1B2433)),
                               child: Icon(
                                 Icons.music_note_rounded,
                                 color: _sharePink,
@@ -291,8 +296,8 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                                   : song,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppColors.legacy(Colors.white),
                                 fontWeight: FontWeight.w700,
                                 fontSize: 11,
                               ),
@@ -302,8 +307,8 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                                 artist,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: listenerProfileMuted,
+                                style: TextStyle(
+                                  color: AppColors.legacy(listenerProfileMuted),
                                   fontSize: 10,
                                 ),
                               ),
@@ -318,7 +323,7 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
           ),
           if (share != null) ...[
             const SizedBox(height: 8),
-            const Divider(color: listenerProfileBorder, height: 1),
+            Divider(color: AppColors.legacy(listenerProfileBorder), height: 1),
             Wrap(
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -352,7 +357,7 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                       countLabel: 'yorum',
                       onPressed: busy || likeBusy ? null : onComments,
                       icon: Icons.chat_bubble_outline_rounded,
-                      color: listenerProfileMuted,
+                      color: AppColors.legacy(listenerProfileMuted),
                     ),
                   ],
                 ),
@@ -365,7 +370,7 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                     onPressed: busy ? null : onShare,
                     style: IconButton.styleFrom(
                       minimumSize: const Size(48, 48),
-                      foregroundColor: listenerProfileMuted,
+                      foregroundColor: AppColors.legacy(listenerProfileMuted),
                     ),
                     icon: const Icon(Icons.send_outlined, size: 20),
                   ),
@@ -394,8 +399,13 @@ class _SourceExcerpt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final style = DefaultTextStyle.of(context).style.merge(
-      const TextStyle(color: Color(0xFFD4D9E2), fontSize: 13, height: 1.65),
+      TextStyle(
+        color: AppColors.legacy(Color(0xFFD4D9E2)),
+        fontSize: 13,
+        height: 1.65,
+      ),
     );
     if (!showLink) {
       return Text(
@@ -422,8 +432,8 @@ class _SourceExcerpt extends StatelessWidget {
               key: openKey,
               onPressed: onOpen,
               style: TextButton.styleFrom(
-                foregroundColor: listenerProfileMuted,
-                disabledForegroundColor: listenerProfileMuted,
+                foregroundColor: AppColors.legacy(listenerProfileMuted),
+                disabledForegroundColor: AppColors.legacy(listenerProfileMuted),
                 minimumSize: const Size(0, 32),
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -461,42 +471,45 @@ class _SourceAction extends StatelessWidget {
   final bool? selected;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    enabled: onPressed != null,
-    selected: selected,
-    label: label,
-    value: count == null ? 'Sayı doğrulanamadı' : '$count $countLabel',
-    onTap: onPressed,
-    child: ExcludeSemantics(
-      child: Tooltip(
-        message: label,
-        child: TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(48, 48),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 17),
-              const SizedBox(width: 5),
-              Text(
-                count == null
-                    ? '—'
-                    : NumberFormat.compact(locale: 'tr').format(count),
-                style: const TextStyle(
-                  color: listenerProfileMuted,
-                  fontSize: 12,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      selected: selected,
+      label: label,
+      value: count == null ? 'Sayı doğrulanamadı' : '$count $countLabel',
+      onTap: onPressed,
+      child: ExcludeSemantics(
+        child: Tooltip(
+          message: label,
+          child: TextButton(
+            onPressed: onPressed,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: color, size: 17),
+                const SizedBox(width: 5),
+                Text(
+                  count == null
+                      ? '—'
+                      : NumberFormat.compact(locale: 'tr').format(count),
+                  style: TextStyle(
+                    color: AppColors.legacy(listenerProfileMuted),
+                    fontSize: 12,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ShareAvatar extends StatelessWidget {
@@ -512,8 +525,9 @@ class _ShareAvatar extends StatelessWidget {
   final bool anonymous;
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final fallback = ColoredBox(
-      color: const Color(0xFF232A3B),
+      color: AppColors.legacy(const Color(0xFF232A3B)),
       child: Center(
         child: anonymous || label.trim().isEmpty
             ? Icon(
@@ -521,12 +535,12 @@ class _ShareAvatar extends StatelessWidget {
                     ? Icons.visibility_off_outlined
                     : Icons.person_outline_rounded,
                 size: size * .5,
-                color: listenerProfileMuted,
+                color: AppColors.legacy(listenerProfileMuted),
               )
             : Text(
                 label.trim().characters.first.toUpperCase(),
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.legacy(Colors.white),
                   fontSize: size * .35,
                   fontWeight: FontWeight.w700,
                 ),
@@ -539,7 +553,10 @@ class _ShareAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(.8),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF684253), width: .7),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF684253)),
+          width: .7,
+        ),
       ),
       child: ClipOval(
         child: anonymous || imageUrl?.trim().isNotEmpty != true

@@ -250,7 +250,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
-            title: const Text('Bu yazıyı sil?', style: _manageHeading),
+            title: Text('Bu yazıyı sil?', style: _manageHeading),
             content: Text(
               '“${post.title}” kaleminden ve akıştan kaldırılacak. Bu işlemi geri alamazsın.',
               style: _manageBody,
@@ -431,6 +431,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!overthinkingSession.canWrite) {
       return const OverthinkingUnavailableScreen();
     }
@@ -460,7 +461,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(22, 10, 22, 22),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -639,8 +640,9 @@ class _ManageList<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (state.loading && state.items.isEmpty) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
           color: OverthinkingPalette.accent,
           strokeWidth: 2,
@@ -682,7 +684,7 @@ class _ManageList<T> extends StatelessWidget {
                     ),
                     Text(
                       '${state.total ?? state.items.length}${state.total == null && state.hasNext ? '+' : ''}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: OverthinkingPalette.muted,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -722,7 +724,7 @@ class _ManageList<T> extends StatelessWidget {
                       ),
                     ],
                     if (state.loading)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
                           width: 22,

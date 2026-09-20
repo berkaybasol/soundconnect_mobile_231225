@@ -43,7 +43,7 @@ extension _BandManagementPanelScreenStateUiHelpers
           child: Row(
             children: [
               if (!useGradientIcon)
-                Icon(icon, color: AppColors.white, size: 24)
+                Icon(icon, color: AppColors.legacyWhite(), size: 24)
               else
                 _GradientIcon(icon: icon, size: 24),
               SizedBox(width: 12),
@@ -68,10 +68,14 @@ extension _BandManagementPanelScreenStateUiHelpers
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.white.withValues(alpha: 0.08),
+                        color: AppColors.legacy(
+                          AppColors.white,
+                        ).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: AppColors.white.withValues(alpha: 0.16),
+                          color: AppColors.legacy(
+                            AppColors.white,
+                          ).withValues(alpha: 0.16),
                         ),
                       ),
                       child: Text(
@@ -129,17 +133,28 @@ extension _BandManagementPanelScreenStateUiHelpers
           children: [
             Row(
               children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(colors: AppColors.brandGradient),
-                  ),
-                  child: Icon(
-                    Icons.campaign_outlined,
-                    color: AppColors.white,
-                    size: 20,
+                GradientOutline(
+                  enabled: AppColors.isLight,
+                  radius: 999,
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: AppColors.isLight
+                        ? BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            shape: BoxShape.circle,
+                          )
+                        : BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: AppColors.decorativeGradient,
+                            ),
+                          ),
+                    child: Icon(
+                      Icons.campaign_outlined,
+                      color: AppColors.decorativeForeground,
+                      size: 20,
+                    ),
                   ),
                 ),
                 SizedBox(width: 12),
@@ -202,11 +217,12 @@ class _GradientIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ShaderMask(
       shaderCallback: (rect) => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: AppColors.brandGradient,
+        colors: AppColors.decorativeGradient,
       ).createShader(rect),
       blendMode: BlendMode.srcIn,
       child: Icon(icon, color: AppColors.white, size: size),

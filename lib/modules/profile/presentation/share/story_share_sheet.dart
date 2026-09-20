@@ -96,6 +96,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_valid) return const SizedBox.shrink();
     final android = defaultTargetPlatform == TargetPlatform.android && !kIsWeb;
     return ConstrainedBox(
@@ -119,7 +120,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 width: 34,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3A4253),
+                  color: AppColors.legacy(const Color(0xFF3A4253)),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -130,8 +131,8 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 Expanded(
                   child: Text(
                     widget.title,
-                    style: const TextStyle(
-                      color: AppColors.white,
+                    style: TextStyle(
+                      color: AppColors.legacy(AppColors.white),
                       fontSize: 21,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.4,
@@ -141,9 +142,9 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 IconButton(
                   onPressed: _finish,
                   tooltip: 'Kapat',
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
-                    color: Color(0xFFA8A9BB),
+                    color: AppColors.legacy(Color(0xFFA8A9BB)),
                   ),
                 ),
               ],
@@ -167,10 +168,13 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               '1080 × 1920 · Hikâye formatı',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFFA8A9BB), fontSize: 12),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFFA8A9BB)),
+                fontSize: 12,
+              ),
             ),
             const SizedBox(height: 22),
             if (android)
@@ -271,76 +275,79 @@ class _TargetButton extends StatelessWidget {
   final ValueChanged<EventShareTarget> onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: AppColors.brandGradient),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(0.7),
-        child: Material(
-          color: const Color(0xFF151D2D),
-          borderRadius: BorderRadius.circular(17.3),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: Key('$keyPrefix-target-${target.name}'),
-            onTap: () => onTap(target),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: horizontal ? 17 : 15,
-                horizontal: horizontal ? 18 : 5,
-              ),
-              child: horizontal
-                  ? Row(
-                      children: [
-                        IconTheme(
-                          data: const IconThemeData(
-                            size: 24,
-                            color: Color(0xFFE58BB8),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      button: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: AppColors.brandGradient),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(0.7),
+          child: Material(
+            color: AppColors.legacy(const Color(0xFF151D2D)),
+            borderRadius: BorderRadius.circular(17.3),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: Key('$keyPrefix-target-${target.name}'),
+              onTap: () => onTap(target),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  vertical: horizontal ? 17 : 15,
+                  horizontal: horizontal ? 18 : 5,
+                ),
+                child: horizontal
+                    ? Row(
+                        children: [
+                          IconTheme(
+                            data: const IconThemeData(
+                              size: 24,
+                              color: Color(0xFFE58BB8),
+                            ),
+                            child: icon,
                           ),
-                          child: icon,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            label.replaceAll('\n', ' '),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.white,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              label.replaceAll('\n', ' '),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.legacy(AppColors.white),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconTheme(
-                          data: const IconThemeData(
-                            size: 24,
-                            color: Color(0xFFE58BB8),
+                        ],
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconTheme(
+                            data: const IconThemeData(
+                              size: 24,
+                              color: Color(0xFFE58BB8),
+                            ),
+                            child: icon,
                           ),
-                          child: icon,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          label,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.white,
+                          const SizedBox(height: 10),
+                          Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.legacy(AppColors.white),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

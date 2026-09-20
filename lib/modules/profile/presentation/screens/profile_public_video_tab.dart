@@ -17,6 +17,7 @@ class ProfilePublicVideoTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (items.isEmpty) {
       return Padding(
         padding: EdgeInsets.all(20),

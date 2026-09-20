@@ -21,6 +21,7 @@ class _SpotifyCatalogTrackTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final albumArtUrl = isValidNetworkImageUrl(track.albumImageUrl)
         ? track.albumImageUrl!.trim()
         : null;

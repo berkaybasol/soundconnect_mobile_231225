@@ -113,6 +113,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (ModalRoute.of(context)?.isCurrent != true) return;
@@ -240,7 +241,9 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
                     final code = value.text.trim();
                     final isValid = _isValidCode(code);
                     final iconColor = isValid
-                        ? AppColors.coralAlt
+                        ? AppColors.isLight
+                              ? AppColors.decorativeGradient.last
+                              : AppColors.coralAlt
                         : Theme.of(context).disabledColor;
 
                     return TextField(

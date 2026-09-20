@@ -5,8 +5,10 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/profile_feed_availability.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../musician_feed/domain/backstage_feed_session.dart';
 import '../../../profile/presentation/screens/account_profile_settings_section.dart';
 import '../../domain/username_policy.dart';
@@ -140,6 +142,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action != AuthAction.updateUsername) return;
@@ -192,7 +195,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                           builder: (context, _) {
                             final session =
                                 serviceLocator<AuthSessionManager>().session;
-                            if (backstageFeedSessionIdentity(session) == null) {
+                            if (!ProfileFeedAvailability.enabled ||
+                                backstageFeedSessionIdentity(session) == null) {
                               return const SizedBox.shrink();
                             }
                             return Column(
@@ -248,13 +252,15 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: AppColors.coral.withValues(alpha: 0.10),
+                              color: AppColors.isLight
+                                  ? AppColors.avatarBackground
+                                  : AppColors.coral.withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: ShaderMask(
                               blendMode: BlendMode.srcIn,
                               shaderCallback: (bounds) => LinearGradient(
-                                colors: AppColors.brandGradient,
+                                colors: AppColors.decorativeGradient,
                               ).createShader(bounds),
                               child: const Icon(
                                 Icons.alternate_email_rounded,
@@ -393,48 +399,62 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                                 const SizedBox(height: 18),
                                 SizedBox(
                                   width: double.infinity,
-                                  child: FilledButton.icon(
-                                    key: const Key(
-                                      'account-settings-save-button',
-                                    ),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: AppColors.coralAlt,
-                                      foregroundColor: AppColors.white,
-                                      disabledBackgroundColor: Theme.of(
-                                        context,
-                                      ).colorScheme.surfaceContainerHighest,
-                                      disabledForegroundColor: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
+                                  child: GradientOutline(
+                                    enabled: AppColors.isLight,
+                                    radius: 14,
+                                    colors: isLoading || !hasChange
+                                        ? [
+                                            Theme.of(context).dividerColor,
+                                            Theme.of(context).dividerColor,
+                                          ]
+                                        : null,
+                                    child: FilledButton.icon(
+                                      key: const Key(
+                                        'account-settings-save-button',
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                    ),
-                                    onPressed: isLoading || !hasChange
-                                        ? null
-                                        : _submit,
-                                    icon: isLoading
-                                        ? const SizedBox(
-                                            width: 17,
-                                            height: 17,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: AppColors.white,
-                                            ),
-                                          )
-                                        : const Icon(
-                                            Icons.check_rounded,
-                                            size: 19,
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppColors.isLight
+                                            ? Colors.transparent
+                                            : AppColors.coralAlt,
+                                        foregroundColor: AppColors.onAccent,
+                                        disabledBackgroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest,
+                                        disabledForegroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
                                           ),
-                                    label: Text(
-                                      isLoading
-                                          ? 'Kaydediliyor...'
-                                          : 'Kullanıcı adını kaydet',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      onPressed: isLoading || !hasChange
+                                          ? null
+                                          : _submit,
+                                      icon: isLoading
+                                          ? SizedBox(
+                                              width: 17,
+                                              height: 17,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: AppColors.onAccent,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.check_rounded,
+                                              size: 19,
+                                            ),
+                                      label: Text(
+                                        isLoading
+                                            ? 'Kaydediliyor...'
+                                            : 'Kullanıcı adını kaydet',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -454,13 +474,15 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: AppColors.coral.withValues(alpha: 0.10),
+                              color: AppColors.isLight
+                                  ? AppColors.avatarBackground
+                                  : AppColors.coral.withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: ShaderMask(
                               blendMode: BlendMode.srcIn,
                               shaderCallback: (bounds) => LinearGradient(
-                                colors: AppColors.brandGradient,
+                                colors: AppColors.decorativeGradient,
                               ).createShader(bounds),
                               child: const Icon(
                                 Icons.lock_outline_rounded,

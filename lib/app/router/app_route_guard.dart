@@ -1,6 +1,8 @@
 import '../../core/auth/auth_session.dart';
 import '../../core/policy/access_policy.dart';
+import '../../core/policy/profile_feed_availability.dart';
 import '../../modules/admin/domain/musician_feed_report_admin.dart';
+import '../../modules/admin/domain/marketplace_report_admin.dart';
 import '../../modules/musician_feed/domain/backstage_feed_session.dart';
 import '../../modules/promotion/domain/announcement_access.dart';
 import 'app_routes.dart';
@@ -79,6 +81,14 @@ class AppRouteGuard {
     if (isListener && requested == AppRoutes.listenerProfileChoice) {
       return AppRoutes.listenerProfile;
     }
+    if (!ProfileFeedAvailability.enabled &&
+        const {
+          AppRoutes.backstageProfilesHome,
+          AppRoutes.listenerFeed,
+          AppRoutes.musicianFeedMutedAuthors,
+        }.contains(requested)) {
+      return startRouteFor(session);
+    }
     if (isListener &&
         const {
           AppRoutes.studioProfile,
@@ -88,6 +98,10 @@ class AppRouteGuard {
       return AppRoutes.studioListenerInfo;
     }
     if (isListener && requested == AppRoutes.collabDiscovery) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.marketplace &&
+        !AccessPolicy.canAccessMarketplace(session.roles)) {
       return startRouteFor(session);
     }
     if (requested == AppRoutes.listenerFeed &&
@@ -113,6 +127,10 @@ class AppRouteGuard {
 
     if (requested == AppRoutes.adminMusicianFeedReports &&
         !canManageMusicianFeedReports(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminMarketplaceReports &&
+        !canManageMarketplaceReports(session)) {
       return startRouteFor(session);
     }
 

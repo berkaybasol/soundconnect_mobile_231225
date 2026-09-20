@@ -7,6 +7,7 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.only(top: 8, bottom: 0),
       child: SizedBox(
@@ -21,11 +22,15 @@ class _ProfileHeader extends StatelessWidget {
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: (AppColors.isLight
+                    ? AppColors.avatarBackground
+                    : Theme.of(context).colorScheme.surfaceContainerHighest),
                 border: Border.all(color: Theme.of(context).dividerColor),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.brandGradient[2].withValues(alpha: 0.35),
+                    color: (AppColors.isLight
+                        ? AppColors.avatarShadow.withValues(alpha: 0.16)
+                        : AppColors.brandGradient[2].withValues(alpha: 0.35)),
                     blurRadius: 18,
                     spreadRadius: 1,
                   ),
@@ -43,13 +48,17 @@ class _ProfileHeader extends StatelessWidget {
                                 .round(),
                         errorBuilder: (context) => Icon(
                           Icons.person_outline,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: (AppColors.isLight
+                              ? AppColors.avatarForeground
+                              : Theme.of(context).colorScheme.onSurfaceVariant),
                           size: 40,
                         ),
                       )
                     : Icon(
                         Icons.person_outline,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: (AppColors.isLight
+                            ? AppColors.avatarForeground
+                            : Theme.of(context).colorScheme.onSurfaceVariant),
                         size: 40,
                       ),
               ),
@@ -57,26 +66,44 @@ class _ProfileHeader extends StatelessWidget {
             Positioned(
               right: -2,
               bottom: -2,
-              child: Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF7C3AED),
-                      Color(0xFFA855F7),
-                      Color(0xFFD946EF),
-                    ],
+              child: GradientOutline(
+                enabled: AppColors.isLight,
+                radius: 999,
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: AppColors.isLight
+                      ? BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.transparent,
+                            width: 2,
+                          ),
+                        )
+                      : BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: AppColors.isLight
+                                ? AppColors.decorativeGradient
+                                : [
+                                    Color(0xFF7C3AED),
+                                    Color(0xFFA855F7),
+                                    Color(0xFFD946EF),
+                                  ],
+                          ),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.navBlueDeep,
+                            width: 2,
+                          ),
+                        ),
+                  child: Icon(
+                    Icons.storefront_outlined,
+                    size: 14,
+                    color: AppColors.decorativeForeground,
                   ),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.navBlueDeep, width: 2),
-                ),
-                child: Icon(
-                  Icons.storefront_outlined,
-                  size: 14,
-                  color: AppColors.white,
                 ),
               ),
             ),
@@ -94,6 +121,7 @@ class _ProfileIdentity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final name = profile.username?.trim().isNotEmpty == true
         ? profile.username!
         : 'Kullanıcı';
@@ -106,7 +134,7 @@ class _ProfileIdentity extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: AppColors.brandGradient,
+            colors: AppColors.brandTextGradient,
           ),
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
@@ -138,6 +166,7 @@ class _FollowerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -156,6 +185,7 @@ class _PillBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(

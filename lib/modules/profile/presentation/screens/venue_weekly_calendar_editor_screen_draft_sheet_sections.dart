@@ -44,17 +44,25 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
               padding: const EdgeInsets.all(1.1),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(
+                  colors: AppColors.isLight
+                      ? [AppColors.avatarBackground, AppColors.avatarShadow]
+                      : AppColors.brandGradient,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.brandGradient[2].withValues(alpha: 0.16),
+                    color: (AppColors.isLight
+                        ? AppColors.avatarShadow.withValues(alpha: 0.12)
+                        : AppColors.brandGradient[2].withValues(alpha: 0.16)),
                     blurRadius: 14,
                   ),
                 ],
               ),
               child: ClipOval(
                 child: ColoredBox(
-                  color: scheme.surfaceContainerHighest,
+                  color: (AppColors.isLight
+                      ? AppColors.avatarBackground
+                      : scheme.surfaceContainerHighest),
                   child: hasImage
                       ? AppCachedNetworkImage(
                           imageUrl: imageUrl,
@@ -76,7 +84,9 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
                 children: [
                   GradientText(
                     text: widget.profileName,
-                    gradient: LinearGradient(colors: AppColors.brandGradient),
+                    gradient: LinearGradient(
+                      colors: AppColors.brandTextGradient,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

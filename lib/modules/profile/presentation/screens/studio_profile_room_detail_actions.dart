@@ -130,7 +130,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     final shouldRemove = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Saatler müsait yapılsın mı?'),
         content: Text(
           '${_manualHourLabel(range.startIndex)}–${_manualHourLabel(range.endIndex)} aralığı yeniden rezervasyona açılacak.',
@@ -238,7 +238,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Rezervasyon iptal edilsin mi?'),
         content: Text(
           '${reservation.userName} tarafından oluşturulan rezervasyon kaldırılacak.',
@@ -297,7 +297,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Rezervasyon talebi reddedilsin mi?'),
         content: Text(
           '${reservation.userName} tarafından gönderilen rezervasyon talebi '
@@ -410,12 +410,16 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       lastDate: lastDate,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: AppColors.socialPink,
-            onPrimary: Colors.white,
-            surface: const Color(0xFF101722),
-            onSurface: Colors.white,
-          ),
+          colorScheme:
+              (AppColors.isOriginalDark
+                      ? const ColorScheme.dark()
+                      : Theme.of(context).colorScheme)
+                  .copyWith(
+                    primary: AppColors.socialPink,
+                    onPrimary: Colors.white,
+                    surface: AppColors.legacy(const Color(0xFF101722)),
+                    onSurface: AppColors.legacy(Colors.white),
+                  ),
         ),
         child: StudioListenerAccessGate(builder: (_) => child!),
       ),
@@ -509,7 +513,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Rezervasyonunu iptal et'),
         content: Text(
           '${_room.name}\n'

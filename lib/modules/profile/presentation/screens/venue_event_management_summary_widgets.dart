@@ -27,6 +27,7 @@ class VenueCalendarProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -37,17 +38,25 @@ class VenueCalendarProfileHeader extends StatelessWidget {
           padding: const EdgeInsets.all(1.2),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(colors: AppColors.brandGradient),
+            gradient: LinearGradient(
+              colors: AppColors.isLight
+                  ? [AppColors.avatarBackground, AppColors.avatarShadow]
+                  : AppColors.brandGradient,
+            ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.brandGradient[3].withValues(alpha: 0.22),
+                color: (AppColors.isLight
+                    ? AppColors.avatarShadow.withValues(alpha: 0.14)
+                    : AppColors.brandGradient[3].withValues(alpha: 0.22)),
                 blurRadius: 18,
               ),
             ],
           ),
           child: ClipOval(
             child: ColoredBox(
-              color: AppColors.navBlueDeep,
+              color: (AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : AppColors.navBlueDeep),
               child: _hasImage
                   ? AppCachedNetworkImage(
                       imageUrl: imageUrl!.trim(),
@@ -69,7 +78,7 @@ class VenueCalendarProfileHeader extends StatelessWidget {
             children: [
               GradientText(
                 text: venueName,
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(colors: AppColors.brandTextGradient),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -117,6 +126,7 @@ class _VenueAvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(11),
       child: Image.asset(
@@ -144,6 +154,7 @@ class VenueCalendarCreateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final enabled = onTap != null && !saving;
     return AnimatedOpacity(
@@ -219,6 +230,7 @@ class VenueCalendarHistoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
@@ -260,6 +272,7 @@ class VenueCalendarEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
@@ -304,6 +317,7 @@ class VenueCalendarErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

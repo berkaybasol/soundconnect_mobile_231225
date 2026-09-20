@@ -24,6 +24,7 @@ class VenueNameCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (items.isEmpty) {
       return _ConnectionEmpty(
         message: emptyMessage,
@@ -68,6 +69,7 @@ class ActiveMusicianCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (items.isEmpty) {
       return _ConnectionEmpty(
         message: emptyMessage,
@@ -109,6 +111,7 @@ class ActiveBandCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ActiveMusicianCarousel(
       emptyMessage: 'Band bilgisi yok.',
       items: [
@@ -137,6 +140,7 @@ class _ConnectionEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: 20,

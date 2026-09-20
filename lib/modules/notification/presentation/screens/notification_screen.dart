@@ -11,6 +11,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../collab/presentation/collab_route_args.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
@@ -80,6 +81,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<NotificationCubit, NotificationState>(
       listenWhen: (previous, current) =>
           previous.errorMessage != current.errorMessage,
@@ -208,6 +210,7 @@ class _NotificationTileState extends State<_NotificationTile> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final unread = !notification.read;
     final colors = Theme.of(context).colorScheme;
     return Dismissible(
@@ -217,7 +220,9 @@ class _NotificationTileState extends State<_NotificationTile> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
-          color: AppColors.coralAlt,
+          color: AppColors.isLight
+              ? const Color(0xFFB63B49)
+              : AppColors.coralAlt,
           borderRadius: BorderRadius.circular(14),
         ),
         child: const Icon(Icons.delete_outline, color: Colors.white),
@@ -279,7 +284,9 @@ class _NotificationTileState extends State<_NotificationTile> {
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: AppColors.coralAlt,
+                              color: AppColors.isLight
+                                  ? const Color(0xFFB63B49)
+                                  : AppColors.coralAlt,
                               shape: BoxShape.circle,
                             ),
                           ),

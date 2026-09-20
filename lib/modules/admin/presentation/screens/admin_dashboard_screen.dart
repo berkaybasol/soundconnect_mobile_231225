@@ -7,6 +7,7 @@ import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/backstage_palette.dart';
 import '../../../../shared/widgets/session_logout_action.dart';
 import '../../domain/musician_feed_report_admin.dart';
+import '../../domain/marketplace_report_admin.dart';
 import '../../../promotion/domain/announcement_access.dart';
 
 /// The authenticated admin entry point. Campaign management will be added to
@@ -16,28 +17,41 @@ class AdminDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final sessions = serviceLocator.isRegistered<AuthSessionManager>()
         ? serviceLocator<AuthSessionManager>()
         : null;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: BackstagePalette.canvas,
+        backgroundColor: (AppColors.isOriginalDark
+            ? BackstagePalette.canvas
+            : AppColors.navBlueDeep),
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: const Text('Admin Paneli'),
-          backgroundColor: BackstagePalette.surface,
-          foregroundColor: BackstagePalette.textPrimary,
+          backgroundColor: (AppColors.isOriginalDark
+              ? BackstagePalette.surface
+              : AppColors.navBlue),
+          foregroundColor: (AppColors.isOriginalDark
+              ? BackstagePalette.textPrimary
+              : AppColors.textPrimary),
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           actions: const [SessionLogoutIconButton()],
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelColor: BackstagePalette.textPrimary,
-            unselectedLabelColor: BackstagePalette.textMuted,
+            labelColor: (AppColors.isOriginalDark
+                ? BackstagePalette.textPrimary
+                : AppColors.textPrimary),
+            unselectedLabelColor: (AppColors.isOriginalDark
+                ? BackstagePalette.textMuted
+                : AppColors.textMuted),
             indicatorColor: AppColors.coral,
-            dividerColor: BackstagePalette.border,
+            dividerColor: (AppColors.isOriginalDark
+                ? BackstagePalette.border
+                : AppColors.border),
             tabs: const [
               Tab(text: 'Ana Sayfa'),
               Tab(text: 'Sponsorluklar'),
@@ -57,7 +71,11 @@ class AdminDashboardScreen extends StatelessWidget {
                     final identity = musicianFeedReportAdminIdentity(
                       sessions.session,
                     );
-                    if (identity == null) {
+                    final marketAccess = canManageMarketplaceReports(
+                      sessions.session,
+                    );
+                    final marketSession = sessions.session;
+                    if (identity == null && !marketAccess) {
                       return const SizedBox.expand(
                         key: Key('admin-home-empty'),
                       );
@@ -65,52 +83,79 @@ class AdminDashboardScreen extends StatelessWidget {
                     return ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        Card(
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            key: const Key('admin-feed-reports-entry'),
-                            onTap: () {
-                              if (identity !=
-                                  musicianFeedReportAdminIdentity(
-                                    sessions.session,
-                                  )) {
-                                return;
-                              }
-                              Navigator.of(
-                                context,
-                              ).pushNamed(AppRoutes.adminMusicianFeedReports);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.flag_outlined),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Akış şikâyetleri',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.titleMedium,
-                                        ),
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          'Müzisyen akışındaki içerik bildirimleri',
-                                        ),
-                                      ],
+                        if (marketAccess)
+                          Card(
+                            child: ListTile(
+                              key: const Key('admin-marketplace-reports-entry'),
+                              contentPadding: const EdgeInsets.all(20),
+                              leading: const Icon(Icons.storefront_outlined),
+                              title: const Text('Pazar şikâyetleri'),
+                              subtitle: const Text(
+                                'İlan bildirimlerini incele ve sonuçlandır',
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () {
+                                if (identical(
+                                      marketSession,
+                                      sessions.session,
+                                    ) &&
+                                    canManageMarketplaceReports(
+                                      sessions.session,
+                                    )) {
+                                  Navigator.of(context).pushNamed(
+                                    AppRoutes.adminMarketplaceReports,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        if (identity != null)
+                          Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              key: const Key('admin-feed-reports-entry'),
+                              onTap: () {
+                                if (identity !=
+                                    musicianFeedReportAdminIdentity(
+                                      sessions.session,
+                                    )) {
+                                  return;
+                                }
+                                Navigator.of(
+                                  context,
+                                ).pushNamed(AppRoutes.adminMusicianFeedReports);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.flag_outlined),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Akış şikâyetleri',
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          const Text(
+                                            'Müzisyen akışındaki içerik bildirimleri',
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.chevron_right),
-                                ],
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.chevron_right),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     );
                   },

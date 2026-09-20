@@ -258,7 +258,7 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
             children: [
               ShaderMask(
                 shaderCallback: (bounds) => LinearGradient(
-                  colors: AppColors.brandGradient,
+                  colors: AppColors.decorativeGradient,
                 ).createShader(bounds),
                 child: Icon(icon, size: 18, color: AppColors.white),
               ),
@@ -266,7 +266,7 @@ extension _VenueApplicationsSheetStateTiles on _VenueApplicationsSheetState {
               Text(
                 label,
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.legacy(AppColors.white),
                   fontWeight: FontWeight.w700,
                 ),
               ),

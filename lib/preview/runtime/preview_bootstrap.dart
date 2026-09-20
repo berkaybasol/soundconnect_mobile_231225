@@ -17,6 +17,7 @@ import '../../modules/profile/domain/media_gallery_repository.dart';
 import '../../modules/promotion/domain/promotion_repository.dart';
 import '../../modules/promotion/presentation/screens/announcement_directory_screen.dart';
 import '../../shared/theme/app_theme.dart';
+import '../../shared/theme/app_theme_controller.dart';
 import '../data/preview_scenario_store.dart';
 import '../presentation/feed_preview_screen.dart';
 import '../services/preview_service_bundle.dart';
@@ -45,6 +46,7 @@ class PreviewRuntime {
 Future<PreviewRuntime> launchPreview({bool qa = false}) async {
   WidgetsFlutterBinding.ensureInitialized();
   final isolation = await verifyPreviewIsolation(qa: qa);
+  await AppThemeController.instance.initialize();
   if (serviceLocator.isRegistered<ApiClient>() ||
       serviceLocator.isRegistered<AuthSessionManager>()) {
     throw StateError(
@@ -111,34 +113,40 @@ class _PreviewAppState extends State<_PreviewApp> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    debugShowCheckedModeBanner: false,
-    title: 'SoundConnect Önizleme',
-    theme: AppTheme.navy,
-    themeMode: ThemeMode.dark,
-    routes: {
-      AppRoutes.announcements: (_) => AnnouncementDirectoryScreen(
-        repository: widget.runtime.services.promotions,
-        sessions: widget.runtime.services.sessions,
-        videoDataSourceFactory: widget.runtime.media.videoSource,
-      ),
-    },
-    onUnknownRoute: (_) => MaterialPageRoute<void>(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Önizleme')),
-        body: const Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Bu ekran önizleme kapsamı dışında. '
-            'Geri dönüp akış kartlarını incelemeye devam edebilirsin.',
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: AppThemeController.instance,
+    builder: (context, _) => MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'SoundConnect Önizleme',
+      theme: AppTheme.current,
+      themeMode: AppThemeController.instance.variant == AppThemeVariant.light
+          ? ThemeMode.light
+          : ThemeMode.dark,
+      themeAnimationDuration: Duration.zero,
+      routes: {
+        AppRoutes.announcements: (_) => AnnouncementDirectoryScreen(
+          repository: widget.runtime.services.promotions,
+          sessions: widget.runtime.services.sessions,
+          videoDataSourceFactory: widget.runtime.media.videoSource,
+        ),
+      },
+      onUnknownRoute: (_) => MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Önizleme')),
+          body: const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Bu ekran önizleme kapsamı dışında. '
+              'Geri dönüp akış kartlarını incelemeye devam edebilirsin.',
+            ),
           ),
         ),
       ),
-    ),
-    home: FeedPreviewScreen(
-      services: widget.runtime.services,
-      videoDataSourceFactory: widget.runtime.media.videoSource,
-      onReset: () => unawaited(widget.runtime.audio.stop()),
+      home: FeedPreviewScreen(
+        services: widget.runtime.services,
+        videoDataSourceFactory: widget.runtime.media.videoSource,
+        onReset: () => unawaited(widget.runtime.audio.stop()),
+      ),
     ),
   );
 }

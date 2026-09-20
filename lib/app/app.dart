@@ -18,7 +18,7 @@ import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/screens/venue_pending_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../modules/event/presentation/screens/guest_event_home_screen.dart';
-import '../modules/profile/presentation/screens/backstage_profiles_home_screen.dart';
+import 'backstage_home_screen.dart';
 import '../modules/profile/presentation/screens/listener_profile_screen.dart';
 import '../modules/auth/presentation/screens/listener_profile_choice_screen.dart';
 import '../modules/profile/domain/profile_media_upload_repository.dart';
@@ -26,6 +26,7 @@ import '../modules/location/presentation/cubit/location_cubit.dart';
 import '../modules/notification/presentation/cubit/notification_cubit.dart';
 import '../modules/collab/presentation/collab_route_args.dart';
 import '../shared/theme/app_theme.dart';
+import '../shared/theme/app_theme_controller.dart';
 import 'router/app_route_guard.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
@@ -312,36 +313,42 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
             ),
           ],
           child: _NotificationBootstrap(
-            child: MaterialApp(
-              navigatorKey: _navigatorKey,
-              scaffoldMessengerKey: _messengerKey,
-              navigatorObservers: <NavigatorObserver>[
-                _routeObserver,
-                analyticsRouteObserver,
-              ],
-              title: 'SoundConnect',
-              theme: AppTheme.navy,
-              themeMode: ThemeMode.dark,
-              onGenerateRoute: AppRouter.onGenerateRoute,
-              home: waitingForToken
-                  ? _LaunchLoadingScreen()
-                  : switch (launchTarget) {
-                      AppLaunchTarget.home =>
-                        const BackstageProfilesHomeScreen(),
-                      AppLaunchTarget.listener => ListenerProfileScreen(),
-                      AppLaunchTarget.listenerProfileChoice =>
-                        const ListenerProfileChoiceScreen(),
-                      AppLaunchTarget.admin => const AdminDashboardScreen(),
-                      AppLaunchTarget.venuePending => VenuePendingScreen(),
-                      AppLaunchTarget.studioPending => VenuePendingScreen(
-                        membershipType: PendingMembershipType.studio,
-                      ),
-                      AppLaunchTarget.studioRejected => VenuePendingScreen(
-                        membershipType: PendingMembershipType.studioRejected,
-                      ),
-                      AppLaunchTarget.login => LoginScreen(),
-                      AppLaunchTarget.guest => GuestEventHomeScreen(),
-                    },
+            child: ListenableBuilder(
+              listenable: AppThemeController.instance,
+              builder: (context, _) => MaterialApp(
+                navigatorKey: _navigatorKey,
+                scaffoldMessengerKey: _messengerKey,
+                navigatorObservers: <NavigatorObserver>[
+                  _routeObserver,
+                  analyticsRouteObserver,
+                ],
+                title: 'SoundConnect',
+                theme: AppTheme.current,
+                themeMode:
+                    AppThemeController.instance.variant == AppThemeVariant.light
+                    ? ThemeMode.light
+                    : ThemeMode.dark,
+                themeAnimationDuration: Duration.zero,
+                onGenerateRoute: AppRouter.onGenerateRoute,
+                home: waitingForToken
+                    ? _LaunchLoadingScreen()
+                    : switch (launchTarget) {
+                        AppLaunchTarget.home => const BackstageHomeScreen(),
+                        AppLaunchTarget.listener => ListenerProfileScreen(),
+                        AppLaunchTarget.listenerProfileChoice =>
+                          const ListenerProfileChoiceScreen(),
+                        AppLaunchTarget.admin => const AdminDashboardScreen(),
+                        AppLaunchTarget.venuePending => VenuePendingScreen(),
+                        AppLaunchTarget.studioPending => VenuePendingScreen(
+                          membershipType: PendingMembershipType.studio,
+                        ),
+                        AppLaunchTarget.studioRejected => VenuePendingScreen(
+                          membershipType: PendingMembershipType.studioRejected,
+                        ),
+                        AppLaunchTarget.login => LoginScreen(),
+                        AppLaunchTarget.guest => GuestEventHomeScreen(),
+                      },
+              ),
             ),
           ),
         );

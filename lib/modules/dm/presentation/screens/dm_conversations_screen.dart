@@ -37,6 +37,7 @@ class DmConversationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return MultiBlocProvider(
       providers: [
         BlocProvider(
@@ -401,6 +402,7 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final usesLargeText = textScale > 1.4;
     final toolbarHeight = usesLargeText ? 88.0 : 70.0;
@@ -721,7 +723,7 @@ class _InlineSearchBar extends StatelessWidget {
               ShaderMask(
                 blendMode: BlendMode.srcIn,
                 shaderCallback: (bounds) => LinearGradient(
-                  colors: AppColors.socialGradient,
+                  colors: AppColors.decorativeSocialGradient,
                 ).createShader(bounds),
                 child: const Icon(
                   Icons.search_rounded,
@@ -809,6 +811,7 @@ class _SearchResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final imageUrl = item.imageUrl?.trim();
     final hasImage =
         imageUrl != null &&
@@ -884,6 +887,7 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final hasUnread = item.lastMessageRead == false;
     final avatar = item.otherUserProfilePicture?.trim();
     final hasAvatar =
@@ -1046,6 +1050,7 @@ class _MusicJoinTableTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final ownerName = (table.ownerUsername ?? '').trim();
     final subtitle = ownerName.isNotEmpty ? ownerName : 'Masa sahibi';
     final avatar = table.ownerProfileImageUrl?.trim();

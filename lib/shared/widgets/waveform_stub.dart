@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../theme/app_colors.dart';
 
 class WaveformStub extends StatelessWidget {
@@ -137,6 +138,9 @@ class WaveformStub extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final effectiveGradientColors = gradientColors ?? AppColors.brandGradient;
+    final freshBrandWaveform =
+        AppColors.isLight &&
+        listEquals(effectiveGradientColors, AppColors.brandGradient);
     final effectiveIconColor = iconColor ?? theme.colorScheme.primary;
     final effectiveLeadingBackgroundColor =
         leadingBackgroundColor ?? theme.colorScheme.surfaceContainer;
@@ -244,7 +248,12 @@ class WaveformStub extends StatelessWidget {
                                     painter: _WaveformPainter(
                                       samples: waveformSamples,
                                       gradientColors: effectiveGradientColors,
-                                      baseOpacity: 0.35,
+                                      progressGradientColors: freshBrandWaveform
+                                          ? AppColors.brandTextGradient
+                                          : effectiveGradientColors,
+                                      baseOpacity: freshBrandWaveform
+                                          ? 1
+                                          : 0.35,
                                       progress: animatedProgress,
                                     ),
                                   ),
@@ -256,9 +265,11 @@ class WaveformStub extends StatelessWidget {
                                       child: Container(
                                         width: 2,
                                         decoration: BoxDecoration(
-                                          color: AppColors.white.withValues(
-                                            alpha: 0.7,
-                                          ),
+                                          color:
+                                              (AppColors.isOriginalDark
+                                                      ? AppColors.white
+                                                      : AppColors.textPrimary)
+                                                  .withValues(alpha: 0.7),
                                           borderRadius: BorderRadius.circular(
                                             2,
                                           ),
@@ -287,12 +298,14 @@ class WaveformStub extends StatelessWidget {
 class _WaveformPainter extends CustomPainter {
   final List<double> samples;
   final List<Color> gradientColors;
+  final List<Color> progressGradientColors;
   final double baseOpacity;
   final double progress;
 
   const _WaveformPainter({
     required this.samples,
     required this.gradientColors,
+    required this.progressGradientColors,
     required this.baseOpacity,
     required this.progress,
   });
@@ -326,7 +339,7 @@ class _WaveformPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
-        colors: gradientColors,
+        colors: progressGradientColors,
       ).createShader(rect)
       ..style = PaintingStyle.fill;
     final progressX = rect.width * progress.clamp(0.0, 1.0);
@@ -354,6 +367,7 @@ class _WaveformPainter extends CustomPainter {
     return oldDelegate.samples != samples ||
         oldDelegate.baseOpacity != baseOpacity ||
         oldDelegate.progress != progress ||
+        oldDelegate.progressGradientColors != progressGradientColors ||
         oldDelegate.gradientColors != gradientColors;
   }
 }

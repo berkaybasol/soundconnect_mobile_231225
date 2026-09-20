@@ -27,8 +27,9 @@ class _BacklineAvailabilityDayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final color = disabled
-        ? const Color(0xFF596272)
+        ? AppColors.legacy(const Color(0xFF596272))
         : _availabilityColor(
             value,
             maximum,
@@ -50,15 +51,15 @@ class _BacklineAvailabilityDayCell extends StatelessWidget {
                   : null,
               border: Border.all(
                 color: endpoint && !disabled
-                    ? const Color(0xFF7D8A9D)
-                    : const Color(0xFF263244),
+                    ? AppColors.legacyBorder(const Color(0xFF7D8A9D))
+                    : AppColors.legacyBorder(const Color(0xFF263244)),
                 width: endpoint ? 1.1 : 1,
               ),
             ),
             child: Material(
               color: disabled
-                  ? const Color(0xFF090D14)
-                  : const Color(0xFF0A101A),
+                  ? AppColors.legacy(const Color(0xFF090D14))
+                  : AppColors.legacy(const Color(0xFF0A101A)),
               borderRadius: BorderRadius.circular(6.2),
               child: InkWell(
                 onTap: onTap,
@@ -70,8 +71,8 @@ class _BacklineAvailabilityDayCell extends StatelessWidget {
                       '${date.day}',
                       style: TextStyle(
                         color: disabled
-                            ? const Color(0xFF66707E)
-                            : Colors.white,
+                            ? AppColors.legacy(const Color(0xFF66707E))
+                            : AppColors.legacy(Colors.white),
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
                       ),
@@ -111,7 +112,9 @@ class _BacklineAvailabilityDayCell extends StatelessWidget {
               child: Center(
                 child: Container(
                   height: 1,
-                  decoration: BoxDecoration(color: const Color(0xFF7D8A9D)),
+                  decoration: BoxDecoration(
+                    color: AppColors.legacy(const Color(0xFF7D8A9D)),
+                  ),
                 ),
               ),
             ),
@@ -125,9 +128,9 @@ class _BacklineAvailabilityDayCell extends StatelessWidget {
                   height: 6,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF9AA6B7),
+                    color: AppColors.legacy(const Color(0xFF9AA6B7)),
                     border: Border.all(
-                      color: const Color(0xFF101722),
+                      color: AppColors.legacyBorder(const Color(0xFF101722)),
                       width: 1,
                     ),
                   ),
@@ -225,9 +228,10 @@ class _BacklineAvailabilityRangeSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0B1321),
+      decoration: BoxDecoration(
+        color: AppColors.legacy(Color(0xFF0B1321)),
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
       child: Padding(
@@ -241,16 +245,16 @@ class _BacklineAvailabilityRangeSheetState
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF465165),
+                    color: AppColors.legacy(const Color(0xFF465165)),
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
               ),
               const SizedBox(height: 15),
-              const Text(
+              Text(
                 'Seçili Aralığı İşaretle',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
@@ -258,7 +262,10 @@ class _BacklineAvailabilityRangeSheetState
               const SizedBox(height: 3),
               Text(
                 '${_shortDateLabel(widget.startDate)} – ${_shortDateLabel(widget.endDate)} • ${widget.equipmentName}',
-                style: const TextStyle(color: Color(0xFF919BA9), fontSize: 11),
+                style: TextStyle(
+                  color: AppColors.legacy(Color(0xFF919BA9)),
+                  fontSize: 11,
+                ),
               ),
               const SizedBox(height: 16),
               const _BacklineAvailabilityFormLabel('İşlem yapılacak grup'),
@@ -418,12 +425,15 @@ class _BacklineAvailabilityQuantitySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _ownerManagementInsetBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementInsetBorderColor),
+        ),
       ),
       child: Row(
         children: [
@@ -436,15 +446,18 @@ class _BacklineAvailabilityQuantitySelector extends StatelessWidget {
               children: [
                 Text(
                   '$value adet',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 Text(
                   'Toplam $maximum ekipmandan',
-                  style: const TextStyle(color: Color(0xFF8F9AAA), fontSize: 9),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF8F9AAA)),
+                    fontSize: 9,
+                  ),
                 ),
               ],
             ),
@@ -466,10 +479,11 @@ class _BacklineAvailabilityFormLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Text(
       label,
-      style: const TextStyle(
-        color: Color(0xFFD4D9E2),
+      style: TextStyle(
+        color: AppColors.legacy(Color(0xFFD4D9E2)),
         fontSize: 12,
         fontWeight: FontWeight.w900,
       ),
@@ -512,6 +526,7 @@ class _BacklineAvailabilityEquipmentPickerState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return FractionallySizedBox(
       heightFactor: 0.76,
       child: Padding(
@@ -524,16 +539,16 @@ class _BacklineAvailabilityEquipmentPickerState
                 width: 42,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF465165),
+                  color: AppColors.legacy(const Color(0xFF465165)),
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Ekipman Seç',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.legacy(Colors.white),
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
               ),
@@ -556,12 +571,12 @@ class _BacklineAvailabilityEquipmentPickerState
                       onRetry: () => _load(_pageIndex),
                     )
                   : _items.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'Aramanızla eşleşen ekipman bulunamadı.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF929CAA),
+                          color: AppColors.legacy(Color(0xFF929CAA)),
                           fontSize: 12,
                         ),
                       ),
@@ -574,18 +589,24 @@ class _BacklineAvailabilityEquipmentPickerState
                         final selected = item.id == widget.selected?.id;
                         return ListTile(
                           onTap: () => Navigator.of(context).pop(item),
-                          tileColor: _ownerManagementCardColor,
+                          tileColor: AppColors.legacy(
+                            _ownerManagementCardColor,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                             side: BorderSide(
                               color: selected
-                                  ? const Color(0xFF767E8C)
-                                  : _ownerManagementCardBorderColor,
+                                  ? AppColors.legacyBorder(
+                                      const Color(0xFF767E8C),
+                                    )
+                                  : AppColors.legacyBorder(
+                                      _ownerManagementCardBorderColor,
+                                    ),
                             ),
                           ),
                           leading: Icon(
                             item.icon,
-                            color: const Color(0xFFD6DCE6),
+                            color: AppColors.legacy(const Color(0xFFD6DCE6)),
                           ),
                           title: Text(
                             item.name,
@@ -599,8 +620,8 @@ class _BacklineAvailabilityEquipmentPickerState
                                 ? Icons.check_circle_outline_rounded
                                 : Icons.chevron_right_rounded,
                             color: selected
-                                ? Colors.white
-                                : const Color(0xFF7F8998),
+                                ? AppColors.legacy(Colors.white)
+                                : AppColors.legacy(const Color(0xFF7F8998)),
                           ),
                         );
                       },
@@ -610,9 +631,13 @@ class _BacklineAvailabilityEquipmentPickerState
             Container(
               height: 44,
               decoration: BoxDecoration(
-                color: _ownerManagementCardColor,
+                color: AppColors.legacy(_ownerManagementCardColor),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _ownerManagementCardBorderColor),
+                border: Border.all(
+                  color: AppColors.legacyBorder(
+                    _ownerManagementCardBorderColor,
+                  ),
+                ),
               ),
               child: Row(
                 children: [
@@ -629,8 +654,8 @@ class _BacklineAvailabilityEquipmentPickerState
                       '${_totalPages == 0 ? 1 : _totalPages} • '
                       '$_totalItems ekipman',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFFB8C0CC),
+                      style: TextStyle(
+                        color: AppColors.legacy(Color(0xFFB8C0CC)),
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
@@ -696,7 +721,7 @@ class _BacklineAvailabilityEquipmentPickerState
 
 Color _availabilityColor(int value, int maximum, {int maintenanceCount = 0}) {
   if (value == 0 && maintenanceCount >= maximum) {
-    return const Color(0xFF6B7280);
+    return AppColors.legacy(const Color(0xFF6B7280));
   }
   if (value == 0) return const Color(0xFFB8323B);
   if (value >= maximum) return const Color(0xFF1EAF4D);

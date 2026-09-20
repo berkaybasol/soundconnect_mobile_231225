@@ -199,7 +199,7 @@ Future<void> showProfileMenuThemePicker(BuildContext context) async {
                   ? ShaderMask(
                       blendMode: BlendMode.srcIn,
                       shaderCallback: (bounds) => LinearGradient(
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.decorativeGradient,
                       ).createShader(bounds),
                       child: const Icon(
                         Icons.check_circle_rounded,
@@ -208,7 +208,10 @@ Future<void> showProfileMenuThemePicker(BuildContext context) async {
                     )
                   : null,
               onTap: option.isEnabled
-                  ? () => Navigator.of(sheetContext).pop()
+                  ? () {
+                      Navigator.of(sheetContext).pop();
+                      option.select(context);
+                    }
                   : null,
             ),
           const SizedBox(height: 12),

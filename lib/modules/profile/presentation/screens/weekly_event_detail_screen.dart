@@ -283,6 +283,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final event = widget.event;
     final commentSession = _commentSessionManager?.session;
     final performerName = _eventPerformerDisplayName(event.artistName);

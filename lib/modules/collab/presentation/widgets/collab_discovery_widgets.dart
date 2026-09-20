@@ -28,13 +28,15 @@ class CollabGradientFrame extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         gradient: highlighted
-            ? LinearGradient(colors: AppColors.brandGradient)
+            ? LinearGradient(colors: AppColors.decorativeGradient)
             : null,
         color: highlighted ? null : theme.dividerColor,
         boxShadow: highlighted
             ? [
                 BoxShadow(
-                  color: AppColors.brandGradient.last.withValues(alpha: 0.12),
+                  color: AppColors.decorativeGradient.last.withValues(
+                    alpha: 0.12,
+                  ),
                   blurRadius: 14,
                 ),
               ]
@@ -356,6 +358,7 @@ class CollabProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return CollabIdentityAvatar(
       initials: listing.ownerInitials,
       profileKind: listing.profileKind,
@@ -384,10 +387,11 @@ class CollabIdentityAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final colors = switch (profileKind) {
       CollabProfileKind.musician => [
         AppColors.musicianBlue,
-        AppColors.brandGradient.last,
+        AppColors.decorativeGradient.last,
       ],
       CollabProfileKind.band => [AppColors.socialOrange, AppColors.socialPink],
       CollabProfileKind.venue => [AppColors.coral, AppColors.socialPurple],
@@ -402,7 +406,7 @@ class CollabIdentityAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(1.4),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(colors: AppColors.brandGradient),
+        gradient: LinearGradient(colors: AppColors.decorativeGradient),
       ),
       child: ClipOval(
         child: avatarUrl?.trim().isNotEmpty == true
@@ -428,17 +432,22 @@ class CollabIdentityAvatar extends StatelessWidget {
   Widget _fallback(List<Color> colors) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
+        color: AppColors.isLight ? AppColors.avatarBackground : null,
+        gradient: AppColors.isLight
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: colors,
+              ),
       ),
       child: Center(
         child: Text(
           initials,
-          style: const TextStyle(
-            color: AppColors.white,
+          style: TextStyle(
+            color: AppColors.isLight
+                ? AppColors.avatarForeground
+                : AppColors.white,
             fontSize: 14,
             fontWeight: FontWeight.w900,
           ),
@@ -453,7 +462,10 @@ class CollabFeaturedPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const amber = Color(0xFFFFA000);
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    final amber = AppColors.isOriginalDark
+        ? const Color(0xFFFFA000)
+        : const Color(0xFF925B00);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
@@ -461,10 +473,10 @@ class CollabFeaturedPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: amber.withValues(alpha: 0.72)),
       ),
-      child: const Text(
+      child: Text(
         'Öne Çıkan',
         style: TextStyle(
-          color: Color(0xFFFFD180),
+          color: AppColors.isOriginalDark ? const Color(0xFFFFD180) : amber,
           fontWeight: FontWeight.w800,
           fontSize: 9.5,
         ),
@@ -481,6 +493,7 @@ class CollabStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
       decoration: BoxDecoration(
@@ -491,7 +504,7 @@ class CollabStatusPill extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          color: color,
+          color: AppColors.isLight ? AppColors.textPrimary : color,
           fontWeight: FontWeight.w800,
           fontSize: 11,
         ),

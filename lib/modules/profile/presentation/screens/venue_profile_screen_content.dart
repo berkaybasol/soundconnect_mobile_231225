@@ -100,6 +100,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final resolvedMedia = _resolveMedia(media);
     final canFollow =
         viewerUserId.isNotEmpty &&
@@ -197,7 +198,9 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                     onPressed: () =>
                                         _openVenueManagementPanel(context),
                                     style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.white,
+                                      foregroundColor: AppColors.legacy(
+                                        AppColors.white,
+                                      ),
                                       backgroundColor: Colors.transparent,
                                       padding: EdgeInsets.symmetric(
                                         vertical: 14,
@@ -208,11 +211,15 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                     ),
                                     icon: Icon(
                                       Icons.dashboard_customize_outlined,
-                                      color: AppColors.white,
+                                      color: AppColors.legacy(AppColors.white),
                                     ),
                                     label: Text(
                                       'Yönetim Paneli',
-                                      style: TextStyle(color: AppColors.white),
+                                      style: TextStyle(
+                                        color: AppColors.legacy(
+                                          AppColors.white,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),

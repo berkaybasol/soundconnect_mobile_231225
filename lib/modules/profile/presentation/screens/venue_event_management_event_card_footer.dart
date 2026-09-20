@@ -17,6 +17,7 @@ class _VenueCalendarEventInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final primaryColor = history
         ? scheme.onSurface.withValues(alpha: 0.82)
@@ -87,6 +88,7 @@ class _VenueCalendarMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final color = history
         ? scheme.onSurfaceVariant.withValues(alpha: 0.72)

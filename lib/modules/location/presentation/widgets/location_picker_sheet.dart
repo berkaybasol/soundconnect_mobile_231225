@@ -13,6 +13,7 @@ Future<String?> showLocationPickerSheet(
   String searchLabel = 'Ara',
   Key? searchKey,
   Key Function(String)? optionKeyFor,
+  Widget Function(Widget child)? routeWrapper,
 }) {
   if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) {
     return Future<String?>.value();
@@ -24,14 +25,17 @@ Future<String?> showLocationPickerSheet(
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: AppColors.navBlueDeep,
-    builder: (_) => _LocationPicker(
-      title: title,
-      options: snapshot,
-      selected: selected,
-      searchLabel: searchLabel,
-      searchKey: searchKey,
-      optionKeyFor: optionKeyFor,
-    ),
+    builder: (_) {
+      final picker = _LocationPicker(
+        title: title,
+        options: snapshot,
+        selected: selected,
+        searchLabel: searchLabel,
+        searchKey: searchKey,
+        optionKeyFor: optionKeyFor,
+      );
+      return routeWrapper?.call(picker) ?? picker;
+    },
   );
 }
 
@@ -80,6 +84,7 @@ class _LocationPickerState extends State<_LocationPicker> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final query = _fold(_query);
     final options = widget.options.entries
         .where((item) => _fold(item.value).contains(query))
@@ -139,6 +144,9 @@ class _LocationPickerState extends State<_LocationPicker> {
                         key: widget.optionKeyFor?.call(item.key),
                         title: Text(item.value),
                         selected: item.key == widget.selected,
+                        selectedColor: AppColors.isLight
+                            ? AppColors.accentText
+                            : null,
                         trailing: item.key == widget.selected
                             ? const BrandGradientIcon.social(
                                 Icons.check_rounded,

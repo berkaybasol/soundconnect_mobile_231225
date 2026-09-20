@@ -9,6 +9,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/access_policy.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/stage_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/event/presentation/screens/event_discovery_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/event_audience/presentation/event_audience_profile_draft.dart';
@@ -23,6 +24,46 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/p
 void main() {
   tearDown(() async {
     await GetIt.instance.reset();
+  });
+
+  test('marketplace only admits one active professional identity', () {
+    for (final roles in <List<String>>[
+      ['ROLE_MUSICIAN'],
+      [' venue '],
+      ['STUDIO'],
+      ['ROLE_ADMIN', 'ROLE_MUSICIAN'],
+    ]) {
+      expect(AccessPolicy.canAccessMarketplace(roles), isTrue);
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.marketplace, _activeSession(roles)),
+        isNull,
+      );
+    }
+    for (final roles in <List<String>>[
+      [],
+      ['ROLE_LISTENER'],
+      ['ROLE_ADMIN'],
+      ['ROLE_OWNER'],
+      ['ROLE_PRODUCER'],
+      ['ROLE_ORGANIZER'],
+      ['ROLE_LISTENER', 'ROLE_MUSICIAN'],
+      ['ROLE_MUSICIAN', 'ROLE_STUDIO'],
+      ['ROLE_MUSICIAN', 'ROLE_PRODUCER'],
+    ]) {
+      expect(AccessPolicy.canAccessMarketplace(roles), isFalse);
+      final session = _activeSession(roles);
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.marketplace, session),
+        AppRouteGuard.startRouteFor(session),
+      );
+    }
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.marketplace,
+        const AuthSession.guest(),
+      ),
+      AppRoutes.login,
+    );
   });
 
   testWidgets('own listener route forwards only typed event draft arguments', (
@@ -53,42 +94,69 @@ void main() {
     }
   });
 
-  test(
-    'muted feed settings allow active musician, venue, studio and listener accounts',
-    () {
+  test('muted feed settings follow rollout for active profile audiences', () {
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.musicianFeedMutedAuthors,
+        const AuthSession.guest(),
+      ),
+      AppRoutes.login,
+    );
+    for (final role in [
+      'ROLE_MUSICIAN',
+      'ROLE_VENUE',
+      'ROLE_STUDIO',
+      'ROLE_LISTENER',
+    ]) {
       expect(
         AppRouteGuard.redirectFor(
           AppRoutes.musicianFeedMutedAuthors,
-          const AuthSession.guest(),
+          _activeSession([role]),
         ),
-        AppRoutes.login,
+        ProfileFeedAvailability.enabled
+            ? isNull
+            : AppRouteGuard.startRouteFor(_activeSession([role])),
       );
-      for (final role in [
-        'ROLE_MUSICIAN',
-        'ROLE_VENUE',
-        'ROLE_STUDIO',
-        'ROLE_LISTENER',
+    }
+    for (final role in ['ROLE_PRODUCER', 'ROLE_ORGANIZER']) {
+      final session = _activeSession([role]);
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.musicianFeedMutedAuthors, session),
+        AppRouteGuard.startRouteFor(session),
+      );
+    }
+  });
+
+  test('parked feed routes redirect every profile audience to its start', () {
+    for (final role in [
+      'ROLE_MUSICIAN',
+      'ROLE_VENUE',
+      'ROLE_STUDIO',
+      'ROLE_LISTENER',
+    ]) {
+      final session = _activeSession([role]);
+      for (final route in [
+        AppRoutes.backstageProfilesHome,
+        AppRoutes.listenerFeed,
+        AppRoutes.musicianFeedMutedAuthors,
       ]) {
-        expect(
-          AppRouteGuard.redirectFor(
-            AppRoutes.musicianFeedMutedAuthors,
-            _activeSession([role]),
-          ),
-          isNull,
-        );
+        if (!ProfileFeedAvailability.enabled) {
+          expect(
+            AppRouteGuard.redirectFor(route, session),
+            AppRouteGuard.startRouteFor(session),
+            reason: '$role must not reach $route while feeds are parked',
+          );
+        }
       }
-      for (final role in ['ROLE_PRODUCER', 'ROLE_ORGANIZER']) {
-        final session = _activeSession([role]);
-        expect(
-          AppRouteGuard.redirectFor(
-            AppRoutes.musicianFeedMutedAuthors,
-            session,
-          ),
+      expect(
+        AppRouteGuard.redirectFor(
           AppRouteGuard.startRouteFor(session),
-        );
-      }
-    },
-  );
+          session,
+        ),
+        isNull,
+      );
+    }
+  });
 
   test('feed moderation requires its exact permission and active session', () {
     expect(
@@ -523,7 +591,10 @@ void main() {
       );
 
       expect(invalidArgsRoute.settings.name, AppRoutes.studioListenerInfo);
-      expect(unauthorizedOwnerRoute.settings.name, AppRoutes.studioListenerInfo);
+      expect(
+        unauthorizedOwnerRoute.settings.name,
+        AppRoutes.studioListenerInfo,
+      );
       expect(customerRoute.settings.name, AppRoutes.studioListenerInfo);
       expect(
         AppRouteGuard.canOpenStudioOwnerReservationCalendar(listener),

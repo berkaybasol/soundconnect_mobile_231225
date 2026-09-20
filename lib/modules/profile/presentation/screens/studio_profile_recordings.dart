@@ -86,6 +86,7 @@ class _StudioRecordingsPanelState extends State<_StudioRecordingsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final mediaState = context.watch<ProfileMediaCubit>().state;
     final tracks = mediaState.media?.audios ?? const <Track>[];
 

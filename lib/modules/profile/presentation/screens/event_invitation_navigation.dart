@@ -366,25 +366,27 @@ class _InvitationSessionGuardState extends State<_InvitationSessionGuard>
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _visible && !_closing && widget.sameSession()
-      ? widget.destination == EventManagementDestination.events
-            ? EventProfilePublicationsScreen(
-                targetType: widget.targetType,
-                targetId: widget.targetId,
-                repository: widget.publications,
-                sessionKeyProvider: widget.sessionKeyProvider,
-                showPeriods: true,
-              )
-            : EventPerformerRequestsScreen(
-                targetType: widget.targetType,
-                targetId: widget.targetId,
-                repository: widget.requests,
-                sessionKeyProvider: widget.sessionKeyProvider,
-                status:
-                    widget.destination == EventManagementDestination.rejected
-                    ? EventPerformerRequestStatus.rejected
-                    : EventPerformerRequestStatus.pending,
-              )
-      : const Scaffold(body: Center(child: CircularProgressIndicator()));
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _visible && !_closing && widget.sameSession()
+        ? widget.destination == EventManagementDestination.events
+              ? EventProfilePublicationsScreen(
+                  targetType: widget.targetType,
+                  targetId: widget.targetId,
+                  repository: widget.publications,
+                  sessionKeyProvider: widget.sessionKeyProvider,
+                  showPeriods: true,
+                )
+              : EventPerformerRequestsScreen(
+                  targetType: widget.targetType,
+                  targetId: widget.targetId,
+                  repository: widget.requests,
+                  sessionKeyProvider: widget.sessionKeyProvider,
+                  status:
+                      widget.destination == EventManagementDestination.rejected
+                      ? EventPerformerRequestStatus.rejected
+                      : EventPerformerRequestStatus.pending,
+                )
+        : const Scaffold(body: Center(child: CircularProgressIndicator()));
+  }
 }

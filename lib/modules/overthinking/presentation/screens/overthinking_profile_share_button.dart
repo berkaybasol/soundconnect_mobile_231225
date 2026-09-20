@@ -78,6 +78,7 @@ class _OverthinkingProfileShareButtonState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_allowed) return const SizedBox.shrink();
     return TextButton.icon(
       key: ValueKey('overthinking-profile-share-${widget.post.id}'),

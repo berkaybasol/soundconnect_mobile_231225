@@ -140,6 +140,7 @@ class _MediaContentState extends State<_MediaContent> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageItems = widget.media.videos
         .where((item) => (item.kind ?? '').toUpperCase() == 'IMAGE')
         .toList(growable: false);

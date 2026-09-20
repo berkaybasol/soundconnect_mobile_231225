@@ -127,7 +127,9 @@ extension _MusicianPublicProfileAudioTabTrackItem on _AudioTab {
                   : AppColors.brandGradient,
               iconColor: isSpotify
                   ? AppColors.spotifyGreen
-                  : AppColors.coralAlt,
+                  : (AppColors.isLight
+                        ? AppColors.accentText
+                        : AppColors.coralAlt),
               playIconColor: isSpotify
                   ? AppColors.spotifyGreen
                   : Theme.of(context).colorScheme.onSurfaceVariant,

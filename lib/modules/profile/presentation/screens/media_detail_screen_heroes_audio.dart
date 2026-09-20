@@ -25,6 +25,7 @@ class _AudioHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!isSpotify) return _buildUploadedAudio(context);
 
     return Container(
@@ -57,7 +58,11 @@ class _AudioHero extends StatelessWidget {
                     AppColors.spotifyGreenDark,
                   ]
                 : AppColors.brandGradient,
-            iconColor: isSpotify ? AppColors.spotifyGreen : AppColors.coralAlt,
+            iconColor: isSpotify
+                ? AppColors.spotifyGreen
+                : (AppColors.isLight
+                      ? AppColors.accentText
+                      : AppColors.coralAlt),
             playIconColor: isSpotify
                 ? AppColors.spotifyGreen
                 : Theme.of(context).colorScheme.onSurfaceVariant,
@@ -214,6 +219,7 @@ class _UploadedAudioTransportButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final theme = Theme.of(context);
     final size = primary ? 56.0 : 48.0;
     final iconSize = primary ? 30.0 : 24.0;
@@ -260,6 +266,7 @@ class _TransportButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,

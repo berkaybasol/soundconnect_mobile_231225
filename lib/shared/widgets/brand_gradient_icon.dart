@@ -20,10 +20,11 @@ class BrandGradientIcon extends StatelessWidget {
   final bool _social;
 
   static LinearGradient get gradient =>
-      LinearGradient(colors: AppColors.brandGradient);
+      LinearGradient(colors: AppColors.decorativeGradient);
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) =>
@@ -31,7 +32,7 @@ class BrandGradientIcon extends StatelessWidget {
                   ? LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: AppColors.socialGradient,
+                      colors: AppColors.decorativeSocialGradient,
                     )
                   : gradient)
               .createShader(bounds),

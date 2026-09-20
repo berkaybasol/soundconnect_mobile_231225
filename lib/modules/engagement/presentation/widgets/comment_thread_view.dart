@@ -657,7 +657,9 @@ class _CommentThreadViewState extends State<CommentThreadView>
                         counterText: '',
                         isDense: true,
                         filled: true,
-                        fillColor: const Color(0xFF070B13),
+                        fillColor: (AppColors.isOriginalDark
+                            ? const Color(0xFF070B13)
+                            : AppColors.inputFill),
                         constraints: const BoxConstraints(minHeight: 48),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -705,7 +707,9 @@ class _CommentThreadViewState extends State<CommentThreadView>
                         minimumSize: const Size(48, 48),
                         maximumSize: const Size(48, 48),
                         padding: const EdgeInsets.all(13),
-                        foregroundColor: AppColors.socialPink,
+                        foregroundColor: AppColors.isLight
+                            ? AppColors.accentText
+                            : AppColors.socialPink,
                         disabledForegroundColor: AppColors.textMuted.withValues(
                           alpha: .35,
                         ),
@@ -742,6 +746,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     super.build(context);
     if (!_allowed) {
       return Column(
@@ -875,34 +880,37 @@ class CommentThreadSheet extends StatelessWidget {
   final VoidCallback? onCommentCreated;
   final VoidCallback? onCommentDeleted;
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        14,
-        16,
-        MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .72,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Yorumlar', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Expanded(
-              child: CommentThreadView(
-                targetType: targetType,
-                targetId: targetId,
-                scrollable: true,
-                onCommentCreated: onCommentCreated,
-                onCommentDeleted: onCommentDeleted,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          14,
+          16,
+          MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .72,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Yorumlar', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Expanded(
+                child: CommentThreadView(
+                  targetType: targetType,
+                  targetId: targetId,
+                  scrollable: true,
+                  onCommentCreated: onCommentCreated,
+                  onCommentDeleted: onCommentDeleted,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

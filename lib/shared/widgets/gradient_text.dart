@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../theme/app_colors.dart';
 
 class GradientText extends StatelessWidget {
@@ -23,8 +24,23 @@ class GradientText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    final source = gradient;
+    final effectiveGradient =
+        AppColors.isLight &&
+            source is LinearGradient &&
+            listEquals(source.colors, AppColors.brandGradient)
+        ? LinearGradient(
+            colors: AppColors.brandTextGradient,
+            begin: source.begin,
+            end: source.end,
+            stops: source.stops,
+            tileMode: source.tileMode,
+            transform: source.transform,
+          )
+        : gradient;
     return ShaderMask(
-      shaderCallback: (bounds) => gradient.createShader(
+      shaderCallback: (bounds) => effectiveGradient.createShader(
         Rect.fromLTWH(0, 0, bounds.width, bounds.height),
       ),
       child: Text(

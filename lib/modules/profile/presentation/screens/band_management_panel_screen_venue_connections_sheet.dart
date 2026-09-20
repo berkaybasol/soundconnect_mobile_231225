@@ -135,6 +135,7 @@ class _BandVenueApplicationsSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -249,9 +250,9 @@ class _BandVenueApplicationsSheetState
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainer,
+                  backgroundColor: (AppColors.isLight
+                      ? AppColors.avatarBackground
+                      : Theme.of(context).colorScheme.surfaceContainer),
                   child: ClipOval(
                     child: _isValidImageUrl(item.venueProfilePictureUrl)
                         ? AppCachedNetworkImage(

@@ -69,7 +69,7 @@ extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
       shaderCallback: (bounds) => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: AppColors.brandGradient,
+        colors: AppColors.decorativeGradient,
       ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
       blendMode: BlendMode.srcIn,
       child: Icon(icon, size: size, color: AppColors.white),

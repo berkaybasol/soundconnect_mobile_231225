@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import '../../core/auth/auth_session_manager.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/policy/stage_mode.dart';
+import '../backstage_home_screen.dart';
+import '../../modules/marketplace/presentation/screens/marketplace_screen.dart';
+import '../../modules/profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../modules/admin/presentation/screens/admin_dashboard_screen.dart';
+import '../../modules/admin/data/marketplace_report_admin_repository.dart';
+import '../../modules/admin/presentation/screens/marketplace_report_admin_screen.dart';
 import '../../modules/promotion/presentation/screens/announcement_directory_screen.dart';
 import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
 import '../../modules/admin/presentation/screens/musician_feed_report_admin_screen.dart';
@@ -103,6 +108,14 @@ class AppRouter {
           settings: settings,
           builder: (_) => MusicianFeedReportAdminScreen(
             repository: serviceLocator<MusicianFeedReportAdminRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
+        );
+      case AppRoutes.adminMarketplaceReports:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MarketplaceReportAdminScreen(
+            repository: serviceLocator<MarketplaceReportAdminRepository>(),
             sessions: serviceLocator<AuthSessionManager>(),
           ),
         );
@@ -354,10 +367,18 @@ class AppRouter {
           settings: settings,
           builder: (_) => CollabDiscoveryScreen(initialRouteArgs: args),
         );
+      case AppRoutes.marketplace:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MarketplaceScreen(
+            initialListingId: _arguments<String>(settings),
+            bottomNavigationBar: ProfilePublicBottomBar(currentIndex: 0),
+          ),
+        );
       case AppRoutes.home:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const BackstageProfilesHomeScreen(),
+          builder: (_) => const BackstageHomeScreen(),
         );
       default:
         final fallback = AppRouteGuard.startRouteFor(session);

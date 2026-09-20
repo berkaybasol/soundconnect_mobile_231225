@@ -21,12 +21,15 @@ class _StudioOwnerBacklineErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _ownerManagementCardBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementCardBorderColor),
+        ),
       ),
       child: Column(
         children: [
@@ -39,7 +42,10 @@ class _StudioOwnerBacklineErrorState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFB8C0CC), height: 1.35),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFB8C0CC)),
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 12),
           TextButton.icon(
@@ -70,12 +76,15 @@ class _StudioOwnerBacklinePagination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       height: 46,
       decoration: BoxDecoration(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _ownerManagementCardBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementCardBorderColor),
+        ),
       ),
       child: Row(
         children: [
@@ -88,8 +97,8 @@ class _StudioOwnerBacklinePagination extends StatelessWidget {
             child: Text(
               '${pageIndex + 1} / $totalPages',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFB8C0CC),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFFB8C0CC)),
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),

@@ -100,6 +100,7 @@ class StudioProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return StudioListenerAccessGate(
       builder: (context) => MultiBlocProvider(
         providers: [
@@ -125,6 +126,7 @@ class StudioPublicProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return StudioListenerAccessGate(
       builder: (context) => MultiBlocProvider(
         providers: [
@@ -167,9 +169,12 @@ class StudioReservationCalendarScreen extends StatelessWidget {
   final StudioReservationCalendarArgs args;
 
   @override
-  Widget build(BuildContext context) => StudioListenerAccessGate(
-    builder: (_) => _StudioReservationCalendarView(args: args),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return StudioListenerAccessGate(
+      builder: (_) => _StudioReservationCalendarView(args: args),
+    );
+  }
 }
 
 class _StudioReservationCalendarView extends StatefulWidget {
@@ -198,6 +203,7 @@ class _StudioReservationCalendarScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final room = _room;
     if (room != null) {
       return _StudioRoomDetailScreen(
@@ -378,6 +384,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<StudioProfileCubit, StudioProfileState>(
       listener: (context, state) {
         if (state.status == StudioProfileStatus.failure) {
@@ -748,6 +755,7 @@ class _StudioDescriptionEditorSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Container(

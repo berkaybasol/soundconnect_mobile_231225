@@ -26,6 +26,7 @@ class _BandSocialButtonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final items = ProfileSocialPlatform.values
         .map(
           (platform) =>
@@ -85,6 +86,7 @@ class _BandSocialPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Stack(
@@ -119,7 +121,7 @@ class _BandSocialPill extends StatelessWidget {
                   color: AppColors.coralAlt,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.add, size: 12, color: AppColors.white),
+                child: Icon(Icons.add, size: 12, color: AppColors.onAccent),
               ),
             ),
         ],

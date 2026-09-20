@@ -14,6 +14,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final profileName = musicianProfile.username?.trim().isNotEmpty == true
         ? musicianProfile.username!.trim()
         : 'Sanatçı';
@@ -47,7 +48,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.brandTextGradient,
                       ),
                       style: const TextStyle(
                         fontSize: 24,
@@ -273,7 +274,7 @@ Widget _buildMusicianVenueManagementCard({
         ),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.white, size: 24),
+            Icon(icon, color: AppColors.legacyWhite(), size: 24),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -292,10 +293,14 @@ Widget _buildMusicianVenueManagementCard({
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.08),
+                  color: AppColors.legacy(
+                    AppColors.white,
+                  ).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: AppColors.white.withValues(alpha: 0.16),
+                    color: AppColors.legacy(
+                      AppColors.white,
+                    ).withValues(alpha: 0.16),
                   ),
                 ),
                 child: Text(
@@ -334,6 +339,7 @@ class _MusicianVenueGradientOutline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return CustomPaint(
       painter: _MusicianVenueGradientOutlinePainter(
         radius: radius,
@@ -348,10 +354,11 @@ class _MusicianVenueGradientOutline extends StatelessWidget {
 }
 
 class _MusicianVenueGradientOutlinePainter extends CustomPainter {
+  final bool _isLight = AppColors.isLight;
   final double radius;
   final double strokeWidth;
 
-  const _MusicianVenueGradientOutlinePainter({
+  _MusicianVenueGradientOutlinePainter({
     required this.radius,
     required this.strokeWidth,
   });
@@ -378,7 +385,8 @@ class _MusicianVenueGradientOutlinePainter extends CustomPainter {
   bool shouldRepaint(
     covariant _MusicianVenueGradientOutlinePainter oldDelegate,
   ) {
-    return oldDelegate.radius != radius ||
+    return oldDelegate._isLight != _isLight ||
+        oldDelegate.radius != radius ||
         oldDelegate.strokeWidth != strokeWidth;
   }
 }
@@ -484,6 +492,7 @@ class _MusicianVenueApplicationsSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final title = _showConnections
         ? 'Bağlantılarım'
         : _showOutgoing
@@ -892,7 +901,7 @@ class _MusicianVenueApplicationsSheetState
               Text(
                 label,
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.legacy(AppColors.white),
                   fontWeight: FontWeight.w700,
                 ),
               ),

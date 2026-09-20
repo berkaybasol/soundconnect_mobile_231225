@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'core/audio/audio_player_handler.dart';
@@ -12,6 +11,7 @@ import 'core/diagnostics/app_diagnostics.dart';
 import 'core/diagnostics/app_error_handlers.dart';
 import 'core/deep_link/app_deep_link.dart';
 import 'core/di/service_locator.dart';
+import 'shared/theme/app_theme_controller.dart';
 
 void main() {
   runZonedGuarded<Future<void>>(() async {
@@ -21,8 +21,7 @@ void main() {
     final appLinkSource = PlatformAppLinkSource();
 
     setupDependencies();
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.remove('app_theme_variant');
+    await AppThemeController.instance.initialize();
     final audioHandler = await AudioService.init(
       builder: () => AudioPlayerHandler(),
       config: const AudioServiceConfig(

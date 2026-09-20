@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/profile_feed_availability.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
@@ -58,6 +59,7 @@ class ListenerProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ListenerProfileTheme(
       inheritAppTheme: true,
       child: BlocProvider(
@@ -284,6 +286,7 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<ListenerProfileCubit, ListenerProfileState>(
       listenWhen: (previous, current) =>
           (current.status == ListenerProfileStatus.failure &&
@@ -725,6 +728,7 @@ class _StandardModeConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final textScale = MediaQuery.textScalerOf(context).scale(1);
 
     return Semantics(
@@ -770,7 +774,7 @@ class _StandardModeConfirmationDialog extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
               child: Material(
-                color: const Color(0xFF101827),
+                color: AppColors.legacy(const Color(0xFF101827)),
                 child: Stack(
                   children: [
                     Positioned(
@@ -811,11 +815,11 @@ class _StandardModeConfirmationDialog extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
+                          Text(
                             'Sosyal profile dönülsün mü?',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.legacy(Colors.white),
                               fontSize: 21,
                               height: 1.2,
                               fontWeight: FontWeight.w800,
@@ -823,11 +827,11 @@ class _StandardModeConfirmationDialog extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
+                          Text(
                             'Korunan profil içeriklerin yeniden görünür olur ve profilin tekrar takipçi kabul eder.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Color(0xFFC4CDDA),
+                              color: AppColors.legacy(Color(0xFFC4CDDA)),
                               fontSize: 12.5,
                               height: 1.5,
                               fontWeight: FontWeight.w500,
@@ -885,19 +889,25 @@ class _StandardModeDialogIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Container(
         width: 66,
         height: 66,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF35203C), Color(0xFF202944)],
+            colors: [
+              AppColors.legacy(Color(0xFF35203C)),
+              AppColors.legacy(Color(0xFF202944)),
+            ],
           ),
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(
+            color: AppColors.legacy(Colors.white).withValues(alpha: 0.12),
+          ),
           boxShadow: [
             BoxShadow(
               color: AppColors.socialPink.withValues(alpha: 0.18),
@@ -930,6 +940,7 @@ class _StandardModeRestoreNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       key: const Key('listener-standard-mode-restore-notice'),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -940,7 +951,7 @@ class _StandardModeRestoreNotice extends StatelessWidget {
           color: const Color(0xFFFF8C96).withValues(alpha: 0.2),
         ),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
@@ -953,7 +964,7 @@ class _StandardModeRestoreNotice extends StatelessWidget {
             child: Text(
               'Daha önce kaldırılan takipçiler geri yüklenmez.',
               style: TextStyle(
-                color: Color(0xFFE4C7CD),
+                color: AppColors.legacy(Color(0xFFE4C7CD)),
                 fontSize: 11,
                 height: 1.4,
                 fontWeight: FontWeight.w600,
@@ -973,12 +984,13 @@ class _StandardModeCancelButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return TextButton(
       key: const Key('listener-cancel-disable-ghost'),
       onPressed: onPressed,
       style: TextButton.styleFrom(
         minimumSize: const Size(0, 48),
-        foregroundColor: const Color(0xFFD3DAE5),
+        foregroundColor: AppColors.legacy(const Color(0xFFD3DAE5)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       child: const Text(
@@ -996,13 +1008,14 @@ class _StandardModeConfirmButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
       child: GradientOutlineButton(
         key: const Key('listener-confirm-disable-ghost'),
         label: 'Sosyal Profile Dön',
         onPressed: onPressed,
-        backgroundColor: const Color(0xFF101827),
+        backgroundColor: AppColors.legacy(const Color(0xFF101827)),
         horizontalPadding: 16,
         leading: const Icon(Icons.visibility_outlined, size: 18),
       ),
@@ -1029,9 +1042,13 @@ PreferredSizeWidget _listenerOwnerAppBar(
             context,
             settingsTileKey: const Key('listener-account-settings'),
             onSettings: onSettings,
-            onFeed: () async {
-              await Navigator.of(context).pushNamed(AppRoutes.listenerFeed);
-            },
+            onFeed: ProfileFeedAvailability.enabled
+                ? () async {
+                    await Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.listenerFeed);
+                  }
+                : null,
             onAnnouncements: () async {
               await Navigator.of(context).pushNamed(AppRoutes.announcements);
             },
@@ -1057,6 +1074,7 @@ class _ListenerInitialLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return const Center(
       key: Key('listener-profile-loading'),
       child: CircularProgressIndicator(),
@@ -1072,6 +1090,7 @@ class _ListenerLoadFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final resolvedMessage = message?.trim() ?? '';
     return RefreshIndicator(
       onRefresh: onRetry,

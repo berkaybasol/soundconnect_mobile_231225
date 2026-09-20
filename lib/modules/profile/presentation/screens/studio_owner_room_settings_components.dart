@@ -7,6 +7,7 @@ class _StudioRoomDeleteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SizedBox(
       height: 44,
       child: OutlinedButton.icon(
@@ -62,24 +63,27 @@ class _StudioRoomSettingsPhotoSectionState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final photos = widget.photos.take(_maximumPhotoCount).toList();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
+        color: AppColors.legacy(const Color(0xFF0E1622)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Oda Fotoğrafları',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                   ),
@@ -87,8 +91,8 @@ class _StudioRoomSettingsPhotoSectionState
               ),
               Text(
                 '${photos.length} / $_maximumPhotoCount',
-                style: const TextStyle(
-                  color: Color(0xFF9EA8B7),
+                style: TextStyle(
+                  color: AppColors.legacy(Color(0xFF9EA8B7)),
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
@@ -152,10 +156,12 @@ class _StudioRoomSettingsPhotoSectionState
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
                   color: index == _activePhotoIndex
-                      ? const Color(0xFFE87587)
+                      ? (AppColors.isLight
+                            ? AppColors.brandGradient[2]
+                            : const Color(0xFFE87587))
                       : index < photos.length
-                      ? const Color(0xFF69758A)
-                      : const Color(0xFF344052),
+                      ? AppColors.legacy(const Color(0xFF69758A))
+                      : AppColors.legacy(const Color(0xFF344052)),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -254,6 +260,7 @@ class _StudioRoomPhotoSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -321,9 +328,10 @@ class _StudioPhotoOverlayIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Material(
       color: const Color(0xD90A111B),
-      shape: const CircleBorder(side: BorderSide(color: Color(0x667E8CA2))),
+      shape: CircleBorder(side: BorderSide(color: Color(0x667E8CA2))),
       child: IconButton(
         onPressed: onPressed,
         tooltip: tooltip,
@@ -370,6 +378,7 @@ class _StudioRoomFullScreenGalleryState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Material(
       color: Colors.black,
       child: SafeArea(
@@ -416,7 +425,7 @@ class _StudioRoomFullScreenGalleryState
                 ),
                 child: Text(
                   '${_activeIndex + 1} / ${widget.photos.length}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -444,9 +453,10 @@ class _StudioGalleryOverlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Material(
       color: const Color(0xB30A0E15),
-      shape: const CircleBorder(side: BorderSide(color: Color(0x667E8CA2))),
+      shape: CircleBorder(side: BorderSide(color: Color(0x667E8CA2))),
       child: IconButton(
         onPressed: onPressed,
         tooltip: tooltip,
@@ -469,8 +479,9 @@ class _EmptyStudioRoomPhotoSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Material(
-      color: const Color(0xFF111B29),
+      color: AppColors.legacy(const Color(0xFF111B29)),
       child: InkWell(
         onTap: uploading ? null : onAddPhoto,
         child: Center(
@@ -482,20 +493,22 @@ class _EmptyStudioRoomPhotoSlot extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF172336),
-                  border: Border.all(color: const Color(0xFF3B4A60)),
+                  color: AppColors.legacy(const Color(0xFF172336)),
+                  border: Border.all(
+                    color: AppColors.legacyBorder(const Color(0xFF3B4A60)),
+                  ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.add_rounded,
-                  color: Colors.white,
+                  color: AppColors.legacy(Colors.white),
                   size: 30,
                 ),
               ),
               const SizedBox(height: 9),
               Text(
                 '$slotNumber. fotoğrafı ekle',
-                style: const TextStyle(
-                  color: Color(0xFFAAB3C2),
+                style: TextStyle(
+                  color: AppColors.legacy(Color(0xFFAAB3C2)),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -513,7 +526,8 @@ class _StudioRoomPhotoUploadOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
+    Theme.of(context);
+    return ColoredBox(
       color: Color(0xD90A111B),
       child: Center(
         child: Column(
@@ -548,12 +562,13 @@ class _StudioRoomGenericPhotoPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0xFF111B29),
+    Theme.of(context);
+    return ColoredBox(
+      color: AppColors.legacy(Color(0xFF111B29)),
       child: Center(
         child: Icon(
           Icons.meeting_room_outlined,
-          color: Color(0xFF9EA8B7),
+          color: AppColors.legacy(Color(0xFF9EA8B7)),
           size: 48,
         ),
       ),
@@ -574,18 +589,21 @@ class _StudioRoomApprovalPolicyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
+        color: AppColors.legacy(const Color(0xFF0E1622)),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.approval_outlined,
-            color: _roomFormIconColor,
+            color: AppColors.legacy(_roomFormIconColor),
             size: 21,
           ),
           const SizedBox(width: 11),
@@ -593,10 +611,10 @@ class _StudioRoomApprovalPolicyCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Rezervasyonlar onay gerektirsin',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
@@ -609,8 +627,8 @@ class _StudioRoomApprovalPolicyCard extends StatelessWidget {
                             : 'Müsait saatler otomatik onaylanır.'
                       : 'Planlanan değişiklik ${_effectiveDateLabel(effectiveLocalDate!)} '
                             '00:00’da devreye girer.',
-                  style: const TextStyle(
-                    color: Color(0xFF98A2B1),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF98A2B1)),
                     fontSize: 10,
                   ),
                 ),
@@ -622,7 +640,9 @@ class _StudioRoomApprovalPolicyCard extends StatelessWidget {
             value: value,
             onChanged: onChanged,
             activeThumbColor: Colors.white,
-            activeTrackColor: const Color(0xFFFF7F87),
+            activeTrackColor: AppColors.isLight
+                ? AppColors.brandGradient[2]
+                : const Color(0xFFFF7F87),
           ),
         ],
       ),
@@ -640,22 +660,25 @@ class _StudioRoomOnlinePaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
+        color: AppColors.legacy(const Color(0xFF0E1622)),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.account_balance_wallet_outlined,
-            color: _roomFormIconColor,
+            color: AppColors.legacy(_roomFormIconColor),
             size: 21,
           ),
           const SizedBox(width: 11),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -665,7 +688,7 @@ class _StudioRoomOnlinePaymentCard extends StatelessWidget {
                       child: Text(
                         'Online ödemeleri kabul et',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.legacy(Colors.white),
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
                         ),
@@ -679,7 +702,7 @@ class _StudioRoomOnlinePaymentCard extends StatelessWidget {
                 Text(
                   'Online ödemelerde %15 platform hizmet bedeli uygulanır.',
                   style: TextStyle(
-                    color: Color(0xFF98A2B1),
+                    color: AppColors.legacy(Color(0xFF98A2B1)),
                     fontSize: 10,
                     height: 1.3,
                   ),
@@ -703,6 +726,7 @@ class _StudioComingSoonBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(

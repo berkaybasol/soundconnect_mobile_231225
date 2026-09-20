@@ -80,6 +80,7 @@ class _MusicianPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return MultiBlocListener(
       listeners: [
         BlocListener<FollowActionCubit, FollowActionState>(
@@ -209,8 +210,7 @@ class _MusicianPublicProfileViewState
   }
 
   bool get _hasDirectCompletionEditor =>
-      musicianProfileCompletionEditorForCode(_completionTaskCodeOnLoad) !=
-      null;
+      musicianProfileCompletionEditorForCode(_completionTaskCodeOnLoad) != null;
 
   void _openCompletionTaskAfterLoad(MusicianProfile profile) {
     final completionEditor = musicianProfileCompletionEditorForCode(

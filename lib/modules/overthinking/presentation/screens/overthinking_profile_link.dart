@@ -64,6 +64,7 @@ class _OverthinkingProfileLinkState extends State<OverthinkingProfileLink>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_enabled) return widget.child;
     final label = widget.semanticsLabel ?? 'Profili görüntüle';
     return Semantics(
@@ -178,39 +179,42 @@ class _ProfileChoices extends StatelessWidget {
   final List<DmProfileTarget> targets;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text(
-              'Profili görüntüle',
-              style: TextStyle(
-                color: OverthinkingPalette.text,
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                'Profili görüntüle',
+                style: TextStyle(
+                  color: OverthinkingPalette.text,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
               ),
             ),
-          ),
-          for (final target in targets)
-            ListTile(
-              leading: Icon(switch (target.type) {
-                DmProfileTargetType.listener => Icons.headphones_rounded,
-                DmProfileTargetType.musician => Icons.music_note_rounded,
-                DmProfileTargetType.studio => Icons.graphic_eq_rounded,
-                DmProfileTargetType.venue => Icons.storefront_rounded,
-              }, color: OverthinkingPalette.lilac),
-              title: Text(
-                target.type.displayLabel,
-                style: const TextStyle(color: OverthinkingPalette.text),
+            for (final target in targets)
+              ListTile(
+                leading: Icon(switch (target.type) {
+                  DmProfileTargetType.listener => Icons.headphones_rounded,
+                  DmProfileTargetType.musician => Icons.music_note_rounded,
+                  DmProfileTargetType.studio => Icons.graphic_eq_rounded,
+                  DmProfileTargetType.venue => Icons.storefront_rounded,
+                }, color: OverthinkingPalette.lilac),
+                title: Text(
+                  target.type.displayLabel,
+                  style: TextStyle(color: OverthinkingPalette.text),
+                ),
+                onTap: () => Navigator.of(context).pop(target),
               ),
-              onTap: () => Navigator.of(context).pop(target),
-            ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

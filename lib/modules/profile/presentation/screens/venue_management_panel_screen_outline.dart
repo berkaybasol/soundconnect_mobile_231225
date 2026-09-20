@@ -13,6 +13,7 @@ class _GradientOutline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return CustomPaint(
       painter: _GradientOutlinePainter(
         radius: radius,
@@ -27,13 +28,11 @@ class _GradientOutline extends StatelessWidget {
 }
 
 class _GradientOutlinePainter extends CustomPainter {
+  final bool _isLight = AppColors.isLight;
   final double radius;
   final double strokeWidth;
 
-  const _GradientOutlinePainter({
-    required this.radius,
-    required this.strokeWidth,
-  });
+  _GradientOutlinePainter({required this.radius, required this.strokeWidth});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -55,7 +54,8 @@ class _GradientOutlinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GradientOutlinePainter oldDelegate) {
-    return oldDelegate.radius != radius ||
+    return oldDelegate._isLight != _isLight ||
+        oldDelegate.radius != radius ||
         oldDelegate.strokeWidth != strokeWidth;
   }
 }

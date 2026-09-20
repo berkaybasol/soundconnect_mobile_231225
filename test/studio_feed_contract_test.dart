@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_route_guard.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
@@ -413,7 +414,15 @@ void main() {
         AppRoutes.announcements,
         AppRoutes.studioProfile,
       ]) {
-        expect(AppRouteGuard.redirectFor(route, studio), isNull);
+        final feedRoute =
+            route == AppRoutes.backstageProfilesHome ||
+            route == AppRoutes.musicianFeedMutedAuthors;
+        expect(
+          AppRouteGuard.redirectFor(route, studio),
+          feedRoute && !ProfileFeedAvailability.enabled
+              ? AppRoutes.home
+              : isNull,
+        );
         expect(
           AppRouteGuard.redirectFor(
             route,
@@ -501,15 +510,16 @@ void main() {
   ) async {
     final sessions = _sessions();
     addTearDown(sessions.dispose);
-    _register(
-      sessions,
-      () => _cubit(
+    var feedCreations = 0;
+    _register(sessions, () {
+      feedCreations++;
+      return _cubit(
         _Feed([
           _page([_profile('artist')]),
         ]),
         sessions,
-      ),
-    );
+      );
+    });
     await tester.pumpWidget(
       _home(
         routes: {
@@ -519,17 +529,28 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byType(MusicianFeedView), findsOneWidget);
+    expect(
+      find.byType(MusicianFeedView),
+      ProfileFeedAvailability.enabled ? findsOneWidget : findsNothing,
+    );
+    expect(feedCreations, ProfileFeedAvailability.enabled ? 1 : 0);
     expect(find.byType(ProfilePublicBottomBar), findsOneWidget);
     expect(find.byType(StageHomeTopBar), findsOneWidget);
-    expect(find.text('Sanatçı artist'), findsOneWidget);
-    expect(find.text('Stüdyonla aynı şehirde'), findsOneWidget);
-    expect(find.text('Takip et'), findsOneWidget);
+    for (final label in [
+      'Sanatçı artist',
+      'Stüdyonla aynı şehirde',
+      'Takip et',
+    ]) {
+      expect(
+        find.text(label),
+        ProfileFeedAvailability.enabled ? findsOneWidget : findsNothing,
+      );
+    }
     final bar = tester.widget<BottomNavigationBar>(
       find.byType(BottomNavigationBar),
     );
     expect(bar.items.map((item) => item.label), [
-      'Akış',
+      'Pazar',
       'Collab',
       'Git',
       'Mesajlar',
@@ -567,6 +588,16 @@ void main() {
       });
       await tester.pumpWidget(_home());
       await tester.pump();
+      if (!ProfileFeedAvailability.enabled) {
+        expect(created, isEmpty);
+        sessions.replace(_studio(token: 'new-token'));
+        await tester.pumpAndSettle();
+        expect(created, isEmpty);
+        expect(find.byType(MusicianFeedView), findsNothing);
+        expect(find.byType(StageHomeTopBar), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        return;
+      }
       final oldFence = created.single.captureSessionFence();
       sessions.replace(_studio(token: 'new-token'));
       await tester.pumpAndSettle();

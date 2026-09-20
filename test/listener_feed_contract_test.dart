@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_route_guard.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
@@ -415,7 +416,7 @@ void main() {
   });
 
   test(
-    'listener routing explains studios, rejects collab and allows feed management',
+    'listener routing retains role boundaries and follows feed availability',
     () {
       final session = audienceSession();
       for (final route in [
@@ -433,11 +434,11 @@ void main() {
       }
       expect(
         AppRouteGuard.redirectFor(AppRoutes.listenerFeed, session),
-        isNull,
+        ProfileFeedAvailability.enabled ? isNull : AppRoutes.listenerProfile,
       );
       expect(
         AppRouteGuard.redirectFor(AppRoutes.musicianFeedMutedAuthors, session),
-        isNull,
+        ProfileFeedAvailability.enabled ? isNull : AppRoutes.listenerProfile,
       );
       expect(
         AppRouteGuard.redirectFor(
@@ -509,15 +510,17 @@ void main() {
   });
 
   testWidgets(
-    'listener feed keeps all five Mainstage destinations and Keşfet navigation',
+    'listener feed stays empty while parked and keeps Mainstage navigation when enabled',
     (tester) async {
       final sessions = AudienceTestSessions(audienceSession());
       addTearDown(sessions.dispose);
       serviceLocator.registerSingleton<AuthSessionManager>(sessions);
       serviceLocator.registerSingleton<DmBadgeCubit>(_Badges());
-      serviceLocator.registerFactory<MusicianFeedCubit>(
-        () => _cubit(_Feed([_page([])]), sessions),
-      );
+      var feedCreations = 0;
+      serviceLocator.registerFactory<MusicianFeedCubit>(() {
+        feedCreations++;
+        return _cubit(_Feed([_page([])]), sessions);
+      });
       await tester.pumpWidget(
         BlocProvider<NotificationCubit>.value(
           value: _Notifications(),
@@ -532,6 +535,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      if (!ProfileFeedAvailability.enabled) {
+        expect(find.byType(MusicianFeedView), findsNothing);
+        expect(find.byType(BottomNavigationBar), findsNothing);
+        expect(feedCreations, 0);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        return;
+      }
       expect(find.byType(MusicianFeedView), findsOneWidget);
       expect(find.text('Akışın henüz sessiz'), findsOneWidget);
       final bar = tester.widget<BottomNavigationBar>(
@@ -582,6 +593,17 @@ void main() {
         ),
       );
       await tester.pump();
+      if (!ProfileFeedAvailability.enabled) {
+        expect(cubits, isEmpty);
+        sessions.replace(
+          audienceSession(user: 'other-listener', token: 'other-token'),
+        );
+        await tester.pumpAndSettle();
+        expect(cubits, isEmpty);
+        expect(find.byType(MusicianFeedView), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+        return;
+      }
       sessions.replace(
         audienceSession(user: 'other-listener', token: 'other-token'),
       );

@@ -46,16 +46,19 @@ class CollabListingDetailScreen extends StatelessWidget {
   final CollabShareService? shareService;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabListingDetailScreenContent(
-      listingId: listingId,
-      showBottomNavigation: showBottomNavigation,
-      onListingChanged: onListingChanged,
-      onApplied: onApplied,
-      detailCubit: detailCubit,
-      shareService: shareService,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabListingDetailScreenContent(
+        listingId: listingId,
+        showBottomNavigation: showBottomNavigation,
+        onListingChanged: onListingChanged,
+        onApplied: onApplied,
+        detailCubit: detailCubit,
+        shareService: shareService,
+      ),
+    );
+  }
 }
 
 class _CollabListingDetailScreenContent extends StatefulWidget {
@@ -112,6 +115,7 @@ class _CollabListingDetailScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return BlocProvider<CollabListingDetailCubit>.value(
       value: _cubit,
       child: _DetailView(
@@ -149,6 +153,7 @@ class _DetailViewState extends State<_DetailView> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return MultiBlocListener(
       listeners: [
         BlocListener<CollabListingDetailCubit, CollabListingDetailState>(
@@ -925,6 +930,7 @@ class _PublisherProfileLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final enabled = actor.sourceProfileId.trim().isNotEmpty;
     return Semantics(
       button: enabled,
@@ -1090,6 +1096,7 @@ class _DetailError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),

@@ -3,6 +3,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/profile_contact_uri.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 typedef StudioWebsiteLauncher = Future<bool> Function(Uri uri);
 
@@ -18,6 +19,7 @@ class StudioProfileWebsiteLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final uri = profileHttpUri(website);
     if (uri == null) return const SizedBox.shrink();
 
@@ -34,10 +36,10 @@ class StudioProfileWebsiteLink extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.language_rounded,
                   size: 13,
-                  color: Color(0xFF9EA8B7),
+                  color: AppColors.legacy(Color(0xFF9EA8B7)),
                 ),
                 const SizedBox(width: 5),
                 Flexible(
@@ -45,20 +47,20 @@ class StudioProfileWebsiteLink extends StatelessWidget {
                     _displayText(uri),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFB5BECC),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFFB5BECC)),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.underline,
-                      decorationColor: Color(0xFF778293),
+                      decorationColor: AppColors.legacy(Color(0xFF778293)),
                     ),
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(
+                Icon(
                   Icons.open_in_new_rounded,
                   size: 11,
-                  color: Color(0xFF778293),
+                  color: AppColors.legacy(Color(0xFF778293)),
                 ),
               ],
             ),

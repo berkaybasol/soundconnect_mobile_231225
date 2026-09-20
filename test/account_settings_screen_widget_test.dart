@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_router.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
@@ -146,7 +147,7 @@ void main() {
       expect(find.textContaining('Davetleri incelemek'), findsNothing);
       expect(
         find.byKey(const Key('account-settings-muted-feed-authors')),
-        findsOneWidget,
+        ProfileFeedAvailability.enabled ? findsOneWidget : findsNothing,
       );
       await sessionManager.logout();
       await tester.pumpAndSettle();
@@ -158,7 +159,7 @@ void main() {
   );
 
   testWidgets(
-    'musician settings opens persisted mutes and reloads after reopening',
+    'musician settings parks mutes or reloads persisted mutes when enabled',
     (tester) async {
       final muted = _MutedAuthorsRepositoryFake();
       serviceLocator.registerSingleton<MusicianFeedMutedAuthorsRepository>(
@@ -182,6 +183,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      if (!ProfileFeedAvailability.enabled) {
+        expect(
+          find.byKey(const Key('account-settings-muted-feed-authors')),
+          findsNothing,
+        );
+        expect(muted.reads, 0);
+        expect(muted.unmutes, 0);
+        await sessionManager.logout();
+        return;
+      }
       await tester.tap(
         find.byKey(const Key('account-settings-muted-feed-authors')),
       );
@@ -207,7 +218,7 @@ void main() {
   );
 
   for (final role in ['VENUE', 'LISTENER']) {
-    testWidgets('$role settings opens shared muted authors management', (
+    testWidgets('$role settings follows shared muted authors availability', (
       tester,
     ) async {
       final muted = _MutedAuthorsRepositoryFake();
@@ -229,6 +240,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      if (!ProfileFeedAvailability.enabled) {
+        expect(
+          find.byKey(const Key('account-settings-muted-feed-authors')),
+          findsNothing,
+        );
+        expect(muted.reads, 0);
+        expect(muted.unmutes, 0);
+        await sessionManager.logout();
+        return;
+      }
       await tester.tap(
         find.byKey(const Key('account-settings-muted-feed-authors')),
       );
@@ -261,7 +282,7 @@ void main() {
     expect(calendar.settingsReads, 0);
     expect(
       find.byKey(const Key('account-settings-muted-feed-authors')),
-      findsOneWidget,
+      ProfileFeedAvailability.enabled ? findsOneWidget : findsNothing,
     );
   });
 

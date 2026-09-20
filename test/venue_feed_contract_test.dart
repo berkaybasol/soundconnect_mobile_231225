@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_route_guard.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
@@ -299,7 +300,7 @@ void main() {
       final venue = audienceSession(role: 'ROLE_VENUE');
       expect(
         AppRouteGuard.redirectFor(AppRoutes.musicianFeedMutedAuthors, venue),
-        isNull,
+        ProfileFeedAvailability.enabled ? isNull : AppRoutes.home,
       );
       expect(
         AppRouteGuard.redirectFor(AppRoutes.musicianProfile, venue),
@@ -350,6 +351,28 @@ void main() {
         ),
       );
       await tester.pump();
+      if (!ProfileFeedAvailability.enabled) {
+        expect(find.byType(MusicianFeedView), findsNothing);
+        expect(find.byType(ProfilePublicBottomBar), findsOneWidget);
+        expect(find.byType(StageHomeTopBar), findsOneWidget);
+        expect(venueRepository.loads, 0);
+        expect(created, isEmpty);
+        sessions.replace(
+          audienceSession(
+            user: 'viewer',
+            token: 'token',
+            role: 'ROLE_MUSICIAN',
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(musicianRepository.loads, 0);
+        expect(created, isEmpty);
+        expect(find.byType(MusicianFeedView), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+        sessions.dispose();
+        await serviceLocator.reset();
+        return;
+      }
       expect(find.byType(MusicianFeedView), findsOneWidget);
       expect(find.byType(ProfilePublicBottomBar), findsOneWidget);
       expect(find.byType(StageHomeTopBar), findsOneWidget);

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/theme/app_colors.dart';
+
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../domain/entities/table_group_profile_share.dart';
 import '../../domain/table_group_expiry_policy.dart';
 import 'table_group_overview_style.dart';
 
-const _shareBorder = Color(0xFF202B3A);
-const _shareMuted = Color(0xFFA8B2C2);
+Color get _shareBorder =>
+    (AppColors.isOriginalDark ? const Color(0xFF202B3A) : AppColors.border);
+Color get _shareMuted =>
+    (AppColors.isOriginalDark ? const Color(0xFFA8B2C2) : AppColors.textMuted);
 
 /// Public table information shared by profile publications and feed cards.
 /// Navigation and engagement remain the responsibility of the hosting card.
@@ -26,6 +30,7 @@ class TableGroupSharePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final instant = now ?? DateTime.now();
     final active = table.isActiveAt(instant);
     final awaitingFinalSnapshot = table.needsFinalSnapshotAt(instant);
@@ -51,7 +56,7 @@ class TableGroupSharePreview extends StatelessWidget {
             maxLines: compact ? 4 : 5,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.legacy(Colors.white),
               fontSize: compact ? 23 : 27,
               fontWeight: FontWeight.w800,
               letterSpacing: -.8,
@@ -98,6 +103,7 @@ class _TableInformation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final meeting = formatTableGroupMeetingAt(table.meetingAt, now: instant);
     final separator = meeting.lastIndexOf(' ');
     final venueField = _TableInformationField(
@@ -117,7 +123,9 @@ class _TableInformation extends StatelessWidget {
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF151D2D),
+        color: (AppColors.isOriginalDark
+            ? const Color(0xFF151D2D)
+            : AppColors.navBlueSoft),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _shareBorder),
       ),
@@ -143,7 +151,7 @@ class _TableInformation extends StatelessWidget {
                 return Row(
                   children: [
                     Expanded(child: venueField),
-                    const SizedBox(
+                    SizedBox(
                       height: 28,
                       child: VerticalDivider(
                         color: _shareBorder,
@@ -157,7 +165,7 @@ class _TableInformation extends StatelessWidget {
               },
             ),
           ),
-          const Divider(color: _shareBorder, height: 1),
+          Divider(color: _shareBorder, height: 1),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 2, 8, 2),
             child: LayoutBuilder(
@@ -174,7 +182,7 @@ class _TableInformation extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: awaitingFinalSnapshot
-                          ? const Text(
+                          ? Text(
                               'Katılımcı bilgisi güncelleniyor…',
                               style: TextStyle(
                                 color: _shareMuted,
@@ -191,7 +199,7 @@ class _TableInformation extends StatelessWidget {
             ),
           ),
           if (endedLabel != null) ...[
-            const Divider(color: _shareBorder, height: 1),
+            Divider(color: _shareBorder, height: 1),
             Padding(
               padding: const EdgeInsets.all(12),
               child: _TableDetail(
@@ -221,48 +229,51 @@ class _TableInformationField extends StatelessWidget {
   final String semanticLabel;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: semanticLabel,
-    child: ExcludeSemantics(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            BrandGradientIcon(icon, size: 19),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (label != null) ...[
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      label: semanticLabel,
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              BrandGradientIcon(icon, size: 19),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (label != null) ...[
+                      Text(
+                        label!,
+                        style: TextStyle(
+                          color: _shareMuted,
+                          fontSize: 11,
+                          letterSpacing: .3,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Text(
-                      label!,
-                      style: const TextStyle(
+                      value,
+                      style: TextStyle(
                         color: _shareMuted,
-                        fontSize: 11,
-                        letterSpacing: .3,
-                        height: 1.4,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
                       ),
                     ),
-                    const SizedBox(height: 4),
                   ],
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      color: _shareMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _TableCapacity extends StatelessWidget {
@@ -271,6 +282,7 @@ class _TableCapacity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final count = '${table.acceptedCount}/${table.maxPersonCount} kişi';
     // Glyphs are decorative; the numeric label remains the authoritative count.
     final seats = table.maxPersonCount.clamp(0, 6);
@@ -293,6 +305,8 @@ class _TableCapacity extends StatelessWidget {
                     size: 16,
                     color: index < table.acceptedCount
                         ? TableGroupOverviewStyle.brandGradient[1]
+                        : AppColors.isLight
+                        ? AppColors.textMuted
                         : const Color(0xFF8252A8),
                   ),
                   if (index + 1 < seats) const SizedBox(width: 3),
@@ -301,7 +315,7 @@ class _TableCapacity extends StatelessWidget {
             ),
             Text(
               count,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _shareMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -321,17 +335,20 @@ class _TableDetail extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      ExcludeSemantics(child: Icon(icon, size: 16, color: _shareMuted)),
-      const SizedBox(width: 6),
-      Expanded(
-        child: Text(
-          text,
-          style: const TextStyle(color: _shareMuted, fontSize: 12, height: 1.4),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ExcludeSemantics(child: Icon(icon, size: 16, color: _shareMuted)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(color: _shareMuted, fontSize: 12, height: 1.4),
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }

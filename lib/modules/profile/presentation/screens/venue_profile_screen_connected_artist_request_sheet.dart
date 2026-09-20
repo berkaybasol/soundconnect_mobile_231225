@@ -64,6 +64,7 @@ class _ConnectedArtistRequestSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return AnimatedPadding(
       duration: Duration(milliseconds: 180),
       padding: EdgeInsets.only(

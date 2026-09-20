@@ -25,6 +25,7 @@ class StageHomeTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final borderColor = Theme.of(context).dividerColor;
     final textColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
@@ -101,6 +102,7 @@ class _NotificationBell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (unreadCount <= 0) {
       return const Icon(Icons.notifications_none_outlined);
     }
@@ -121,8 +123,8 @@ class _NotificationBell extends StatelessWidget {
             child: Center(
               child: Text(
                 unreadCount > 99 ? '99+' : unreadCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.onAccent,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                 ),

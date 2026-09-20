@@ -394,6 +394,7 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_validSession) {
       return Scaffold(
         appBar: AppBar(title: const Text('Grup Daveti')),
@@ -581,6 +582,7 @@ class _BandInviteHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final hasImage = _hasImage(imageUrl);
 
@@ -599,11 +601,17 @@ class _BandInviteHero extends StatelessWidget {
             height: 104,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: AppColors.brandGradient),
+              gradient: LinearGradient(
+                colors: AppColors.isLight
+                    ? [AppColors.avatarBackground, AppColors.avatarShadow]
+                    : AppColors.brandGradient,
+              ),
             ),
             padding: const EdgeInsets.all(2.5),
             child: CircleAvatar(
-              backgroundColor: colors.surfaceContainer,
+              backgroundColor: (AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : colors.surfaceContainer),
               child: ClipOval(
                 child: hasImage
                     ? AppCachedNetworkImage(
@@ -678,6 +686,7 @@ class _BandInviteMemberTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final imageUrl = avatarUrl?.trim() ?? '';
 
@@ -691,7 +700,9 @@ class _BandInviteMemberTile extends StatelessWidget {
       child: ListTile(
         onTap: onTap,
         leading: CircleAvatar(
-          backgroundColor: colors.surfaceContainer,
+          backgroundColor: (AppColors.isLight
+              ? AppColors.avatarBackground
+              : colors.surfaceContainer),
           child: ClipOval(
             child: _hasImage(imageUrl)
                 ? AppCachedNetworkImage(
@@ -738,6 +749,7 @@ class _InlineInfoMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
 
     return Container(

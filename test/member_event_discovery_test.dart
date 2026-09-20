@@ -11,6 +11,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/stage_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_state.dart';
@@ -43,12 +44,20 @@ void main() {
   tearDown(() async => serviceLocator.reset());
 
   testWidgets(
-    'listener opens feed without replacing discovery or its saved search',
+    'listener feed availability preserves discovery and its saved search',
     (tester) async {
       final search = _Search();
       await _mount(tester, search: search);
       await _chooseCity(tester);
       final reads = search.calls.length;
+      if (!ProfileFeedAvailability.enabled) {
+        expect(find.byKey(const Key('listener-discovery-feed')), findsNothing);
+        expect(find.text('LISTENER FEED'), findsNothing);
+        expect(find.text('Ankara'), findsOneWidget);
+        expect(find.text('Keşfet'), findsOneWidget);
+        expect(search.calls.length, reads);
+        return;
+      }
       await tester.ensureVisible(
         find.byKey(const Key('listener-discovery-feed')),
       );

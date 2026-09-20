@@ -55,6 +55,7 @@ class ListenerProfileOwnerContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     assert(
       !profile.isGhost && profile.profileContentVisible,
       'Standard owner content cannot render a restricted listener profile.',
@@ -119,10 +120,10 @@ class ListenerProfileOwnerContent extends StatelessWidget {
           overthinkingPosts != null ||
           (showPreviewSections && preview != null)) ...[
         const SizedBox(height: 14),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 20),
           child: ColoredBox(
-            color: _listenerDivider,
+            color: AppColors.legacy(_listenerDivider),
             child: SizedBox(height: 1),
           ),
         ),
@@ -199,6 +200,7 @@ class _ListenerSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Text(
@@ -206,7 +208,7 @@ class _ListenerSectionHeader extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Colors.white,
+          color: AppColors.legacy(Colors.white),
           fontWeight: FontWeight.w800,
           fontSize: 15,
         ),
@@ -228,6 +230,7 @@ class _ListenerPostHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final normalizedUrl = imageUrl?.trim();
     final hasImage = isValidNetworkImageUrl(normalizedUrl);
     final pixelRatio = MediaQuery.devicePixelRatioOf(context);
@@ -240,7 +243,11 @@ class _ListenerPostHeader extends StatelessWidget {
           padding: const EdgeInsets.all(1.4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(colors: AppColors.brandGradient),
+            gradient: LinearGradient(
+              colors: AppColors.isLight
+                  ? [AppColors.avatarBackground, AppColors.avatarShadow]
+                  : AppColors.brandGradient,
+            ),
           ),
           child: ClipOval(
             child: hasImage
@@ -266,8 +273,8 @@ class _ListenerPostHeader extends StatelessWidget {
                 username,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
@@ -277,12 +284,19 @@ class _ListenerPostHeader extends StatelessWidget {
                 meta,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _listenerMuted, fontSize: 10),
+                style: TextStyle(
+                  color: AppColors.legacy(_listenerMuted),
+                  fontSize: 10,
+                ),
               ),
             ],
           ),
         ),
-        const Icon(Icons.more_horiz, color: _listenerMuted, size: 20),
+        Icon(
+          Icons.more_horiz,
+          color: AppColors.legacy(_listenerMuted),
+          size: 20,
+        ),
       ],
     );
   }
@@ -295,19 +309,27 @@ class _ListenerPostAvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF312A49), Color(0xFF17243A)],
+          colors: AppColors.isLight
+              ? [AppColors.avatarBackground, AppColors.avatarBackground]
+              : [
+                  AppColors.legacy(Color(0xFF312A49)),
+                  AppColors.legacy(Color(0xFF17243A)),
+                ],
         ),
       ),
       child: Center(
         child: Text(
           initials,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: (AppColors.isLight
+                ? AppColors.avatarForeground
+                : AppColors.legacy(Colors.white)),
             fontSize: 9,
             fontWeight: FontWeight.w800,
           ),
@@ -324,11 +346,12 @@ class _ListenerPostShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _listenerSurface,
+        color: AppColors.legacy(_listenerSurface),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _listenerBorder),
+        border: Border.all(color: AppColors.legacyBorder(_listenerBorder)),
       ),
       child: Padding(padding: const EdgeInsets.all(15), child: child),
     );
@@ -350,6 +373,7 @@ class _ListenerOverthinkingPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return _ListenerPostShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -362,20 +386,25 @@ class _ListenerOverthinkingPostCard extends StatelessWidget {
           const SizedBox(height: 14),
           Container(
             decoration: BoxDecoration(
-              color: _listenerDeepSurface,
+              color: AppColors.legacy(_listenerDeepSurface),
               borderRadius: BorderRadius.circular(13),
-              border: Border.all(color: _listenerBorder),
+              border: Border.all(
+                color: AppColors.legacyBorder(_listenerBorder),
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
               children: [
-                const Positioned.fill(
+                Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFF291D35), Color(0xFF151B28)],
+                        colors: [
+                          AppColors.legacy(Color(0xFF291D35)),
+                          AppColors.legacy(Color(0xFF151B28)),
+                        ],
                       ),
                     ),
                   ),
@@ -398,27 +427,41 @@ class _ListenerOverthinkingPostCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(9),
-                              gradient: LinearGradient(
-                                colors: AppColors.brandGradient,
+                          GradientOutline(
+                            enabled: AppColors.isLight,
+                            radius: 9,
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              decoration: AppColors.isLight
+                                  ? BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.surface,
+                                      borderRadius: BorderRadius.circular(9),
+                                    )
+                                  : BoxDecoration(
+                                      borderRadius: BorderRadius.circular(9),
+                                      gradient: LinearGradient(
+                                        colors: AppColors.decorativeGradient,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: (AppColors.isLight
+                                              ? AppColors.avatarShadow
+                                                    .withValues(alpha: 0.12)
+                                              : AppColors.socialPink.withValues(
+                                                  alpha: 0.28,
+                                                )),
+                                          blurRadius: 10,
+                                        ),
+                                      ],
+                                    ),
+                              child: Icon(
+                                Icons.auto_awesome_rounded,
+                                color: AppColors.decorativeForeground,
+                                size: 17,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.socialPink.withValues(
-                                    alpha: 0.28,
-                                  ),
-                                  blurRadius: 10,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.auto_awesome_rounded,
-                              color: AppColors.white,
-                              size: 17,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -428,7 +471,9 @@ class _ListenerOverthinkingPostCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: AppColors.socialPink,
+                                color: AppColors.isLight
+                                    ? AppColors.accentText
+                                    : AppColors.socialPink,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -439,8 +484,8 @@ class _ListenerOverthinkingPostCard extends StatelessWidget {
                       const SizedBox(height: 14),
                       Text(
                         post.message,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppColors.legacy(Colors.white),
                           fontSize: 12.5,
                           height: 1.45,
                         ),
@@ -452,7 +497,7 @@ class _ListenerOverthinkingPostCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const Divider(height: 1, color: _listenerDivider),
+          Divider(height: 1, color: AppColors.legacy(_listenerDivider)),
           _OverthinkingPostActions(post: post, onAction: onAction),
         ],
       ),
@@ -468,6 +513,7 @@ class _OverthinkingPostActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final like = _PostAction(
       key: const Key('listener-overthinking-like-action'),
       icon: Icons.favorite_border_rounded,
@@ -530,6 +576,7 @@ class _OpenOverthinkingAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Semantics(
       key: const Key('listener-open-overthinking-action'),
       container: true,
@@ -551,13 +598,15 @@ class _OpenOverthinkingAction extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: _listenerSurface,
+                  color: AppColors.legacy(_listenerSurface),
                   shape: BoxShape.circle,
-                  border: Border.all(color: _listenerBorder),
+                  border: Border.all(
+                    color: AppColors.legacyBorder(_listenerBorder),
+                  ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_downward_rounded,
-                  color: Colors.white,
+                  color: AppColors.legacy(Colors.white),
                   size: 21,
                 ),
               ),
@@ -587,7 +636,8 @@ class _PostAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedColor = color ?? _listenerMuted;
+    Theme.of(context);
+    final resolvedColor = color ?? AppColors.legacy(_listenerMuted);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -631,11 +681,12 @@ class _PostIconAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return IconButton(
       tooltip: label,
       onPressed: onTap,
       constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-      icon: Icon(icon, color: _listenerMuted, size: 19),
+      icon: Icon(icon, color: AppColors.legacy(_listenerMuted), size: 19),
     );
   }
 }

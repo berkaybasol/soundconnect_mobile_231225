@@ -34,14 +34,17 @@ class CollabApplicationComposeScreen extends StatelessWidget {
   final bool showBottomNavigation;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabApplicationComposeScreenContent(
-      listing: listing,
-      initialActor: initialActor,
-      eligibleActors: eligibleActors,
-      showBottomNavigation: showBottomNavigation,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabApplicationComposeScreenContent(
+        listing: listing,
+        initialActor: initialActor,
+        eligibleActors: eligibleActors,
+        showBottomNavigation: showBottomNavigation,
+      ),
+    );
+  }
 }
 
 class _CollabApplicationComposeScreenContent extends StatefulWidget {
@@ -91,6 +94,7 @@ class _CollabApplicationComposeScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return BlocConsumer<CollabListingDetailCubit, CollabListingDetailState>(
       listenWhen: (previous, current) =>
           previous.isApplying && !current.isApplying,
@@ -338,7 +342,9 @@ class _SelectedActorHeader extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      color: AppColors.socialPink,
+                      color: AppColors.isLight
+                          ? AppColors.accentText
+                          : AppColors.socialPink,
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
                     ),

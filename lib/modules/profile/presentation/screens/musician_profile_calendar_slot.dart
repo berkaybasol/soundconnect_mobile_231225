@@ -183,6 +183,7 @@ class _MusicianProfileCalendarSlotState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final page = _page;
     if (_repository == null ||
         page == null ||

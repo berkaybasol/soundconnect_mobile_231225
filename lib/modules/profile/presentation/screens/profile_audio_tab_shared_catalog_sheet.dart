@@ -178,6 +178,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return FractionallySizedBox(
       heightFactor: 0.88,
       child: SafeArea(
@@ -246,7 +247,7 @@ class _SpotifyCatalogSheetState extends State<_SpotifyCatalogSheet> {
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   decoration: BoxDecoration(
                     color: _feedbackIsError
-                        ? Color(0xFF3A1F1F)
+                        ? AppColors.legacy(Color(0xFF3A1F1F))
                         : Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(

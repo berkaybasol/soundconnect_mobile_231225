@@ -183,6 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action != AuthAction.login) return;
@@ -272,7 +273,8 @@ class _LoginScreenState extends State<LoginScreen> {
               PopupMenuButton<AppThemeMenuOption>(
                 tooltip: 'Tema seç',
                 enabled: !navigationLocked,
-                initialValue: AppThemeMenuOption.dark,
+                initialValue: AppThemeMenuOption.selected,
+                onSelected: (option) => unawaited(option.select(context)),
                 itemBuilder: (_) => AppThemeMenuOption.values
                     .map(
                       (option) => PopupMenuItem<AppThemeMenuOption>(
@@ -371,7 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   context,
                                 ).dividerColor.withValues(alpha: 0.7),
                               ]
-                            : AppColors.brandGradient,
+                            : AppColors.decorativeGradient,
                       ),
                       borderRadius: BorderRadius.circular(18),
                     ),

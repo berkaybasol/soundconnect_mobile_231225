@@ -24,6 +24,7 @@ class ProfileIdentityHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final name = username?.trim().isNotEmpty == true
         ? username!.trim()
         : fallbackName;
@@ -39,7 +40,7 @@ class ProfileIdentityHeader extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: AppColors.brandGradient,
+            colors: AppColors.brandTextGradient,
           ),
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
@@ -84,6 +85,7 @@ class ProfileFollowerSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final children = <Widget>[
       ProfilePillBadge(text: _formatCount(followersCount, followersLabel)),
     ];
@@ -121,6 +123,7 @@ class ProfileTopSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

@@ -18,6 +18,9 @@ class GradientBorderActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ink = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSurface;
     const borderRadius = BorderRadius.all(Radius.circular(8));
     const innerRadius = BorderRadius.all(Radius.circular(7.3));
     final enabled = onPressed != null && !loading;
@@ -29,7 +32,7 @@ class GradientBorderActionButton extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           borderRadius: borderRadius,
-          gradient: LinearGradient(colors: AppColors.brandGradient),
+          gradient: LinearGradient(colors: AppColors.decorativeGradient),
         ),
         padding: const EdgeInsets.all(0.7),
         child: Material(
@@ -42,23 +45,23 @@ class GradientBorderActionButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (loading)
-                  const SizedBox.square(
+                  SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: ink,
                     ),
                   )
                 else
-                  Icon(icon, size: 18, color: Colors.white),
+                  Icon(icon, size: 18, color: ink),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: ink,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
                     ),

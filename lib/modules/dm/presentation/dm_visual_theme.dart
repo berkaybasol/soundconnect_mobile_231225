@@ -30,6 +30,15 @@ class DmVisualThemeScope extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = Theme.of(context);
+    if (base.brightness == Brightness.light) {
+      return Theme(
+        data: base.copyWith(scaffoldBackgroundColor: Colors.transparent),
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: base.scaffoldBackgroundColor),
+          child: child,
+        ),
+      );
+    }
     final inputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
       borderSide: const BorderSide(color: BackstagePalette.border),

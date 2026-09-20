@@ -27,6 +27,7 @@ class _StudioOwnerReservationTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final tileWidth = (constraints.maxWidth - (_gap * 3)) / _columns;
@@ -161,6 +162,7 @@ class _StudioOwnerReservationTimeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (reservations.isEmpty && available && !editable) {
       return _StudioRoomTimeChip(
         time: time,
@@ -169,7 +171,7 @@ class _StudioOwnerReservationTimeTile extends StatelessWidget {
         width: width,
         verticalPadding: 0,
         statusLabel: 'Geçti',
-        statusColor: const Color(0xFF6F7A8B),
+        statusColor: AppColors.legacy(const Color(0xFF6F7A8B)),
         onTap: null,
       );
     }
@@ -209,14 +211,16 @@ class _StudioOwnerReservationTimeTile extends StatelessWidget {
               height: 17,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(0xFF17202D),
+                color: AppColors.legacy(const Color(0xFF17202D)),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF59677A)),
+                border: Border.all(
+                  color: AppColors.legacyBorder(const Color(0xFF59677A)),
+                ),
               ),
               child: Text(
                 '${reservations.length}',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 9,
                   fontWeight: FontWeight.w900,
                 ),
@@ -294,14 +298,17 @@ class _StudioReservationsAtTimeSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-        decoration: const BoxDecoration(
-          color: Color(0xFF0E1622),
+        decoration: BoxDecoration(
+          color: AppColors.legacy(Color(0xFF0E1622)),
           borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-          border: Border(top: BorderSide(color: Color(0xFF2A3546))),
+          border: Border(
+            top: BorderSide(color: AppColors.legacyBorder(Color(0xFF2A3546))),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -312,7 +319,7 @@ class _StudioReservationsAtTimeSheet extends StatelessWidget {
                 width: 42,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF465267),
+                  color: AppColors.legacy(const Color(0xFF465267)),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -320,8 +327,8 @@ class _StudioReservationsAtTimeSheet extends StatelessWidget {
             const SizedBox(height: 18),
             Text(
               '$time Saatindeki Rezervasyonlar',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.legacy(Colors.white),
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
               ),
@@ -329,7 +336,10 @@ class _StudioReservationsAtTimeSheet extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               '${reservations.length} farklı rezervasyon bu saatle çakışıyor.',
-              style: const TextStyle(color: Color(0xFF9EA8B7), fontSize: 11),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFF9EA8B7)),
+                fontSize: 11,
+              ),
             ),
             const SizedBox(height: 14),
             for (var index = 0; index < reservations.length; index++) ...[
@@ -383,6 +393,7 @@ class _StudioReservationPickerTileState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final reservation = widget.reservation;
     final color = reservation.approved
         ? _studioReservationApprovedColor
@@ -390,7 +401,7 @@ class _StudioReservationPickerTileState
     final startHour = 9 + reservation.startIndex;
     final endHour = startHour + reservation.durationHours;
     return Material(
-      color: const Color(0xFF101A28),
+      color: AppColors.legacy(const Color(0xFF101A28)),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: widget.onTap,
@@ -422,8 +433,8 @@ class _StudioReservationPickerTileState
                   children: [
                     Text(
                       reservation.userName,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.legacy(Colors.white),
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
@@ -431,8 +442,8 @@ class _StudioReservationPickerTileState
                     const SizedBox(height: 4),
                     Text(
                       '${startHour.toString().padLeft(2, '0')}:00–${endHour.toString().padLeft(2, '0')}:00 • ${reservation.durationHours} saat',
-                      style: const TextStyle(
-                        color: Color(0xFF9EA8B7),
+                      style: TextStyle(
+                        color: AppColors.legacy(Color(0xFF9EA8B7)),
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
@@ -449,9 +460,9 @@ class _StudioReservationPickerTileState
                 ),
               ),
               const SizedBox(width: 5),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: Color(0xFF8F99A9),
+                color: AppColors.legacy(Color(0xFF8F99A9)),
                 size: 18,
               ),
             ],
@@ -475,6 +486,7 @@ class _StudioReservationAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final resolvedAvatarUrl = avatarUrlOverride?.trim().isNotEmpty == true
         ? avatarUrlOverride!.trim()
         : reservation.avatarUrl.trim();
@@ -483,7 +495,7 @@ class _StudioReservationAvatar extends StatelessWidget {
         ? reservation.approved
               ? _studioReservationApprovedColor
               : _studioReservationPendingColor
-        : const Color(0xFF9EA8B7);
+        : AppColors.legacy(const Color(0xFF9EA8B7));
     return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -496,7 +508,7 @@ class _StudioReservationAvatar extends StatelessWidget {
         ],
       ),
       child: Material(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         shape: CircleBorder(
           side: BorderSide(color: statusColor.withValues(alpha: 0.9), width: 2),
         ),
@@ -534,14 +546,19 @@ class _StudioReservationAvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final normalized = userName.trim();
     return ColoredBox(
-      color: const Color(0xFF252E3D),
+      color: (AppColors.isLight
+          ? AppColors.avatarBackground
+          : AppColors.legacy(const Color(0xFF252E3D))),
       child: Center(
         child: Text(
           normalized.isEmpty ? '?' : normalized.substring(0, 1).toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: (AppColors.isLight
+                ? AppColors.avatarForeground
+                : AppColors.legacy(Colors.white)),
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -577,6 +594,7 @@ class _StudioRoomTimeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
@@ -586,10 +604,10 @@ class _StudioRoomTimeChip extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: verticalPadding),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF2A172A)
+              ? AppColors.legacy(const Color(0xFF2A172A))
               : available
-              ? const Color(0xFF0A101A)
-              : const Color(0xFF090D14),
+              ? AppColors.legacy(const Color(0xFF0A101A))
+              : AppColors.legacy(const Color(0xFF090D14)),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color:
@@ -597,8 +615,8 @@ class _StudioRoomTimeChip extends StatelessWidget {
                 (selected
                     ? AppColors.socialPink
                     : available
-                    ? const Color(0xFF263244)
-                    : const Color(0xFF1A2230)),
+                    ? AppColors.legacyBorder(const Color(0xFF263244))
+                    : AppColors.legacyBorder(const Color(0xFF1A2230))),
           ),
           boxShadow: accentColor == null
               ? null
@@ -616,10 +634,10 @@ class _StudioRoomTimeChip extends StatelessWidget {
               time,
               style: TextStyle(
                 color: accentColor != null
-                    ? Colors.white
+                    ? AppColors.legacy(Colors.white)
                     : available
-                    ? Colors.white
-                    : const Color(0xFF596271),
+                    ? AppColors.legacy(Colors.white)
+                    : AppColors.legacy(const Color(0xFF596271)),
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
@@ -634,7 +652,11 @@ class _StudioRoomTimeChip extends StatelessWidget {
                     statusColor ??
                     (available
                         ? const Color(0xFF1EAF4D)
-                        : const Color(0xFF7D4248)),
+                        : (AppColors.isOriginalDark
+                              ? const Color(0xFF7D4248)
+                              : AppColors.textMuted.withValues(
+                                  alpha: (const Color(0xFF7D4248)).a,
+                                ))),
                 fontSize: statusFontSize,
                 fontWeight: FontWeight.w700,
               ),
@@ -653,13 +675,16 @@ class _StudioRoomBrandTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: width,
       height: 65,
       decoration: BoxDecoration(
-        color: const Color(0xFF090F18),
+        color: AppColors.legacy(const Color(0xFF090F18)),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(7),
@@ -706,14 +731,17 @@ class _StudioManualBusySheetState extends State<_StudioManualBusySheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-        decoration: const BoxDecoration(
-          color: Color(0xFF0E1622),
+        decoration: BoxDecoration(
+          color: AppColors.legacy(Color(0xFF0E1622)),
           borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-          border: Border(top: BorderSide(color: Color(0xFF2A3546))),
+          border: Border(
+            top: BorderSide(color: AppColors.legacyBorder(Color(0xFF2A3546))),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -724,16 +752,16 @@ class _StudioManualBusySheetState extends State<_StudioManualBusySheet> {
                 width: 42,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF465267),
+                  color: AppColors.legacy(const Color(0xFF465267)),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
+            Text(
               'Dolu Olarak İşaretle',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.legacy(Colors.white),
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
               ),
@@ -741,27 +769,35 @@ class _StudioManualBusySheetState extends State<_StudioManualBusySheet> {
             const SizedBox(height: 5),
             Text(
               '${widget.roomName} • ${_studioReservationDateLabel(widget.date)}',
-              style: const TextStyle(color: Color(0xFF9EA8B7), fontSize: 11),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFF9EA8B7)),
+                fontSize: 11,
+              ),
             ),
             const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.all(13),
               decoration: BoxDecoration(
-                color: const Color(0xFF101A28),
+                color: AppColors.legacy(const Color(0xFF101A28)),
                 borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: const Color(0xFF263244)),
+                border: Border.all(
+                  color: AppColors.legacyBorder(const Color(0xFF263244)),
+                ),
               ),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     'Başlangıç',
-                    style: TextStyle(color: Color(0xFF8F99A9), fontSize: 12),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFF8F99A9)),
+                      fontSize: 12,
+                    ),
                   ),
                   const Spacer(),
                   Text(
                     _manualHourLabel(widget.startIndex),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppColors.legacy(Colors.white),
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
                     ),
@@ -770,10 +806,10 @@ class _StudioManualBusySheetState extends State<_StudioManualBusySheet> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Bitiş Saatini Seç',
               style: TextStyle(
-                color: Color(0xFFCDD3DE),
+                color: AppColors.legacy(Color(0xFFCDD3DE)),
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
@@ -792,26 +828,32 @@ class _StudioManualBusySheetState extends State<_StudioManualBusySheet> {
               ],
             ),
             const SizedBox(height: 20),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: AppColors.brandGradient),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ElevatedButton.icon(
-                onPressed: () => Navigator.of(context).pop(_selectedEndIndex),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+            GradientOutline(
+              enabled: AppColors.isLight,
+              radius: 12,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: AppColors.isLight
+                      ? null
+                      : LinearGradient(colors: AppColors.actionGradient),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                icon: const Icon(Icons.block_outlined, size: 18),
-                label: const Text(
-                  'Dolu Olarak İşaretle',
-                  style: TextStyle(fontWeight: FontWeight.w900),
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(_selectedEndIndex),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: AppColors.actionForeground,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.block_outlined, size: 18),
+                  label: const Text(
+                    'Dolu Olarak İşaretle',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
                 ),
               ),
             ),

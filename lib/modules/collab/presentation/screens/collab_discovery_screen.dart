@@ -9,6 +9,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/utils/turkish_alphabetical.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../../instrument/domain/entities/instrument.dart';
 import '../../../instrument/domain/instrument_repository.dart';
@@ -51,16 +52,19 @@ class CollabDiscoveryScreen extends StatelessWidget {
   final InstrumentRepository? instrumentRepository;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabDiscoveryScreenContent(
-      showBottomNavigation: showBottomNavigation,
-      initialListingId: initialListingId,
-      initialRouteArgs: initialRouteArgs,
-      cubit: cubit,
-      locationRepository: locationRepository,
-      instrumentRepository: instrumentRepository,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabDiscoveryScreenContent(
+        showBottomNavigation: showBottomNavigation,
+        initialListingId: initialListingId,
+        initialRouteArgs: initialRouteArgs,
+        cubit: cubit,
+        locationRepository: locationRepository,
+        instrumentRepository: instrumentRepository,
+      ),
+    );
+  }
 }
 
 class _CollabDiscoveryScreenContent extends StatefulWidget {
@@ -933,6 +937,7 @@ class _CadenceSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return CollabGradientFrame(
       radius: 17,
       strokeWidth: 1,
@@ -1011,10 +1016,39 @@ class _CreateListingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    final child = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 26, vertical: 13),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_rounded, color: AppColors.onAccent, size: 23),
+              SizedBox(width: 8),
+              Text(
+                'İlan Ver',
+                style: TextStyle(
+                  color: AppColors.onAccent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (AppColors.isLight) {
+      return GradientOutline(radius: 999, child: child);
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        gradient: LinearGradient(colors: AppColors.brandGradient),
+        gradient: LinearGradient(colors: AppColors.actionGradient),
         boxShadow: [
           BoxShadow(
             color: AppColors.socialPurple.withValues(alpha: 0.26),
@@ -1023,31 +1057,7 @@ class _CreateListingButton extends StatelessWidget {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(999),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 26, vertical: 13),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.add_rounded, color: AppColors.white, size: 23),
-                SizedBox(width: 8),
-                Text(
-                  'İlan Ver',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: child,
     );
   }
 }
@@ -1154,6 +1164,7 @@ class _QuickMultiSelectSheetState<T> extends State<_QuickMultiSelectSheet<T>> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final normalizedQuery = _query.trim().toLowerCase();
     final visibleOptions = normalizedQuery.isEmpty
         ? widget.options
@@ -1327,6 +1338,7 @@ class _LoadMoreFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     if (loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 18),

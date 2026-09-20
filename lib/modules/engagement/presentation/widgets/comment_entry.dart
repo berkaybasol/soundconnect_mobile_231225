@@ -41,15 +41,19 @@ class CommentEntry extends StatelessWidget {
   VoidCallback? get _authorTap => actionsEnabled ? onAuthorTap : null;
 
   @override
-  Widget build(BuildContext context) =>
-      isReply ? _reply(context) : _root(context);
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return isReply ? _reply(context) : _root(context);
+  }
 
   Widget _root(BuildContext context) => Container(
     padding: const EdgeInsets.all(.8),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(16),
-      gradient: const LinearGradient(
-        colors: [Color(0xFF604366), Color(0xFF304663)],
+      gradient: LinearGradient(
+        colors: AppColors.isLight
+            ? AppColors.decorativeGradient
+            : const [Color(0xFF604366), Color(0xFF304663)],
       ),
     ),
     child: Container(
@@ -177,7 +181,9 @@ class CommentEntry extends StatelessWidget {
           style: TextButton.styleFrom(
             minimumSize: const Size(44, 44),
             padding: const EdgeInsets.symmetric(horizontal: 2),
-            foregroundColor: AppColors.brandGradient[2],
+            foregroundColor: AppColors.isLight
+                ? AppColors.accentText
+                : AppColors.brandGradient[2],
             backgroundColor: Colors.transparent,
             textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontSize: isReply ? 12 : 14,

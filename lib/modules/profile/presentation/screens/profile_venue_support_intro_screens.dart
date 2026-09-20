@@ -29,6 +29,7 @@ class _VenueIntroScreenState extends State<VenueIntroScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.navBlueDeep,
       body: SafeArea(
@@ -109,7 +110,9 @@ class _VenueIntroScreenState extends State<VenueIntroScreen> {
                             : (value) => setState(
                                 () => _dontShowAgain = value ?? false,
                               ),
-                        activeColor: AppColors.coralAlt,
+                        activeColor: (AppColors.isLight
+                            ? AppColors.accentText
+                            : AppColors.coralAlt),
                       ),
                       Expanded(
                         child: Text(
@@ -151,6 +154,7 @@ class MusicianIntroScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.navBlueDeep,
       body: SafeArea(
@@ -244,6 +248,7 @@ class _VenueIntroStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

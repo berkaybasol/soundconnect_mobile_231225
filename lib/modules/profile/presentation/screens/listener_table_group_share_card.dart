@@ -78,6 +78,7 @@ class ListenerTableGroupShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final table = share?.tableGroup ?? _draftTable!;
     final instant = now ?? DateTime.now();
     final active = table.isActiveAt(instant);
@@ -95,9 +96,11 @@ class ListenerTableGroupShareCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: listenerProfileSurface,
+        color: AppColors.legacy(listenerProfileSurface),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: listenerProfileBorder),
+        border: Border.all(
+          color: AppColors.legacyBorder(listenerProfileBorder),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -109,7 +112,7 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   padding: const EdgeInsets.all(1.3),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -124,18 +127,18 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                       height: 41.4,
                       fit: BoxFit.cover,
                       errorBuilder: (_) => ColoredBox(
-                        color: listenerProfileSurface,
+                        color: AppColors.legacy(listenerProfileSurface),
                         child: Center(
                           child: handle.isEmpty
-                              ? const Icon(
+                              ? Icon(
                                   Icons.person_outline_rounded,
                                   size: 22,
-                                  color: listenerProfileMuted,
+                                  color: AppColors.legacy(listenerProfileMuted),
                                 )
                               : Text(
                                   handle.characters.first.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: AppColors.legacy(Colors.white),
                                     fontSize: 17,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -155,8 +158,8 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                       '@$handle',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.legacy(Colors.white),
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
@@ -165,8 +168,8 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         subtitle!,
-                        style: const TextStyle(
-                          color: listenerProfileMuted,
+                        style: TextStyle(
+                          color: AppColors.legacy(listenerProfileMuted),
                           fontSize: 11,
                           height: 1.4,
                         ),
@@ -186,7 +189,7 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                   icon: const Icon(Icons.more_horiz_rounded, size: 19),
                   style: IconButton.styleFrom(
                     minimumSize: const Size(48, 48),
-                    foregroundColor: listenerProfileMuted,
+                    foregroundColor: AppColors.legacy(listenerProfileMuted),
                   ),
                   onSelected: (action) {
                     if (action == 'delete' &&
@@ -211,8 +214,8 @@ class ListenerTableGroupShareCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               note,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.legacy(Colors.white),
                 fontSize: 14,
                 height: 1.6,
               ),
@@ -230,7 +233,7 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                     ),
                     onPressed: busy ? null : onOpen,
                     style: TextButton.styleFrom(
-                      foregroundColor: listenerProfileMuted,
+                      foregroundColor: AppColors.legacy(listenerProfileMuted),
                       minimumSize: const Size(48, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                     ),
@@ -253,7 +256,7 @@ class ListenerTableGroupShareCard extends StatelessWidget {
           ),
           if (share != null) ...[
             const SizedBox(height: 16),
-            const Divider(color: listenerProfileBorder, height: 1),
+            Divider(color: AppColors.legacy(listenerProfileBorder), height: 1),
             const SizedBox(height: 5),
             Wrap(
               alignment: WrapAlignment.spaceBetween,
@@ -287,7 +290,7 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                       countLabel: 'yorum',
                       count: commentCount,
                       icon: Icons.chat_bubble_outline_rounded,
-                      color: listenerProfileMuted,
+                      color: AppColors.legacy(listenerProfileMuted),
                       onPressed: busy || likeBusy ? null : onComments,
                     ),
                   ],
@@ -301,7 +304,7 @@ class ListenerTableGroupShareCard extends StatelessWidget {
                     onPressed: busy || likeBusy ? null : onShare,
                     style: IconButton.styleFrom(
                       minimumSize: const Size(48, 48),
-                      foregroundColor: listenerProfileMuted,
+                      foregroundColor: AppColors.legacy(listenerProfileMuted),
                     ),
                     icon: const Icon(Icons.send_outlined, size: 20),
                   ),
@@ -335,34 +338,40 @@ class _TableAction extends StatelessWidget {
   final bool? selected;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    enabled: onPressed != null,
-    selected: selected,
-    label: label,
-    value: count == null ? 'Sayı doğrulanamadı' : '$count $countLabel',
-    onTap: onPressed,
-    child: ExcludeSemantics(
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 17, color: color),
-            const SizedBox(width: 5),
-            Text(
-              count == null
-                  ? '—'
-                  : NumberFormat.compact(locale: 'tr').format(count),
-              style: const TextStyle(color: listenerProfileMuted, fontSize: 12),
-            ),
-          ],
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      selected: selected,
+      label: label,
+      value: count == null ? 'Sayı doğrulanamadı' : '$count $countLabel',
+      onTap: onPressed,
+      child: ExcludeSemantics(
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 17, color: color),
+              const SizedBox(width: 5),
+              Text(
+                count == null
+                    ? '—'
+                    : NumberFormat.compact(locale: 'tr').format(count),
+                style: TextStyle(
+                  color: AppColors.legacy(listenerProfileMuted),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

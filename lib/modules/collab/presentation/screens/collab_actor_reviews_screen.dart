@@ -34,14 +34,17 @@ class CollabActorReviewsScreen extends StatelessWidget {
   final CollabActorReviewsCubit? cubit;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabActorReviewsScreenContent(
-      actor: actor,
-      initialReviewId: initialReviewId,
-      showBottomNavigation: showBottomNavigation,
-      cubit: cubit,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabActorReviewsScreenContent(
+        actor: actor,
+        initialReviewId: initialReviewId,
+        showBottomNavigation: showBottomNavigation,
+        cubit: cubit,
+      ),
+    );
+  }
 }
 
 class _CollabActorReviewsScreenContent extends StatefulWidget {
@@ -112,6 +115,7 @@ class _CollabActorReviewsScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return BlocProvider<CollabActorReviewsCubit>.value(
       value: _cubit,
       child:
@@ -447,46 +451,52 @@ class _RatingStars extends StatelessWidget {
   final int rating;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: '5 üzerinden $rating yıldız',
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List<Widget>.generate(
-        5,
-        (index) => Icon(
-          index < rating ? Icons.star_rounded : Icons.star_border_rounded,
-          size: 18,
-          color: AppColors.socialOrange,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Semantics(
+      label: '5 üzerinden $rating yıldız',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List<Widget>.generate(
+          5,
+          (index) => Icon(
+            index < rating ? Icons.star_rounded : Icons.star_border_rounded,
+            size: 18,
+            color: AppColors.socialOrange,
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _NoReviews extends StatelessWidget {
   const _NoReviews();
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.star_outline_rounded,
-            size: 42,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Henüz Collab değerlendirmesi yok.',
-            textAlign: TextAlign.center,
-          ),
-        ],
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.star_outline_rounded,
+              size: 42,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Henüz Collab değerlendirmesi yok.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ReviewsError extends StatelessWidget {
@@ -496,24 +506,27 @@ class _ReviewsError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            message ?? 'Değerlendirmeler yüklenemedi.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Yeniden dene'),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message ?? 'Değerlendirmeler yüklenemedi.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Yeniden dene'),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

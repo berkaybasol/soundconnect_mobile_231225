@@ -33,6 +33,7 @@ class ListenerGhostProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final normalizedUsername = username.trim().replaceFirst(RegExp(r'^@+'), '');
     assert(
       normalizedUsername.isNotEmpty,
@@ -145,6 +146,7 @@ class _OwnerGhostStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final theme = Theme.of(context);
     final textScale = MediaQuery.textScalerOf(context).scale(1);
 
@@ -222,6 +224,7 @@ class _GhostAssetHalo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: dimension,
       height: dimension,
@@ -236,7 +239,7 @@ class _GhostAssetHalo extends StatelessWidget {
         shaderCallback: (bounds) => LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: AppColors.brandGradient,
+          colors: AppColors.decorativeGradient,
         ).createShader(bounds),
         child: Image.asset(
           _ghostAssetPath,
@@ -255,6 +258,7 @@ class _OwnerGhostStatusCopy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -322,6 +326,7 @@ class _GhostStatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: 7,
       height: 7,
@@ -347,6 +352,7 @@ class _GhostStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -387,6 +393,7 @@ class _PublicLimitedVisibilityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       key: const Key('listener-ghost-limited-visibility'),
       padding: const EdgeInsets.fromLTRB(17, 16, 17, 16),
@@ -456,6 +463,7 @@ class _GhostFootnote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,

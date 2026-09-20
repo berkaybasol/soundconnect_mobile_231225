@@ -20,6 +20,7 @@ class EventPosterFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final displayTitle = title.trim().isEmpty ? 'Etkinlik' : title.trim();
     return Semantics(
       image: true,
@@ -101,7 +102,8 @@ class EventPosterFallback extends StatelessWidget {
                                 height: 2,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: AppColors.brandGradient,
+                                    colors:
+                                        AppColors.originalDark.brandGradient,
                                   ),
                                 ),
                               ),
@@ -187,7 +189,7 @@ class _EventPosterPainter extends CustomPainter {
       Paint()
         ..shader = RadialGradient(
           colors: [
-            AppColors.brandGradient.last.withValues(alpha: 0.16),
+            AppColors.originalDark.brandGradient.last.withValues(alpha: 0.16),
             Colors.transparent,
           ],
         ).createShader(Rect.fromCircle(center: center, radius: radius * 1.45)),
@@ -214,7 +216,7 @@ class _EventPosterPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeWidth = compact ? 1.3 : 1.7
       ..shader = LinearGradient(
-        colors: AppColors.brandGradient,
+        colors: AppColors.originalDark.brandGradient,
       ).createShader(disc);
     canvas.drawArc(
       disc.deflate(radius * 0.025),

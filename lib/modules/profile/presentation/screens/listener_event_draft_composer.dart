@@ -320,6 +320,7 @@ class ListenerEventDraftComposerState extends State<ListenerEventDraftComposer>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     super.build(context);
     if (!_allowed) return const SizedBox.shrink();
     final controller = _controller;
@@ -337,7 +338,11 @@ class ListenerEventDraftComposerState extends State<ListenerEventDraftComposer>
                 ? 'Paylaşımın doğrulanamadı. Açıklamanı koruduk. Devam etmeden önce güncel durumu kontrol et.'
                 : 'Etkinlik seçimin yüklenemedi. Yeniden kontrol edebilirsin.',
             key: const Key('listener-event-draft-error'),
-            style: TextStyle(color: AppColors.socialPink),
+            style: TextStyle(
+              color: AppColors.isLight
+                  ? Theme.of(context).colorScheme.error
+                  : AppColors.socialPink,
+            ),
           ),
           TextButton(
             onPressed: busy ? null : _reload,
@@ -386,7 +391,7 @@ class ListenerEventDraftComposerState extends State<ListenerEventDraftComposer>
         key: const Key('listener-event-draft-loading'),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF101722),
+          color: AppColors.legacy(const Color(0xFF101722)),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(

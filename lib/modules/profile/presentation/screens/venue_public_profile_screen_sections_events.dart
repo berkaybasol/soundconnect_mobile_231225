@@ -6,5 +6,8 @@ class _ActiveMusicianCarousel extends StatelessWidget {
   _ActiveMusicianCarousel({required this.items});
 
   @override
-  Widget build(BuildContext context) => ActiveMusicianCarousel(items: items);
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return ActiveMusicianCarousel(items: items);
+  }
 }

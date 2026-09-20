@@ -43,10 +43,11 @@ class _StudioReservationConfirmDialogState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Form(
       key: _formKey,
       child: AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Rezervasyonu Onayla'),
         content: SingleChildScrollView(
           child: Column(
@@ -78,10 +79,10 @@ class _StudioReservationConfirmDialogState
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Ödeme yöntemi',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
@@ -135,21 +136,22 @@ class _StudioReservationPaymentOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final borderColor = selected
         ? const Color(0xFFFF7F87)
-        : const Color(0xFF2A3547);
+        : AppColors.legacy(const Color(0xFF2A3547));
     return Opacity(
       opacity: comingSoon ? 0.68 : 1,
       child: Container(
         padding: const EdgeInsets.all(11),
         decoration: BoxDecoration(
-          color: const Color(0xFF0D1520),
+          color: AppColors.legacy(const Color(0xFF0D1520)),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
-            Icon(icon, color: _roomFormIconColor, size: 20),
+            Icon(icon, color: AppColors.legacy(_roomFormIconColor), size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -160,8 +162,8 @@ class _StudioReservationPaymentOption extends StatelessWidget {
                       Flexible(
                         child: Text(
                           title,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.legacy(Colors.white),
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
@@ -176,8 +178,8 @@ class _StudioReservationPaymentOption extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF98A2B1),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFF98A2B1)),
                       fontSize: 9.5,
                       height: 1.25,
                     ),
@@ -192,7 +194,7 @@ class _StudioReservationPaymentOption extends StatelessWidget {
                   : Icons.radio_button_unchecked_rounded,
               color: selected
                   ? const Color(0xFFFF7F87)
-                  : const Color(0xFF667184),
+                  : AppColors.legacy(const Color(0xFF667184)),
               size: 20,
             ),
           ],
@@ -250,6 +252,7 @@ class _StudioRoomDetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SizedBox(
       height: 54,
       child: Row(
@@ -257,7 +260,7 @@ class _StudioRoomDetailHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Geri',
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: Icon(Icons.arrow_back, color: AppColors.legacy(Colors.white)),
           ),
           Expanded(
             child: Text(
@@ -265,8 +268,8 @@ class _StudioRoomDetailHeader extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.legacy(Colors.white),
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
               ),
@@ -286,6 +289,7 @@ class _StudioRoomPhotoPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -303,17 +307,17 @@ class _StudioRoomPhotoPlaceholder extends StatelessWidget {
             child: Icon(
               room.icon,
               size: 180,
-              color: Colors.white.withValues(alpha: 0.08),
+              color: AppColors.legacy(Colors.white).withValues(alpha: 0.08),
             ),
           ),
-          Icon(room.icon, color: Colors.white, size: 58),
-          const Positioned(
+          Icon(room.icon, color: AppColors.legacy(Colors.white), size: 58),
+          Positioned(
             right: 12,
             bottom: 10,
             child: Text(
               'Fotoğraf yakında',
               style: TextStyle(
-                color: Color(0xFFCDD3DE),
+                color: AppColors.legacy(Color(0xFFCDD3DE)),
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -338,20 +342,23 @@ class _StudioRoomDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF202B3A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppColors.legacy(Colors.white),
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
@@ -360,7 +367,10 @@ class _StudioRoomDetailCard extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               subtitle!,
-              style: const TextStyle(color: Color(0xFF8E98A7), fontSize: 12),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFF8E98A7)),
+                fontSize: 12,
+              ),
             ),
           ],
           const SizedBox(height: 14),
@@ -379,12 +389,15 @@ class _StudioRoomDetailMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -393,8 +406,8 @@ class _StudioRoomDetailMeta extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFFD5DBE5),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFD5DBE5)),
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -424,6 +437,7 @@ class _StudioRoomDateSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       children: [
         _CalendarArrowButton(
@@ -438,9 +452,11 @@ class _StudioRoomDateSelector extends StatelessWidget {
             child: Container(
               height: 42,
               decoration: BoxDecoration(
-                color: const Color(0xFF0A101A),
+                color: AppColors.legacy(const Color(0xFF0A101A)),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF263244)),
+                border: Border.all(
+                  color: AppColors.legacyBorder(const Color(0xFF263244)),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -456,8 +472,8 @@ class _StudioRoomDateSelector extends StatelessWidget {
                       _StudioRoomDetailScreenState._formatDate(date),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.legacy(Colors.white),
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),

@@ -15,6 +15,7 @@ class _UsernameAvailabilityMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final color = positive
         ? AppColors.spotifyGreen

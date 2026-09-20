@@ -192,6 +192,7 @@ class _BackstageProfileSearchSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       padding: EdgeInsets.only(
@@ -280,6 +281,7 @@ class _ProfileSearchResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageUrl = item.imageUrl?.trim();
     final hasImage =
         imageUrl != null &&
@@ -298,7 +300,9 @@ class _ProfileSearchResultTile extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+              backgroundColor: (AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : Theme.of(context).colorScheme.surfaceContainer),
               child: ClipOval(
                 child: hasImage
                     ? AppCachedNetworkImage(
@@ -309,10 +313,17 @@ class _ProfileSearchResultTile extends StatelessWidget {
                         cacheHeight: 132,
                         errorBuilder: (context) => Icon(
                           _iconForType(item.type),
-                          color: AppColors.coralAlt,
+                          color: (AppColors.isLight
+                              ? AppColors.avatarForeground
+                              : AppColors.coralAlt),
                         ),
                       )
-                    : Icon(_iconForType(item.type), color: AppColors.coralAlt),
+                    : Icon(
+                        _iconForType(item.type),
+                        color: (AppColors.isLight
+                            ? AppColors.avatarForeground
+                            : AppColors.coralAlt),
+                      ),
               ),
             ),
             const SizedBox(width: 12),

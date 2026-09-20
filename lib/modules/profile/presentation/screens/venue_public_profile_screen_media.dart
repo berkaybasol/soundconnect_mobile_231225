@@ -15,6 +15,7 @@ class _MediaContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageItems = media.videos
         .where((item) => (item.kind ?? '').toUpperCase() == 'IMAGE')
         .toList(growable: false);

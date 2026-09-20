@@ -58,6 +58,7 @@ class MusicianPublicProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => serviceLocator<MusicianProfileCubit>()),
@@ -192,6 +193,7 @@ class _MusicianPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return MultiBlocListener(
       listeners: [
         BlocListener<FollowActionCubit, FollowActionState>(

@@ -24,14 +24,17 @@ class CollabProfileSelectionScreen extends StatelessWidget {
   final bool showBottomNavigation;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabProfileSelectionScreenContent(
-      actors: actors,
-      wantedType: wantedType,
-      initialActor: initialActor,
-      showBottomNavigation: showBottomNavigation,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabProfileSelectionScreenContent(
+        actors: actors,
+        wantedType: wantedType,
+        initialActor: initialActor,
+        showBottomNavigation: showBottomNavigation,
+      ),
+    );
+  }
 }
 
 class _CollabProfileSelectionScreenContent extends StatefulWidget {
@@ -261,7 +264,7 @@ class _SelectionIndicator extends StatelessWidget {
           ? DecoratedBox(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(colors: AppColors.decorativeGradient),
               ),
             )
           : null,

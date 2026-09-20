@@ -15,12 +15,15 @@ class _BacklineInventorySummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       decoration: BoxDecoration(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _ownerManagementCardBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementCardBorderColor),
+        ),
       ),
       child: Row(
         children: [
@@ -33,8 +36,8 @@ class _BacklineInventorySummaryCard extends StatelessWidget {
               children: [
                 Text(
                   '$value',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                   ),
@@ -43,8 +46,8 @@ class _BacklineInventorySummaryCard extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF979FAA),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF979FAA)),
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
@@ -73,6 +76,7 @@ class _BacklineInventoryFilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return _BacklineOutlineChoice(
       icon: icon,
       label: label,
@@ -103,6 +107,7 @@ class _BacklineInventoryManagementCardState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final item = widget.item;
     final available = item.available;
     final busy = item.reserved;
@@ -114,9 +119,11 @@ class _BacklineInventoryManagementCardState
     );
     return Container(
       decoration: BoxDecoration(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _ownerManagementCardBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementCardBorderColor),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -136,10 +143,12 @@ class _BacklineInventoryManagementCardState
                       width: 58,
                       height: 58,
                       decoration: BoxDecoration(
-                        color: _ownerManagementInsetColor,
+                        color: AppColors.legacy(_ownerManagementInsetColor),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _ownerManagementInsetBorderColor,
+                          color: AppColors.legacyBorder(
+                            _ownerManagementInsetBorderColor,
+                          ),
                         ),
                       ),
                       clipBehavior: Clip.antiAlias,
@@ -152,13 +161,13 @@ class _BacklineInventoryManagementCardState
                               cacheHeight: 174,
                               errorBuilder: (_) => Icon(
                                 item.icon,
-                                color: _roomFormIconColor,
+                                color: AppColors.legacy(_roomFormIconColor),
                                 size: 29,
                               ),
                             )
                           : Icon(
                               item.icon,
-                              color: _roomFormIconColor,
+                              color: AppColors.legacy(_roomFormIconColor),
                               size: 29,
                             ),
                     ),
@@ -177,8 +186,8 @@ class _BacklineInventoryManagementCardState
                                 item.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: AppColors.legacy(Colors.white),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -199,8 +208,8 @@ class _BacklineInventoryManagementCardState
                             item.category,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFFAAB1BC),
+                            style: TextStyle(
+                              color: AppColors.legacy(Color(0xFFAAB1BC)),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -210,8 +219,8 @@ class _BacklineInventoryManagementCardState
                             item.model,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF7F8793),
+                            style: TextStyle(
+                              color: AppColors.legacy(Color(0xFF7F8793)),
                               fontSize: 10,
                             ),
                           ),
@@ -224,9 +233,9 @@ class _BacklineInventoryManagementCardState
                     turns: _expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOut,
-                    child: const Icon(
+                    child: Icon(
                       Icons.keyboard_arrow_down_rounded,
-                      color: Color(0xFF929BA8),
+                      color: AppColors.legacy(Color(0xFF929BA8)),
                       size: 22,
                     ),
                   ),
@@ -318,13 +327,16 @@ class _BacklineInventoryCountCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: _ownerManagementInsetColor,
+          color: AppColors.legacy(_ownerManagementInsetColor),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _ownerManagementInsetBorderColor),
+          border: Border.all(
+            color: AppColors.legacyBorder(_ownerManagementInsetBorderColor),
+          ),
         ),
         child: Column(
           children: [
@@ -341,8 +353,8 @@ class _BacklineInventoryCountCell extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF858D98),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFF858D98)),
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
               ),
@@ -365,6 +377,7 @@ class _BacklineInventoryStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -389,21 +402,28 @@ class _BacklineInventoryEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
+        color: AppColors.legacy(const Color(0xFF0E1622)),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _ownerManagementInsetBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementInsetBorderColor),
+        ),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.search_off_rounded, color: Color(0xFF89919D), size: 34),
+          Icon(
+            Icons.search_off_rounded,
+            color: AppColors.legacy(Color(0xFF89919D)),
+            size: 34,
+          ),
           SizedBox(height: 10),
           Text(
             'Eşleşen ekipman bulunamadı',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.legacy(Colors.white),
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
@@ -412,7 +432,10 @@ class _BacklineInventoryEmptyState extends StatelessWidget {
           Text(
             'Arama metnini veya filtreleri değiştirerek tekrar dene.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF929AA6), fontSize: 11),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFF929AA6)),
+              fontSize: 11,
+            ),
           ),
         ],
       ),

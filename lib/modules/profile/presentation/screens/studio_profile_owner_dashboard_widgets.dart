@@ -31,6 +31,7 @@ class _StudioOwnerDashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final description = profile.description?.trim();
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 26),
@@ -62,8 +63,8 @@ class _StudioOwnerDashboardContent extends StatelessWidget {
                               profile.displayName,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppColors.legacy(Colors.white),
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
                                 height: 1.05,
@@ -75,9 +76,9 @@ class _StudioOwnerDashboardContent extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.location_on_outlined,
-                            color: Color(0xFF8C95A3),
+                            color: AppColors.legacy(Color(0xFF8C95A3)),
                             size: 14,
                           ),
                           const SizedBox(width: 4),
@@ -86,8 +87,8 @@ class _StudioOwnerDashboardContent extends StatelessWidget {
                               location,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFFA3ABB8),
+                              style: TextStyle(
+                                color: AppColors.legacy(Color(0xFFA3ABB8)),
                                 fontSize: 12,
                               ),
                             ),
@@ -162,6 +163,7 @@ class _StudioOwnerDescription extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final value = description?.trim() ?? '';
     if (value.isEmpty) {
       return Align(
@@ -169,7 +171,7 @@ class _StudioOwnerDescription extends StatelessWidget {
         child: TextButton.icon(
           onPressed: onEdit,
           style: TextButton.styleFrom(
-            foregroundColor: _roomFormIconColor,
+            foregroundColor: AppColors.legacy(_roomFormIconColor),
             padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
             minimumSize: const Size(0, 32),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -191,8 +193,8 @@ class _StudioOwnerDescription extends StatelessWidget {
             value,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFC1C8D2),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFC1C8D2)),
               fontSize: 12,
               height: 1.42,
             ),
@@ -204,12 +206,12 @@ class _StudioOwnerDescription extends StatelessWidget {
           child: InkWell(
             onTap: onEdit,
             borderRadius: BorderRadius.circular(10),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.all(4),
               child: Icon(
                 Icons.edit_outlined,
                 size: 16,
-                color: Color(0xFF9FA9B8),
+                color: AppColors.legacy(Color(0xFF9FA9B8)),
               ),
             ),
           ),
@@ -234,6 +236,7 @@ class _StudioProfileMetrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       children: [
         Expanded(
@@ -289,11 +292,12 @@ class _StudioTopChrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       children: [
         IconButton(
           onPressed: onBack,
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: AppColors.legacy(Colors.white)),
         ),
         const Spacer(),
         Transform.translate(
@@ -322,6 +326,7 @@ class _StudioHeroAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final hasImage = isValidNetworkImageUrl(imageUrl);
     return SizedBox(
       width: 76,
@@ -335,14 +340,18 @@ class _StudioHeroAvatar extends StatelessWidget {
             height: 76,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
+                colors: AppColors.isLight
+                    ? [AppColors.avatarBackground, AppColors.avatarShadow]
+                    : const [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF8B2CFF).withValues(alpha: 0.22),
+                  color: (AppColors.isLight
+                      ? AppColors.avatarShadow.withValues(alpha: 0.14)
+                      : const Color(0xFF8B2CFF).withValues(alpha: 0.22)),
                   blurRadius: 18,
                 ),
               ],
@@ -350,7 +359,9 @@ class _StudioHeroAvatar extends StatelessWidget {
             padding: const EdgeInsets.all(1.2),
             child: ClipOval(
               child: Container(
-                color: const Color(0xFF070B13),
+                color: (AppColors.isLight
+                    ? AppColors.avatarBackground
+                    : AppColors.legacy(const Color(0xFF070B13))),
                 child: hasImage
                     ? AppCachedNetworkImage(
                         imageUrl: imageUrl,
@@ -381,26 +392,47 @@ class _StudioHeroAvatar extends StatelessWidget {
               bottom: -2,
               child: GestureDetector(
                 onTap: uploading ? null : onEditPhoto,
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: AppColors.brandGradient),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF050910),
-                      width: 2,
-                    ),
-                  ),
-                  child: uploading
-                      ? const Padding(
-                          padding: EdgeInsets.all(6),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                child: GradientOutline(
+                  enabled: AppColors.isLight,
+                  radius: 999,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: AppColors.isLight
+                        ? BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.transparent,
+                              width: 2,
+                            ),
+                          )
+                        : BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: AppColors.decorativeGradient,
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.legacyBorder(
+                                const Color(0xFF050910),
+                              ),
+                              width: 2,
+                            ),
                           ),
-                        )
-                      : const Icon(Icons.edit, size: 13, color: Colors.white),
+                    child: uploading
+                        ? Padding(
+                            padding: EdgeInsets.all(6),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.legacy(Colors.white),
+                            ),
+                          )
+                        : Icon(
+                            Icons.edit,
+                            size: 13,
+                            color: AppColors.legacy(Colors.white),
+                          ),
+                  ),
                 ),
               ),
             ),
@@ -423,12 +455,15 @@ class _StudioMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       height: 58,
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF202B3A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -443,8 +478,8 @@ class _StudioMetricCard extends StatelessWidget {
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.legacy(Colors.white),
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
                   ),
@@ -457,7 +492,10 @@ class _StudioMetricCard extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Color(0xFFA0A9B6), fontSize: 10),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFA0A9B6)),
+              fontSize: 10,
+            ),
           ),
         ],
       ),
@@ -480,6 +518,8 @@ class _StudioActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
+    final outlined = this.outlined || AppColors.isLight;
     final borderRadius = BorderRadius.circular(8);
     final innerRadius = BorderRadius.circular(7.3);
     final child = InkWell(
@@ -491,8 +531,10 @@ class _StudioActionButton extends StatelessWidget {
           borderRadius: borderRadius,
           gradient: outlined
               ? LinearGradient(colors: AppColors.brandGradient)
-              : const LinearGradient(
-                  colors: [Color(0xFFFF6B6B), Color(0xFF7C3AED)],
+              : LinearGradient(
+                  colors: AppColors.isLight
+                      ? AppColors.actionGradient
+                      : const [Color(0xFFFF6B6B), Color(0xFF7C3AED)],
                 ),
         ),
         padding: outlined ? const EdgeInsets.all(0.7) : EdgeInsets.zero,
@@ -506,15 +548,23 @@ class _StudioActionButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: Colors.white),
+              Icon(
+                icon,
+                size: 18,
+                color: (outlined
+                    ? AppColors.legacy(Colors.white)
+                    : AppColors.onAccent),
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: (outlined
+                        ? AppColors.legacy(Colors.white)
+                        : AppColors.onAccent),
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -541,6 +591,7 @@ class _StudioSocialGradientIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ShaderMask(
       shaderCallback: (bounds) => LinearGradient(
         begin: Alignment.topLeft,
@@ -569,6 +620,7 @@ class _StudioOwnerTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return _StudioTabsFrame(
       profileId: profileId,
       canReserve: false,
@@ -602,16 +654,23 @@ class _StudioTabsFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final controller = DefaultTabController.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TabBar(
-          labelColor: const Color(0xFFFF8A8A),
-          unselectedLabelColor: const Color(0xFFB1B8C4),
+          labelColor: AppColors.isLight
+              ? AppColors.accentText
+              : const Color(0xFFFF8A8A),
+          unselectedLabelColor: AppColors.legacy(const Color(0xFFB1B8C4)),
           indicatorSize: TabBarIndicatorSize.tab,
-          indicator: const _StudioTabIndicator(),
-          dividerColor: const Color(0xFF151D29),
+          indicator: _StudioTabIndicator(
+            colors: AppColors.isLight
+                ? AppColors.brandGradient
+                : const [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
+          ),
+          dividerColor: AppColors.legacyBorder(const Color(0xFF151D29)),
           tabs: const [
             Tab(text: 'Odalar'),
             Tab(text: 'Kayıtlar'),
@@ -659,15 +718,21 @@ class _StudioTabsFrame extends StatelessWidget {
 }
 
 class _StudioTabIndicator extends Decoration {
-  const _StudioTabIndicator();
+  const _StudioTabIndicator({required this.colors});
+
+  final List<Color> colors;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) {
-    return _StudioTabIndicatorPainter();
+    return _StudioTabIndicatorPainter(colors);
   }
 }
 
 class _StudioTabIndicatorPainter extends BoxPainter {
+  _StudioTabIndicatorPainter(this.colors);
+
+  final List<Color> colors;
+
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     final size = configuration.size;
@@ -679,9 +744,7 @@ class _StudioTabIndicatorPainter extends BoxPainter {
       2,
     );
     final paint = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
-      ).createShader(rect);
+      ..shader = LinearGradient(colors: colors).createShader(rect);
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(2)),
       paint,

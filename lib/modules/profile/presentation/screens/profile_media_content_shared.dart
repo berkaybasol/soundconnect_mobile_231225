@@ -23,6 +23,7 @@ class ProfileMediaContentSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final controller = DefaultTabController.of(context);
     return AnimatedBuilder(
       animation: controller,

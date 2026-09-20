@@ -22,6 +22,7 @@ class _VenueCalendarEventArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Container(
       width: 70,
@@ -75,6 +76,7 @@ class _VenueCalendarEventMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return PopupMenuButton<_VenueCalendarMenuAction>(
       enabled: !saving,

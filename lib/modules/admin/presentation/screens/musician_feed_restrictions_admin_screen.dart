@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../../../shared/theme/app_colors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
@@ -67,155 +69,162 @@ class _MusicianFeedRestrictionsAdminScreenState
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: BackstagePalette.canvas,
-    appBar: AppBar(title: const Text('Kısıtlamalar')),
-    body: SafeArea(
-      child:
-          BlocBuilder<
-            MusicianFeedRestrictionsAdminCubit,
-            MusicianFeedRestrictionsAdminState
-          >(
-            bloc: _cubit,
-            builder: (context, state) {
-              if (state.status == MusicianFeedReportLoadStatus.accessDenied) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      state.error!.message,
-                      textAlign: TextAlign.center,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Scaffold(
+      backgroundColor: (AppColors.isOriginalDark
+          ? BackstagePalette.canvas
+          : AppColors.navBlueDeep),
+      appBar: AppBar(title: const Text('Kısıtlamalar')),
+      body: SafeArea(
+        child:
+            BlocBuilder<
+              MusicianFeedRestrictionsAdminCubit,
+              MusicianFeedRestrictionsAdminState
+            >(
+              bloc: _cubit,
+              builder: (context, state) {
+                if (state.status == MusicianFeedReportLoadStatus.accessDenied) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        state.error!.message,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                );
-              }
-              return RefreshIndicator(
-                onRefresh: _cubit.refresh,
-                child: ListView.builder(
-                  key: const Key('feed-orphan-restrictions'),
-                  controller: _scroll,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: state.items.length + 2,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Şikâyet kaydı silinmiş olsa da devam eden kısıtlamalar',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Kaynak şikâyet ve içerik önizlemesi bu listede bulunmaz. Geri almadan önce hedef ve karar kimliğini doğrula.',
-                          ),
-                          const SizedBox(height: 20),
-                          if (state.notice != null)
-                            Semantics(
-                              liveRegion: true,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: Text(state.notice!),
+                  );
+                }
+                return RefreshIndicator(
+                  onRefresh: _cubit.refresh,
+                  child: ListView.builder(
+                    key: const Key('feed-orphan-restrictions'),
+                    controller: _scroll,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: state.items.length + 2,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Şikâyet kaydı silinmiş olsa da devam eden kısıtlamalar',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Kaynak şikâyet ve içerik önizlemesi bu listede bulunmaz. Geri almadan önce hedef ve karar kimliğini doğrula.',
+                            ),
+                            const SizedBox(height: 20),
+                            if (state.notice != null)
+                              Semantics(
+                                liveRegion: true,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: Text(state.notice!),
+                                ),
                               ),
-                            ),
-                          if (state.error != null) ...[
-                            Text(state.error!.message),
-                            TextButton(
-                              onPressed: state.submittingId == null
-                                  ? _cubit.refresh
-                                  : null,
-                              child: const Text('Listeyi yeniden yükle'),
-                            ),
+                            if (state.error != null) ...[
+                              Text(state.error!.message),
+                              TextButton(
+                                onPressed: state.submittingId == null
+                                    ? _cubit.refresh
+                                    : null,
+                                child: const Text('Listeyi yeniden yükle'),
+                              ),
+                            ],
+                            if (state.status ==
+                                MusicianFeedReportLoadStatus.loading)
+                              const Center(child: CircularProgressIndicator()),
+                            if (state.status ==
+                                    MusicianFeedReportLoadStatus.ready &&
+                                state.items.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Text(
+                                  'Kaydı silinmiş etkin kısıtlama bulunmuyor.',
+                                ),
+                              ),
                           ],
-                          if (state.status ==
-                              MusicianFeedReportLoadStatus.loading)
-                            const Center(child: CircularProgressIndicator()),
-                          if (state.status ==
-                                  MusicianFeedReportLoadStatus.ready &&
-                              state.items.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Text(
-                                'Kaydı silinmiş etkin kısıtlama bulunmuyor.',
-                              ),
-                            ),
-                        ],
-                      );
-                    }
-                    if (index <= state.items.length) {
-                      final row = state.items[index - 1];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  row.scopeDescription,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 12),
-                                const Text('Hedef kimliği'),
-                                SelectableText(row.scopeKey),
-                                const SizedBox(height: 12),
-                                const Text('Karar kimliği'),
-                                SelectableText(row.reportId),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Kararı uygulayan: ${row.appliedByUserId}',
-                                ),
-                                Text('Uygulandı: ${_date(row.appliedAt)}'),
-                                Text('Güncellendi: ${_date(row.updatedAt)}'),
-                                const SizedBox(height: 16),
-                                if (state.submittingId == row.reportId)
-                                  const LinearProgressIndicator(),
-                                OutlinedButton(
-                                  key: ValueKey(
-                                    'restore-restriction-${row.reportId}',
+                        );
+                      }
+                      if (index <= state.items.length) {
+                        final row = state.items[index - 1];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    row.scopeDescription,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
                                   ),
-                                  onPressed: state.submittingId == null
-                                      ? () => _restore(row)
-                                      : null,
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8),
-                                    child: Text(
-                                      'Bu kaldırma kararını geri al',
-                                      textAlign: TextAlign.center,
+                                  const SizedBox(height: 12),
+                                  const Text('Hedef kimliği'),
+                                  SelectableText(row.scopeKey),
+                                  const SizedBox(height: 12),
+                                  const Text('Karar kimliği'),
+                                  SelectableText(row.reportId),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Kararı uygulayan: ${row.appliedByUserId}',
+                                  ),
+                                  Text('Uygulandı: ${_date(row.appliedAt)}'),
+                                  Text('Güncellendi: ${_date(row.updatedAt)}'),
+                                  const SizedBox(height: 16),
+                                  if (state.submittingId == row.reportId)
+                                    const LinearProgressIndicator(),
+                                  OutlinedButton(
+                                    key: ValueKey(
+                                      'restore-restriction-${row.reportId}',
+                                    ),
+                                    onPressed: state.submittingId == null
+                                        ? () => _restore(row)
+                                        : null,
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Text(
+                                        'Bu kaldırma kararını geri al',
+                                        textAlign: TextAlign.center,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
+                        );
+                      }
+                      return Column(
+                        children: [
+                          if (state.loadingMore)
+                            const CircularProgressIndicator(),
+                          if (state.hasMore && !state.loadingMore)
+                            OutlinedButton(
+                              onPressed: state.submittingId == null
+                                  ? _cubit.loadMore
+                                  : null,
+                              child: const Text('Daha fazla göster'),
+                            ),
+                          const SizedBox(height: 20),
+                        ],
                       );
-                    }
-                    return Column(
-                      children: [
-                        if (state.loadingMore)
-                          const CircularProgressIndicator(),
-                        if (state.hasMore && !state.loadingMore)
-                          OutlinedButton(
-                            onPressed: state.submittingId == null
-                                ? _cubit.loadMore
-                                : null,
-                            child: const Text('Daha fazla göster'),
-                          ),
-                        const SizedBox(height: 20),
-                      ],
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-    ),
-  );
+                    },
+                  ),
+                );
+              },
+            ),
+      ),
+    );
+  }
 }
 
 class _RestoreDialog extends StatefulWidget {
@@ -241,96 +250,98 @@ class _RestoreDialogState extends State<_RestoreDialog> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      BlocBuilder<
-        MusicianFeedRestrictionsAdminCubit,
-        MusicianFeedRestrictionsAdminState
-      >(
-        bloc: widget.cubit,
-        builder: (context, state) {
-          final current =
-              widget.cubit.hasAccess &&
-              widget.epoch == widget.cubit.sessionEpoch &&
-              state.items.any(
-                (row) =>
-                    row.reportId == widget.restriction.reportId &&
-                    row.updatedAt == widget.restriction.updatedAt,
-              );
-          if (!current) {
-            return AlertDialog(
-              scrollable: true,
-              title: const Text('Kısıtlama bilgileri değişti'),
-              content: const Text(
-                'İşlem gönderilmedi. Güncel listeyi yeniden aç.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Kapat'),
-                ),
-              ],
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return BlocBuilder<
+      MusicianFeedRestrictionsAdminCubit,
+      MusicianFeedRestrictionsAdminState
+    >(
+      bloc: widget.cubit,
+      builder: (context, state) {
+        final current =
+            widget.cubit.hasAccess &&
+            widget.epoch == widget.cubit.sessionEpoch &&
+            state.items.any(
+              (row) =>
+                  row.reportId == widget.restriction.reportId &&
+                  row.updatedAt == widget.restriction.updatedAt,
             );
-          }
+        if (!current) {
           return AlertDialog(
-            title: const Text('Bu kaldırma kararını geri al'),
             scrollable: true,
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.restriction.scopeDescription),
-                const SizedBox(height: 10),
-                const Text(
-                  'Başka etkin kaldırma kararları varsa içerik akışta kısıtlı kalabilir.',
-                ),
-                const SizedBox(height: 16),
-                const Text('Karar gerekçesi'),
-                const SizedBox(height: 8),
-                Semantics(
-                  label: 'Karar gerekçesi',
-                  child: TextField(
-                    key: const Key('restriction-resolution-note'),
-                    controller: _note,
-                    minLines: 3,
-                    maxLines: 7,
-                    maxLength: 500,
-                    decoration: InputDecoration(
-                      errorMaxLines: 3,
-                      errorText: _invalid
-                          ? '5–500 karakterlik bir gerekçe yaz.'
-                          : null,
-                    ),
-                  ),
-                ),
-                const Text('5–500 karakter'),
-              ],
+            title: const Text('Kısıtlama bilgileri değişti'),
+            content: const Text(
+              'İşlem gönderilmedi. Güncel listeyi yeniden aç.',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Vazgeç'),
-              ),
-              FilledButton(
-                key: const Key('restriction-restore-confirm'),
-                onPressed: () {
-                  if (!widget.cubit.canRestore(
-                    widget.restriction,
-                    widget.epoch,
-                  )) {
-                    return;
-                  }
-                  if (!isValidMusicianFeedResolutionNote(_note.text)) {
-                    setState(() => _invalid = true);
-                    return;
-                  }
-                  Navigator.of(context).pop(_note.text.trim());
-                },
-                child: const Text('Kararı geri al'),
+                child: const Text('Kapat'),
               ),
             ],
           );
-        },
-      );
+        }
+        return AlertDialog(
+          title: const Text('Bu kaldırma kararını geri al'),
+          scrollable: true,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.restriction.scopeDescription),
+              const SizedBox(height: 10),
+              const Text(
+                'Başka etkin kaldırma kararları varsa içerik akışta kısıtlı kalabilir.',
+              ),
+              const SizedBox(height: 16),
+              const Text('Karar gerekçesi'),
+              const SizedBox(height: 8),
+              Semantics(
+                label: 'Karar gerekçesi',
+                child: TextField(
+                  key: const Key('restriction-resolution-note'),
+                  controller: _note,
+                  minLines: 3,
+                  maxLines: 7,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    errorMaxLines: 3,
+                    errorText: _invalid
+                        ? '5–500 karakterlik bir gerekçe yaz.'
+                        : null,
+                  ),
+                ),
+              ),
+              const Text('5–500 karakter'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              key: const Key('restriction-restore-confirm'),
+              onPressed: () {
+                if (!widget.cubit.canRestore(
+                  widget.restriction,
+                  widget.epoch,
+                )) {
+                  return;
+                }
+                if (!isValidMusicianFeedResolutionNote(_note.text)) {
+                  setState(() => _invalid = true);
+                  return;
+                }
+                Navigator.of(context).pop(_note.text.trim());
+              },
+              child: const Text('Kararı geri al'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 String _date(DateTime value) {

@@ -622,6 +622,7 @@ class _AccountProfileSettingsSectionState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final action = _loadedSession;
     if (!_available) return const SizedBox.shrink();
 
@@ -812,6 +813,7 @@ class _ListenerVisibilityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Material(
@@ -853,6 +855,7 @@ class _ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final resolvedUrl = imageUrl?.trim();
     final hasImage = isValidNetworkImageUrl(resolvedUrl);
     return SizedBox(
@@ -868,7 +871,9 @@ class _ProfileAvatar extends StatelessWidget {
                 border: Border.all(color: Theme.of(context).dividerColor),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.brandGradient.last.withValues(alpha: 0.24),
+                    color: (AppColors.isLight
+                        ? AppColors.avatarShadow.withValues(alpha: 0.14)
+                        : AppColors.brandGradient.last.withValues(alpha: 0.24)),
                     blurRadius: 16,
                     spreadRadius: 1,
                   ),
@@ -878,19 +883,30 @@ class _ProfileAvatar extends StatelessWidget {
                 padding: const EdgeInsets.all(2),
                 child: ClipOval(
                   child: ColoredBox(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
+                    color: (AppColors.isLight
+                        ? AppColors.avatarBackground
+                        : Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest),
                     child: hasImage
                         ? AppCachedNetworkImage(
                             imageUrl: resolvedUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_) => const Icon(
+                            errorBuilder: (_) => Icon(
                               Icons.person_outline_rounded,
+                              color: AppColors.isLight
+                                  ? AppColors.avatarForeground
+                                  : null,
                               size: 38,
                             ),
                           )
-                        : const Icon(Icons.person_outline_rounded, size: 38),
+                        : Icon(
+                            Icons.person_outline_rounded,
+                            size: 38,
+                            color: AppColors.isLight
+                                ? AppColors.avatarForeground
+                                : null,
+                          ),
                   ),
                 ),
               ),
@@ -930,7 +946,7 @@ class _ProfileAvatar extends StatelessWidget {
                 child: ShaderMask(
                   blendMode: BlendMode.srcIn,
                   shaderCallback: (bounds) => LinearGradient(
-                    colors: AppColors.brandGradient,
+                    colors: AppColors.decorativeGradient,
                   ).createShader(bounds),
                   child: const Icon(
                     Icons.photo_camera_outlined,

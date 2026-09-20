@@ -204,308 +204,314 @@ class _OverthinkingCreateScreenState extends State<OverthinkingCreateScreen>
   }
 
   @override
-  Widget build(BuildContext context) => !_canUseSession
-      ? const OverthinkingUnavailableScreen()
-      : Theme(
-          data: OverthinkingPalette.theme(context),
-          child: Builder(
-            builder: (context) => PopScope(
-              canPop: _allowExit || (!_hasDraft && !_saving),
-              onPopInvokedWithResult: (didPop, result) {
-                if (!didPop) _leave();
-              },
-              child: Scaffold(
-                appBar: AppBar(
-                  leading: IconButton(
-                    tooltip: 'Geri',
-                    onPressed: _saving ? null : _leave,
-                    icon: const Icon(Icons.arrow_back_rounded),
-                  ),
-                  title: const Text(
-                    'Yeni yazı',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: Icon(
-                        Icons.edit_note_rounded,
-                        color: OverthinkingPalette.lilac,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return !_canUseSession
+        ? const OverthinkingUnavailableScreen()
+        : Theme(
+            data: OverthinkingPalette.theme(context),
+            child: Builder(
+              builder: (context) => PopScope(
+                canPop: _allowExit || (!_hasDraft && !_saving),
+                onPopInvokedWithResult: (didPop, result) {
+                  if (!didPop) _leave();
+                },
+                child: Scaffold(
+                  appBar: AppBar(
+                    leading: IconButton(
+                      tooltip: 'Geri',
+                      onPressed: _saving ? null : _leave,
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                    title: const Text(
+                      'Yeni yazı',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ],
-                ),
-                body: TableGroupOverviewBackdrop(
-                  child: SafeArea(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-                      children: [
-                        const OverthinkingEyebrow(
-                          'Overthinking',
-                          color: OverthinkingPalette.accent,
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: Icon(
+                          Icons.edit_note_rounded,
+                          color: OverthinkingPalette.lilac,
                         ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Şimdi sen anlat.',
-                          style: TextStyle(
-                            color: TableGroupOverviewStyle.warmHeading,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -.8,
+                      ),
+                    ],
+                  ),
+                  body: TableGroupOverviewBackdrop(
+                    child: SafeArea(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+                        children: [
+                          OverthinkingEyebrow(
+                            'Overthinking',
+                            color: OverthinkingPalette.accent,
                           ),
-                        ),
-                        const SizedBox(height: 9),
-                        const Text(
-                          'Belki bir başkası da tam böyle hissediyordur.',
-                          style: TextStyle(
-                            color: OverthinkingPalette.muted,
-                            fontSize: 15,
-                            height: 1.6,
+                          const SizedBox(height: 10),
+                          Text(
+                            'Şimdi sen anlat.',
+                            style: TextStyle(
+                              color: TableGroupOverviewStyle.warmHeading,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -.8,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 25),
-                        OverthinkingSurface(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const OverthinkingEyebrow('Yazın'),
-                              const SizedBox(height: 10),
-                              TextField(
-                                key: const ValueKey('overthinking-title'),
-                                controller: _titleController,
-                                enabled: !_saving,
-                                readOnly: _uncertainCreate || _retiredCreate,
-                                maxLength: 64,
-                                buildCounter:
-                                    (
-                                      context, {
-                                      required currentLength,
-                                      required isFocused,
-                                      maxLength,
-                                    }) => _WritingCounter(
-                                      _titleController.text.length,
-                                      64,
-                                    ),
-                                textInputAction: TextInputAction.next,
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                onChanged: (_) => setState(() {}),
-                                style: const TextStyle(
-                                  color: OverthinkingPalette.text,
-                                  fontSize: 23,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.25,
-                                ),
-                                decoration: _writingDecoration(
-                                  'Bir başlık bırak...',
-                                ),
-                              ),
-                              const Divider(
-                                color: OverthinkingPalette.border,
-                                height: 24,
-                              ),
-                              TextField(
-                                key: const ValueKey('overthinking-content'),
-                                controller: _contentController,
-                                enabled: !_saving,
-                                readOnly: _uncertainCreate || _retiredCreate,
-                                maxLength: 10240,
-                                buildCounter:
-                                    (
-                                      context, {
-                                      required currentLength,
-                                      required isFocused,
-                                      maxLength,
-                                    }) => _WritingCounter(
-                                      _contentController.text.length,
-                                      10240,
-                                    ),
-                                minLines: 6,
-                                maxLines: null,
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                onChanged: (_) => setState(() {}),
-                                style: const TextStyle(
-                                  color: TableGroupOverviewStyle.bodyMuted,
-                                  fontSize: 15,
-                                  height: 1.7,
-                                ),
-                                decoration: _writingDecoration(
-                                  'Aklından geçtiği gibi yaz. Toparlamak zorunda değilsin.',
-                                  hintMaxLines: 6,
-                                ),
-                              ),
-                            ],
+                          const SizedBox(height: 9),
+                          Text(
+                            'Belki bir başkası da tam böyle hissediyordur.',
+                            style: TextStyle(
+                              color: OverthinkingPalette.muted,
+                              fontSize: 15,
+                              height: 1.6,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        OverthinkingSurface(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const OverthinkingEyebrow(
-                                'Paragrafların hangi melodiyle şekillendi?',
-                              ),
-                              const SizedBox(height: 14),
-                              if (_selectedTrack == null)
-                                InkWell(
-                                  onTap: _editingLocked ? null : _pickTrack,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        FaIcon(
-                                          FontAwesomeIcons.spotify,
-                                          color: AppColors.spotifyGreen,
-                                          size: 29,
-                                        ),
-                                        const SizedBox(width: 13),
-                                        const Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Bir şarkı seç',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                              SizedBox(height: 4),
-                                              Text(
-                                                'Spotify’dan · İsteğe bağlı',
-                                                style: TextStyle(
-                                                  color:
-                                                      OverthinkingPalette.muted,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const Icon(
-                                          Icons.add_rounded,
-                                          color: OverthinkingPalette.muted,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              else
-                                _TrackTile(
-                                  track: _selectedTrack!,
-                                  onTap: _editingLocked ? null : _pickTrack,
-                                  trailing: IconButton(
-                                    tooltip: 'Şarkıyı kaldır',
-                                    onPressed: _editingLocked
-                                        ? null
-                                        : () => setState(
-                                            () => _selectedTrack = null,
-                                          ),
-                                    icon: const Icon(
-                                      Icons.close_rounded,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        OverthinkingSurface(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const OverthinkingEyebrow(
-                                'Kimliğini nasıl gösterelim?',
-                              ),
-                              const SizedBox(height: 15),
-                              _IdentityOption(
-                                selected: _anonymous,
-                                icon: Icons.visibility_off_outlined,
-                                title: 'Anonim',
-                                description:
-                                    'Yazın görünsün, kimliğin sende kalsın.',
-                                onTap: _editingLocked
-                                    ? null
-                                    : () => setState(() => _anonymous = true),
-                              ),
-                              const SizedBox(height: 9),
-                              _IdentityOption(
-                                selected: !_anonymous,
-                                icon: Icons.person_outline_rounded,
-                                title: 'Profilimle',
-                                description:
-                                    'Kullanıcı adın ve profil fotoğrafınla paylaş.',
-                                onTap: _editingLocked
-                                    ? null
-                                    : () => setState(() => _anonymous = false),
-                              ),
-                              if (_anonymous) ...[
-                                const SizedBox(height: 13),
-                                const Text(
-                                  'Kimlik isteklerini Yazılarım bölümünden yönetebilirsin.',
+                          const SizedBox(height: 25),
+                          OverthinkingSurface(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const OverthinkingEyebrow('Yazın'),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  key: const ValueKey('overthinking-title'),
+                                  controller: _titleController,
+                                  enabled: !_saving,
+                                  readOnly: _uncertainCreate || _retiredCreate,
+                                  maxLength: 64,
+                                  buildCounter:
+                                      (
+                                        context, {
+                                        required currentLength,
+                                        required isFocused,
+                                        maxLength,
+                                      }) => _WritingCounter(
+                                        _titleController.text.length,
+                                        64,
+                                      ),
+                                  textInputAction: TextInputAction.next,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  onChanged: (_) => setState(() {}),
                                   style: TextStyle(
-                                    color: OverthinkingPalette.muted,
-                                    fontSize: 11,
-                                    height: 1.6,
+                                    color: OverthinkingPalette.text,
+                                    fontSize: 23,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.25,
+                                  ),
+                                  decoration: _writingDecoration(
+                                    'Bir başlık bırak...',
+                                  ),
+                                ),
+                                Divider(
+                                  color: OverthinkingPalette.border,
+                                  height: 24,
+                                ),
+                                TextField(
+                                  key: const ValueKey('overthinking-content'),
+                                  controller: _contentController,
+                                  enabled: !_saving,
+                                  readOnly: _uncertainCreate || _retiredCreate,
+                                  maxLength: 10240,
+                                  buildCounter:
+                                      (
+                                        context, {
+                                        required currentLength,
+                                        required isFocused,
+                                        maxLength,
+                                      }) => _WritingCounter(
+                                        _contentController.text.length,
+                                        10240,
+                                      ),
+                                  minLines: 6,
+                                  maxLines: null,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  onChanged: (_) => setState(() {}),
+                                  style: TextStyle(
+                                    color: TableGroupOverviewStyle.bodyMuted,
+                                    fontSize: 15,
+                                    height: 1.7,
+                                  ),
+                                  decoration: _writingDecoration(
+                                    'Aklından geçtiği gibi yaz. Toparlamak zorunda değilsin.',
+                                    hintMaxLines: 6,
                                   ),
                                 ),
                               ],
-                            ],
-                          ),
-                        ),
-                        if (_validationError != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text(
-                              _validationError!,
-                              style: const TextStyle(
-                                color: OverthinkingPalette.accent,
-                                height: 1.5,
-                              ),
                             ),
                           ),
-                        const SizedBox(height: 24),
-                        OverthinkingPrimaryAction(
-                          key: const ValueKey('overthinking-publish'),
-                          onPressed: _saving || _retiredCreate ? null : _submit,
-                          busy: _saving,
-                          icon: Icons.edit_outlined,
-                          label: _saving
-                              ? 'Paylaşılıyor...'
-                              : _uncertainCreate
-                              ? 'Gönderimi doğrula'
-                              : 'Yazıyı paylaş',
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          OverthinkingSurface(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const OverthinkingEyebrow(
+                                  'Paragrafların hangi melodiyle şekillendi?',
+                                ),
+                                const SizedBox(height: 14),
+                                if (_selectedTrack == null)
+                                  InkWell(
+                                    onTap: _editingLocked ? null : _pickTrack,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          FaIcon(
+                                            FontAwesomeIcons.spotify,
+                                            color: AppColors.spotifyGreen,
+                                            size: 29,
+                                          ),
+                                          const SizedBox(width: 13),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Bir şarkı seç',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                SizedBox(height: 4),
+                                                Text(
+                                                  'Spotify’dan · İsteğe bağlı',
+                                                  style: TextStyle(
+                                                    color: OverthinkingPalette
+                                                        .muted,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.add_rounded,
+                                            color: OverthinkingPalette.muted,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  _TrackTile(
+                                    track: _selectedTrack!,
+                                    onTap: _editingLocked ? null : _pickTrack,
+                                    trailing: IconButton(
+                                      tooltip: 'Şarkıyı kaldır',
+                                      onPressed: _editingLocked
+                                          ? null
+                                          : () => setState(
+                                              () => _selectedTrack = null,
+                                            ),
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          OverthinkingSurface(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const OverthinkingEyebrow(
+                                  'Kimliğini nasıl gösterelim?',
+                                ),
+                                const SizedBox(height: 15),
+                                _IdentityOption(
+                                  selected: _anonymous,
+                                  icon: Icons.visibility_off_outlined,
+                                  title: 'Anonim',
+                                  description:
+                                      'Yazın görünsün, kimliğin sende kalsın.',
+                                  onTap: _editingLocked
+                                      ? null
+                                      : () => setState(() => _anonymous = true),
+                                ),
+                                const SizedBox(height: 9),
+                                _IdentityOption(
+                                  selected: !_anonymous,
+                                  icon: Icons.person_outline_rounded,
+                                  title: 'Profilimle',
+                                  description:
+                                      'Kullanıcı adın ve profil fotoğrafınla paylaş.',
+                                  onTap: _editingLocked
+                                      ? null
+                                      : () =>
+                                            setState(() => _anonymous = false),
+                                ),
+                                if (_anonymous) ...[
+                                  const SizedBox(height: 13),
+                                  Text(
+                                    'Kimlik isteklerini Yazılarım bölümünden yönetebilirsin.',
+                                    style: TextStyle(
+                                      color: OverthinkingPalette.muted,
+                                      fontSize: 11,
+                                      height: 1.6,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          if (_validationError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Text(
+                                _validationError!,
+                                style: TextStyle(
+                                  color: OverthinkingPalette.accent,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 24),
+                          OverthinkingPrimaryAction(
+                            key: const ValueKey('overthinking-publish'),
+                            onPressed: _saving || _retiredCreate
+                                ? null
+                                : _submit,
+                            busy: _saving,
+                            icon: Icons.edit_outlined,
+                            label: _saving
+                                ? 'Paylaşılıyor...'
+                                : _uncertainCreate
+                                ? 'Gönderimi doğrula'
+                                : 'Yazıyı paylaş',
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
+          );
+  }
 }
 
 InputDecoration _writingDecoration(String hint, {int? hintMaxLines}) =>
     InputDecoration(
       hintText: hint,
       hintMaxLines: hintMaxLines,
-      hintStyle: const TextStyle(color: TableGroupOverviewStyle.tertiaryText),
+      hintStyle: TextStyle(color: TableGroupOverviewStyle.tertiaryText),
       filled: false,
       contentPadding: const EdgeInsets.symmetric(vertical: 10),
       border: InputBorder.none,
       enabledBorder: InputBorder.none,
       focusedBorder: InputBorder.none,
-      counterStyle: const TextStyle(
-        color: OverthinkingPalette.muted,
-        fontSize: 10,
-      ),
+      counterStyle: TextStyle(color: OverthinkingPalette.muted, fontSize: 10),
     );
 
 class _WritingCounter extends StatelessWidget {
@@ -514,15 +520,18 @@ class _WritingCounter extends StatelessWidget {
   final int limit;
 
   @override
-  Widget build(BuildContext context) => Text(
-    '$length/$limit',
-    style: TextStyle(
-      fontSize: 10,
-      color: length > limit
-          ? OverthinkingPalette.accent
-          : OverthinkingPalette.muted,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Text(
+      '$length/$limit',
+      style: TextStyle(
+        fontSize: 10,
+        color: length > limit
+            ? OverthinkingPalette.accent
+            : OverthinkingPalette.muted,
+      ),
+    );
+  }
 }
 
 class _IdentityOption extends StatelessWidget {
@@ -539,69 +548,74 @@ class _IdentityOption extends StatelessWidget {
   final String description;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => Semantics(
-    selected: selected,
-    button: true,
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: selected
-              ? TableGroupOverviewStyle.insetTop
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? AppColors.gradientC : OverthinkingPalette.border,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: selected
+                ? TableGroupOverviewStyle.insetTop
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? AppColors.gradientC
+                  : OverthinkingPalette.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 21,
+                color: selected
+                    ? OverthinkingPalette.lilac
+                    : OverthinkingPalette.muted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: OverthinkingPalette.muted,
+                        fontSize: 11,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                size: 18,
+                color: selected
+                    ? OverthinkingPalette.lilac
+                    : OverthinkingPalette.muted,
+              ),
+            ],
           ),
         ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 21,
-              color: selected
-                  ? OverthinkingPalette.lilac
-                  : OverthinkingPalette.muted,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      color: OverthinkingPalette.muted,
-                      fontSize: 11,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Icon(
-              selected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
-              size: 18,
-              color: selected
-                  ? OverthinkingPalette.lilac
-                  : OverthinkingPalette.muted,
-            ),
-          ],
-        ),
       ),
-    ),
-  );
+    );
+  }
 }

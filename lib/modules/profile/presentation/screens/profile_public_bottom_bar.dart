@@ -13,13 +13,13 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/access_policy.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../dm/presentation/cubit/dm_badge_cubit.dart';
 import '../../../dm/presentation/cubit/dm_badge_state.dart';
 import '../../../event/presentation/screens/event_discovery_screen.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../../overthinking/presentation/widgets/overthinking_unread_dot.dart';
 import '../../../tablegroup/presentation/screens/table_group_route_args.dart';
-import 'backstage_profiles_home_screen.dart';
 import 'profile_bottom_navigation.dart';
 import 'profile_bottom_bar_avatar_cache.dart';
 
@@ -50,7 +50,10 @@ class ProfilePublicBottomBar extends StatelessWidget {
   Widget _profileAvatar(BuildContext context, bool active) {
     final tint = IconTheme.of(context).color;
     return ColorFiltered(
-      colorFilter: ColorFilter.mode(tint ?? Colors.white, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(
+        tint ?? AppColors.legacy(Colors.white),
+        BlendMode.srcIn,
+      ),
       child: Image.asset(
         'assets/ME!2-transparent.png',
         width: active ? 25 : 23,
@@ -84,9 +87,26 @@ class ProfilePublicBottomBar extends StatelessWidget {
   List<BottomNavigationBarItem> _backstageItems(
     BuildContext context,
     int unreadCount,
+    bool canAccessMarketplace,
   ) {
     return [
-      BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Akış'),
+      if (canAccessMarketplace)
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.storefront_outlined),
+          activeIcon: Icon(Icons.storefront),
+          label: 'Pazar',
+          tooltip: 'Ekipman Pazarı',
+        )
+      else
+        const BottomNavigationBarItem(
+          icon: SizedBox(
+            key: Key('backstage-reserved-navigation-slot'),
+            width: 24,
+            height: 24,
+          ),
+          label: '',
+          tooltip: '',
+        ),
       BottomNavigationBarItem(
         icon: _announcementIcon(context),
         label: 'Collab',
@@ -155,13 +175,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
     if (!await _navigationAllowed()) return;
     if (!context.mounted || !current()) return;
     if (index == 0) {
-      replaceProfileBottomNavigationRoute(
-        context,
-        AppRoutes.backstageProfilesHome,
-        arguments: BackstageProfilesHomeArgs(
-          profileImageUrl: resolvedProfileImageUrl,
-        ),
-      );
+      replaceProfileBottomNavigationRoute(context, AppRoutes.marketplace);
       return;
     }
     if (index == 1) {
@@ -459,6 +473,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final manager = serviceLocator.isRegistered<AuthSessionManager>()
         ? serviceLocator<AuthSessionManager>()
         : null;
@@ -471,6 +486,11 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
   Widget _buildForViewer(BuildContext context, AuthSessionManager? manager) {
     final session = manager?.session;
+    final canAccessMarketplace =
+        session != null &&
+        session.isAuthenticated &&
+        session.isActive &&
+        AccessPolicy.canAccessMarketplace(session.roles);
     final effectiveStage = StageModeResolver.forViewer(
       session,
       requested: stageMode,
@@ -489,6 +509,11 @@ class ProfilePublicBottomBar extends StatelessWidget {
       selectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
       unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
       onTap: (index) {
+        if (!canAccessMarketplace &&
+            effectiveStage == StageMode.backstage &&
+            index == 0) {
+          return;
+        }
         if (manager != null && !identical(manager.session, session)) {
           return;
         }
@@ -505,7 +530,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
       },
       items: effectiveStage == StageMode.mainstage
           ? _mainstageItems(context, unreadCount)
-          : _backstageItems(context, unreadCount),
+          : _backstageItems(context, unreadCount, canAccessMarketplace),
     );
     if (unreadCountOverride case final count?) return navigation(count);
     final badgeCubit = serviceLocator<DmBadgeCubit>()..ensureStarted();
@@ -539,36 +564,54 @@ class _MainstageLauncherTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final textColor = enabled
         ? Theme.of(context).colorScheme.onSurface
         : Theme.of(
             context,
           ).colorScheme.onSurfaceVariant.withValues(alpha: 0.55);
-    final leading = Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: enabled
-            ? LinearGradient(colors: AppColors.brandGradient)
-            : null,
-        color: enabled ? null : Theme.of(context).disabledColor,
-      ),
-      child: assetName == null
-          ? Icon(
-              icon ?? Icons.circle_outlined,
-              color: enabled ? AppColors.white : AppColors.navBlueDeep,
-              size: 20,
-            )
-          : Center(
-              child: ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  enabled ? AppColors.white : AppColors.navBlueDeep,
-                  BlendMode.srcIn,
+    final leading = GradientOutline(
+      enabled: AppColors.isLight,
+      radius: 18,
+      colors: enabled
+          ? null
+          : [Theme.of(context).dividerColor, Theme.of(context).dividerColor],
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: enabled && AppColors.isOriginalDark
+              ? LinearGradient(colors: AppColors.decorativeGradient)
+              : null,
+          color: enabled || AppColors.isLight
+              ? null
+              : Theme.of(context).disabledColor,
+        ),
+        child: assetName == null
+            ? Icon(
+                icon ?? Icons.circle_outlined,
+                color: enabled
+                    ? AppColors.decorativeForeground
+                    : AppColors.isLight
+                    ? AppColors.textMuted
+                    : AppColors.navBlueDeep,
+                size: 20,
+              )
+            : Center(
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    enabled
+                        ? AppColors.decorativeForeground
+                        : AppColors.isLight
+                        ? AppColors.textMuted
+                        : AppColors.navBlueDeep,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset(assetName!, width: 21, height: 21),
                 ),
-                child: Image.asset(assetName!, width: 21, height: 21),
               ),
-            ),
+      ),
     );
     return InkWell(
       onTap: enabled ? onTap : null,
@@ -635,13 +678,17 @@ class _ForumIconWithBadge extends StatelessWidget {
   Widget _dmIcon(BuildContext context) {
     final tint = IconTheme.of(context).color;
     return ColorFiltered(
-      colorFilter: ColorFilter.mode(tint ?? Colors.white, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(
+        tint ?? AppColors.legacy(Colors.white),
+        BlendMode.srcIn,
+      ),
       child: Image.asset('assets/dm.png', width: 22, height: 22),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (unreadCount <= 0) {
       return _dmIcon(context);
     }
@@ -663,7 +710,7 @@ class _ForumIconWithBadge extends StatelessWidget {
               child: Text(
                 unreadCount > 99 ? '99+' : unreadCount.toString(),
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.onAccent,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                 ),

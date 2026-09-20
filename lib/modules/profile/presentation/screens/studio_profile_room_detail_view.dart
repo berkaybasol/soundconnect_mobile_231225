@@ -68,8 +68,10 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: index == _selectedRoomIndex
-                    ? const Color(0xFFFF8A8A)
-                    : const Color(0xFF3A4658),
+                    ? (AppColors.isLight
+                          ? AppColors.brandGradient[2]
+                          : const Color(0xFFFF8A8A))
+                    : AppColors.legacy(const Color(0xFF3A4658)),
               ),
             ),
           ),
@@ -77,11 +79,11 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
         const SizedBox(height: 18),
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'Tarih Seç',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -90,10 +92,12 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
             OutlinedButton.icon(
               onPressed: _calendarLoading ? null : _pickDate,
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFD7DCE5),
+                foregroundColor: AppColors.legacy(const Color(0xFFD7DCE5)),
                 minimumSize: const Size(0, 34),
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                side: const BorderSide(color: Color(0xFF334157)),
+                side: BorderSide(
+                  color: AppColors.legacyBorder(Color(0xFF334157)),
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -212,7 +216,9 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
                   gradient: index == _activePhoto
                       ? LinearGradient(colors: AppColors.brandGradient)
                       : null,
-                  color: index == _activePhoto ? null : const Color(0xFF3A4453),
+                  color: index == _activePhoto
+                      ? null
+                      : AppColors.legacy(const Color(0xFF3A4453)),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -233,8 +239,8 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
             children: [
               Text(
                 _room.name,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 24,
                   height: 1.1,
                   fontWeight: FontWeight.w900,
@@ -244,8 +250,8 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
               if (_room.type.trim().isNotEmpty) ...[
                 Text(
                   _room.type,
-                  style: const TextStyle(
-                    color: Color(0xFFB5BDCA),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFFB5BDCA)),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -364,8 +370,8 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
                             _studioReservationPendingColor,
                           _StudioPublicRoomSlotState.available ||
                           _StudioPublicRoomSlotState.occupied => null,
-                          _StudioPublicRoomSlotState.past => const Color(
-                            0xFF6F7A8B,
+                          _StudioPublicRoomSlotState.past => AppColors.legacy(
+                            const Color(0xFF6F7A8B),
                           ),
                         };
                         return _StudioRoomTimeChip(
@@ -401,10 +407,10 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
                   ),
                 if (widget.canReserve) ...[
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Rezervasyon Süresi',
                     style: TextStyle(
-                      color: Color(0xFFCDD3DE),
+                      color: AppColors.legacy(Color(0xFFCDD3DE)),
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
@@ -414,8 +420,8 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
                     _selectedTime == null
                         ? 'Önce başlangıç saatini seç'
                         : '$_selectedTime için uygun süreler',
-                    style: const TextStyle(
-                      color: Color(0xFF7F8998),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFF7F8998)),
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -454,9 +460,11 @@ extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF202B3A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
+import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../domain/musician_feed_models.dart';
 import '../../domain/musician_feed_muted_authors.dart';
@@ -299,10 +300,20 @@ class _MutedAuthorRow extends StatelessWidget {
     ),
   );
 
-  Widget _avatarFallback(BuildContext context) => ColoredBox(
-    color: Theme.of(context).colorScheme.surfaceContainerHigh,
-    child: const Center(child: Icon(Icons.person_outline_rounded)),
-  );
+  Widget _avatarFallback(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: AppColors.isLight
+          ? AppColors.avatarBackground
+          : colors.surfaceContainerHigh,
+      child: Center(
+        child: Icon(
+          Icons.person_outline_rounded,
+          color: AppColors.isLight ? AppColors.avatarForeground : null,
+        ),
+      ),
+    );
+  }
 }
 
 class _ListMessage extends StatelessWidget {

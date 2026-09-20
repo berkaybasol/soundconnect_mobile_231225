@@ -20,6 +20,7 @@ class _MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final String? avatarUrl = _resolveMemberAvatarUrl(
       avatarOverrideUrl ?? member.profilePictureUrl,
     );
@@ -108,18 +109,23 @@ class _MemberAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: 44,
       height: 44,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Theme.of(context).colorScheme.surfaceContainer,
+        color: (AppColors.isLight
+            ? AppColors.avatarBackground
+            : Theme.of(context).colorScheme.surfaceContainer),
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl == null
           ? Icon(
               Icons.person_outline,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: (AppColors.isLight
+                  ? AppColors.avatarForeground
+                  : Theme.of(context).colorScheme.onSurfaceVariant),
             )
           : AppCachedNetworkImage(
               imageUrl: imageUrl,
@@ -130,7 +136,9 @@ class _MemberAvatar extends StatelessWidget {
               cacheHeight: 132,
               errorBuilder: (context) => Icon(
                 Icons.person_outline,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: (AppColors.isLight
+                    ? AppColors.avatarForeground
+                    : Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
     );
@@ -177,6 +185,7 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -208,6 +217,7 @@ class _GradientOutline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return CustomPaint(
       painter: paintOverChild
           ? null
@@ -224,6 +234,7 @@ class _GradientOutline extends StatelessWidget {
 }
 
 class _GradientOutlinePainter extends CustomPainter {
+  final bool _isLight = AppColors.isLight;
   final double radius;
   final double strokeWidth;
 
@@ -249,7 +260,8 @@ class _GradientOutlinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GradientOutlinePainter oldDelegate) {
-    return oldDelegate.radius != radius ||
+    return oldDelegate._isLight != _isLight ||
+        oldDelegate.radius != radius ||
         oldDelegate.strokeWidth != strokeWidth;
   }
 }

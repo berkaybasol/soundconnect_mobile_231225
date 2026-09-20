@@ -232,7 +232,9 @@ extension _VenueRequestSheetStateSections on _VenueRequestSheetState {
                 fontSize: 12,
               ),
             ),
-            activeColor: AppColors.coralAlt,
+            activeColor: (AppColors.isLight
+                ? AppColors.accentText
+                : AppColors.coralAlt),
             controlAffinity: ListTileControlAffinity.trailing,
           ),
         ),

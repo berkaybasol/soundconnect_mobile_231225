@@ -58,6 +58,7 @@ class _EditableBioSectionState extends State<EditableBioSection> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final hasBio = widget.bio?.trim().isNotEmpty == true;
     final resolvedBio = hasBio ? widget.bio!.trim() : '';
 

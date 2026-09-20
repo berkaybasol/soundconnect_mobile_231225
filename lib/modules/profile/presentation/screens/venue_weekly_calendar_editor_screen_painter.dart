@@ -1,10 +1,11 @@
 part of 'venue_weekly_calendar_editor_screen.dart';
 
 class _GradientOutlinePainter extends CustomPainter {
+  final bool _isLight = AppColors.isLight;
   final double borderRadius;
   final double strokeWidth;
 
-  const _GradientOutlinePainter({
+  _GradientOutlinePainter({
     required this.borderRadius,
     required this.strokeWidth,
   });
@@ -30,7 +31,8 @@ class _GradientOutlinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GradientOutlinePainter oldDelegate) {
-    return oldDelegate.borderRadius != borderRadius ||
+    return oldDelegate._isLight != _isLight ||
+        oldDelegate.borderRadius != borderRadius ||
         oldDelegate.strokeWidth != strokeWidth;
   }
 }

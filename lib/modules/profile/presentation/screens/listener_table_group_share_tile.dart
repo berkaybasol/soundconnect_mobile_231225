@@ -18,6 +18,7 @@ import 'listener_event_post_comments_sheet.dart';
 import 'listener_event_post_engagement.dart';
 import 'listener_share_delete_dialog.dart';
 import 'listener_table_group_share_card.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 class ListenerTableGroupShareTile extends StatefulWidget {
   const ListenerTableGroupShareTile({
@@ -321,7 +322,7 @@ class _ListenerTableGroupShareTileState
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: false,
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
@@ -516,6 +517,7 @@ class _ListenerTableGroupShareTileState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     super.build(context);
     if (!_allowed) return const SizedBox.shrink();
     final operation = _capture();

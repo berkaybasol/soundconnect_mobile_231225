@@ -38,6 +38,7 @@ class _SocialButtonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final socialButtons = <Widget>[];
     if (_isSocialUrlUsable(profile.soundcloudUrl)) {
       socialButtons.add(
@@ -111,6 +112,7 @@ class _SocialPillState extends State<_SocialPill> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final iconGradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,

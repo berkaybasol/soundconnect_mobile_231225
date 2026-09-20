@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_actor.dart';
 import '../../domain/entities/collab_listing.dart';
@@ -18,7 +19,9 @@ class CollabApplicationStatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final (color, icon) = switch (status) {
       CollabApplicationStatus.pending => (
-        const Color(0xFFFFA000),
+        AppColors.isOriginalDark
+            ? const Color(0xFFFFA000)
+            : const Color(0xFF925B00),
         Icons.hourglass_bottom_rounded,
       ),
       CollabApplicationStatus.accepted => (
@@ -82,6 +85,7 @@ class CollabJobStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return _StatusPill(
       label: status == CollabJobStatus.active ? 'Aktif iş' : 'Tamamlandı',
       color: status == CollabJobStatus.active
@@ -107,6 +111,7 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
@@ -125,7 +130,7 @@ class _StatusPill extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: color,
+                color: AppColors.isLight ? AppColors.textPrimary : color,
                 fontWeight: FontWeight.w800,
                 fontSize: 10.5,
               ),
@@ -145,13 +150,18 @@ class CollabActorAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     Widget fallback(BuildContext context) => ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      color: AppColors.isLight
+          ? AppColors.avatarBackground
+          : Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Center(
         child: Text(
           actor.initials,
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
+            color: AppColors.isLight
+                ? AppColors.avatarForeground
+                : Theme.of(context).colorScheme.onSurface,
             fontSize: size * .28,
             fontWeight: FontWeight.w900,
           ),
@@ -250,7 +260,8 @@ class CollabCardAction extends StatelessWidget {
     final theme = Theme.of(context);
     final color = switch (tone) {
       CollabCardActionTone.neutral => theme.colorScheme.onSurface,
-      CollabCardActionTone.brand => AppColors.socialPurple,
+      CollabCardActionTone.brand =>
+        AppColors.isLight ? AppColors.accentText : AppColors.socialPurple,
       CollabCardActionTone.danger => AppColors.coral,
       CollabCardActionTone.success => AppColors.spotifyGreen,
     };
@@ -263,13 +274,17 @@ class CollabCardAction extends StatelessWidget {
                 dimension: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: fill ? AppColors.white : color,
+                  color: fill ? AppColors.onAccent : color,
                 ),
               )
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 17, color: fill ? AppColors.white : color),
+                  Icon(
+                    icon,
+                    size: 17,
+                    color: fill ? AppColors.onAccent : color,
+                  ),
                   const SizedBox(width: 7),
                   Flexible(
                     child: Text(
@@ -277,7 +292,7 @@ class CollabCardAction extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: fill ? AppColors.white : color,
+                        color: fill ? AppColors.onAccent : color,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                       ),
@@ -296,13 +311,17 @@ class CollabCardAction extends StatelessWidget {
           onTap: busy ? null : onPressed,
           borderRadius: BorderRadius.circular(13),
           child: fill
-              ? Ink(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: AppColors.brandGradient),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: child,
-                )
+              ? AppColors.isLight
+                    ? GradientOutline(radius: 13, child: child)
+                    : Ink(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: AppColors.actionGradient,
+                          ),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: child,
+                      )
               : CollabGradientFrame(
                   highlighted: tone != CollabCardActionTone.neutral,
                   radius: 13,
@@ -322,6 +341,7 @@ class CollabActionsWrap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = (constraints.maxWidth - 8) / 2;
@@ -387,6 +407,7 @@ class CollabPagedFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     if (!loading && !hasError) return const SizedBox(height: 28);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 18),

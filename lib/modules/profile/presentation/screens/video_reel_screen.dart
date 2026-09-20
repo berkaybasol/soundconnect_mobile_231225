@@ -168,6 +168,7 @@ class _VideoReelScreenState extends State<VideoReelScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
     final statsKey = '${widget.targetType}:${widget.targetId}';
@@ -332,6 +333,7 @@ class _ReelActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Column(
       children: [
         GestureDetector(

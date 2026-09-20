@@ -9,6 +9,7 @@ import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import 'media_detail_screen.dart';
 import 'profile_image_url_resolver.dart';
 import 'media_content_audience_controls.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 class ProfilePhotoGalleryTab extends StatelessWidget {
   final List<MediaAsset> items;
@@ -80,7 +81,11 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             gradient: LinearGradient(
-              colors: [Color(0x1AFFFFFF), Color(0x1A8A5CFF), Color(0x1AFF7A3D)],
+              colors: [
+                AppColors.legacy(Color(0x1AFFFFFF)),
+                Color(0x1A8A5CFF),
+                Color(0x1AFF7A3D),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -153,6 +158,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final visibleItems = items
         .where((item) => resolveMediaPreviewImageUrl(item) != null)
         .toList(growable: false);

@@ -659,6 +659,7 @@ class _EventPerformerRequestsScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final requests = _visibleRequests;
     return Scaffold(
       appBar: AppBar(
@@ -835,6 +836,7 @@ class _FilteredSearchContinuationState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -882,6 +884,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -927,6 +930,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -967,6 +971,7 @@ class _LoadMoreFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (atPageLimit) return const _PageLimitNotice();
     if (loading) {
       return const Padding(
@@ -1014,12 +1019,15 @@ class _PageLimitNotice extends StatelessWidget {
   const _PageLimitNotice();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 18, horizontal: 12),
-    child: Text(
-      'Bu listenin görüntüleme sınırına ulaştın.',
-      key: Key('event-invitation-page-limit'),
-      textAlign: TextAlign.center,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      child: Text(
+        'Bu listenin görüntüleme sınırına ulaştın.',
+        key: Key('event-invitation-page-limit'),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 }

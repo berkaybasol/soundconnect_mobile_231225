@@ -7,6 +7,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme_controller.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/forgot_password_screen.dart';
@@ -86,157 +88,177 @@ void main() {
     'sheet',
     'calendar',
   ]) {
-    testWidgets('koyu $screen visual regression', (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final theme = AppTheme.navy;
-      final auth = createAuthCubit(RecordingAuthRepository());
-      addTearDown(auth.close);
-      final detail = CollabListingDetailCubit(
-        FakeCollabDetailRepository(listing: collabListingFixture()),
-      );
-      addTearDown(detail.close);
-      final boundary = GlobalKey();
-      late BuildContext pageContext;
-      final Widget page = switch (screen) {
-        'login' => const LoginScreen(),
-        'forgot' => const ForgotPasswordScreen(),
-        'listener' => ListenerProfileTheme(
-          inheritAppTheme: true,
-          child: Scaffold(
-            appBar: AppBar(title: const ProfileBrandTitle()),
-            body: ListenerProfileOwnerContent(
-              profile: const ListenerProfile(
-                id: 'theme-fixture',
-                userId: 'theme-fixture',
-                username: 'deniz',
-                bio: 'Yeni sesler, yeni sahneler.',
-                profilePictureUrl: null,
-                followerCount: 24,
-                followingCount: 68,
+    for (final variant in AppThemeVariant.values) {
+      testWidgets('${variant.name} $screen visual regression', (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        await tester.runAsync(
+          () => AppThemeController.instance.setVariant(variant),
+        );
+        addTearDown(
+          () async =>
+              AppThemeController.instance.setVariant(AppThemeVariant.dark),
+        );
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final theme = AppTheme.current;
+        final auth = createAuthCubit(RecordingAuthRepository());
+        addTearDown(auth.close);
+        final detail = CollabListingDetailCubit(
+          FakeCollabDetailRepository(listing: collabListingFixture()),
+        );
+        addTearDown(detail.close);
+        final boundary = GlobalKey();
+        late BuildContext pageContext;
+        final Widget page = switch (screen) {
+          'login' => const LoginScreen(),
+          'forgot' => const ForgotPasswordScreen(),
+          'listener' => ListenerProfileTheme(
+            inheritAppTheme: true,
+            child: Scaffold(
+              appBar: AppBar(title: const ProfileBrandTitle()),
+              body: ListenerProfileOwnerContent(
+                profile: const ListenerProfile(
+                  id: 'theme-fixture',
+                  userId: 'theme-fixture',
+                  username: 'deniz',
+                  bio: 'Yeni sesler, yeni sahneler.',
+                  profilePictureUrl: null,
+                  followerCount: 24,
+                  followingCount: 68,
+                ),
+                onEditProfile: () {},
+                onEditAvatar: () {},
+                onEditPlaylists: () {},
+                onPlaylistTap: (_) {},
+                onPreviewAction: (_) {},
               ),
-              onEditProfile: () {},
-              onEditAvatar: () {},
-              onEditPlaylists: () {},
-              onPlaylistTap: (_) {},
-              onPreviewAction: (_) {},
             ),
           ),
-        ),
-        'ghost' => ListenerProfileTheme(
-          inheritAppTheme: true,
-          child: Scaffold(
-            appBar: AppBar(title: const ProfileBrandTitle()),
-            body: ListenerGhostProfileContent(
-              username: 'deniz',
-              profilePictureUrl: null,
-              owner: true,
-              busy: false,
-              onRefresh: () async {},
-              onEditAvatar: () {},
-              onSwitchToStandard: () {},
+          'ghost' => ListenerProfileTheme(
+            inheritAppTheme: true,
+            child: Scaffold(
+              appBar: AppBar(title: const ProfileBrandTitle()),
+              body: ListenerGhostProfileContent(
+                username: 'deniz',
+                profilePictureUrl: null,
+                owner: true,
+                busy: false,
+                onRefresh: () async {},
+                onEditAvatar: () {},
+                onSwitchToStandard: () {},
+              ),
             ),
           ),
-        ),
-        'collab' => CollabThemeScope(
-          child: CollabListingDetailScreen(
-            listingId: 'listing-1',
-            detailCubit: detail,
-            showBottomNavigation: false,
-          ),
-        ),
-        _ => Builder(
-          builder: (context) {
-            pageContext = context;
-            return const _Controls();
-          },
-        ),
-      };
-      await tester.pumpWidget(
-        BlocProvider.value(
-          value: auth,
-          child: RepaintBoundary(
-            key: boundary,
-            child: MaterialApp(
-              debugShowCheckedModeBanner: false,
-              theme: theme,
-              home: page,
+          'collab' => CollabThemeScope(
+            child: CollabListingDetailScreen(
+              listingId: 'listing-1',
+              detailCubit: detail,
+              showBottomNavigation: false,
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      // Asset decodes run outside fake time and must finish before a golden.
-      await tester.runAsync(() async {
-        for (final asset in [
-          'assets/logo.png',
-          'assets/Logoyanyana.png',
-          'assets/fish.png',
-          'assets/google.png',
-          'assets/ghost (1).png',
-          'assets/headphone2.png',
-        ]) {
-          await precacheImage(AssetImage(asset), boundary.currentContext!);
-        }
-      });
-      await tester.pumpAndSettle();
-      if (screen == 'sheet') {
-        showProfileManagementSheet<String>(
-          pageContext,
-          title: 'Profil yönetimi',
-          options: const [
-            ProfileManagementSheetOption(
-              value: 'profile',
-              icon: Icons.person_outline,
-              label: 'Profil bilgileri',
+          _ => Builder(
+            builder: (context) {
+              pageContext = context;
+              return const _Controls();
+            },
+          ),
+        };
+        await tester.pumpWidget(
+          BlocProvider.value(
+            value: auth,
+            child: RepaintBoundary(
+              key: boundary,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: theme,
+                home: page,
+              ),
             ),
-            ProfileManagementSheetOption(
-              value: 'media',
-              icon: Icons.graphic_eq,
-              label: 'Medya yönetimi',
-            ),
-          ],
+          ),
         );
         await tester.pumpAndSettle();
-      }
-      if (screen == 'calendar') {
-        showSoundConnectDatePicker(
-          context: pageContext,
-          initialDate: DateTime(2030, 9, 15),
-          firstDate: DateTime(2030, 9),
-          lastDate: DateTime(2030, 12, 31),
-        );
-        await tester.pumpAndSettle();
-      }
-      expect(tester.takeException(), isNull);
-      final evidence = Platform.environment['ORIGINAL_DARK_EVIDENCE_DIR'];
-      if (evidence != null) {
-        final render =
-            boundary.currentContext!.findRenderObject()!
-                as RenderRepaintBoundary;
+        // Asset decodes run outside fake time and must finish before a golden.
         await tester.runAsync(() async {
-          final picture = await render.toImage(pixelRatio: 1);
-          final bytes = (await picture.toByteData(
-            format: ui.ImageByteFormat.png,
-          ))!;
-          await Directory(evidence).create(recursive: true);
-          await File(
-            '$evidence/koyu-$screen.png',
-          ).writeAsBytes(bytes.buffer.asUint8List());
-          picture.dispose();
+          for (final asset in [
+            'assets/logo.png',
+            'assets/Logoyanyana.png',
+            'assets/fish.png',
+            'assets/google.png',
+            'assets/ghost (1).png',
+            'assets/headphone2.png',
+          ]) {
+            await precacheImage(AssetImage(asset), boundary.currentContext!);
+          }
         });
-      }
+        await tester.pumpAndSettle();
+        if (screen == 'sheet') {
+          showProfileManagementSheet<String>(
+            pageContext,
+            title: 'Profil yönetimi',
+            options: const [
+              ProfileManagementSheetOption(
+                value: 'profile',
+                icon: Icons.person_outline,
+                label: 'Profil bilgileri',
+              ),
+              ProfileManagementSheetOption(
+                value: 'media',
+                icon: Icons.graphic_eq,
+                label: 'Medya yönetimi',
+              ),
+            ],
+          );
+          await tester.pumpAndSettle();
+        }
+        if (screen == 'calendar') {
+          showSoundConnectDatePicker(
+            context: pageContext,
+            initialDate: DateTime(2030, 9, 15),
+            firstDate: DateTime(2030, 9),
+            lastDate: DateTime(2030, 12, 31),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+        final evidence =
+            Platform.environment['SOUNDCONNECT_THEME_EVIDENCE_DIR'] ??
+            Platform.environment['ORIGINAL_DARK_EVIDENCE_DIR'];
+        final themeName = variant == AppThemeVariant.dark ? 'koyu' : 'acik';
+        if (evidence != null) {
+          final render =
+              boundary.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          await tester.runAsync(() async {
+            final picture = await render.toImage(pixelRatio: 1);
+            final bytes = (await picture.toByteData(
+              format: ui.ImageByteFormat.png,
+            ))!;
+            await Directory(evidence).create(recursive: true);
+            await File(
+              '$evidence/$themeName-$screen.png',
+            ).writeAsBytes(bytes.buffer.asUint8List());
+            picture.dispose();
+          });
+        }
 
-      await expectLater(
-        find.byKey(boundary),
-        matchesGoldenFile('goldens/original_dark/koyu-$screen.png'),
-      );
+        if (variant == AppThemeVariant.dark) {
+          await expectLater(
+            find.byKey(boundary),
+            matchesGoldenFile('goldens/original_dark/koyu-$screen.png'),
+          );
+        } else {
+          expect(
+            Theme.of(tester.element(find.byType(Scaffold).first)).brightness,
+            Brightness.light,
+          );
+        }
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
-    });
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      });
+    }
   }
 }
 

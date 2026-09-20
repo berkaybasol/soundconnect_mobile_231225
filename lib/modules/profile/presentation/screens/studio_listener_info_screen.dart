@@ -25,6 +25,7 @@ class StudioListenerAccessGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final sessions = serviceLocator.isRegistered<AuthSessionManager>()
         ? serviceLocator<AuthSessionManager>()
         : null;
@@ -52,6 +53,7 @@ class StudioListenerInfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final theme = Theme.of(context);
     final navigator = Navigator.of(context);
     return Scaffold(
@@ -96,7 +98,7 @@ class StudioListenerInfoScreen extends StatelessWidget {
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: AppColors.brandGradient,
+                              colors: AppColors.decorativeGradient,
                             ),
                           ),
                           padding: const EdgeInsets.all(2),

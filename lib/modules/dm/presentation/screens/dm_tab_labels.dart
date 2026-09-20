@@ -12,6 +12,7 @@ class DmPrimaryMessagesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return Tab(
       child: BlocBuilder<DmBadgeCubit, DmBadgeState>(
         builder: (context, state) => DmPrimaryMessagesTabLabel(
@@ -35,6 +36,7 @@ class DmPrimaryMessagesTabLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

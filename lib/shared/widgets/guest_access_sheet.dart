@@ -69,9 +69,10 @@ class GuestAccessActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final isEnabled = onPressed != null;
     final gradientColors = isEnabled
-        ? AppColors.brandGradient
+        ? AppColors.decorativeGradient
         : <Color>[
             Theme.of(context).dividerColor.withValues(alpha: 0.7),
             Theme.of(context).dividerColor.withValues(alpha: 0.7),

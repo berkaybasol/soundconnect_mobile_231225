@@ -226,7 +226,9 @@ extension _BandAudioTabSpotifyPicker on _BandAudioTab {
                                         onPressed: () => selectTrack(track),
                                         icon: Icon(
                                           Icons.add_circle_outline,
-                                          color: AppColors.coralAlt,
+                                          color: (AppColors.isLight
+                                              ? AppColors.accentText
+                                              : AppColors.coralAlt),
                                         ),
                                       ),
                                   ],

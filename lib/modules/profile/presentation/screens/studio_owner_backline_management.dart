@@ -209,6 +209,7 @@ class _StudioBacklineInventoryScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final items = _items;
     return Scaffold(
       appBar: AppBar(title: const Text('Envanter Yönetimi'), centerTitle: true),
@@ -219,18 +220,21 @@ class _StudioBacklineInventoryScreenState
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
             children: [
-              const Text(
+              Text(
                 'Envanter Özeti',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Ekipman adetlerini ve mevcut durumlarını tek yerden takip et.',
-                style: TextStyle(color: Color(0xFF969FAA), fontSize: 12),
+                style: TextStyle(
+                  color: AppColors.legacy(Color(0xFF969FAA)),
+                  fontSize: 12,
+                ),
               ),
               const SizedBox(height: 14),
               GridView.count(
@@ -328,11 +332,11 @@ class _StudioBacklineInventoryScreenState
               const SizedBox(height: 20),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Ekipmanlar',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.legacy(Colors.white),
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
@@ -340,8 +344,8 @@ class _StudioBacklineInventoryScreenState
                   ),
                   Text(
                     '$_totalItems kayıt',
-                    style: const TextStyle(
-                      color: Color(0xFF9099A7),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFF9099A7)),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -573,7 +577,7 @@ class _StudioBacklineInventoryScreenState
   }) {
     return showStudioModalBottomSheet<T>(
       context: context,
-      backgroundColor: const Color(0xFF0B1321),
+      backgroundColor: AppColors.legacy(const Color(0xFF0B1321)),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -586,8 +590,8 @@ class _StudioBacklineInventoryScreenState
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
                 ),
@@ -603,8 +607,8 @@ class _StudioBacklineInventoryScreenState
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_unchecked_rounded,
                     color: option.value == currentValue
-                        ? Colors.white
-                        : const Color(0xFF737A86),
+                        ? AppColors.legacy(Colors.white)
+                        : AppColors.legacy(const Color(0xFF737A86)),
                   ),
                   title: Text(option.label),
                   onTap: () => Navigator.of(sheetContext).pop(option.value),

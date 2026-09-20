@@ -43,7 +43,7 @@ Future<bool> confirmAndLogoutSession(BuildContext context) async {
                   child: ShaderMask(
                     blendMode: BlendMode.srcIn,
                     shaderCallback: (bounds) => LinearGradient(
-                      colors: AppColors.brandGradient,
+                      colors: AppColors.decorativeGradient,
                     ).createShader(bounds),
                     child: const Icon(
                       Icons.logout_rounded,
@@ -79,7 +79,7 @@ Future<bool> confirmAndLogoutSession(BuildContext context) async {
                     leading: ShaderMask(
                       blendMode: BlendMode.srcIn,
                       shaderCallback: (bounds) => LinearGradient(
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.decorativeGradient,
                       ).createShader(bounds),
                       child: const Icon(
                         Icons.logout_rounded,
@@ -145,7 +145,7 @@ class SessionLogoutMenuTile extends StatelessWidget {
                   ShaderMask(
                     blendMode: BlendMode.srcIn,
                     shaderCallback: (bounds) => LinearGradient(
-                      colors: AppColors.brandGradient,
+                      colors: AppColors.decorativeGradient,
                     ).createShader(bounds),
                     child: const Icon(
                       Icons.logout_rounded,
@@ -192,6 +192,7 @@ class _SessionLogoutIconButtonState extends State<SessionLogoutIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return IconButton(
       key: sessionLogoutButtonKey,
       tooltip: 'Çıkış yap',

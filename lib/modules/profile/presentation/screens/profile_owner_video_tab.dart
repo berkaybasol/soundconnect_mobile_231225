@@ -76,6 +76,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (widget.ownerMode) {
       final hasAny = widget.items.isNotEmpty;
       return Column(
@@ -92,7 +93,7 @@ class _ProfileOwnerVideoTabState extends State<ProfileOwnerVideoTab> {
                   borderRadius: BorderRadius.circular(18),
                   gradient: LinearGradient(
                     colors: [
-                      Color(0x1AFFFFFF),
+                      AppColors.legacy(Color(0x1AFFFFFF)),
                       Color(0x1A8A5CFF),
                       Color(0x1AFF7A3D),
                     ],

@@ -3,6 +3,7 @@ part of 'venue_public_profile_screen.dart';
 class _MediaTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20),
       child: TabBar(

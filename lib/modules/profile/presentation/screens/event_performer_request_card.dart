@@ -36,6 +36,7 @@ class EventPerformerRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final muted = scheme.onSurfaceVariant;
     final canInteract = !processing && !interactionLocked && decisionAllowed;
@@ -191,7 +192,9 @@ class EventPerformerRequestCard extends StatelessWidget {
                               ? 'Süresi doldu'
                               : 'Onay bekliyor',
                           style: TextStyle(
-                            color: AppColors.brandGradient[1],
+                            color: AppColors.isLight
+                                ? AppColors.accentText
+                                : AppColors.brandGradient[1],
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -418,6 +421,7 @@ class _RequestPoster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final fallback = EventPosterFallback(title: request.eventTitle);
     final raw = request.posterImage?.trim() ?? '';
     final uri = Uri.tryParse(raw);
@@ -481,6 +485,7 @@ class _RequestDateBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final value = date;
     final scheme = Theme.of(context).colorScheme;
     return Container(
@@ -510,7 +515,9 @@ class _RequestDateBadge extends StatelessWidget {
                 Text(
                   months[value.month - 1],
                   style: TextStyle(
-                    color: AppColors.brandGradient[1],
+                    color: AppColors.isLight
+                        ? AppColors.accentText
+                        : AppColors.brandGradient[1],
                     fontSize: 10,
                     letterSpacing: 1,
                     fontWeight: FontWeight.w700,
@@ -535,6 +542,7 @@ class _RequestPermissionLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -569,6 +577,7 @@ class _VenueAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageUrl = request.venueProfilePictureUrl?.trim() ?? '';
     return ClipOval(
       child: Container(
@@ -576,7 +585,12 @@ class _VenueAvatar extends StatelessWidget {
         height: 46,
         color: Theme.of(context).colorScheme.surfaceContainer,
         child: imageUrl.isEmpty
-            ? Icon(Icons.storefront_outlined, color: AppColors.coralAlt)
+            ? Icon(
+                Icons.storefront_outlined,
+                color: (AppColors.isLight
+                    ? AppColors.avatarForeground
+                    : AppColors.coralAlt),
+              )
             : AppCachedNetworkImage(
                 imageUrl: imageUrl,
                 width: 46,
@@ -584,8 +598,12 @@ class _VenueAvatar extends StatelessWidget {
                 fit: BoxFit.cover,
                 cacheWidth: (46 * MediaQuery.devicePixelRatioOf(context))
                     .round(),
-                errorBuilder: (_) =>
-                    Icon(Icons.storefront_outlined, color: AppColors.coralAlt),
+                errorBuilder: (_) => Icon(
+                  Icons.storefront_outlined,
+                  color: (AppColors.isLight
+                      ? AppColors.avatarForeground
+                      : AppColors.coralAlt),
+                ),
               ),
       ),
     );

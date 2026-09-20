@@ -36,17 +36,28 @@ Widget _buildManagementAdPlaceholderCard(BuildContext context) {
         children: [
           Row(
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: AppColors.brandGradient),
-                ),
-                child: Icon(
-                  Icons.campaign_outlined,
-                  color: AppColors.white,
-                  size: 20,
+              GradientOutline(
+                enabled: AppColors.isLight,
+                radius: 999,
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: AppColors.isLight
+                      ? BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          shape: BoxShape.circle,
+                        )
+                      : BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: AppColors.decorativeGradient,
+                          ),
+                        ),
+                  child: Icon(
+                    Icons.campaign_outlined,
+                    color: AppColors.onAccent,
+                    size: 20,
+                  ),
                 ),
               ),
               SizedBox(width: 12),
@@ -123,7 +134,7 @@ Widget _buildManagementPromotionFallback(BuildContext context) {
         child: Center(
           child: Icon(
             Icons.campaign_outlined,
-            color: AppColors.white,
+            color: AppColors.legacy(AppColors.white),
             size: 36,
           ),
         ),

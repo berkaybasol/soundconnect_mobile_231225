@@ -19,14 +19,17 @@ class BandProfileCalendarSlot extends StatelessWidget {
   final BandCalendarRepositoryFactory? factory;
 
   @override
-  Widget build(BuildContext context) => BandCalendarRepositoryScope(
-    bandId: bandId,
-    factory: factory,
-    builder: (repository) => MusicianProfileCalendarSlot(
-      profileId: bandId,
-      refreshToken: refreshToken,
-      compactTitle: compactTitle,
-      repository: repository,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return BandCalendarRepositoryScope(
+      bandId: bandId,
+      factory: factory,
+      builder: (repository) => MusicianProfileCalendarSlot(
+        profileId: bandId,
+        refreshToken: refreshToken,
+        compactTitle: compactTitle,
+        repository: repository,
+      ),
+    );
+  }
 }

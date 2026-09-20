@@ -69,6 +69,7 @@ class ListenerProfilePostsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!profileContentVisible) {
       return asSliver ? const SliverToBoxAdapter() : const SizedBox.shrink();
     }
@@ -133,17 +134,20 @@ class ListenerEventPostsSection extends StatelessWidget {
   final Future<void> Function(VenueEventDetail event)? onOpenEvent;
 
   @override
-  Widget build(BuildContext context) => _ListenerEventFeed(
-    listenerProfileId: listenerProfileId,
-    username: username,
-    avatarUrl: avatarUrl,
-    ownerUserId: ownerUserId,
-    repository: repository,
-    sessions: sessions,
-    refreshSignal: refreshSignal,
-    showHeading: showHeading,
-    onOpenEvent: onOpenEvent,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _ListenerEventFeed(
+      listenerProfileId: listenerProfileId,
+      username: username,
+      avatarUrl: avatarUrl,
+      ownerUserId: ownerUserId,
+      repository: repository,
+      sessions: sessions,
+      refreshSignal: refreshSignal,
+      showHeading: showHeading,
+      onOpenEvent: onOpenEvent,
+    );
+  }
 }
 
 class ListenerEventPlansButton extends StatelessWidget {
@@ -164,37 +168,42 @@ class ListenerEventPlansButton extends StatelessWidget {
   final AuthSessionManager? sessions;
 
   @override
-  Widget build(BuildContext context) => GradientOutlineButton(
-    key: const Key('listener-my-event-plans'),
-    label: 'Planlarım',
-    leading: const Icon(Icons.event_note_outlined, size: 19),
-    backgroundColor: const Color(0xFF101722),
-    onPressed: () {
-      if (!context.mounted || ModalRoute.of(context)?.isCurrent != true) return;
-      final manager = sessions ?? _registered<AuthSessionManager>();
-      if (manager == null ||
-          manager.session.userId != userId ||
-          !manager.session.isAuthenticated ||
-          !manager.session.isActive ||
-          !canUseEventAudience(manager.session) ||
-          manager.session.requiresListenerProfileChoice ||
-          !manager.session.hasAnyRole(const ['LISTENER', 'ROLE_LISTENER'])) {
-        return;
-      }
-      Navigator.of(context).push<void>(
-        MaterialPageRoute(
-          builder: (_) => ListenerEventPlansScreen(
-            listenerProfileId: listenerProfileId,
-            userId: userId,
-            username: username,
-            avatarUrl: avatarUrl,
-            repository: repository,
-            sessions: manager,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return GradientOutlineButton(
+      key: const Key('listener-my-event-plans'),
+      label: 'Planlarım',
+      leading: const Icon(Icons.event_note_outlined, size: 19),
+      backgroundColor: AppColors.legacy(const Color(0xFF101722)),
+      onPressed: () {
+        if (!context.mounted || ModalRoute.of(context)?.isCurrent != true) {
+          return;
+        }
+        final manager = sessions ?? _registered<AuthSessionManager>();
+        if (manager == null ||
+            manager.session.userId != userId ||
+            !manager.session.isAuthenticated ||
+            !manager.session.isActive ||
+            !canUseEventAudience(manager.session) ||
+            manager.session.requiresListenerProfileChoice ||
+            !manager.session.hasAnyRole(const ['LISTENER', 'ROLE_LISTENER'])) {
+          return;
+        }
+        Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => ListenerEventPlansScreen(
+              listenerProfileId: listenerProfileId,
+              userId: userId,
+              username: username,
+              avatarUrl: avatarUrl,
+              repository: repository,
+              sessions: manager,
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
+  }
 }
 
 class ListenerEventPlansScreen extends StatelessWidget {
@@ -217,19 +226,22 @@ class ListenerEventPlansScreen extends StatelessWidget {
   final Future<void> Function(VenueEventDetail event)? onOpenEvent;
 
   @override
-  Widget build(BuildContext context) => ListenerProfileTheme(
-    child: _ListenerEventFeed(
-      listenerProfileId: listenerProfileId,
-      username: username,
-      avatarUrl: avatarUrl,
-      ownerUserId: userId,
-      repository: repository,
-      sessions: sessions,
-      privatePlans: true,
-      fullPage: true,
-      onOpenEvent: onOpenEvent,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return ListenerProfileTheme(
+      child: _ListenerEventFeed(
+        listenerProfileId: listenerProfileId,
+        username: username,
+        avatarUrl: avatarUrl,
+        ownerUserId: userId,
+        repository: repository,
+        sessions: sessions,
+        privatePlans: true,
+        fullPage: true,
+        onOpenEvent: onOpenEvent,
+      ),
+    );
+  }
 }
 
 class _ListenerEventFeed extends StatefulWidget {
@@ -552,6 +564,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final feed = _feed;
     final available = feed != null && feed.allowed;
     final body = !available
@@ -571,7 +584,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
       return body;
     }
     return Scaffold(
-      backgroundColor: const Color(0xFF070B13),
+      backgroundColor: AppColors.legacy(const Color(0xFF070B13)),
       appBar: AppBar(
         title: Text(widget.privatePlans ? 'Planlarım' : 'Paylaşımlar'),
       ),
@@ -635,7 +648,10 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
         Column(
           key: const Key('listener-event-posts-error'),
           children: [
-            Text(feed.error!, style: const TextStyle(color: Color(0xFFA0A9B6))),
+            Text(
+              feed.error!,
+              style: TextStyle(color: AppColors.legacy(Color(0xFFA0A9B6))),
+            ),
             TextButton.icon(
               onPressed: () => unawaited(feed.retry()),
               icon: const Icon(Icons.refresh_rounded),
@@ -656,7 +672,10 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
                 ? 'Bir etkinlikte Gidiyorum veya Düşünüyorum seçerek planını kaydedebilirsin.'
                 : 'Bu bölümde paylaşılmış bir etkinlik yok.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFA0A9B6), height: 1.5),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFA0A9B6)),
+              height: 1.5,
+            ),
           ),
         ),
       // The full-page branch below builds these lazily. Only two compact
@@ -875,7 +894,9 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
                 Text(
                   feed.error!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: listenerProfileMuted),
+                  style: TextStyle(
+                    color: AppColors.legacy(listenerProfileMuted),
+                  ),
                 ),
                 TextButton.icon(
                   key: const Key('listener-profile-posts-retry'),
@@ -1111,7 +1132,7 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: false,
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
@@ -1488,17 +1509,20 @@ class _VisibleTablePublicationState extends State<_VisibleTablePublication> {
   bool _visible = false;
 
   @override
-  Widget build(BuildContext context) => VisibilityDetector(
-    key: _detectorKey,
-    onVisibilityChanged: (info) {
-      if (!mounted) return;
-      final visible = info.visibleFraction > 0;
-      if (_visible == visible) return;
-      _visible = visible;
-      widget.onVisibilityChanged(visible);
-    },
-    child: widget.child,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return VisibilityDetector(
+      key: _detectorKey,
+      onVisibilityChanged: (info) {
+        if (!mounted) return;
+        final visible = info.visibleFraction > 0;
+        if (_visible == visible) return;
+        _visible = visible;
+        widget.onVisibilityChanged(visible);
+      },
+      child: widget.child,
+    );
+  }
 
   @override
   void dispose() {
@@ -1520,40 +1544,50 @@ class _PlanPeriodChoice extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    child: Container(
-      padding: const EdgeInsets.all(1),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: selected
-            ? LinearGradient(colors: AppColors.brandGradient)
-            : null,
-        color: selected ? null : const Color(0xFF293447),
-      ),
-      child: Material(
-        color: selected ? const Color(0xFF101722) : const Color(0xFF0B1220),
-        borderRadius: BorderRadius.circular(17),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  color: selected ? Colors.white : const Color(0xFFA0A9B6),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Container(
+        padding: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: selected
+              ? LinearGradient(colors: AppColors.brandGradient)
+              : null,
+          color: selected ? null : AppColors.legacy(const Color(0xFF293447)),
+        ),
+        child: Material(
+          color: selected
+              ? AppColors.legacy(const Color(0xFF101722))
+              : AppColors.legacy(const Color(0xFF0B1220)),
+          borderRadius: BorderRadius.circular(17),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    color: selected
+                        ? AppColors.legacy(Colors.white)
+                        : AppColors.legacy(const Color(0xFFA0A9B6)),
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

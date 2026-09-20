@@ -60,6 +60,7 @@ class _NewBacklineInventoryItemSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
@@ -70,7 +71,7 @@ class _NewBacklineInventoryItemSheetState
           maxHeight: MediaQuery.sizeOf(context).height * 0.92,
         ),
         child: Material(
-          color: const Color(0xFF0B1321),
+          color: AppColors.legacy(const Color(0xFF0B1321)),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           child: Column(
             children: [
@@ -79,7 +80,7 @@ class _NewBacklineInventoryItemSheetState
                 width: 42,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF445064),
+                  color: AppColors.legacy(const Color(0xFF445064)),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -91,27 +92,29 @@ class _NewBacklineInventoryItemSheetState
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: _ownerManagementCardColor,
+                        color: AppColors.legacy(_ownerManagementCardColor),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: _ownerManagementInsetBorderColor,
+                          color: AppColors.legacyBorder(
+                            _ownerManagementInsetBorderColor,
+                          ),
                         ),
                       ),
                       child: Icon(
                         _selectedCategory?.icon ?? Icons.add_business_outlined,
-                        color: _roomFormIconColor,
+                        color: AppColors.legacy(_roomFormIconColor),
                         size: 25,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Yeni Ekipman Ekle',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.legacy(Colors.white),
                               fontSize: 19,
                               fontWeight: FontWeight.w900,
                             ),
@@ -120,7 +123,7 @@ class _NewBacklineInventoryItemSheetState
                           Text(
                             'Ekipmanı tanımla ve başlangıç adedini belirle.',
                             style: TextStyle(
-                              color: Color(0xFF98A3B3),
+                              color: AppColors.legacy(Color(0xFF98A3B3)),
                               fontSize: 11,
                             ),
                           ),
@@ -135,7 +138,10 @@ class _NewBacklineInventoryItemSheetState
                   ],
                 ),
               ),
-              const Divider(height: 1, color: _ownerManagementInsetBorderColor),
+              Divider(
+                height: 1,
+                color: AppColors.legacyBorder(_ownerManagementInsetBorderColor),
+              ),
               Expanded(
                 child: Form(
                   key: _formKey,
@@ -161,12 +167,12 @@ class _NewBacklineInventoryItemSheetState
                         textCapitalization: TextCapitalization.sentences,
                         textInputAction: TextInputAction.next,
                         maxLength: 100,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Ekipman adı',
                           hintText: 'Örn. Shure SM58',
                           prefixIcon: Icon(
                             Icons.edit_outlined,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                         ),
                         validator: (value) =>
@@ -178,11 +184,11 @@ class _NewBacklineInventoryItemSheetState
                       DropdownButtonFormField<_BacklineCategory>(
                         initialValue: _selectedCategory,
                         isExpanded: true,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Ana kategori',
                           prefixIcon: Icon(
                             Icons.category_outlined,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                         ),
                         items: [
@@ -208,11 +214,11 @@ class _NewBacklineInventoryItemSheetState
                         key: ValueKey(_selectedCategory?.name),
                         initialValue: _selectedSubcategory,
                         isExpanded: true,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Alt kategori',
                           prefixIcon: Icon(
                             Icons.account_tree_outlined,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                         ),
                         items: [
@@ -244,11 +250,11 @@ class _NewBacklineInventoryItemSheetState
                               textCapitalization: TextCapitalization.words,
                               textInputAction: TextInputAction.next,
                               maxLength: 60,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Marka (opsiyonel)',
                                 prefixIcon: Icon(
                                   Icons.label_outline_rounded,
-                                  color: _roomFormIconColor,
+                                  color: AppColors.legacy(_roomFormIconColor),
                                 ),
                               ),
                             ),
@@ -260,11 +266,11 @@ class _NewBacklineInventoryItemSheetState
                               textCapitalization: TextCapitalization.words,
                               textInputAction: TextInputAction.next,
                               maxLength: 60,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Model (opsiyonel)',
                                 prefixIcon: Icon(
                                   Icons.numbers_rounded,
-                                  color: _roomFormIconColor,
+                                  color: AppColors.legacy(_roomFormIconColor),
                                 ),
                               ),
                             ),
@@ -276,11 +282,11 @@ class _NewBacklineInventoryItemSheetState
                         controller: _quantityController,
                         keyboardType: TextInputType.number,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Toplam adet',
                           prefixIcon: Icon(
                             Icons.numbers_outlined,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                           suffixText: 'adet',
                         ),
@@ -302,13 +308,13 @@ class _NewBacklineInventoryItemSheetState
                         minLines: 2,
                         maxLines: 4,
                         maxLength: 300,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Kısa açıklama (opsiyonel)',
                           hintText: 'Ekipmanın öne çıkan bilgilerini yaz.',
                           alignLabelWithHint: true,
                           prefixIcon: Icon(
                             Icons.notes_outlined,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                         ),
                       ),
@@ -318,10 +324,10 @@ class _NewBacklineInventoryItemSheetState
                         label: 'Teknik Özellikler (opsiyonel)',
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'Özellikleri tek tek ekle; ekipman detayında etiket olarak gösterilir.',
                         style: TextStyle(
-                          color: Color(0xFF8F99A9),
+                          color: AppColors.legacy(Color(0xFF8F99A9)),
                           fontSize: 11,
                           height: 1.35,
                         ),
@@ -339,9 +345,9 @@ class _NewBacklineInventoryItemSheetState
                               decoration: InputDecoration(
                                 hintText: 'Örn. Kardioid polar pattern',
                                 errorText: _featureError,
-                                prefixIcon: const Icon(
+                                prefixIcon: Icon(
                                   Icons.add_circle_outline,
-                                  color: _roomFormIconColor,
+                                  color: AppColors.legacy(_roomFormIconColor),
                                 ),
                               ),
                             ),

@@ -53,18 +53,21 @@ class CollabMyApplicationsScreen extends StatelessWidget {
   final String? initialAction;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabMyApplicationsScreenContent(
-      showBottomNavigation: showBottomNavigation,
-      applicationsCubit: applicationsCubit,
-      jobsCubit: jobsCubit,
-      initialSection: initialSection,
-      initialApplicationId: initialApplicationId,
-      initialJobId: initialJobId,
-      initialReviewId: initialReviewId,
-      initialAction: initialAction,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabMyApplicationsScreenContent(
+        showBottomNavigation: showBottomNavigation,
+        applicationsCubit: applicationsCubit,
+        jobsCubit: jobsCubit,
+        initialSection: initialSection,
+        initialApplicationId: initialApplicationId,
+        initialJobId: initialJobId,
+        initialReviewId: initialReviewId,
+        initialAction: initialAction,
+      ),
+    );
+  }
 }
 
 class _CollabMyApplicationsScreenContent extends StatefulWidget {
@@ -167,6 +170,7 @@ class _CollabMyApplicationsScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return MultiBlocProvider(
       providers: [
         BlocProvider<CollabMyApplicationsCubit>.value(
@@ -737,38 +741,44 @@ class _Header extends StatelessWidget {
   final VoidCallback? onBack;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      if (onBack != null) ...[
-        IconButton(
-          onPressed: onBack,
-          tooltip: 'Geri',
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        const SizedBox(width: 2),
-      ],
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GradientText(
-              text: 'Collab',
-              gradient: LinearGradient(colors: AppColors.brandGradient),
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'Başvurularım ve işlerim',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 13.5,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Row(
+      children: [
+        if (onBack != null) ...[
+          IconButton(
+            onPressed: onBack,
+            tooltip: 'Geri',
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          const SizedBox(width: 2),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GradientText(
+                text: 'Collab',
+                gradient: LinearGradient(colors: AppColors.brandTextGradient),
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 5),
+              Text(
+                'Başvurularım ve işlerim',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 13.5,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _SectionSelector extends StatelessWidget {
@@ -778,27 +788,30 @@ class _SectionSelector extends StatelessWidget {
   final ValueChanged<CollabApplicationsSection> onSelected;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: CollabChoiceChip(
-          label: 'Başvurularım',
-          icon: Icons.outbox_outlined,
-          selected: selected == CollabApplicationsSection.applications,
-          onTap: () => onSelected(CollabApplicationsSection.applications),
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Row(
+      children: [
+        Expanded(
+          child: CollabChoiceChip(
+            label: 'Başvurularım',
+            icon: Icons.outbox_outlined,
+            selected: selected == CollabApplicationsSection.applications,
+            onTap: () => onSelected(CollabApplicationsSection.applications),
+          ),
         ),
-      ),
-      const SizedBox(width: 9),
-      Expanded(
-        child: CollabChoiceChip(
-          label: 'İşlerim',
-          icon: Icons.handshake_outlined,
-          selected: selected == CollabApplicationsSection.jobs,
-          onTap: () => onSelected(CollabApplicationsSection.jobs),
+        const SizedBox(width: 9),
+        Expanded(
+          child: CollabChoiceChip(
+            label: 'İşlerim',
+            icon: Icons.handshake_outlined,
+            selected: selected == CollabApplicationsSection.jobs,
+            onTap: () => onSelected(CollabApplicationsSection.jobs),
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _ApplicationStatusRail extends StatelessWidget {
@@ -812,6 +825,7 @@ class _ApplicationStatusRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     const options = <(CollabApplicationStatus?, String)>[
       (null, 'Tümü'),
       (CollabApplicationStatus.pending, 'Bekliyor'),
@@ -835,15 +849,18 @@ class _JobStatusRail extends StatelessWidget {
   final ValueChanged<CollabJobStatus?> onSelected;
 
   @override
-  Widget build(BuildContext context) => _FilterRail<CollabJobStatus>(
-    options: const [
-      (CollabJobStatus.active, 'Aktif'),
-      (CollabJobStatus.completed, 'Tamamlandı'),
-      (null, 'Tümü'),
-    ],
-    selected: selected,
-    onSelected: onSelected,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return _FilterRail<CollabJobStatus>(
+      options: const [
+        (CollabJobStatus.active, 'Aktif'),
+        (CollabJobStatus.completed, 'Tamamlandı'),
+        (null, 'Tümü'),
+      ],
+      selected: selected,
+      onSelected: onSelected,
+    );
+  }
 }
 
 class _FilterRail<T> extends StatelessWidget {
@@ -858,23 +875,26 @@ class _FilterRail<T> extends StatelessWidget {
   final ValueChanged<T?> onSelected;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 42,
-    child: ListView.separated(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: options.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 8),
-      itemBuilder: (_, index) {
-        final option = options[index];
-        return CollabChoiceChip(
-          label: option.$2,
-          selected: selected == option.$1,
-          onTap: () => onSelected(option.$1),
-        );
-      },
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: options.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, index) {
+          final option = options[index];
+          return CollabChoiceChip(
+            label: option.$2,
+            selected: selected == option.$1,
+            onTap: () => onSelected(option.$1),
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _OutgoingApplicationCard extends StatelessWidget {
@@ -896,6 +916,7 @@ class _OutgoingApplicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final listing = application.listing;
     final theme = Theme.of(context);
     return CollabGradientFrame(
@@ -1141,6 +1162,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 4, 20, bottom + 20),
@@ -1213,16 +1235,21 @@ class _EmptyState extends StatelessWidget {
   final String message;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _LoadError extends StatelessWidget {
@@ -1232,21 +1259,27 @@ class _LoadError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(message ?? 'Veriler yüklenemedi.', textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Yeniden dene'),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message ?? 'Veriler yüklenemedi.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Yeniden dene'),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

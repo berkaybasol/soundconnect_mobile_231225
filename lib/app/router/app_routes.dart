@@ -3,6 +3,7 @@ class AppRoutes {
   static const adminAnnouncements = '/admin/feed/announcements';
   static const announcements = '/announcements';
   static const adminMusicianFeedReports = '/admin/musician-feed/reports';
+  static const adminMarketplaceReports = '/admin/marketplace/reports';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
@@ -42,5 +43,6 @@ class AppRoutes {
   static const dmChat = '/dm-chat';
   static const backstageProfilesHome = '/backstage-profiles-home';
   static const collabDiscovery = '/collab';
+  static const marketplace = '/marketplace';
   static const home = '/home';
 }

@@ -26,6 +26,7 @@ class ListenerPublicProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ListenerProfileTheme(
       inheritAppTheme: true,
       child: MultiBlocProvider(
@@ -96,6 +97,7 @@ class _ListenerPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocListener<ListenerProfileCubit, ListenerProfileState>(
       listenWhen: (previous, current) =>
           current.status == ListenerProfileStatus.failure &&
@@ -297,6 +299,7 @@ class _PublicProfileFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final resolvedMessage = message?.trim() ?? '';
     return ListView(
       key: const Key('listener-public-profile-failure'),

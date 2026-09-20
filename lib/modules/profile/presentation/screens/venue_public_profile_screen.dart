@@ -66,6 +66,7 @@ class VenuePublicProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => serviceLocator<VenueProfileCubit>()),
@@ -171,6 +172,7 @@ class _MusicianPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocBuilder<VenueProfileCubit, VenueProfileState>(
       builder: (context, venueProfileState) {
         final publicProfile = venueProfileState.publicProfile;

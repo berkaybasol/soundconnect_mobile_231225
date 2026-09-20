@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../profile/domain/entities/band_profile.dart';
 part 'band_setlist_builder_models.dart';
 part 'band_setlist_builder_widgets.dart';
@@ -232,7 +233,7 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
             : '$title (${pageIndex + 1}/${exportPages.length})';
         final bytes = await controller.captureFromWidget(
           Material(
-            color: AppColors.navBlueDeep,
+            color: AppColors.originalDark.navBlueDeep,
             child: SafeArea(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(12, 12, 12, 14),
@@ -356,6 +357,7 @@ class _BandSetlistBuilderScreenState extends State<BandSetlistBuilderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final title = _setlistNameController.text.trim().isEmpty
         ? 'Setlist Adı'
         : _setlistNameController.text.trim();

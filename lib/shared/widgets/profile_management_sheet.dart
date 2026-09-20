@@ -102,7 +102,9 @@ class ProfileManagementSheet<T extends Object> extends StatelessWidget {
             for (var index = 0; index < options.length; index++) ...[
               if (index > 0) const SizedBox(height: 12),
               CustomPaint(
-                foregroundPainter: const _ManagementOutlinePainter(),
+                foregroundPainter: _ManagementOutlinePainter(
+                  AppColors.decorativeGradient,
+                ),
                 child: Material(
                   borderRadius: BorderRadius.circular(18),
                   clipBehavior: Clip.antiAlias,
@@ -175,7 +177,8 @@ class ProfileManagementSheet<T extends Object> extends StatelessWidget {
 }
 
 class _ManagementOutlinePainter extends CustomPainter {
-  const _ManagementOutlinePainter();
+  const _ManagementOutlinePainter(this.colors);
+  final List<Color> colors;
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
@@ -185,7 +188,7 @@ class _ManagementOutlinePainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: AppColors.brandGradient,
+        colors: colors,
       ).createShader(rect);
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect.deflate(.5), const Radius.circular(18)),
@@ -194,5 +197,6 @@ class _ManagementOutlinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ManagementOutlinePainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ManagementOutlinePainter oldDelegate) =>
+      oldDelegate.colors != colors;
 }

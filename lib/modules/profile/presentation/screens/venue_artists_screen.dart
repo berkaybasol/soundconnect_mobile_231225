@@ -245,6 +245,7 @@ class _VenueArtistsScreenState extends State<VenueArtistsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Aktif Sanatçılar'), centerTitle: true),
@@ -275,7 +276,7 @@ class _VenueArtistsScreenState extends State<VenueArtistsScreen> {
                             child: GradientText(
                               text: widget.venueName,
                               gradient: LinearGradient(
-                                colors: AppColors.brandGradient,
+                                colors: AppColors.brandTextGradient,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -551,14 +552,19 @@ class _DirectoryAvatar extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     Widget fallback(BuildContext _) => Icon(
       icon,
       size: size * .5,
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      color: (AppColors.isLight
+          ? AppColors.avatarForeground
+          : Theme.of(context).colorScheme.onSurfaceVariant),
     );
     return CircleAvatar(
       radius: size / 2,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+      backgroundColor: (AppColors.isLight
+          ? AppColors.avatarBackground
+          : Theme.of(context).colorScheme.surfaceContainer),
       child: ClipOval(
         child: AppCachedNetworkImage(
           imageUrl: url,

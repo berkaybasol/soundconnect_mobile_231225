@@ -22,13 +22,14 @@ class ProfileCountRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final color = light
         ? AppColors.white
         : Theme.of(context).colorScheme.onSurfaceVariant;
     final likeColor = light
         ? AppColors.white
         : (isLiked
-              ? AppColors.coralAlt
+              ? (AppColors.isLight ? AppColors.accentText : AppColors.coralAlt)
               : Theme.of(context).colorScheme.onSurfaceVariant);
     return Row(
       children: [

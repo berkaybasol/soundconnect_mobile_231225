@@ -453,6 +453,7 @@ class _FeedTableGroupPreviewState extends State<_FeedTableGroupPreview>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final table = _table;
     if (table == null) {
       final description = _firstText(widget.source, const [
@@ -638,6 +639,7 @@ class _FeedVisualMedia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final url = isVideo
         ? (payload.thumbnailUrl ?? payload.displayUrl)
         : (payload.displayUrl ?? payload.thumbnailUrl);
@@ -702,6 +704,7 @@ class _FeedAudioPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final handler = serviceLocator<AudioHandler>();
     final positionStream = handler is AudioPlayerHandler
         ? handler.positionStream
@@ -884,6 +887,7 @@ class _EventPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final location = [
       event.venueDistrict,
       event.venueCity,
@@ -948,6 +952,7 @@ class _ActivityTargetPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final target = payload.targetPayload;
     final (icon, eyebrow, title, subtitle) = switch (target) {
       TrackFeedPayload value => (
@@ -1067,14 +1072,21 @@ class _ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     Widget fallback() => ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      color: AppColors.isLight
+          ? AppColors.avatarBackground
+          : Theme.of(context).colorScheme.surfaceContainerHigh,
       child: Center(
         child: Text(
           displayName.trim().isEmpty
               ? '?'
               : displayName.trim().characters.first.toUpperCase(),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: AppColors.isLight ? AppColors.avatarForeground : null,
+          ),
         ),
       ),
     );
@@ -1084,7 +1096,10 @@ class _ProfileAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(1.4),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(colors: AppColors.brandGradient),
+        color: AppColors.isLight ? AppColors.avatarBackground : null,
+        gradient: AppColors.isLight
+            ? null
+            : LinearGradient(colors: AppColors.brandGradient),
       ),
       child: ClipOval(
         child: AppCachedNetworkImage(
@@ -1106,17 +1121,20 @@ class _FeedTitle extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) => Text(
-    title,
-    maxLines: 3,
-    overflow: TextOverflow.ellipsis,
-    style: const TextStyle(
-      fontSize: 18,
-      height: 1.25,
-      fontWeight: FontWeight.w800,
-      letterSpacing: -.3,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Text(
+      title,
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 18,
+        height: 1.25,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -.3,
+      ),
+    );
+  }
 }
 
 class _IconMeta extends StatelessWidget {
@@ -1125,36 +1143,42 @@ class _IconMeta extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      BrandGradientIcon.social(icon, size: 17),
-      const SizedBox(width: 7),
-      Expanded(
-        child: Text(
-          text.trim().isEmpty ? 'Belirtilmemiş' : text.trim(),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Row(
+      children: [
+        BrandGradientIcon.social(icon, size: 17),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            text.trim().isEmpty ? 'Belirtilmemiş' : text.trim(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _MediaFallback extends StatelessWidget {
   const _MediaFallback();
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
-    color: Theme.of(context).colorScheme.surfaceContainerHigh,
-    child: const Center(
-      child: BrandGradientIcon.social(Icons.image_outlined, size: 38),
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      child: const Center(
+        child: BrandGradientIcon.social(Icons.image_outlined, size: 38),
+      ),
+    );
+  }
 }
 
 Widget _unavailableCard(

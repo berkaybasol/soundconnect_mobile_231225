@@ -6,6 +6,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
 import '../../../spotify/domain/spotify_playlist_uri.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 typedef ListenerPlaylistSave =
     Future<ListenerPlaylistSaveResult> Function(List<String> spotifyUrls);
@@ -120,6 +121,7 @@ class _ListenerPlaylistManagerSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return PopScope(
       canPop: !_saving && !_hasUnsavedChanges,
@@ -131,7 +133,7 @@ class _ListenerPlaylistManagerSheetState
         child: Padding(
           padding: EdgeInsets.only(bottom: bottomInset),
           child: Material(
-            color: const Color(0xFF0B111D),
+            color: AppColors.legacy(const Color(0xFF0B111D)),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             clipBehavior: Clip.antiAlias,
             child: SizedBox(
@@ -143,7 +145,7 @@ class _ListenerPlaylistManagerSheetState
                     width: 42,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3A4556),
+                      color: AppColors.legacy(const Color(0xFF3A4556)),
                       borderRadius: BorderRadius.circular(99),
                     ),
                   ),
@@ -161,10 +163,10 @@ class _ListenerPlaylistManagerSheetState
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
+                                      Text(
                                         'Çalma Listelerim',
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color: AppColors.legacy(Colors.white),
                                           fontSize: 20,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: -0.35,
@@ -173,8 +175,10 @@ class _ListenerPlaylistManagerSheetState
                                       const SizedBox(height: 4),
                                       Text(
                                         '${_drafts.length}/$_maximumPlaylists · Başlık ve kapak Spotify’dan alınır.',
-                                        style: const TextStyle(
-                                          color: Color(0xFF9CA7B8),
+                                        style: TextStyle(
+                                          color: AppColors.legacy(
+                                            Color(0xFF9CA7B8),
+                                          ),
                                           fontSize: 11,
                                           height: 1.35,
                                         ),
@@ -314,23 +318,30 @@ class _ListenerPlaylistManagerSheetState
               icon: Icon(editing ? Icons.check_rounded : Icons.add_rounded),
             ),
             filled: true,
-            fillColor: const Color(0xFF111A2A),
+            fillColor: AppColors.legacy(const Color(0xFF111A2A)),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(17),
-              borderSide: const BorderSide(color: Color(0xFF273449)),
+              borderSide: BorderSide(
+                color: AppColors.legacyBorder(Color(0xFF273449)),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(17),
-              borderSide: const BorderSide(color: Color(0xFF273449)),
+              borderSide: BorderSide(
+                color: AppColors.legacyBorder(Color(0xFF273449)),
+              ),
             ),
           ),
         ),
         if (atLimit) ...[
           const SizedBox(height: 7),
-          const Text(
+          Text(
             'Profilinde en fazla 4 çalma listesi paylaşabilirsin.',
             key: Key('listener-playlist-limit-message'),
-            style: TextStyle(color: Color(0xFF9CA7B8), fontSize: 10.5),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFF9CA7B8)),
+              fontSize: 10.5,
+            ),
           ),
         ],
         if (editing) ...[
@@ -548,7 +559,7 @@ class _ListenerPlaylistManagerSheetState
     final discard = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF111A2A),
+        backgroundColor: AppColors.legacy(const Color(0xFF111A2A)),
         title: const Text('Kaydedilmemiş değişiklikler'),
         content: const Text(
           'Değişiklikler kaydedilemedi. Çıkarsan son düzenlemelerin silinir.',
@@ -592,18 +603,19 @@ class _PlaylistSyncNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final (message, foreground, background, border) = switch (state) {
       _PlaylistSyncState.pending => (
         'Değişiklikler otomatik kaydedilecek',
         const Color(0xFFD7B5F7),
-        const Color(0x172E1F43),
-        const Color(0x553E2B55),
+        AppColors.legacy(const Color(0x172E1F43)),
+        AppColors.legacy(const Color(0x553E2B55)),
       ),
       _PlaylistSyncState.saving => (
         'Kaydediliyor…',
         const Color(0xFFD7B5F7),
-        const Color(0x172E1F43),
-        const Color(0x553E2B55),
+        AppColors.legacy(const Color(0x172E1F43)),
+        AppColors.legacy(const Color(0x553E2B55)),
       ),
       _PlaylistSyncState.saved => (
         'Kaydedildi',
@@ -621,7 +633,7 @@ class _PlaylistSyncNotice extends StatelessWidget {
       ),
       _PlaylistSyncState.idle => (
         '',
-        const Color(0xFF9CA7B8),
+        AppColors.legacy(const Color(0xFF9CA7B8)),
         Colors.transparent,
         Colors.transparent,
       ),
@@ -724,15 +736,18 @@ class _PlaylistDraftTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final preview = draft.preview;
     return Container(
       key: Key('listener-playlist-draft-$index'),
       constraints: const BoxConstraints(minHeight: 82),
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: const Color(0xFF111A2A),
+        color: AppColors.legacy(const Color(0xFF111A2A)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF273449)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF273449)),
+        ),
       ),
       child: Row(
         children: [
@@ -747,8 +762,8 @@ class _PlaylistDraftTile extends StatelessWidget {
                   preview?.title ?? 'Spotify çalma listesi',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w800,
@@ -761,8 +776,8 @@ class _PlaylistDraftTile extends StatelessWidget {
                       : 'Spotify · Profilde ${index + 1}. sıra',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF9CA7B8),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF9CA7B8)),
                     fontSize: 9.5,
                   ),
                 ),
@@ -809,9 +824,9 @@ class _PlaylistDraftTile extends StatelessWidget {
           SizedBox.square(
             key: Key('listener-playlist-drag-$index'),
             dimension: 48,
-            child: const Icon(
+            child: Icon(
               Icons.drag_indicator_rounded,
-              color: Color(0xFF8490A3),
+              color: AppColors.legacy(Color(0xFF8490A3)),
             ),
           ),
         ],
@@ -827,6 +842,7 @@ class _DraftArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageUrl = preview?.coverImageUrl;
     final pixelRatio = MediaQuery.devicePixelRatioOf(context);
     return ClipRRect(
@@ -853,12 +869,16 @@ class _DraftArtworkFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    Theme.of(context);
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF35223F), Color(0xFF202A3B)],
+          colors: [
+            AppColors.legacy(Color(0xFF35223F)),
+            AppColors.legacy(Color(0xFF202A3B)),
+          ],
         ),
       ),
       child: Center(
@@ -877,7 +897,8 @@ class _PlaylistManagerEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    Theme.of(context);
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(28),
         child: Column(
@@ -893,7 +914,7 @@ class _PlaylistManagerEmpty extends StatelessWidget {
               'Henüz çalma listesi eklemedin',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.legacy(Colors.white),
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
               ),
@@ -903,7 +924,7 @@ class _PlaylistManagerEmpty extends StatelessWidget {
               'Spotify’daki herkese açık bir listenin bağlantısını yukarıya yapıştır.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF9CA7B8),
+                color: AppColors.legacy(Color(0xFF9CA7B8)),
                 fontSize: 11,
                 height: 1.45,
               ),

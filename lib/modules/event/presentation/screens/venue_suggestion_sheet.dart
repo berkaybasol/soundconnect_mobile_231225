@@ -263,175 +263,180 @@ class _VenueSuggestionFormState extends State<_VenueSuggestionForm> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_submitting,
-    child: SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 16, 22, 24),
-          child: Form(
-            key: _form,
-            autovalidateMode: _attempted
-                ? AutovalidateMode.onUserInteraction
-                : AutovalidateMode.disabled,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    const BrandGradientIcon.social(
-                      Icons.add_location_alt_outlined,
-                      size: 25,
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Mekan öner',
-                        style: TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -.5,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return PopScope(
+      canPop: !_submitting,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 16, 22, 24),
+            child: Form(
+              key: _form,
+              autovalidateMode: _attempted
+                  ? AutovalidateMode.onUserInteraction
+                  : AutovalidateMode.disabled,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const BrandGradientIcon.social(
+                        Icons.add_location_alt_outlined,
+                        size: 25,
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Mekan öner',
+                          style: TextStyle(
+                            fontSize: 25,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -.5,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'Kapat',
-                      onPressed: _submitting
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'SoundConnect’te bulamadığın mekanı bize öner.',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  key: const ValueKey('proposal-venue-name'),
-                  controller: _name,
-                  enabled: !_submitting,
-                  maxLength: 100,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: _decoration('Mekan adı'),
-                  validator: (raw) {
-                    final length = (raw ?? '').trim().runes.length;
-                    return length < 2 || length > 100
-                        ? 'Mekan adı 2–100 karakter olmalı.'
-                        : null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                _SuggestionField(
-                  key: const ValueKey('proposal-city'),
-                  label: 'İl',
-                  value: _city?.name ?? 'İl seç',
-                  loading: _loadingCities,
-                  onTap: _submitting || _loadingCities || _cities.isEmpty
-                      ? null
-                      : _pickCity,
-                ),
-                if (_cityError != null) _retry(_cityError!, _loadCities),
-                if (_attempted && _city == null) _validation('İl seçmelisin.'),
-                const SizedBox(height: 14),
-                _SuggestionField(
-                  key: const ValueKey('proposal-district'),
-                  label: 'İlçe',
-                  value: _district?.name ?? 'İlçe seç',
-                  loading: _loadingDistricts,
-                  onTap: _submitting || _loadingDistricts || _districts.isEmpty
-                      ? null
-                      : _pickDistrict,
-                ),
-                if (_districtError != null)
-                  _retry(_districtError!, _loadDistricts),
-                if (_attempted && _district == null)
-                  _validation('İlçe seçmelisin.'),
-                const SizedBox(height: 25),
-                const Text(
-                  'Bu mekanda canlı müzik yapılıyor mu?',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 13),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final choice in VenueSuggestionLiveMusic.values)
-                      _SuggestionChoice(
-                        value: choice,
-                        selected: _liveMusic == choice,
-                        onTap: _submitting
+                      IconButton(
+                        tooltip: 'Kapat',
+                        onPressed: _submitting
                             ? null
-                            : () => setState(() {
-                                _liveMusic = choice;
-                                _submitError = null;
-                              }),
+                            : () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
                       ),
-                  ],
-                ),
-                if (_attempted && _liveMusic == null)
-                  _validation('Bir seçenek işaretlemelisin.'),
-                if (_submitError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 18),
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        _submitError!,
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          height: 1.5,
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'SoundConnect’te bulamadığın mekanı bize öner.',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    key: const ValueKey('proposal-venue-name'),
+                    controller: _name,
+                    enabled: !_submitting,
+                    maxLength: 100,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: _decoration('Mekan adı'),
+                    validator: (raw) {
+                      final length = (raw ?? '').trim().runes.length;
+                      return length < 2 || length > 100
+                          ? 'Mekan adı 2–100 karakter olmalı.'
+                          : null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _SuggestionField(
+                    key: const ValueKey('proposal-city'),
+                    label: 'İl',
+                    value: _city?.name ?? 'İl seç',
+                    loading: _loadingCities,
+                    onTap: _submitting || _loadingCities || _cities.isEmpty
+                        ? null
+                        : _pickCity,
+                  ),
+                  if (_cityError != null) _retry(_cityError!, _loadCities),
+                  if (_attempted && _city == null)
+                    _validation('İl seçmelisin.'),
+                  const SizedBox(height: 14),
+                  _SuggestionField(
+                    key: const ValueKey('proposal-district'),
+                    label: 'İlçe',
+                    value: _district?.name ?? 'İlçe seç',
+                    loading: _loadingDistricts,
+                    onTap:
+                        _submitting || _loadingDistricts || _districts.isEmpty
+                        ? null
+                        : _pickDistrict,
+                  ),
+                  if (_districtError != null)
+                    _retry(_districtError!, _loadDistricts),
+                  if (_attempted && _district == null)
+                    _validation('İlçe seçmelisin.'),
+                  const SizedBox(height: 25),
+                  const Text(
+                    'Bu mekanda canlı müzik yapılıyor mu?',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 13),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final choice in VenueSuggestionLiveMusic.values)
+                        _SuggestionChoice(
+                          value: choice,
+                          selected: _liveMusic == choice,
+                          onTap: _submitting
+                              ? null
+                              : () => setState(() {
+                                  _liveMusic = choice;
+                                  _submitError = null;
+                                }),
+                        ),
+                    ],
+                  ),
+                  if (_attempted && _liveMusic == null)
+                    _validation('Bir seçenek işaretlemelisin.'),
+                  if (_submitError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          _submitError!,
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            height: 1.5,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                const SizedBox(height: 26),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 52),
-                  child: GradientOutlineButton(
-                    key: const ValueKey('proposal-submit'),
-                    label: 'Öneriyi gönder',
-                    onPressed: _submitting ? null : _submit,
-                    loading: _submitting,
-                    strokeWidth: .9,
-                    horizontalPadding: 16,
-                    backgroundColor: AppColors.inputFill,
-                    leading: const BrandGradientIcon.social(
-                      Icons.send_outlined,
-                      size: 18,
+                  const SizedBox(height: 26),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 52),
+                    child: GradientOutlineButton(
+                      key: const ValueKey('proposal-submit'),
+                      label: 'Öneriyi gönder',
+                      onPressed: _submitting ? null : _submit,
+                      loading: _submitting,
+                      strokeWidth: .9,
+                      horizontalPadding: 16,
+                      backgroundColor: AppColors.inputFill,
+                      leading: const BrandGradientIcon.social(
+                        Icons.send_outlined,
+                        size: 18,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _submitting
-                      ? null
-                      : () => Navigator.of(context).pop(),
-                  child: const Text('Vazgeç'),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    child: const Text('Vazgeç'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _retry(String message, VoidCallback retry) => Padding(
     padding: const EdgeInsets.only(top: 8),
@@ -507,76 +512,79 @@ class _SuggestionField extends StatelessWidget {
   final bool loading;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    enabled: onTap != null,
-    label: '$label, $value',
-    onTap: onTap,
-    child: ExcludeSemantics(
-      child: Material(
-        color: AppColors.inputFill,
-        borderRadius: BorderRadius.circular(15),
-        child: InkWell(
-          onTap: onTap,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: '$label, $value',
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: AppColors.inputFill,
           borderRadius: BorderRadius.circular(15),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
-            constraints: const BoxConstraints(minHeight: 64),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.border),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 11,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(15),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+              constraints: const BoxConstraints(minHeight: 64),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: onTap == null
-                              ? AppColors.textMuted
-                              : AppColors.textPrimary,
+                        const SizedBox(height: 4),
+                        Text(
+                          value,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: onTap == null
+                                ? AppColors.textMuted
+                                : AppColors.textPrimary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                if (loading)
-                  const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else if (onTap != null)
-                  const BrandGradientIcon.social(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 20,
-                  )
-                else
-                  Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 20,
-                    color: AppColors.textMuted,
-                  ),
-              ],
+                  const SizedBox(width: 10),
+                  if (loading)
+                    const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else if (onTap != null)
+                    const BrandGradientIcon.social(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 20,
+                    )
+                  else
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 20,
+                      color: AppColors.textMuted,
+                    ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _SuggestionChoice extends StatelessWidget {
@@ -590,6 +598,7 @@ class _SuggestionChoice extends StatelessWidget {
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final label = switch (value) {
       VenueSuggestionLiveMusic.yes => 'Evet',
       VenueSuggestionLiveMusic.no => 'Hayır',

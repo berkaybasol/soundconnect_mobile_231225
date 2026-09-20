@@ -15,6 +15,7 @@ class _BandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageUrl = uploadedPhotoUrl?.trim().isNotEmpty == true
         ? uploadedPhotoUrl!.trim()
         : profile.profilePictureUrl?.trim();
@@ -33,11 +34,15 @@ class _BandHeader extends StatelessWidget {
               height: 104,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: (AppColors.isLight
+                    ? AppColors.avatarBackground
+                    : Theme.of(context).colorScheme.surfaceContainerHighest),
                 border: Border.all(color: Theme.of(context).dividerColor),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.brandGradient[2].withValues(alpha: 0.35),
+                    color: (AppColors.isLight
+                        ? AppColors.avatarShadow.withValues(alpha: 0.16)
+                        : AppColors.brandGradient[2].withValues(alpha: 0.35)),
                     blurRadius: 18,
                     spreadRadius: 1,
                   ),
@@ -54,13 +59,17 @@ class _BandHeader extends StatelessWidget {
                         cacheHeight: 312,
                         errorBuilder: (context) => Icon(
                           Icons.groups_2_outlined,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: (AppColors.isLight
+                              ? AppColors.avatarForeground
+                              : Theme.of(context).colorScheme.onSurfaceVariant),
                           size: 42,
                         ),
                       )
                     : Icon(
                         Icons.groups_2_outlined,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: (AppColors.isLight
+                            ? AppColors.avatarForeground
+                            : Theme.of(context).colorScheme.onSurfaceVariant),
                         size: 42,
                       ),
               ),
@@ -72,30 +81,45 @@ class _BandHeader extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(999),
                   onTap: uploading ? null : onEditPhoto,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: AppColors.brandGradient),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.navBlueDeep,
-                        width: 2,
-                      ),
-                    ),
-                    child: uploading
-                        ? Padding(
-                            padding: EdgeInsets.all(8),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.white,
+                  child: GradientOutline(
+                    enabled: AppColors.isLight,
+                    radius: 999,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: AppColors.isLight
+                          ? BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.transparent,
+                                width: 2,
+                              ),
+                            )
+                          : BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: AppColors.decorativeGradient,
+                              ),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.navBlueDeep,
+                                width: 2,
+                              ),
                             ),
-                          )
-                        : Icon(
-                            Icons.edit_outlined,
-                            size: 16,
-                            color: AppColors.white,
-                          ),
+                      child: uploading
+                          ? Padding(
+                              padding: EdgeInsets.all(8),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.decorativeForeground,
+                              ),
+                            )
+                          : Icon(
+                              Icons.edit_outlined,
+                              size: 16,
+                              color: AppColors.decorativeForeground,
+                            ),
+                    ),
                   ),
                 ),
               ),
@@ -115,6 +139,7 @@ class _BandMembersRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (items.isEmpty) {
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20),
@@ -146,7 +171,7 @@ class _BandMembersRow extends StatelessWidget {
                   excludeFromSemantics: true,
                   child: ShaderMask(
                     shaderCallback: (bounds) => LinearGradient(
-                      colors: AppColors.brandGradient,
+                      colors: AppColors.decorativeGradient,
                     ).createShader(bounds),
                     blendMode: BlendMode.srcIn,
                     child: const Icon(
@@ -199,8 +224,11 @@ class _BandVenuesRow extends StatelessWidget {
   _BandVenuesRow({required this.items});
 
   @override
-  Widget build(BuildContext context) => VenueNameCarousel(
-    items: items,
-    emptyMessage: 'Henüz bir mekan eklenmedi.',
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return VenueNameCarousel(
+      items: items,
+      emptyMessage: 'Henüz bir mekan eklenmedi.',
+    );
+  }
 }

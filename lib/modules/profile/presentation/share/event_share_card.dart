@@ -69,7 +69,7 @@ class EventShareCard extends StatelessWidget {
                         ),
                         const Spacer(),
                         const Text(
-                          'ETKİNLİK',
+                          'ETKÄ°NLÄ°K',
                           style: TextStyle(
                             color: _muted,
                             fontSize: 8,
@@ -86,7 +86,7 @@ class EventShareCard extends StatelessWidget {
                         padding: const EdgeInsets.all(0.8),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: AppColors.brandGradient,
+                            colors: AppColors.originalDark.brandGradient,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -119,13 +119,11 @@ class EventShareCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(22),
                           gradient: LinearGradient(
                             colors: [
-                              AppColors.brandGradient.first.withValues(
-                                alpha: 0.7,
-                              ),
+                              AppColors.originalDark.brandGradient.first
+                                  .withValues(alpha: 0.7),
                               const Color(0xFF333446),
-                              AppColors.brandGradient.last.withValues(
-                                alpha: 0.7,
-                              ),
+                              AppColors.originalDark.brandGradient.last
+                                  .withValues(alpha: 0.7),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -164,8 +162,9 @@ class EventShareCard extends StatelessWidget {
                                                   gradient: LinearGradient(
                                                     begin: Alignment.topCenter,
                                                     end: Alignment.bottomCenter,
-                                                    colors:
-                                                        AppColors.brandGradient,
+                                                    colors: AppColors
+                                                        .originalDark
+                                                        .brandGradient,
                                                   ),
                                                 ),
                                               ),
@@ -196,7 +195,7 @@ class EventShareCard extends StatelessWidget {
                                                             (part) =>
                                                                 part.isNotEmpty,
                                                           )
-                                                          .join(' · '),
+                                                          .join(' Â· '),
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,
@@ -229,7 +228,7 @@ class EventShareCard extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 12),
                                           const Text(
-                                            'SANATÇI / GRUP',
+                                            'SANATÃ‡I / GRUP',
                                             style: TextStyle(
                                               color: _muted,
                                               fontSize: 8,
@@ -338,7 +337,7 @@ class EventShareCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            'Etkinlik detayları SoundConnect’te',
+                            'Etkinlik detaylarÄ± SoundConnectâ€™te',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 10, color: _muted),
@@ -473,7 +472,7 @@ class _OrbitPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.3
         ..shader = LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.originalDark.brandGradient,
         ).createShader(orbit),
     );
     canvas.restore();

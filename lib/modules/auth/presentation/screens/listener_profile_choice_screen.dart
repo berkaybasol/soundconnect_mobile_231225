@@ -32,6 +32,7 @@ class ListenerProfileChoiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final completeChoice = choiceCompletion ?? _sessionChoiceCompletion();
     final performLogout = logout ?? _sessionLogout();
     return ListenerProfileTheme(
@@ -86,6 +87,7 @@ class _ListenerProfileChoiceViewState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final compactAccountSwitch =
         MediaQuery.sizeOf(context).width < 360 ||
         MediaQuery.textScalerOf(context).scale(1) > 1.5;
@@ -354,6 +356,7 @@ class _ChoiceContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final minimumContentHeight =
         (MediaQuery.sizeOf(context).height -
                 MediaQuery.paddingOf(context).vertical -
@@ -533,7 +536,11 @@ class _ProfileChoiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final theme = Theme.of(context);
+    final decorationColors = AppColors.isLight
+        ? AppColors.decorativeGradient
+        : accentColors;
     return Semantics(
       button: true,
       enabled: enabled,
@@ -546,12 +553,12 @@ class _ProfileChoiceCard extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: accentColors,
+              colors: decorationColors,
             ),
             borderRadius: BorderRadius.circular(25),
             boxShadow: [
               BoxShadow(
-                color: accentColors.last.withValues(alpha: 0.18),
+                color: decorationColors.last.withValues(alpha: 0.18),
                 blurRadius: 26,
                 spreadRadius: -8,
                 offset: const Offset(0, 12),
@@ -561,7 +568,9 @@ class _ProfileChoiceCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(1.25),
             child: Material(
-              color: const Color(0xFF111827),
+              color: (AppColors.isOriginalDark
+                  ? const Color(0xFF111827)
+                  : AppColors.navBlue),
               borderRadius: BorderRadius.circular(24),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
@@ -587,12 +596,14 @@ class _ProfileChoiceCard extends StatelessWidget {
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  accentColors.first.withValues(alpha: 0.20),
-                                  accentColors.last.withValues(alpha: 0.08),
+                                  decorationColors.first.withValues(
+                                    alpha: 0.20,
+                                  ),
+                                  decorationColors.last.withValues(alpha: 0.08),
                                 ],
                               ),
                               border: Border.all(
-                                color: accentColors.first.withValues(
+                                color: decorationColors.first.withValues(
                                   alpha: 0.26,
                                 ),
                               ),
@@ -629,13 +640,13 @@ class _ProfileChoiceCard extends StatelessWidget {
                               height: 19,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.2,
-                                color: accentColors.first,
+                                color: decorationColors.first,
                               ),
                             )
                           : Icon(
                               Icons.arrow_forward_rounded,
                               size: 19,
-                              color: accentColors.first,
+                              color: decorationColors.first,
                             ),
                     ),
                   ],
@@ -654,6 +665,7 @@ class _GhostChoiceIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(12),
       child: ShaderMask(
@@ -661,7 +673,7 @@ class _GhostChoiceIcon extends StatelessWidget {
         shaderCallback: (bounds) => LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: AppColors.brandGradient,
+          colors: AppColors.decorativeGradient,
         ).createShader(bounds),
         child: Image.asset(
           'assets/ghost (1).png',
@@ -679,6 +691,7 @@ class _SocialChoiceIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Image.asset(
       'assets/logo.png',
       key: const Key('listener-choice-social-icon'),
@@ -698,6 +711,7 @@ class _AmbientGlow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return IgnorePointer(
       child: Container(
         width: size,
@@ -719,6 +733,7 @@ class _LoadFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final effectiveMessage = message?.trim();
     return Center(
       child: SingleChildScrollView(

@@ -179,6 +179,7 @@ class _ListenerEventPostCommentsSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_eligible) {
       return const SafeArea(
         top: false,
@@ -218,7 +219,7 @@ class _ListenerEventPostCommentsSheetState
     return BlocProvider.value(
       value: _thread!,
       child: ColoredBox(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         child: SafeArea(
           top: false,
           child: LayoutBuilder(

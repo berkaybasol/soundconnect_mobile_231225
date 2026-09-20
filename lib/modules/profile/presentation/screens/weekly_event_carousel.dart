@@ -64,6 +64,7 @@ class _WeeklyEventCarouselState extends State<WeeklyEventCarousel>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final items = widget.items.where(_inCurrentWeek).toList(growable: false);
     final compactTitle = widget.compactTitle;
     if (items.isEmpty) {

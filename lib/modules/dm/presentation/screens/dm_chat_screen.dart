@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../profile/domain/entities/listener_visibility_context.dart';
 import '../../../profile/domain/entities/listener_visibility_mode.dart';
 import '../../domain/dm_user_profile_resolver.dart';
@@ -46,6 +47,7 @@ class DmChatScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return BlocProvider(
       create: (_) => serviceLocator<DmChatCubit>(),
       child: DmVisualThemeScope(child: _DmChatView()),
@@ -155,6 +157,7 @@ class _DmChatViewState extends State<_DmChatView> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final args = _args;
     final deleted = context.select<DmChatCubit, bool>(
       (cubit) => cubit.state.recipientDeleted,
@@ -448,40 +451,50 @@ class _DmChatViewState extends State<_DmChatView> {
           const SizedBox(width: 9),
           BlocBuilder<DmChatCubit, DmChatState>(
             builder: (context, state) {
-              return Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: AppColors.socialGradient,
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.socialPink.withValues(alpha: 0.22),
-                      blurRadius: 16,
-                      spreadRadius: -4,
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  onPressed: state.sending ? null : _send,
-                  icon: state.sending
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.white,
+              return GradientOutline(
+                enabled: AppColors.isLight,
+                radius: 23,
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.isLight
+                        ? null
+                        : LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: AppColors.actionSocialGradient,
                           ),
-                        )
-                      : const Icon(
-                          Icons.arrow_upward_rounded,
-                          color: AppColors.white,
-                          size: 21,
-                        ),
+                    shape: BoxShape.circle,
+                    boxShadow: AppColors.isLight
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: AppColors.socialPink.withValues(
+                                alpha: 0.22,
+                              ),
+                              blurRadius: 16,
+                              spreadRadius: -4,
+                            ),
+                          ],
+                  ),
+                  child: IconButton(
+                    onPressed: state.sending ? null : _send,
+                    icon: state.sending
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.actionForeground,
+                            ),
+                          )
+                        : Icon(
+                            Icons.arrow_upward_rounded,
+                            color: AppColors.actionForeground,
+                            size: 21,
+                          ),
+                  ),
                 ),
               );
             },
@@ -622,6 +635,7 @@ class _DateHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final text = _formatDate(date);
     if (text.isEmpty) return SizedBox.shrink();
     return Padding(
@@ -686,6 +700,7 @@ class _DmMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final timeText = _formatTime(message.sentAt);
     final colors = Theme.of(context).colorScheme;
     final bubble = Container(
@@ -698,7 +713,9 @@ class _DmMessageBubble extends StatelessWidget {
             ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [AppColors.gradientA, AppColors.gradientC],
+                colors: AppColors.isLight
+                    ? AppColors.actionGradient
+                    : [AppColors.gradientA, AppColors.gradientC],
               )
             : null,
         color: isMine ? null : colors.surfaceContainerHigh,
@@ -724,7 +741,12 @@ class _DmMessageBubble extends StatelessWidget {
         children: [
           Text(
             message.content,
-            style: TextStyle(color: colors.onSurface, height: 1.32),
+            style: TextStyle(
+              color: isMine && colors.brightness == Brightness.light
+                  ? AppColors.onAccent
+                  : colors.onSurface,
+              height: 1.32,
+            ),
           ),
           SizedBox(height: 4),
           Row(
@@ -734,7 +756,7 @@ class _DmMessageBubble extends StatelessWidget {
                 timeText,
                 style: TextStyle(
                   color: isMine
-                      ? AppColors.white.withValues(alpha: 0.84)
+                      ? AppColors.actionForeground.withValues(alpha: 0.84)
                       : colors.onSurfaceVariant,
                   fontSize: 11,
                 ),
@@ -747,8 +769,8 @@ class _DmMessageBubble extends StatelessWidget {
                       : Icons.done_all_rounded,
                   size: 14,
                   color: message.readAt == null
-                      ? AppColors.white.withValues(alpha: 0.78)
-                      : AppColors.white,
+                      ? AppColors.actionForeground.withValues(alpha: 0.78)
+                      : AppColors.actionForeground,
                 ),
               ],
             ],

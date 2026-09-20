@@ -162,6 +162,7 @@ class _EventCalendarVisibilityHelpState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     if (widget.iconOnly) {
       return Tooltip(
@@ -249,7 +250,9 @@ class _EventCalendarVisibilityHelpState
                             fontSize: 12,
                             height: 1.4,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.brandGradient[1],
+                            color: AppColors.isLight
+                                ? AppColors.accentText
+                                : AppColors.brandGradient[1],
                           ),
                         ),
                       ],
@@ -278,6 +281,7 @@ class _VisibilityNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       key: const Key('event-calendar-visibility-notice'),

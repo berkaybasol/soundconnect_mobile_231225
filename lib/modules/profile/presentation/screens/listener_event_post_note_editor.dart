@@ -55,56 +55,61 @@ class _ListenerEventPostNoteEditorState
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_saving,
-    child: AlertDialog(
-      title: const Text('Açıklamayı düzenle'),
-      content: SingleChildScrollView(
-        child: SizedBox(
-          width: 360,
-          child: TextField(
-            key: const Key('listener-post-note-input'),
-            controller: _text,
-            enabled: !_saving,
-            minLines: 2,
-            maxLines: 5,
-            maxLength: 500,
-            buildCounter:
-                (
-                  context, {
-                  required currentLength,
-                  required isFocused,
-                  required maxLength,
-                }) {
-                  // The API validates Unicode code points; Flutter's default
-                  // counter treats a multi-code-point emoji as one character.
-                  final length = _text.text.trim().runes.length;
-                  return Text(
-                    '$length / $maxLength',
-                    style: length > maxLength!
-                        ? TextStyle(color: Theme.of(context).colorScheme.error)
-                        : null,
-                  );
-                },
-            decoration: InputDecoration(
-              hintText: 'Etkinlik hakkında birkaç söz…',
-              errorText: _error,
-              errorMaxLines: 4,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return PopScope(
+      canPop: !_saving,
+      child: AlertDialog(
+        title: const Text('Açıklamayı düzenle'),
+        content: SingleChildScrollView(
+          child: SizedBox(
+            width: 360,
+            child: TextField(
+              key: const Key('listener-post-note-input'),
+              controller: _text,
+              enabled: !_saving,
+              minLines: 2,
+              maxLines: 5,
+              maxLength: 500,
+              buildCounter:
+                  (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    required maxLength,
+                  }) {
+                    // The API validates Unicode code points; Flutter's default
+                    // counter treats a multi-code-point emoji as one character.
+                    final length = _text.text.trim().runes.length;
+                    return Text(
+                      '$length / $maxLength',
+                      style: length > maxLength!
+                          ? TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            )
+                          : null,
+                    );
+                  },
+              decoration: InputDecoration(
+                hintText: 'Etkinlik hakkında birkaç söz…',
+                errorText: _error,
+                errorMaxLines: 4,
+              ),
             ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : () => Navigator.of(context).pop(),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            key: const Key('listener-post-note-save'),
+            onPressed: _saving ? null : _save,
+            child: Text(_saving ? 'Kaydediliyor…' : 'Kaydet'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Vazgeç'),
-        ),
-        TextButton(
-          key: const Key('listener-post-note-save'),
-          onPressed: _saving ? null : _save,
-          child: Text(_saving ? 'Kaydediliyor…' : 'Kaydet'),
-        ),
-      ],
-    ),
-  );
+    );
+  }
 }

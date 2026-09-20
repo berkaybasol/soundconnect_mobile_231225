@@ -61,6 +61,7 @@ class _MusicChipState extends State<_MusicChip> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final post = widget.post;
     final url = post.spotifyTrackUrl?.trim() ?? '';
     return FutureBuilder<SpotifyTrackPreview?>(
@@ -101,7 +102,7 @@ class _MusicChipState extends State<_MusicChip> {
                                         : fallback),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: OverthinkingPalette.text,
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
@@ -115,7 +116,7 @@ class _MusicChipState extends State<_MusicChip> {
                                     'Bu yazıya eşlik ediyor',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: OverthinkingPalette.muted,
                             fontSize: 10,
                           ),
@@ -131,7 +132,7 @@ class _MusicChipState extends State<_MusicChip> {
                       color: AppColors.spotifyGreen,
                     )
                   else
-                    const Icon(
+                    Icon(
                       Icons.music_note_rounded,
                       size: 20,
                       color: OverthinkingPalette.lilac,
@@ -152,8 +153,9 @@ class _SpotifyArtwork extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final safeUrl = trustedSpotifyArtworkUrl(url);
-    const fallback = Icon(
+    final fallback = Icon(
       Icons.music_note_rounded,
       color: OverthinkingPalette.lilac,
       size: 22,
@@ -187,53 +189,56 @@ class _TrackTile extends StatelessWidget {
   final VoidCallback? onTap;
   final Widget? trailing;
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(12),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          _SpotifyArtwork(url: track.albumImageUrl, size: 46),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  track.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: OverthinkingPalette.text,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            _SpotifyArtwork(url: track.albumImageUrl, size: 46),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    track.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: OverthinkingPalette.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  track.artistNames.join(', '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: OverthinkingPalette.muted,
-                    fontSize: 11,
+                  const SizedBox(height: 4),
+                  Text(
+                    track.artistNames.join(', '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: OverthinkingPalette.muted,
+                      fontSize: 11,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          trailing ??
-              const Icon(
-                Icons.add_circle_outline_rounded,
-                color: OverthinkingPalette.accent,
-                size: 21,
+                ],
               ),
-        ],
+            ),
+            const SizedBox(width: 10),
+            trailing ??
+                Icon(
+                  Icons.add_circle_outline_rounded,
+                  color: OverthinkingPalette.accent,
+                  size: 21,
+                ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _OverthinkingSpotifyPickerSheet extends StatefulWidget {
@@ -299,118 +304,121 @@ class _OverthinkingSpotifyPickerSheetState
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-    child: SafeArea(
-      top: false,
-      child: SizedBox(
-        height:
-            (MediaQuery.sizeOf(context).height * .76 -
-                    MediaQuery.viewInsetsOf(context).bottom)
-                .clamp(220.0, 680.0),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: OverthinkingPalette.border,
-                    borderRadius: BorderRadius.circular(5),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height:
+              (MediaQuery.sizeOf(context).height * .76 -
+                      MediaQuery.viewInsetsOf(context).bottom)
+                  .clamp(220.0, 680.0),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: OverthinkingPalette.border,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 23),
-              const OverthinkingEyebrow(
-                'Spotify',
-                color: OverthinkingPalette.lilac,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Şarkı seç',
-                style: TextStyle(
-                  color: OverthinkingPalette.text,
-                  fontSize: 23,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.5,
-                ),
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                key: const ValueKey('overthinking-spotify-search'),
-                controller: _queryController,
-                onChanged: _onChanged,
-                onSubmitted: (_) => _search(),
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: 'Şarkı veya sanatçı ara',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  filled: true,
-                  fillColor: OverthinkingPalette.surfaceRaised,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (_loading)
-                const LinearProgressIndicator(
-                  minHeight: 2,
+                const SizedBox(height: 23),
+                OverthinkingEyebrow(
+                  'Spotify',
                   color: OverthinkingPalette.lilac,
                 ),
-              Expanded(
-                child: _results.isNotEmpty
-                    ? ListView.separated(
-                        itemCount: _results.length,
-                        separatorBuilder: (_, _) => const Divider(
-                          height: 1,
-                          color: OverthinkingPalette.border,
+                const SizedBox(height: 8),
+                Text(
+                  'Şarkı seç',
+                  style: TextStyle(
+                    color: OverthinkingPalette.text,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.5,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  key: const ValueKey('overthinking-spotify-search'),
+                  controller: _queryController,
+                  onChanged: _onChanged,
+                  onSubmitted: (_) => _search(),
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: 'Şarkı veya sanatçı ara',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    filled: true,
+                    fillColor: OverthinkingPalette.surfaceRaised,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (_loading)
+                  LinearProgressIndicator(
+                    minHeight: 2,
+                    color: OverthinkingPalette.lilac,
+                  ),
+                Expanded(
+                  child: _results.isNotEmpty
+                      ? ListView.separated(
+                          itemCount: _results.length,
+                          separatorBuilder: (_, _) => Divider(
+                            height: 1,
+                            color: OverthinkingPalette.border,
+                          ),
+                          itemBuilder: (context, index) => _TrackTile(
+                            track: _results[index],
+                            onTap: () =>
+                                Navigator.of(context).pop(_results[index]),
+                          ),
+                        )
+                      : ListView(
+                          children: [
+                            if (!_loading)
+                              OverthinkingEmptyState(
+                                icon: _error != null
+                                    ? Icons.wifi_off_rounded
+                                    : Icons.music_note_outlined,
+                                title: _error != null
+                                    ? 'Şarkılara ulaşamadık'
+                                    : _searched
+                                    ? 'Bu aramada şarkı yok'
+                                    : 'Yazına bir şarkı eşlik etsin.',
+                                message:
+                                    _error ??
+                                    (_searched
+                                        ? 'Başka bir şarkı ya da sanatçı adı deneyebilirsin.'
+                                        : 'Aramak için en az iki karakter yaz.'),
+                                action: _error != null
+                                    ? TextButton(
+                                        onPressed: _search,
+                                        child: const Text('Yeniden dene'),
+                                      )
+                                    : null,
+                              ),
+                          ],
                         ),
-                        itemBuilder: (context, index) => _TrackTile(
-                          track: _results[index],
-                          onTap: () =>
-                              Navigator.of(context).pop(_results[index]),
-                        ),
-                      )
-                    : ListView(
-                        children: [
-                          if (!_loading)
-                            OverthinkingEmptyState(
-                              icon: _error != null
-                                  ? Icons.wifi_off_rounded
-                                  : Icons.music_note_outlined,
-                              title: _error != null
-                                  ? 'Şarkılara ulaşamadık'
-                                  : _searched
-                                  ? 'Bu aramada şarkı yok'
-                                  : 'Yazına bir şarkı eşlik etsin.',
-                              message:
-                                  _error ??
-                                  (_searched
-                                      ? 'Başka bir şarkı ya da sanatçı adı deneyebilirsin.'
-                                      : 'Aramak için en az iki karakter yaz.'),
-                              action: _error != null
-                                  ? TextButton(
-                                      onPressed: _search,
-                                      child: const Text('Yeniden dene'),
-                                    )
-                                  : null,
-                            ),
-                        ],
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

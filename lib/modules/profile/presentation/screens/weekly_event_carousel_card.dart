@@ -68,6 +68,7 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final event = widget.event;
     final compactTitle = widget.compactTitle;
     final timeLabel = _displayTimeLabel();
@@ -176,8 +177,12 @@ class _WeeklyEventCardState extends State<_WeeklyEventCard> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              AppColors.navBlueDeep.withValues(alpha: 0.86),
-                              AppColors.navBlueDeep.withValues(alpha: 0.54),
+                              AppColors.originalDark.navBlueDeep.withValues(
+                                alpha: 0.86,
+                              ),
+                              AppColors.originalDark.navBlueDeep.withValues(
+                                alpha: 0.54,
+                              ),
                               Colors.transparent,
                             ],
                           ),

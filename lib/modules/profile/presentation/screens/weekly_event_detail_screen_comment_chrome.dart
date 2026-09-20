@@ -4,91 +4,94 @@ class _EventEndedNotice extends StatelessWidget {
   const _EventEndedNotice();
 
   @override
-  Widget build(BuildContext context) => _EventCommentFrame(
-    frameKey: const Key('event-ended-notice'),
-    radius: 16,
-    borderColors: const [Color(0x805F365E), Color(0x806F429C)],
-    child: Stack(
-      children: [
-        const Positioned(
-          right: 0,
-          bottom: 0,
-          child: IgnorePointer(
-            child: ExcludeSemantics(
-              child: RepaintBoundary(
-                child: SizedBox(
-                  width: 116,
-                  height: 62,
-                  child: CustomPaint(painter: _EventEndWavePainter()),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _EventCommentFrame(
+      frameKey: const Key('event-ended-notice'),
+      radius: 16,
+      borderColors: [AppColors.legacy(Color(0x805F365E)), Color(0x806F429C)],
+      child: Stack(
+        children: [
+          const Positioned(
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: RepaintBoundary(
+                  child: SizedBox(
+                    width: 116,
+                    height: 62,
+                    child: CustomPaint(painter: _EventEndWavePainter()),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-          child: Row(
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: AppColors.brandGradient),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(1),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                    ),
-                    child: const BrandGradientIcon.social(
-                      Icons.schedule_rounded,
-                      size: 23,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+            child: Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(colors: AppColors.brandGradient),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(1),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                      ),
+                      child: const BrandGradientIcon.social(
+                        Icons.schedule_rounded,
+                        size: 23,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 18),
-              Container(
-                width: .8,
-                height: 28,
-                color: AppColors.textMuted.withValues(alpha: .45),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bu etkinlik sona erdi.',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Etkinliğe gösterdiğin ilgi için teşekkürler!',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                        fontSize: 11.5,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 18),
+                Container(
+                  width: .8,
+                  height: 28,
+                  color: AppColors.textMuted.withValues(alpha: .45),
                 ),
-              ),
-            ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Bu etkinlik sona erdi.',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Etkinliğe gösterdiğin ilgi için teşekkürler!',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 11.5,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _EventCommentsHeading extends StatelessWidget {
@@ -97,6 +100,7 @@ class _EventCommentsHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final unknown =
         state.comments.isEmpty && (state.loading || state.error != null);
     final count = unknown
@@ -143,7 +147,10 @@ class _EventCommentsHeading extends StatelessWidget {
               child: _EventCommentFrame(
                 frameKey: const Key('event-comment-count'),
                 radius: 24,
-                borderColors: const [Color(0x70564776), Color(0x70564776)],
+                borderColors: [
+                  AppColors.legacy(Color(0x70564776)),
+                  AppColors.legacy(Color(0x70564776)),
+                ],
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -177,26 +184,29 @@ class _EventCommentComposerSurface extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Container(
-    key: const Key('event-comment-composer-surface'),
-    padding: const EdgeInsets.fromLTRB(16, 13, 12, 12),
-    decoration: BoxDecoration(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Theme.of(context).colorScheme.surfaceContainerHighest,
-          AppColors.navBlueDeep,
-        ],
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Container(
+      key: const Key('event-comment-composer-surface'),
+      padding: const EdgeInsets.fromLTRB(16, 13, 12, 12),
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Theme.of(context).colorScheme.surfaceContainerHighest,
+            AppColors.navBlueDeep,
+          ],
+        ),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: .8),
+          width: .8,
+        ),
       ),
-      border: Border.all(
-        color: AppColors.border.withValues(alpha: .8),
-        width: .8,
-      ),
-    ),
-    child: child,
-  );
+      child: child,
+    );
+  }
 }
 
 class _EventCommentInputFrame extends StatelessWidget {
@@ -204,16 +214,19 @@ class _EventCommentInputFrame extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => _EventCommentFrame(
-    frameKey: const Key('event-comment-input-frame'),
-    radius: 23,
-    borderColors: [
-      AppColors.brandGradient.first.withValues(alpha: .7),
-      AppColors.brandGradient.last.withValues(alpha: .6),
-    ],
-    glow: true,
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _EventCommentFrame(
+      frameKey: const Key('event-comment-input-frame'),
+      radius: 23,
+      borderColors: [
+        AppColors.brandGradient.first.withValues(alpha: .7),
+        AppColors.brandGradient.last.withValues(alpha: .6),
+      ],
+      glow: true,
+      child: child,
+    );
+  }
 }
 
 class _EventCommentFrame extends StatelessWidget {
@@ -232,6 +245,7 @@ class _EventCommentFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       key: frameKey,

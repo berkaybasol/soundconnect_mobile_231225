@@ -145,14 +145,16 @@ class _ListenerEventPostEngagementState
   }
 
   @override
-  Widget build(BuildContext context) =>
-      BlocBuilder<InteractionStatsCubit, InteractionStatsState>(
-        bloc: _stats,
-        builder: (context, state) => widget.builder(
-          state.items['$_targetType:${widget.postId}'] ??
-              const InteractionStatsItemState.idle(),
-          () => unawaited(_toggleLike()),
-          _refresh,
-        ),
-      );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return BlocBuilder<InteractionStatsCubit, InteractionStatsState>(
+      bloc: _stats,
+      builder: (context, state) => widget.builder(
+        state.items['$_targetType:${widget.postId}'] ??
+            const InteractionStatsItemState.idle(),
+        () => unawaited(_toggleLike()),
+        _refresh,
+      ),
+    );
+  }
 }

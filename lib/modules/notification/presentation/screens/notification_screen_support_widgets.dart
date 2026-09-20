@@ -11,19 +11,20 @@ class _NotificationTypeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final avatarUrl = _notificationAvatarUrl;
     if ((_isDmNotification ||
             _isSocialNotification ||
             _isArtistVenueNotification ||
             _isEventPerformerNotification) &&
         avatarUrl.isNotEmpty) {
-      return Container(
+      final avatar = Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: unread
-              ? LinearGradient(colors: AppColors.brandGradient)
+          gradient: unread && AppColors.isOriginalDark
+              ? LinearGradient(colors: AppColors.decorativeGradient)
               : null,
         ),
         padding: unread ? const EdgeInsets.all(2) : EdgeInsets.zero,
@@ -35,6 +36,18 @@ class _NotificationTypeIcon extends StatelessWidget {
           ),
         ),
       );
+      if (AppColors.isLight) {
+        return GradientOutline(
+          radius: 20,
+          colors: unread
+              ? AppColors.decorativeGradient
+              : AppColors.decorativeGradient
+                    .map((color) => color.withValues(alpha: 0.55))
+                    .toList(growable: false),
+          child: avatar,
+        );
+      }
+      return avatar;
     }
     return _iconContainer(context, _iconForType);
   }
@@ -93,6 +106,15 @@ class _NotificationTypeIcon extends StatelessWidget {
   }
 
   Widget _fallbackIcon(BuildContext context) {
+    if (AppColors.isLight) {
+      return Center(
+        child: Icon(
+          _iconForType,
+          color: Theme.of(context).colorScheme.onSurface,
+          size: 21,
+        ),
+      );
+    }
     return _iconContainer(context, _iconForType);
   }
 
@@ -122,13 +144,31 @@ class _NotificationTypeIcon extends StatelessWidget {
   }
 
   Widget _iconContainer(BuildContext context, IconData icon) {
+    if (AppColors.isLight) {
+      return GradientOutline(
+        radius: 20,
+        colors: unread
+            ? AppColors.decorativeGradient
+            : AppColors.decorativeGradient
+                  .map((color) => color.withValues(alpha: 0.55))
+                  .toList(growable: false),
+        child: SizedBox.square(
+          dimension: 40,
+          child: Icon(
+            icon,
+            color: Theme.of(context).colorScheme.onSurface,
+            size: 21,
+          ),
+        ),
+      );
+    }
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: unread
-            ? LinearGradient(colors: AppColors.brandGradient)
+            ? LinearGradient(colors: AppColors.decorativeGradient)
             : null,
         color: unread
             ? null
@@ -136,7 +176,9 @@ class _NotificationTypeIcon extends StatelessWidget {
       ),
       child: Icon(
         icon,
-        color: unread ? Colors.white : Theme.of(context).colorScheme.onSurface,
+        color: unread && AppColors.isOriginalDark
+            ? Colors.white
+            : Theme.of(context).colorScheme.onSurface,
         size: 21,
       ),
     );
@@ -150,6 +192,7 @@ class _SocialProfileTargetSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SafeArea(
       child: ListView.separated(
         shrinkWrap: true,
@@ -211,6 +254,7 @@ class _NotificationLoadingList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return const Center(child: CircularProgressIndicator());
   }
 }
@@ -220,6 +264,7 @@ class _EmptyNotifications extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(24, 120, 24, 24),

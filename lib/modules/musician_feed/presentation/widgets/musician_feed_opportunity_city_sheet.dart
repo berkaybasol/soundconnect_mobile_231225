@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../location/domain/entities/city.dart';
 import '../../../location/domain/location_repository.dart';
 import '../../domain/musician_feed_preferences.dart';
@@ -70,6 +71,7 @@ class _OpportunityCitySheetFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final mediaQuery = MediaQuery.of(context);
     final keyboardInset = mediaQuery.viewInsets.bottom;
     final keyboardVisible = keyboardInset > 0;
@@ -236,7 +238,9 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
                     Text(
                       'AKIŞ TERCİHİ',
                       style: TextStyle(
-                        color: AppColors.socialPink,
+                        color: AppColors.isLight
+                            ? AppColors.accentText
+                            : AppColors.socialPink,
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.25,
@@ -510,7 +514,9 @@ class _OpportunityCitySheetState extends State<_OpportunityCitySheet> {
                     child: Text(
                       'Seçili',
                       style: TextStyle(
-                        color: AppColors.coralLight,
+                        color: AppColors.isLight
+                            ? AppColors.accentText
+                            : AppColors.coralLight,
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
                       ),
@@ -539,10 +545,12 @@ class _OpportunityCityHeaderIcon extends StatelessWidget {
       padding: const EdgeInsets.all(1.2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * .33),
-        gradient: LinearGradient(colors: AppColors.brandGradient),
+        gradient: LinearGradient(colors: AppColors.decorativeGradient),
         boxShadow: [
           BoxShadow(
-            color: AppColors.socialPurple.withValues(alpha: 0.18),
+            color: AppColors.isLight
+                ? AppColors.avatarShadow.withValues(alpha: 0.12)
+                : AppColors.socialPurple.withValues(alpha: 0.18),
             blurRadius: 20,
             spreadRadius: -6,
           ),
@@ -654,81 +662,87 @@ class _OpportunityCitySaveButton extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final enabled = onPressed != null && !loading;
     final highlighted = onPressed != null || loading;
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 160),
-        opacity: highlighted ? 1 : 0.58,
-        child: Container(
-          key: const Key('musician-feed-city-save'),
-          constraints: const BoxConstraints(minHeight: 52),
-          decoration: BoxDecoration(
-            color: highlighted ? null : colors.surfaceContainerHigh,
-            gradient: highlighted
-                ? LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: AppColors.socialGradient,
-                  )
-                : null,
-            borderRadius: BorderRadius.circular(17),
-            border: highlighted ? null : Border.all(color: colors.outline),
-            boxShadow: highlighted
-                ? [
-                    BoxShadow(
-                      color: AppColors.socialPink.withValues(alpha: 0.22),
-                      blurRadius: 18,
-                      spreadRadius: -6,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(17),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: enabled ? onPressed : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (loading)
-                      const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.white,
-                        ),
-                      )
-                    else
-                      Icon(
-                        Icons.check_rounded,
-                        size: 20,
-                        color: highlighted
-                            ? AppColors.white
-                            : colors.onSurfaceVariant,
+    return GradientOutline(
+      enabled: AppColors.isLight && highlighted,
+      radius: 17,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 160),
+          opacity: highlighted ? 1 : 0.58,
+          child: Container(
+            key: const Key('musician-feed-city-save'),
+            constraints: const BoxConstraints(minHeight: 52),
+            decoration: BoxDecoration(
+              color: highlighted ? null : colors.surfaceContainerHigh,
+              gradient: highlighted && AppColors.isOriginalDark
+                  ? LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: AppColors.actionSocialGradient,
+                    )
+                  : null,
+              borderRadius: BorderRadius.circular(17),
+              border: highlighted ? null : Border.all(color: colors.outline),
+              boxShadow: highlighted && AppColors.isOriginalDark
+                  ? [
+                      BoxShadow(
+                        color: AppColors.socialPink.withValues(alpha: 0.22),
+                        blurRadius: 18,
+                        spreadRadius: -6,
                       ),
-                    const SizedBox(width: 9),
-                    Flexible(
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
+                    ]
+                  : null,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(17),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: enabled ? onPressed : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (loading)
+                        SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.isOriginalDark || highlighted
+                                ? AppColors.actionForeground
+                                : colors.onSurfaceVariant,
+                          ),
+                        )
+                      else
+                        Icon(
+                          Icons.check_rounded,
+                          size: 20,
                           color: highlighted
-                              ? AppColors.white
+                              ? AppColors.actionForeground
                               : colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
+                        ),
+                      const SizedBox(width: 9),
+                      Flexible(
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: highlighted
+                                ? AppColors.actionForeground
+                                : colors.onSurfaceVariant,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

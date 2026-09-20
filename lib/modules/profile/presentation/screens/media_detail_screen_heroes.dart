@@ -15,6 +15,7 @@ class _VideoHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final c = controller;
     final showVideo = ready && c != null && c.value.isInitialized;
     final isPlaying = showVideo && c.value.isPlaying;
@@ -103,6 +104,7 @@ class _ImageHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final url = imageUrl?.trim();
     return Container(
       height: 320,
@@ -169,6 +171,7 @@ class _CountRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       children: [
         InkWell(

@@ -40,15 +40,18 @@ class CollabIncomingApplicationsScreen extends StatelessWidget {
   final CollabIncomingApplicationsCubit? cubit;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabIncomingApplicationsScreenContent(
-      listingId: listingId,
-      listingTitle: listingTitle,
-      initialApplicationId: initialApplicationId,
-      showBottomNavigation: showBottomNavigation,
-      cubit: cubit,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabIncomingApplicationsScreenContent(
+        listingId: listingId,
+        listingTitle: listingTitle,
+        initialApplicationId: initialApplicationId,
+        showBottomNavigation: showBottomNavigation,
+        cubit: cubit,
+      ),
+    );
+  }
 }
 
 class _CollabIncomingApplicationsScreenContent extends StatefulWidget {
@@ -453,6 +456,7 @@ class _StatusRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     const options = <(CollabApplicationStatus?, String)>[
       (null, 'Tümü'),
       (CollabApplicationStatus.pending, 'Bekliyor'),
@@ -608,16 +612,21 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Text(
-        'Bu filtreye uygun başvuru bulunmuyor.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'Bu filtreye uygun başvuru bulunmuyor.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _LoadError extends StatelessWidget {
@@ -627,24 +636,27 @@ class _LoadError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            message ?? 'Başvurular yüklenemedi.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Yeniden dene'),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message ?? 'Başvurular yüklenemedi.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Yeniden dene'),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

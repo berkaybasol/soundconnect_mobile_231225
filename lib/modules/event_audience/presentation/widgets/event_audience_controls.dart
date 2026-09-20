@@ -290,6 +290,7 @@ class _EventAudienceControlsState extends State<EventAudienceControls> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final controller = _controller;
     if (controller == null || !controller.allowed) {
       return const SizedBox.shrink();
@@ -761,147 +762,153 @@ class _AudienceManagementSheetState extends State<_AudienceManagementSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.controller,
-    builder: (context, _) {
-      final controller = widget.controller;
-      if (!controller.sameSession(widget.expected)) {
-        return const SizedBox.shrink();
-      }
-      final value = controller.state;
-      final revision = controller.revision;
-      final enabled = !controller.busy && !controller.needsRefresh;
-      Widget action(
-        String key,
-        String label,
-        IconData icon,
-        _AudienceActionKind kind, {
-        EventAudienceStatus? intent,
-      }) => Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: GradientOutlineButton(
-          key: Key(key),
-          label: label,
-          maxLines: 3,
-          leading: BrandGradientIcon.social(icon, size: 20),
-          onPressed: enabled
-              ? () => _close(_AudienceAction(kind, revision, intent: intent))
-              : null,
-        ),
-      );
-      return SingleChildScrollView(
-        key: const Key('event-audience-management'),
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.viewInsetsOf(context).bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-            ),
-            if (value == null && controller.loading)
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: LinearProgressIndicator(),
-              ),
-            if (value != null) ...[
-              const SizedBox(height: 8),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final controller = widget.controller;
+        if (!controller.sameSession(widget.expected)) {
+          return const SizedBox.shrink();
+        }
+        final value = controller.state;
+        final revision = controller.revision;
+        final enabled = !controller.busy && !controller.needsRefresh;
+        Widget action(
+          String key,
+          String label,
+          IconData icon,
+          _AudienceActionKind kind, {
+          EventAudienceStatus? intent,
+        }) => Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: GradientOutlineButton(
+            key: Key(key),
+            label: label,
+            maxLines: 3,
+            leading: BrandGradientIcon.social(icon, size: 20),
+            onPressed: enabled
+                ? () => _close(_AudienceAction(kind, revision, intent: intent))
+                : null,
+          ),
+        );
+        return SingleChildScrollView(
+          key: const Key('event-audience-management'),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.viewInsetsOf(context).bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Text(
-                value.intent == EventAudienceStatus.none
-                    ? 'Etkinlik seçimin'
-                    : 'Seçimin: ${value.intent.label}',
-                style: TextStyle(color: AppColors.textMuted),
+                widget.title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              if (value.canSetIntent)
-                for (final status in [
-                  EventAudienceStatus.going,
-                  EventAudienceStatus.thinking,
-                ])
-                  action(
-                    'event-audience-management-${status.name}',
-                    status.label,
-                    value.intent == status
-                        ? Icons.check_circle_outline
-                        : Icons.event_available_outlined,
-                    _AudienceActionKind.choose,
-                    intent: status,
-                  ),
-              if (value.intent != EventAudienceStatus.none) ...[
-                if (value.canPublish &&
-                    canPublishAudienceProfile(widget.expected))
-                  action(
-                    'event-audience-profile-share',
-                    value.publishedOnProfile
-                        ? 'Paylaşımı düzenle'
-                        : 'Profilinde paylaş',
-                    Icons.person_outline_rounded,
-                    _AudienceActionKind.profile,
-                  ),
-                if (!value.eventEnded && value.eventAvailable)
-                  action(
-                    'event-audience-external-share',
-                    'Diğer uygulamalarda paylaş',
-                    Icons.ios_share_outlined,
-                    _AudienceActionKind.external,
-                  ),
-                if (value.publishedOnProfile)
+              if (value == null && controller.loading)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: LinearProgressIndicator(),
+                ),
+              if (value != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  value.intent == EventAudienceStatus.none
+                      ? 'Etkinlik seçimin'
+                      : 'Seçimin: ${value.intent.label}',
+                  style: TextStyle(color: AppColors.textMuted),
+                ),
+                if (value.canSetIntent)
+                  for (final status in [
+                    EventAudienceStatus.going,
+                    EventAudienceStatus.thinking,
+                  ])
+                    action(
+                      'event-audience-management-${status.name}',
+                      status.label,
+                      value.intent == status
+                          ? Icons.check_circle_outline
+                          : Icons.event_available_outlined,
+                      _AudienceActionKind.choose,
+                      intent: status,
+                    ),
+                if (value.intent != EventAudienceStatus.none) ...[
+                  if (value.canPublish &&
+                      canPublishAudienceProfile(widget.expected))
+                    action(
+                      'event-audience-profile-share',
+                      value.publishedOnProfile
+                          ? 'Paylaşımı düzenle'
+                          : 'Profilinde paylaş',
+                      Icons.person_outline_rounded,
+                      _AudienceActionKind.profile,
+                    ),
+                  if (!value.eventEnded && value.eventAvailable)
+                    action(
+                      'event-audience-external-share',
+                      'Diğer uygulamalarda paylaş',
+                      Icons.ios_share_outlined,
+                      _AudienceActionKind.external,
+                    ),
+                  if (value.publishedOnProfile)
+                    TextButton(
+                      key: const Key('event-audience-unpublish'),
+                      onPressed: enabled
+                          ? () => _close(
+                              _AudienceAction(
+                                _AudienceActionKind.unpublish,
+                                revision,
+                              ),
+                            )
+                          : null,
+                      child: const Text('Profil paylaşımını kaldır'),
+                    ),
                   TextButton(
-                    key: const Key('event-audience-unpublish'),
+                    key: const Key('event-audience-clear'),
                     onPressed: enabled
                         ? () => _close(
                             _AudienceAction(
-                              _AudienceActionKind.unpublish,
+                              _AudienceActionKind.choose,
                               revision,
+                              intent: EventAudienceStatus.none,
                             ),
                           )
                         : null,
-                    child: const Text('Profil paylaşımını kaldır'),
+                    child: const Text('Seçimimi kaldır'),
                   ),
+                ],
+                if (!value.canSetIntent)
+                  Text(
+                    value.eventEnded
+                        ? 'Bu etkinlik sona erdi.'
+                        : 'Etkinlik şu anda kullanılamıyor.',
+                  ),
+              ],
+              if (controller.error != null) ...[
+                const SizedBox(height: 12),
+                Text(controller.error!),
                 TextButton(
-                  key: const Key('event-audience-clear'),
-                  onPressed: enabled
-                      ? () => _close(
-                          _AudienceAction(
-                            _AudienceActionKind.choose,
-                            revision,
-                            intent: EventAudienceStatus.none,
-                          ),
-                        )
-                      : null,
-                  child: const Text('Seçimimi kaldır'),
+                  onPressed: controller.busy ? null : controller.refresh,
+                  child: const Text('Yeniden yükle'),
                 ),
               ],
-              if (!value.canSetIntent)
-                Text(
-                  value.eventEnded
-                      ? 'Bu etkinlik sona erdi.'
-                      : 'Etkinlik şu anda kullanılamıyor.',
-                ),
-            ],
-            if (controller.error != null) ...[
-              const SizedBox(height: 12),
-              Text(controller.error!),
               TextButton(
-                onPressed: controller.busy ? null : controller.refresh,
-                child: const Text('Yeniden yükle'),
+                key: const Key('event-audience-management-dismiss'),
+                onPressed: controller.busy ? null : () => _close(),
+                child: const Text('Kapat'),
               ),
             ],
-            TextButton(
-              key: const Key('event-audience-management-dismiss'),
-              onPressed: controller.busy ? null : () => _close(),
-              child: const Text('Kapat'),
-            ),
-          ],
-        ),
-      );
-    },
-  );
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// New confirmed selections replace transient feedback; lifecycle cleanup removes

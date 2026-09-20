@@ -19,6 +19,7 @@ class MediaContentAudienceField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!MediaContentAudience.canChoose(ownerType)) {
       return const SizedBox.shrink();
     }
@@ -185,13 +186,14 @@ class _MediaContentAudienceMenuState extends State<MediaContentAudienceMenu> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!MediaContentAudience.canChoose(widget.ownerType)) {
       return const SizedBox.shrink();
     }
     return PopupMenuButton<String>(
       tooltip: 'Medya seçenekleri',
       enabled: !_busy,
-      icon: const Icon(Icons.more_vert, color: Colors.white),
+      icon: Icon(Icons.more_vert, color: Colors.white),
       itemBuilder: (_) => [
         const PopupMenuItem(
           value: 'audience',

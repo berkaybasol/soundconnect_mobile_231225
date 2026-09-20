@@ -80,6 +80,7 @@ class _BandCalendarRepositoryScopeState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final repository = _repository;
     return repository == null
         ? const SizedBox.shrink()

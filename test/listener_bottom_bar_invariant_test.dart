@@ -104,14 +104,53 @@ void main() {
       tester,
     ) async {
       _registerSession(audienceSession(role: role));
-      final harness = await _mount(tester);
+      var beforeCalls = 0;
+      final harness = await _mount(
+        tester,
+        before: () {
+          beforeCalls++;
+          return true;
+        },
+      );
       _expectBackstage(tester);
 
-      await tester.tap(find.text('Akış'));
+      final bar = tester.widget<BottomNavigationBar>(
+        find.byType(BottomNavigationBar),
+      );
+      bar.onTap!(0);
       await tester.pumpAndSettle();
-      expect(harness.routes.single.name, AppRoutes.backstageProfilesHome);
+      expect(beforeCalls, 1);
+      expect(harness.routes.map((route) => route.name), [
+        AppRoutes.marketplace,
+      ]);
     });
   }
+
+  testWidgets('unauthorized market slot does not call navigation hooks', (
+    tester,
+  ) async {
+    _registerSession(audienceSession(role: 'ROLE_PRODUCER'));
+    var beforeCalls = 0;
+    final selections = <int>[];
+    final harness = await _mount(
+      tester,
+      before: () {
+        beforeCalls++;
+        return true;
+      },
+      selected: selections.add,
+    );
+    final bar = tester.widget<BottomNavigationBar>(
+      find.byType(BottomNavigationBar),
+    );
+    bar.onTap!(0);
+    await tester.pumpAndSettle();
+    expect(selections, isEmpty);
+    expect(beforeCalls, 0);
+    expect(harness.routes, isEmpty);
+    bar.onTap!(1);
+    expect(selections.last, 1);
+  });
 
   testWidgets('explicit mainstage remains mainstage for a musician', (
     tester,
@@ -160,7 +199,7 @@ void main() {
       audienceSession(roles: const ['ROLE_LISTENER', 'ROLE_MUSICIAN']),
     );
     await _mount(tester);
-    _expectBackstage(tester);
+    _expectBackstage(tester, market: false);
   });
 
   testWidgets(
@@ -208,7 +247,9 @@ void main() {
     );
     final permission = Completer<bool>();
     final harness = await _mount(tester, before: () => permission.future);
-    await tester.tap(find.text('Akış'));
+    // A live destination still exercises the asynchronous session fence while
+    // the feed slot is parked.
+    await tester.tap(find.text('Mesajlar'));
     await tester.pump();
 
     sessions.replace(audienceSession());
@@ -269,16 +310,17 @@ void _expectMainstage(WidgetTester tester) {
     'Profil',
   ]);
   expect(find.text('Akış'), findsNothing);
+  expect(find.text('Pazar'), findsNothing);
   expect(find.text('Collab'), findsNothing);
   expect(find.text('Git'), findsNothing);
 }
 
-void _expectBackstage(WidgetTester tester) {
+void _expectBackstage(WidgetTester tester, {bool market = true}) {
   final bar = tester.widget<BottomNavigationBar>(
     find.byType(BottomNavigationBar),
   );
   expect(bar.items.map((item) => item.label), [
-    'Akış',
+    market ? 'Pazar' : '',
     'Collab',
     'Git',
     'Mesajlar',
@@ -292,6 +334,7 @@ Future<_Harness> _mount(
   int currentIndex = 4,
   int? mainstageCurrentIndex,
   FutureOr<bool> Function()? before,
+  ValueChanged<int>? selected,
 }) async {
   tester.view.physicalSize = const Size(420, 900);
   tester.view.devicePixelRatio = 1;
@@ -309,6 +352,7 @@ Future<_Harness> _mount(
                 mainstageCurrentIndex: mainstageCurrentIndex,
                 profileTapAlwaysOpensOwnProfile: true,
                 onBeforeNavigate: before,
+                onDestinationSelected: selected,
               )
             : ProfilePublicBottomBar(
                 stageMode: requestedStage,
@@ -316,6 +360,7 @@ Future<_Harness> _mount(
                 mainstageCurrentIndex: mainstageCurrentIndex,
                 profileTapAlwaysOpensOwnProfile: true,
                 onBeforeNavigate: before,
+                onDestinationSelected: selected,
               ),
       ),
       onGenerateRoute: (settings) {

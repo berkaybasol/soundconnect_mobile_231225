@@ -78,6 +78,7 @@ class BandProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
@@ -394,6 +395,7 @@ class _BandProfileViewState extends State<_BandProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (_loading) {
       return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -492,7 +494,9 @@ class _BandProfileViewState extends State<_BandProfileView> {
                                     onPressed: () =>
                                         _openBandManagementPanel(context),
                                     style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.white,
+                                      foregroundColor: AppColors.legacy(
+                                        AppColors.white,
+                                      ),
                                       backgroundColor: Colors.transparent,
                                       padding: EdgeInsets.symmetric(
                                         vertical: 14,
@@ -503,11 +507,15 @@ class _BandProfileViewState extends State<_BandProfileView> {
                                     ),
                                     icon: Icon(
                                       Icons.dashboard_customize_outlined,
-                                      color: AppColors.white,
+                                      color: AppColors.legacy(AppColors.white),
                                     ),
                                     label: Text(
                                       'Yönetim Paneli',
-                                      style: TextStyle(color: AppColors.white),
+                                      style: TextStyle(
+                                        color: AppColors.legacy(
+                                          AppColors.white,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),

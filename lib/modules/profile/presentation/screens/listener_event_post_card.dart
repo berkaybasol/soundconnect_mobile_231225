@@ -69,6 +69,7 @@ class ListenerEventPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final location = [event.venueDistrict, event.venueCity]
         .whereType<String>()
@@ -88,9 +89,11 @@ class ListenerEventPostCard extends StatelessWidget {
       key: ValueKey('listener-event-post-${event.id}'),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF202B3A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -107,7 +110,7 @@ class ListenerEventPostCard extends StatelessWidget {
                   errorBuilder: (_) => Container(
                     width: 38,
                     height: 38,
-                    color: const Color(0xFF202238),
+                    color: AppColors.legacy(const Color(0xFF202238)),
                     child: const Icon(Icons.person_outline_rounded, size: 22),
                   ),
                 ),
@@ -121,8 +124,8 @@ class ListenerEventPostCard extends StatelessWidget {
                       isDraft || handle.isEmpty ? username : '@$handle',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.legacy(Colors.white),
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
@@ -133,8 +136,8 @@ class ListenerEventPostCard extends StatelessWidget {
                         status,
                         if (visibilityLabel != null) visibilityLabel!,
                       ].join(' · '),
-                      style: const TextStyle(
-                        color: Color(0xFFA0A9B6),
+                      style: TextStyle(
+                        color: AppColors.legacy(Color(0xFFA0A9B6)),
                         fontSize: 11,
                         height: 1.4,
                       ),
@@ -156,7 +159,7 @@ class ListenerEventPostCard extends StatelessWidget {
                   style: IconButton.styleFrom(
                     minimumSize: const Size(48, 48),
                     maximumSize: const Size(48, 48),
-                    foregroundColor: const Color(0xFFA0A9B6),
+                    foregroundColor: AppColors.legacy(const Color(0xFFA0A9B6)),
                   ),
                   onSelected: (action) {
                     switch (action) {
@@ -308,8 +311,8 @@ class ListenerEventPostCard extends StatelessWidget {
                                 location,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFFA0A9B6),
+                                style: TextStyle(
+                                  color: AppColors.legacy(Color(0xFFA0A9B6)),
                                   fontSize: 10,
                                 ),
                               ),
@@ -354,8 +357,8 @@ class ListenerEventPostCard extends StatelessWidget {
                               key: ValueKey(
                                 'listener-event-owner-status-${event.id}',
                               ),
-                              style: const TextStyle(
-                                color: Color(0xFFA0A9B6),
+                              style: TextStyle(
+                                color: AppColors.legacy(Color(0xFFA0A9B6)),
                                 fontSize: 12,
                                 height: 1.4,
                               ),
@@ -381,7 +384,10 @@ class ListenerEventPostCard extends StatelessWidget {
                       ),
                     ),
                   if (showLike || onComments != null || onShare != null) ...[
-                    const Divider(color: Color(0xFF202B3A), height: 1),
+                    Divider(
+                      color: AppColors.legacy(Color(0xFF202B3A)),
+                      height: 1,
+                    ),
                     _PostEngagementActions(
                       like: showLike
                           ? _PostCountAction(
@@ -436,41 +442,44 @@ class _PostEngagementActions extends StatelessWidget {
   final Widget? share;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final counters = [
-        if (like != null) like!,
-        if (comments != null) comments!,
-      ];
-      if (MediaQuery.textScalerOf(context).scale(1) > 1.35 ||
-          constraints.maxWidth < 300) {
-        return Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 18,
-          children: [...counters, if (share != null) share!],
-        );
-      }
-      final counterWidth =
-          (constraints.maxWidth -
-              (share == null ? 0 : 48) -
-              (counters.length > 1 ? 18 : 0)) /
-          (counters.isEmpty ? 1 : counters.length);
-      return Row(
-        children: [
-          for (var index = 0; index < counters.length; index++) ...[
-            if (index > 0) const SizedBox(width: 18),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: counterWidth),
-              child: counters[index],
-            ),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final counters = [
+          if (like != null) like!,
+          if (comments != null) comments!,
+        ];
+        if (MediaQuery.textScalerOf(context).scale(1) > 1.35 ||
+            constraints.maxWidth < 300) {
+          return Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 18,
+            children: [...counters, if (share != null) share!],
+          );
+        }
+        final counterWidth =
+            (constraints.maxWidth -
+                (share == null ? 0 : 48) -
+                (counters.length > 1 ? 18 : 0)) /
+            (counters.isEmpty ? 1 : counters.length);
+        return Row(
+          children: [
+            for (var index = 0; index < counters.length; index++) ...[
+              if (index > 0) const SizedBox(width: 18),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: counterWidth),
+                child: counters[index],
+              ),
+            ],
+            const Spacer(),
+            if (share != null) share!,
           ],
-          const Spacer(),
-          if (share != null) share!,
-        ],
-      );
-    },
-  );
+        );
+      },
+    );
+  }
 }
 
 class _PostCountAction extends StatelessWidget {
@@ -497,7 +506,8 @@ class _PostCountAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedColor = color ?? const Color(0xFFA0A9B6);
+    Theme.of(context);
+    final resolvedColor = color ?? AppColors.legacy(const Color(0xFFA0A9B6));
     return Semantics(
       button: true,
       enabled: onPressed != null,
@@ -561,12 +571,19 @@ class _PostIconAction extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: label,
-    onPressed: onPressed,
-    constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-    icon: Icon(icon, color: const Color(0xFFA0A9B6), size: 19),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return IconButton(
+      tooltip: label,
+      onPressed: onPressed,
+      constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+      icon: Icon(
+        icon,
+        color: AppColors.legacy(const Color(0xFFA0A9B6)),
+        size: 19,
+      ),
+    );
+  }
 }
 
 class _PostAction extends StatelessWidget {
@@ -586,35 +603,38 @@ class _PostAction extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) => TextButton(
-    onPressed: onPressed,
-    style: TextButton.styleFrom(
-      minimumSize: Size(48, compact ? 32 : 48),
-      tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 0 : 6,
-        vertical: compact ? 4 : 10,
-      ),
-      foregroundColor: foregroundColor,
-      textStyle: compact
-          ? Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12)
-          : null,
-    ),
-    child: Row(
-      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: compact ? 16 : 18),
-        SizedBox(width: compact ? 6 : 7),
-        Flexible(
-          child: Text(
-            label,
-            textAlign: compact ? TextAlign.left : TextAlign.center,
-          ),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        minimumSize: Size(48, compact ? 32 : 48),
+        tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 0 : 6,
+          vertical: compact ? 4 : 10,
         ),
-      ],
-    ),
-  );
+        foregroundColor: foregroundColor,
+        textStyle: compact
+            ? Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12)
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: compact ? 16 : 18),
+          SizedBox(width: compact ? 6 : 7),
+          Flexible(
+            child: Text(
+              label,
+              textAlign: compact ? TextAlign.left : TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 String _participationLabel(String intentLabel, {required bool ended}) =>
@@ -659,54 +679,61 @@ class _PostNoteState extends State<_PostNote> {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final style = DefaultTextStyle.of(
-        context,
-      ).style.copyWith(color: Colors.white, fontSize: 14, height: 1.6);
-      final painter = TextPainter(
-        text: TextSpan(text: widget.note, style: style),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-        maxLines: 3,
-      )..layout(maxWidth: constraints.maxWidth);
-      final needsExpansion = painter.didExceedMaxLines;
-      painter.dispose();
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            widget.note,
-            style: style,
-            maxLines: _expanded ? null : 3,
-            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-          ),
-          if (needsExpansion)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                key: const Key('listener-event-note-expand'),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  foregroundColor: const Color(0xFFA0A9B6),
-                  textStyle: style.copyWith(
-                    fontSize: 12,
-                    height: 1.4,
-                    fontWeight: FontWeight.w600,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final style = DefaultTextStyle.of(context).style.copyWith(
+          color: AppColors.legacy(Colors.white),
+          fontSize: 14,
+          height: 1.6,
+        );
+        final painter = TextPainter(
+          text: TextSpan(text: widget.note, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 3,
+        )..layout(maxWidth: constraints.maxWidth);
+        final needsExpansion = painter.didExceedMaxLines;
+        painter.dispose();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.note,
+              style: style,
+              maxLines: _expanded ? null : 3,
+              overflow: _expanded
+                  ? TextOverflow.visible
+                  : TextOverflow.ellipsis,
+            ),
+            if (needsExpansion)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  key: const Key('listener-event-note-expand'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    foregroundColor: AppColors.legacy(const Color(0xFFA0A9B6)),
+                    textStyle: style.copyWith(
+                      fontSize: 12,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  child: Text(
+                    _expanded ? 'Daha az göster' : 'Notun tamamını oku',
                   ),
                 ),
-                onPressed: () => setState(() => _expanded = !_expanded),
-                child: Text(
-                  _expanded ? 'Daha az göster' : 'Notun tamamını oku',
-                ),
               ),
-            ),
-        ],
-      );
-    },
-  );
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _MetadataLine extends StatelessWidget {
@@ -715,21 +742,24 @@ class _MetadataLine extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      BrandGradientIcon.social(icon, size: 16),
-      const SizedBox(width: 7),
-      Expanded(
-        child: Text(
-          label,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        BrandGradientIcon.social(icon, size: 16),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 String _scheduleLabel(VenueEventDetail event) {

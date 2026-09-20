@@ -80,6 +80,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     _positionStream ??= serviceLocator<AudioHandler>() is AudioPlayerHandler
         ? (serviceLocator<AudioHandler>() as AudioPlayerHandler).positionStream
         : Stream<Duration>.empty();

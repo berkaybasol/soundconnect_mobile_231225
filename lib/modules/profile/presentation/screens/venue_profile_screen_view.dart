@@ -80,6 +80,7 @@ class _MusicianPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocBuilder<VenueProfileCubit, VenueProfileState>(
       builder: (context, venueState) {
         final ownerProfile = venueState.ownerProfile;

@@ -336,6 +336,7 @@ class _BandMembersWorkspaceScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final activeMembers = _profile.members
         .where((member) => member.status.trim().toUpperCase() == 'ACTIVE')
         .toList(growable: false);
@@ -470,7 +471,11 @@ class _BandMembersWorkspaceScreenState
           padding: const EdgeInsets.all(1.2),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(colors: AppColors.brandGradient),
+            gradient: LinearGradient(
+              colors: AppColors.isLight
+                  ? [AppColors.avatarBackground, AppColors.avatarShadow]
+                  : AppColors.brandGradient,
+            ),
           ),
           child: Container(
             width: 60,
@@ -478,10 +483,18 @@ class _BandMembersWorkspaceScreenState
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: (AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : Theme.of(context).scaffoldBackgroundColor),
             ),
             child: avatar == null
-                ? _GradientIcon(icon: Icons.groups_2_outlined, size: 28)
+                ? (AppColors.isLight
+                      ? Icon(
+                          Icons.groups_2_outlined,
+                          size: 28,
+                          color: AppColors.avatarForeground,
+                        )
+                      : _GradientIcon(icon: Icons.groups_2_outlined, size: 28))
                 : _MemberAvatar(imageUrl: avatar),
           ),
         ),
@@ -494,7 +507,7 @@ class _BandMembersWorkspaceScreenState
                 text: _profile.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(colors: AppColors.brandTextGradient),
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,

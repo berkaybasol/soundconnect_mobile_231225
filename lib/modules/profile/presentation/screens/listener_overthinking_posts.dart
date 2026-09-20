@@ -11,6 +11,7 @@ import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
 import '../../../overthinking/domain/overthinking_profile_share_repository.dart';
 import 'listener_overthinking_share_tile.dart';
 import 'listener_profile_theme.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 class ListenerOverthinkingPostsSection extends StatefulWidget {
   const ListenerOverthinkingPostsSection({
@@ -218,6 +219,7 @@ class _ListenerOverthinkingPostsSectionState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_allowed) return const SizedBox.shrink();
     final session = _session;
     final repository = _repository!;
@@ -311,8 +313,8 @@ class _ListenerOverthinkingPostsSectionState
               children: [
                 Text(
                   _error!,
-                  style: const TextStyle(
-                    color: listenerProfileMuted,
+                  style: TextStyle(
+                    color: AppColors.legacy(listenerProfileMuted),
                     fontSize: 12,
                   ),
                   textAlign: TextAlign.center,

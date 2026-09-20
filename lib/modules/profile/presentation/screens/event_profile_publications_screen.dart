@@ -422,6 +422,7 @@ class _EventProfilePublicationsScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: widget.embedded
@@ -544,6 +545,7 @@ class _PublicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final date = item.eventDate;
     final dateText =

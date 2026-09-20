@@ -49,13 +49,16 @@ class OverthinkingSessionBoundary extends StatelessWidget {
   final bool requireAccount;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: session,
-    builder: (context, _) =>
-        (requireAccount ? session.canWrite : session.isCurrent)
-        ? child
-        : const OverthinkingUnavailableScreen(),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return ListenableBuilder(
+      listenable: session,
+      builder: (context, _) =>
+          (requireAccount ? session.canWrite : session.isCurrent)
+          ? child
+          : const OverthinkingUnavailableScreen(),
+    );
+  }
 }
 
 class OverthinkingUnavailableScreen extends StatelessWidget {
@@ -63,43 +66,46 @@ class OverthinkingUnavailableScreen extends StatelessWidget {
   final bool postMissing;
 
   @override
-  Widget build(BuildContext context) => Theme(
-    data: OverthinkingPalette.theme(context),
-    child: Scaffold(
-      appBar: AppBar(title: const Text('Overthinking')),
-      body: TableGroupOverviewBackdrop(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  postMissing
-                      ? 'Bu yazı artık erişilebilir değil.'
-                      : OverthinkingSession.error.message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: OverthinkingPalette.text,
-                    fontSize: 16,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Theme(
+      data: OverthinkingPalette.theme(context),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Overthinking')),
+        body: TableGroupOverviewBackdrop(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    postMissing
+                        ? 'Bu yazı artık erişilebilir değil.'
+                        : OverthinkingSession.error.message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: OverthinkingPalette.text,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-                if (!postMissing) ...[
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: () =>
-                        Navigator.of(context).pushNamedAndRemoveUntil(
-                          AppRoutes.overthinkingFeed,
-                          (_) => false,
-                        ),
-                    child: const Text('Akışı yeniden aç'),
-                  ),
+                  if (!postMissing) ...[
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: () =>
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            AppRoutes.overthinkingFeed,
+                            (_) => false,
+                          ),
+                      child: const Text('Akışı yeniden aç'),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

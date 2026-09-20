@@ -129,6 +129,7 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.black,
       body: SafeArea(

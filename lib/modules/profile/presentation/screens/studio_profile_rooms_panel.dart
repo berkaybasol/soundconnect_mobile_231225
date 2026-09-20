@@ -46,6 +46,7 @@ class _StudioRoomsPanelState extends State<_StudioRoomsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: _StudioPanel(
@@ -58,11 +59,11 @@ class _StudioRoomsPanelState extends State<_StudioRoomsPanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Stüdyo Odaları',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.legacy(Colors.white),
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                         ),
@@ -73,11 +74,14 @@ class _StudioRoomsPanelState extends State<_StudioRoomsPanel> {
                 ),
               ),
               const SizedBox(height: 3),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 2),
                 child: Text(
                   'Prova, kayıt ve vokal çalışmaları için uygun alanlar',
-                  style: TextStyle(color: Color(0xFF9AA4B2), fontSize: 12),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF9AA4B2)),
+                    fontSize: 12,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -201,16 +205,23 @@ class _StudioRoomsErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
       child: Column(
         children: [
-          const Icon(Icons.cloud_off_outlined, color: Color(0xFF9EA8B7)),
+          Icon(
+            Icons.cloud_off_outlined,
+            color: AppColors.legacy(Color(0xFF9EA8B7)),
+          ),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFB5BDCA), fontSize: 12),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFB5BDCA)),
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -231,17 +242,20 @@ class _StudioRoomLimitPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Text(
         '$count / 10',
-        style: const TextStyle(
-          color: Color(0xFFB5BDCA),
+        style: TextStyle(
+          color: AppColors.legacy(Color(0xFFB5BDCA)),
           fontSize: 11,
           fontWeight: FontWeight.w800,
         ),
@@ -269,15 +283,18 @@ class _StudioRoomCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => ownerMode ? _openSettings(context) : _openRoom(context),
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF101722),
+          color: AppColors.legacy(const Color(0xFF101722)),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF202B3A)),
+          border: Border.all(
+            color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+          ),
         ),
         child: Column(
           children: [
@@ -298,8 +315,8 @@ class _StudioRoomCard extends StatelessWidget {
                               room.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppColors.legacy(Colors.white),
                                 fontSize: 15,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -320,8 +337,8 @@ class _StudioRoomCard extends StatelessWidget {
                           room.type,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFB5BDCA),
+                          style: TextStyle(
+                            color: AppColors.legacy(Color(0xFFB5BDCA)),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -424,6 +441,7 @@ class _StudioRoomApprovalStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final color = approvalRequired
         ? const Color(0xFFE7B85C)
         : const Color(0xFF67D6A1);
@@ -464,6 +482,7 @@ class _StudioRoomSettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return _StudioActionButton(
       icon: Icons.settings_outlined,
       label: 'Oda Ayarları',
@@ -480,6 +499,7 @@ class _StudioRoomPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: 92,
       height: 86,
@@ -490,7 +510,9 @@ class _StudioRoomPhoto extends StatelessWidget {
           colors: room.gradient,
         ),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF2B3546)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF2B3546)),
+        ),
       ),
       child: Stack(
         children: [
@@ -550,6 +572,7 @@ class _StudioRoomStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -576,10 +599,11 @@ class _StudioRoomReservationSummaryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final hasReservations = count > 0;
     final color = hasReservations
         ? const Color(0xFF67D6A1)
-        : const Color(0xFF9AA4B2);
+        : AppColors.legacy(const Color(0xFF9AA4B2));
     return Container(
       constraints: const BoxConstraints(maxWidth: 142),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -625,6 +649,7 @@ class _StudioRoomMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       children: [
         _StudioSocialGradientIcon(icon, size: 14),
@@ -634,8 +659,8 @@ class _StudioRoomMeta extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFD5DBE5),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFD5DBE5)),
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
@@ -653,17 +678,20 @@ class _StudioRoomFeatureChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A101A),
+        color: AppColors.legacy(const Color(0xFF0A101A)),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFFB5BDCA),
+        style: TextStyle(
+          color: AppColors.legacy(Color(0xFFB5BDCA)),
           fontSize: 10,
           fontWeight: FontWeight.w700,
         ),
@@ -807,7 +835,7 @@ class _StudioRoomItem {
         : normalized.contains('prova')
         ? Icons.groups_2_outlined
         : Icons.meeting_room_outlined;
-    const gradients = <List<Color>>[
+    final gradients = <List<Color>>[
       [Color(0xFF1C2B3F), Color(0xFF4B2D52)],
       [Color(0xFF172A3A), Color(0xFF3B2747)],
       [Color(0xFF1E2538), Color(0xFF563040)],

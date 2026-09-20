@@ -80,6 +80,7 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final baseTheme = Theme.of(context);
     final scheme = baseTheme.colorScheme;
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
@@ -89,7 +90,7 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
         secondary: AppColors.brandGradient[2],
       ),
       textSelectionTheme: TextSelectionThemeData(
-        cursorColor: AppColors.white,
+        cursorColor: AppColors.legacy(AppColors.white),
         selectionColor: Color(0x40F06C86),
         selectionHandleColor: AppColors.brandGradient[1],
       ),

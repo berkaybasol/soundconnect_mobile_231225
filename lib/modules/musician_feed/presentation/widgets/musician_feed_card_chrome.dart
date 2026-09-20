@@ -30,6 +30,7 @@ class MusicianFeedSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final hasAuthor = showAuthor && item.author != null;
     final authorIdentity = musicianFeedAuthorProfileIdentity(item.author);
     final publicationActor =
@@ -143,6 +144,7 @@ class MusicianFeedReasonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final promotion = item.promotion;
     // The reason actor can differ from the content author: a followed venue
     // can surface an event whose author header identifies the performer.
@@ -281,45 +283,48 @@ class _LikesReasonLink extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: '$label. Beğenenleri göster',
-    onTap: onTap,
-    excludeSemantics: true,
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        excludeFromSemantics: true,
-        borderRadius: BorderRadius.circular(8),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(0, 7, 6, 7),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: AppColors.likeHeart),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      height: 1.25,
-                      fontWeight: FontWeight.w600,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Semantics(
+      button: true,
+      label: '$label. Beğenenleri göster',
+      onTap: onTap,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          excludeFromSemantics: true,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(0, 7, 6, 7),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: AppColors.likeHeart),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _PublicationReasonLink extends StatelessWidget {
@@ -426,9 +431,9 @@ class MusicianFeedAuthorHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             child: CircleAvatar(
               radius: 22,
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHigh,
+              backgroundColor: AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : Theme.of(context).colorScheme.surfaceContainerHigh,
               child: ClipOval(
                 child: AppCachedNetworkImage(
                   imageUrl: author.avatarUrl,
@@ -515,6 +520,7 @@ class MusicianFeedEngagementBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     if (!_hasEngagementContent(item.engagement)) {
       return const SizedBox.shrink();
     }
@@ -835,19 +841,28 @@ class _AuthorFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final visibleName = author.visibleName.trim();
     final initial = visibleName.isEmpty
         ? null
         : visibleName.characters.first.toUpperCase();
     return ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      color: AppColors.isLight
+          ? AppColors.avatarBackground
+          : Theme.of(context).colorScheme.surfaceContainerHigh,
       child: Center(
         child: initial == null
-            ? const BrandGradientIcon.social(Icons.person_outline_rounded)
+            ? AppColors.isLight
+                  ? Icon(
+                      Icons.person_outline_rounded,
+                      color: AppColors.avatarForeground,
+                    )
+                  : const BrandGradientIcon.social(Icons.person_outline_rounded)
             : Text(
                 initial,
                 textScaler: compact ? TextScaler.noScaling : null,
                 style: TextStyle(
+                  color: AppColors.isLight ? AppColors.avatarForeground : null,
                   fontSize: compact ? 11 : null,
                   fontWeight: FontWeight.w900,
                 ),

@@ -36,6 +36,7 @@ class CommentAuthorAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final visible = _identifiable(comment);
     final url = visible ? comment.user.avatarUrl?.trim() ?? '' : '';
     final name = visible ? comment.user.username.trim() : '';
@@ -44,10 +45,14 @@ class CommentAuthorAvatar extends StatelessWidget {
           ? Icon(
               comment.anonymousAuthor ? Icons.person_outline : Icons.person,
               size: size * .5,
+              color: AppColors.isLight ? AppColors.avatarForeground : null,
             )
           : Text(
               name.characters.first.toUpperCase(),
-              style: const TextStyle(fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.isLight ? AppColors.avatarForeground : null,
+              ),
             ),
     );
     return Semantics(
@@ -62,11 +67,13 @@ class CommentAuthorAvatar extends StatelessWidget {
           padding: const EdgeInsets.all(1),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(colors: AppColors.brandGradient),
+            gradient: LinearGradient(colors: AppColors.decorativeGradient),
           ),
           child: ClipOval(
             child: ColoredBox(
-              color: Theme.of(context).colorScheme.surfaceContainer,
+              color: AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : Theme.of(context).colorScheme.surfaceContainer,
               child: url.isEmpty
                   ? placeholder
                   : AppCachedNetworkImage(
@@ -92,34 +99,37 @@ class CommentAuthorLabel extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: _identifiable(comment) ? onTap : null,
-    borderRadius: BorderRadius.circular(8),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              commentAuthorLabel(comment),
-              maxLines: comment.anonymousAuthor ? 2 : 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return InkWell(
+      onTap: _identifiable(comment) ? onTap : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                commentAuthorLabel(comment),
+                maxLines: comment.anonymousAuthor ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
               ),
             ),
-          ),
-          if (!comment.deleted && comment.isVisibleGhostAuthor) ...[
-            const SizedBox(width: 6),
-            const Flexible(child: GhostProfileBadge()),
+            if (!comment.deleted && comment.isVisibleGhostAuthor) ...[
+              const SizedBox(width: 6),
+              const Flexible(child: GhostProfileBadge()),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 // Weak route keys prevent double pushes without retaining routes or identities.

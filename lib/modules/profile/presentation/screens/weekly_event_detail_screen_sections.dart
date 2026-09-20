@@ -8,6 +8,7 @@ class _HeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imagePath = event.imageAssetPath?.trim();
     return SizedBox(
       height: 260,
@@ -158,6 +159,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     // Match the musician/venue profile's Management Panel button exactly.
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -173,7 +175,7 @@ class _ActionButton extends StatelessWidget {
             child: TextButton.icon(
               onPressed: isLoading ? null : onPressed,
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.white,
+                foregroundColor: AppColors.legacy(AppColors.white),
                 backgroundColor: Colors.transparent,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -184,16 +186,16 @@ class _ActionButton extends StatelessWidget {
                   ? Builder(
                       builder: (iconContext) => SizedBox.square(
                         dimension: IconTheme.of(iconContext).size ?? 18,
-                        child: const CircularProgressIndicator(
+                        child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.white,
+                          color: AppColors.legacy(AppColors.white),
                         ),
                       ),
                     )
-                  : Icon(icon, color: AppColors.white),
+                  : Icon(icon, color: AppColors.legacy(AppColors.white)),
               label: Text(
                 label,
-                style: const TextStyle(color: AppColors.white),
+                style: TextStyle(color: AppColors.legacy(AppColors.white)),
               ),
             ),
           ),

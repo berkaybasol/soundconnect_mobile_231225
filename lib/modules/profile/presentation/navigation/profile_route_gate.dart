@@ -174,6 +174,7 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (widget.target.kind == ProfileRouteKind.studio &&
         isStudioRestrictedListener(_manager?.session)) {
       return const StudioListenerInfoScreen();

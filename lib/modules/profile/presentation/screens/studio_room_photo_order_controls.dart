@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 /// Compact, keyboard-accessible controls for changing a room photo's display
 /// order. The first photo is also the room's cover image.
@@ -18,18 +19,21 @@ class StudioRoomPhotoOrderControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (itemCount < 2 || index < 0 || index >= itemCount) {
       return const SizedBox.shrink();
     }
 
     return Material(
-      color: const Color(0xE60A111B),
+      color: AppColors.legacy(const Color(0xE60A111B)),
       borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0x667E8CA2)),
+          border: Border.all(
+            color: AppColors.legacyBorder(const Color(0x667E8CA2)),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -48,8 +52,8 @@ class StudioRoomPhotoOrderControls extends StatelessWidget {
               label: 'Fotoğraf sırası ${index + 1} / $itemCount',
               child: Text(
                 '${index + 1}/$itemCount',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.legacy(Colors.white),
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                 ),

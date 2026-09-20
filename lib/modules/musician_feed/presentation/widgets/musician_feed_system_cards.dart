@@ -125,6 +125,7 @@ class _CompletionCarouselState extends State<_CompletionCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final tasks = _tasks;
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final taskCardHeight = 194.0 + ((textScale - 1).clamp(0.0, 2.0) * 100.0);
@@ -299,45 +300,54 @@ class _CompletionDone extends StatelessWidget {
   const _CompletionDone();
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: AppColors.navBlueDeep,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Theme.of(context).colorScheme.outline),
-    ),
-    child: const Row(
-      children: [
-        BrandGradientIcon.social(Icons.check_circle_outline_rounded, size: 25),
-        SizedBox(width: 11),
-        Expanded(
-          child: Text(
-            'Temel bilgiler tamam. Akışın seni tanıdıkça daha da güçlenecek.',
-            style: TextStyle(fontSize: 13, height: 1.4),
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.navBlueDeep,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+      ),
+      child: const Row(
+        children: [
+          BrandGradientIcon.social(
+            Icons.check_circle_outline_rounded,
+            size: 25,
           ),
-        ),
-      ],
-    ),
-  );
+          SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              'Temel bilgiler tamam. Akışın seni tanıdıkça daha da güçlenecek.',
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PromotionFallback extends StatelessWidget {
   const _PromotionFallback();
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: AppColors.uploadCardGradient,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: AppColors.uploadCardGradient,
+        ),
       ),
-    ),
-    child: const Center(
-      child: BrandGradientIcon.social(Icons.campaign_outlined, size: 42),
-    ),
-  );
+      child: const Center(
+        child: BrandGradientIcon.social(Icons.campaign_outlined, size: 42),
+      ),
+    );
+  }
 }
 
 IconData _taskIcon(String code) => switch (code.toUpperCase()) {

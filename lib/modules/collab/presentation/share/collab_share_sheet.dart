@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 
 import '../collab_access_gate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -75,12 +77,14 @@ class _CollabShareSheet extends StatelessWidget {
             child: _ShareChoice(
               key: const Key('collab-share-generic'),
               label: 'Paylaş',
-              icon: const Icon(
+              icon: Icon(
                 Icons.ios_share_rounded,
                 size: 20,
-                color: Colors.white,
+                color: AppColors.decorativeForeground,
               ),
-              colors: const [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+              colors: AppColors.isLight
+                  ? AppColors.decorativeGradient
+                  : const [Color(0xFF8B5CF6), Color(0xFFEC4899)],
               onTap: () => Navigator.pop(context, CollabShareTarget.other),
             ),
           )
@@ -125,12 +129,14 @@ class _CollabShareSheet extends StatelessWidget {
                 child: _ShareChoice(
                   key: const Key('collab-share-other'),
                   label: 'Diğer',
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.more_horiz_rounded,
                     size: 20,
-                    color: Colors.white,
+                    color: AppColors.decorativeForeground,
                   ),
-                  colors: const [Color(0xFF596579), Color(0xFF343D4D)],
+                  colors: AppColors.isLight
+                      ? AppColors.decorativeGradient
+                      : const [Color(0xFF596579), Color(0xFF343D4D)],
                   onTap: () => Navigator.pop(context, CollabShareTarget.other),
                 ),
               ),
@@ -176,16 +182,23 @@ class _ShareChoice extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(colors: colors),
+          if (AppColors.isLight &&
+              listEquals(colors, AppColors.decorativeGradient))
+            GradientOutline(
+              radius: 19,
+              child: SizedBox.square(dimension: 38, child: Center(child: icon)),
+            )
+          else
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(colors: colors),
+              ),
+              child: icon,
             ),
-            child: icon,
-          ),
           const SizedBox(height: 8),
           Text(
             label,

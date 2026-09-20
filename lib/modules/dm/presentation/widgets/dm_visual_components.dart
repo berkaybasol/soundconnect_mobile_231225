@@ -24,6 +24,7 @@ class DmAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final normalizedImageUrl = imageUrl?.trim();
     return Container(
       width: size,
@@ -31,7 +32,10 @@ class DmAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(1.35),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(colors: AppColors.brandGradient),
+        color: AppColors.isLight ? AppColors.avatarBackground : null,
+        gradient: AppColors.isLight
+            ? null
+            : LinearGradient(colors: AppColors.brandGradient),
       ),
       child: ClipOval(
         child: normalizedImageUrl?.isNotEmpty == true
@@ -56,22 +60,33 @@ class DmAvatar extends StatelessWidget {
         : String.fromCharCode(normalizedFallbackText.runes.first);
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.musicianBlue.withValues(alpha: 0.88),
-            AppColors.socialPurple.withValues(alpha: 0.88),
-          ],
-        ),
+        color: AppColors.isLight ? AppColors.avatarBackground : null,
+        gradient: AppColors.isLight
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.musicianBlue.withValues(alpha: 0.88),
+                  AppColors.socialPurple.withValues(alpha: 0.88),
+                ],
+              ),
       ),
       child: Center(
         child: initial == null
-            ? Icon(fallbackIcon, size: size * 0.42, color: AppColors.white)
+            ? Icon(
+                fallbackIcon,
+                size: size * 0.42,
+                color: AppColors.isLight
+                    ? AppColors.avatarForeground
+                    : AppColors.white,
+              )
             : Text(
                 initial.toUpperCase(),
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.isLight
+                      ? AppColors.avatarForeground
+                      : AppColors.white,
                   fontSize: size * 0.34,
                   fontWeight: FontWeight.w800,
                   height: 1,
@@ -140,10 +155,12 @@ class DmGradientIconPanel extends StatelessWidget {
       padding: const EdgeInsets.all(1.2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.32),
-        gradient: LinearGradient(colors: AppColors.brandGradient),
+        gradient: LinearGradient(colors: AppColors.decorativeGradient),
         boxShadow: [
           BoxShadow(
-            color: AppColors.socialPurple.withValues(alpha: 0.16),
+            color: AppColors.isLight
+                ? AppColors.avatarShadow.withValues(alpha: 0.12)
+                : AppColors.socialPurple.withValues(alpha: 0.16),
             blurRadius: 22,
             spreadRadius: -7,
           ),
@@ -158,7 +175,7 @@ class DmGradientIconPanel extends StatelessWidget {
           child: ShaderMask(
             blendMode: BlendMode.srcIn,
             shaderCallback: (bounds) => LinearGradient(
-              colors: AppColors.brandGradient,
+              colors: AppColors.decorativeGradient,
             ).createShader(bounds),
             child: Icon(icon, size: size * 0.42, color: AppColors.white),
           ),

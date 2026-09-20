@@ -41,6 +41,7 @@ class _BacklineAvailabilityManagementScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Ekipman Takvimi'), centerTitle: true),
       body: SafeArea(
@@ -70,7 +71,7 @@ class _BacklineAvailabilityManagementScreenState
 
   Widget _buildEquipmentSelector() {
     return Material(
-      color: _ownerManagementCardColor,
+      color: AppColors.legacy(_ownerManagementCardColor),
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: _selectEquipment,
@@ -79,7 +80,9 @@ class _BacklineAvailabilityManagementScreenState
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _ownerManagementCardBorderColor),
+            border: Border.all(
+              color: AppColors.legacyBorder(_ownerManagementCardBorderColor),
+            ),
           ),
           child: Row(
             children: [
@@ -87,13 +90,17 @@ class _BacklineAvailabilityManagementScreenState
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: _ownerManagementInsetColor,
+                  color: AppColors.legacy(_ownerManagementInsetColor),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _ownerManagementInsetBorderColor),
+                  border: Border.all(
+                    color: AppColors.legacyBorder(
+                      _ownerManagementInsetBorderColor,
+                    ),
+                  ),
                 ),
                 child: Icon(
                   _selectedEquipment?.icon ?? Icons.add_business_outlined,
-                  color: const Color(0xFFD6DCE6),
+                  color: AppColors.legacy(const Color(0xFFD6DCE6)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -106,7 +113,7 @@ class _BacklineAvailabilityManagementScreenState
                           ? 'Müsaitlik yönetimine başlamak için'
                           : 'Takvimi düzenlenen ekipman',
                       style: TextStyle(
-                        color: Color(0xFF8F9AAA),
+                        color: AppColors.legacy(Color(0xFF8F9AAA)),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -116,8 +123,8 @@ class _BacklineAvailabilityManagementScreenState
                       _selectedEquipment?.name ?? 'Ekipman Seç',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.legacy(Colors.white),
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
@@ -128,8 +135,8 @@ class _BacklineAvailabilityManagementScreenState
                         '${_selectedEquipment!.category} • ${_selectedEquipment!.total} adet',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFFA5ADBA),
+                        style: TextStyle(
+                          color: AppColors.legacy(Color(0xFFA5ADBA)),
                           fontSize: 11,
                         ),
                       ),
@@ -138,7 +145,10 @@ class _BacklineAvailabilityManagementScreenState
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.unfold_more_rounded, color: Color(0xFFAAB2BF)),
+              Icon(
+                Icons.unfold_more_rounded,
+                color: AppColors.legacy(Color(0xFFAAB2BF)),
+              ),
             ],
           ),
         ),
@@ -152,7 +162,7 @@ class _BacklineAvailabilityManagementScreenState
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
-          backgroundColor: const Color(0xFF0B1321),
+          backgroundColor: AppColors.legacy(const Color(0xFF0B1321)),
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
@@ -171,21 +181,28 @@ class _BacklineAvailabilityEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 34),
       decoration: BoxDecoration(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _ownerManagementCardBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementCardBorderColor),
+        ),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.touch_app_outlined, color: Color(0xFF7F8998), size: 34),
+          Icon(
+            Icons.touch_app_outlined,
+            color: AppColors.legacy(Color(0xFF7F8998)),
+            size: 34,
+          ),
           SizedBox(height: 10),
           Text(
             'Önce bir ekipman seçin',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.legacy(Colors.white),
               fontSize: 15,
               fontWeight: FontWeight.w900,
             ),
@@ -194,7 +211,10 @@ class _BacklineAvailabilityEmptyState extends StatelessWidget {
           Text(
             'Seçtiğiniz ekipmanın müsaitlik takvimi burada açılacak.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF929CAA), fontSize: 11),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFF929CAA)),
+              fontSize: 11,
+            ),
           ),
         ],
       ),
@@ -314,20 +334,23 @@ class _BacklineDateAvailabilityCalendarState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF202B3A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Müsaitlik Takvimi',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.legacy(Colors.white),
               fontWeight: FontWeight.w900,
               fontSize: 18,
             ),
@@ -335,14 +358,20 @@ class _BacklineDateAvailabilityCalendarState
           const SizedBox(height: 4),
           Text(
             widget.equipmentName,
-            style: const TextStyle(color: Color(0xFFB5BDCA), fontSize: 13),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFB5BDCA)),
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             widget.editable
                 ? 'İlk dokunuş başlangıç, ikinci dokunuş bitiş tarihidir.'
                 : 'Günlük, haftalık ve aylık kiralama müsaitliğini inceleyin.',
-            style: const TextStyle(color: Color(0xFF7F8998), fontSize: 11),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFF7F8998)),
+              fontSize: 11,
+            ),
           ),
           const SizedBox(height: 16),
           if (_isLoading) ...[
@@ -374,8 +403,8 @@ class _BacklineDateAvailabilityCalendarState
                     child: Text(
                       label,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF8993A2),
+                      style: TextStyle(
+                        color: AppColors.legacy(Color(0xFF8993A2)),
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                       ),
@@ -412,9 +441,11 @@ class _BacklineDateAvailabilityCalendarState
             child: Container(
               height: 42,
               decoration: BoxDecoration(
-                color: const Color(0xFF0A101A),
+                color: AppColors.legacy(const Color(0xFF0A101A)),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF263244)),
+                border: Border.all(
+                  color: AppColors.legacyBorder(const Color(0xFF263244)),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -427,8 +458,8 @@ class _BacklineDateAvailabilityCalendarState
                   const SizedBox(width: 8),
                   Text(
                     _monthYearLabel(_visibleMonth),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppColors.legacy(Colors.white),
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                     ),
@@ -512,9 +543,11 @@ class _BacklineDateAvailabilityCalendarState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A101A),
+        color: AppColors.legacy(const Color(0xFF0A101A)),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Row(
         children: [
@@ -530,8 +563,8 @@ class _BacklineDateAvailabilityCalendarState
               children: [
                 Text(
                   _fullDateLabel(_selectedDate),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
@@ -550,8 +583,8 @@ class _BacklineDateAvailabilityCalendarState
           ),
           Text(
             '$value/${widget.total}',
-            style: const TextStyle(
-              color: Color(0xFFDCE1E9),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFDCE1E9)),
               fontSize: 15,
               fontWeight: FontWeight.w900,
             ),
@@ -868,14 +901,18 @@ class _BacklineDateAvailabilityCalendarState
       lastDate: studioAddCivilDays(today, 730),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: AppColors.socialPink,
-            onPrimary: Colors.white,
-            surface: const Color(0xFF101722),
-            onSurface: Colors.white,
-          ),
-          dialogTheme: const DialogThemeData(
-            backgroundColor: Color(0xFF101722),
+          colorScheme:
+              (AppColors.isOriginalDark
+                      ? const ColorScheme.dark()
+                      : Theme.of(context).colorScheme)
+                  .copyWith(
+                    primary: AppColors.socialPink,
+                    onPrimary: Colors.white,
+                    surface: AppColors.legacy(const Color(0xFF101722)),
+                    onSurface: AppColors.legacy(Colors.white),
+                  ),
+          dialogTheme: DialogThemeData(
+            backgroundColor: AppColors.legacy(Color(0xFF101722)),
           ),
         ),
         child: StudioListenerAccessGate(builder: (_) => child!),

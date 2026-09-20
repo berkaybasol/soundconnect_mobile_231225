@@ -400,7 +400,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 widthFactor: fill,
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: AppColors.brandGradient),
+                    gradient: LinearGradient(
+                      colors: AppColors.decorativeGradient,
+                    ),
                   ),
                 ),
               ),
@@ -422,19 +424,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
         borderRadius: borderRadius,
         gradient: (fill > 0)
             ? LinearGradient(
-                colors: [
-                  AppColors.neonPurpleGradient[0],
-                  AppColors.neonPurpleGradient[1],
-                  AppColors.neonPurpleGradient[2],
-                  AppColors.neonPurpleGradient[3],
-                ],
+                colors: AppColors.isLight
+                    ? AppColors.brandGradient
+                    : [
+                        AppColors.decorativeNeonPurpleGradient[0],
+                        AppColors.decorativeNeonPurpleGradient[1],
+                        AppColors.decorativeNeonPurpleGradient[2],
+                        AppColors.decorativeNeonPurpleGradient[3],
+                      ],
               )
             : null,
         color: (fill > 0) ? null : Theme.of(context).dividerColor,
         boxShadow: isActive || isComplete
             ? [
                 BoxShadow(
-                  color: AppColors.neonPurpleGradient[1].withValues(
+                  color: AppColors.decorativeNeonPurpleGradient[1].withValues(
                     alpha: 0.16,
                   ),
                   blurRadius: 8,
@@ -457,7 +461,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             size: 18,
             color: Color.lerp(
               Theme.of(context).colorScheme.onSurfaceVariant,
-              AppColors.coralAlt,
+              AppColors.isLight
+                  ? AppColors.decorativeGradient.last
+                  : AppColors.coralAlt,
               fill,
             ),
           ),
@@ -919,6 +925,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action != AuthAction.register) return;
@@ -1069,7 +1076,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Container(
           decoration: BoxDecoration(
             gradient: isSelected
-                ? LinearGradient(colors: AppColors.brandGradient)
+                ? LinearGradient(colors: AppColors.decorativeGradient)
                 : null,
             color: isSelected
                 ? null
@@ -1084,7 +1091,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppColors.brandGradient[2].withValues(alpha: 0.25),
+                      color: AppColors.decorativeGradient[2].withValues(
+                        alpha: 0.25,
+                      ),
                       blurRadius: 16,
                       spreadRadius: 1,
                     ),
@@ -1111,9 +1120,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: AppColors.brandGradient[2].withValues(
-                                  alpha: 0.25,
-                                ),
+                                color: AppColors.decorativeGradient[2]
+                                    .withValues(alpha: 0.25),
                                 blurRadius: 14,
                                 spreadRadius: 1,
                               ),
@@ -1125,7 +1133,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             blendMode: BlendMode.srcIn,
                             shaderCallback: (Rect bounds) {
                               return LinearGradient(
-                                colors: AppColors.brandGradient,
+                                colors: AppColors.decorativeGradient,
                               ).createShader(bounds);
                             },
                             child: Icon(option.icon, color: AppColors.white),
@@ -1177,7 +1185,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           blendMode: BlendMode.srcIn,
                           shaderCallback: (Rect bounds) {
                             return LinearGradient(
-                              colors: AppColors.brandGradient,
+                              colors: AppColors.decorativeGradient,
                             ).createShader(bounds);
                           },
                           child: Icon(

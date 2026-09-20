@@ -35,13 +35,16 @@ class CollabMyListingsScreen extends StatelessWidget {
   final CollabMyListingsCubit? cubit;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabMyListingsScreenContent(
-      showBottomNavigation: showBottomNavigation,
-      onCreateListing: onCreateListing,
-      cubit: cubit,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabMyListingsScreenContent(
+        showBottomNavigation: showBottomNavigation,
+        onCreateListing: onCreateListing,
+        cubit: cubit,
+      ),
+    );
+  }
 }
 
 class _CollabMyListingsScreenContent extends StatefulWidget {
@@ -364,7 +367,7 @@ class _Header extends StatelessWidget {
             children: [
               GradientText(
                 text: 'Collab',
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(colors: AppColors.brandTextGradient),
                 style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
@@ -399,6 +402,7 @@ class _StatusRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     const options = <(CollabListingStatus?, String)>[
       (CollabListingStatus.open, 'Yayında'),
       (CollabListingStatus.draft, 'Taslaklar'),
@@ -610,6 +614,7 @@ class _LoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),

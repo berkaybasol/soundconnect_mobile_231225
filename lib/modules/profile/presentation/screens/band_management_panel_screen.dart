@@ -103,6 +103,7 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text('Band Yönetimi'), centerTitle: true),
       body: SafeArea(
@@ -133,7 +134,7 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
                       gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.brandTextGradient,
                       ),
                       style: TextStyle(
                         fontSize: 24,

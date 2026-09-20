@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/profile_feed_availability.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../../profile/presentation/screens/backstage_profile_search_sheet.dart';
@@ -19,6 +20,9 @@ class ListenerFeedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!ProfileFeedAvailability.enabled) {
+      return const Scaffold(body: SizedBox.expand());
+    }
     final sessions = serviceLocator<AuthSessionManager>();
     return ListenableBuilder(
       listenable: sessions,

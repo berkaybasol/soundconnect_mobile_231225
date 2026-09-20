@@ -5,24 +5,31 @@ class _BacklineCategoryRequestInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF343842)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF343842)),
+        ),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, color: Color(0xFFD4D9E2), size: 21),
+          Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.legacy(Color(0xFFD4D9E2)),
+            size: 21,
+          ),
           SizedBox(width: 11),
           Expanded(
             child: Text(
               'Kategori yapısı SoundConnect genelinde ortaktır. Yeni talepler '
               'yetkili incelemesinden sonra tüm platform için yayınlanır.',
               style: TextStyle(
-                color: Color(0xFFB6C0CF),
+                color: AppColors.legacy(Color(0xFFB6C0CF)),
                 fontSize: 12,
                 height: 1.45,
               ),
@@ -41,44 +48,50 @@ class _BacklineManagementCategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         iconColor: const Color(0xFFFF8A8A),
-        collapsedIconColor: const Color(0xFF8E99A9),
+        collapsedIconColor: AppColors.legacy(const Color(0xFF8E99A9)),
         leading: _BacklineCategoryIcon(category: category),
         title: Text(
           category.name,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: AppColors.legacy(Colors.white),
             fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
         ),
         subtitle: Text(
           '${category.children.length} alt kategori',
-          style: const TextStyle(color: Color(0xFF8F9AAA), fontSize: 11),
+          style: TextStyle(
+            color: AppColors.legacy(Color(0xFF8F9AAA)),
+            fontSize: 11,
+          ),
         ),
         children: [
-          const Divider(height: 1, color: Color(0xFF263244)),
+          Divider(height: 1, color: AppColors.legacy(Color(0xFF263244))),
           for (final subcategory in category.children)
             ListTile(
               dense: true,
               contentPadding: const EdgeInsets.only(left: 56, right: 14),
-              leading: const Icon(
+              leading: Icon(
                 Icons.subdirectory_arrow_right_rounded,
-                color: Color(0xFF718096),
+                color: AppColors.legacy(Color(0xFF718096)),
                 size: 17,
               ),
               title: Text(
                 subcategory,
-                style: const TextStyle(
-                  color: Color(0xFFB8C0CC),
+                style: TextStyle(
+                  color: AppColors.legacy(Color(0xFFB8C0CC)),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -109,6 +122,7 @@ class _BacklineOutlineChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final radius = BorderRadius.circular(14);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 170),
@@ -119,10 +133,12 @@ class _BacklineOutlineChoice extends StatelessWidget {
         gradient: selected
             ? LinearGradient(colors: AppColors.brandGradient)
             : null,
-        color: selected ? null : _ownerManagementInsetBorderColor,
+        color: selected
+            ? null
+            : AppColors.legacyBorder(_ownerManagementInsetBorderColor),
       ),
       child: Material(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(13.2),
         child: InkWell(
           onTap: onTap,
@@ -134,7 +150,11 @@ class _BacklineOutlineChoice extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(icon, color: const Color(0xFFD4D9E2), size: 20),
+                Icon(
+                  icon,
+                  color: AppColors.legacy(const Color(0xFFD4D9E2)),
+                  size: 20,
+                ),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Column(
@@ -145,8 +165,8 @@ class _BacklineOutlineChoice extends StatelessWidget {
                         label,
                         maxLines: subtitle == null ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppColors.legacy(Colors.white),
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                         ),
@@ -155,8 +175,8 @@ class _BacklineOutlineChoice extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           subtitle!,
-                          style: const TextStyle(
-                            color: Color(0xFF979DA8),
+                          style: TextStyle(
+                            color: AppColors.legacy(Color(0xFF979DA8)),
                             fontSize: 10,
                             height: 1.3,
                           ),
@@ -170,7 +190,9 @@ class _BacklineOutlineChoice extends StatelessWidget {
                   selected
                       ? Icons.check_circle_outline_rounded
                       : Icons.circle_outlined,
-                  color: selected ? Colors.white : const Color(0xFF6F747D),
+                  color: selected
+                      ? AppColors.legacy(Colors.white)
+                      : AppColors.legacy(const Color(0xFF6F747D)),
                   size: 19,
                 ),
               ],
@@ -215,12 +237,13 @@ class _BacklineCategoryRequestSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Material(
-        color: const Color(0xFF0B1321),
+        color: AppColors.legacy(const Color(0xFF0B1321)),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -234,24 +257,27 @@ class _BacklineCategoryRequestSheetState
                     width: 42,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4A4D55),
+                      color: AppColors.legacy(const Color(0xFF4A4D55)),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
+                Text(
                   'Kategori Talebi Oluştur',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Eksik olduğunu düşündüğün kategori yapısını bize ilet.',
-                  style: TextStyle(color: Color(0xFF9CA7B7), fontSize: 12),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF9CA7B7)),
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -285,11 +311,11 @@ class _BacklineCategoryRequestSheetState
                   DropdownButtonFormField<_BacklineCategory>(
                     initialValue: _parentCategory,
                     isExpanded: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Bağlı olacağı ana kategori',
                       prefixIcon: Icon(
                         Icons.folder_open_outlined,
-                        color: _roomFormIconColor,
+                        color: AppColors.legacy(_roomFormIconColor),
                       ),
                     ),
                     items: [
@@ -317,9 +343,9 @@ class _BacklineCategoryRequestSheetState
                     labelText: _type == _BacklineCategoryRequestType.category
                         ? 'Önerilen kategori adı'
                         : 'Önerilen alt kategori adı',
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.edit_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                   validator: (value) => value == null || value.trim().isEmpty
@@ -351,9 +377,9 @@ class _BacklineCategoryRequestSheetState
                               labelText: 'Alt kategori adı',
                               hintText: 'Örn. Dijital mikserler',
                               errorText: _subcategoryError,
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.subdirectory_arrow_right_rounded,
-                                color: _roomFormIconColor,
+                                color: AppColors.legacy(_roomFormIconColor),
                               ),
                             ),
                           ),
@@ -400,13 +426,13 @@ class _BacklineCategoryRequestSheetState
                   minLines: 3,
                   maxLines: 5,
                   maxLength: 300,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Açıklama (opsiyonel)',
                     hintText: 'Bu kategoriye neden ihtiyaç duyulduğunu anlat.',
                     alignLabelWithHint: true,
                     prefixIcon: Icon(
                       Icons.notes_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                 ),
@@ -515,27 +541,34 @@ class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final isSubcategory =
         request.type == BacklineCategoryRequestType.subcategory;
     final statusColor = switch (request.status) {
       BacklineCategoryRequestStatus.pending => const Color(0xFFF09BC7),
       BacklineCategoryRequestStatus.approved => const Color(0xFF75D7A3),
       BacklineCategoryRequestStatus.rejected => const Color(0xFFFF8792),
-      BacklineCategoryRequestStatus.withdrawn => const Color(0xFF9EA8B7),
-      BacklineCategoryRequestStatus.unknown => const Color(0xFF9EA8B7),
+      BacklineCategoryRequestStatus.withdrawn => AppColors.legacy(
+        const Color(0xFF9EA8B7),
+      ),
+      BacklineCategoryRequestStatus.unknown => AppColors.legacy(
+        const Color(0xFF9EA8B7),
+      ),
     };
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2A374A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF2A374A)),
+        ),
       ),
       child: Row(
         children: [
           Icon(
             isSubcategory ? Icons.account_tree_outlined : Icons.folder_outlined,
-            color: const Color(0xFFB9C3D2),
+            color: AppColors.legacy(const Color(0xFFB9C3D2)),
             size: 22,
           ),
           const SizedBox(width: 11),
@@ -545,8 +578,8 @@ class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
               children: [
                 Text(
                   request.requestedName,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
@@ -555,8 +588,8 @@ class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     request.parentCategoryName!,
-                    style: const TextStyle(
-                      color: Color(0xFF8F9AAA),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFF8F9AAA)),
                       fontSize: 11,
                     ),
                   ),
@@ -565,8 +598,8 @@ class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '${request.proposedChildren.length} alt kategori önerisi',
-                    style: const TextStyle(
-                      color: Color(0xFFB5BAC4),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFFB5BAC4)),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),

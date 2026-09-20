@@ -162,6 +162,7 @@ class _MusicianProfileCompletionScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final enabled = !_saving && _isCurrent;
     final scheme = Theme.of(context).colorScheme;
     return PopScope<bool>(

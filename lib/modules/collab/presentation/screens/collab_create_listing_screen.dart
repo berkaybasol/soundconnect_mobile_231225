@@ -10,6 +10,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/utils/turkish_alphabetical.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../instrument/domain/entities/instrument.dart';
 import '../../../instrument/domain/instrument_repository.dart';
 import '../../../location/domain/entities/city.dart';
@@ -73,15 +74,18 @@ class CollabCreateListingScreen extends StatelessWidget {
   final InstrumentRepository? instrumentRepository;
 
   @override
-  Widget build(BuildContext context) => CollabAccessGate(
-    builder: (_) => _CollabCreateListingScreenContent(
-      initialListing: initialListing,
-      showBottomNavigation: showBottomNavigation,
-      cubit: cubit,
-      locationRepository: locationRepository,
-      instrumentRepository: instrumentRepository,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabCreateListingScreenContent(
+        initialListing: initialListing,
+        showBottomNavigation: showBottomNavigation,
+        cubit: cubit,
+        locationRepository: locationRepository,
+        instrumentRepository: instrumentRepository,
+      ),
+    );
+  }
 }
 
 class _CollabCreateListingScreenContent extends StatefulWidget {
@@ -207,6 +211,7 @@ class _CollabCreateListingScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return BlocProvider<CollabListingEditorCubit>.value(
       value: _cubit,
       child: BlocConsumer<CollabListingEditorCubit, CollabListingEditorState>(
@@ -1027,7 +1032,7 @@ class _CreateStepIndicator extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
                 gradient: completed
-                    ? LinearGradient(colors: AppColors.brandGradient)
+                    ? LinearGradient(colors: AppColors.decorativeGradient)
                     : null,
                 color: completed ? null : theme.dividerColor,
               ),
@@ -1037,6 +1042,35 @@ class _CreateStepIndicator extends StatelessWidget {
         final step = index ~/ 2;
         final active = step == currentStep;
         final completed = step < currentStep;
+        final stepCircle = Container(
+          width: 37,
+          height: 37,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: AppColors.isOriginalDark && (active || completed)
+                ? LinearGradient(colors: AppColors.decorativeGradient)
+                : null,
+            border: active || completed
+                ? null
+                : Border.all(color: theme.dividerColor, width: 1.4),
+          ),
+          child: completed
+              ? Icon(
+                  Icons.check_rounded,
+                  color: AppColors.decorativeForeground,
+                  size: 19,
+                )
+              : Text(
+                  '${step + 1}',
+                  style: TextStyle(
+                    color: active
+                        ? AppColors.decorativeForeground
+                        : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+        );
         return InkWell(
           onTap: completed ? () => onStepTap(step) : null,
           borderRadius: BorderRadius.circular(999),
@@ -1044,35 +1078,10 @@ class _CreateStepIndicator extends StatelessWidget {
             width: 82,
             child: Column(
               children: [
-                Container(
-                  width: 37,
-                  height: 37,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: active || completed
-                        ? LinearGradient(colors: AppColors.brandGradient)
-                        : null,
-                    border: active || completed
-                        ? null
-                        : Border.all(color: theme.dividerColor, width: 1.4),
-                  ),
-                  child: completed
-                      ? const Icon(
-                          Icons.check_rounded,
-                          color: AppColors.white,
-                          size: 19,
-                        )
-                      : Text(
-                          '${step + 1}',
-                          style: TextStyle(
-                            color: active
-                                ? AppColors.white
-                                : theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                ),
+                if (AppColors.isLight && (active || completed))
+                  GradientOutline(radius: 18.5, child: stepCircle)
+                else
+                  stepCircle,
                 const SizedBox(height: 5),
                 Text(
                   labels[step],
@@ -1259,7 +1268,7 @@ class _CreateRadio extends StatelessWidget {
           ? DecoratedBox(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(colors: AppColors.decorativeGradient),
               ),
             )
           : null,
@@ -1740,6 +1749,7 @@ class _FeeModeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return CollabGradientFrame(
       radius: 15,
       child: SizedBox(
@@ -1780,6 +1790,7 @@ class _FeeModeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return Expanded(
       child: InkWell(
         onTap: onTap,

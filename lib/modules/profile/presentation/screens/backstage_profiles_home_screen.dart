@@ -5,6 +5,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/policy/profile_feed_availability.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../../musician_feed/domain/backstage_feed_session.dart';
 import '../../../musician_feed/presentation/cubit/musician_feed_cubit.dart';
@@ -28,6 +29,7 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final sessions = serviceLocator<AuthSessionManager>();
     return ListenableBuilder(
       listenable: sessions,
@@ -48,7 +50,8 @@ class BackstageProfilesHomeScreen extends StatelessWidget {
             ),
             Expanded(
               child:
-                  identity != null &&
+                  ProfileFeedAvailability.enabled &&
+                      identity != null &&
                       identity.audience != BackstageFeedAudience.listener
                   ? BlocProvider(
                       // Feed state and its saved scroll position belong to

@@ -29,6 +29,7 @@ class ListenerShareDeleteDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final navigator = Navigator.of(context);
     final route = ModalRoute.of(context);
     void decide(bool confirmed) {
@@ -40,13 +41,15 @@ class ListenerShareDeleteDialog extends StatelessWidget {
     return ListenerProfileTheme(
       child: Dialog(
         key: const Key('listener-share-delete-dialog'),
-        backgroundColor: listenerProfileSurface,
+        backgroundColor: AppColors.legacy(listenerProfileSurface),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: listenerProfileBorder),
+          side: BorderSide(
+            color: AppColors.legacyBorder(listenerProfileBorder),
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
@@ -82,10 +85,10 @@ class ListenerShareDeleteDialog extends StatelessWidget {
                 Semantics(
                   namesRoute: true,
                   header: true,
-                  child: const Text(
+                  child: Text(
                     'Paylaşımı kaldır?',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.legacy(Colors.white),
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       height: 1.25,
@@ -96,8 +99,8 @@ class ListenerShareDeleteDialog extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   message,
-                  style: const TextStyle(
-                    color: listenerProfileMuted,
+                  style: TextStyle(
+                    color: AppColors.legacy(listenerProfileMuted),
                     fontSize: 14,
                     height: 1.55,
                   ),
@@ -106,13 +109,13 @@ class ListenerShareDeleteDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF151D2D),
+                    color: AppColors.legacy(const Color(0xFF151D2D)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     detail,
-                    style: const TextStyle(
-                      color: listenerProfileMuted,
+                    style: TextStyle(
+                      color: AppColors.legacy(listenerProfileMuted),
                       fontSize: 13,
                       height: 1.5,
                     ),
@@ -131,7 +134,7 @@ class ListenerShareDeleteDialog extends StatelessWidget {
                 TextButton(
                   onPressed: () => decide(false),
                   style: TextButton.styleFrom(
-                    foregroundColor: listenerProfileMuted,
+                    foregroundColor: AppColors.legacy(listenerProfileMuted),
                     minimumSize: const Size(0, 48),
                   ),
                   child: const Text('Vazgeç'),

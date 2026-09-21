@@ -30,7 +30,7 @@ class _MarketplaceIntro extends StatelessWidget {
         ),
       ),
       Text(
-        'Ekipmanına yeni\nbir sahne aç.',
+        'Ekipman Pazarı',
         style: TextStyle(
           color: Theme.of(context).colorScheme.onSurface,
           fontSize: 29,
@@ -40,6 +40,40 @@ class _MarketplaceIntro extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+class _MarketplaceCollectionShortcut extends StatelessWidget {
+  const _MarketplaceCollectionShortcut({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: label,
+    child: OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+        side: BorderSide(color: Theme.of(context).colorScheme.outline),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        minimumSize: const Size(0, 44),
+        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+      ),
+    ),
   );
 }
 
@@ -585,6 +619,8 @@ class _MarketplaceFiltersState extends State<_MarketplaceFilters> {
 
   late MarketplaceCondition? _condition = widget.query.condition;
   late MarketplaceSort _sort = widget.query.sort;
+  final _minimumFormatter = MarketplacePriceInputFormatter();
+  final _maximumFormatter = MarketplacePriceInputFormatter();
   late final _minimum = TextEditingController(
     text: marketplacePriceInput(widget.query.minPriceMinor),
   );
@@ -758,6 +794,7 @@ class _MarketplaceFiltersState extends State<_MarketplaceFilters> {
                 Expanded(
                   child: TextField(
                     controller: _minimum,
+                    inputFormatters: [_minimumFormatter],
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
@@ -768,6 +805,7 @@ class _MarketplaceFiltersState extends State<_MarketplaceFilters> {
                 Expanded(
                   child: TextField(
                     controller: _maximum,
+                    inputFormatters: [_maximumFormatter],
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),

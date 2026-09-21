@@ -1,6 +1,9 @@
 import '../../../core/auth/auth_session.dart';
 import '../../../core/policy/access_policy.dart';
 
+/// Matches the API's Unicode code-point limits and PostgreSQL char_length.
+int marketplaceTextLength(String value) => value.runes.length;
+
 bool canUseMarketplace(AuthSession session) {
   return session.isAuthenticated &&
       session.isActive &&
@@ -32,7 +35,7 @@ enum MarketplaceStatus {
 
 enum MarketplaceDelivery {
   pickup('PICKUP', 'Elden teslim'),
-  shipping('SHIPPING', 'Kargo mümkün'),
+  shipping('SHIPPING', 'Yalnızca kargoyla teslim'),
   both('BOTH', 'Elden veya kargo');
 
   const MarketplaceDelivery(this.apiValue, this.label);
@@ -360,6 +363,8 @@ class MarketplaceListingInput {
 /// Converts a Turkish money field directly to kuruş, without floating point.
 int? parseMarketplacePriceMinor(String text) {
   var value = text.trim();
+  // A user can leave the decimal separator pending while entering whole TL.
+  if (value.endsWith(',')) value = value.substring(0, value.length - 1);
   if (RegExp(r'^\d{1,3}(\.\d{3})+(,\d{1,2})?$').hasMatch(value)) {
     value = value.replaceAll('.', '');
   }
@@ -371,9 +376,16 @@ int? parseMarketplacePriceMinor(String text) {
       (parts.length == 1 ? 0 : int.parse(parts.last.padRight(2, '0')));
 }
 
-String marketplacePriceInput(int? value) => value == null
-    ? ''
-    : '${value ~/ 100},${(value % 100).toString().padLeft(2, '0')}';
+String marketplacePriceInput(int? value) {
+  if (value == null) return '';
+  final whole = (value ~/ 100).toString().replaceAllMapped(
+    RegExp(r'(\d)(?=(\d{3})+$)'),
+    (match) => '${match[1]}.',
+  );
+  final cents = (value % 100).toString().padLeft(2, '0');
+  return '$whole,$cents';
+}
+
 String? _optional(String? value) =>
     value?.trim().isEmpty != false ? null : value!.trim();
 Map<String, dynamic> marketplaceMap(Object? value) {

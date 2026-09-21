@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/profile_feed_availability.dart';
@@ -1064,7 +1065,9 @@ PreferredSizeWidget _listenerOwnerAppBar(
           ),
         ),
       ),
-      const SizedBox(width: 4),
+      const SizedBox(width: 6),
+      AppGlobalActions(onBeforeNavigate: onBeforeMenu),
+      const SizedBox(width: 8),
     ],
   );
 }

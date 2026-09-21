@@ -41,6 +41,7 @@ import '../../modules/profile/presentation/screens/listener_profile_screen.dart'
 import '../../modules/profile/presentation/screens/listener_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/profile_route_args.dart';
 import '../../modules/profile/presentation/navigation/profile_route_gate.dart';
+import '../../modules/profile/presentation/profile_visual_theme.dart';
 import '../../modules/profile/presentation/navigation/profile_route_resolver.dart';
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
@@ -185,7 +186,8 @@ class AppRouter {
       case AppRoutes.musicianProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => MusicianProfileScreen(),
+          builder: (_) =>
+              const ProfileVisualThemeScope(child: MusicianProfileScreen()),
         );
       case AppRoutes.myBands:
         return MaterialPageRoute(
@@ -200,35 +202,39 @@ class AppRouter {
       case AppRoutes.bandProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => BandProfileScreen(),
+          builder: (_) => ProfileVisualThemeScope(child: BandProfileScreen()),
         );
       case AppRoutes.bandMemberProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => BandProfileScreen(),
+          builder: (_) => ProfileVisualThemeScope(child: BandProfileScreen()),
         );
       case AppRoutes.bandPublicProfile:
         return _publicProfileRoute(
           settings,
           ProfileRouteKind.band,
-          (_) => BandProfileScreen(),
+          (_) => ProfileVisualThemeScope(child: BandProfileScreen()),
         );
       case AppRoutes.musicianPublicProfile:
         return _publicProfileRoute(
           settings,
           ProfileRouteKind.musician,
-          (_) => MusicianPublicProfileScreen(),
+          (_) => const ProfileVisualThemeScope(
+            child: MusicianPublicProfileScreen(),
+          ),
         );
       case AppRoutes.venueProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => VenueProfileScreen(),
+          builder: (_) =>
+              const ProfileVisualThemeScope(child: VenueProfileScreen()),
         );
       case AppRoutes.venuePublicProfile:
         return _publicProfileRoute(
           settings,
           ProfileRouteKind.venue,
-          (_) => VenuePublicProfileScreen(),
+          (_) =>
+              const ProfileVisualThemeScope(child: VenuePublicProfileScreen()),
         );
       case AppRoutes.studioProfile:
         final args = settings.arguments is StudioProfileScreenArgs
@@ -236,14 +242,18 @@ class AppRouter {
             : const StudioProfileScreenArgs();
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) =>
-              StudioProfileScreen(openContactEditor: args.openContactEditor),
+          builder: (_) => ProfileVisualThemeScope(
+            child: StudioProfileScreen(
+              openContactEditor: args.openContactEditor,
+            ),
+          ),
         );
       case AppRoutes.studioPublicProfile:
         return _publicProfileRoute(
           settings,
           ProfileRouteKind.studio,
-          (_) => const StudioPublicProfileScreen(),
+          (_) =>
+              const ProfileVisualThemeScope(child: StudioPublicProfileScreen()),
         );
       case AppRoutes.studioReservationCalendar:
         final args = _arguments<StudioReservationCalendarArgs>(settings);

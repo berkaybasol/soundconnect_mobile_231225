@@ -19,6 +19,43 @@ void main() {
     final invalid = marketListingJson()..['condition'] = 'LIKE_NEW';
     expect(() => MarketplaceListing.fromJson(invalid), throwsFormatException);
   });
+  test(
+    'search limits count Unicode code points instead of UTF-16 units',
+    () async {
+      final sessions = MarketplaceTestSessions(marketSession());
+      addTearDown(sessions.dispose);
+      final api = _Api({
+        'content': <Object>[],
+        'page': 0,
+        'last': true,
+        'totalElements': 0,
+      });
+      final repository = MarketplaceRepositoryImpl(api, sessions);
+      final atLimit = '🎸' * 100;
+      expect(
+        (await repository.discover(
+          MarketplaceQuery(search: atLimit),
+        )).isSuccess,
+        isTrue,
+      );
+      expect(api.query!['q'], atLimit);
+      expect(api.calls, 1);
+      expect(
+        (await repository.discover(
+          MarketplaceQuery(search: '$atLimit🎸'),
+        )).isSuccess,
+        isFalse,
+      );
+      // Combining marks are separate code points even within one visible cluster.
+      expect(
+        (await repository.discover(
+          MarketplaceQuery(search: 'e\u0301' * 51),
+        )).isSuccess,
+        isFalse,
+      );
+      expect(api.calls, 1);
+    },
+  );
   test('listener and mixed professional identities never dispatch', () async {
     for (final roles in [
       ['ROLE_LISTENER'],

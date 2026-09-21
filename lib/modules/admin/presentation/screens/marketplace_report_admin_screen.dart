@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
+import '../../../marketplace/domain/marketplace_models.dart';
 import '../../../marketplace/presentation/marketplace_photo.dart';
 import '../../data/marketplace_report_admin_repository.dart';
 import '../../domain/marketplace_report_admin.dart';
@@ -28,8 +29,9 @@ class _MarketplaceReportAdminScreenState
   final List<MarketplaceAdminReport> _reports = [];
   String _status = 'OPEN';
   String? _error;
-  bool _busy = false, _last = true, _revoked = false;
+  bool _busy = false, _reviewing = false, _last = true, _revoked = false;
   int _page = 0, _epoch = 0;
+  bool get _blocked => _busy || _reviewing;
   bool get _current =>
       !_revoked &&
       identical(_entry, widget.sessions.session) &&
@@ -64,7 +66,7 @@ class _MarketplaceReportAdminScreenState
   }
 
   Future<void> _load({bool more = false}) async {
-    if (!_current || _busy) return;
+    if (!_current || _blocked) return;
     final epoch = ++_epoch;
     final page = more ? _page + 1 : 0;
     setState(() {
@@ -87,28 +89,44 @@ class _MarketplaceReportAdminScreenState
   }
 
   Future<void> _review(MarketplaceAdminReport report) async {
-    if (!_current || _busy) return;
-    final decision = await showDialog<({bool remove, String note})>(
-      context: context,
-      builder: (_) => _ReviewDialog(sessions: widget.sessions, entry: _entry),
-    );
-    if (decision == null || !mounted || !_current) return;
-    setState(() => _busy = true);
-    final result = await widget.repository.review(
-      report,
-      removeListing: decision.remove,
-      note: decision.note,
-    );
-    if (!mounted || !_current) return;
-    setState(() => _busy = false);
-    if (!result.isSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        appSnackBar(
-          context,
-          tone: AppSnackBarTone.warning,
-          content: Text(result.error!.message),
-        ),
+    if (!mounted ||
+        !_current ||
+        _blocked ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    // Acquire the lock before opening the route: callbacks can repeat before
+    // the disabled button is rebuilt, and the lock must cover the request too.
+    setState(() => _reviewing = true);
+    try {
+      final decision = await showDialog<({bool remove, String note})>(
+        context: context,
+        builder: (_) => _ReviewDialog(sessions: widget.sessions, entry: _entry),
       );
+      if (decision == null || !mounted || !_current) return;
+      setState(() => _busy = true);
+      final result = await widget.repository.review(
+        report,
+        removeListing: decision.remove,
+        note: decision.note,
+      );
+      if (!mounted || !_current) return;
+      if (!result.isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.warning,
+            content: Text(result.error!.message),
+          ),
+        );
+      }
+    } finally {
+      if (mounted && _current) {
+        setState(() {
+          _busy = false;
+          _reviewing = false;
+        });
+      }
     }
     await _load();
   }
@@ -143,7 +161,7 @@ class _MarketplaceReportAdminScreenState
                       child: Text('İşlem yapılmadan kapatıldı'),
                     ),
                   ],
-                  onChanged: _busy
+                  onChanged: _blocked
                       ? null
                       : (value) {
                           if (value != null) {
@@ -177,7 +195,7 @@ class _MarketplaceReportAdminScreenState
                     padding: EdgeInsets.all(24),
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                if (!_busy && !_last && _reports.isNotEmpty)
+                if (!_blocked && !_last && _reports.isNotEmpty)
                   OutlinedButton(
                     onPressed: () => _load(more: true),
                     child: const Text('Daha fazla'),
@@ -280,7 +298,7 @@ class _MarketplaceReportAdminScreenState
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton(
-                  onPressed: _busy ? null : () => _review(report),
+                  onPressed: _blocked ? null : () => _review(report),
                   child: const Text('İncele ve karar ver'),
                 ),
               ),
@@ -343,9 +361,36 @@ class _ReviewDialog extends StatefulWidget {
 
 class _ReviewDialogState extends State<_ReviewDialog> {
   final _note = TextEditingController();
-  bool _remove = false;
+  bool _remove = false, _completed = false, _revoked = false;
+  bool get _allowed =>
+      !_revoked &&
+      identical(widget.entry, widget.sessions.session) &&
+      canManageMarketplaceReports(widget.sessions.session);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.sessions.addListener(_sessionChanged);
+  }
+
+  void _sessionChanged() {
+    if (!_allowed) _revoked = true;
+  }
+
+  void _finish({bool submit = false}) {
+    if (!mounted || _completed || ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    final note = _note.text.trim();
+    final length = marketplaceTextLength(note);
+    if (submit && (!_allowed || length < 5 || length > 1000)) return;
+    _completed = true;
+    Navigator.of(context).pop(submit ? (remove: _remove, note: note) : null);
+  }
+
   @override
   void dispose() {
+    widget.sessions.removeListener(_sessionChanged);
     _note.dispose();
     super.dispose();
   }
@@ -354,9 +399,8 @@ class _ReviewDialogState extends State<_ReviewDialog> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.sessions,
     builder: (context, _) {
-      final allowed =
-          identical(widget.entry, widget.sessions.session) &&
-          canManageMarketplaceReports(widget.sessions.session);
+      final allowed = _allowed;
+      final noteLength = marketplaceTextLength(_note.text.trim());
       return AlertDialog(
         title: const Text('Bildirim kararı'),
         content: !allowed
@@ -379,9 +423,12 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                       minLines: 2,
                       maxLines: 4,
                       maxLength: 1000,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Karar gerekçesi',
                         helperText: 'En az 5 karakter',
+                        errorText: noteLength > 1000
+                            ? 'En fazla 1000 karakter gir.'
+                            : null,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -389,18 +436,12 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 ),
               ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Vazgeç'),
-          ),
+          TextButton(onPressed: _finish, child: const Text('Vazgeç')),
           if (allowed)
             FilledButton(
-              onPressed: _note.text.trim().length < 5
+              onPressed: noteLength < 5 || noteLength > 1000
                   ? null
-                  : () => Navigator.pop(context, (
-                      remove: _remove,
-                      note: _note.text.trim(),
-                    )),
+                  : () => _finish(submit: true),
               child: const Text('Kararı kaydet'),
             ),
         ],

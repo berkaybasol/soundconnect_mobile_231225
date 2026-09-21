@@ -6,11 +6,13 @@ import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
+import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/utils/turkish_alphabetical.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../instrument/domain/entities/instrument.dart';
 import '../../../instrument/domain/instrument_repository.dart';
 import '../../../location/domain/entities/city.dart';
@@ -849,21 +851,8 @@ class _DiscoveryHeader extends StatelessWidget {
         Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: 178,
-              height: 52,
-              child: ClipRect(
-                child: Transform.scale(
-                  scale: 3.1,
-                  child: Image.asset(
-                    'assets/logotransparent.png',
-                    key: const ValueKey<String>('collab-brand-logo'),
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                    semanticLabel: 'SoundConnect',
-                  ),
-                ),
-              ),
+            child: const ProfileBrandTitle(
+              key: ValueKey<String>('collab-brand-logo'),
             ),
           ),
         ),
@@ -924,6 +913,8 @@ class _DiscoveryHeader extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(width: 6),
+        const AppGlobalActions(),
       ],
     );
   }

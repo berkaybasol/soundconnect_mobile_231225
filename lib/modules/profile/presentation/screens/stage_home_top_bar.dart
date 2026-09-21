@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-
-import '../../../../app/router/app_routes.dart';
-import '../../../../shared/theme/app_colors.dart';
+import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
-import '../../../notification/presentation/cubit/notification_cubit.dart';
-import '../../../notification/presentation/cubit/notification_state.dart';
 
 class StageHomeTopBar extends StatelessWidget {
   final VoidCallback? onSearchTap;
@@ -66,13 +61,11 @@ class StageHomeTopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          if (unreadCountOverride case final count?)
-            _notificationButton(context, count)
-          else
-            BlocBuilder<NotificationCubit, NotificationState>(
-              builder: (context, state) =>
-                  _notificationButton(context, state.unreadCount),
-            ),
+          AppNotificationButton(
+            onPressed: onNotificationsTap,
+            unreadCountOverride: unreadCountOverride,
+            iconSize: 31,
+          ),
           IconButton(
             onPressed: onMenuTap,
             icon: const ProfileMenuLogo(),
@@ -81,58 +74,6 @@ class StageHomeTopBar extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _notificationButton(BuildContext context, int count) => IconButton(
-    onPressed:
-        onNotificationsTap ??
-        () => Navigator.of(context).pushNamed(AppRoutes.notifications),
-    icon: _NotificationBell(unreadCount: count),
-    iconSize: 31,
-    splashRadius: 24,
-    tooltip: 'Bildirimler',
-  );
-}
-
-class _NotificationBell extends StatelessWidget {
-  final int unreadCount;
-
-  const _NotificationBell({required this.unreadCount});
-
-  @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
-    if (unreadCount <= 0) {
-      return const Icon(Icons.notifications_none_outlined);
-    }
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        const Icon(Icons.notifications_none_outlined),
-        Positioned(
-          right: -8,
-          top: -6,
-          child: Container(
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: AppColors.coralAlt,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                unreadCount > 99 ? '99+' : unreadCount.toString(),
-                style: TextStyle(
-                  color: AppColors.onAccent,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

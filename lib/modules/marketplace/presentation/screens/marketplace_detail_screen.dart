@@ -936,7 +936,12 @@ class _MarketplaceReportFormState extends State<_MarketplaceReportForm> {
   Future<void> _send() async {
     if (!marketplaceCanAct(context)) return;
     if (_busy) return;
-    if (_reason == 'OTHER' && _description.text.trim().length < 5) {
+    final descriptionLength = marketplaceTextLength(_description.text.trim());
+    if (descriptionLength > 1000) {
+      setState(() => _error = 'En fazla 1000 karakter yaz.');
+      return;
+    }
+    if (_reason == 'OTHER' && descriptionLength < 5) {
       setState(() => _error = 'Şikâyet nedenini kısaca açıkla.');
       return;
     }

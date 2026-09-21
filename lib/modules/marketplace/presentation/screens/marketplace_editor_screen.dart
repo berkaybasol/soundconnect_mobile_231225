@@ -20,6 +20,7 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
       _model = TextEditingController(),
       _price = TextEditingController();
   final _createRequestId = const Uuid().v4();
+  final _priceFormatter = MarketplacePriceInputFormatter();
   final _imagePicker = ImagePicker();
   final _formKey = GlobalKey<FormState>();
   MarketplaceListing? _draft;
@@ -323,6 +324,18 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
     return null;
   }
 
+  String? _validateTextLength(
+    String? value, {
+    required int max,
+    int min = 0,
+    String? minimumMessage,
+  }) {
+    final length = marketplaceTextLength(value?.trim() ?? '');
+    if (length > max) return 'En fazla $max karakter yaz.';
+    if (length < min) return minimumMessage ?? 'En az $min karakter yaz.';
+    return null;
+  }
+
   bool _valid(bool publication) {
     setState(() => _validatePublication = publication);
     final textValid = _formKey.currentState?.validate() ?? false;
@@ -352,99 +365,139 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
     final confirmed = await marketplaceSheet<bool>(
       context,
       (context) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'İlan önizlemesi',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              AspectRatio(
-                aspectRatio: 1.6,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: MarketplacePhoto(assetId: _photos.first),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _title.text.trim(),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -.4,
-                  height: 1.25,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _priceLabel,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${_condition!.label} · ${_categoryName ?? ''}',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 20, 12),
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 17,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  IconButton(
+                    tooltip: 'Düzenlemeye dön',
+                    onPressed: () => _popMarketplaceRoute(context, false),
+                    icon: const Icon(Icons.arrow_back_rounded),
                   ),
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      '${_districtName ?? ''}, ${_cityName ?? ''}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      'İlan önizlemesi',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -.4,
                       ),
                     ),
                   ),
                 ],
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Divider(),
-              ),
-              Text(
-                _description.text.trim(),
-                style: const TextStyle(height: 1.55),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Ödeme ve teslimat satıcı ile alıcı arasında kararlaştırılır.',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                  height: 1.5,
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 1.6,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: MarketplacePhoto(assetId: _photos.first),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _title.text.trim(),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -.4,
+                            height: 1.25,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _priceLabel,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${_condition!.label} · ${_categoryName ?? ''}',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 17,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            '${_districtName ?? ''}, ${_cityName ?? ''}',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(),
+                    ),
+                    Text(
+                      _description.text.trim(),
+                      style: const TextStyle(height: 1.55),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Ödeme ve teslimat satıcı ile alıcı arasında kararlaştırılır.',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              GradientOutlineButton(
-                label: 'İlanı yayınla',
-                onPressed: () => _popMarketplaceRoute(context, true),
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHigh,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GradientOutlineButton(
+                    label: 'İlanı yayınla',
+                    maxLines: 2,
+                    onPressed: () => _popMarketplaceRoute(context, true),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHigh,
+                  ),
+                  const SizedBox(height: 4),
+                  TextButton.icon(
+                    onPressed: () => _popMarketplaceRoute(context, false),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Düzenlemeye dön'),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -697,7 +750,7 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
             children: [
               Text(
-                'Ekipmanına yeni bir sahne bul.',
+                'Ekipmanını satışa çıkar.',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontSize: 25,
                   fontWeight: FontWeight.w800,
@@ -707,7 +760,7 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
               ),
               const SizedBox(height: 9),
               Text(
-                'Detaylarını paylaş, yayınlamadan önce ilanını gözden geçir.',
+                'Ürün bilgilerini ve fotoğraflarını ekle, ilanını önizle ve yayınla.',
                 style: TextStyle(
                   color: colors.onSurfaceVariant,
                   fontSize: 13,
@@ -744,6 +797,7 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
                       children: [
                         TextFormField(
                           controller: _price,
+                          inputFormatters: [_priceFormatter],
                           onChanged: _changed,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -801,11 +855,13 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
                             hintText:
                                 'Ürünün özellikleri, varsa kusurları, yapılan onarımlar ve kutuya dahil olanlar…',
                           ),
-                          validator: (value) =>
-                              _validatePublication &&
-                                  (value?.trim().length ?? 0) < 10
-                              ? 'En az 10 karakterlik bir açıklama yaz.'
-                              : null,
+                          validator: (value) => _validateTextLength(
+                            value,
+                            max: 4000,
+                            min: _validatePublication ? 10 : 0,
+                            minimumMessage:
+                                'En az 10 karakterlik bir açıklama yaz.',
+                          ),
                         ),
                       ],
                     ),
@@ -914,10 +970,12 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
       decoration: _decoration(
         'İlan başlığı',
       ).copyWith(hintText: 'Örn. Fender Player Stratocaster'),
-      validator: (value) =>
-          _validatePublication && (value?.trim().length ?? 0) < 5
-          ? 'En az 5 karakterlik bir başlık yaz.'
-          : null,
+      validator: (value) => _validateTextLength(
+        value,
+        max: 120,
+        min: _validatePublication ? 5 : 0,
+        minimumMessage: 'En az 5 karakterlik bir başlık yaz.',
+      ),
     ),
     const SizedBox(height: 12),
     Text(
@@ -931,18 +989,20 @@ class _MarketplaceEditorState extends State<_MarketplaceEditor> {
     LayoutBuilder(
       builder: (context, constraints) {
         final fields = [
-          TextField(
+          TextFormField(
             controller: _brand,
             onChanged: _changed,
             maxLength: 80,
             textCapitalization: TextCapitalization.words,
             decoration: _decoration('Marka').copyWith(counterText: ''),
+            validator: (value) => _validateTextLength(value, max: 80),
           ),
-          TextField(
+          TextFormField(
             controller: _model,
             onChanged: _changed,
             maxLength: 100,
             decoration: _decoration('Model').copyWith(counterText: ''),
+            validator: (value) => _validateTextLength(value, max: 100),
           ),
         ];
         final stackFields =

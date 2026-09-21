@@ -5,10 +5,12 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
 import '../../../location/domain/entities/city.dart';
 import '../../../location/domain/entities/district.dart';
@@ -23,6 +25,7 @@ import '../marketplace_access_gate.dart';
 import '../marketplace_browse_controller.dart';
 import '../marketplace_category_picker.dart';
 import '../marketplace_photo.dart';
+import '../marketplace_price_input_formatter.dart';
 import '../marketplace_visual_theme.dart';
 
 part 'marketplace_collection_screen.dart';
@@ -210,26 +213,9 @@ class _MarketplaceHomeState extends State<_MarketplaceHome> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       titleSpacing: 20,
-      title: const Text(
-        'Ekipman Pazarı',
-        maxLines: 2,
-        style: TextStyle(height: 1.1),
-      ),
+      title: const ProfileBrandTitle(),
       toolbarHeight: 68,
-      actions: [
-        _MarketplaceIconAction(
-          tooltip: 'Kaydettiklerim',
-          onPressed: () => _collection(MarketplaceCollection.saved),
-          icon: Icons.bookmark_border_rounded,
-        ),
-        const SizedBox(width: 8),
-        _MarketplaceIconAction(
-          tooltip: 'İlanlarım',
-          onPressed: () => _collection(MarketplaceCollection.mine),
-          icon: Icons.inventory_2_outlined,
-        ),
-        const SizedBox(width: 18),
-      ],
+      actions: [const AppGlobalActions(), const SizedBox(width: 18)],
     ),
     bottomNavigationBar: widget.bottomNavigationBar,
     floatingActionButton: _MarketplaceCreateButton(onPressed: _create),
@@ -249,14 +235,33 @@ class _MarketplaceHomeState extends State<_MarketplaceHome> {
                     const _MarketplaceIntro(),
                     const SizedBox(height: 10),
                     Text(
-                      'Enstrüman, ses ve sahne ekipmanı',
+                      'Sıfır ve ikinci el enstrüman, ses ve sahne ekipmanlarını keşfet.',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,
                         height: 1.5,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _MarketplaceCollectionShortcut(
+                          label: 'Kaydettiklerim',
+                          icon: Icons.bookmark_border_rounded,
+                          onPressed: () =>
+                              _collection(MarketplaceCollection.saved),
+                        ),
+                        _MarketplaceCollectionShortcut(
+                          label: 'İlanlarım',
+                          icon: Icons.inventory_2_outlined,
+                          onPressed: () =>
+                              _collection(MarketplaceCollection.mine),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(

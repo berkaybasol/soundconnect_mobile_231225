@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/app_route_guard.dart';
+import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/di/service_locator.dart';
@@ -464,14 +465,7 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
                 top: actionVerticalPadding,
                 bottom: actionVerticalPadding,
               ),
-              child: DmHeaderAction(
-                tooltip: 'Mesajları yenile',
-                onPressed: () {
-                  context.read<DmConversationsCubit>().load();
-                  _loadMusicJoinTables(force: true);
-                },
-                icon: Icons.refresh_rounded,
-              ),
+              child: const AppGlobalActions(),
             ),
           ],
           bottom: PreferredSize(
@@ -509,12 +503,20 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
             separatorBuilder: (_, __) => SizedBox(height: 12),
             itemBuilder: (context, index) {
               if (index == 0) {
-                return _InlineSearchBar(
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  onClear: () {
-                    _searchController.clear();
-                  },
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _InlineSearchBar(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        onClear: () {
+                          _searchController.clear();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _refreshAction(),
+                  ],
                 );
               }
 
@@ -570,7 +572,11 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-          children: const [_MusicJoinEmptyState()],
+          children: [
+            _musicJoinHeader(),
+            const SizedBox(height: 12),
+            const _MusicJoinEmptyState(),
+          ],
         ),
       );
     }
@@ -579,10 +585,11 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-        itemCount: _musicJoinTables.length,
+        itemCount: _musicJoinTables.length + 1,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          final table = _musicJoinTables[index];
+          if (index == 0) return _musicJoinHeader();
+          final table = _musicJoinTables[index - 1];
           return _MusicJoinTableTile(
             table: table,
             onTap: () async {
@@ -598,6 +605,30 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
       ),
     );
   }
+
+  Widget _refreshAction() => DmHeaderAction(
+    tooltip: 'Mesajları yenile',
+    onPressed: () {
+      context.read<DmConversationsCubit>().load();
+      _loadMusicJoinTables(force: true);
+    },
+    icon: Icons.refresh_rounded,
+  );
+
+  Widget _musicJoinHeader() => Row(
+    children: [
+      Expanded(
+        child: Text(
+          'Aktif masalar',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ),
+      const SizedBox(width: 8),
+      _refreshAction(),
+    ],
+  );
 
   int _buildListItemCount(int conversationCount) {
     if (_hasActiveQuery) {

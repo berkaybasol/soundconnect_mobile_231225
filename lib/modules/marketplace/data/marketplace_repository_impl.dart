@@ -38,7 +38,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   }) {
     if (page < 0 ||
         page > 1000 ||
-        query.search.length > 100 ||
+        marketplaceTextLength(query.search) > 100 ||
         (query.minPriceMinor != null && query.minPriceMinor! < 0) ||
         (query.maxPriceMinor != null && query.maxPriceMinor! < 0) ||
         (query.minPriceMinor != null &&

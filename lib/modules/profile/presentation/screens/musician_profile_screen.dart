@@ -29,6 +29,7 @@ import '../../../musician_feed/presentation/widgets/musician_feed_opportunity_ci
 import '../../../setlist/presentation/screens/band_setlist_builder_screen.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';

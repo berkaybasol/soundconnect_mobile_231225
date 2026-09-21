@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
@@ -48,40 +47,28 @@ class ProfilePublicBottomBar extends StatelessWidget {
   });
 
   Widget _profileAvatar(BuildContext context, bool active) {
-    final tint = IconTheme.of(context).color;
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(
-        tint ?? AppColors.legacy(Colors.white),
-        BlendMode.srcIn,
-      ),
-      child: Image.asset(
-        'assets/ME!2-transparent.png',
-        width: active ? 25 : 23,
-        height: active ? 25 : 23,
-        fit: BoxFit.contain,
-      ),
-    );
+    return const Icon(Icons.person_outline_rounded);
   }
 
   Widget _announcementIcon(BuildContext context) {
-    return const Icon(Icons.device_hub);
+    return const Icon(Icons.handshake_outlined);
   }
 
   Widget _assetIcon(BuildContext context, String assetName) {
-    final tint = Theme.of(
-      context,
-    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.72);
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(tint, BlendMode.srcIn),
-      child: Image.asset(assetName, width: 22, height: 22),
+    return Builder(
+      builder: (iconContext) => ColorFiltered(
+        colorFilter: ColorFilter.mode(
+          IconTheme.of(iconContext).color ??
+              Theme.of(iconContext).colorScheme.onSurfaceVariant,
+          BlendMode.srcIn,
+        ),
+        child: Image.asset(assetName, width: 22, height: 22),
+      ),
     );
   }
 
   Widget _discoveryIcon(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ui.ImageFilter.dilate(radiusX: 0.35, radiusY: 0.35),
-      child: _assetIcon(context, 'assets/music-note.png'),
-    );
+    return _assetIcon(context, 'assets/music-note.png');
   }
 
   List<BottomNavigationBarItem> _backstageItems(
@@ -93,7 +80,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
       if (canAccessMarketplace)
         const BottomNavigationBarItem(
           icon: Icon(Icons.storefront_outlined),
-          activeIcon: Icon(Icons.storefront),
+          activeIcon: Icon(Icons.storefront_outlined),
           label: 'Pazar',
           tooltip: 'Ekipman Pazarı',
         )
@@ -140,7 +127,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
       BottomNavigationBarItem(
         icon: OverthinkingBoundUnreadDot(
           badgeKey: const ValueKey('overthinking-navigation-unread-dot'),
-          child: _assetIcon(context, 'assets/confined.png'),
+          child: const Icon(Icons.bubble_chart_outlined),
         ),
         label: 'Overthinking',
       ),
@@ -500,44 +487,164 @@ class ProfilePublicBottomBar extends StatelessWidget {
         : ProfileBottomBarAvatarCache.lastProfileImageUrl;
     ProfileBottomBarAvatarCache.remember(resolvedProfileImageUrl);
 
-    Widget navigation(int unreadCount) => BottomNavigationBar(
-      currentIndex: effectiveStage == StageMode.mainstage
+    Widget navigation(int unreadCount) {
+      final scheme = Theme.of(context).colorScheme;
+      final light = scheme.brightness == Brightness.light;
+      final activeIndex = effectiveStage == StageMode.mainstage
           ? mainstageCurrentIndex ?? currentIndex
-          : currentIndex,
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: AppColors.navBlueDeep,
-      selectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-      unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-      onTap: (index) {
-        if (!canAccessMarketplace &&
-            effectiveStage == StageMode.backstage &&
-            index == 0) {
-          return;
-        }
-        if (manager != null && !identical(manager.session, session)) {
-          return;
-        }
-        final selected = onDestinationSelected;
-        if (selected != null) {
-          selected(index);
-          return;
-        }
-        if (effectiveStage == StageMode.mainstage) {
-          unawaited(_handleMainstageTap(context, index));
-          return;
-        }
-        unawaited(_handleBackstageTap(context, index, resolvedProfileImageUrl));
-      },
-      items: effectiveStage == StageMode.mainstage
+          : currentIndex;
+      final items = effectiveStage == StageMode.mainstage
           ? _mainstageItems(context, unreadCount)
-          : _backstageItems(context, unreadCount, canAccessMarketplace),
-    );
+          : _backstageItems(context, unreadCount, canAccessMarketplace);
+      final accent = light
+          ? AppColors.lightPalette.coral
+          : AppColors.originalDark.coralLight;
+      final surface = light
+          ? scheme.surface
+          : Color.lerp(scheme.surface, scheme.surfaceContainerHighest, .35)!;
+      return SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: light ? .65 : .5),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: light ? .06 : .2),
+                blurRadius: 20,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: BottomNavigationBar(
+                currentIndex: activeIndex,
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                iconSize: 22,
+                selectedItemColor: accent,
+                unselectedItemColor: scheme.onSurfaceVariant.withValues(
+                  alpha: .82,
+                ),
+                selectedFontSize: 11,
+                unselectedFontSize: 11,
+                selectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                ),
+                onTap: (index) {
+                  if (!canAccessMarketplace &&
+                      effectiveStage == StageMode.backstage &&
+                      index == 0) {
+                    return;
+                  }
+                  if (manager != null && !identical(manager.session, session)) {
+                    return;
+                  }
+                  final selected = onDestinationSelected;
+                  if (selected != null) {
+                    selected(index);
+                    return;
+                  }
+                  if (effectiveStage == StageMode.mainstage) {
+                    unawaited(_handleMainstageTap(context, index));
+                    return;
+                  }
+                  unawaited(
+                    _handleBackstageTap(
+                      context,
+                      index,
+                      resolvedProfileImageUrl,
+                    ),
+                  );
+                },
+                items: [
+                  for (var index = 0; index < items.length; index++)
+                    BottomNavigationBarItem(
+                      label: items[index].label,
+                      tooltip: items[index].tooltip,
+                      icon: _BottomBarGlyph(
+                        active:
+                            index == activeIndex && items[index].label != '',
+                        launcher:
+                            effectiveStage == StageMode.backstage && index == 2,
+                        accent: accent,
+                        child: index == activeIndex
+                            ? items[index].activeIcon
+                            : items[index].icon,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (unreadCountOverride case final count?) return navigation(count);
     final badgeCubit = serviceLocator<DmBadgeCubit>()..ensureStarted();
     return BlocProvider<DmBadgeCubit>.value(
       value: badgeCubit,
       child: BlocBuilder<DmBadgeCubit, DmBadgeState>(
         builder: (context, state) => navigation(state.unreadCount),
+      ),
+    );
+  }
+}
+
+class _BottomBarGlyph extends StatelessWidget {
+  const _BottomBarGlyph({
+    required this.active,
+    required this.launcher,
+    required this.accent,
+    required this.child,
+  });
+
+  final bool active, launcher;
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: AnimatedContainer(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        width: 46,
+        height: 32,
+        decoration: BoxDecoration(
+          color: active
+              ? accent.withValues(alpha: .12)
+              : launcher
+              ? scheme.onSurface.withValues(alpha: .035)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: active
+                ? accent.withValues(alpha: .16)
+                : launcher
+                ? scheme.outlineVariant.withValues(alpha: .6)
+                : Colors.transparent,
+          ),
+        ),
+        child: Center(child: child),
       ),
     );
   }
@@ -676,14 +783,7 @@ class _ForumIconWithBadge extends StatelessWidget {
   _ForumIconWithBadge({required this.unreadCount});
 
   Widget _dmIcon(BuildContext context) {
-    final tint = IconTheme.of(context).color;
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(
-        tint ?? AppColors.legacy(Colors.white),
-        BlendMode.srcIn,
-      ),
-      child: Image.asset('assets/dm.png', width: 22, height: 22),
-    );
+    return const Icon(Icons.chat_bubble_outline_rounded);
   }
 
   @override

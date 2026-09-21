@@ -134,6 +134,143 @@ void main() {
   });
 
   testWidgets(
+    'returning from preview keeps unsaved fields and photos without publishing',
+    (tester) async {
+      await edit(tester);
+      const title = 'Önizlemeden sonra düzenlenen gitar';
+      const description = 'Kılıfı ve askısı dahildir. Elden teslim edilebilir.';
+      await tester.enterText(_field('İlan başlığı'), title);
+      await tester.enterText(_field('Açıklama'), description);
+      await tester.enterText(_field('Fiyat (TL)'), '12500,75');
+      await _tapText(tester, 'Önizle ve yayınla');
+      expect(find.text('İlan önizlemesi'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is Text && w.data == title),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Text && (w.data?.contains('12.500,75') ?? false),
+        ),
+        findsOneWidget,
+      );
+
+      await _tapText(tester, 'Düzenlemeye dön');
+      expect(find.text('İlan önizlemesi'), findsNothing);
+      expect(find.text('İlanı düzenle'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(_field('İlan başlığı')).controller!.text,
+        title,
+      );
+      expect(
+        tester.widget<TextField>(_field('Açıklama')).controller!.text,
+        description,
+      );
+      expect(
+        tester.widget<TextField>(_field('Fiyat (TL)')).controller!.text,
+        '12.500,75',
+      );
+      expect(
+        tester.widget<MarketplacePhoto>(find.byType(MarketplacePhoto)).assetId,
+        marketAssetId,
+      );
+      expect(repository.createIds, isEmpty);
+      expect(repository.writes, isEmpty);
+      expect(repository.transitions, isEmpty);
+      expect(uploads.attemptedDeletes, isEmpty);
+
+      const revisedTitle = 'Önizleme sonrası güncel gitar başlığı';
+      await tester.enterText(_field('İlan başlığı'), revisedTitle);
+      await _tapText(tester, 'Önizle ve yayınla');
+      expect(
+        find.byWidgetPredicate((w) => w is Text && w.data == revisedTitle),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Text && (w.data?.contains('12.500,75') ?? false),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Düzenlemeye dön'));
+      await tester.pumpAndSettle();
+      expect(find.text('İlanı düzenle'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(_field('İlan başlığı')).controller!.text,
+        revisedTitle,
+      );
+      expect(repository.writes, isEmpty);
+      expect(repository.transitions, isEmpty);
+    },
+  );
+
+  testWidgets('same-frame preview return callbacks leave the editor open', (
+    tester,
+  ) async {
+    await edit(tester);
+    await _tapText(tester, 'Önizle ve yayınla');
+    final returnFromFooter = tester
+        .widget<TextButton>(find.widgetWithText(TextButton, 'Düzenlemeye dön'))
+        .onPressed!;
+    final returnFromHeader = tester
+        .widget<IconButton>(
+          find.byWidgetPredicate(
+            (w) => w is IconButton && w.tooltip == 'Düzenlemeye dön',
+          ),
+        )
+        .onPressed!;
+    returnFromFooter();
+    returnFromHeader();
+    await tester.pumpAndSettle();
+    expect(find.text('İlan önizlemesi'), findsNothing);
+    expect(find.text('İlanı düzenle'), findsOneWidget);
+    expect(_field('İlan başlığı'), findsOneWidget);
+    expect(repository.writes, isEmpty);
+    expect(repository.transitions, isEmpty);
+  });
+
+  testWidgets(
+    'long preview keeps return and publish reachable on a small enlarged display',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await edit(tester);
+      await tester.scrollUntilVisible(
+        _field('Açıklama'),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(
+        _field('Açıklama'),
+        List.filled(200, 'Ekipman açıklaması. ').join().padRight(4000, '.'),
+      );
+      await _tapText(tester, 'Önizle ve yayınla');
+      expect(tester.takeException(), isNull);
+      expect(find.byTooltip('Düzenlemeye dön').hitTestable(), findsOneWidget);
+      expect(
+        find.widgetWithText(TextButton, 'Düzenlemeye dön').hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find
+            .byWidgetPredicate(
+              (w) => w is GradientOutlineButton && w.label == 'İlanı yayınla',
+            )
+            .hitTestable(),
+        findsOneWidget,
+      );
+      await _tapText(tester, 'Düzenlemeye dön');
+      expect(find.text('İlanı düzenle'), findsOneWidget);
+      expect(repository.writes, isEmpty);
+      expect(repository.transitions, isEmpty);
+    },
+  );
+
+  testWidgets(
     'double preview confirmation publishes once and preserves the detail route',
     (tester) async {
       await edit(tester);

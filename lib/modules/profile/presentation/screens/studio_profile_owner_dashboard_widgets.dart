@@ -308,6 +308,11 @@ class _StudioTopChrome extends StatelessWidget {
             tooltip: 'Menü',
           ),
         ),
+        if (onMenu != null) ...[
+          const SizedBox(width: 6),
+          const AppGlobalActions(),
+          const SizedBox(width: 8),
+        ],
       ],
     );
   }

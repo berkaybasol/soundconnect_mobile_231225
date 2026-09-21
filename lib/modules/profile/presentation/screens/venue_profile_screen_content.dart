@@ -129,6 +129,9 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 6),
+                  const AppGlobalActions(),
+                  const SizedBox(width: 8),
                 ]
               : null,
         ),

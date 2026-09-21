@@ -132,6 +132,14 @@ class WeeklyEventDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AppSurfaceThemeScope(
     child: _WeeklyEventDetailContent(
+      // Context and pending actions belong to this event/performer identity.
+      // Replacing it must not reuse another event's description or profiles.
+      key: ValueKey((
+        event.id,
+        event.linkedArtistProfileId,
+        event.linkedBandProfileId,
+        event.venueId,
+      )),
       event: event,
       shareService: shareService,
       onEngagementChanged: onEngagementChanged,
@@ -141,6 +149,7 @@ class WeeklyEventDetailScreen extends StatelessWidget {
 
 class _WeeklyEventDetailContent extends StatefulWidget {
   const _WeeklyEventDetailContent({
+    super.key,
     required this.event,
     this.shareService,
     this.onEngagementChanged,
@@ -175,6 +184,7 @@ class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
   late final EventShareService _eventShareService =
       widget.shareService ?? PlatformEventShareService();
   String? _loadedDescription;
+  int _detailRequestRevision = 0;
   bool _isSharing = false;
   bool _isShowingPerformerInfo = false;
   bool _isOpeningArtistProfile = false;
@@ -277,6 +287,18 @@ class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
   @override
   void didUpdateWidget(covariant _WeeklyEventDetailContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final previous = oldWidget.event;
+    final current = widget.event;
+    if (previous.title != current.title ||
+        previous.description != current.description ||
+        previous.eventDate != current.eventDate ||
+        previous.startTime != current.startTime ||
+        previous.endTime != current.endTime ||
+        previous.imageAssetPath != current.imageAssetPath) {
+      _loadedDescription = null;
+      _analyticsEventVerified = false;
+      _loadShareUrl();
+    }
     if (oldWidget.event.id == widget.event.id) return;
     _commentController.clear();
     _dismissReplyRoute();

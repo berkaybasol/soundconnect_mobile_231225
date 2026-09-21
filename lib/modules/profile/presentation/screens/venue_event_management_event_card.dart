@@ -16,6 +16,7 @@ class VenueCalendarEventCard extends StatelessWidget {
   final VoidCallback onTap;
   final bool saving;
   final VoidCallback? onDelete;
+  final VoidCallback? onCopy;
 
   const VenueCalendarEventCard({
     super.key,
@@ -27,6 +28,7 @@ class VenueCalendarEventCard extends StatelessWidget {
     required this.onTap,
     required this.saving,
     required this.onDelete,
+    this.onCopy,
   });
 
   @override
@@ -41,6 +43,7 @@ class VenueCalendarEventCard extends StatelessWidget {
       onTap: onTap,
       saving: saving,
       onDelete: onDelete,
+      onCopy: onCopy,
       history: false,
     );
   }
@@ -55,6 +58,7 @@ class VenueCalendarPastEventCard extends StatelessWidget {
   final VoidCallback onTap;
   final bool saving;
   final VoidCallback? onDelete;
+  final VoidCallback? onCopy;
 
   const VenueCalendarPastEventCard({
     super.key,
@@ -66,6 +70,7 @@ class VenueCalendarPastEventCard extends StatelessWidget {
     required this.onTap,
     required this.saving,
     required this.onDelete,
+    this.onCopy,
   });
 
   @override
@@ -80,6 +85,7 @@ class VenueCalendarPastEventCard extends StatelessWidget {
       onTap: onTap,
       saving: saving,
       onDelete: onDelete,
+      onCopy: onCopy,
       history: true,
     );
   }
@@ -94,6 +100,7 @@ class _VenueCalendarCompactCard extends StatelessWidget {
   final VoidCallback onTap;
   final bool saving;
   final VoidCallback? onDelete;
+  final VoidCallback? onCopy;
   final bool history;
 
   const _VenueCalendarCompactCard({
@@ -105,6 +112,7 @@ class _VenueCalendarCompactCard extends StatelessWidget {
     required this.onTap,
     required this.saving,
     required this.onDelete,
+    this.onCopy,
     required this.history,
   });
 
@@ -159,10 +167,11 @@ class _VenueCalendarCompactCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              if (onDelete != null)
+              if (onDelete != null || onCopy != null)
                 _VenueCalendarEventMenuButton(
                   saving: saving,
-                  onDelete: onDelete!,
+                  onDelete: onDelete,
+                  onCopy: onCopy,
                 ),
             ],
           ),

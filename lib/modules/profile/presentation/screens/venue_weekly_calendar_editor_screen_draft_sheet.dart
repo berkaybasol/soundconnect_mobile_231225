@@ -3,10 +3,28 @@ part of 'venue_weekly_calendar_editor_screen.dart';
 class _VenueEventDraftSheet extends StatefulWidget {
   final VenueOwnerProfile ownerProfile;
   final Future<Result<void>> Function(VenueEventDraft) onSave;
+  final Future<Result<void>> Function(EventPlanDefinition, String)? onPlanSave;
+  final VenueEventDraft? initialDraft;
+  final EventPlanDefinition? initialPlan;
+  final bool initiallyRepeating;
+  final String? editingPlanId;
+  final int? editingPlanVersion;
+  final String? performerName, posterUrl;
+  final String title, submitLabel;
 
   const _VenueEventDraftSheet({
     required this.ownerProfile,
     required this.onSave,
+    this.onPlanSave,
+    this.initialDraft,
+    this.initialPlan,
+    this.initiallyRepeating = false,
+    this.editingPlanId,
+    this.editingPlanVersion,
+    this.performerName,
+    this.posterUrl,
+    this.title = 'Yeni etkinlik',
+    this.submitLabel = 'Etkinliği Oluştur',
   });
 
   String get profileName => ownerProfile.venueName;
@@ -29,7 +47,7 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   final _descriptionFocusNode = FocusNode();
   final _performerResultsKey = GlobalKey();
   final ImagePicker _imagePicker = ImagePicker();
-  DateTime? _selectedDate = DateTime.now();
+  DateTime? _selectedDate = DateUtils.dateOnly(DateTime.now());
   TimeOfDay? _startTime = TimeOfDay(hour: 20, minute: 0);
   TimeOfDay? _endTime = TimeOfDay(hour: 22, minute: 0);
   ProfileSearchResult? _selectedPerformer;
@@ -46,6 +64,16 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   List<ProfileSearchResult> _searchResults = [];
   Timer? _searchDebounce;
   int _searchToken = 0;
+  bool _repeating = false;
+  bool _unlimited = true;
+  DateTime? _untilDate;
+  final Set<int> _weekdays = {};
+  late final String _clientRequestId = const Uuid().v4();
+  AuthSessionManager? _draftSessions;
+  Object? _draftSession;
+  bool get _sameDraftSession =>
+      _draftSessions == null ||
+      identical(_draftSession, _draftSessions!.session);
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -55,6 +83,39 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
   @override
   void initState() {
     super.initState();
+    _draftSessions = serviceLocator.isRegistered<AuthSessionManager>()
+        ? serviceLocator<AuthSessionManager>()
+        : null;
+    _draftSession = _draftSessions?.session;
+    _draftSessions?.addListener(_draftSessionChanged);
+    final draft = widget.initialDraft;
+    if (draft != null) {
+      _titleController.text = draft.title;
+      _descriptionController.text = draft.description;
+      _selectedDate = DateUtils.dateOnly(draft.eventDate);
+      _startTime = draft.startTime;
+      _endTime = draft.endTime;
+      _posterAssetId = draft.posterImage;
+      _performerController.text =
+          widget.performerName ?? draft.manualPerformerName ?? '';
+      final id = draft.musicianProfileId ?? draft.bandId;
+      if (id != null) {
+        _selectedPerformer = ProfileSearchResult(
+          type: draft.bandId == null
+              ? ProfileSearchResultType.musician
+              : ProfileSearchResultType.band,
+          targetId: id,
+          userId: null,
+          title: widget.performerName ?? 'Seçili sanatçı',
+          subtitle: null,
+          imageUrl: null,
+        );
+      }
+    }
+    _repeating = widget.initialPlan != null || widget.initiallyRepeating;
+    _unlimited = widget.initialPlan?.untilDate == null;
+    _untilDate = widget.initialPlan?.untilDate;
+    _weekdays.addAll(widget.initialPlan?.weekdays ?? [_selectedDate!.weekday]);
     _titleFocusNode.addListener(_handleFocusChanged);
     _performerFocusNode.addListener(_handleFocusChanged);
     _descriptionFocusNode.addListener(_handleFocusChanged);
@@ -62,6 +123,7 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
 
   @override
   void dispose() {
+    _draftSessions?.removeListener(_draftSessionChanged);
     _searchDebounce?.cancel();
     _titleFocusNode
       ..removeListener(_handleFocusChanged)
@@ -76,6 +138,25 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
     _descriptionController.dispose();
     _performerController.dispose();
     super.dispose();
+  }
+
+  void _draftSessionChanged() {
+    if (!mounted || _sameDraftSession) return;
+    _titleController.clear();
+    _descriptionController.clear();
+    _performerController.clear();
+    _searchToken++;
+    setState(() {
+      _submitting = false;
+      _uncertainSubmission = false;
+      _posterUploading = false;
+      _selectedPerformer = null;
+      _posterAssetId = null;
+      _posterPreviewPath = null;
+      _formError = 'Oturum değişti. Formu yeniden aç.';
+    });
+    final route = ModalRoute.of(context);
+    if (route?.isActive == true) route!.navigator?.removeRoute(route);
   }
 
   @override
@@ -164,6 +245,10 @@ class _VenueEventDraftSheetState extends State<_VenueEventDraftSheet> {
                               _buildDraftSheetPerformerSection(),
                               const SizedBox(height: 24),
                               _buildDraftSheetDateTimeSection(),
+                              if (widget.onPlanSave != null) ...[
+                                const SizedBox(height: 24),
+                                _buildRecurrenceOptions(),
+                              ],
                               const SizedBox(height: 24),
                               _buildDraftSheetDescriptionSection(),
                             ],

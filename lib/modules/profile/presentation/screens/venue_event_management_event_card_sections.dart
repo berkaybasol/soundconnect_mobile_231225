@@ -63,15 +63,16 @@ class _VenueCalendarEventArtwork extends StatelessWidget {
   }
 }
 
-enum _VenueCalendarMenuAction { delete }
+enum _VenueCalendarMenuAction { delete, copy }
 
 class _VenueCalendarEventMenuButton extends StatelessWidget {
   final bool saving;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete, onCopy;
 
   const _VenueCalendarEventMenuButton({
     required this.saving,
     required this.onDelete,
+    this.onCopy,
   });
 
   @override
@@ -82,7 +83,8 @@ class _VenueCalendarEventMenuButton extends StatelessWidget {
       enabled: !saving,
       tooltip: 'Etkinlik seçenekleri',
       onSelected: (action) {
-        if (action == _VenueCalendarMenuAction.delete) onDelete();
+        if (action == _VenueCalendarMenuAction.delete) onDelete?.call();
+        if (action == _VenueCalendarMenuAction.copy) onCopy?.call();
       },
       color: scheme.surfaceContainerHighest,
       surfaceTintColor: Colors.transparent,
@@ -93,28 +95,34 @@ class _VenueCalendarEventMenuButton extends StatelessWidget {
         side: BorderSide(color: scheme.onSurface.withValues(alpha: .12)),
       ),
       itemBuilder: (context) => [
-        PopupMenuItem(
-          value: _VenueCalendarMenuAction.delete,
-          child: Row(
-            children: [
-              Icon(
-                Icons.delete_outline_rounded,
-                color: AppColors.coral,
-                size: 19,
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  'Etkinliği sil',
-                  style: TextStyle(
-                    color: scheme.onSurface,
-                    fontWeight: FontWeight.w600,
+        if (onCopy != null)
+          const PopupMenuItem(
+            value: _VenueCalendarMenuAction.copy,
+            child: Text('Etkinliği tekrarla'),
+          ),
+        if (onDelete != null)
+          PopupMenuItem(
+            value: _VenueCalendarMenuAction.delete,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.coral,
+                  size: 19,
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    'Etkinliği sil',
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
       child: SizedBox.square(
         dimension: 44,

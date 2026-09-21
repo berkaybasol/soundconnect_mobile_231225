@@ -244,23 +244,24 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
   }
 
   Future<void> _pickPoster() async {
-    if (_posterUploading) return;
-    final picked = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 92,
-      maxWidth: 2048,
-    );
-    if (!mounted || picked == null) return;
-
+    if (_posterUploading || _formLocked || !_sameDraftSession) return;
+    final previousAssetId = _posterAssetId;
+    final previousPreviewPath = _posterPreviewPath;
     _updateState(() {
       _posterUploading = true;
-      _posterPreviewPath = picked.path;
       _formError = null;
     });
-
     try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 92,
+        maxWidth: 2048,
+      );
+      if (!mounted || !_sameDraftSession || picked == null) return;
+      _updateState(() => _posterPreviewPath = picked.path);
       final fileName = fileNameFromPath(picked.path, fallback: picked.name);
       final source = await createProfileUploadSource(filePath: picked.path);
+      if (!mounted || !_sameDraftSession) return;
       final uploaded = await uploadProfileMediaAsset(
         source: source,
         ownerType: 'VENUE_PROFILE',
@@ -269,18 +270,16 @@ extension _VenueEventDraftSheetStateMethodsTimeMedia
         mimeType: inferImageMimeType(fileName),
         originalFileName: fileName,
       );
-      if (!mounted) return;
+      if (!mounted || !_sameDraftSession) return;
+      final assetId = uploaded.uuid.trim();
+      if (assetId.isEmpty) throw const FormatException('Missing poster asset');
+      _updateState(() => _posterAssetId = assetId);
+    } catch (_) {
+      if (!mounted || !_sameDraftSession) return;
       _updateState(() {
-        _posterAssetId = uploaded.uuid.trim().isEmpty
-            ? null
-            : uploaded.uuid.trim();
-      });
-    } catch (e) {
-      if (!mounted) return;
-      _updateState(() {
-        _posterAssetId = null;
-        _posterPreviewPath = null;
-        _formError = 'Afiş yüklenemedi: $e';
+        _posterAssetId = previousAssetId;
+        _posterPreviewPath = previousPreviewPath;
+        _formError = 'Afiş yüklenemedi. Tekrar dene.';
       });
     } finally {
       if (mounted) {

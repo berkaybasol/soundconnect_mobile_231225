@@ -6,12 +6,14 @@ import '../../../../shared/widgets/app_snack_bar.dart';
 
 Future<bool> confirmVenueEventDeletion(
   BuildContext context,
-  String title,
-) async {
+  String title, {
+  ValueChanged<ModalRoute<dynamic>?>? onRoute,
+}) async {
   var finished = false;
   final result = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
+      onRoute?.call(ModalRoute.of(dialogContext));
       final theme = Theme.of(dialogContext);
       final scheme = theme.colorScheme;
       void finish(bool value) {

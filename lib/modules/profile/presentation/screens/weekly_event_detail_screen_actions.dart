@@ -24,10 +24,12 @@ extension _WeeklyEventDetailScreenStateActions
   }
 
   Future<void> _loadShareUrl() async {
+    final revision = ++_detailRequestRevision;
     try {
       final result = await _venueEventRepository.getDetail(widget.event.id);
       final payload = result.data;
       if (!mounted ||
+          revision != _detailRequestRevision ||
           !result.isSuccess ||
           payload == null ||
           payload.id != widget.event.id) {

@@ -19,6 +19,7 @@ import '../../../follow/presentation/cubit/follow_count_state.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../analytics/presentation/screens/venue_analytics_screen.dart';
 import '../../../analytics/presentation/widgets/venue_analytics_reporting_scope.dart';

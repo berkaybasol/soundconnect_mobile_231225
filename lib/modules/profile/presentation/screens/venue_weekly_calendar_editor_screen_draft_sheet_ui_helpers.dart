@@ -99,6 +99,7 @@ extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
     required String value,
     required IconData icon,
     required VoidCallback onTap,
+    int? valueMaxLines = 1,
     VoidCallback? onClear,
   }) {
     final scheme = Theme.of(context).colorScheme;
@@ -145,8 +146,10 @@ extension _VenueEventDraftSheetStateUiHelpers on _VenueEventDraftSheetState {
                     const SizedBox(height: 3),
                     Text(
                       value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: valueMaxLines,
+                      overflow: valueMaxLines == null
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
                       style: TextStyle(
                         color: scheme.onSurface,
                         fontSize: 13,

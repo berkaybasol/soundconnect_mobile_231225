@@ -644,6 +644,85 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'reused detail reloads context and clears the previous event description',
+    (tester) async {
+      details.result = Result.success(
+        _detail(description: 'İlk etkinliğin sunucu açıklaması'),
+      );
+      await _openDetail(tester, _event());
+      expect(find.text('İlk etkinliğin sunucu açıklaması'), findsOneWidget);
+      final pending = Completer<Result<VenueEventDetail>>();
+      details.completion = pending;
+      await _openDetail(
+        tester,
+        _event(id: 'event-2', description: 'İkinci etkinliğin özeti'),
+      );
+      expect(find.text('İlk etkinliğin sunucu açıklaması'), findsNothing);
+      expect(find.text('İkinci etkinliğin özeti'), findsOneWidget);
+      expect(details.requestedIds, ['event-design-1', 'event-2']);
+      pending.complete(
+        Result.success(
+          _shareDetail(
+            id: 'event-2',
+            description: 'İkinci etkinliğin sunucu açıklaması',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('İkinci etkinliğin sunucu açıklaması'), findsOneWidget);
+      expect(find.text('İkinci etkinliğin özeti'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'reused detail ignores the previous event late context response',
+    (tester) async {
+      final previous = Completer<Result<VenueEventDetail>>();
+      details.completion = previous;
+      await _openDetail(tester, _event());
+      details.completion = null;
+      details.result = Result.success(
+        _shareDetail(id: 'event-2', description: 'Güncel etkinlik açıklaması'),
+      );
+      await _openDetail(tester, _event(id: 'event-2'));
+      previous.complete(
+        Result.success(_detail(description: 'Geciken eski açıklama')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Güncel etkinlik açıklaması'), findsOneWidget);
+      expect(find.text('Geciken eski açıklama'), findsNothing);
+      expect(details.requestedIds, ['event-design-1', 'event-2']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'same event refreshed metadata reloads its description and ignores older responses',
+    (tester) async {
+      final previous = Completer<Result<VenueEventDetail>>();
+      details.completion = previous;
+      await _openDetail(tester, _event(description: 'İlk özet'));
+      details.completion = null;
+      details.result = Result.success(
+        _detail(description: 'Düzenlenmiş sunucu açıklaması'),
+      );
+      await _openDetail(
+        tester,
+        _event(title: 'Düzenlenen etkinlik', description: 'İkinci özet'),
+      );
+      previous.complete(
+        Result.success(_detail(description: 'Geciken eski açıklama')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Düzenlenmiş sunucu açıklaması'), findsOneWidget);
+      expect(find.text('Geciken eski açıklama'), findsNothing);
+      expect(details.requestedIds, ['event-design-1', 'event-design-1']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('nullable fresh description clears a stale summary', (
     tester,
   ) async {
@@ -1206,6 +1285,7 @@ Future<void> _openDetail(
 }
 
 WeeklyCalendarEvent _event({
+  String id = 'event-design-1',
   String title = 'M-T1 — Katıl, gösterme',
   String artistName = 'bugrasahin',
   String? artistProfileId,
@@ -1218,7 +1298,7 @@ WeeklyCalendarEvent _event({
   String neighborhood = 'Çayyolu',
   String description = '',
 }) => WeeklyCalendarEvent(
-  id: 'event-design-1',
+  id: id,
   title: title,
   artistName: artistName,
   artistProfileId: artistProfileId,

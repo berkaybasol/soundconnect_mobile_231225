@@ -25,6 +25,7 @@ import 'package:soundconnect_23_12_25codx/modules/follow/presentation/cubit/foll
 import 'package:soundconnect_23_12_25codx/modules/follow/presentation/cubit/follow_count_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/profile_media.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_item.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_management.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_owner_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_public_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_media_repository.dart';
@@ -86,6 +87,53 @@ void main() {
   });
 
   _venueProfileAnalyticsTests(() => profiles);
+
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      '${brightness.name} owner quick menu paints every ListTile on Material and opens settings',
+      (tester) async {
+        serviceLocator.registerSingleton<AuthSessionManager>(
+          _VenueOwnerSession(),
+        );
+        await tester.binding.setSurfaceSize(const Size(390, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(brightness: brightness, useMaterial3: true),
+            home: const VenueProfileScreen(),
+            routes: {
+              AppRoutes.settings: (_) =>
+                  const Scaffold(body: Text('Account settings destination')),
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Menu'));
+        await tester.pumpAndSettle();
+        for (final label in [
+          'Ayarlar',
+          'Yönetim Paneli',
+          'Tema',
+          'Destek',
+          'Gruplarim',
+        ]) {
+          expect(find.widgetWithText(ListTile, label), findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byKey(const Key('venue-account-settings')));
+        await tester.pumpAndSettle();
+        expect(find.text('Account settings destination'), findsOneWidget);
+        Navigator.of(
+          tester.element(find.text('Account settings destination')),
+        ).pop();
+        await tester.pumpAndSettle();
+        expect(profiles.ownerReads, [null, 'actual-venue']);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
 
   testWidgets(
     'default owner venue route opens Overthinking without reloading on sheet changes',
@@ -301,6 +349,29 @@ class _Media extends Fake implements ProfileMediaRepository {
 
 class _Events extends Fake implements VenueEventRepository {
   final historyReads = <String>[];
+
+  @override
+  Future<Result<VenueEventManagementSnapshot>> loadManagement(
+    String venueId,
+  ) async {
+    historyReads.add('owner:$venueId');
+    return Result.success(
+      VenueEventManagementSnapshot(
+        upcomingEvents: const [],
+        pastCount: 0,
+        historyAsOf: DateTime.now(),
+      ),
+    );
+  }
+
+  @override
+  Future<Result<VenueEventHistoryPage>> loadHistory(
+    String venueId, {
+    required DateTime asOf,
+    String? cursor,
+  }) async => const Result.success(
+    VenueEventHistoryPage(items: [], nextCursor: null, hasNext: false),
+  );
   @override
   Future<Result<List<VenueOwnerEventItem>>> listByVenue(String venueId) async {
     historyReads.add('owner:$venueId');

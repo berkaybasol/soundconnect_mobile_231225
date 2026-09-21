@@ -5,7 +5,9 @@ import '../../../core/network/api_exception.dart';
 import '../../../shared/event_performer_identity.dart';
 import '../domain/entities/venue_event_detail.dart';
 import '../domain/entities/venue_event_item.dart';
+import '../domain/entities/venue_event_management.dart';
 import '../domain/venue_event_repository.dart';
+import 'models/venue_event_management_model.dart';
 
 class VenueEventRepositoryImpl implements VenueEventRepository {
   final ApiClient _apiClient;
@@ -20,6 +22,91 @@ class VenueEventRepositoryImpl implements VenueEventRepository {
     code: 'venue_event_session_changed',
     message: 'Oturum değişti. Etkinlik yönetimini yeniden aç.',
   );
+  static const _managementInvalidRequest = AppError(
+    code: 'venue_event_management_invalid_request',
+    message: 'Etkinlik listesi bilgileri geçersiz. Listeyi yeniden aç.',
+  );
+  static const _managementInvalidResponse = AppError(
+    code: 'venue_event_management_invalid_response',
+    message: 'Etkinlik listesi doğrulanamadı. Lütfen yeniden dene.',
+  );
+  static const _managementUnavailable = AppError(
+    code: 'venue_event_management_unavailable',
+    message: 'Etkinlikler alınamadı. Lütfen yeniden dene.',
+  );
+
+  @override
+  Future<Result<VenueEventManagementSnapshot>> loadManagement(String venueId) {
+    final id = venueId.trim().toLowerCase();
+    return _loadManagementResource(
+      id,
+      'management',
+      (raw) => VenueEventManagementModel.snapshot(raw, id),
+    );
+  }
+
+  @override
+  Future<Result<VenueEventHistoryPage>> loadHistory(
+    String venueId, {
+    required DateTime asOf,
+    String? cursor,
+  }) {
+    final id = venueId.trim().toLowerCase();
+    return _loadManagementResource(
+      id,
+      'history',
+      (raw) =>
+          VenueEventManagementModel.history(raw, id, requestedCursor: cursor),
+      validRequest:
+          asOf.toUtc().year >= 1 &&
+          asOf.toUtc().year <= 9999 &&
+          (cursor == null || VenueEventManagementModel.isValidCursor(cursor)),
+      query: {
+        'asOf': asOf.toUtc().toIso8601String(),
+        if (cursor != null) 'cursor': cursor,
+        'size': VenueEventManagementModel.pageSize,
+      },
+    );
+  }
+
+  Future<Result<T>> _loadManagementResource<T>(
+    String venueId,
+    String resource,
+    T Function(Object?) decoder, {
+    bool validRequest = true,
+    Map<String, dynamic>? query,
+  }) async {
+    final session = _session;
+    if (!_sessionValid(session)) return const Result.failure(_sessionError);
+    if (!validRequest || !VenueEventManagementModel.isValidVenueId(venueId)) {
+      return const Result.failure(_managementInvalidRequest);
+    }
+    try {
+      final value = await _apiClient.request<T>(
+        ApiHttpMethod.get,
+        '/api/v1/venue-owner/events/venue/$venueId/$resource',
+        query: query,
+        decoder: decoder,
+        requestContext: sessionKeyProvider == null
+            ? null
+            : ApiRequestContext(expectedSessionKey: session),
+      );
+      if (!_sessionValid(session)) return const Result.failure(_sessionError);
+      return Result.success(value);
+    } on ApiException catch (error) {
+      return Result.failure(
+        _sessionValid(session) ? error.error : _sessionError,
+      );
+    } on FormatException {
+      return Result.failure(
+        _sessionValid(session) ? _managementInvalidResponse : _sessionError,
+      );
+    } catch (_) {
+      return Result.failure(
+        _sessionValid(session) ? _managementUnavailable : _sessionError,
+      );
+    }
+  }
 
   Future<void> _mutate(
     ApiHttpMethod method,

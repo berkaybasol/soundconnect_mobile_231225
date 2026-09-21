@@ -27,9 +27,13 @@ import '../../../profile/domain/entities/listener_visibility_context.dart';
 import '../../../profile/domain/entities/event_performer_request.dart';
 import '../../../profile/domain/entities/venue_event_detail.dart';
 import '../../../profile/domain/venue_event_repository.dart';
+import '../../../profile/domain/event_plan_repository.dart';
+import '../../../profile/domain/venue_profile_repository.dart';
 import '../../../profile/presentation/screens/band_invite_decision_screen.dart';
 import '../../../profile/presentation/screens/band_profile_screen.dart';
 import '../../../profile/presentation/screens/event_invitation_navigation.dart';
+import '../../../profile/presentation/screens/event_management_hub.dart';
+import '../../../profile/presentation/screens/venue_event_plan_screen.dart';
 import '../../../profile/presentation/screens/musician_profile_screen.dart';
 import '../../../profile/presentation/screens/media_detail_screen.dart';
 import '../../../profile/presentation/screens/profile_route_args.dart';
@@ -603,13 +607,20 @@ class _NotificationTileState extends State<_NotificationTile> {
     final module =
         notification.payload['module']?.toString().trim().toUpperCase() ?? '';
     final type = notification.type.trim().toUpperCase();
-    return module == 'EVENT_PERFORMER' || type.startsWith('EVENT_PERFORMER_');
+    return module == 'EVENT_PERFORMER' ||
+        module == 'EVENT_PLAN' ||
+        type.startsWith('EVENT_PERFORMER_');
   }
 
   Future<void> _openEventPerformerTarget(
     BuildContext context,
     AppNotification notification,
   ) async {
+    if (notification.payload['module']?.toString().trim().toUpperCase() ==
+        'EVENT_PLAN') {
+      await _openEventPlanTarget(context, notification);
+      return;
+    }
     final type = notification.type.trim().toUpperCase();
     final action =
         notification.payload['action']?.toString().trim().toUpperCase() ?? '';
@@ -727,6 +738,82 @@ class _NotificationTileState extends State<_NotificationTile> {
         ),
       ),
     );
+  }
+
+  Future<void> _openEventPlanTarget(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
+    final sessions = serviceLocator<AuthSessionManager>();
+    final expected = sessions.session;
+    final route = ModalRoute.of(context);
+    bool current() =>
+        context.mounted &&
+        identical(sessions.session, expected) &&
+        expected.isAuthenticated &&
+        expected.isActive &&
+        route?.isCurrent != false;
+    final id = notification.payload['planId']?.toString().trim() ?? '';
+    if (!current() || id.isEmpty) return;
+    try {
+      if (expected.hasAnyRole(const ['VENUE', 'ROLE_VENUE'])) {
+        final result = await serviceLocator<EventPlanRepository>().getOwner(id);
+        if (!current()) return;
+        final plan = result.data;
+        if (!result.isSuccess || plan == null) {
+          throw StateError('Plan unavailable');
+        }
+        final owner = await serviceLocator<VenueProfileRepository>()
+            .getMyVenueProfileDetail(venueId: plan.definition.venueId);
+        if (!current()) return;
+        final profile = owner.data;
+        if (!owner.isSuccess ||
+            profile == null ||
+            profile.venueId != plan.definition.venueId ||
+            profile.ownerUserId != expected.userId) {
+          throw StateError('Owner changed');
+        }
+        if (!context.mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) =>
+                VenueEventPlanScreen(planId: id, ownerProfile: profile),
+          ),
+        );
+      } else {
+        final result = await serviceLocator<EventPlanRepository>().getPerformer(
+          id,
+        );
+        if (!current()) return;
+        final plan = result.data;
+        if (!result.isSuccess || plan == null) {
+          throw StateError('Plan unavailable');
+        }
+        final template = plan.definition.template;
+        final target = template.bandId ?? template.musicianProfileId;
+        if (target == null) throw StateError('Missing performer');
+        if (!context.mounted) return;
+        await openEventInvitations(
+          context,
+          targetType: template.bandId == null
+              ? EventPerformerTargetType.musician
+              : EventPerformerTargetType.band,
+          targetId: target,
+          destination: EventManagementDestination.plans,
+        );
+      }
+    } catch (_) {
+      if (!context.mounted || !current()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.error,
+          content: const Text(
+            'Planın güncel bilgileri açılamadı. Davetlerden veya etkinlik yönetiminden tekrar dene.',
+          ),
+        ),
+      );
+    }
   }
 
   ({EventPerformerTargetType? type, String? id})? _performerInvitationTarget(

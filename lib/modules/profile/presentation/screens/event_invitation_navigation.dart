@@ -16,6 +16,7 @@ import '../../domain/musician_profile_repository.dart';
 import 'event_performer_requests_screen.dart';
 import 'event_profile_publications_screen.dart';
 import 'event_management_hub.dart';
+import 'event_plan_performer_screen.dart';
 import '../../domain/event_profile_publication_repository.dart';
 
 @visibleForTesting
@@ -369,7 +370,12 @@ class _InvitationSessionGuardState extends State<_InvitationSessionGuard>
   Widget build(BuildContext context) {
     Theme.of(context);
     return _visible && !_closing && widget.sameSession()
-        ? widget.destination == EventManagementDestination.events
+        ? widget.destination == EventManagementDestination.plans
+              ? EventPlanPerformerScreen(
+                  targetType: widget.targetType,
+                  targetId: widget.targetId,
+                )
+              : widget.destination == EventManagementDestination.events
               ? EventProfilePublicationsScreen(
                   targetType: widget.targetType,
                   targetId: widget.targetId,

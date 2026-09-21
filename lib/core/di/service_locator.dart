@@ -109,6 +109,8 @@ import '../../modules/profile/data/venue_artist_directory_repository_impl.dart';
 import '../../modules/profile/data/venue_event_repository_impl.dart';
 import '../../modules/profile/data/event_performer_request_repository_impl.dart';
 import '../../modules/profile/data/event_profile_publication_repository_impl.dart';
+import '../../modules/profile/data/event_plan_repository_impl.dart';
+import '../../modules/profile/domain/event_plan_repository.dart';
 import '../../modules/profile/data/venue_profile_repository_impl.dart';
 import '../../modules/profile/domain/musician_profile_repository.dart';
 import '../../modules/profile/domain/musician_calendar_repository.dart';
@@ -182,7 +184,9 @@ void setupDependencies() {
       SharedPreferencesPendingAppDeepLinkStore.new,
     )
     ..registerLazySingleton<PrivateMediaImageCache>(
-      () => PrivateMediaImageCache(sessions: serviceLocator<AuthSessionManager>()),
+      () => PrivateMediaImageCache(
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
       dispose: (cache) => cache.dispose(),
     )
     ..registerLazySingleton<AppDeepLinkInbox>(
@@ -437,6 +441,16 @@ void setupDependencies() {
         sessionKeyProvider: () =>
             serviceLocator<AuthSessionManager>().session.userId,
         onPublicationChanged: () =>
+            serviceLocator<MusicianCalendarRepository>().invalidate(),
+      ),
+    )
+    ..registerLazySingleton<EventPlanRepository>(
+      () => EventPlanRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+        tokenProvider: () => serviceLocator<AuthSessionManager>().session.token,
+        onChanged: () =>
             serviceLocator<MusicianCalendarRepository>().invalidate(),
       ),
     )

@@ -8,6 +8,7 @@ import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_detail.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_item.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_management.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_owner_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/profile_search_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_search_repository.dart';
@@ -83,74 +84,134 @@ void main() {
     },
   );
 
-  testWidgets('owner events are partitioned into week future and history', (
+  testWidgets(
+    'event sections open independently and keep history closed initially',
+    (tester) async {
+      await _openOwnerManagement(
+        tester,
+        _FakeVenueEventRepository()
+          ..items = [
+            _ownerEvent('future-event', 7),
+            _ownerEvent('past-event', -1),
+            _ownerEvent('week-event', 6),
+          ],
+      );
+      expect(find.text('Etkinlik Yönetimi'), findsOneWidget);
+      expect(find.text('Bu Haftaki Etkinlikler'), findsOneWidget);
+      expect(find.text('Gelecek Etkinlikler'), findsOneWidget);
+      expect(find.text('Geçmiş Etkinlikler'), findsOneWidget);
+      expect(find.text('week-event'), findsOneWidget);
+      expect(find.text('future-event'), findsNothing);
+      expect(find.text('past-event'), findsNothing);
+
+      await _tapManagementControl(tester, 'venue-events-future');
+      expect(find.text('week-event'), findsOneWidget);
+      expect(find.text('future-event'), findsOneWidget);
+      expect(find.text('past-event'), findsNothing);
+
+      await _tapManagementControl(tester, 'venue-events-past');
+      expect(find.text('week-event'), findsOneWidget);
+      expect(find.text('future-event'), findsOneWidget);
+      expect(find.text('past-event'), findsOneWidget);
+      expect(find.byType(VenueCalendarPastEventCard), findsOneWidget);
+
+      await _tapManagementControl(tester, 'venue-events-this-week');
+      expect(find.text('week-event'), findsNothing);
+      expect(find.text('future-event'), findsOneWidget);
+      expect(find.text('past-event'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('future opens by default when this week has no events', (
     tester,
   ) async {
-    await serviceLocator.reset();
-    addTearDown(serviceLocator.reset);
-    final now = DateTime.now();
-    VenueOwnerEventItem item(String title, int days) => VenueOwnerEventItem(
-      id: title,
-      title: title,
-      posterImage: null,
-      performerName: 'Sanatçı',
-      musicianProfileId: null,
-      eventDate: DateTime(now.year, now.month, now.day + days),
-      startTime: '20:00',
-      endTime: '22:00',
-      description: null,
-    );
-    serviceLocator.registerSingleton<VenueEventRepository>(
+    await _openOwnerManagement(
+      tester,
       _FakeVenueEventRepository()
         ..items = [
-          item('future-event', 7),
-          item('past-event', -1),
-          item('week-event', 6),
+          _ownerEvent('past-event', -1),
+          _ownerEvent('future-event', 7),
         ],
     );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: VenueWeeklyCalendarEditorScreen(ownerProfile: _ownerProfile),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final headers = tester
-        .widgetList<VenueCalendarHistoryHeader>(
-          find.byType(VenueCalendarHistoryHeader),
-        )
-        .toList();
-    expect(headers.map((header) => header.title), [
-      'Bu Haftaki Etkinlikler',
-      'Gelecek Etkinlikler',
-      'Geçmiş Etkinlikler',
-    ]);
-    expect(headers.map((header) => header.count), [1, 1, 1]);
-    expect(
-      tester
-          .widgetList<VenueCalendarEventCard>(
-            find.byType(VenueCalendarEventCard),
-          )
-          .map((card) => card.title),
-      ['week-event', 'future-event'],
-    );
-    await tester.scrollUntilVisible(
-      find.byType(VenueCalendarPastEventCard),
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(
-      tester
-          .widget<VenueCalendarPastEventCard>(
-            find.byType(VenueCalendarPastEventCard),
-          )
-          .title,
-      'past-event',
-    );
+    expect(find.text('future-event'), findsOneWidget);
+    expect(find.text('past-event'), findsNothing);
+    expect(find.byType(VenueCalendarPastEventCard), findsNothing);
+    await _tapManagementControl(tester, 'venue-events-future');
+    expect(find.text('future-event'), findsNothing);
+    expect(find.text('past-event'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'venue-only calendar keeps original creation and history layout',
+    'failed initial fetch does not consume the default section choice',
+    (tester) async {
+      final repository = _FakeVenueEventRepository()
+        ..items = [_ownerEvent('future-after-retry', 8)]
+        ..listResult = const Result.failure(
+          AppError(code: 'network', message: 'Liste alınamadı.'),
+        );
+      await _openOwnerManagement(tester, repository);
+      expect(find.text('future-after-retry'), findsNothing);
+      expect(find.byType(VenueCalendarErrorCard), findsOneWidget);
+      repository.listResult = null;
+      await tester.tap(find.byTooltip('Etkinlikleri yenile'));
+      await tester.pumpAndSettle();
+      expect(repository.listCalls, 2);
+      expect(find.text('future-after-retry'), findsOneWidget);
+      expect(find.byType(VenueCalendarErrorCard), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'event expansion choices survive tab changes and refreshed data',
+    (tester) async {
+      final repository = _FakeVenueEventRepository()
+        ..items = [
+          _ownerEvent('week-event', 2),
+          _ownerEvent('future-event', 8),
+          _ownerEvent('past-event', -1),
+        ];
+      await _openOwnerManagement(tester, repository);
+      await _tapManagementControl(tester, 'venue-events-future');
+      await _tapManagementControl(tester, 'venue-events-past');
+      await _tapManagementControl(tester, 'venue-events-this-week');
+
+      await _tapManagementControl(tester, 'venue-management-plans-tab');
+      expect(find.byKey(const Key('venue-events-future')), findsNothing);
+      expect(find.text('future-event'), findsNothing);
+      expect(find.text('past-event'), findsNothing);
+      repository.items = [
+        ...repository.items,
+        _ownerEvent('new-week-event', 3),
+        _ownerEvent('new-future-event', 9),
+      ];
+      await tester.tap(find.byTooltip('Etkinlikleri yenile'));
+      await tester.pumpAndSettle();
+      expect(repository.listCalls, 2);
+      expect(find.byKey(const Key('venue-events-future')), findsNothing);
+
+      await _tapManagementControl(tester, 'venue-management-events-tab');
+      expect(find.text('week-event'), findsNothing);
+      expect(find.text('new-week-event'), findsNothing);
+      expect(find.text('future-event'), findsOneWidget);
+      expect(find.text('new-future-event'), findsOneWidget);
+      expect(find.text('past-event'), findsOneWidget);
+      await tester.tap(find.byTooltip('Etkinlikleri yenile'));
+      await tester.pumpAndSettle();
+      expect(repository.listCalls, 3);
+      expect(find.text('week-event'), findsNothing);
+      expect(find.text('new-week-event'), findsNothing);
+      expect(find.text('future-event'), findsOneWidget);
+      expect(find.text('new-future-event'), findsOneWidget);
+      expect(find.text('past-event'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'venue-only management keeps creation and excludes performer controls',
     (tester) async {
       await serviceLocator.reset();
       addTearDown(serviceLocator.reset);
@@ -163,7 +224,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Haftalık Takvim'), findsOneWidget);
+      expect(find.text('Etkinlik Yönetimi'), findsOneWidget);
+      expect(
+        find.byKey(const Key('venue-management-events-tab')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('venue-management-plans-tab')),
+        findsOneWidget,
+      );
       expect(find.text('Etkinlik Ekle'), findsOneWidget);
       expect(find.text('Geçmiş Etkinlikler'), findsOneWidget);
       expect(find.text('Etkinliklerim'), findsNothing);
@@ -608,6 +677,46 @@ void main() {
   });
 }
 
+VenueOwnerEventItem _ownerEvent(String title, int daysFromToday) {
+  final now = DateTime.now();
+  return VenueOwnerEventItem(
+    id: title,
+    title: title,
+    posterImage: null,
+    performerName: 'Sanatçı',
+    musicianProfileId: null,
+    eventDate: DateTime(now.year, now.month, now.day + daysFromToday),
+    startTime: '20:00',
+    endTime: '22:00',
+    description: null,
+  );
+}
+
+Future<void> _openOwnerManagement(
+  WidgetTester tester,
+  _FakeVenueEventRepository repository,
+) async {
+  await tester.binding.setSurfaceSize(const Size(390, 1500));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await serviceLocator.reset();
+  addTearDown(serviceLocator.reset);
+  serviceLocator.registerSingleton<VenueEventRepository>(repository);
+  await tester.pumpWidget(
+    const MaterialApp(
+      home: VenueWeeklyCalendarEditorScreen(ownerProfile: _ownerProfile),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapManagementControl(WidgetTester tester, String key) async {
+  final control = find.byKey(Key(key));
+  await tester.ensureVisible(control);
+  await tester.pumpAndSettle();
+  await tester.tap(control);
+  await tester.pumpAndSettle();
+}
+
 Future<void> _openVenueDraft(
   WidgetTester tester,
   _FakeVenueEventRepository repository,
@@ -671,14 +780,50 @@ class _FakeVenueEventRepository implements VenueEventRepository {
   List<VenueOwnerEventItem> items = [];
   int createCalls = 0;
   int listCalls = 0;
+  Result<List<VenueOwnerEventItem>>? listResult;
   Result<void> saveResult = const Result.success(null);
   Completer<Result<void>>? saving;
   VenueEventDraft? lastDraft;
 
   @override
+  Future<Result<VenueEventManagementSnapshot>> loadManagement(
+    String venueId,
+  ) async {
+    listCalls++;
+    if (listResult?.error case final error?) return Result.failure(error);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return Result.success(
+      VenueEventManagementSnapshot(
+        upcomingEvents: items
+            .where((item) => !item.eventDate.isBefore(today))
+            .toList(),
+        pastCount: items.where((item) => item.eventDate.isBefore(today)).length,
+        historyAsOf: now,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<VenueEventHistoryPage>> loadHistory(
+    String venueId, {
+    required DateTime asOf,
+    String? cursor,
+  }) async {
+    final today = DateTime(asOf.year, asOf.month, asOf.day);
+    return Result.success(
+      VenueEventHistoryPage(
+        items: items.where((item) => item.eventDate.isBefore(today)).toList(),
+        nextCursor: null,
+        hasNext: false,
+      ),
+    );
+  }
+
+  @override
   Future<Result<List<VenueOwnerEventItem>>> listByVenue(String venueId) async {
     listCalls++;
-    return Result.success(items);
+    return listResult ?? Result.success(items);
   }
 
   @override

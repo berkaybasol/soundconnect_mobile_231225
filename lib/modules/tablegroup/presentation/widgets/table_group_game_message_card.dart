@@ -83,7 +83,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: (AppColors.isOriginalDark
-                  ? const Color(0xFF0A1526)
+                  ? Theme.of(context).colorScheme.surfaceContainer
                   : AppColors.navBlue),
               borderRadius: BorderRadius.circular(17),
             ),
@@ -318,16 +318,19 @@ class TableGroupGameMessageCard extends StatelessWidget {
         runSpacing: 7,
         children: [
           _actionButton(
+            context,
             key: 'game-action-rock',
             label: '✊ Taş',
             action: TableGroupGameAction.rock,
           ),
           _actionButton(
+            context,
             key: 'game-action-paper',
             label: '✋ Kağıt',
             action: TableGroupGameAction.paper,
           ),
           _actionButton(
+            context,
             key: 'game-action-scissors',
             label: '✌️ Makas',
             action: TableGroupGameAction.scissors,
@@ -336,6 +339,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
       ),
       TableGroupGamePhase.dice => Center(
         child: _actionButton(
+          context,
           key: 'game-action-roll',
           label: '🎲 Zarı at',
           action: TableGroupGameAction.roll,
@@ -350,6 +354,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _actionButton(
+            context,
             key: 'game-action-tie-roll',
             label: '🎲 Zarı at',
             action: TableGroupGameAction.roll,
@@ -362,7 +367,8 @@ class TableGroupGameMessageCard extends StatelessWidget {
     };
   }
 
-  Widget _actionButton({
+  Widget _actionButton(
+    BuildContext context, {
     required String key,
     required String label,
     required TableGroupGameAction action,
@@ -387,7 +393,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
     return OutlinedButton(
       key: ValueKey<String>(key),
       onPressed: onPressed,
-      style: _outlinedStyle(null),
+      style: _outlinedStyle(context),
       child: Text(label),
     );
   }
@@ -438,7 +444,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: (AppColors.isOriginalDark
-            ? const Color(0xFF171C32)
+            ? Theme.of(context).colorScheme.surfaceContainerHigh
             : AppColors.navBlueSoft),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
@@ -485,12 +491,12 @@ class TableGroupGameMessageCard extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: (AppColors.isOriginalDark
-            ? const Color(0xFF071321)
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
             : AppColors.inputFill),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: (AppColors.isOriginalDark
-              ? const Color(0xFF263A52)
+              ? Theme.of(context).colorScheme.outline
               : AppColors.border),
         ),
       ),
@@ -571,12 +577,12 @@ class TableGroupGameMessageCard extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: (AppColors.isOriginalDark
-            ? const Color(0xFF071321)
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
             : AppColors.inputFill),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: (AppColors.isOriginalDark
-              ? const Color(0xFF263A52)
+              ? Theme.of(context).colorScheme.outline
               : AppColors.border),
         ),
       ),
@@ -686,12 +692,12 @@ class TableGroupGameMessageCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         color: (AppColors.isOriginalDark
-            ? const Color(0xFF111F34)
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
             : AppColors.inputFill),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: (AppColors.isOriginalDark
-              ? const Color(0xFF2A4059)
+              ? Theme.of(context).colorScheme.outline
               : AppColors.border),
         ),
       ),
@@ -724,20 +730,18 @@ class TableGroupGameMessageCard extends StatelessWidget {
     );
   }
 
-  ButtonStyle _outlinedStyle(BuildContext? context, {bool emphasized = false}) {
-    final foreground = context == null
-        ? AppColors.legacy(AppColors.white)
-        : Theme.of(context).colorScheme.onSurface;
+  ButtonStyle _outlinedStyle(BuildContext context, {bool emphasized = false}) {
+    final foreground = Theme.of(context).colorScheme.onSurface;
     return OutlinedButton.styleFrom(
       foregroundColor: foreground,
       backgroundColor: (AppColors.isOriginalDark
-          ? const Color(0xFF071321)
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
           : AppColors.inputFill),
       side: BorderSide(
         color: emphasized
             ? AppColors.decorativeGradient.first.withValues(alpha: 0.78)
             : (AppColors.isOriginalDark
-                  ? const Color(0xFF2A4059)
+                  ? Theme.of(context).colorScheme.outline
                   : AppColors.border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

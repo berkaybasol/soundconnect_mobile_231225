@@ -84,7 +84,7 @@ class _OverthinkingProfileShareButtonState
       key: ValueKey('overthinking-profile-share-${widget.post.id}'),
       onPressed: widget.enabled && !_opening ? _open : null,
       style: TextButton.styleFrom(
-        foregroundColor: TableGroupOverviewStyle.bodyMuted,
+        foregroundColor: TableGroupSurfaceStyle.of(context).bodyMuted,
         minimumSize: const Size(48, 44),
         textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       ),

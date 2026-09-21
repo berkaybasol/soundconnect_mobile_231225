@@ -1,14 +1,23 @@
 part of 'overthinking_feed_screen.dart';
 
-class OverthinkingCreateScreen extends StatefulWidget {
+class OverthinkingCreateScreen extends StatelessWidget {
   const OverthinkingCreateScreen({super.key});
+
   @override
-  State<OverthinkingCreateScreen> createState() =>
+  Widget build(BuildContext context) =>
+      const OverthinkingThemeScope(child: _OverthinkingCreateContent());
+}
+
+class _OverthinkingCreateContent extends StatefulWidget {
+  const _OverthinkingCreateContent();
+
+  @override
+  State<_OverthinkingCreateContent> createState() =>
       _OverthinkingCreateScreenState();
 }
 
-class _OverthinkingCreateScreenState extends State<OverthinkingCreateScreen>
-    with OverthinkingSessionBoundState<OverthinkingCreateScreen> {
+class _OverthinkingCreateScreenState extends State<_OverthinkingCreateContent>
+    with OverthinkingSessionBoundState<_OverthinkingCreateContent> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   bool _anonymous = true;
@@ -240,7 +249,7 @@ class _OverthinkingCreateScreenState extends State<OverthinkingCreateScreen>
                       ),
                     ],
                   ),
-                  body: TableGroupOverviewBackdrop(
+                  body: TableGroupSurfaceBackdrop(
                     child: SafeArea(
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
@@ -253,7 +262,9 @@ class _OverthinkingCreateScreenState extends State<OverthinkingCreateScreen>
                           Text(
                             'Şimdi sen anlat.',
                             style: TextStyle(
-                              color: TableGroupOverviewStyle.warmHeading,
+                              color: TableGroupSurfaceStyle.of(
+                                context,
+                              ).warmHeading,
                               fontSize: 30,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -.8,
@@ -331,7 +342,9 @@ class _OverthinkingCreateScreenState extends State<OverthinkingCreateScreen>
                                       TextCapitalization.sentences,
                                   onChanged: (_) => setState(() {}),
                                   style: TextStyle(
-                                    color: TableGroupOverviewStyle.bodyMuted,
+                                    color: TableGroupSurfaceStyle.of(
+                                      context,
+                                    ).bodyMuted,
                                     fontSize: 15,
                                     height: 1.7,
                                   ),
@@ -505,7 +518,7 @@ InputDecoration _writingDecoration(String hint, {int? hintMaxLines}) =>
     InputDecoration(
       hintText: hint,
       hintMaxLines: hintMaxLines,
-      hintStyle: TextStyle(color: TableGroupOverviewStyle.tertiaryText),
+      hintStyle: TextStyle(color: OverthinkingPalette.muted),
       filled: false,
       contentPadding: const EdgeInsets.symmetric(vertical: 10),
       border: InputBorder.none,
@@ -560,7 +573,7 @@ class _IdentityOption extends StatelessWidget {
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             color: selected
-                ? TableGroupOverviewStyle.insetTop
+                ? TableGroupSurfaceStyle.of(context).insetTop
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(

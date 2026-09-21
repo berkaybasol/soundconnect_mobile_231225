@@ -4,6 +4,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/modules/promotion/domain/entities/promotion_item.dart';
 import 'package:soundconnect_23_12_25codx/modules/promotion/domain/promotion_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_profile.dart';
@@ -88,7 +89,10 @@ void main() {
     expect(find.text('Etkinliklerim'), findsNothing);
     expect(find.text('bugrasahin'), findsOneWidget);
     expect(find.text('Sahne adı kullanılmamalı'), findsNothing);
-    expect(find.text('Profil Tamamlama'), findsOneWidget);
+    expect(
+      find.text('Profil Tamamlama'),
+      ProfileFeedAvailability.enabled ? findsOneWidget : findsNothing,
+    );
     expect(find.text('Biyografi'), findsNothing);
     expect(find.text('Akış Tercihleri'), findsNothing);
     expect(find.text('Enstrümanlarım'), findsNothing);

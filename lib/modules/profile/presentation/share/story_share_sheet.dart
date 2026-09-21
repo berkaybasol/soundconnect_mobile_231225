@@ -12,6 +12,7 @@ class StoryShareSheet extends StatefulWidget {
     required this.accessibilityDescription,
     required this.title,
     required this.keyPrefix,
+    this.useThemeColors = false,
     this.validityChanges,
     this.isValid,
   });
@@ -19,6 +20,10 @@ class StoryShareSheet extends StatefulWidget {
   final String accessibilityDescription;
   final String title;
   final String keyPrefix;
+
+  /// Opts dark event previews into their host's neutral surfaces while other
+  /// story previews and the established light treatment remain unchanged.
+  final bool useThemeColors;
   final Listenable? validityChanges;
   final bool Function()? isValid;
 
@@ -96,7 +101,10 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
 
   @override
   Widget build(BuildContext context) {
-    Theme.of(context);
+    final theme = Theme.of(context);
+    final useThemeColors =
+        widget.useThemeColors && theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
     if (!_valid) return const SizedBox.shrink();
     final android = defaultTargetPlatform == TargetPlatform.android && !kIsWeb;
     return ConstrainedBox(
@@ -120,7 +128,9 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 width: 34,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.legacy(const Color(0xFF3A4253)),
+                  color: useThemeColors
+                      ? scheme.outline
+                      : AppColors.legacy(const Color(0xFF3A4253)),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -132,7 +142,9 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                   child: Text(
                     widget.title,
                     style: TextStyle(
-                      color: AppColors.legacy(AppColors.white),
+                      color: useThemeColors
+                          ? scheme.onSurface
+                          : AppColors.legacy(AppColors.white),
                       fontSize: 21,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.4,
@@ -144,7 +156,9 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                   tooltip: 'Kapat',
                   icon: Icon(
                     Icons.close_rounded,
-                    color: AppColors.legacy(Color(0xFFA8A9BB)),
+                    color: useThemeColors
+                        ? scheme.onSurfaceVariant
+                        : AppColors.legacy(const Color(0xFFA8A9BB)),
                   ),
                 ),
               ],
@@ -172,7 +186,9 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
               '1080 × 1920 · Hikâye formatı',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.legacy(Color(0xFFA8A9BB)),
+                color: useThemeColors
+                    ? scheme.onSurfaceVariant
+                    : AppColors.legacy(const Color(0xFFA8A9BB)),
                 fontSize: 12,
               ),
             ),
@@ -192,6 +208,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                       onTap: _finish,
                       keyPrefix: widget.keyPrefix,
                       horizontal: stacked,
+                      useThemeColors: useThemeColors,
                     ),
                     _TargetButton(
                       label: 'WhatsApp',
@@ -200,6 +217,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                       onTap: _finish,
                       keyPrefix: widget.keyPrefix,
                       horizontal: stacked,
+                      useThemeColors: useThemeColors,
                     ),
                     _TargetButton(
                       label: 'Diğer',
@@ -208,6 +226,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                       onTap: _finish,
                       keyPrefix: widget.keyPrefix,
                       horizontal: stacked,
+                      useThemeColors: useThemeColors,
                     ),
                   ];
                   if (stacked) {
@@ -250,6 +269,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 target: EventShareTarget.other,
                 onTap: _finish,
                 keyPrefix: widget.keyPrefix,
+                useThemeColors: useThemeColors,
               ),
           ],
         ),
@@ -265,18 +285,20 @@ class _TargetButton extends StatelessWidget {
     required this.target,
     required this.onTap,
     required this.keyPrefix,
+    required this.useThemeColors,
     this.horizontal = false,
   });
   final String label;
   final String keyPrefix;
   final bool horizontal;
+  final bool useThemeColors;
   final Widget icon;
   final EventShareTarget target;
   final ValueChanged<EventShareTarget> onTap;
 
   @override
   Widget build(BuildContext context) {
-    Theme.of(context);
+    final scheme = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       child: DecoratedBox(
@@ -287,7 +309,9 @@ class _TargetButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(0.7),
           child: Material(
-            color: AppColors.legacy(const Color(0xFF151D2D)),
+            color: useThemeColors
+                ? scheme.surfaceContainerHighest
+                : AppColors.legacy(const Color(0xFF151D2D)),
             borderRadius: BorderRadius.circular(17.3),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -315,7 +339,9 @@ class _TargetButton extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.legacy(AppColors.white),
+                                color: useThemeColors
+                                    ? scheme.onSurface
+                                    : AppColors.legacy(AppColors.white),
                               ),
                             ),
                           ),
@@ -338,7 +364,9 @@ class _TargetButton extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.legacy(AppColors.white),
+                              color: useThemeColors
+                                  ? scheme.onSurface
+                                  : AppColors.legacy(AppColors.white),
                             ),
                           ),
                         ],

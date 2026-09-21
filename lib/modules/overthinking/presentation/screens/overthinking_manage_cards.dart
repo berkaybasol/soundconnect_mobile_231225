@@ -9,8 +9,8 @@ TextStyle get _manageHeading => TextStyle(
 );
 TextStyle get _manageBody =>
     TextStyle(color: OverthinkingPalette.muted, fontSize: 13, height: 1.5);
-TextStyle get _manageEyebrow => TextStyle(
-  color: TableGroupOverviewStyle.headingMuted,
+TextStyle _manageEyebrow(BuildContext context) => TextStyle(
+  color: TableGroupSurfaceStyle.of(context).headingMuted,
   fontSize: 13,
   fontWeight: FontWeight.w800,
   letterSpacing: 0,
@@ -46,11 +46,11 @@ ButtonStyle _manageSecondaryButton(BuildContext context) =>
       ),
     );
 
-BoxDecoration _manageCardDecoration() => BoxDecoration(
-  gradient: TableGroupOverviewStyle.cardGradient,
+BoxDecoration _manageCardDecoration(BuildContext context) => BoxDecoration(
+  gradient: TableGroupSurfaceStyle.of(context).cardGradient,
   borderRadius: BorderRadius.circular(12),
-  border: Border.all(color: TableGroupOverviewStyle.cardBorder),
-  boxShadow: TableGroupOverviewStyle.cardShadows,
+  border: Border.all(color: TableGroupSurfaceStyle.of(context).cardBorder),
+  boxShadow: TableGroupSurfaceStyle.of(context).cardShadows,
 );
 
 class _ManageMetric extends StatelessWidget {
@@ -109,7 +109,7 @@ class _RevealRequestCard extends StatelessWidget {
     return Container(
       key: ValueKey('manage-reveal-${request.id}'),
       padding: const EdgeInsets.all(18),
-      decoration: _manageCardDecoration(),
+      decoration: _manageCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -209,7 +209,7 @@ class _RevealRequestCard extends StatelessWidget {
               children: [
                 Text(
                   incoming ? 'BU YAZIN İÇİN' : 'BU YAZI İÇİN',
-                  style: _manageEyebrow.copyWith(
+                  style: _manageEyebrow(context).copyWith(
                     color: OverthinkingPalette.muted,
                     fontSize: 9,
                     letterSpacing: 1.4,
@@ -353,9 +353,11 @@ class _ManageMusicStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(9),
       decoration: BoxDecoration(
-        gradient: TableGroupOverviewStyle.insetGradient,
+        gradient: TableGroupSurfaceStyle.of(context).insetGradient,
         borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: TableGroupOverviewStyle.insetBorder),
+        border: Border.all(
+          color: TableGroupSurfaceStyle.of(context).insetBorder,
+        ),
       ),
       child: Row(
         children: [

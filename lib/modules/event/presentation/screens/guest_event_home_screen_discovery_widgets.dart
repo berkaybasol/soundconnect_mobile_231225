@@ -1,18 +1,31 @@
 part of 'guest_event_home_screen.dart';
 
 class _DiscoverySurface extends StatelessWidget {
-  const _DiscoverySurface({required this.child});
+  const _DiscoverySurface({
+    required this.child,
+    this.darkenBackground = false,
+    super.key,
+  });
   final Widget child;
+  final bool darkenBackground;
 
   @override
   Widget build(BuildContext context) {
-    Theme.of(context);
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.navBlue,
+        color: darkenBackground && theme.brightness == Brightness.dark
+            ? Color.lerp(
+                appCardSurface(context),
+                theme.scaffoldBackgroundColor,
+                .45,
+              )
+            : appCardSurface(context),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.8),
+        ),
       ),
       child: child,
     );
@@ -28,7 +41,7 @@ class _DiscoveryLabel extends StatelessWidget {
     return Text(
       label,
       style: TextStyle(
-        color: AppColors.textMuted,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontSize: 10,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.3,
@@ -65,10 +78,10 @@ class _DiscoveryChoice extends StatelessWidget {
             gradient: selected
                 ? LinearGradient(colors: AppColors.decorativeGradient)
                 : null,
-            color: selected ? null : AppColors.border,
+            color: selected ? null : Theme.of(context).colorScheme.outline,
           ),
           child: Material(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12.2),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -97,8 +110,10 @@ class _DiscoveryChoice extends StatelessWidget {
                                 ? FontWeight.w800
                                 : FontWeight.w500,
                             color: selected
-                                ? AppColors.textPrimary
-                                : AppColors.textMuted,
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -134,7 +149,7 @@ class _DiscoveryField extends StatelessWidget {
       button: true,
       enabled: onTap != null && !loading,
       child: Material(
-        color: AppColors.inputFill,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: loading ? null : onTap,
@@ -147,7 +162,7 @@ class _DiscoveryField extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
             ),
             child: Row(
               children: [
@@ -155,7 +170,11 @@ class _DiscoveryField extends StatelessWidget {
                   if (onTap != null && !loading)
                     BrandGradientIcon.social(icon, size: 20)
                   else
-                    Icon(icon, color: AppColors.textMuted, size: 20),
+                    Icon(
+                      icon,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
                   const SizedBox(width: 11),
                 ],
                 Expanded(
@@ -165,8 +184,8 @@ class _DiscoveryField extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: onTap != null && !loading
-                          ? AppColors.textPrimary
-                          : AppColors.textMuted,
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                       fontSize: compact ? 12 : 14,
                     ),
@@ -186,7 +205,7 @@ class _DiscoveryField extends StatelessWidget {
                 else
                   Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: compact ? 16 : 20,
                   ),
               ],
@@ -226,11 +245,11 @@ class _DiscoveryPrimaryButton extends StatelessWidget {
               ? LinearGradient(colors: AppColors.decorativeGradient)
               : null,
           color: !brandBorder || (onTap == null && !loading)
-              ? AppColors.border
+              ? Theme.of(context).colorScheme.outline
               : null,
         ),
         child: Material(
-          color: AppColors.inputFill,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(14.1),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -253,7 +272,11 @@ class _DiscoveryPrimaryButton extends StatelessWidget {
                     else if (icon != null && onTap != null)
                       BrandGradientIcon.social(icon!, size: 19)
                     else if (icon != null)
-                      Icon(icon!, size: 19, color: AppColors.textMuted),
+                      Icon(
+                        icon!,
+                        size: 19,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     if (loading || icon != null) const SizedBox(width: 9),
                     Flexible(
                       child: Text(
@@ -263,8 +286,8 @@ class _DiscoveryPrimaryButton extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: onTap == null && !loading
-                              ? AppColors.textMuted
-                              : AppColors.textPrimary,
+                              ? Theme.of(context).colorScheme.onSurfaceVariant
+                              : Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -288,7 +311,7 @@ class _DiscoveryAuthFooter extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: BoxDecoration(
-        color: AppColors.navBlueDeep,
+        color: Theme.of(context).scaffoldBackgroundColor,
         border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
@@ -324,6 +347,8 @@ class _DiscoveryBetaNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     Theme.of(context);
     return _DiscoverySurface(
+      key: const Key('discovery-suggestion-surface'),
+      darkenBackground: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -331,7 +356,7 @@ class _DiscoveryBetaNotice extends StatelessWidget {
             'Beta sürecinde olduğumuz için etkinlikler ağırlıklı olarak Ankara’da. '
             'Diğer şehirler için çalışmaya devam ediyoruz. 🌱',
             style: TextStyle(
-              color: AppColors.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 13,
               height: 1.5,
             ),
@@ -341,7 +366,7 @@ class _DiscoveryBetaNotice extends StatelessWidget {
             'SoundConnect’te bulamadığın bir mekanı önererek mekanla '
             'iletişime geçmemize yardımcı olabilirsin.',
             style: TextStyle(
-              color: AppColors.textMuted,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 13,
               height: 1.5,
             ),
@@ -373,7 +398,7 @@ class _DiscoveryRetry extends StatelessWidget {
           Text(
             message,
             style: TextStyle(
-              color: AppColors.textMuted,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.45,
               fontSize: 13,
             ),
@@ -418,7 +443,10 @@ class _DiscoveryDateSheet extends StatelessWidget {
             const SizedBox(height: 7),
             Text(
               'Önümüzdeki günler',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
             ),
             const SizedBox(height: 22),
             for (
@@ -446,10 +474,14 @@ class _DiscoveryDateSheet extends StatelessWidget {
                                 colors: AppColors.decorativeGradient,
                               )
                             : null,
-                        color: active ? null : AppColors.border,
+                        color: active
+                            ? null
+                            : Theme.of(context).colorScheme.outline,
                       ),
                       child: Material(
-                        color: AppColors.inputFill,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(14.2),
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
@@ -566,7 +598,9 @@ class _DiscoveryLocationSheetState extends State<_DiscoveryLocationSheet> {
                       Icons.search_rounded,
                     ),
                     filled: true,
-                    fillColor: AppColors.inputFill,
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -579,7 +613,11 @@ class _DiscoveryLocationSheetState extends State<_DiscoveryLocationSheet> {
                     ? Center(
                         child: Text(
                           'Sonuç bulunamadı.',
-                          style: TextStyle(color: AppColors.textMuted),
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.builder(
@@ -625,7 +663,7 @@ class _DiscoveryEventTile extends StatelessWidget {
       item.venueCity,
     ].whereType<String>().where((part) => part.trim().isNotEmpty).join(' · ');
     return Material(
-      color: AppColors.inputFill,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -633,7 +671,7 @@ class _DiscoveryEventTile extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -662,13 +700,15 @@ class _DiscoveryEventTile extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.navBlueDeep.withValues(alpha: .92),
+                          color: Theme.of(
+                            context,
+                          ).scaffoldBackgroundColor.withValues(alpha: .92),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           oldCard._timeLabel(),
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
@@ -716,7 +756,9 @@ class _DiscoveryEventTile extends StatelessWidget {
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: AppColors.textMuted,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -736,9 +778,11 @@ class _DiscoveryEventTile extends StatelessWidget {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              color: AppColors.navBlue,
+                              color: appCardSurface(context),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
                             ),
                             child: const Center(
                               child: BrandGradientIcon.social(
@@ -779,7 +823,9 @@ class _DiscoveryEventTile extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 11,
                           ),
                         ),

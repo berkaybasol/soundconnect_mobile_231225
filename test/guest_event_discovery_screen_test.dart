@@ -22,8 +22,8 @@ import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/distr
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/neighborhood.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/location_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/weekly_event_detail_screen.dart';
-import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/brand_gradient_icon.dart';
 
 part 'guest_event_discovery_analytics_cases.dart';
@@ -1045,46 +1045,60 @@ void main() {
     expect(find.text('LOGIN DESTINATION'), findsOneWidget);
   });
 
-  testWidgets('discovery controls use the studio surface and input palette', (
-    tester,
-  ) async {
-    await _mount(tester);
-    await _city(tester, 'Ankara');
-    await _toggleDetails(tester);
-    for (final element
-        in find
-            .byWidgetPredicate(
-              (widget) => widget.runtimeType.toString() == '_DiscoverySurface',
-            )
-            .evaluate()) {
-      final surface = find.byWidget(element.widget);
-      final container = tester.widget<Container>(
-        find.descendant(of: surface, matching: find.byType(Container)).first,
-      );
-      expect((container.decoration! as BoxDecoration).color, AppColors.navBlue);
-    }
-    for (final type in [
-      '_DiscoveryChoice',
-      '_DiscoveryField',
-      '_DiscoveryPrimaryButton',
-    ]) {
-      final controls = find.byWidgetPredicate(
-        (widget) => widget.runtimeType.toString() == type,
-      );
-      expect(controls, findsWidgets);
-      for (final element in controls.evaluate()) {
-        final material = tester.widget<Material>(
-          find
-              .descendant(
-                of: find.byWidget(element.widget),
-                matching: find.byType(Material),
+  testWidgets(
+    'discovery controls use the shared dark surface and input palette',
+    (tester) async {
+      await _mount(tester);
+      await _city(tester, 'Ankara');
+      await _toggleDetails(tester);
+      for (final element
+          in find
+              .byWidgetPredicate(
+                (widget) =>
+                    widget.runtimeType.toString() == '_DiscoverySurface',
               )
-              .first,
+              .evaluate()) {
+        final surface = find.byWidget(element.widget);
+        final container = tester.widget<Container>(
+          find.descendant(of: surface, matching: find.byType(Container)).first,
         );
-        expect(material.color, AppColors.inputFill);
+        expect(
+          (container.decoration! as BoxDecoration).color,
+          const [
+                Key('discovery-filters-surface'),
+                Key('discovery-suggestion-surface'),
+              ].contains(element.widget.key)
+              ? Color.lerp(
+                  BackstagePalette.surface,
+                  BackstagePalette.canvas,
+                  .45,
+                )
+              : BackstagePalette.surface,
+        );
       }
-    }
-  });
+      for (final type in [
+        '_DiscoveryChoice',
+        '_DiscoveryField',
+        '_DiscoveryPrimaryButton',
+      ]) {
+        final controls = find.byWidgetPredicate(
+          (widget) => widget.runtimeType.toString() == type,
+        );
+        expect(controls, findsWidgets);
+        for (final element in controls.evaluate()) {
+          final material = tester.widget<Material>(
+            find
+                .descendant(
+                  of: find.byWidget(element.widget),
+                  matching: find.byType(Material),
+                )
+                .first,
+          );
+          expect(material.color, BackstagePalette.input);
+        }
+      }
+    },
+  );
 
   testWidgets(
     'beta invitation is present before choosing a city and remains in Ankara',

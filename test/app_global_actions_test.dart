@@ -228,10 +228,11 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
+  }
 
-    testWidgets('real listener dirty draft protects global $action', (
-      tester,
-    ) async {
+  testWidgets(
+    'listener hides global actions and its menu protects a dirty draft',
+    (tester) async {
       final h = _Harness(listener: true);
       final shares = _DraftShares();
       final events = _EmptyEvents();
@@ -255,9 +256,11 @@ void main() {
       );
       final note = find.byKey(const Key('listener-overthinking-draft-note'));
       expect(note, findsOneWidget);
+      expect(_searchButton, findsNothing);
+      expect(_notificationButton, findsNothing);
       await tester.enterText(note, 'Taslağım kaybolmasın');
       FocusManager.instance.primaryFocus?.unfocus();
-      await tester.tap(button);
+      await tester.tap(find.byKey(const Key('listener-owner-menu')));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('listener-overthinking-draft-leave-dialog')),
@@ -275,8 +278,8 @@ void main() {
       expect(h.observer.destinationPushes, 0);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
-    });
-  }
+    },
+  );
 }
 
 class _Harness {

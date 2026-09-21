@@ -39,7 +39,14 @@ void _selfProfileNavigationTests(_MusicianRepository Function() repository) {
           onRoute: routes.add,
         );
         final detail = find.byType(WeeklyEventDetailScreen);
-        final originalState = tester.state(detail);
+        final composer = find.descendant(
+          of: detail,
+          matching: find.byType(TextField),
+        );
+        final originalController = tester
+            .widget<TextField>(composer)
+            .controller;
+        await tester.enterText(composer, 'Yarım kalan yorum');
         final navigator = Navigator.of(tester.element(detail));
 
         await _tapLinkedPerformer(tester);
@@ -49,7 +56,11 @@ void _selfProfileNavigationTests(_MusicianRepository Function() repository) {
         await tester.pumpAndSettle();
 
         expect(detail, findsOneWidget);
-        expect(tester.state(detail), same(originalState));
+        expect(
+          tester.widget<TextField>(composer).controller,
+          same(originalController),
+        );
+        expect(originalController!.text, 'Yarım kalan yorum');
         expect(find.text('M-T1 — Katıl, gösterme'), findsOneWidget);
         expect(navigator.canPop(), isFalse);
         await _tapLinkedPerformer(tester);

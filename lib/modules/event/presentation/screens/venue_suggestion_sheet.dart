@@ -28,7 +28,7 @@ Future<bool?> showVenueSuggestionSheet(
   useSafeArea: true,
   isDismissible: false,
   enableDrag: false,
-  backgroundColor: AppColors.navBlueDeep,
+  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
   shape: const RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
   ),
@@ -314,7 +314,7 @@ class _VenueSuggestionFormState extends State<_VenueSuggestionForm> {
                   Text(
                     'SoundConnect’te bulamadığın mekanı bize öner.',
                     style: TextStyle(
-                      color: AppColors.textMuted,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 14,
                       height: 1.5,
                     ),
@@ -326,7 +326,7 @@ class _VenueSuggestionFormState extends State<_VenueSuggestionForm> {
                     enabled: !_submitting,
                     maxLength: 100,
                     textCapitalization: TextCapitalization.words,
-                    decoration: _decoration('Mekan adı'),
+                    decoration: _decoration(context, 'Mekan adı'),
                     validator: (raw) {
                       final length = (raw ?? '').trim().runes.length;
                       return length < 2 || length > 100
@@ -399,7 +399,9 @@ class _VenueSuggestionFormState extends State<_VenueSuggestionForm> {
                         child: Text(
                           _submitError!,
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             height: 1.5,
                           ),
                         ),
@@ -415,7 +417,9 @@ class _VenueSuggestionFormState extends State<_VenueSuggestionForm> {
                       loading: _submitting,
                       strokeWidth: .9,
                       horizontalPadding: 16,
-                      backgroundColor: AppColors.inputFill,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       leading: const BrandGradientIcon.social(
                         Icons.send_outlined,
                         size: 18,
@@ -445,7 +449,10 @@ class _VenueSuggestionFormState extends State<_VenueSuggestionForm> {
       children: [
         Text(
           message,
-          style: TextStyle(color: AppColors.textMuted, height: 1.4),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.4,
+          ),
         ),
         TextButton.icon(
           onPressed: _submitting ? null : retry,
@@ -468,36 +475,39 @@ class _VenueSuggestionFormState extends State<_VenueSuggestionForm> {
   );
 }
 
-InputDecoration _decoration(String label) => InputDecoration(
-  labelText: label,
-  filled: true,
-  fillColor: AppColors.inputFill,
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.border),
-  ),
-  enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.border),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.textMuted),
-  ),
-  disabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.border),
-  ),
-  errorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.coral),
-  ),
-  focusedErrorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.coral),
-  ),
-  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 17),
-);
+InputDecoration _decoration(BuildContext context, String label) =>
+    InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: AppColors.coral),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: AppColors.coral),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 17),
+    );
 
 class _SuggestionField extends StatelessWidget {
   const _SuggestionField({
@@ -521,7 +531,7 @@ class _SuggestionField extends StatelessWidget {
       onTap: onTap,
       child: ExcludeSemantics(
         child: Material(
-          color: AppColors.inputFill,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(15),
           child: InkWell(
             onTap: onTap,
@@ -530,7 +540,9 @@ class _SuggestionField extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
               constraints: const BoxConstraints(minHeight: 64),
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.border),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Row(
@@ -542,7 +554,9 @@ class _SuggestionField extends StatelessWidget {
                         Text(
                           label,
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 11,
                           ),
                         ),
@@ -553,8 +567,8 @@ class _SuggestionField extends StatelessWidget {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: onTap == null
-                                ? AppColors.textMuted
-                                : AppColors.textPrimary,
+                                ? Theme.of(context).colorScheme.onSurfaceVariant
+                                : Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -575,7 +589,7 @@ class _SuggestionField extends StatelessWidget {
                     Icon(
                       Icons.keyboard_arrow_down_rounded,
                       size: 20,
-                      color: AppColors.textMuted,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                 ],
               ),
@@ -616,10 +630,10 @@ class _SuggestionChoice extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(13),
             gradient: selected ? BrandGradientIcon.gradient : null,
-            color: selected ? null : AppColors.border,
+            color: selected ? null : Theme.of(context).colorScheme.outline,
           ),
           child: Material(
-            color: AppColors.inputFill,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12.2),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -636,8 +650,8 @@ class _SuggestionChoice extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
                       color: onTap == null
-                          ? AppColors.textMuted
-                          : AppColors.textPrimary,
+                          ? Theme.of(context).colorScheme.onSurfaceVariant
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),

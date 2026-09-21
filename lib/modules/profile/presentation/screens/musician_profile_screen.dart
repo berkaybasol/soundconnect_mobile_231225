@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
 import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/policy/profile_feed_availability.dart';
 import '../navigation/profile_action_session.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
@@ -29,7 +30,6 @@ import '../../../musician_feed/presentation/widgets/musician_feed_opportunity_ci
 import '../../../setlist/presentation/screens/band_setlist_builder_screen.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';

@@ -20,7 +20,7 @@ class _FeedHeading extends StatelessWidget {
                 icon: Icon(
                   Icons.arrow_back_ios_new_rounded,
                   size: 28,
-                  color: TableGroupOverviewStyle.bodyMuted,
+                  color: TableGroupSurfaceStyle.of(context).bodyMuted,
                 ),
               ),
               const Spacer(),
@@ -38,7 +38,7 @@ class _FeedHeading extends StatelessWidget {
               'Overthinking',
               key: ValueKey('overthinking-hero-title'),
               style: TextStyle(
-                color: TableGroupOverviewStyle.warmHeading,
+                color: TableGroupSurfaceStyle.of(context).warmHeading,
                 fontSize: 34,
                 height: 1.02,
                 fontWeight: FontWeight.w800,
@@ -50,7 +50,7 @@ class _FeedHeading extends StatelessWidget {
             child: Text(
               'Birbirimizi tanımıyoruz. Ama bu hissi biliyoruz.',
               style: TextStyle(
-                color: TableGroupOverviewStyle.bodyMuted,
+                color: TableGroupSurfaceStyle.of(context).bodyMuted,
                 fontSize: 16,
                 height: 1.4,
               ),
@@ -122,9 +122,9 @@ class _Shortcut extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
-        backgroundColor: TableGroupOverviewStyle.insetTop,
-        foregroundColor: TableGroupOverviewStyle.headingMuted,
-        side: BorderSide(color: TableGroupOverviewStyle.insetBorder),
+        backgroundColor: TableGroupSurfaceStyle.of(context).insetTop,
+        foregroundColor: TableGroupSurfaceStyle.of(context).headingMuted,
+        side: BorderSide(color: TableGroupSurfaceStyle.of(context).insetBorder),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -159,7 +159,7 @@ class _FeedSection extends StatelessWidget {
             child: Text(
               'Yazılar',
               style: TextStyle(
-                color: TableGroupOverviewStyle.headingMuted,
+                color: TableGroupSurfaceStyle.of(context).headingMuted,
                 fontSize: 23,
                 height: 1.15,
                 fontWeight: FontWeight.w800,
@@ -172,10 +172,12 @@ class _FeedSection extends StatelessWidget {
             tooltip: 'Yazıları sırala: ${_label(sort)}',
             initialValue: sort,
             onSelected: onSortChanged,
-            color: TableGroupOverviewStyle.cardTop,
+            color: TableGroupSurfaceStyle.of(context).cardTop,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: TableGroupOverviewStyle.cardBorder),
+              side: BorderSide(
+                color: TableGroupSurfaceStyle.of(context).cardBorder,
+              ),
             ),
             itemBuilder: (context) => [
               for (final option in OverthinkingFeedSort.values)
@@ -189,15 +191,17 @@ class _FeedSection extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: TableGroupOverviewStyle.cardTop,
+                color: TableGroupSurfaceStyle.of(context).cardTop,
                 shape: BoxShape.circle,
-                border: Border.all(color: TableGroupOverviewStyle.cardBorder),
+                border: Border.all(
+                  color: TableGroupSurfaceStyle.of(context).cardBorder,
+                ),
               ),
               child: Icon(
                 Icons.tune_rounded,
                 size: 21,
                 color: sort == OverthinkingFeedSort.newest
-                    ? TableGroupOverviewStyle.headingMuted
+                    ? TableGroupSurfaceStyle.of(context).headingMuted
                     : OverthinkingPalette.accent,
               ),
             ),
@@ -257,14 +261,14 @@ class OverthinkingPostCard extends StatelessWidget {
                           icon: Icon(
                             Icons.delete_outline_rounded,
                             size: 23,
-                            color: TableGroupOverviewStyle.bodyMuted,
+                            color: TableGroupSurfaceStyle.of(context).bodyMuted,
                           ),
                         )
                       else
                         Icon(
                           Icons.chevron_right_rounded,
                           size: 23,
-                          color: TableGroupOverviewStyle.bodyMuted,
+                          color: TableGroupSurfaceStyle.of(context).bodyMuted,
                         ),
                     ],
                   ),
@@ -274,7 +278,7 @@ class OverthinkingPostCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: TableGroupOverviewStyle.primaryText,
+                      color: TableGroupSurfaceStyle.of(context).primaryText,
                       fontSize: 20,
                       height: 1.25,
                       fontWeight: FontWeight.w800,
@@ -286,7 +290,7 @@ class OverthinkingPostCard extends StatelessWidget {
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: TableGroupOverviewStyle.bodyMuted,
+                      color: TableGroupSurfaceStyle.of(context).bodyMuted,
                       fontSize: 14,
                       height: 1.5,
                     ),
@@ -299,7 +303,9 @@ class OverthinkingPostCard extends StatelessWidget {
                         child: Text(
                           'Devamını oku',
                           style: TextStyle(
-                            color: TableGroupOverviewStyle.headingMuted,
+                            color: TableGroupSurfaceStyle.of(
+                              context,
+                            ).headingMuted,
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
@@ -308,7 +314,7 @@ class OverthinkingPostCard extends StatelessWidget {
                       SizedBox(width: 3),
                       Icon(
                         Icons.chevron_right_rounded,
-                        color: TableGroupOverviewStyle.headingMuted,
+                        color: TableGroupSurfaceStyle.of(context).headingMuted,
                         size: 17,
                       ),
                     ],
@@ -326,9 +332,11 @@ class OverthinkingPostCard extends StatelessWidget {
             margin: const EdgeInsets.fromLTRB(9, 0, 9, 9),
             padding: const EdgeInsets.symmetric(horizontal: 5),
             decoration: BoxDecoration(
-              gradient: TableGroupOverviewStyle.insetGradient,
+              gradient: TableGroupSurfaceStyle.of(context).insetGradient,
               borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: TableGroupOverviewStyle.insetBorder),
+              border: Border.all(
+                color: TableGroupSurfaceStyle.of(context).insetBorder,
+              ),
             ),
             child: Wrap(
               alignment: WrapAlignment.spaceBetween,
@@ -410,7 +418,7 @@ class _AuthorLine extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: TableGroupOverviewStyle.primaryText,
+                    color: TableGroupSurfaceStyle.of(context).primaryText,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -419,7 +427,7 @@ class _AuthorLine extends StatelessWidget {
                 Text(
                   '$visibilityLabel · $minutes dk okuma',
                   style: TextStyle(
-                    color: TableGroupOverviewStyle.tertiaryText,
+                    color: TableGroupSurfaceStyle.of(context).tertiaryText,
                     fontSize: 11,
                     height: 1.4,
                   ),
@@ -449,7 +457,7 @@ class _AuthorAvatar extends StatelessWidget {
       visible ? Icons.person_outline_rounded : Icons.visibility_off_outlined,
       color: AppColors.isLight
           ? AppColors.avatarForeground
-          : TableGroupOverviewStyle.headingMuted,
+          : TableGroupSurfaceStyle.of(context).headingMuted,
       size: 22,
     );
     return Container(
@@ -461,14 +469,14 @@ class _AuthorAvatar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: TableGroupOverviewStyle.decorativeGradient,
+          colors: TableGroupSurfaceStyle.of(context).decorativeGradient,
         ),
       ),
       child: ClipOval(
         child: ColoredBox(
           color: AppColors.isLight
               ? AppColors.avatarBackground
-              : TableGroupOverviewStyle.insetBottom,
+              : TableGroupSurfaceStyle.of(context).insetBottom,
           child: imageUrl?.isNotEmpty == true
               ? Image.network(
                   imageUrl!,
@@ -507,7 +515,7 @@ class _PostAction extends StatelessWidget {
         style: TextButton.styleFrom(
           foregroundColor: active
               ? AppColors.coral
-              : TableGroupOverviewStyle.bodyMuted,
+              : TableGroupSurfaceStyle.of(context).bodyMuted,
           minimumSize: const Size(48, 44),
           textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
             fontSize: 12,
@@ -542,17 +550,17 @@ class _FeedLoadingState extends StatelessWidget {
                     Container(
                       width: 130,
                       height: 14,
-                      color: TableGroupOverviewStyle.cardBorder,
+                      color: TableGroupSurfaceStyle.of(context).cardBorder,
                     ),
                     const SizedBox(height: 24),
                     Container(
                       height: 16,
-                      color: TableGroupOverviewStyle.cardBorder,
+                      color: TableGroupSurfaceStyle.of(context).cardBorder,
                     ),
                     const SizedBox(height: 12),
                     Container(
                       height: 10,
-                      color: TableGroupOverviewStyle.insetBorder,
+                      color: TableGroupSurfaceStyle.of(context).insetBorder,
                     ),
                     const SizedBox(height: 18),
                     const LinearProgressIndicator(minHeight: 1),

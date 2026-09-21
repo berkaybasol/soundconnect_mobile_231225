@@ -9,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../data/models/table_group_create_request.dart';
 import '../../domain/entities/table_group_venue_option.dart';
@@ -36,17 +37,28 @@ typedef _TableGroupCreateDraft = ({
   String? neighborhoodId,
 });
 
-class TableGroupCreateScreen extends StatefulWidget {
+class TableGroupCreateScreen extends StatelessWidget {
   final DateTime Function() now;
 
   TableGroupCreateScreen({super.key, DateTime Function()? now})
     : now = now ?? DateTime.now;
 
   @override
-  State<TableGroupCreateScreen> createState() => _TableGroupCreateScreenState();
+  Widget build(BuildContext context) =>
+      AppSurfaceThemeScope(child: _TableGroupCreateContent(now: now));
 }
 
-class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
+class _TableGroupCreateContent extends StatefulWidget {
+  const _TableGroupCreateContent({required this.now});
+
+  final DateTime Function() now;
+
+  @override
+  State<_TableGroupCreateContent> createState() =>
+      _TableGroupCreateScreenState();
+}
+
+class _TableGroupCreateScreenState extends State<_TableGroupCreateContent>
     with WidgetsBindingObserver {
   late final TableGroupCreateCubit _cubit;
   final _formKey = GlobalKey<FormState>();
@@ -570,7 +582,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
               contentPadding: const EdgeInsets.fromLTRB(16, 11, 16, 11),
               filled: true,
               fillColor: (AppColors.isOriginalDark
-                  ? const Color(0xFF071321)
+                  ? Theme.of(context).colorScheme.surfaceContainerHighest
                   : AppColors.inputFill),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -796,6 +808,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
             },
             child: Scaffold(
               appBar: AppBar(
+                backgroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).scaffoldBackgroundColor
+                    : null,
                 title: Text('Masa Oluştur'),
                 leading: IconButton(
                   key: Key('table_group_create_back'),
@@ -1030,7 +1045,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                         : null,
                                     filled: true,
                                     fillColor: (AppColors.isOriginalDark
-                                        ? const Color(0xFF071321)
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
                                         : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
@@ -1129,7 +1146,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                     ),
                                     filled: true,
                                     fillColor: (AppColors.isOriginalDark
-                                        ? const Color(0xFF071321)
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
                                         : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
@@ -1199,7 +1218,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                     ),
                                     filled: true,
                                     fillColor: (AppColors.isOriginalDark
-                                        ? const Color(0xFF071321)
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
                                         : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
@@ -1268,7 +1289,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                     ),
                                     filled: true,
                                     fillColor: (AppColors.isOriginalDark
-                                        ? const Color(0xFF071321)
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
                                         : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
@@ -1402,7 +1425,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                   context,
                                 ).colorScheme.onSurface,
                                 backgroundColor: (AppColors.isOriginalDark
-                                    ? const Color(0xFF071321)
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest
                                     : AppColors.inputFill),
                                 side: BorderSide(
                                   color: Theme.of(
@@ -1881,13 +1906,13 @@ class _PremiumVenueToggle extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
                   color: (AppColors.isOriginalDark
-                      ? const Color(0xFF071321)
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
                       : AppColors.inputFill),
                   border: Border.all(
                     color: value
                         ? accent.withValues(alpha: 0.82)
                         : (AppColors.isOriginalDark
-                              ? const Color(0xFF263A52)
+                              ? Theme.of(context).colorScheme.outline
                               : AppColors.border),
                     width: value ? 1.2 : 1,
                   ),
@@ -1976,13 +2001,17 @@ class _PremiumVenueToggle extends StatelessWidget {
                                 color: value
                                     ? null
                                     : (AppColors.isOriginalDark
-                                          ? const Color(0xFF0B1829)
+                                          ? Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest
                                           : AppColors.inputFill),
                                 border: Border.all(
                                   color: value
                                       ? AppColors.white.withValues(alpha: 0.18)
                                       : (AppColors.isOriginalDark
-                                            ? const Color(0xFF2A4059)
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.outline
                                             : AppColors.border),
                                 ),
                               ),
@@ -2150,10 +2179,10 @@ class _GradientFocusFrame extends StatelessWidget {
             : LinearGradient(
                 colors: [
                   (AppColors.isOriginalDark
-                      ? const Color(0xFF263A52)
+                      ? Theme.of(context).colorScheme.outline
                       : AppColors.border),
                   (AppColors.isOriginalDark
-                      ? const Color(0xFF263A52)
+                      ? Theme.of(context).colorScheme.outline
                       : AppColors.border),
                 ],
               ),

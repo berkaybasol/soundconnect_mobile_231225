@@ -30,7 +30,10 @@ class _PostPreviewSheet extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text('Yazı önizlemesi', style: _manageEyebrow),
+                    child: Text(
+                      'Yazı önizlemesi',
+                      style: _manageEyebrow(context),
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Önizlemeyi kapat',

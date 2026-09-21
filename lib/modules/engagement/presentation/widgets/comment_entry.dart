@@ -18,6 +18,7 @@ class CommentEntry extends StatelessWidget {
     this.isReply = false,
     this.deleting = false,
     this.actionsEnabled = true,
+    this.useThemeColors = false,
     this.deleteKey,
     this.likeButton,
     this.threadFooter,
@@ -31,6 +32,7 @@ class CommentEntry extends StatelessWidget {
   final bool isReply;
   final bool deleting;
   final bool actionsEnabled;
+  final bool useThemeColors;
   final Key? deleteKey;
   final Widget? likeButton;
   final Widget? threadFooter;
@@ -39,6 +41,29 @@ class CommentEntry extends StatelessWidget {
   bool get _showDelete =>
       !comment.deleted && !comment.anonymousAuthor && onDeleteTap != null;
   VoidCallback? get _authorTap => actionsEnabled ? onAuthorTap : null;
+
+  bool _usesThemeColors(BuildContext context) =>
+      useThemeColors && Theme.of(context).brightness == Brightness.dark;
+
+  Color _textPrimary(BuildContext context) => _usesThemeColors(context)
+      ? Theme.of(context).colorScheme.onSurface
+      : AppColors.textPrimary;
+
+  Color _textMuted(BuildContext context) => _usesThemeColors(context)
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : AppColors.textMuted;
+
+  Color _border(BuildContext context) => _usesThemeColors(context)
+      ? Theme.of(context).colorScheme.outline
+      : AppColors.border;
+
+  Color _surface(BuildContext context) => _usesThemeColors(context)
+      ? Theme.of(context).colorScheme.surfaceContainer
+      : AppColors.navBlue;
+
+  Color _raisedSurface(BuildContext context) => _usesThemeColors(context)
+      ? Theme.of(context).colorScheme.surfaceContainerHigh
+      : AppColors.navBlueSoft;
 
   @override
   Widget build(BuildContext context) {
@@ -64,9 +89,9 @@ class CommentEntry extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color.alphaBlend(const Color(0x0C9D5BCE), AppColors.navBlue),
-            AppColors.navBlue,
-            Color.alphaBlend(const Color(0x0D6398D8), AppColors.navBlue),
+            Color.alphaBlend(const Color(0x0C9D5BCE), _surface(context)),
+            _surface(context),
+            Color.alphaBlend(const Color(0x0D6398D8), _surface(context)),
           ],
         ),
       ),
@@ -89,18 +114,21 @@ class CommentEntry extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CommentAuthorLabel(comment: comment, onTap: _authorTap),
-                      if (timeLabel.isNotEmpty) _age(12, 1.3),
+                      if (timeLabel.isNotEmpty) _age(context, 12, 1.3),
                     ],
                   ),
                 ),
-                if (_showDelete) ...[const SizedBox(width: 8), _deleteButton()],
+                if (_showDelete) ...[
+                  const SizedBox(width: 8),
+                  _deleteButton(context),
+                ],
               ],
             ),
             const SizedBox(height: 8),
-            _body(14, 1.4),
+            _body(context, 14, 1.4),
             if (_showReply || (!comment.deleted && likeButton != null)) ...[
               const SizedBox(height: 8),
-              Divider(height: .6, thickness: .6, color: AppColors.border),
+              Divider(height: .6, thickness: .6, color: _border(context)),
               _actions(context),
             ] else
               const SizedBox(height: 14),
@@ -137,34 +165,34 @@ class CommentEntry extends StatelessWidget {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   CommentAuthorLabel(comment: comment, onTap: _authorTap),
-                  if (timeLabel.isNotEmpty) _age(11, 1.2),
+                  if (timeLabel.isNotEmpty) _age(context, 11, 1.2),
                 ],
               ),
               const SizedBox(height: 2),
-              _body(13, 1.35),
+              _body(context, 13, 1.35),
               if (_showReply || (!comment.deleted && likeButton != null))
                 _actions(context),
             ],
           ),
         ),
-        if (_showDelete) ...[const SizedBox(width: 4), _deleteButton()],
+        if (_showDelete) ...[const SizedBox(width: 4), _deleteButton(context)],
       ],
     ),
   );
 
-  Widget _age(double size, double height) => Text(
+  Widget _age(BuildContext context, double size, double height) => Text(
     timeLabel,
     style: TextStyle(
-      color: AppColors.textMuted,
+      color: _textMuted(context),
       fontSize: size,
       height: height,
     ),
   );
 
-  Widget _body(double size, double height) => Text(
+  Widget _body(BuildContext context, double size, double height) => Text(
     comment.deleted ? 'Bu yorum silindi.' : comment.text,
     style: TextStyle(
-      color: comment.deleted ? AppColors.textMuted : AppColors.textPrimary,
+      color: comment.deleted ? _textMuted(context) : _textPrimary(context),
       fontSize: size,
       height: height,
     ),
@@ -199,16 +227,16 @@ class CommentEntry extends StatelessWidget {
     ],
   );
 
-  Widget _deleteButton() {
+  Widget _deleteButton(BuildContext context) {
     final style = IconButton.styleFrom(
       minimumSize: const Size(44, 44),
       maximumSize: const Size(44, 44),
       padding: EdgeInsets.all(isReply ? 12 : 10),
-      foregroundColor: isReply ? AppColors.textMuted : AppColors.textPrimary,
+      foregroundColor: isReply ? _textMuted(context) : _textPrimary(context),
       backgroundColor: isReply
           ? Colors.transparent
-          : AppColors.navBlueSoft.withValues(alpha: .5),
-      side: isReply ? BorderSide.none : BorderSide(color: AppColors.border),
+          : _raisedSurface(context).withValues(alpha: .5),
+      side: isReply ? BorderSide.none : BorderSide(color: _border(context)),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );
     final icon = deleting

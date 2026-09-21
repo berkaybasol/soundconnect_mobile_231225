@@ -390,7 +390,9 @@ class _EventAudienceControlsState extends State<EventAudienceControls> {
                   value.eventEnded
                       ? 'Bu etkinlik sona erdi.'
                       : 'Etkinlik şu anda kullanılamıyor.',
-                  style: TextStyle(color: AppColors.textMuted),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
           ],
           if (controller.error != null) ...[
@@ -716,7 +718,7 @@ Future<_AudienceAction?> _managementSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: AppColors.navBlueDeep,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (sheetContext) {
         route = ModalRoute.of(sheetContext);
         onRoute?.call(route);
@@ -822,7 +824,9 @@ class _AudienceManagementSheetState extends State<_AudienceManagementSheet> {
                   value.intent == EventAudienceStatus.none
                       ? 'Etkinlik seçimin'
                       : 'Seçimin: ${value.intent.label}',
-                  style: TextStyle(color: AppColors.textMuted),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 if (value.canSetIntent)
                   for (final status in [

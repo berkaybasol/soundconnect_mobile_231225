@@ -28,7 +28,7 @@ import 'overthinking_session_guard.dart';
 part 'overthinking_manage_cards.dart';
 part 'overthinking_manage_sheets.dart';
 
-class OverthinkingManageScreen extends StatefulWidget {
+class OverthinkingManageScreen extends StatelessWidget {
   final StageMode bottomBarStageMode;
   final int initialTabIndex;
 
@@ -39,14 +39,32 @@ class OverthinkingManageScreen extends StatefulWidget {
   });
 
   @override
-  State<OverthinkingManageScreen> createState() =>
+  Widget build(BuildContext context) => OverthinkingThemeScope(
+    child: _OverthinkingManageContent(
+      bottomBarStageMode: bottomBarStageMode,
+      initialTabIndex: initialTabIndex,
+    ),
+  );
+}
+
+class _OverthinkingManageContent extends StatefulWidget {
+  const _OverthinkingManageContent({
+    required this.bottomBarStageMode,
+    required this.initialTabIndex,
+  });
+
+  final StageMode bottomBarStageMode;
+  final int initialTabIndex;
+
+  @override
+  State<_OverthinkingManageContent> createState() =>
       _OverthinkingManageScreenState();
 }
 
-class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
+class _OverthinkingManageScreenState extends State<_OverthinkingManageContent>
     with
         SingleTickerProviderStateMixin,
-        OverthinkingSessionBoundState<OverthinkingManageScreen>,
+        OverthinkingSessionBoundState<_OverthinkingManageContent>,
         WidgetsBindingObserver {
   late final OverthinkingRepository _repository =
       serviceLocator<OverthinkingRepository>();
@@ -374,6 +392,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
             child: BlocProvider(
               create: (_) => serviceLocator<CommentThreadCubit>(),
               child: CommentThreadSheet(
+                useThemeColors: true,
                 targetType: 'OVERTHINKING',
                 targetId: post.id,
               ),
@@ -451,7 +470,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
           ),
           centerTitle: false,
         ),
-        body: TableGroupOverviewBackdrop(
+        body: TableGroupSurfaceBackdrop(
           child: SafeArea(
             top: false,
             bottom: false,
@@ -468,7 +487,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
                         children: [
                           Text(
                             'Yazıların ve kimlik isteklerin',
-                            style: _manageEyebrow,
+                            style: _manageEyebrow(context),
                           ),
                           SizedBox(height: 10),
                           Text(
@@ -492,7 +511,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 18),
                       padding: const EdgeInsets.all(4),
-                      decoration: _manageCardDecoration(),
+                      decoration: _manageCardDecoration(context),
                       child: TabBar(
                         controller: _tabs,
                         onTap: (index) {
@@ -676,7 +695,7 @@ class _ManageList<T> extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title,
-                        style: _manageEyebrow.copyWith(
+                        style: _manageEyebrow(context).copyWith(
                           color: OverthinkingPalette.muted,
                           fontSize: 10,
                         ),

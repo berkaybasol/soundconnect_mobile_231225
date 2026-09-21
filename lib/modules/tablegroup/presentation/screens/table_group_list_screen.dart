@@ -11,6 +11,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/access_policy.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
@@ -39,9 +40,11 @@ class TableGroupListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
-    return BlocProvider(
-      create: (_) => serviceLocator<TableGroupListCubit>()..initialize(),
-      child: _TableGroupListView(args: args, now: now),
+    return AppSurfaceThemeScope(
+      child: BlocProvider(
+        create: (_) => serviceLocator<TableGroupListCubit>()..initialize(),
+        child: _TableGroupListView(args: args, now: now),
+      ),
     );
   }
 }
@@ -379,27 +382,10 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                 .setNeighborhood(value),
                     ),
                     SizedBox(height: 14),
-                    GradientOutline(
-                      enabled: AppColors.isLight,
-                      radius: 14,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.isLight
-                              ? Colors.transparent
-                              : AppColors.gradientC,
-                          foregroundColor: AppColors.onAccent,
-                          elevation: AppColors.isLight ? 0 : null,
-                          shadowColor: AppColors.isLight
-                              ? Colors.transparent
-                              : null,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          padding: EdgeInsets.symmetric(vertical: 13),
-                        ),
-                        child: Text('Kapat'),
-                      ),
+                    GradientOutlineButton(
+                      label: 'Kapat',
+                      strokeWidth: .7,
+                      onPressed: () => Navigator.of(sheetContext).pop(),
                     ),
                   ],
                 );
@@ -529,7 +515,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
         final currentUserProfileImage = _resolveCurrentUserProfileImage(state);
 
         return Scaffold(
-          backgroundColor: TableGroupOverviewStyle.pageBase,
+          backgroundColor: TableGroupSurfaceStyle.of(context).pageBase,
           bottomNavigationBar: SafeArea(
             top: false,
             child: ProfilePublicBottomBar(
@@ -538,7 +524,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
               stageMode: widget.args.bottomBarStageMode,
             ),
           ),
-          body: TableGroupOverviewBackdrop(
+          body: TableGroupSurfaceBackdrop(
             child: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -578,8 +564,9 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                             Navigator.of(context).maybePop(),
                                         icon: Icon(
                                           Icons.arrow_back_ios_new_rounded,
-                                          color:
-                                              TableGroupOverviewStyle.bodyMuted,
+                                          color: TableGroupSurfaceStyle.of(
+                                            context,
+                                          ).bodyMuted,
                                           size: 28,
                                         ),
                                       ),
@@ -616,8 +603,9 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color:
-                                          TableGroupOverviewStyle.warmHeading,
+                                      color: TableGroupSurfaceStyle.of(
+                                        context,
+                                      ).warmHeading,
                                       fontSize: 34,
                                       height: 1.02,
                                       fontWeight: FontWeight.w800,
@@ -632,7 +620,9 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: TableGroupOverviewStyle.bodyMuted,
+                                      color: TableGroupSurfaceStyle.of(
+                                        context,
+                                      ).bodyMuted,
                                       fontSize: 17,
                                       height: 1.25,
                                       fontWeight: FontWeight.w400,
@@ -653,8 +643,9 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color:
-                                          TableGroupOverviewStyle.headingMuted,
+                                      color: TableGroupSurfaceStyle.of(
+                                        context,
+                                      ).headingMuted,
                                       fontSize: 23,
                                       height: 1.15,
                                       fontWeight: FontWeight.w800,
@@ -670,11 +661,15 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                   ),
                                   decoration: BoxDecoration(
                                     color: (AppColors.isOriginalDark
-                                        ? const Color(0xFF111B2A)
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
                                         : AppColors.navBlueSoft),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
-                                      color: TableGroupOverviewStyle.cardBorder,
+                                      color: TableGroupSurfaceStyle.of(
+                                        context,
+                                      ).cardBorder,
                                     ),
                                   ),
                                   child: Text(
@@ -682,8 +677,9 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                     key: const Key('table_group_count_label'),
                                     maxLines: 1,
                                     style: TextStyle(
-                                      color:
-                                          TableGroupOverviewStyle.primaryText,
+                                      color: TableGroupSurfaceStyle.of(
+                                        context,
+                                      ).primaryText,
                                       fontSize: 14,
                                       height: 1.2,
                                       fontWeight: FontWeight.w500,

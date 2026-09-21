@@ -28,6 +28,7 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/domain/table_group_
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screens/table_group_detail_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/table_group_profile_draft.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 
 import '../../../support/event_audience_fakes.dart';
 
@@ -248,6 +249,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.navy,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -299,6 +301,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(descriptionCard);
     await tester.pumpAndSettle();
+    final descriptionScheme = Theme.of(
+      tester.element(
+        find.byKey(const Key('table_group_description_dialog_text')),
+      ),
+    ).colorScheme;
+    expect(descriptionScheme.brightness, Brightness.dark);
     expect(
       tester
           .widget<Text>(
@@ -314,7 +322,7 @@ void main() {
           )
           .style
           ?.color,
-      AppColors.white,
+      descriptionScheme.onSurface,
     );
     expect(find.text('Kapat'), findsOneWidget);
     await tester.tap(find.byKey(const Key('table_group_description_close')));
@@ -403,6 +411,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.navy,
         home: TableGroupDetailScreen(
           args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
           repository: repository,
@@ -420,6 +429,8 @@ void main() {
     await tester.pumpAndSettle();
     final noteInput = find.byKey(const Key('table_group_join_note_input'));
     expect(noteInput, findsOneWidget);
+    final joinScheme = Theme.of(tester.element(noteInput)).colorScheme;
+    expect(joinScheme.brightness, Brightness.dark);
     final warning = find.byKey(const Key('table_group_join_owner_warning'));
     expect(warning, findsOneWidget);
     expect(
@@ -452,16 +463,19 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.text('Katılma isteği')).style?.color,
-      AppColors.white,
+      joinScheme.onSurface,
     );
     expect(
       tester
           .widget<Text>(find.text('Masa sahibine kısa bir not bırakabilirsin.'))
           .style
           ?.color,
-      AppColors.white.withValues(alpha: 0.72),
+      joinScheme.onSurfaceVariant,
     );
-    expect(tester.widget<TextField>(noteInput).style?.color, AppColors.white);
+    expect(
+      tester.widget<TextField>(noteInput).style?.color,
+      joinScheme.onSurface,
+    );
 
     await tester.tap(noteInput);
     await tester.enterText(noteInput, 'Bu akşam katılmak isterim.');
@@ -1355,6 +1369,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.navy,
         home: TableGroupDetailScreen(
           args: const TableGroupDetailArgs(tableGroupId: 'g-1'),
           repository: repository,
@@ -1398,9 +1413,13 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('oyun geçmişi'), findsNothing);
+    final confirmationScheme = Theme.of(
+      tester.element(find.text('Katılım talebini onayla?')),
+    ).colorScheme;
+    expect(confirmationScheme.brightness, Brightness.dark);
     expect(
       tester.widget<Text>(find.text('Katılım talebini onayla?')).style?.color,
-      AppColors.white,
+      confirmationScheme.onSurface,
     );
     expect(
       tester
@@ -1411,7 +1430,7 @@ void main() {
           )
           .style
           ?.color,
-      AppColors.white.withValues(alpha: 0.72),
+      confirmationScheme.onSurfaceVariant,
     );
     await tester.tap(find.text('Onayla'));
     await tester.pumpAndSettle();

@@ -9,6 +9,7 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/widget
 import 'package:soundconnect_23_12_25codx/shared/theme/app_colors.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme_controller.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/backstage_palette.dart';
 
 void main() {
   final controller = AppThemeController.instance;
@@ -34,7 +35,7 @@ void main() {
       final darkShadows = TableGroupOverviewStyle.cardShadows;
 
       expect(_textColor(tester, 'Masa başlığı'), Colors.white);
-      expect(_textColor(tester, 'DÜŞÜNCELER'), const Color(0xFFA8B5C9));
+      expect(_textColor(tester, 'DÜŞÜNCELER'), BackstagePalette.textMuted);
       expect(editable.widget.focusNode.hasFocus, isTrue);
 
       await tester.runAsync(() => controller.setVariant(AppThemeVariant.light));
@@ -73,7 +74,7 @@ void main() {
       expect(TableGroupOverviewStyle.cardGradient, darkGradient);
       expect(TableGroupOverviewStyle.cardShadows, darkShadows);
       expect(_textColor(tester, 'Masa başlığı'), Colors.white);
-      expect(_textColor(tester, 'DÜŞÜNCELER'), const Color(0xFFA8B5C9));
+      expect(_textColor(tester, 'DÜŞÜNCELER'), BackstagePalette.textMuted);
       expect(editable.widget.controller.text, 'Taslağım burada kalsın');
       expect(tester.takeException(), isNull);
     },
@@ -104,7 +105,7 @@ void main() {
     final material = find
         .descendant(of: tile, matching: find.byType(Material))
         .first;
-    expect(tester.widget<Material>(material).color, const Color(0xFF071321));
+    expect(tester.widget<Material>(material).color, BackstagePalette.input);
 
     await tester.runAsync(() => controller.setVariant(AppThemeVariant.light));
     await tester.pumpAndSettle();

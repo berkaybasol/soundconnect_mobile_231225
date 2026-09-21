@@ -69,7 +69,7 @@ class EventShareCard extends StatelessWidget {
                         ),
                         const Spacer(),
                         const Text(
-                          'ETKÄ°NLÄ°K',
+                          'ETKİNLİK',
                           style: TextStyle(
                             color: _muted,
                             fontSize: 8,
@@ -228,7 +228,7 @@ class EventShareCard extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 12),
                                           const Text(
-                                            'SANATÃ‡I / GRUP',
+                                            'SANATÇI / GRUP',
                                             style: TextStyle(
                                               color: _muted,
                                               fontSize: 8,
@@ -337,7 +337,7 @@ class EventShareCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            'Etkinlik detaylarÄ± SoundConnectâ€™te',
+                            'Etkinlik detayları SoundConnect’te',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 10, color: _muted),

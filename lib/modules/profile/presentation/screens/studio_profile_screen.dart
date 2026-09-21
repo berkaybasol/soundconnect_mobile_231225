@@ -11,7 +11,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
@@ -564,9 +563,6 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       leading: const BackButton(),
       title: const ProfileBrandTitle(),
       centerTitle: true,
-      actions: widget.isPublic
-          ? null
-          : const [AppGlobalActions(), SizedBox(width: 8)],
     );
   }
 

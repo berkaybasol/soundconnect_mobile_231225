@@ -13,11 +13,15 @@ Future<EventShareTarget?> showEventShareSheet(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  backgroundColor: AppColors.navBlueDeep,
+  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
   barrierColor: Colors.black.withValues(alpha: 0.65),
   shape: RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    side: BorderSide(color: AppColors.legacyBorder(Color(0xFF2A3244))),
+    side: BorderSide(
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Theme.of(context).colorScheme.outline
+          : AppColors.legacyBorder(const Color(0xFF2A3244)),
+    ),
   ),
   builder: (_) => EventShareSheet(
     prepared: prepared,
@@ -46,6 +50,7 @@ class EventShareSheet extends StatelessWidget {
       accessibilityDescription: prepared.data.accessibilityDescription,
       title: 'Etkinliği paylaş',
       keyPrefix: 'event-share',
+      useThemeColors: true,
       validityChanges: validityChanges,
       isValid: isValid,
     );

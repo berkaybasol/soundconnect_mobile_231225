@@ -10,6 +10,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/event_performer_identity.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/event_poster_fallback.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
@@ -116,7 +117,7 @@ bool _isNetworkLikePath(String? value) {
       uri.host.isNotEmpty;
 }
 
-class WeeklyEventDetailScreen extends StatefulWidget {
+class WeeklyEventDetailScreen extends StatelessWidget {
   final WeeklyCalendarEvent event;
   final EventShareService? shareService;
   final VoidCallback? onEngagementChanged;
@@ -129,11 +130,32 @@ class WeeklyEventDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<WeeklyEventDetailScreen> createState() =>
+  Widget build(BuildContext context) => AppSurfaceThemeScope(
+    child: _WeeklyEventDetailContent(
+      event: event,
+      shareService: shareService,
+      onEngagementChanged: onEngagementChanged,
+    ),
+  );
+}
+
+class _WeeklyEventDetailContent extends StatefulWidget {
+  const _WeeklyEventDetailContent({
+    required this.event,
+    this.shareService,
+    this.onEngagementChanged,
+  });
+
+  final WeeklyCalendarEvent event;
+  final EventShareService? shareService;
+  final VoidCallback? onEngagementChanged;
+
+  @override
+  State<_WeeklyEventDetailContent> createState() =>
       _WeeklyEventDetailScreenState();
 }
 
-class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
+class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
     with WidgetsBindingObserver {
   final TextEditingController _commentController = TextEditingController();
   final CommentThreadCubit _commentCubit = CommentThreadCubit(
@@ -253,7 +275,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
   }
 
   @override
-  void didUpdateWidget(covariant WeeklyEventDetailScreen oldWidget) {
+  void didUpdateWidget(covariant _WeeklyEventDetailContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.event.id == widget.event.id) return;
     _commentController.clear();
@@ -293,7 +315,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
         .join(' / ');
 
     final page = Scaffold(
-      backgroundColor: AppColors.navBlueDeep,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [

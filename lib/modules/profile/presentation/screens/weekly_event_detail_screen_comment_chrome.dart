@@ -58,7 +58,9 @@ class _EventEndedNotice extends StatelessWidget {
                 Container(
                   width: .8,
                   height: 28,
-                  color: AppColors.textMuted.withValues(alpha: .45),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: .45),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -77,7 +79,7 @@ class _EventEndedNotice extends StatelessWidget {
                       Text(
                         'Etkinliğe gösterdiğin ilgi için teşekkürler!',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11.5,
                           height: 1.4,
                         ),
@@ -196,11 +198,11 @@ class _EventCommentComposerSurface extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             Theme.of(context).colorScheme.surfaceContainerHighest,
-            AppColors.navBlueDeep,
+            Theme.of(context).scaffoldBackgroundColor,
           ],
         ),
         border: Border.all(
-          color: AppColors.border.withValues(alpha: .8),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: .8),
           width: .8,
         ),
       ),

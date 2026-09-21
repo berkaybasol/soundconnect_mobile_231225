@@ -261,14 +261,23 @@ void _bandProfileNavigationTests(_BandRepository Function() repository) {
       final routes = <RouteSettings>[];
       await _openDetail(tester, _linkedBandEvent(), onRoute: routes.add);
       final detail = find.byType(WeeklyEventDetailScreen);
-      final originalState = tester.state(detail);
+      final composer = find.descendant(
+        of: detail,
+        matching: find.byType(TextField),
+      );
+      final originalController = tester.widget<TextField>(composer).controller;
+      await tester.enterText(composer, 'Yarım kalan yorum');
       final navigator = Navigator.of(tester.element(detail));
       await _tapLinkedPerformer(tester);
       _expectBandNavigation(routes, own: true);
       navigator.pop();
       await tester.pumpAndSettle();
 
-      expect(tester.state(detail), same(originalState));
+      expect(
+        tester.widget<TextField>(composer).controller,
+        same(originalController),
+      );
+      expect(originalController!.text, 'Yarım kalan yorum');
       expect(find.text('B-T1 — Grup katılımı'), findsOneWidget);
       await _tapLinkedPerformer(tester);
       expect(routes, hasLength(2));

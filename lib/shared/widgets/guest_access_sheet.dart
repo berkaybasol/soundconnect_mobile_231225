@@ -12,7 +12,7 @@ Future<void> showGuestAccessSheet(
   useSafeArea: true,
   isScrollControlled: true,
   showDragHandle: true,
-  backgroundColor: AppColors.navBlueDeep,
+  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
   builder: (sheetContext) => SafeArea(
     top: false,
     child: SingleChildScrollView(
@@ -28,12 +28,15 @@ Future<void> showGuestAccessSheet(
           const SizedBox(height: 10),
           Text(
             message,
-            style: TextStyle(color: AppColors.textMuted, height: 1.5),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 22),
           GuestAccessActionButton(
             label: 'Giriş yap',
-            backgroundColor: AppColors.navBlueDeep,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             onPressed: () {
               Navigator.of(sheetContext).pop();
               Navigator.of(context).pushNamed(AppRoutes.login);

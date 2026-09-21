@@ -67,17 +67,19 @@ class MusicianManagementPanelScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              _buildMusicianVenueManagementCard(
-                context: context,
-                icon: Icons.person_outline_rounded,
-                title: 'Profil Tamamlama',
-                message: 'Akış tercihlerini ve enstrümanlarını yönet.',
-                onTap: () => _showMusicianProfileCompletionHub(
+              if (ProfileFeedAvailability.enabled) ...[
+                _buildMusicianVenueManagementCard(
                   context: context,
-                  profile: musicianProfile,
+                  icon: Icons.person_outline_rounded,
+                  title: 'Profil Tamamlama',
+                  message: 'Akış tercihlerini ve enstrümanlarını yönet.',
+                  onTap: () => _showMusicianProfileCompletionHub(
+                    context: context,
+                    profile: musicianProfile,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
+              ],
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.groups_outlined,

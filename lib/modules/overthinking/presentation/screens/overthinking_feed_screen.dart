@@ -51,9 +51,11 @@ class OverthinkingFeedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
-    return BlocProvider(
-      create: (_) => serviceLocator<OverthinkingFeedCubit>()..load(),
-      child: _OverthinkingFeedView(bottomBarStageMode: bottomBarStageMode),
+    return OverthinkingThemeScope(
+      child: BlocProvider(
+        create: (_) => serviceLocator<OverthinkingFeedCubit>()..load(),
+        child: _OverthinkingFeedView(bottomBarStageMode: bottomBarStageMode),
+      ),
     );
   }
 }
@@ -241,6 +243,7 @@ class _OverthinkingFeedViewState extends State<_OverthinkingFeedView>
         child: BlocProvider(
           create: (_) => serviceLocator<CommentThreadCubit>(),
           child: CommentThreadSheet(
+            useThemeColors: true,
             targetType: OverthinkingFeedCubit.targetType,
             targetId: post.id,
             onCommentCreated: () => cubit.incrementCommentCount(post.id),
@@ -274,7 +277,7 @@ class _OverthinkingFeedViewState extends State<_OverthinkingFeedView>
               !context.read<OverthinkingFeedCubit>().isSessionCurrent
               ? const OverthinkingUnavailableScreen()
               : Scaffold(
-                  body: TableGroupOverviewBackdrop(
+                  body: TableGroupSurfaceBackdrop(
                     child: SafeArea(
                       bottom: false,
                       child: RefreshIndicator(

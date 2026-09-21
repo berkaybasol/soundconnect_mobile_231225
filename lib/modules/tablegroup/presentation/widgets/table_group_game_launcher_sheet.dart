@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../domain/entities/table_group_game.dart';
 
 Future<TableGroupGameMode?> showTableGroupGameLauncherSheet(
@@ -11,7 +12,8 @@ Future<TableGroupGameMode?> showTableGroupGameLauncherSheet(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: AppColors.pureBlack.withValues(alpha: 0.72),
-    builder: (context) => const _TableGroupGameLauncherSheet(),
+    builder: (context) =>
+        const AppSurfaceThemeScope(child: _TableGroupGameLauncherSheet()),
   );
 }
 
@@ -46,7 +48,7 @@ class _TableGroupGameLauncherSheet extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: (AppColors.isOriginalDark
-                ? const Color(0xFF0A1526)
+                ? Theme.of(context).colorScheme.surfaceContainer
                 : AppColors.navBlue),
             borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
           ),
@@ -86,7 +88,9 @@ class _TableGroupGameLauncherSheet extends StatelessWidget {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: (AppColors.isOriginalDark
-                                ? const Color(0xFF101D31)
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHigh
                                 : AppColors.navBlueSoft),
                           ),
                           child: Center(
@@ -179,13 +183,13 @@ class _GameModeTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: (AppColors.isOriginalDark
-          ? const Color(0xFF071321)
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
           : AppColors.inputFill),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
           color: (AppColors.isOriginalDark
-              ? const Color(0xFF263A52)
+              ? Theme.of(context).colorScheme.outline
               : AppColors.border),
         ),
       ),
@@ -201,12 +205,12 @@ class _GameModeTile extends StatelessWidget {
                 height: 46,
                 decoration: BoxDecoration(
                   color: (AppColors.isOriginalDark
-                      ? const Color(0xFF111F34)
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
                       : AppColors.inputFill),
                   borderRadius: BorderRadius.circular(13),
                   border: Border.all(
                     color: (AppColors.isOriginalDark
-                        ? const Color(0xFF2A4059)
+                        ? Theme.of(context).colorScheme.outline
                         : AppColors.border),
                   ),
                 ),

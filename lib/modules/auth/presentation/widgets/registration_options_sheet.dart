@@ -21,11 +21,14 @@ Future<void> openRegistrationOptions(BuildContext context) async {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: AppColors.navBlueDeep,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       barrierColor: Colors.black.withValues(alpha: .65),
       shape: RoundedRectangleBorder(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-        side: BorderSide(color: AppColors.border, width: .8),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outline,
+          width: .8,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       builder: (_) => const _RegistrationOptionsSheet(),
@@ -84,7 +87,7 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
                 width: 34,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.border,
+                  color: Theme.of(context).colorScheme.outline,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -96,7 +99,7 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
                   child: Text(
                     'Üye ol',
                     style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
@@ -105,7 +108,10 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
                 IconButton(
                   tooltip: 'Kapat',
                   onPressed: _finish,
-                  icon: Icon(Icons.close_rounded, color: AppColors.textMuted),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -114,9 +120,13 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
               key: const Key('registration-google-unavailable'),
               onPressed: null,
               style: OutlinedButton.styleFrom(
-                disabledForegroundColor: AppColors.textMuted,
-                backgroundColor: AppColors.inputFill,
-                side: BorderSide(color: AppColors.border),
+                disabledForegroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
+                side: BorderSide(color: Theme.of(context).colorScheme.outline),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 16,
@@ -152,7 +162,9 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.navBlueSoft,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
@@ -181,7 +193,9 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
                 child: Padding(
                   padding: const EdgeInsets.all(.8),
                   child: Material(
-                    color: AppColors.inputFill,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(17.2),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
@@ -207,7 +221,9 @@ class _RegistrationOptionsSheetState extends State<_RegistrationOptionsSheet> {
                                   'E-posta ile devam et',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: AppColors.textPrimary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),

@@ -7,6 +7,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/modules/instrument/domain/entities/instrument.dart';
 import 'package:soundconnect_23_12_25codx/modules/instrument/domain/instrument_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/city.dart';
@@ -65,14 +66,27 @@ void main() {
   });
 
   testWidgets(
-    'management opens one completion page and unchanged back keeps the panel open',
+    'management offers profile completion only when profile feeds are enabled',
     (tester) async {
       final preferences = _registerCompletionRepositories(profiles);
       await _mountManagementLauncher(tester);
-      expect(find.text('Profil Tamamlama'), findsOneWidget);
+      expect(
+        find.text('Profil Tamamlama'),
+        ProfileFeedAvailability.enabled ? findsOneWidget : findsNothing,
+      );
       expect(find.text('Biyografi'), findsNothing);
       expect(find.text('Akış Tercihleri'), findsNothing);
       expect(find.text('Enstrümanlarım'), findsNothing);
+
+      if (!ProfileFeedAvailability.enabled) {
+        expect(find.text('Bandlerim'), findsOneWidget);
+        expect(find.text('Setlist Oluşturucu'), findsOneWidget);
+        expect(find.text('Mekan Bağlantıları'), findsOneWidget);
+        expect(find.text('Etkinlik Yönetimi'), findsOneWidget);
+        expect(find.byType(MusicianProfileCompletionScreen), findsNothing);
+        expect(tester.takeException(), isNull);
+        return;
+      }
 
       await tester.tap(find.text('Profil Tamamlama'));
       await tester.pumpAndSettle();
@@ -97,9 +111,7 @@ void main() {
     'completion saves only the changed city and stays on the combined page',
     (tester) async {
       final preferences = _registerCompletionRepositories(profiles);
-      await _mountManagementLauncher(tester);
-      await tester.tap(find.text('Profil Tamamlama'));
-      await tester.pumpAndSettle();
+      await _mountCompletionPage(tester);
       await _tapCompletionControl(
         tester,
         const Key('musician-completion-city-city-1'),
@@ -117,47 +129,52 @@ void main() {
     },
   );
 
-  testWidgets(
-    'completion instrument save refreshes the profile owner when the page is left',
-    (tester) async {
-      final preferences = _registerCompletionRepositories(profiles);
-      var panelReturns = 0;
-      await _mountManagementLauncher(tester, onReturned: () => panelReturns++);
-      await tester.tap(find.text('Profil Tamamlama'));
-      await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsNothing);
-      expect(
-        tester
-            .widget<CheckboxListTile>(
-              find.byKey(const ValueKey('musician-instrument-i-guitar')),
-            )
-            .value,
-        isTrue,
-      );
-      await _tapCompletionControl(
-        tester,
-        const Key('musician-instrument-i-bass'),
-      );
-      expect(
-        find.byKey(const Key('musician-completion-selected-i-bass')),
-        findsOneWidget,
-      );
-      await _tapCompletionControl(tester, _saveCompletion);
+  if (ProfileFeedAvailability.enabled) {
+    testWidgets(
+      'completion instrument save refreshes the profile owner when the page is left',
+      (tester) async {
+        final preferences = _registerCompletionRepositories(profiles);
+        var panelReturns = 0;
+        await _mountManagementLauncher(
+          tester,
+          onReturned: () => panelReturns++,
+        );
+        await tester.tap(find.text('Profil Tamamlama'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(
+          tester
+              .widget<CheckboxListTile>(
+                find.byKey(const ValueKey('musician-instrument-i-guitar')),
+              )
+              .value,
+          isTrue,
+        );
+        await _tapCompletionControl(
+          tester,
+          const Key('musician-instrument-i-bass'),
+        );
+        expect(
+          find.byKey(const Key('musician-completion-selected-i-bass')),
+          findsOneWidget,
+        );
+        await _tapCompletionControl(tester, _saveCompletion);
 
-      expect(profiles.requests.single.instrumentIds, ['i-bass', 'i-guitar']);
-      expect(profiles.expectedSessionKeys, ['owner-1']);
-      expect(preferences.cityUpdates, isEmpty);
-      expect(find.byType(MusicianProfileCompletionScreen), findsOneWidget);
-      expect(panelReturns, 0);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.byType(MusicianManagementPanelScreen), findsNothing);
-      expect(find.byType(BottomSheet), findsNothing);
-      expect(find.text('Profil ekranı'), findsOneWidget);
-      expect(panelReturns, 1);
-      expect(tester.takeException(), isNull);
-    },
-  );
+        expect(profiles.requests.single.instrumentIds, ['i-bass', 'i-guitar']);
+        expect(profiles.expectedSessionKeys, ['owner-1']);
+        expect(preferences.cityUpdates, isEmpty);
+        expect(find.byType(MusicianProfileCompletionScreen), findsOneWidget);
+        expect(panelReturns, 0);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(MusicianManagementPanelScreen), findsNothing);
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(find.text('Profil ekranı'), findsOneWidget);
+        expect(panelReturns, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'an account switch prevents saving drafts from the combined page',

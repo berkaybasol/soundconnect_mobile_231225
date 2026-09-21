@@ -72,7 +72,7 @@ class OverthinkingUnavailableScreen extends StatelessWidget {
       data: OverthinkingPalette.theme(context),
       child: Scaffold(
         appBar: AppBar(title: const Text('Overthinking')),
-        body: TableGroupOverviewBackdrop(
+        body: TableGroupSurfaceBackdrop(
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),

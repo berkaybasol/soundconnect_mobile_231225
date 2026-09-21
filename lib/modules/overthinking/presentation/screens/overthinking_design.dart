@@ -1,25 +1,42 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
+import '../../../../shared/theme/backstage_palette.dart';
 import '../../../tablegroup/presentation/widgets/table_group_overview_style.dart';
 
 export '../../../tablegroup/presentation/widgets/table_group_overview_style.dart';
 
 abstract final class OverthinkingPalette {
-  // Use the same source of truth as the TableGroup overview, including its
-  // backdrop, card depth and warm typography. No separate module palette.
-  static Color get background => TableGroupOverviewStyle.pageBase;
-  static Color get surface => TableGroupOverviewStyle.cardTop;
-  static Color get surfaceRaised => TableGroupOverviewStyle.insetTop;
-  static Color get border => TableGroupOverviewStyle.cardBorder;
-  static Color get text => TableGroupOverviewStyle.primaryText;
-  static Color get muted => TableGroupOverviewStyle.bodyMuted;
-  static Color get accent => TableGroupOverviewStyle.warmHeading;
-  static Color get lilac => TableGroupOverviewStyle.headingMuted;
+  // Keep the established light palette while adopting the shared dark neutrals.
+  static Color get background => AppColors.isOriginalDark
+      ? BackstagePalette.canvas
+      : TableGroupOverviewStyle.pageBase;
+  static Color get surface => AppColors.isOriginalDark
+      ? BackstagePalette.surface
+      : TableGroupOverviewStyle.cardTop;
+  static Color get surfaceRaised => AppColors.isOriginalDark
+      ? BackstagePalette.input
+      : TableGroupOverviewStyle.insetTop;
+  static Color get border => AppColors.isOriginalDark
+      ? BackstagePalette.border
+      : TableGroupOverviewStyle.cardBorder;
+  static Color get text => AppColors.isOriginalDark
+      ? BackstagePalette.textPrimary
+      : TableGroupOverviewStyle.primaryText;
+  static Color get muted => AppColors.isOriginalDark
+      ? BackstagePalette.textMuted
+      : TableGroupOverviewStyle.bodyMuted;
+  static Color get accent => AppColors.isOriginalDark
+      ? BackstagePalette.textPrimary
+      : TableGroupOverviewStyle.warmHeading;
+  static Color get lilac => AppColors.isOriginalDark
+      ? BackstagePalette.textMuted
+      : TableGroupOverviewStyle.headingMuted;
 
   static ThemeData theme(BuildContext context) {
     final base = Theme.of(context);
-    return base.copyWith(
+    final themed = base.copyWith(
       scaffoldBackgroundColor: background,
       dividerColor: border,
       colorScheme: base.colorScheme.copyWith(
@@ -43,21 +60,35 @@ abstract final class OverthinkingPalette {
       textTheme: base.textTheme.apply(bodyColor: text, displayColor: text),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: TableGroupOverviewStyle.cardTop,
-          foregroundColor: TableGroupOverviewStyle.primaryText,
+          backgroundColor: surface,
+          foregroundColor: text,
           minimumSize: const Size(48, 48),
           textStyle: base.textTheme.labelLarge?.copyWith(
             fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
           shape: RoundedRectangleBorder(
-            side: BorderSide(color: TableGroupOverviewStyle.cardBorder),
+            side: BorderSide(color: border),
             borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
     );
+    return base.brightness == Brightness.dark
+        ? appSurfaceTheme(themed)
+        : themed;
   }
+}
+
+/// Place above stateful screens so callbacks and modal routes inherit the same
+/// surfaces as the visible content. The Theme wrapper stays stable on switches.
+class OverthinkingThemeScope extends StatelessWidget {
+  const OverthinkingThemeScope({required this.child, super.key});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      Theme(data: OverthinkingPalette.theme(context), child: child);
 }
 
 class OverthinkingSurface extends StatelessWidget {
@@ -74,10 +105,12 @@ class OverthinkingSurface extends StatelessWidget {
     Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        gradient: TableGroupOverviewStyle.cardGradient,
+        gradient: TableGroupSurfaceStyle.of(context).cardGradient,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: TableGroupOverviewStyle.cardBorder),
-        boxShadow: TableGroupOverviewStyle.cardShadows,
+        border: Border.all(
+          color: TableGroupSurfaceStyle.of(context).cardBorder,
+        ),
+        boxShadow: TableGroupSurfaceStyle.of(context).cardShadows,
       ),
       child: Material(
         color: Colors.transparent,
@@ -120,7 +153,7 @@ class OverthinkingBrandIcon extends StatelessWidget {
       shaderCallback: (bounds) => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: TableGroupOverviewStyle.decorativeGradient,
+        colors: TableGroupSurfaceStyle.of(context).decorativeGradient,
       ).createShader(bounds),
       blendMode: BlendMode.srcIn,
       child: Icon(icon, size: size, color: AppColors.white),
@@ -146,7 +179,7 @@ class OverthinkingPrimaryAction extends StatelessWidget {
     return GradientOutlineButton(
       onPressed: onPressed,
       loading: busy,
-      backgroundColor: TableGroupOverviewStyle.insetTop,
+      backgroundColor: TableGroupSurfaceStyle.of(context).insetTop,
       strokeWidth: .7,
       leading: Icon(icon, size: 20),
       maxLines: null,

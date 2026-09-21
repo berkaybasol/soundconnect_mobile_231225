@@ -91,7 +91,7 @@ class OverthinkingDetailScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              body: TableGroupOverviewBackdrop(
+              body: TableGroupSurfaceBackdrop(
                 child: SafeArea(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(22, 20, 22, 32),
@@ -130,7 +130,7 @@ class OverthinkingDetailScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           height: 1.9,
-                          color: TableGroupOverviewStyle.bodyMuted,
+                          color: TableGroupSurfaceStyle.of(context).bodyMuted,
                         ),
                       ),
                       const SizedBox(height: 26),
@@ -243,6 +243,7 @@ class OverthinkingDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 18),
                       CommentThreadView(
+                        useThemeColors: true,
                         targetType: OverthinkingFeedCubit.targetType,
                         targetId: currentPost.id,
                         autoLoad: false,

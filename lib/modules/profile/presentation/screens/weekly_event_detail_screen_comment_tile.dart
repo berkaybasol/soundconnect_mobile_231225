@@ -60,9 +60,15 @@ class _CommentTile extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color.alphaBlend(const Color(0x0C9D5BCE), AppColors.navBlue),
-              AppColors.navBlue,
-              Color.alphaBlend(const Color(0x0D6398D8), AppColors.navBlue),
+              Color.alphaBlend(
+                const Color(0x0C9D5BCE),
+                appCardSurface(context),
+              ),
+              appCardSurface(context),
+              Color.alphaBlend(
+                const Color(0x0D6398D8),
+                appCardSurface(context),
+              ),
             ],
           ),
         ),
@@ -83,7 +89,7 @@ class _CommentTile extends StatelessWidget {
                     child: TextButton.icon(
                       key: ValueKey('event-replies-${comment.id}'),
                       onPressed: onToggleReplies,
-                      style: _replyControlStyle(),
+                      style: _replyControlStyle(context),
                       icon: BrandGradientIcon.social(
                         repliesExpanded
                             ? Icons.keyboard_arrow_up_rounded
@@ -108,10 +114,13 @@ class _CommentTile extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(14, 4, 0, 4),
                   decoration: BoxDecoration(
                     border: Border(
-                      left: BorderSide(color: AppColors.border, width: 1),
+                      left: BorderSide(
+                        color: Theme.of(context).colorScheme.outline,
+                        width: 1,
+                      ),
                     ),
                   ),
-                  child: _replyEntry(reply),
+                  child: _replyEntry(context, reply),
                 ),
               if (repliesLoading || hasMoreReplies || repliesError)
                 Padding(
@@ -129,7 +138,7 @@ class _CommentTile extends StatelessWidget {
                         : TextButton.icon(
                             key: ValueKey('event-replies-more-${comment.id}'),
                             onPressed: onRepliesTap,
-                            style: _replyControlStyle(),
+                            style: _replyControlStyle(context),
                             icon: BrandGradientIcon.social(
                               repliesError
                                   ? Icons.refresh_rounded
@@ -152,14 +161,14 @@ class _CommentTile extends StatelessWidget {
     );
   }
 
-  ButtonStyle _replyControlStyle() => TextButton.styleFrom(
-    foregroundColor: AppColors.textMuted,
+  ButtonStyle _replyControlStyle(BuildContext context) => TextButton.styleFrom(
+    foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
     minimumSize: const Size(0, 44),
     padding: const EdgeInsets.symmetric(horizontal: 4),
     alignment: Alignment.centerLeft,
   );
 
-  Widget _replyEntry(CommentItem item) {
+  Widget _replyEntry(BuildContext context, CommentItem item) {
     final own =
         !item.deleted &&
         !item.anonymousAuthor &&
@@ -200,7 +209,7 @@ class _CommentTile extends StatelessWidget {
                     Text(
                       time,
                       style: TextStyle(
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 11,
                         height: 1.2,
                       ),
@@ -212,8 +221,8 @@ class _CommentTile extends StatelessWidget {
                 item.deleted ? 'Bu yorum silindi.' : item.text,
                 style: TextStyle(
                   color: item.deleted
-                      ? AppColors.textMuted
-                      : AppColors.textPrimary,
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                      : Theme.of(context).colorScheme.onSurface,
                   fontSize: 13,
                   height: 1.35,
                 ),
@@ -234,7 +243,7 @@ class _CommentTile extends StatelessWidget {
               minimumSize: const Size(44, 44),
               maximumSize: const Size(44, 44),
               padding: const EdgeInsets.all(12),
-              foregroundColor: AppColors.textMuted,
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
               backgroundColor: Colors.transparent,
               side: BorderSide.none,
             ),
@@ -288,7 +297,7 @@ class _CommentTile extends StatelessWidget {
                     Text(
                       time,
                       style: TextStyle(
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         height: 1.3,
                       ),
@@ -308,9 +317,13 @@ class _CommentTile extends StatelessWidget {
                   minimumSize: const Size(44, 44),
                   maximumSize: const Size(44, 44),
                   padding: const EdgeInsets.all(10),
-                  foregroundColor: AppColors.textPrimary,
-                  backgroundColor: AppColors.navBlueSoft.withValues(alpha: .5),
-                  side: BorderSide(color: AppColors.border),
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHigh.withValues(alpha: .5),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -329,14 +342,20 @@ class _CommentTile extends StatelessWidget {
         Text(
           item.deleted ? 'Bu yorum silindi.' : item.text,
           style: TextStyle(
-            color: item.deleted ? AppColors.textMuted : AppColors.textPrimary,
+            color: item.deleted
+                ? Theme.of(context).colorScheme.onSurfaceVariant
+                : Theme.of(context).colorScheme.onSurface,
             fontSize: 14,
             height: 1.4,
           ),
         ),
         if (!item.deleted) ...[
           const SizedBox(height: 8),
-          Divider(height: .6, thickness: .6, color: AppColors.border),
+          Divider(
+            height: .6,
+            thickness: .6,
+            color: Theme.of(context).colorScheme.outline,
+          ),
           Wrap(
             spacing: 10,
             crossAxisAlignment: WrapCrossAlignment.center,

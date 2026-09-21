@@ -157,6 +157,8 @@ void main() {
       await open(tester);
       await _capture(tester, 'manage-390x844');
       await tester.ensureVisible(find.text('Daha fazla göster'));
+      await tester.pumpAndSettle();
+      expect(find.text('Daha fazla göster').hitTestable(), findsOneWidget);
       await tester.tap(find.text('Daha fazla göster'));
       await tester.pumpAndSettle();
       expect(repository.postPages, [0, 1]);
@@ -287,6 +289,8 @@ void main() {
         find.byKey(const ValueKey('manage-post-post-1')),
       );
       await tester.ensureVisible(find.text('Daha fazla göster'));
+      await tester.pumpAndSettle();
+      expect(find.text('Daha fazla göster').hitTestable(), findsOneWidget);
       await tester.tap(find.text('Daha fazla göster'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(

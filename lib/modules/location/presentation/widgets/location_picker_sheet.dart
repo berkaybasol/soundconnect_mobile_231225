@@ -24,7 +24,7 @@ Future<String?> showLocationPickerSheet(
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: AppColors.navBlueDeep,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     builder: (_) {
       final picker = _LocationPicker(
         title: title,
@@ -125,7 +125,10 @@ class _LocationPickerState extends State<_LocationPicker> {
                       child: TextField(
                         key: widget.searchKey,
                         onChanged: (value) => setState(() => _query = value),
-                        decoration: _searchDecoration(widget.searchLabel),
+                        decoration: _searchDecoration(
+                          context,
+                          widget.searchLabel,
+                        ),
                       ),
                     ),
                   ),
@@ -167,22 +170,25 @@ class _LocationPickerState extends State<_LocationPicker> {
   }
 }
 
-InputDecoration _searchDecoration(String label) => InputDecoration(
-  labelText: label,
-  filled: true,
-  fillColor: AppColors.inputFill,
-  prefixIcon: const BrandGradientIcon.social(Icons.search_rounded),
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.border),
-  ),
-  enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.border),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(15),
-    borderSide: BorderSide(color: AppColors.textMuted),
-  ),
-  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 17),
-);
+InputDecoration _searchDecoration(BuildContext context, String label) =>
+    InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      prefixIcon: const BrandGradientIcon.social(Icons.search_rounded),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 17),
+    );

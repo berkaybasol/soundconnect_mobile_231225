@@ -35,6 +35,7 @@ class CommentThreadView extends StatefulWidget {
     this.onCommentCreated,
     this.onCommentDeleted,
     this.compactSheet = false,
+    this.useThemeColors = false,
   });
   final String targetType;
   final String targetId;
@@ -48,6 +49,10 @@ class CommentThreadView extends StatefulWidget {
   /// A compact, docked composer and centered empty state for small sheets.
   /// Inline threads retain their existing presentation by default.
   final bool compactSheet;
+
+  /// Uses the host's dark neutral palette without changing existing callers
+  /// or the established light appearance.
+  final bool useThemeColors;
 
   @override
   State<CommentThreadView> createState() => _CommentThreadViewState();
@@ -79,6 +84,18 @@ class _CommentThreadViewState extends State<CommentThreadView>
   String? _localError;
   DialogRoute<bool>? _deleteDialog;
   bool _confirming = false;
+
+  bool get _usesThemeColors =>
+      widget.useThemeColors && Theme.of(context).brightness == Brightness.dark;
+  Color get _textPrimary => _usesThemeColors
+      ? Theme.of(context).colorScheme.onSurface
+      : AppColors.textPrimary;
+  Color get _textMuted => _usesThemeColors
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : AppColors.textMuted;
+  Color get _border => _usesThemeColors
+      ? Theme.of(context).colorScheme.outline
+      : AppColors.border;
 
   bool get _allowed =>
       mounted &&
@@ -337,6 +354,12 @@ class _CommentThreadViewState extends State<CommentThreadView>
     late final DialogRoute<bool> dialog;
     dialog = DialogRoute<bool>(
       context: context,
+      themes: _usesThemeColors
+          ? InheritedTheme.capture(
+              from: context,
+              to: Navigator.of(context).context,
+            )
+          : null,
       builder: (dialogContext) {
         void respond(bool value) {
           if (responded ||
@@ -410,6 +433,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
       key: ValueKey('comment-${item.id}'),
       comment: item,
       timeLabel: formatCommentAge(item.createdAt),
+      useThemeColors: widget.useThemeColors,
       isReply: !identical(item, root),
       onAuthorTap: open,
       onReplyTap: !item.deleted && !root.deleted
@@ -486,7 +510,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
                   margin: const EdgeInsets.only(left: 21, bottom: 6),
                   padding: const EdgeInsets.only(left: 14),
                   decoration: BoxDecoration(
-                    border: Border(left: BorderSide(color: AppColors.border)),
+                    border: Border(left: BorderSide(color: _border)),
                   ),
                   child: _row(reply, root, state),
                 ),
@@ -529,7 +553,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
   }
 
   ButtonStyle _replyButtonStyle() => TextButton.styleFrom(
-    foregroundColor: AppColors.textMuted,
+    foregroundColor: _textMuted,
     minimumSize: const Size(44, 44),
     padding: const EdgeInsets.symmetric(horizontal: 4),
     alignment: Alignment.centerLeft,
@@ -582,7 +606,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
     decoration: widget.compactSheet
         ? BoxDecoration(
             border: Border(
-              top: BorderSide(color: AppColors.border.withValues(alpha: .6)),
+              top: BorderSide(color: _border.withValues(alpha: .6)),
             ),
           )
         : null,
@@ -625,11 +649,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
                 maxLines: maxInputLines,
                 maxLength: 500,
                 style: widget.compactSheet
-                    ? TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        height: 1.4,
-                      )
+                    ? TextStyle(color: _textPrimary, fontSize: 14, height: 1.4)
                     : null,
                 inputFormatters: [
                   TextInputFormatter.withFunction((oldValue, newValue) {
@@ -651,15 +671,19 @@ class _CommentThreadViewState extends State<CommentThreadView>
                     ? InputDecoration(
                         hintText: 'Yorum yaz...',
                         hintStyle: TextStyle(
-                          color: AppColors.textMuted.withValues(alpha: .8),
+                          color: _textMuted.withValues(alpha: .8),
                           fontSize: 14,
                         ),
                         counterText: '',
                         isDense: true,
                         filled: true,
-                        fillColor: (AppColors.isOriginalDark
-                            ? const Color(0xFF070B13)
-                            : AppColors.inputFill),
+                        fillColor: _usesThemeColors
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest
+                            : (AppColors.isOriginalDark
+                                  ? const Color(0xFF070B13)
+                                  : AppColors.inputFill),
                         constraints: const BoxConstraints(minHeight: 48),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -668,13 +692,13 @@ class _CommentThreadViewState extends State<CommentThreadView>
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: AppColors.border.withValues(alpha: .6),
+                            color: _border.withValues(alpha: .6),
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: AppColors.border.withValues(alpha: .6),
+                            color: _border.withValues(alpha: .6),
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -688,9 +712,11 @@ class _CommentThreadViewState extends State<CommentThreadView>
                         hintText: 'Yorum yaz...',
                         counterText: '',
                         filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainer,
+                        fillColor: _usesThemeColors
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest
+                            : Theme.of(context).colorScheme.surfaceContainer,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -710,7 +736,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
                         foregroundColor: AppColors.isLight
                             ? AppColors.accentText
                             : AppColors.socialPink,
-                        disabledForegroundColor: AppColors.textMuted.withValues(
+                        disabledForegroundColor: _textMuted.withValues(
                           alpha: .35,
                         ),
                       ),
@@ -798,14 +824,14 @@ class _CommentThreadViewState extends State<CommentThreadView>
                           Icon(
                             Icons.chat_bubble_outline_rounded,
                             size: 30,
-                            color: AppColors.textMuted.withValues(alpha: .55),
+                            color: _textMuted.withValues(alpha: .55),
                           ),
                           const SizedBox(height: 12),
                           Text(
                             'Henüz yorum yok',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: AppColors.textPrimary,
+                              color: _textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -815,7 +841,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
                             'İlk yorumu sen yaz.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: AppColors.textMuted.withValues(alpha: .8),
+                              color: _textMuted.withValues(alpha: .8),
                               fontSize: 13,
                               height: 1.4,
                             ),
@@ -874,11 +900,13 @@ class CommentThreadSheet extends StatelessWidget {
     required this.targetId,
     this.onCommentCreated,
     this.onCommentDeleted,
+    this.useThemeColors = false,
   });
   final String targetType;
   final String targetId;
   final VoidCallback? onCommentCreated;
   final VoidCallback? onCommentDeleted;
+  final bool useThemeColors;
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
@@ -905,6 +933,7 @@ class CommentThreadSheet extends StatelessWidget {
                   scrollable: true,
                   onCommentCreated: onCommentCreated,
                   onCommentDeleted: onCommentDeleted,
+                  useThemeColors: useThemeColors,
                 ),
               ),
             ],

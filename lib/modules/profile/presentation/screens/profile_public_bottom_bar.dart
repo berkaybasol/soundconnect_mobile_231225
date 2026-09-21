@@ -580,7 +580,6 @@ class ProfilePublicBottomBar extends StatelessWidget {
                             index == activeIndex && items[index].label != '',
                         launcher:
                             effectiveStage == StageMode.backstage && index == 2,
-                        accent: accent,
                         child: index == activeIndex
                             ? items[index].activeIcon
                             : items[index].icon,
@@ -609,42 +608,54 @@ class _BottomBarGlyph extends StatelessWidget {
   const _BottomBarGlyph({
     required this.active,
     required this.launcher,
-    required this.accent,
     required this.child,
   });
 
   final bool active, launcher;
-  final Color accent;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final brandColors = scheme.brightness == Brightness.light
+        ? AppColors.lightPalette.brandGradient
+        : AppColors.originalDark.brandGradient;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        width: 46,
-        height: 32,
-        decoration: BoxDecoration(
-          color: active
-              ? accent.withValues(alpha: .12)
-              : launcher
-              ? scheme.onSurface.withValues(alpha: .035)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(
-            color: active
-                ? accent.withValues(alpha: .16)
-                : launcher
-                ? scheme.outlineVariant.withValues(alpha: .6)
-                : Colors.transparent,
+      child: GradientOutline(
+        radius: 13,
+        strokeWidth: .8,
+        colors: [
+          for (final color in brandColors)
+            color.withValues(alpha: active ? .48 : 0),
+        ],
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          width: 46,
+          height: 32,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                for (final color in brandColors)
+                  active
+                      ? color.withValues(alpha: .16)
+                      : launcher
+                      ? scheme.onSurface.withValues(alpha: .035)
+                      : Colors.transparent,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: launcher && !active
+                  ? scheme.outlineVariant.withValues(alpha: .6)
+                  : Colors.transparent,
+            ),
           ),
+          child: Center(child: child),
         ),
-        child: Center(child: child),
       ),
     );
   }

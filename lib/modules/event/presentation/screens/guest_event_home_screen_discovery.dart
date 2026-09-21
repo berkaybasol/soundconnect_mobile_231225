@@ -1,7 +1,7 @@
 part of 'guest_event_home_screen.dart';
 
 /// An isolated, reversible guest entry. Search never requires a user session.
-class GuestEventDiscoveryScreen extends StatefulWidget {
+class GuestEventDiscoveryScreen extends StatelessWidget {
   const GuestEventDiscoveryScreen({
     super.key,
     this.locationRepository,
@@ -28,10 +28,52 @@ class GuestEventDiscoveryScreen extends StatefulWidget {
   final String tableHint;
 
   @override
-  State<GuestEventDiscoveryScreen> createState() => _GuestDiscoveryState();
+  Widget build(BuildContext context) => AppSurfaceThemeScope(
+    child: _GuestDiscoveryContent(
+      locationRepository: locationRepository,
+      searchRepository: searchRepository,
+      suggestionRepository: suggestionRepository,
+      now: now,
+      watchClock: watchClock,
+      showGuestFooter: showGuestFooter,
+      bottomNavigationBar: bottomNavigationBar,
+      onTableTap: onTableTap,
+      headerAction: headerAction,
+      tableHint: tableHint,
+    ),
+  );
 }
 
-class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
+class _GuestDiscoveryContent extends StatefulWidget {
+  const _GuestDiscoveryContent({
+    this.locationRepository,
+    this.searchRepository,
+    this.suggestionRepository,
+    this.now,
+    this.watchClock = true,
+    this.showGuestFooter = true,
+    this.bottomNavigationBar,
+    this.onTableTap,
+    this.headerAction,
+    this.tableHint = 'Masa açmak için\ndokunun',
+  });
+
+  final LocationRepository? locationRepository;
+  final EventDiscoverySearchRepository? searchRepository;
+  final VenueSuggestionRepository? suggestionRepository;
+  final DateTime Function()? now;
+  final bool watchClock;
+  final bool showGuestFooter;
+  final Widget? bottomNavigationBar;
+  final VoidCallback? onTableTap;
+  final Widget? headerAction;
+  final String tableHint;
+
+  @override
+  State<_GuestDiscoveryContent> createState() => _GuestDiscoveryState();
+}
+
+class _GuestDiscoveryState extends State<_GuestDiscoveryContent>
     with WidgetsBindingObserver {
   late final LocationRepository _locations;
   late final EventDiscoverySearchRepository _searchRepository;
@@ -381,7 +423,7 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      backgroundColor: AppColors.navBlueDeep,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (_) => ValueListenableBuilder<DateTime>(
         valueListenable: _dayNotifier,
         builder: (_, today, _) =>
@@ -416,7 +458,7 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      backgroundColor: AppColors.navBlueDeep,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (_) => _DiscoveryLocationSheet(
         title: switch (level) {
           'city' => 'Şehir seç',
@@ -502,7 +544,7 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                             Text(
                               'Canlı müzik nerede?',
                               style: TextStyle(
-                                color: AppColors.textPrimary,
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 29,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: -0.8,
@@ -513,13 +555,17 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                             Text(
                               'Şehrindeki sahneleri keşfet.',
                               style: TextStyle(
-                                color: AppColors.textMuted,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontSize: 14,
                                 height: 1.5,
                               ),
                             ),
                             const SizedBox(height: 26),
                             _DiscoverySurface(
+                              key: const Key('discovery-filters-surface'),
+                              darkenBackground: true,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -534,7 +580,9 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                                       Text(
                                         'Önümüzdeki 7 gün',
                                         style: TextStyle(
-                                          color: AppColors.textMuted,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                           fontSize: 11,
                                         ),
                                       ),
@@ -670,8 +718,9 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                                                       overflow:
                                                           TextOverflow.ellipsis,
                                                       style: TextStyle(
-                                                        color:
-                                                            AppColors.textMuted,
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .onSurfaceVariant,
                                                         fontSize: 13,
                                                         fontWeight:
                                                             FontWeight.w500,
@@ -798,7 +847,9 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                                     .where((part) => part.isNotEmpty)
                                     .join(' · '),
                                 style: TextStyle(
-                                  color: AppColors.textPrimary,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                   fontSize: 19,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -807,7 +858,9 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                               Text(
                                 '$_total etkinlik',
                                 style: TextStyle(
-                                  color: AppColors.textMuted,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                   fontSize: 13,
                                 ),
                               ),
@@ -846,7 +899,9 @@ class _GuestDiscoveryState extends State<GuestEventDiscoveryScreen>
                                     Text(
                                       'Başka bir gün seçebilir veya konumunu genişletebilirsin.',
                                       style: TextStyle(
-                                        color: AppColors.textMuted,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                         height: 1.5,
                                         fontSize: 13,
                                       ),

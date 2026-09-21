@@ -24,7 +24,7 @@ class _EventCommentGuestPrompt extends StatelessWidget {
               child: Text(
                 'Yorum yapmak için giriş yap veya üye ol.',
                 style: TextStyle(
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -39,9 +39,9 @@ class _EventCommentGuestPrompt extends StatelessWidget {
               key: const Key('event-comment-login'),
               onPressed: onLogin,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
                 minimumSize: const Size(0, 48),
-                side: BorderSide(color: AppColors.border),
+                side: BorderSide(color: Theme.of(context).colorScheme.outline),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -54,7 +54,9 @@ class _EventCommentGuestPrompt extends StatelessWidget {
                 key: const Key('event-comment-register'),
                 label: 'Üye Ol',
                 onPressed: onRegister,
-                backgroundColor: AppColors.inputFill,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 horizontalPadding: 12,
                 strokeWidth: .7,
               ),
@@ -198,14 +200,20 @@ class _EventReplyComposerState extends State<_EventReplyComposer> {
                     ? 'Yanıtını biraz kısalt.'
                     : null,
                 filled: true,
-                fillColor: AppColors.inputFill,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
               ),
             ),
@@ -226,7 +234,9 @@ class _EventReplyComposerState extends State<_EventReplyComposer> {
               onPressed: _saving || !CommentText.isValid(_controller.text)
                   ? null
                   : _submit,
-              backgroundColor: AppColors.inputFill,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
               strokeWidth: .7,
             ),
             const SizedBox(height: 4),

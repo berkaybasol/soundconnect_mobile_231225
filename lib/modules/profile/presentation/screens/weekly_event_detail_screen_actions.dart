@@ -452,7 +452,7 @@ extension _WeeklyEventDetailScreenStateActions
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        backgroundColor: AppColors.navBlue,
+        backgroundColor: appCardSurface(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
         ),

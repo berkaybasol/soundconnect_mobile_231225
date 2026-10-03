@@ -2,31 +2,68 @@ part of 'media_detail_screen.dart';
 
 extension _MediaDetailScreenActions on _MediaDetailScreenState {
   Future<void> _initVideo() async {
-    if (!widget.isVideo) return;
+    final attempt = ++_videoAttempt;
+    final isVideo = widget.isVideo;
     final url = resolveAppMediaUrl(widget.playbackUrl);
-    if (url == null) {
-      _updateState(() => _videoError = 'Video oynatma bağlantısı bulunamadı.');
+    final previous = _videoController;
+    _updateState(() {
+      _videoError = isVideo && url == null
+          ? 'Video oynatma bağlantısı bulunamadı. Lütfen tekrar dene.'
+          : null;
+      _videoController = null;
+    });
+    await previous?.dispose();
+    if (!mounted || attempt != _videoAttempt || !isVideo || url == null) {
       return;
     }
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    // Own the pending controller too: retry, a new target and dispose must all
+    // invalidate this attempt before any asynchronous completion can affect UI.
+    _updateState(() => _videoController = controller);
     try {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(url));
       await controller.initialize();
-      controller.setLooping(true);
-      if (!mounted) {
-        await controller.dispose();
+      if (!mounted ||
+          attempt != _videoAttempt ||
+          !identical(_videoController, controller) ||
+          controller.value.hasError) {
+        return;
+      }
+      await controller.setLooping(true);
+    } catch (_) {
+      if (!mounted ||
+          attempt != _videoAttempt ||
+          !identical(_videoController, controller)) {
         return;
       }
       _updateState(() {
-        _videoController = controller;
-        _videoReady = true;
-        _videoError = null;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      _updateState(() {
-        _videoReady = false;
         _videoError = 'Video açılamadı. Lütfen tekrar dene.';
       });
+    }
+  }
+
+  Future<void> _prepareNotificationAudio() async {
+    if (widget.notificationContent == null ||
+        widget.isImage ||
+        widget.isVideo) {
+      return;
+    }
+    final url = resolveAppMediaUrl(widget.playbackUrl);
+    final player = audio.AudioPlayer();
+    final previous = _audioProbe;
+    _audioProbe = player;
+    _updateState(() {
+      _audioReady = false;
+      _audioError = null;
+    });
+    await previous?.dispose();
+    try {
+      if (url == null) throw StateError('Missing media URL');
+      await player.setUrl(url);
+      if (!mounted || !identical(_audioProbe, player)) return;
+      _updateState(() => _audioReady = true);
+    } catch (_) {
+      if (!mounted || !identical(_audioProbe, player)) return;
+      _updateState(() => _audioError = 'Ses yüklenemedi. İçeriği tekrar yükle');
     }
   }
 

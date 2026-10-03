@@ -1,7 +1,7 @@
 # Isolated Android preview
 
 The user-facing app is **SoundConnect Önizleme**, package
-`com.berkayb.soundconnect.soundconnect_23_12_25codx.preview`. Android gives it a
+`tr.com.soundconnect.app.preview`. Android gives it a
 different UID and files/preferences/cache directory from the normal app. It has
 its own launcher icon and `PreviewActivity`, no app links or background audio
 service, and no INTERNET/network-state permissions. Fixture interactions belong

@@ -13,9 +13,13 @@ import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/artist_venue/data/artist_venue_connection_repository_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/artist_venue/domain/artist_venue_connection_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/artist_venue/domain/artist_venue_application_page.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/app_notification.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/notification_target_read.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/artist_venue_application.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/venue_directory_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/profile_venue_models.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/navigation/profile_action_session.dart';
@@ -147,6 +151,461 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+  }
+
+  for (final target in [
+    (exists: false, offscreen: false),
+    (exists: true, offscreen: false),
+    (exists: true, offscreen: true),
+  ]) {
+    final targetExists = target.exists;
+    testWidgets(
+      target.offscreen
+          ? 'exact artist venue request below viewport waits for its visible card'
+          : targetExists
+          ? 'exact artist venue request present: visible target ACKs once'
+          : 'exact target absent: unrelated artist venue request must not ACK notification',
+      (tester) async {
+        const requestId = 'c0000000-0000-4000-8000-000000000001';
+        const unrelatedId = 'c0000000-0000-4000-8000-000000000002';
+        const notificationId = 'd0000000-0000-4000-8000-000000000001';
+        final visibleId = targetExists ? requestId : unrelatedId;
+        final visibleName = targetExists ? 'Requested band' : 'Unrelated band';
+        repository.readResult = Result.success([
+          if (target.offscreen)
+            for (var index = 0; index < 12; index++)
+              _application(id: 'other-$index', bandName: 'Other band $index'),
+          _application(id: visibleId, bandName: visibleName),
+        ]);
+        final reads = _ApplicationReadCubit();
+        final navigator = GlobalKey<NavigatorState>();
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.binding.setSurfaceSize(const Size(420, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.navy,
+            navigatorKey: navigator,
+            navigatorObservers: [notificationTargetRouteObserver],
+            home: const Scaffold(body: Text('Inbox')),
+          ),
+        );
+        final ticket = NotificationTargetRead(
+          notification: const AppNotification(
+            id: notificationId,
+            recipientId: 'account',
+            type: 'ARTIST_VENUE_LINK_APPLICATION_REQUEST',
+            title: 'Connection request',
+            message: '',
+            read: false,
+            createdAt: null,
+            payload: {
+              'module': 'ARTIST_VENUE',
+              'action': 'REQUEST_CREATED',
+              'requestByType': 'BAND',
+              'requestId': requestId,
+              'bandId': 'band',
+              'venueId': 'venue',
+            },
+          ),
+          cubit: reads,
+          sessions: sessions,
+        );
+        expect(ticket.isCurrent, isTrue);
+        expect(reads.ids, isEmpty);
+        unawaited(
+          navigator.currentState!.push<void>(
+            ticket.attach(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(
+                  body: VenueApplicationsSheet(
+                    venueId: 'venue',
+                    mode: ApplicationListMode.incoming,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(repository.reads, 1);
+        expect(repository.pageRequests.single, (
+          0,
+          ArtistVenueApplicationTarget.venue,
+          'venue',
+          true,
+          'account',
+        ));
+        expect(
+          repository.readResult.data!.where((item) => item.id == requestId),
+          hasLength(targetExists ? 1 : 0),
+        );
+        expect(find.byType(VenueApplicationsSheet), findsOneWidget);
+        expect(find.text('Gelen İstekler'), findsOneWidget);
+        expect(
+          find.text(visibleName),
+          target.offscreen ? findsNothing : findsOneWidget,
+        );
+        expect(repository.actions, isEmpty);
+        expect(tester.takeException(), isNull);
+        if (target.offscreen) {
+          expect(reads.ids, isEmpty);
+          await tester.scrollUntilVisible(find.text(visibleName), 300);
+          await tester.pumpAndSettle();
+          expect(find.text(visibleName), findsOneWidget);
+          expect(repository.reads, 1);
+        }
+        expect(reads.ids, targetExists ? [notificationId] : isEmpty);
+        await tester.pump(const Duration(seconds: 1));
+        expect(reads.ids, targetExists ? [notificationId] : isEmpty);
+      },
+    );
+  }
+
+  for (final targetExists in [false, true]) {
+    testWidgets(
+      'musician artist venue incoming requires the exact request, target=$targetExists',
+      (tester) async {
+        const requestId = 'e0000000-0000-4000-8000-000000000001';
+        const unrelatedId = 'e0000000-0000-4000-8000-000000000002';
+        const notificationId = 'f0000000-0000-4000-8000-000000000001';
+        sessions.change(_session(role: 'ROLE_MUSICIAN'));
+        repository.readResult = Result.success([
+          _application(
+            type: 'VENUE',
+            id: targetExists ? requestId : unrelatedId,
+          ),
+        ]);
+        final reads = _ApplicationReadCubit();
+        final ticket = NotificationTargetRead(
+          notification: const AppNotification(
+            id: notificationId,
+            recipientId: 'account',
+            type: 'ARTIST_VENUE_LINK_APPLICATION_REQUEST',
+            title: 'Venue invitation',
+            message: '',
+            read: false,
+            createdAt: null,
+            payload: {
+              'module': 'ARTIST_VENUE',
+              'action': 'REQUEST_CREATED',
+              'requestByType': 'VENUE',
+              'requestId': requestId,
+              'musicianProfileId': 'musician',
+              'venueId': 'venue',
+            },
+          ),
+          cubit: reads,
+          sessions: sessions,
+        );
+        final observer = _ApplicationTicketObserver();
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.navy,
+            navigatorObservers: [notificationTargetRouteObserver, observer],
+            home: const MusicianManagementPanelScreen(
+              musicianProfile: _musician,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Mekan Bağlantıları'));
+        await tester.tap(find.text('Mekan Bağlantıları'));
+        await tester.pumpAndSettle();
+        // Attach before the actual incoming sheet builds, using the same public
+        // ticket operation that the profile's automatic notification hop uses.
+        observer.nextTicket = ticket;
+        await tester.tap(
+          find.byKey(const Key('venue-connection-management-incoming')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(observer.attached, 1);
+        expect(ticket.isCurrent, isTrue);
+        expect(repository.reads, 1);
+        expect(repository.pageRequests.single, (
+          0,
+          ArtistVenueApplicationTarget.musician,
+          'musician',
+          true,
+          'account',
+        ));
+        expect(find.text('Gelen İstekler'), findsOneWidget);
+        expect(find.text('Venue'), findsOneWidget);
+        expect(repository.actions, isEmpty);
+        expect(tester.takeException(), isNull);
+        expect(reads.ids, targetExists ? [notificationId] : isEmpty);
+      },
+    );
+  }
+
+  const bandRequestId = 'a0000000-0000-4000-8000-000000000001';
+  const bandNotificationId = 'b0000000-0000-4000-8000-000000000001';
+  Future<
+    ({
+      GlobalKey<NavigatorState> navigator,
+      _ApplicationReadCubit reads,
+      InvitationBands bands,
+    })
+  >
+  openBandNotificationPanel(
+    WidgetTester tester, {
+    bool automatic = true,
+    Future<Result<BandProfile>> Function(String)? read,
+  }) async {
+    sessions.change(_session(user: 'owner-1', role: 'ROLE_MUSICIAN'));
+    final bands = serviceLocator<BandRepository>() as InvitationBands;
+    bands.read = read ?? (id) async => Result.success(invitationBand(id: id));
+    final reads = _ApplicationReadCubit();
+    final navigator = GlobalKey<NavigatorState>();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.navy,
+        navigatorKey: navigator,
+        navigatorObservers: [notificationTargetRouteObserver],
+        home: const Scaffold(body: Text('Inbox')),
+      ),
+    );
+    final ticket = NotificationTargetRead(
+      notification: const AppNotification(
+        id: bandNotificationId,
+        recipientId: 'owner-1',
+        type: 'ARTIST_VENUE_LINK_APPLICATION_REQUEST',
+        title: 'Venue invitation',
+        message: '',
+        read: false,
+        createdAt: null,
+        payload: {
+          'module': 'ARTIST_VENUE',
+          'action': 'REQUEST_CREATED',
+          'requestByType': 'VENUE',
+          'requestId': bandRequestId,
+          'bandId': 'band',
+          'venueId': 'venue',
+        },
+      ),
+      cubit: reads,
+      sessions: sessions,
+    );
+    unawaited(
+      navigator.currentState!.push<void>(
+        ticket.attach(
+          MaterialPageRoute<void>(
+            builder: (_) => BandManagementPanelScreen(
+              profile: invitationBand(id: 'band'),
+              openIncomingVenueApplications: automatic,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    return (navigator: navigator, reads: reads, bands: bands);
+  }
+
+  for (final target in [
+    (exists: false, offscreen: false),
+    (exists: true, offscreen: false),
+    (exists: true, offscreen: true),
+  ]) {
+    testWidgets(
+      'band incoming auto-open ACKs only exact visible card: $target',
+      (tester) async {
+        repository.readResult = Result.success([
+          if (target.offscreen)
+            for (var index = 0; index < 12; index++)
+              _application(type: 'VENUE', id: 'other-$index'),
+          _application(
+            type: 'VENUE',
+            id: target.exists
+                ? bandRequestId
+                : 'a0000000-0000-4000-8000-000000000002',
+          ),
+        ]);
+        tester.view.physicalSize = const Size(420, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final harness = await openBandNotificationPanel(tester);
+        await tester.pumpAndSettle();
+        expect(find.text('Gelen İstekler'), findsOneWidget);
+        expect(harness.bands.ids, ['band']);
+        expect(repository.pageRequests.single, (
+          0,
+          ArtistVenueApplicationTarget.band,
+          'band',
+          true,
+          'owner-1',
+        ));
+        if (target.offscreen) {
+          expect(harness.reads.ids, isEmpty);
+          await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('artist-venue-request-$bandRequestId')),
+            300,
+            scrollable: find.descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            MediaQuery.sizeOf(tester.element(find.byType(ListView))),
+            const Size(420, 900),
+          );
+        }
+        expect(
+          harness.reads.ids,
+          target.exists ? [bandNotificationId] : isEmpty,
+        );
+        harness.navigator.currentState!.pop();
+        await tester.pumpAndSettle();
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Gelen İstekler'), findsNothing);
+        expect(harness.bands.ids, ['band']);
+        expect(repository.reads, 1);
+        expect(repository.actions, isEmpty);
+        expect(
+          harness.reads.ids,
+          target.exists ? [bandNotificationId] : isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('manual band incoming hop does not inherit a panel read ticket', (
+    tester,
+  ) async {
+    repository.readResult = Result.success([
+      _application(type: 'VENUE', id: bandRequestId),
+    ]);
+    final harness = await openBandNotificationPanel(tester, automatic: false);
+    await tester.pumpAndSettle();
+    expect(repository.reads, 0);
+    await tester.ensureVisible(find.text('Mekan Bağlantıları'));
+    await tester.tap(find.text('Mekan Bağlantıları'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('venue-connection-management-incoming')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Gelen İstekler'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('artist-venue-request-$bandRequestId')),
+      findsOneWidget,
+    );
+    expect(repository.reads, 1);
+    expect(harness.bands.ids, ['band']);
+    expect(harness.reads.ids, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final membership in [
+    (role: 'MANAGER', status: 'ACTIVE'),
+    (role: 'MEMBER', status: 'ACTIVE'),
+    (role: 'FOUNDER', status: 'INACTIVE'),
+  ]) {
+    testWidgets('band auto-open rejects fresh membership $membership', (
+      tester,
+    ) async {
+      final harness = await openBandNotificationPanel(
+        tester,
+        read: (id) async => Result.success(
+          invitationBand(
+            id: id,
+            role: membership.role,
+            status: membership.status,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Bu işlem için yetkin yok.'), findsOneWidget);
+      expect(find.text('Gelen İstekler'), findsNothing);
+      expect(harness.bands.ids, ['band']);
+      expect(repository.reads, 0);
+      expect(harness.reads.ids, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'band panel fresh result cannot transfer to a replacement account',
+    (tester) async {
+      final profile = Completer<Result<BandProfile>>();
+      final harness = await openBandNotificationPanel(
+        tester,
+        read: (_) => profile.future,
+      );
+      await tester.pumpAndSettle();
+      expect(repository.reads, 0);
+      sessions.change(_session(user: 'other', role: 'ROLE_MUSICIAN'));
+      profile.complete(Result.success(invitationBand(id: 'band')));
+      await tester.pumpAndSettle();
+      expect(find.text('Gelen İstekler'), findsNothing);
+      expect(harness.bands.ids, ['band']);
+      expect(repository.reads, 0);
+      expect(harness.reads.ids, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final hiddenBy in ['route', 'background']) {
+    testWidgets(
+      'band auto-open waits for $hiddenBy return without refetching',
+      (tester) async {
+        repository.readResult = Result.success([
+          _application(type: 'VENUE', id: bandRequestId),
+        ]);
+        final profile = Completer<Result<BandProfile>>();
+        final harness = await openBandNotificationPanel(
+          tester,
+          read: (_) => profile.future,
+        );
+        await tester.pumpAndSettle();
+        if (hiddenBy == 'route') {
+          unawaited(
+            harness.navigator.currentState!.push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Cover')),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        } else {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+        }
+        profile.complete(Result.success(invitationBand(id: 'band')));
+        await tester.pumpAndSettle();
+        expect(repository.reads, 0);
+        expect(harness.reads.ids, isEmpty);
+        if (hiddenBy == 'route') {
+          harness.navigator.currentState!.pop();
+        } else {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+        }
+        await tester.pumpAndSettle();
+        expect(find.text('Gelen İstekler'), findsOneWidget);
+        expect(harness.bands.ids, ['band']);
+        expect(repository.reads, 1);
+        expect(harness.reads.ids, [bandNotificationId]);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('venue application read failure is visible, not an empty list', (
@@ -709,6 +1168,36 @@ class _Applications extends Fake implements ArtistVenueConnectionRepository {
 }
 
 class _Profiles extends Fake implements MusicianProfileRepository {}
+
+// Same recording boundary as profile_notification_target_read_test.dart:
+// production ticket and destination run; only the outgoing read call is recorded.
+class _ApplicationReadCubit extends Fake implements NotificationCubit {
+  final ids = <String>[];
+
+  @override
+  bool get isClosed => false;
+
+  @override
+  Future<void> markAsRead(AppNotification notification) async {
+    ids.add(notification.id);
+  }
+}
+
+class _ApplicationTicketObserver extends NavigatorObserver {
+  NotificationTargetRead? nextTicket;
+  int attached = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    final ticket = nextTicket;
+    if (ticket != null && route is PopupRoute) {
+      nextTicket = null;
+      ticket.attach(route);
+      attached++;
+    }
+    super.didPush(route, previousRoute);
+  }
+}
 
 class _Directory extends Fake implements VenueDirectoryRepository {
   int reads = 0;

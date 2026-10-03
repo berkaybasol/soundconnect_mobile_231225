@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-const previewPackageName =
-    'com.berkayb.soundconnect.soundconnect_23_12_25codx.preview';
+const previewPackageName = 'tr.com.soundconnect.app.preview';
 const previewChannel = MethodChannel('soundconnect/preview/isolation');
 const previewNativePlugins = <String>{
   'jni',

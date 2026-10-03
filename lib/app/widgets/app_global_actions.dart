@@ -138,11 +138,21 @@ class AppNotificationButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         icon: Badge(
           isLabelVisible: count > 0,
-          backgroundColor: AppColors.coralAlt,
+          backgroundColor: Colors.transparent,
           textColor: AppColors.onAccent,
-          label: Text(
-            count > 99 ? '99+' : '$count',
-            textScaler: TextScaler.noScaling,
+          padding: EdgeInsets.zero,
+          label: Container(
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: AppColors.brandGradient),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              count > 99 ? '99+' : '$count',
+              textScaler: TextScaler.noScaling,
+            ),
           ),
           child: const Icon(Icons.notifications_none_outlined),
         ),

@@ -1,4 +1,8 @@
 import 'dart:collection';
+import '../../../core/error/result.dart';
+import '../../../core/error/app_error.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/push/push_provider.dart';
 
 import '../../../core/auth/auth_session.dart';
 import '../../../core/auth/auth_session_manager.dart';
@@ -13,7 +17,8 @@ typedef DmProfileResolverClock = DateTime Function();
 /// resolver. Stable non-listener results are cached briefly because the same
 /// user can appear in several surfaces at once. Listener results only share
 /// concurrent in-flight work; their mutable visibility is always refetched.
-class DmUserProfileResolverImpl implements DmUserProfileResolver {
+class DmUserProfileResolverImpl
+    implements DmUserProfileResolver, FollowUserProfileResolver {
   DmUserProfileResolverImpl({
     required ApiClient apiClient,
     AuthSessionManager? sessions,
@@ -107,6 +112,58 @@ class DmUserProfileResolverImpl implements DmUserProfileResolver {
       const empty = <DmProfileTarget>[];
       _writeCache(userId, empty, _failureCacheTtl);
       return empty;
+    }
+  }
+
+  @override
+  Future<Result<List<DmProfileTarget>>> resolveFreshForFollow({
+    required String userId,
+    required AuthSession session,
+  }) async {
+    const unavailable = AppError(
+      code: 'follow_profile_unavailable',
+      message: 'Bu profil şu anda kullanılamıyor. Tekrar dene.',
+    );
+    bool current() =>
+        identical(_sessions?.session, session) &&
+        session.isAuthenticated &&
+        session.expiresAt?.isAfter(DateTime.now()) == true &&
+        session.isActive &&
+        !session.isVenueApplicationSession &&
+        !session.requiresListenerProfileChoice;
+    if (!current() || !PushTarget.isUuid(userId)) {
+      return const Result.failure(unavailable);
+    }
+    try {
+      final targets = await _apiClient.request<List<DmProfileTarget>>(
+        ApiHttpMethod.get,
+        '/api/v1/public/profiles/by-user/${Uri.encodeComponent(userId)}',
+        requestContext: ApiRequestContext(
+          expectedSessionKey: session.userId,
+          expectedToken: session.token,
+        ),
+        decoder: (json) {
+          if (json is! Map<String, dynamic> ||
+              json['userId'] != userId ||
+              json['profiles'] is! List) {
+            throw const FormatException('Invalid profile owner');
+          }
+          final targets = _decodeTargets(json);
+          if (targets.any(
+            (t) => !t.isStudioRestricted && !PushTarget.isUuid(t.id),
+          )) {
+            throw const FormatException('Invalid profile target');
+          }
+          return List<DmProfileTarget>.unmodifiable(targets);
+        },
+      );
+      return current()
+          ? Result.success(targets)
+          : const Result.failure(unavailable);
+    } on ApiException catch (error) {
+      return Result.failure(current() ? error.error : unavailable);
+    } catch (_) {
+      return const Result.failure(unavailable);
     }
   }
 

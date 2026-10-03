@@ -1,0 +1,8 @@
+<resources>
+    <!-- Native single-tint fallback only: assets/logo.png pixel (287, 310).
+         The full brand gradient comes from the unchanged PNG, not this tint. -->
+    <color name="soundconnect_icon_accent">#F58477</color>
+    <!-- Softer group coral; distinct from the child accent to retain child badges. -->
+    <color name="soundconnect_group_accent">#D98E83</color>
+    <color name="soundconnect_icon_background">#FFFFFF</color>
+</resources>

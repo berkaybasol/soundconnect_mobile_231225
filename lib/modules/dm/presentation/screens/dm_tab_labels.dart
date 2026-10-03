@@ -54,7 +54,7 @@ class DmPrimaryMessagesTabLabel extends StatelessWidget {
               width: 9,
               height: 9,
               decoration: BoxDecoration(
-                color: AppColors.coralAlt,
+                gradient: LinearGradient(colors: AppColors.brandGradient),
                 shape: BoxShape.circle,
               ),
             ),

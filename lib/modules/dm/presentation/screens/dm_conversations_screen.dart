@@ -29,6 +29,7 @@ import '../cubit/dm_conversations_state.dart';
 import '../cubit/dm_badge_cubit.dart';
 import '../dm_visual_theme.dart';
 import '../widgets/dm_visual_components.dart';
+import '../widgets/dm_conversation_pagination.dart';
 import 'dm_chat_screen.dart';
 import 'dm_music_join_tables.dart';
 import 'dm_tab_labels.dart';
@@ -499,7 +500,9 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
             physics: AlwaysScrollableScrollPhysics(),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: EdgeInsets.fromLTRB(16, 14, 16, 28),
-            itemCount: _buildListItemCount(state.items.length),
+            itemCount:
+                _buildListItemCount(state.items.length) +
+                (_hasActiveQuery ? 0 : 1),
             separatorBuilder: (_, __) => SizedBox(height: 12),
             itemBuilder: (context, index) {
               if (index == 0) {
@@ -540,6 +543,15 @@ class _DmConversationsViewState extends State<_DmConversationsView> {
                 return _SearchResultTile(
                   item: entry,
                   onTap: () => _openChatFromSearch(entry),
+                );
+              }
+
+              if (index == _buildListItemCount(state.items.length)) {
+                return DmConversationPagination(
+                  state: state,
+                  onLoadMore: () =>
+                      context.read<DmConversationsCubit>().loadMore(),
+                  onRefresh: () => context.read<DmConversationsCubit>().load(),
                 );
               }
 

@@ -7,10 +7,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_router.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_coordinator.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_device_api.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_provider.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_settings_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/account_settings_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/musician_feed/domain/musician_feed_muted_authors.dart';
@@ -68,6 +73,49 @@ void main() {
       ),
     );
   }
+
+  testWidgets('active settings route opens push permission controls', (
+    tester,
+  ) async {
+    final push = _SettingsPushCoordinator();
+    serviceLocator.registerSingleton<PushCoordinator>(push);
+    serviceLocator.registerSingleton<PushDeviceApi>(_SettingsPushDeviceApi());
+    await tester.pumpWidget(
+      BlocProvider<AuthCubit>.value(
+        value: cubit,
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.settings),
+                child: const Text('Ayarları aç'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Ayarları aç'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hesap Ayarları'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('account-settings-notifications')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PushSettingsScreen), findsOneWidget);
+    expect(find.text('Telefon bildirimleri'), findsOneWidget);
+    expect(push.permissionRequests, 0);
+    await tester.tap(find.text('Bildirim iznini kontrol et'));
+    await tester.pumpAndSettle();
+    expect(push.permissionRequests, 1);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('account-settings-username-tile')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   for (final route in [AppRoutes.settings, AppRoutes.accountSettings]) {
     testWidgets('$route preserves account controls without calendar settings', (
@@ -131,10 +179,12 @@ void main() {
       serviceLocator.registerSingleton<MusicianProfileRepository>(
         _MusicianProfileRepositoryFake(),
       );
-      await sessionManager.startSession(
-        token: _jwt(subject: 'musician-user', roles: const ['ROLE_MUSICIAN']),
-        username: 'musician',
-        accountStatus: 'ACTIVE',
+      await tester.runAsync(
+        () => sessionManager.startSession(
+          token: _jwt(subject: 'musician-user', roles: const ['ROLE_MUSICIAN']),
+          username: 'musician',
+          accountStatus: 'ACTIVE',
+        ),
       );
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
@@ -149,7 +199,7 @@ void main() {
         find.byKey(const Key('account-settings-muted-feed-authors')),
         ProfileFeedAvailability.enabled ? findsOneWidget : findsNothing,
       );
-      await sessionManager.logout();
+      await tester.runAsync(sessionManager.logout);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('account-settings-muted-feed-authors')),
@@ -168,10 +218,12 @@ void main() {
       serviceLocator.registerSingleton<MusicianProfileRepository>(
         _MusicianProfileRepositoryFake(),
       );
-      await sessionManager.startSession(
-        token: _jwt(subject: 'musician-user', roles: const ['ROLE_MUSICIAN']),
-        username: 'musician',
-        accountStatus: 'ACTIVE',
+      await tester.runAsync(
+        () => sessionManager.startSession(
+          token: _jwt(subject: 'musician-user', roles: const ['ROLE_MUSICIAN']),
+          username: 'musician',
+          accountStatus: 'ACTIVE',
+        ),
       );
       await tester.pumpWidget(
         BlocProvider<AuthCubit>.value(
@@ -190,7 +242,7 @@ void main() {
         );
         expect(muted.reads, 0);
         expect(muted.unmutes, 0);
-        await sessionManager.logout();
+        await tester.runAsync(sessionManager.logout);
         return;
       }
       await tester.tap(
@@ -213,7 +265,7 @@ void main() {
       expect(find.text('Persisted Artist'), findsNothing);
       expect(find.text('Akışında sessize aldığın hesap yok.'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await sessionManager.logout();
+      await tester.runAsync(sessionManager.logout);
     },
   );
 
@@ -225,10 +277,12 @@ void main() {
       serviceLocator.registerSingleton<MusicianFeedMutedAuthorsRepository>(
         muted,
       );
-      await sessionManager.startSession(
-        token: _jwt(subject: 'profile-user', roles: ['ROLE_$role']),
-        username: 'profile',
-        accountStatus: 'ACTIVE',
+      await tester.runAsync(
+        () => sessionManager.startSession(
+          token: _jwt(subject: 'profile-user', roles: ['ROLE_$role']),
+          username: 'profile',
+          accountStatus: 'ACTIVE',
+        ),
       );
       await tester.pumpWidget(
         BlocProvider<AuthCubit>.value(
@@ -247,7 +301,7 @@ void main() {
         );
         expect(muted.reads, 0);
         expect(muted.unmutes, 0);
-        await sessionManager.logout();
+        await tester.runAsync(sessionManager.logout);
         return;
       }
       await tester.tap(
@@ -261,7 +315,7 @@ void main() {
       expect(muted.unmutes, 1);
       expect(find.text('Akışında sessize aldığın hesap yok.'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await sessionManager.logout();
+      await tester.runAsync(sessionManager.logout);
     });
   }
 
@@ -559,7 +613,7 @@ void main() {
     // The successful update reschedules the JWT-expiry timer inside the
     // widget-test fake clock. End the session before the test leaves that
     // clock so Flutter does not report a leaked timer.
-    await sessionManager.logout();
+    await tester.runAsync(sessionManager.logout);
   });
 
   testWidgets('blocks an unchanged username without making a request', (
@@ -770,6 +824,33 @@ class _ListenerProfileRepositoryFake extends ListenerProfileRepository {
     if (completer != null) return completer.future;
     return Result.success(_profile);
   }
+}
+
+class _SettingsPushCoordinator extends Fake implements PushCoordinator {
+  int permissionRequests = 0;
+  @override
+  bool get enabled => true;
+  @override
+  PushStatus get status => PushStatus.ready;
+  @override
+  PushPermission get permission => PushPermission.notDetermined;
+  @override
+  Future<void> start({Future<AuthSession>? initialSession}) async {}
+  @override
+  Future<void> requestPermission() async {
+    permissionRequests++;
+  }
+
+  @override
+  void addListener(VoidCallback listener) {}
+  @override
+  void removeListener(VoidCallback listener) {}
+}
+
+class _SettingsPushDeviceApi extends Fake implements PushDeviceApi {
+  @override
+  Future<PushPreferences> preferences(AuthSession session) async =>
+      const PushPreferences(enabled: true);
 }
 
 class _MusicianCalendarRepositoryFake extends Fake

@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -140,7 +141,11 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
         });
         return;
       }
-      _replaceDestination(destination, stillValid);
+      _replaceDestination(
+        destination,
+        stillValid,
+        forwardNotificationRead: true,
+      );
     } catch (_) {
       if (!stillValid()) return;
       setState(() {
@@ -152,8 +157,9 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
 
   void _replaceDestination(
     ProfileRouteDestination destination,
-    bool Function() stillValid,
-  ) {
+    bool Function() stillValid, {
+    bool forwardNotificationRead = false,
+  }) {
     // Replace only this entry, preserving the page beneath it for Back.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!stillValid()) return;
@@ -166,7 +172,13 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
       }
       Navigator.of(context).pushReplacementNamed(
         destination.route,
-        arguments: destination.arguments,
+        arguments: forwardNotificationRead
+            ? NotificationTargetRead.forwardNamed(
+                context,
+                destination.route,
+                arguments: destination.arguments,
+              )
+            : destination.arguments,
       );
     });
     setState(() {});

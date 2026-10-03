@@ -9,6 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:soundconnect_23_12_25codx/app/app.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_coordinator.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_provider.dart';
 import 'package:soundconnect_23_12_25codx/core/deep_link/app_deep_link.dart';
 import 'package:soundconnect_23_12_25codx/core/deep_link/pending_app_deep_link_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
@@ -43,6 +46,32 @@ void main() {
   tearDown(() async {
     await GetIt.instance.reset();
   });
+
+  testWidgets(
+    'app gives push its pending initial restore before child startup',
+    (tester) async {
+      setupDependencies();
+      await serviceLocator.unregister<PushCoordinator>();
+      final push = _StartupRecordingPush();
+      serviceLocator.registerSingleton<PushCoordinator>(push);
+      final token = Completer<String?>();
+      await tester.pumpWidget(
+        SoundConnectApp(
+          initialTokenFuture: token.future,
+          appDeepLinkInbox: AppDeepLinkInbox(
+            store: MemoryPendingAppDeepLinkStore(),
+          ),
+        ),
+      );
+      expect(push.initialSession, isNotNull);
+      expect(push.restoreCompleted, isFalse);
+      token.complete(null);
+      await tester.pumpAndSettle();
+      expect(push.restoreCompleted, isTrue);
+      expect(push.restored?.isAuthenticated, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets('guest HTTPS link opens login and persists the listing target', (
     tester,
@@ -411,4 +440,25 @@ String _token({required String role}) {
         'roles': <String>[role],
         'exp': expiresAt,
       })}.signature';
+}
+
+class _StartupRecordingPush extends Fake implements PushCoordinator {
+  Future<AuthSession>? initialSession;
+  AuthSession? restored;
+  bool restoreCompleted = false;
+  @override
+  Future<void> start({Future<AuthSession>? initialSession}) async {
+    this.initialSession = initialSession;
+    restored = await initialSession;
+    restoreCompleted = true;
+  }
+
+  @override
+  void addListener(VoidCallback listener) {}
+  @override
+  void removeListener(VoidCallback listener) {}
+  @override
+  PushTarget? consumePending() => null;
+  @override
+  PushTarget? get pending => null;
 }

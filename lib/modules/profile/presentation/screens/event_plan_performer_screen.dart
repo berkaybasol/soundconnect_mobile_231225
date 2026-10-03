@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -242,18 +243,28 @@ class _PerformerPlansState extends State<EventPlanPerformerScreen>
             if (!_loading && _page?.items.isEmpty == true)
               const Text('Bu profil için plan daveti yok.'),
             for (final plan in _page?.items ?? <EventPlan>[])
-              EventPlanConsentCard(
-                plan: plan,
-                busy: _busy || _loading,
-                showOnProfile: _publish.contains(plan.id),
-                onPublicationChanged: (value) => setState(() {
-                  if (value) {
-                    _publish.add(plan.id);
-                  } else {
-                    _publish.remove(plan.id);
-                  }
-                }),
-                onDecision: (decision) => _decide(plan, decision),
+              NotificationTargetReady(
+                key: ValueKey(plan.id),
+                ready:
+                    _current &&
+                    !_loading &&
+                    _error == null &&
+                    NotificationTargetRead.eventPlanReady(context, plan.id),
+                requireVisibleBounds: true,
+                allowPartialVisibility: true,
+                child: EventPlanConsentCard(
+                  plan: plan,
+                  busy: _busy || _loading,
+                  showOnProfile: _publish.contains(plan.id),
+                  onPublicationChanged: (value) => setState(() {
+                    if (value) {
+                      _publish.add(plan.id);
+                    } else {
+                      _publish.remove(plan.id);
+                    }
+                  }),
+                  onDecision: (decision) => _decide(plan, decision),
+                ),
               ),
             if (_page != null && (_page!.page > 0 || _page!.hasNext))
               Row(

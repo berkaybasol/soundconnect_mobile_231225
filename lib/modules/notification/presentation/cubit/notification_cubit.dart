@@ -17,6 +17,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   final TokenStore _tokenStore;
   final NotificationRealtimeClient _realtimeClient;
   final AuthSessionManager? _sessions;
+  final Future<void> Function()? _onDeliveryStateChanged;
   AuthSession? _observedSession;
   bool _closing = false;
 
@@ -25,8 +26,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     this._tokenStore, {
     NotificationRealtimeClient? realtimeClient,
     AuthSessionManager? sessions,
+    Future<void> Function()? onDeliveryStateChanged,
   }) : _realtimeClient = realtimeClient ?? NotificationRealtimeClient(),
        _sessions = sessions,
+       _onDeliveryStateChanged = onDeliveryStateChanged,
        super(const NotificationState.initial()) {
     _realtimeClient.retain();
     _observedSession = _sessions?.session;
@@ -451,6 +454,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       emit(state.copyWith(errorMessage: result.error?.message));
       return;
     }
+    unawaited(_notifyDeliveryStateChanged(generation, sessionRevision));
     var changed = false;
     final updatedItems = state.items.map((item) {
       if (item.id != notification.id || item.read) return item;
@@ -472,6 +476,44 @@ class NotificationCubit extends Cubit<NotificationState> {
         clearError: true,
       ),
     );
+  }
+
+  /// The exact external target was ACKed with a captured bearer. Reconcile
+  /// the OS immediately, then fetch the authoritative badge even if this item
+  /// was never in the currently loaded inbox page.
+  Future<void> applyConfirmedExternalRead(
+    AppNotification notification,
+    AuthSession session,
+  ) async {
+    if (!identical(_sessions?.session, session) ||
+        !_canShowNotification(notification) ||
+        isClosed) {
+      return;
+    }
+    final generation = _lifecycleGeneration;
+    final revision = _sessionRevision;
+    _localReadRevisionById[notification.id] = ++_realtimeRevision;
+    final badgeRevision = ++_badgeRevision;
+    emit(
+      state.copyWith(
+        items: state.items
+            .map(
+              (item) =>
+                  item.id == notification.id ? item.copyWith(read: true) : item,
+            )
+            .toList(),
+      ),
+    );
+    unawaited(_notifyDeliveryStateChanged(generation, revision));
+    final count = await _repository.getUnreadCount();
+    if (!_isCurrentSession(generation, revision) ||
+        !identical(_sessions?.session, session) ||
+        _badgeRevision != badgeRevision) {
+      return;
+    }
+    if (count.isSuccess && count.data != null) {
+      emit(state.copyWith(unreadCount: count.data!.clamp(0, 999999)));
+    }
   }
 
   void markDmConversationAsReadLocally(String conversationId) {
@@ -505,6 +547,31 @@ class NotificationCubit extends Cubit<NotificationState> {
     );
   }
 
+  /// Called only after this particular message's explicit read ACK succeeds.
+  /// A page load is not acknowledgement for older or concurrently arriving DMs.
+  void markDmMessageAsReadLocally(String messageId) {
+    if (isClosed || messageId.trim().isEmpty) return;
+    var changed = 0;
+    final items = state.items.map((item) {
+      if (!item.read &&
+          item.type == 'DM_NEW_MESSAGE' &&
+          item.payload['messageId']?.toString() == messageId) {
+        changed++;
+        _localReadRevisionById[item.id] = ++_realtimeRevision;
+        return item.copyWith(read: true);
+      }
+      return item;
+    }).toList();
+    if (changed == 0) return;
+    _badgeRevision++;
+    emit(
+      state.copyWith(
+        items: items,
+        unreadCount: (state.unreadCount - changed).clamp(0, 999999),
+      ),
+    );
+  }
+
   Future<void> markAllAsRead() async {
     final generation = _lifecycleGeneration;
     final sessionRevision = _sessionRevision;
@@ -517,6 +584,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       emit(state.copyWith(errorMessage: result.error?.message));
       return;
     }
+    unawaited(_notifyDeliveryStateChanged(generation, sessionRevision));
     await _refresh(generation, sessionRevision: sessionRevision);
   }
 
@@ -568,6 +636,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       );
       return;
     }
+    unawaited(_notifyDeliveryStateChanged(generation, sessionRevision));
     _pendingDeletionIds.remove(notification.id);
     // Keep a session-scoped tombstone: a page that was already in flight may
     // still contain the successfully deleted notification.
@@ -593,6 +662,7 @@ class NotificationCubit extends Cubit<NotificationState> {
         emit(state.copyWith(errorMessage: result.error?.message));
         return;
       }
+      unawaited(_notifyDeliveryStateChanged(generation, sessionRevision));
       _deletedNotificationIds.addAll(knownIds);
       _verifyRealtimeAfterClear = true;
       _realtimeRevisionById.clear();
@@ -608,6 +678,20 @@ class NotificationCubit extends Cubit<NotificationState> {
       await _refresh(generation, sessionRevision: sessionRevision);
     } finally {
       if (identical(_clearOperation, operation)) _clearOperation = null;
+    }
+  }
+
+  Future<void> _notifyDeliveryStateChanged(
+    int generation,
+    int sessionRevision,
+  ) async {
+    if (!_isCurrentSession(generation, sessionRevision)) return;
+    try {
+      // Only confirmed server mutations reconcile the OS projection. Do not
+      // block inbox updates or turn a failed OS comparison into a mutation error.
+      await _onDeliveryStateChanged?.call();
+    } catch (_) {
+      // Reconciliation retries on resume; provider errors may contain secrets.
     }
   }
 

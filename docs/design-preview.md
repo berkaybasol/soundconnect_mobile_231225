@@ -35,7 +35,7 @@ gerçek bildirim/istatistik gönderimi ve yük testi bu önizlemenin kapsamı d�
 
 ## Ayrım ve derleme
 
-- Paket: `com.berkayb.soundconnect.soundconnect_23_12_25codx.preview`.
+- Paket: `tr.com.soundconnect.app.preview`.
 - Başlangıç: `lib/main_preview.dart`; normal bootstrap çağrılmaz.
 - Son kullanıcı APK'sında **INTERNET izni yoktur**; ayrı Android UID/veri alanı,
   simge ve launcher vardır. Deep link, paylaşım sağlayıcısı ve arka plan ses

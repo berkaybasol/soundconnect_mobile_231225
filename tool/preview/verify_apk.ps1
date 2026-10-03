@@ -6,7 +6,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$PreviewPackage = 'com.berkayb.soundconnect.soundconnect_23_12_25codx.preview'
+$PreviewPackage = 'tr.com.soundconnect.app.preview'
 $PreviewActivity = 'com.berkayb.soundconnect.soundconnect_23_12_25codx.PreviewActivity'
 $ResolvedApk = (Resolve-Path -LiteralPath $Apk).Path
 if (-not (Test-Path -LiteralPath $ResolvedApk -PathType Leaf)) { throw 'APK file is required.' }

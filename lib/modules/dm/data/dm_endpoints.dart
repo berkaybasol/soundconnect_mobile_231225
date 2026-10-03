@@ -2,6 +2,9 @@ class DmEndpoints {
   static const String _userBase = '/api/v1/user/dm';
 
   static const String conversationsMy = '$_userBase/conversations/my';
+  static const String conversationsPage = '$_userBase/conversations/my/page';
+  static String conversationPreview(String conversationId) =>
+      '$_userBase/conversations/${Uri.encodeComponent(conversationId)}/preview';
   static const String conversationBetween = '$_userBase/conversations/between';
   static const String messageSend = '$_userBase/messages';
   static const String unreadCount = '$_userBase/unread-count';

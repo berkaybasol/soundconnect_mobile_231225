@@ -97,7 +97,7 @@ void main() {
 
       expect(realtime.connectCalls, 2);
       expect(realtime.badgeStreamReads, 1);
-      expect(repository.unreadCountCalls, 1);
+      expect(repository.unreadCountCalls, 2);
 
       realtime.emitBadge(7);
       await Future<void>.delayed(Duration.zero);
@@ -128,6 +128,20 @@ class _BadgeRepositoryFake implements DmRepository {
   }
 
   @override
+  Future<Result<Page<DmConversationPreview>>> getMyConversationsPage({
+    String? cursor,
+    int size = 30,
+  }) async {
+    conversationCalls += 1;
+    return const Result.success(Page(items: [], hasNext: false));
+  }
+
+  @override
+  Future<Result<DmConversationPreview>> getConversationPreview({
+    required String conversationId,
+  }) => throw UnimplementedError();
+
+  @override
   Future<Result<Page<DmMessage>>> getConversationMessages({
     required String conversationId,
     int page = 0,
@@ -149,6 +163,7 @@ class _BadgeRepositoryFake implements DmRepository {
     required String recipientId,
     required String content,
     String messageType = 'text',
+    String? clientMessageId,
   }) => throw UnimplementedError();
 }
 
@@ -159,6 +174,9 @@ class _BadgeRealtimeClientFake extends DmRealtimeClient {
   int failConnectAttempts;
   int connectCalls = 0;
   int badgeStreamReads = 0;
+  bool connected = false;
+  @override
+  bool get isConnected => connected;
 
   @override
   Stream<int> get badgeStream {
@@ -179,10 +197,13 @@ class _BadgeRealtimeClientFake extends DmRealtimeClient {
       failConnectAttempts -= 1;
       throw StateError('controlled connection failure');
     }
+    connected = true;
   }
 
   @override
-  Future<void> disconnect() async {}
+  Future<void> disconnect() async {
+    connected = false;
+  }
 
   void emitBadge(int count) => _badges.add(count);
 

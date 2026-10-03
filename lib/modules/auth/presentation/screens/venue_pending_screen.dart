@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
+import 'venue_application_decision_screen.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -60,6 +61,13 @@ class VenuePendingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
+    if (membershipType == PendingMembershipType.venue &&
+        serviceLocator.isRegistered<AuthSessionManager>() &&
+        serviceLocator<AuthSessionManager>()
+            .session
+            .isVenueApplicationSession) {
+      return const VenueApplicationDecisionScreen();
+    }
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(

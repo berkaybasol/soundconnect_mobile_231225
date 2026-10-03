@@ -71,7 +71,10 @@ class ListenerProfileCubit extends Cubit<ListenerProfileState> {
     );
   }
 
-  Future<void> loadPublicProfile(String profileId) async {
+  Future<void> loadPublicProfile(
+    String profileId, {
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     if (isClosed) return;
     final generation = ++_loadGeneration;
     emit(
@@ -88,6 +91,20 @@ class ListenerProfileCubit extends Cubit<ListenerProfileState> {
     );
     if (isClosed || generation != _loadGeneration) return;
     if (result.isSuccess && result.data != null) {
+      if (admitContent != null &&
+          !admitContent(result.data!, result.data!.id, result.data!.userId)) {
+        emit(
+          state.copyWith(
+            status: ListenerProfileStatus.failure,
+            publicProfile: null,
+            error: const AppError(
+              code: 'follow_target_changed',
+              message: 'Profil yüklenemedi. Tekrar dene.',
+            ),
+          ),
+        );
+        return;
+      }
       emit(
         state.copyWith(
           status: ListenerProfileStatus.success,

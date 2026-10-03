@@ -1,3 +1,4 @@
+import 'dm_timestamp.dart';
 import '../../domain/entities/dm_conversation_preview.dart';
 import '../../../profile/domain/entities/listener_visibility_context.dart';
 
@@ -30,18 +31,12 @@ class DmConversationPreviewModel extends DmConversationPreview {
       lastMessageContent: json['lastMessageContent']?.toString(),
       lastMessageType: json['lastMessageType']?.toString(),
       lastMessageSenderId: json['lastMessageSenderId']?.toString(),
-      lastMessageAt: _toDate(json['lastMessageAt']),
+      lastMessageAt: parseDmTimestamp(json['lastMessageAt']),
       lastMessageRead: _toBool(json['lastMessageRead']),
       otherUserVisibilityMode: parseContextualListenerVisibilityMode(
         json['otherUserVisibilityMode'],
       ),
     );
-  }
-
-  static DateTime? _toDate(Object? value) {
-    final raw = value?.toString();
-    if (raw == null || raw.trim().isEmpty) return null;
-    return DateTime.tryParse(raw);
   }
 
   static String _resolveUsername(Map<String, dynamic> json) {

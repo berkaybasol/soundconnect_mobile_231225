@@ -12,7 +12,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $FrontendRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
-$PreviewPackage = 'com.berkayb.soundconnect.soundconnect_23_12_25codx.preview'
+$PreviewPackage = 'tr.com.soundconnect.app.preview'
 $PreviewActivity = 'com.berkayb.soundconnect.soundconnect_23_12_25codx.PreviewActivity'
 if ($Action -eq 'Install' -and [string]::IsNullOrWhiteSpace($DeviceSerial)) {
     throw 'Install requires an explicit -DeviceSerial.'

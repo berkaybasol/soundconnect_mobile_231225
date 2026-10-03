@@ -397,6 +397,7 @@ Future<void> _showMusicianVenueApplicationList({
   required BuildContext context,
   required String musicianProfileId,
   required _MusicianVenueApplicationListMode mode,
+  bool forwardNotificationRead = false,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -405,10 +406,16 @@ Future<void> _showMusicianVenueApplicationList({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => _MusicianVenueApplicationsSheet(
-      musicianProfileId: musicianProfileId,
-      mode: mode,
-    ),
+    builder: (sheetContext) {
+      final route = ModalRoute.of(sheetContext);
+      if (forwardNotificationRead && route != null) {
+        NotificationTargetRead.transfer(context, route);
+      }
+      return _MusicianVenueApplicationsSheet(
+        musicianProfileId: musicianProfileId,
+        mode: mode,
+      );
+    },
   );
 }
 
@@ -557,8 +564,27 @@ class _MusicianVenueApplicationsSheetState
                           itemCount: _items.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 12),
-                          itemBuilder: (context, index) =>
-                              _buildApplicationItem(_items[index]),
+                          itemBuilder: (context, index) {
+                            final item = _items[index];
+                            return NotificationTargetReady(
+                              key: ValueKey('artist-venue-request-${item.id}'),
+                              ready:
+                                  !_showOutgoing &&
+                                  !_showConnections &&
+                                  _session.isCurrent &&
+                                  !_accessRevoked &&
+                                  !_loading &&
+                                  _error == null &&
+                                  NotificationTargetRead.artistVenueRequestReady(
+                                    context,
+                                    item.id,
+                                  ),
+                              contentIdentity: item,
+                              requireVisibleBounds: true,
+                              allowPartialVisibility: true,
+                              child: _buildApplicationItem(item),
+                            );
+                          },
                         ),
                       ),
               ),
@@ -569,7 +595,8 @@ class _MusicianVenueApplicationsSheetState
                 onMore: _actionLoading || !_session.isCurrent
                     ? null
                     : () => _load(append: true),
-                onRetry: !_session.isCurrent || _actionLoading || _accessRevoked
+                onRetry:
+                    !_session.isCurrent || _actionLoading || _accessRevoked
                     ? null
                     : _error != null
                     ? () => _load()

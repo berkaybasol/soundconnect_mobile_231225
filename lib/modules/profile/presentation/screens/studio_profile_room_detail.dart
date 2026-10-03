@@ -15,6 +15,7 @@ class _StudioRoomDetailScreen extends StatefulWidget {
   final List<_StudioRoomItem> ownerRooms;
   final DateTime? initialDate;
   final String? initialReservationId;
+  final StudioReservationNotificationTarget? notificationTarget;
 
   const _StudioRoomDetailScreen({
     required this.room,
@@ -23,6 +24,7 @@ class _StudioRoomDetailScreen extends StatefulWidget {
     this.ownerRooms = const [],
     this.initialDate,
     this.initialReservationId,
+    this.notificationTarget,
   });
 
   @override
@@ -113,7 +115,13 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
     final requestedDate = widget.initialDate == null
         ? today
         : _dateOnly(widget.initialDate!);
-    final initialDate = requestedDate.isBefore(today) ? today : requestedDate;
+    // Owner schedules support history. Never silently point an exact owner
+    // reservation deep link at today's unrelated calendar.
+    final initialDate =
+        requestedDate.isBefore(today) &&
+            (widget.canReserve || widget.initialReservationId == null)
+        ? today
+        : requestedDate;
     _selectedDate = initialDate;
     _selectedOwnerOverviewDate = initialDate;
     _ownerDateWindowStart = initialDate;
@@ -130,7 +138,7 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: AppColors.black,
       body: SafeArea(
         child: Column(
@@ -147,6 +155,10 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (_focusedReservation != null) ...[
+                      _buildFocusedReservation(_focusedReservation!),
+                      const SizedBox(height: 16),
+                    ],
                     if (!widget.canReserve) ...[
                       _buildOwnerReservationOverview(),
                     ],
@@ -170,6 +182,28 @@ class _StudioRoomDetailScreenState extends State<_StudioRoomDetailScreen> {
         ),
       ),
     );
+    final target = widget.notificationTarget;
+    final message = _focusedReservationMessage;
+    if (target != null && message != null) {
+      return NotificationTerminalFeedback(
+        message: message,
+        contentIdentity: target,
+        child: page,
+      );
+    }
+    if (target != null &&
+        !_calendarLoading &&
+        _calendarError == null &&
+        _focusedReservation == null &&
+        target.localDate == _apiDate(_selectedDate)) {
+      return NotificationTerminalFeedback(
+        message: 'Bu rezervasyon şu anda görüntülenemiyor.',
+        acknowledge: false,
+        retry: () => _loadCalendarData(),
+        child: page,
+      );
+    }
+    return page;
   }
 
   void _setState(VoidCallback callback) => setState(callback);

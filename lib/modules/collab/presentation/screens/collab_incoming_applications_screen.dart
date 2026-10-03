@@ -10,6 +10,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_application.dart';
@@ -83,6 +84,7 @@ class _CollabIncomingApplicationsScreenState
   bool _initialTargetHandled = false;
   bool _initialTargetScheduled = false;
   bool _initialTargetRevealDeferred = false;
+  bool _notificationTargetRevealed = false;
 
   @override
   void initState() {
@@ -259,27 +261,36 @@ class _CollabIncomingApplicationsScreenState
               key: application.id == widget.initialApplicationId?.trim()
                   ? _initialApplicationKey
                   : ValueKey<String>('collab-incoming-${application.id}'),
-              child: _ApplicationCard(
-                application: application,
-                busy: busy,
-                onDetail: () => _openDetail(application.listing.id),
-                onProfile: () =>
-                    openCollabActorProfile(context, application.applicant),
-                onMessage: application.applicant.contactUserId.trim().isEmpty
-                    ? null
-                    : () => openCollabActorConversation(
-                        context,
-                        application.applicant,
-                      ),
-                onPhone: application.phone?.trim().isNotEmpty == true
-                    ? () => _openPhone(application.phone!)
-                    : null,
-                onAccept: application.isPending && application.listing.isOpen
-                    ? () => _confirmDecision(application, accept: true)
-                    : null,
-                onReject: application.isPending
-                    ? () => _confirmDecision(application, accept: false)
-                    : null,
+              child: NotificationTargetReady(
+                requireVisibleBounds: true,
+                allowPartialVisibility: true,
+                contentIdentity: application,
+                ready:
+                    state.status == CollabLoadStatus.success &&
+                    _notificationTargetRevealed &&
+                    application.id == widget.initialApplicationId?.trim(),
+                child: _ApplicationCard(
+                  application: application,
+                  busy: busy,
+                  onDetail: () => _openDetail(application.listing.id),
+                  onProfile: () =>
+                      openCollabActorProfile(context, application.applicant),
+                  onMessage: application.applicant.contactUserId.trim().isEmpty
+                      ? null
+                      : () => openCollabActorConversation(
+                          context,
+                          application.applicant,
+                        ),
+                  onPhone: application.phone?.trim().isNotEmpty == true
+                      ? () => _openPhone(application.phone!)
+                      : null,
+                  onAccept: application.isPending && application.listing.isOpen
+                      ? () => _confirmDecision(application, accept: true)
+                      : null,
+                  onReject: application.isPending
+                      ? () => _confirmDecision(application, accept: false)
+                      : null,
+                ),
               ),
             );
           },
@@ -327,9 +338,12 @@ class _CollabIncomingApplicationsScreenState
           estimatedItemExtent: 300,
         );
         if (!mounted) return;
-        _initialTargetScheduled = false;
-        _initialTargetHandled = revealed;
-        _initialTargetRevealDeferred = !revealed;
+        setState(() {
+          _initialTargetScheduled = false;
+          _initialTargetHandled = revealed;
+          _initialTargetRevealDeferred = !revealed;
+          _notificationTargetRevealed = revealed;
+        });
         if (!revealed) {
           _showMessage(
             'Hedef başvuru yüklendi ancak otomatik kaydırılamadı. '

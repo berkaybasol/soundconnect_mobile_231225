@@ -13,6 +13,7 @@ extension _BandManagementPanelScreenStateMemberActions
     _updateState(() {
       _loading = true;
       _errorText = null;
+      _incomingProfile = null;
     });
 
     final Result<BandProfile> result;
@@ -49,7 +50,9 @@ extension _BandManagementPanelScreenStateMemberActions
     _updateState(() {
       _loading = false;
       _profile = result.data!;
+      _incomingProfile = result.data!;
     });
+    _scheduleIncomingVenueApplications();
   }
 
   Future<void> _inviteMember({bool Function()? isCurrent}) async {

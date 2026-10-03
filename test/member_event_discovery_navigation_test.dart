@@ -283,6 +283,8 @@ class _Badge extends Cubit<DmBadgeState> implements DmBadgeCubit {
   @override
   Future<void> ensureStarted() async {}
   @override
+  Future<void> reconcileAfterResume() async {}
+  @override
   Future<void> stop() async {}
 }
 

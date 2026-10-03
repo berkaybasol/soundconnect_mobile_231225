@@ -1,6 +1,110 @@
 part of 'studio_profile_screen.dart';
 
 extension _StudioRoomDetailView on _StudioRoomDetailScreenState {
+  StudioReservation? get _focusedReservation {
+    final id = widget.initialReservationId;
+    if (id == null || _calendarLoading || _calendarError != null) return null;
+    final target = widget.notificationTarget;
+    final source = widget.canReserve
+        ? _customerReservations
+        : _scheduleReservations;
+    for (final reservation in source) {
+      if (reservation.id == id &&
+          reservation.roomId == _room.id &&
+          _StudioRoomDetailScreenState._reservationDateKey(reservation) ==
+              _StudioRoomDetailScreenState._apiDate(_selectedDate) &&
+          (target == null ||
+              (target.reservationId == reservation.id &&
+                  target.roomId == reservation.roomId &&
+                  target.studioProfileId == widget.studioProfileId &&
+                  target.localDate ==
+                      _StudioRoomDetailScreenState._reservationDateKey(
+                        reservation,
+                      )))) {
+        return reservation;
+      }
+    }
+    return null;
+  }
+
+  Widget _buildFocusedReservation(StudioReservation reservation) {
+    final ownerReservation = _StudioOwnerReservation.fromDomain(
+      reservation,
+      evaluatedAt: _studioClockNow,
+    );
+    final start = _StudioRoomDetailScreenState._localHour(
+      reservation.localStartTime,
+      reservation.startsAt,
+    ).toString().padLeft(2, '0');
+    final end = _StudioRoomDetailScreenState._localHour(
+      reservation.localEndTime,
+      reservation.endsAt,
+    ).toString().padLeft(2, '0');
+    final canCancel =
+        widget.canReserve &&
+        !reservation.completed &&
+        !reservation.status.isTerminal &&
+        _bookingPolicy?.canStartAt(_selectedDate, int.parse(start)) == true;
+    final canOpenOwnerActions =
+        !widget.canReserve && ownerReservation.capabilities.hasMutation;
+    final content = _StudioRoomDetailCard(
+      key: ValueKey('studio-reservation-${reservation.id}'),
+      title: widget.canReserve ? 'Rezervasyonun' : 'Seçili rezervasyon',
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            widget.canReserve ? _room.name : ownerReservation.userName,
+          ),
+          subtitle: Text(
+            '${_StudioRoomDetailScreenState._formatDate(_selectedDate)} · '
+            '$start:00–$end:00 · ${ownerReservation.statusLabel}',
+          ),
+          trailing: widget.canReserve
+              ? (canCancel
+                    ? TextButton(
+                        onPressed: () =>
+                            _confirmCustomerReservationCancellation(
+                              reservation,
+                            ),
+                        child: const Text('İptal et'),
+                      )
+                    : null)
+              : canOpenOwnerActions
+              ? const Icon(Icons.chevron_right_rounded)
+              : null,
+          onTap: canOpenOwnerActions
+              ? () => _showOwnerReservationActions(ownerReservation)
+              : null,
+        ),
+      ),
+    );
+    final target = widget.notificationTarget;
+    if (target == null) return content;
+    if (_focusedReservationMessage != null) return content;
+    return NotificationTargetReady(
+      contentIdentity: target,
+      requireVisibleBounds: true,
+      child: content,
+    );
+  }
+
+  String? get _focusedReservationMessage {
+    final reservation = _focusedReservation;
+    if (reservation == null) return null;
+    return switch (reservation.status) {
+      StudioReservationStatus.rejectedByStudio =>
+        'Rezervasyon talebi kabul edilmedi.',
+      StudioReservationStatus.cancelledByCustomer =>
+        'Rezervasyon müşteri tarafından iptal edildi.',
+      StudioReservationStatus.cancelledByStudio =>
+        'Rezervasyon stüdyo tarafından iptal edildi.',
+      StudioReservationStatus.expired => 'Rezervasyon talebinin süresi doldu.',
+      _ => reservation.completed ? 'Bu rezervasyonun zamanı geçti.' : null,
+    };
+  }
+
   Widget _buildOwnerReservationOverview() {
     final dates = List.generate(
       5,

@@ -405,7 +405,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     final lastDate = _latestBookableDate;
     final date = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
       firstDate: today,
       lastDate: lastDate,
       builder: (context, child) => Theme(

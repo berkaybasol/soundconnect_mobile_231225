@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/auth/auth_session_manager.dart';
+import '../../core/di/service_locator.dart';
 
 import '../screens/support_screen.dart';
 import '../theme/app_colors.dart';
@@ -39,6 +41,13 @@ Future<void> showProfileQuickMenu(
   Key? profileContactTileKey,
   WidgetBuilder Function(WidgetBuilder)? routeBoundary,
 }) {
+  final manager = serviceLocator.isRegistered<AuthSessionManager>()
+      ? serviceLocator<AuthSessionManager>()
+      : null;
+  final session = manager?.session;
+  bool isCurrent() =>
+      context.mounted &&
+      (manager == null || identical(manager.session, session));
   WidgetBuilder guardRoute(WidgetBuilder builder) =>
       routeBoundary?.call(builder) ?? builder;
   return showGeneralDialog<void>(
@@ -51,6 +60,9 @@ Future<void> showProfileQuickMenu(
       dialogContext,
     ) {
       Future<void> closeThen(ProfileQuickMenuAction action) async {
+        if (!isCurrent() || ModalRoute.of(dialogContext)?.isCurrent != true) {
+          return;
+        }
         Navigator.of(dialogContext).pop();
         await action();
       }
@@ -137,6 +149,11 @@ Future<void> showProfileQuickMenu(
                           alignment: Alignment.bottomCenter,
                           child: SessionLogoutMenuTile(
                             onTap: () async {
+                              if (!isCurrent() ||
+                                  ModalRoute.of(dialogContext)?.isCurrent !=
+                                      true) {
+                                return;
+                              }
                               Navigator.of(dialogContext).pop();
                               await confirmAndLogoutSession(context);
                             },

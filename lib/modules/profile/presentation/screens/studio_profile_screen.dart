@@ -1,3 +1,5 @@
+import '../../../notification/presentation/notification_target_read.dart';
+import '../../../notification/domain/entities/studio_reservation_notification_target.dart';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
@@ -153,6 +155,7 @@ class StudioReservationCalendarArgs {
     this.timeZone = 'Europe/Istanbul',
     this.reservationDate,
     this.reservationId,
+    this.notificationTarget,
   });
 
   final String roomId;
@@ -161,6 +164,7 @@ class StudioReservationCalendarArgs {
   final String timeZone;
   final DateTime? reservationDate;
   final String? reservationId;
+  final StudioReservationNotificationTarget? notificationTarget;
 }
 
 class StudioReservationCalendarScreen extends StatelessWidget {
@@ -206,14 +210,40 @@ class _StudioReservationCalendarScreenState
     Theme.of(context);
     final room = _room;
     if (room != null) {
-      return _StudioRoomDetailScreen(
+      final calendar = _StudioRoomDetailScreen(
         room: room,
         studioProfileId: widget.args.studioProfileId,
         canReserve: !widget.args.ownerMode,
         ownerRooms: widget.args.ownerMode ? [room] : const [],
         initialDate: widget.args.reservationDate,
         initialReservationId: widget.args.reservationId,
+        notificationTarget: widget.args.notificationTarget,
       );
+      final target = widget.args.notificationTarget;
+      if (target != null &&
+          !target.ownerMode &&
+          DateTime.parse(target.localDate).isBefore(room.todayLocalDate)) {
+        // Public availability intentionally cannot query historical dates.
+        // Keep the real room calendar, with the fresh verified terminal result
+        // in its ordinary small status message; do not claim today's grid is
+        // the old reservation or reconstruct a notification snapshot page.
+        final message = switch (target.status) {
+          'REJECTED_BY_STUDIO' => 'Rezervasyon talebi kabul edilmedi.',
+          'CANCELLED_BY_CUSTOMER' => 'Rezervasyonunu iptal ettin.',
+          'CANCELLED_BY_STUDIO' =>
+            'Rezervasyon stüdyo tarafından iptal edildi.',
+          'EXPIRED' => 'Rezervasyon talebinin süresi doldu.',
+          _ => target.completed ? 'Bu rezervasyonun zamanı geçti.' : null,
+        };
+        if (message != null) {
+          return NotificationTerminalFeedback(
+            message: message,
+            contentIdentity: target,
+            child: calendar,
+          );
+        }
+      }
+      return calendar;
     }
     return Scaffold(
       appBar: AppBar(
@@ -300,7 +330,10 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       }
       final id = _targetProfileId?.trim() ?? '';
       if (id.isNotEmpty) {
-        context.read<StudioProfileCubit>().loadPublicProfile(id);
+        context.read<StudioProfileCubit>().loadPublicProfile(
+          id,
+          admitContent: NotificationTargetRead.beginFollowRequest(context),
+        );
       }
     }
     if (!_viewerResolved) {
@@ -320,7 +353,12 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
     final profileCubit = context.read<StudioProfileCubit>();
     if (widget.isPublic) {
       final id = _targetProfileId?.trim() ?? '';
-      if (id.isNotEmpty) await profileCubit.loadPublicProfile(id);
+      if (id.isNotEmpty) {
+        await profileCubit.loadPublicProfile(
+          id,
+          admitContent: NotificationTargetRead.beginFollowRequest(context),
+        );
+      }
     } else {
       await profileCubit.loadMyProfile();
     }
@@ -464,53 +502,59 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
             widget.isPublic &&
             viewerUserId.isNotEmpty &&
             viewerUserId != profile.userId;
-        return DefaultTabController(
-          initialIndex: 0,
-          length: 3,
-          child: Scaffold(
-            body: RefreshIndicator(
-              onRefresh: _refresh,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: widget.isPublic
-                    ? _StudioPublicDashboardContent(
-                        profile: profile,
-                        location: _studioLocationText(profile) ?? '',
-                        followersCount: followersCount,
-                        followingCount: followingCount,
-                        onBack: () => Navigator.of(context).maybePop(),
-                        onMessage: () => _openDm(profile),
-                        isFollowing: followActionState.isFollowing,
-                        followLoading:
-                            followActionState.status ==
-                            FollowActionStatus.loading,
-                        contentRevision: _contentRevision,
-                        onFollow: canFollow
-                            ? () => _toggleFollow(profile)
-                            : null,
-                      )
-                    : _StudioOwnerDashboardContent(
-                        profile: profile,
-                        location: _studioLocationText(profile) ?? '',
-                        followersCount: followersCount,
-                        followingCount: followingCount,
-                        photoUploading: _photoUploading,
-                        onBack: () => Navigator.of(context).maybePop(),
-                        onMenu: () => _showOwnerQuickMenu(context),
-                        onEditPhoto: () => _pickPhoto(profile),
-                        onEditDescription: () =>
-                            _showDescriptionEditor(profile.description),
-                        onEditSocialLink: (platform) =>
-                            _editSocialLink(profile, platform),
-                        contentRevision: _contentRevision,
-                        onManagement: () => _openManagementPanel(context),
-                      ),
+        return NotificationTargetReady(
+          contentIdentity: profile,
+          ready:
+              state.status == StudioProfileStatus.success &&
+              (!widget.isPublic || profile.id == _targetProfileId?.trim()),
+          child: DefaultTabController(
+            initialIndex: 0,
+            length: 3,
+            child: Scaffold(
+              body: RefreshIndicator(
+                onRefresh: _refresh,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: widget.isPublic
+                      ? _StudioPublicDashboardContent(
+                          profile: profile,
+                          location: _studioLocationText(profile) ?? '',
+                          followersCount: followersCount,
+                          followingCount: followingCount,
+                          onBack: () => Navigator.of(context).maybePop(),
+                          onMessage: () => _openDm(profile),
+                          isFollowing: followActionState.isFollowing,
+                          followLoading:
+                              followActionState.status ==
+                              FollowActionStatus.loading,
+                          contentRevision: _contentRevision,
+                          onFollow: canFollow
+                              ? () => _toggleFollow(profile)
+                              : null,
+                        )
+                      : _StudioOwnerDashboardContent(
+                          profile: profile,
+                          location: _studioLocationText(profile) ?? '',
+                          followersCount: followersCount,
+                          followingCount: followingCount,
+                          photoUploading: _photoUploading,
+                          onBack: () => Navigator.of(context).maybePop(),
+                          onMenu: () => _showOwnerQuickMenu(context),
+                          onEditPhoto: () => _pickPhoto(profile),
+                          onEditDescription: () =>
+                              _showDescriptionEditor(profile.description),
+                          onEditSocialLink: (platform) =>
+                              _editSocialLink(profile, platform),
+                          contentRevision: _contentRevision,
+                          onManagement: () => _openManagementPanel(context),
+                        ),
+                ),
               ),
-            ),
-            bottomNavigationBar: ProfilePublicBottomBar(
-              currentIndex: 4,
-              profileImageUrl: profile.profilePictureUrl,
-              profileTapAlwaysOpensOwnProfile: widget.isPublic,
+              bottomNavigationBar: ProfilePublicBottomBar(
+                currentIndex: 4,
+                profileImageUrl: profile.profilePictureUrl,
+                profileTapAlwaysOpensOwnProfile: widget.isPublic,
+              ),
             ),
           ),
         );

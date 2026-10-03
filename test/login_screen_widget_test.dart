@@ -234,6 +234,8 @@ void main() {
       expect(find.text('source-route'), findsNothing);
 
       pending.complete(repository.loginResult);
+      await tester.pump();
+      await tester.runAsync(() async {});
       await tester.pumpAndSettle();
 
       expect(find.text('home-destination'), findsOneWidget);
@@ -411,6 +413,8 @@ void main() {
       );
 
       _invokeLoginSubmit(tester);
+      await tester.pump();
+      await tester.runAsync(() async {});
       await tester.pumpAndSettle();
 
       expect(repository.loginCalls, 2);
@@ -422,6 +426,65 @@ void main() {
       await sessionManager.logout();
     },
   );
+
+  for (final membership in [
+    (
+      role: 'ROLE_VENUE',
+      route: AppRoutes.venueProfile,
+      notice: 'Mekân profilin hazır!',
+    ),
+    (
+      role: 'ROLE_STUDIO',
+      route: AppRoutes.studioProfile,
+      notice: 'Stüdyo profilin hazır!',
+    ),
+  ]) {
+    testWidgets(
+      'approved ${membership.role} login opens own profile with a short notice',
+      (tester) async {
+        repository.loginResult = Result.success(
+          LoginResult(
+            token: _token(role: membership.role),
+            username: 'approved-owner',
+          ),
+        );
+        final observer = _RecordingNavigatorObserver();
+        await tester.pumpWidget(
+          app(
+            observer: observer,
+            routes: {
+              membership.route: (_) =>
+                  const Scaffold(body: Text('own-profile')),
+              AppRoutes.home: (_) =>
+                  const Scaffold(body: Text('unexpected-home')),
+            },
+          ),
+        );
+        await tester.enterText(find.byType(TextField).at(0), 'approved-owner');
+        await tester.enterText(find.byType(TextField).at(1), 'password');
+        _invokeLoginSubmit(tester);
+        await tester.pump();
+        await tester.runAsync(() async {});
+        await tester.pumpAndSettle();
+        expect(find.text('own-profile'), findsOneWidget);
+        expect(find.text(membership.notice), findsOneWidget);
+        expect(
+          observer.pushedRouteNames.where((name) => name == membership.route),
+          hasLength(1),
+        );
+        expect(find.text('unexpected-home'), findsNothing);
+        expect(
+          Navigator.of(tester.element(find.text('own-profile'))).canPop(),
+          isFalse,
+        );
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+        expect(find.text(membership.notice), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await sessionManager.logout();
+      },
+    );
+  }
 
   testWidgets('wrong credentials stay on login without creating a session', (
     tester,

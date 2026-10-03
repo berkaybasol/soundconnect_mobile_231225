@@ -6,6 +6,8 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/profile_feed_availability.dart';
+import '../../../../core/push/push_coordinator.dart';
+import '../../../../core/push/push_settings_screen.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
@@ -190,6 +192,27 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const AccountProfileSettingsSection(),
+                        if (serviceLocator.isRegistered<PushCoordinator>()) ...[
+                          ListTile(
+                            key: const Key('account-settings-notifications'),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                            ),
+                            leading: const Icon(Icons.notifications_outlined),
+                            title: const Text('Bildirim ayarları'),
+                            subtitle: const Text(
+                              'Telefon bildirimlerini ve bildirim iznini yönet.',
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const PushSettingsScreen(),
+                              ),
+                            ),
+                          ),
+                          Divider(color: Theme.of(context).dividerColor),
+                          const SizedBox(height: 12),
+                        ],
                         ListenableBuilder(
                           listenable: serviceLocator<AuthSessionManager>(),
                           builder: (context, _) {

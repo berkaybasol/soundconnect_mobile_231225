@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -131,6 +132,7 @@ class _MusicianPublicProfileViewState
       if (_targetProfileId != null && _targetProfileId!.isNotEmpty) {
         context.read<MusicianProfileCubit>().loadPublicProfile(
           _targetProfileId!,
+          admitContent: NotificationTargetRead.beginFollowRequest(context),
         );
       }
     }
@@ -167,6 +169,7 @@ class _MusicianPublicProfileViewState
     if (targetProfileId.isEmpty) return;
     await context.read<MusicianProfileCubit>().loadPublicProfile(
       targetProfileId,
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
     );
     if (!mounted) return;
 
@@ -227,7 +230,16 @@ class _MusicianPublicProfileViewState
               state.profile == null) {
             return Scaffold(
               body: Center(
-                child: Text(state.error?.message ?? 'Profil getirilemedi'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(state.error?.message ?? 'Profil getirilemedi'),
+                    TextButton(
+                      onPressed: _refreshProfile,
+                      child: const Text('Tekrar dene'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -267,18 +279,24 @@ class _MusicianPublicProfileViewState
               ? null
               : followState.followingCount;
           final actionState = context.watch<FollowActionCubit>().state;
-          return _MusicianPublicProfileContent(
-            profile: profile,
-            media: media,
-            followersCount: followersCount,
-            followingCount: followingCount,
-            activeVenues: venueItems,
-            viewerUserId: viewerUserId,
-            isFollowing: actionState.isFollowing,
-            followLoading: actionState.status == FollowActionStatus.loading,
-            spotifyTracks: profile.spotifyTracks,
-            spotifyLoading: false,
-            onRefresh: _refreshProfile,
+          return NotificationTargetReady(
+            contentIdentity: profile,
+            ready:
+                state.status == MusicianProfileStatus.success &&
+                profile.id == _targetProfileId?.trim(),
+            child: _MusicianPublicProfileContent(
+              profile: profile,
+              media: media,
+              followersCount: followersCount,
+              followingCount: followingCount,
+              activeVenues: venueItems,
+              viewerUserId: viewerUserId,
+              isFollowing: actionState.isFollowing,
+              followLoading: actionState.status == FollowActionStatus.loading,
+              spotifyTracks: profile.spotifyTracks,
+              spotifyLoading: false,
+              onRefresh: _refreshProfile,
+            ),
           );
         },
       ),

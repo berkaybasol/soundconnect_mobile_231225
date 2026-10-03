@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -445,90 +446,99 @@ class _OwnerPlanState extends State<VenueEventPlanScreen>
 
   Widget _buildPage(BuildContext context) {
     final plan = _plan;
-    return PopScope(
-      canPop: !_busy,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'Planlı Etkinlik',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'Planı yenile',
-              onPressed: _busy || _loading ? null : _load,
-              icon: const Icon(Icons.refresh_rounded),
+    return NotificationTargetReady(
+      ready:
+          _current &&
+          !_loading &&
+          _error == null &&
+          plan != null &&
+          plan.id == widget.planId &&
+          _page != null,
+      child: PopScope(
+        canPop: !_busy,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              'Planlı Etkinlik',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
-          ],
-        ),
-        body: RefreshIndicator(
-          onRefresh: _busy ? () async {} : _load,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              if (_loading || (_busy && !_editing))
-                const LinearProgressIndicator(),
-              if (_error != null) ...[
-                Text(_error!),
-                TextButton(
-                  onPressed: _busy ? null : _load,
-                  child: const Text('Yenile'),
-                ),
-              ],
-              if (plan != null && _current) ...[
-                _buildPlanSummary(context, plan),
-                const SizedBox(height: 12),
-                _buildPerformerStatus(context, plan),
-                const SizedBox(height: 28),
-                const Text(
-                  'Hazırlanan tarihler',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Bir tarihi düzenlemek diğerlerini değiştirmez.',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                    height: 1.5,
+            actions: [
+              IconButton(
+                tooltip: 'Planı yenile',
+                onPressed: _busy || _loading ? null : _load,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          body: RefreshIndicator(
+            onRefresh: _busy ? () async {} : _load,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                if (_loading || (_busy && !_editing))
+                  const LinearProgressIndicator(),
+                if (_error != null) ...[
+                  Text(_error!),
+                  TextButton(
+                    onPressed: _busy ? null : _load,
+                    child: const Text('Yenile'),
                   ),
-                ),
-                const SizedBox(height: 14),
-                if (_page?.items.isEmpty == true)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      'Henüz hazırlanmış tarih yok. Başlangıç yaklaşınca etkinlikler burada görünür.',
+                ],
+                if (plan != null && _current) ...[
+                  _buildPlanSummary(context, plan),
+                  const SizedBox(height: 12),
+                  _buildPerformerStatus(context, plan),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'Hazırlanan tarihler',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Bir tarihi düzenlemek diğerlerini değiştirmez.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      height: 1.5,
                     ),
                   ),
-                for (final occurrence
-                    in _page?.items ?? <EventPlanOccurrence>[])
-                  _buildOccurrence(context, occurrence),
-                if (_page != null && (_page!.page > 0 || _page!.hasNext))
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                        onPressed: _page!.page > 0 && !_busy && !_loading
-                            ? () => _load(page: _page!.page - 1)
-                            : null,
-                        child: const Text('Önceki'),
+                  const SizedBox(height: 14),
+                  if (_page?.items.isEmpty == true)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        'Henüz hazırlanmış tarih yok. Başlangıç yaklaşınca etkinlikler burada görünür.',
                       ),
-                      TextButton(
-                        onPressed:
-                            _page!.hasNext &&
-                                _page!.page < 100 &&
-                                !_busy &&
-                                !_loading
-                            ? () => _load(page: _page!.page + 1)
-                            : null,
-                        child: const Text('Sonraki'),
-                      ),
-                    ],
-                  ),
+                    ),
+                  for (final occurrence
+                      in _page?.items ?? <EventPlanOccurrence>[])
+                    _buildOccurrence(context, occurrence),
+                  if (_page != null && (_page!.page > 0 || _page!.hasNext))
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: _page!.page > 0 && !_busy && !_loading
+                              ? () => _load(page: _page!.page - 1)
+                              : null,
+                          child: const Text('Önceki'),
+                        ),
+                        TextButton(
+                          onPressed:
+                              _page!.hasNext &&
+                                  _page!.page < 100 &&
+                                  !_busy &&
+                                  !_loading
+                              ? () => _load(page: _page!.page + 1)
+                              : null,
+                          child: const Text('Sonraki'),
+                        ),
+                      ],
+                    ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

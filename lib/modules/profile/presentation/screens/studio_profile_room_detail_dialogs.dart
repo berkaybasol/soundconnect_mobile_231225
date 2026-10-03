@@ -335,6 +335,7 @@ class _StudioRoomDetailCard extends StatelessWidget {
   final Widget child;
 
   const _StudioRoomDetailCard({
+    super.key,
     required this.title,
     this.subtitle,
     required this.child,
@@ -601,6 +602,21 @@ class _StudioOwnerReservation {
       );
 
   String get statusLabel {
+    // The selected real reservation can remain visible after a mutation even
+    // when it no longer belongs in the active calendar rows.
+    switch (status) {
+      case StudioReservationStatus.rejectedByStudio:
+        return 'Reddedildi';
+      case StudioReservationStatus.cancelledByCustomer:
+        return 'Müşteri İptal Etti';
+      case StudioReservationStatus.cancelledByStudio:
+        return 'Stüdyo İptal Etti';
+      case StudioReservationStatus.expired:
+        return 'Süresi Doldu';
+      case StudioReservationStatus.pendingApproval:
+      case StudioReservationStatus.confirmed:
+        break;
+    }
     if (completed) return 'Tamamlandı';
     final now = evaluatedAt;
     if (now == null) {

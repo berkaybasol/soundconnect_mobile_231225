@@ -8,6 +8,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/collab_actor.dart';
 import '../../domain/entities/collab_review.dart';
@@ -74,6 +75,7 @@ class _CollabActorReviewsScreenState
   bool _initialTargetHandled = false;
   bool _initialTargetScheduled = false;
   bool _initialTargetRevealDeferred = false;
+  bool _notificationTargetRevealed = false;
 
   @override
   void initState() {
@@ -201,10 +203,19 @@ class _CollabActorReviewsScreenState
               key: review.id == widget.initialReviewId?.trim()
                   ? _initialReviewKey
                   : ValueKey<String>('collab-review-${review.id}'),
-              child: _ReviewCard(
-                review: review,
-                onReviewerTap: () =>
-                    openCollabActorProfile(context, review.reviewer),
+              child: NotificationTargetReady(
+                requireVisibleBounds: true,
+                allowPartialVisibility: true,
+                contentIdentity: review,
+                ready:
+                    state.status == CollabLoadStatus.success &&
+                    _notificationTargetRevealed &&
+                    review.id == widget.initialReviewId?.trim(),
+                child: _ReviewCard(
+                  review: review,
+                  onReviewerTap: () =>
+                      openCollabActorProfile(context, review.reviewer),
+                ),
               ),
             );
           },
@@ -250,9 +261,12 @@ class _CollabActorReviewsScreenState
           estimatedItemExtent: 190,
         );
         if (!mounted) return;
-        _initialTargetScheduled = false;
-        _initialTargetHandled = revealed;
-        _initialTargetRevealDeferred = !revealed;
+        setState(() {
+          _initialTargetScheduled = false;
+          _initialTargetHandled = revealed;
+          _initialTargetRevealDeferred = !revealed;
+          _notificationTargetRevealed = revealed;
+        });
         if (!revealed) {
           _showMessage(
             'Hedef değerlendirme yüklendi ancak otomatik kaydırılamadı. '

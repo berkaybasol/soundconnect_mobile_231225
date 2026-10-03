@@ -352,6 +352,20 @@ class _DmRepositoryFake implements DmRepository {
   }
 
   @override
+  Future<Result<Page<DmConversationPreview>>> getMyConversationsPage({
+    String? cursor,
+    int size = 30,
+  }) async {
+    conversationCalls += 1;
+    return const Result.success(Page(items: [], hasNext: false));
+  }
+
+  @override
+  Future<Result<DmConversationPreview>> getConversationPreview({
+    required String conversationId,
+  }) => throw UnimplementedError();
+
+  @override
   Future<Result<int>> getUnreadCount() async {
     unreadCountCalls += 1;
     return const Result.success(0);
@@ -379,6 +393,7 @@ class _DmRepositoryFake implements DmRepository {
     required String recipientId,
     required String content,
     String messageType = 'text',
+    String? clientMessageId,
   }) => throw UnimplementedError();
 }
 

@@ -158,22 +158,35 @@ class _LoginScreenState extends State<LoginScreen> {
     if (pending != null) await inbox?.complete(pending);
     if (!mounted || loginRoute?.isCurrent != true) return;
 
-    final route = AppRouteGuard.startRouteFor(session);
-    final messenger = shouldExplainUnavailableLink
+    if (!identical(sessionManager.session, session)) return;
+    final membershipProfile = AppRouteGuard.approvedMembershipProfileFor(
+      session,
+    );
+    final route = membershipProfile ?? AppRouteGuard.startRouteFor(session);
+    final messenger = shouldExplainUnavailableLink || membershipProfile != null
         ? ScaffoldMessenger.of(context)
         : null;
     navigator.pushNamedAndRemoveUntil<void>(route, (route) => false);
     if (messenger != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!messenger.mounted) return;
+        if (!messenger.mounted || !identical(sessionManager.session, session)) {
+          return;
+        }
         messenger
           ..removeCurrentSnackBar()
           ..showSnackBar(
             appSnackBar(
               messenger.context,
-              tone: AppSnackBarTone.warning,
-              content: const Text(
-                'Bu ilanı müzisyen, mekan veya stüdyo hesabıyla görüntüleyebilirsin.',
+              tone: shouldExplainUnavailableLink
+                  ? AppSnackBarTone.warning
+                  : AppSnackBarTone.success,
+              duration: const Duration(seconds: 3),
+              content: Text(
+                shouldExplainUnavailableLink
+                    ? 'Bu ilanı müzisyen, mekan veya stüdyo hesabıyla görüntüleyebilirsin.'
+                    : membershipProfile == AppRoutes.venueProfile
+                    ? 'Mekân profilin hazır!'
+                    : 'Stüdyo profilin hazır!',
               ),
             ),
           );

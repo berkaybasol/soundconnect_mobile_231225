@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(os.environ.get('SC_ACCEPTANCE_OUTPUT', Path(__file__).resolve().parent)).resolve()
 ADB = Path(os.environ.get('LOCALAPPDATA', '')) / 'Android/Sdk/platform-tools/adb.exe'
-PACKAGE = 'com.berkayb.soundconnect.soundconnect_23_12_25codx'
+PACKAGE = 'tr.com.soundconnect.app'
 
 class AndroidUi:
     def __init__(self, serial='emulator-5554'):

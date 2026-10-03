@@ -22,6 +22,9 @@ import '../../../dm/data/dm_auth_support.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
 import '../../../dm/presentation/dm_profile_navigation.dart';
+import '../../../notification/presentation/notification_target_read.dart';
+import '../../../notification/data/notification_target_repository.dart';
+import '../../../notification/domain/entities/table_notification_target.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../data/table_group_chat_realtime_client.dart';
 import '../../domain/entities/table_group.dart';
@@ -39,16 +42,25 @@ import '../table_group_profile_draft.dart';
 import '../widgets/table_group_game_launcher_sheet.dart';
 import '../widgets/table_group_game_message_card.dart';
 import '../widgets/table_group_overview_style.dart';
+import 'table_group_list_screen.dart';
 
 class TableGroupDetailArgs {
   final String tableGroupId;
   final StageMode bottomBarStageMode;
   final bool openChat;
+  final TableNotificationTarget? notificationTarget;
+  final TableNotificationTarget? notificationResult;
+  final String? notificationResultMessage;
+  final VoidCallback? onNotificationRetry;
 
   const TableGroupDetailArgs({
     required this.tableGroupId,
     this.bottomBarStageMode = StageMode.backstage,
     this.openChat = true,
+    this.notificationTarget,
+    this.notificationResult,
+    this.notificationResultMessage,
+    this.onNotificationRetry,
   });
 }
 
@@ -149,6 +161,7 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   String? _gameExpiryRetryToken;
   bool _loading = true;
   bool _chatLoading = false;
+  bool _chatLoaded = false;
   bool _chatRetryReset = true;
   bool _connectingRealtime = false;
   bool _sending = false;
@@ -292,6 +305,13 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
       return false;
     }
     final updatedGroup = result.data!;
+    if (!_notificationMatches(updatedGroup)) {
+      setState(
+        () => _error =
+            'Bu bildirimin başvuru veya katılım durumu değişti. Güncel sonucu tekrar aç.',
+      );
+      return false;
+    }
     final sessionWillBeActive = isTableGroupSessionActiveAt(
       updatedGroup,
       _now(),
@@ -344,11 +364,18 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
       _chatError = null;
     });
     final targetPage = reset ? 0 : _chatPage + 1;
-    final result = await _repository.getChatMessages(
-      tableGroupId: widget.args.tableGroupId,
-      page: targetPage,
-      size: 30,
-    );
+    final target = widget.args.notificationTarget;
+    final result = target != null && _shareSession != null
+        ? await serviceLocator<NotificationTargetRepository>().tableChat(
+            target,
+            _shareSession,
+            page: targetPage,
+          )
+        : await _repository.getChatMessages(
+            tableGroupId: widget.args.tableGroupId,
+            page: targetPage,
+            size: 30,
+          );
     if (!mounted) {
       _finishChatLoad(loadCompleter);
       return;
@@ -380,6 +407,7 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
         existing: messagesToKeep,
         incoming: incoming.items,
       );
+      _chatLoaded = true;
       _chatPage = targetPage;
       _chatHasNext = incoming.hasNext;
       _chatLoading = false;
@@ -577,6 +605,10 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   }
 
   Future<void> _resumeFromBackgroundInternal() async {
+    if (widget.args.notificationTarget != null &&
+        (_error != null || _chatError != null)) {
+      return;
+    }
     if (_bootstrapInFlight != null || _group == null) return;
     final detailLoaded = await _loadDetail(replaceScreenOnFailure: false);
     if (!detailLoaded || !mounted || !_shouldRunChat) {
@@ -670,7 +702,16 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
 
   bool get _hasActiveChatAccess => _isAccepted && _isSessionActive;
 
-  bool get _shouldRunChat => _showChat && _hasActiveChatAccess;
+  bool get _shouldRunChat =>
+      _showChat &&
+      _hasActiveChatAccess &&
+      (widget.args.notificationTarget == null ||
+          (_notificationSessionCurrent &&
+              _error == null &&
+              ModalRoute.of(context)?.isCurrent == true &&
+              (WidgetsBinding.instance.lifecycleState == null ||
+                  WidgetsBinding.instance.lifecycleState ==
+                      AppLifecycleState.resumed)));
 
   bool get _isTableFull {
     final group = _group;
@@ -1007,12 +1048,71 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
     }
   }
 
+  bool _notificationMatches(TableGroup group) {
+    final target = widget.args.notificationTarget;
+    if (target == null) {
+      final result = widget.args.notificationResult;
+      return result == null ||
+          (group.id == result.tableGroupId && _notificationSessionCurrent);
+    }
+    if (group.id != target.tableGroupId ||
+        !_notificationSessionCurrent ||
+        !isTableGroupSessionActiveAt(group, _now())) {
+      return false;
+    }
+    final expected = target.pending
+        ? TableGroupParticipantStatus.pending
+        : TableGroupParticipantStatus.accepted;
+    return (target.pending
+            ? group.ownerId == _currentUserId
+            : target.subjectId == _currentUserId) &&
+        group.participants.any(
+          (p) =>
+              p.userId == target.subjectId &&
+              p.applicationId == target.applicationId &&
+              p.status == expected,
+        );
+  }
+
+  void _confirmVisibleChat() {
+    final target = widget.args.notificationTarget;
+    if (target == null ||
+        _shareSession == null ||
+        !_notificationSessionCurrent ||
+        !_shouldRunChat ||
+        !_chatLoaded ||
+        _chatError != null) {
+      return;
+    }
+    unawaited(
+      serviceLocator<NotificationTargetRepository>().tableChat(
+        target,
+        _shareSession,
+        markRead: true,
+      ),
+    );
+  }
+
+  bool get _notificationSessionCurrent =>
+      _shareSession != null &&
+      identical(_shareSessions?.session, _shareSession) &&
+      _shareSession.isAuthenticated &&
+      _shareSession.isActive &&
+      _shareSession.userId == _currentUserId;
+
   Future<bool> _approve(String participantId) async {
     if (!_hasActiveChatAccess) return false;
-    final result = await _repository.approveJoinRequest(
-      tableGroupId: widget.args.tableGroupId,
-      participantId: participantId,
-    );
+    final target = widget.args.notificationTarget;
+    final result =
+        target?.subjectId == participantId &&
+            target!.pending &&
+            _shareSession != null
+        ? await serviceLocator<NotificationTargetRepository>()
+              .decideTableApplication(target, _shareSession, approve: true)
+        : await _repository.approveJoinRequest(
+            tableGroupId: widget.args.tableGroupId,
+            participantId: participantId,
+          );
     if (!mounted) return false;
     _showSnack(
       result.isSuccess
@@ -1025,10 +1125,17 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
 
   Future<bool> _reject(String participantId) async {
     if (!_hasActiveChatAccess) return false;
-    final result = await _repository.rejectJoinRequest(
-      tableGroupId: widget.args.tableGroupId,
-      participantId: participantId,
-    );
+    final target = widget.args.notificationTarget;
+    final result =
+        target?.subjectId == participantId &&
+            target!.pending &&
+            _shareSession != null
+        ? await serviceLocator<NotificationTargetRepository>()
+              .decideTableApplication(target, _shareSession, approve: false)
+        : await _repository.rejectJoinRequest(
+            tableGroupId: widget.args.tableGroupId,
+            participantId: participantId,
+          );
     if (!mounted) return false;
     _showSnack(
       result.isSuccess
@@ -1176,6 +1283,17 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
+    if ((widget.args.notificationTarget != null ||
+            widget.args.notificationResult != null) &&
+        _error != null) {
+      return NotificationTerminalFeedback(
+        message: 'Bu masa şu anda açılamıyor.',
+        acknowledge: false,
+        ready: _notificationSessionCurrent,
+        retry: widget.args.onNotificationRetry ?? _bootstrap,
+        child: TableGroupListScreen(),
+      );
+    }
     final group = _group;
     final description = _tableDescription(group);
     final showOverview =
@@ -1183,122 +1301,152 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
     final showMoreMenu =
         group != null &&
         (showOverview || (_isSessionActive && (_isOwner || _isAccepted)));
-    return TableGroupSurfaceBackdrop(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
+    final page = NotificationTargetReady(
+      ready:
+          !_loading &&
+          _error == null &&
+          group?.id == widget.args.tableGroupId &&
+          (widget.args.notificationTarget == null ||
+              (widget.args.notificationTarget!.chat &&
+                  _notificationMatches(group!) &&
+                  _shouldRunChat &&
+                  _chatLoaded &&
+                  !_chatLoading &&
+                  _chatError == null)),
+      contentIdentity: widget.args.notificationTarget,
+      onVisible: widget.args.notificationTarget?.chat == true
+          ? _confirmVisibleChat
+          : null,
+      child: TableGroupSurfaceBackdrop(
+        child: Scaffold(
           backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          toolbarHeight: 56,
-          leadingWidth: 56,
-          titleSpacing: 12,
-          title: Text(
-            'Masa Detayı',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: TableGroupSurfaceStyle.of(context).headingMuted,
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            toolbarHeight: 56,
+            leadingWidth: 56,
+            titleSpacing: 12,
+            title: Text(
+              'Masa Detayı',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: TableGroupSurfaceStyle.of(context).headingMuted,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          actions: [
-            if (!showOverview)
-              IconButton(
-                tooltip: 'Yenile',
-                onPressed: _loading ? null : _bootstrap,
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-            if (showMoreMenu)
-              PopupMenuButton<_DetailMenuAction>(
-                key: const Key('table_group_detail_more'),
-                tooltip: 'Diğer seçenekler',
-                onSelected: _handleDetailMenuAction,
-                itemBuilder: (context) => <PopupMenuEntry<_DetailMenuAction>>[
-                  if (showOverview)
-                    const PopupMenuItem<_DetailMenuAction>(
-                      value: _DetailMenuAction.refresh,
-                      child: Text('Yenile'),
-                    ),
-                  if (_canShareOnProfile)
-                    PopupMenuItem<_DetailMenuAction>(
-                      key: const Key('table_group_profile_share'),
-                      value: _DetailMenuAction.shareOnProfile,
-                      enabled: !_profileDraftOpening,
-                      child: const Text('Paylaş'),
-                    ),
-                  if (_isOwner && _isSessionActive)
-                    const PopupMenuItem<_DetailMenuAction>(
-                      value: _DetailMenuAction.closeTable,
-                      child: Text('Masayı kapat'),
-                    )
-                  else if (_isAccepted && _isSessionActive)
-                    const PopupMenuItem<_DetailMenuAction>(
-                      value: _DetailMenuAction.leaveTable,
-                      child: Text('Masadan ayrıl'),
-                    ),
-                ],
-              ),
-          ],
-        ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_error!, textAlign: TextAlign.center),
-                      const SizedBox(height: 12),
-                      GradientOutline(
-                        enabled: AppColors.isLight,
-                        radius: 999,
-                        child: FilledButton(
-                          onPressed: _bootstrap,
-                          style: AppColors.isLight
-                              ? FilledButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  foregroundColor: AppColors.textPrimary,
-                                )
-                              : null,
-                          child: const Text('Tekrar dene'),
-                        ),
-                      ),
-                    ],
-                  ),
+            actions: [
+              if (!showOverview)
+                IconButton(
+                  tooltip: 'Yenile',
+                  onPressed: _loading ? null : _bootstrap,
+                  icon: const Icon(Icons.refresh_rounded),
                 ),
-              )
-            : group == null
-            ? const Center(child: Text('Masa bulunamadi'))
-            : !_isSessionActive
-            ? _closedSessionPanel(group)
-            : showOverview
-            ? _detailOverview(group, description)
-            : _isAccepted
-            ? Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  children: [
-                    if (description != null) ...[
-                      _tableDescriptionCard(description),
-                      const SizedBox(height: 12),
-                    ],
-                    Expanded(child: _chatPanel(fullScreen: true)),
+              if (showMoreMenu)
+                PopupMenuButton<_DetailMenuAction>(
+                  key: const Key('table_group_detail_more'),
+                  tooltip: 'Diğer seçenekler',
+                  onSelected: _handleDetailMenuAction,
+                  itemBuilder: (context) => <PopupMenuEntry<_DetailMenuAction>>[
+                    if (showOverview)
+                      const PopupMenuItem<_DetailMenuAction>(
+                        value: _DetailMenuAction.refresh,
+                        child: Text('Yenile'),
+                      ),
+                    if (_canShareOnProfile)
+                      PopupMenuItem<_DetailMenuAction>(
+                        key: const Key('table_group_profile_share'),
+                        value: _DetailMenuAction.shareOnProfile,
+                        enabled: !_profileDraftOpening,
+                        child: const Text('Paylaş'),
+                      ),
+                    if (_isOwner && _isSessionActive)
+                      const PopupMenuItem<_DetailMenuAction>(
+                        value: _DetailMenuAction.closeTable,
+                        child: Text('Masayı kapat'),
+                      )
+                    else if (_isAccepted && _isSessionActive)
+                      const PopupMenuItem<_DetailMenuAction>(
+                        value: _DetailMenuAction.leaveTable,
+                        child: Text('Masadan ayrıl'),
+                      ),
                   ],
                 ),
-              )
-            : const SizedBox.shrink(),
-        bottomNavigationBar: showOverview
-            ? _overviewBottomBar(
-                group,
-                includePublicNavigation: !widget.args.openChat,
-              )
-            : null,
+            ],
+          ),
+          body: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!, textAlign: TextAlign.center),
+                        const SizedBox(height: 12),
+                        GradientOutline(
+                          enabled: AppColors.isLight,
+                          radius: 999,
+                          child: FilledButton(
+                            onPressed:
+                                widget.args.onNotificationRetry ?? _bootstrap,
+                            style: AppColors.isLight
+                                ? FilledButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    foregroundColor: AppColors.textPrimary,
+                                  )
+                                : null,
+                            child: const Text('Tekrar dene'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : group == null
+              ? const Center(child: Text('Masa bulunamadi'))
+              : !_isSessionActive
+              ? _closedSessionPanel(group)
+              : showOverview
+              ? _detailOverview(group, description)
+              : _isAccepted
+              ? Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      if (description != null) ...[
+                        _tableDescriptionCard(description),
+                        const SizedBox(height: 12),
+                      ],
+                      Expanded(child: _chatPanel(fullScreen: true)),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+          bottomNavigationBar: showOverview
+              ? _overviewBottomBar(
+                  group,
+                  includePublicNavigation: !widget.args.openChat,
+                )
+              : null,
+        ),
       ),
+    );
+    final result = widget.args.notificationResult;
+    if (result == null) return page;
+    return NotificationTerminalFeedback(
+      message: widget.args.notificationResultMessage!,
+      contentIdentity: result,
+      ready:
+          !_loading &&
+          _error == null &&
+          group?.id == result.tableGroupId &&
+          _notificationSessionCurrent,
+      child: page,
     );
   }
 
@@ -2004,7 +2152,22 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
             const SizedBox(height: 8),
           ],
           if (fullScreen)
-            Expanded(child: _chatRoom(participants))
+            Expanded(
+              child: NotificationTargetReady(
+                ready:
+                    widget.args.notificationTarget?.pending == true &&
+                    !_loading &&
+                    _error == null &&
+                    _chatLoaded &&
+                    !_chatLoading &&
+                    _chatError == null &&
+                    _shouldRunChat,
+                acknowledge: false,
+                contentIdentity: widget.args.notificationTarget,
+                onVisible: _confirmVisibleChat,
+                child: _chatRoom(participants),
+              ),
+            )
           else
             SizedBox(height: 440, child: _chatRoom(participants)),
           const SizedBox(height: 8),
@@ -2089,7 +2252,29 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
       child: ListView.builder(
         shrinkWrap: true,
         itemCount: requests.length,
-        itemBuilder: (context, index) => _joinRequestCard(requests[index]),
+        itemBuilder: (context, index) {
+          final request = requests[index],
+              target = widget.args.notificationTarget;
+          final card = _joinRequestCard(request);
+          if (target == null ||
+              !target.pending ||
+              request.userId != target.subjectId ||
+              request.applicationId != target.applicationId) {
+            return card;
+          }
+          return NotificationTargetReady(
+            key: ValueKey('table-exact-application-${target.applicationId}'),
+            ready:
+                !_loading &&
+                _error == null &&
+                _group != null &&
+                _notificationMatches(_group!) &&
+                _showChat,
+            requireVisibleBounds: true,
+            contentIdentity: target,
+            child: card,
+          );
+        },
       ),
     );
   }
@@ -2421,6 +2606,15 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
       final bb = b.joinedAt?.millisecondsSinceEpoch ?? 0;
       return bb.compareTo(aa);
     });
+    final target = widget.args.notificationTarget;
+    if (target?.pending == true) {
+      final index = pending.indexWhere(
+        (p) =>
+            p.userId == target!.subjectId &&
+            p.applicationId == target.applicationId,
+      );
+      if (index > 0) pending.insert(0, pending.removeAt(index));
+    }
     return pending;
   }
 

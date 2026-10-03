@@ -20,6 +20,7 @@ class DmRealtimeClient {
 
   RealtimeTransport? _transport;
   String? _connectedUserId;
+  String? _connectedToken;
   bool _connected = false;
   Future<void>? _connectInFlight;
   Completer<void>? _pendingConnect;
@@ -30,11 +31,14 @@ class DmRealtimeClient {
       StreamController<DmMessage>.broadcast();
   final StreamController<int> _badgeController =
       StreamController<int>.broadcast();
+  final StreamController<bool> _connectionController =
+      StreamController<bool>.broadcast();
   final StreamController<RealtimeClientError> _errorController =
       StreamController<RealtimeClientError>.broadcast();
 
   Stream<DmMessage> get messageStream => _messageController.stream;
   Stream<int> get badgeStream => _badgeController.stream;
+  Stream<bool> get connectionStream => _connectionController.stream;
   Stream<RealtimeClientError> get errorStream => _errorController.stream;
   bool get isConnected => _connected;
 
@@ -48,7 +52,9 @@ class DmRealtimeClient {
   }
 
   Future<void> connect({required String userId, required String token}) async {
-    if (_connectedUserId == userId && _connected) return;
+    if (_connectedUserId == userId && _connectedToken == token && _connected) {
+      return;
+    }
     final inFlight = _connectInFlight;
     if (inFlight != null) {
       try {
@@ -57,7 +63,11 @@ class DmRealtimeClient {
         // A cancelled/failed previous-user handshake must not prevent this
         // caller from establishing the newly requested session below.
       }
-      if (_connectedUserId == userId && _connected) return;
+      if (_connectedUserId == userId &&
+          _connectedToken == token &&
+          _connected) {
+        return;
+      }
     }
 
     final connectFuture = _connectInternal(userId: userId, token: token);
@@ -89,6 +99,7 @@ class DmRealtimeClient {
     void fail(RealtimeClientError error) {
       if (generation != _generation) return;
       _connected = false;
+      _connectionController.add(false);
       _connectedUserId = null;
       _emitError(error);
       if (!completer.isCompleted) completer.completeError(error);
@@ -104,8 +115,10 @@ class DmRealtimeClient {
             if (generation != _generation) return;
             try {
               _connected = true;
+              _connectionController.add(true);
               _connectedUserId = userId;
-              _bindSubscriptions(userId);
+              _connectedToken = token;
+              _bindSubscriptions(userId, generation);
               if (!completer.isCompleted) completer.complete();
               if (identical(_pendingConnect, completer)) {
                 _pendingConnect = null;
@@ -135,6 +148,7 @@ class DmRealtimeClient {
             if (generation != _generation) return;
             final wasConnected = _connected;
             _connected = false;
+            _connectionController.add(false);
             _connectedUserId = null;
             if (wasConnected) {
               _emitError(
@@ -188,7 +202,9 @@ class DmRealtimeClient {
   Future<void> disconnect() async {
     _generation += 1;
     _connected = false;
+    if (!_connectionController.isClosed) _connectionController.add(false);
     _connectedUserId = null;
+    _connectedToken = null;
 
     final pending = _pendingConnect;
     _pendingConnect = null;
@@ -210,6 +226,7 @@ class DmRealtimeClient {
     await disconnect();
     await _messageController.close();
     await _badgeController.close();
+    await _connectionController.close();
     await _errorController.close();
   }
 
@@ -224,16 +241,28 @@ class DmRealtimeClient {
     transport?.deactivate();
   }
 
-  void _bindSubscriptions(String userId) {
+  void _bindSubscriptions(String userId, int generation) {
     final transport = _transport;
     if (transport == null) return;
     transport.subscribe(
       destination: StompDestinations.dm(userId),
-      callback: _onDmFrame,
+      callback: (body) {
+        if (generation == _generation &&
+            _connected &&
+            _connectedUserId == userId) {
+          _onDmFrame(body);
+        }
+      },
     );
     transport.subscribe(
       destination: StompDestinations.dmBadge(userId),
-      callback: _onBadgeFrame,
+      callback: (body) {
+        if (generation == _generation &&
+            _connected &&
+            _connectedUserId == userId) {
+          _onBadgeFrame(body);
+        }
+      },
     );
   }
 

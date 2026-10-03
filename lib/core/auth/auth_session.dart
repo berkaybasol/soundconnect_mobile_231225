@@ -7,6 +7,8 @@ class AuthSession {
   final List<String> permissions;
   final DateTime? expiresAt;
   final bool isAdmin;
+  final String? sessionScope;
+  final String? applicationId;
   final bool requiresListenerProfileChoice;
 
   const AuthSession._({
@@ -18,6 +20,8 @@ class AuthSession {
     required this.permissions,
     required this.expiresAt,
     required this.isAdmin,
+    required this.sessionScope,
+    required this.applicationId,
     required this.requiresListenerProfileChoice,
   });
 
@@ -31,6 +35,8 @@ class AuthSession {
         permissions: const [],
         expiresAt: null,
         isAdmin: false,
+        sessionScope: null,
+        applicationId: null,
         requiresListenerProfileChoice: false,
       );
 
@@ -43,6 +49,8 @@ class AuthSession {
     required List<String> permissions,
     required DateTime expiresAt,
     required bool isAdmin,
+    String? sessionScope,
+    String? applicationId,
     bool requiresListenerProfileChoice = false,
   }) {
     return AuthSession._(
@@ -54,13 +62,27 @@ class AuthSession {
       permissions: List.unmodifiable(permissions),
       expiresAt: expiresAt,
       isAdmin: isAdmin,
+      sessionScope: sessionScope,
+      applicationId: applicationId,
       requiresListenerProfileChoice: requiresListenerProfileChoice,
     );
   }
 
   bool get isAuthenticated => token?.isNotEmpty == true;
 
+  bool get isVenueApplicationSession =>
+      sessionScope == 'VENUE_APPLICATION' && applicationId != null;
+
+  String get venueApplicationSessionBase =>
+      '/api/v1/venue-application-session/applications/$applicationId';
+
+  bool get canRegisterPush =>
+      isAuthenticated &&
+      (isActive || isVenueApplicationSession) &&
+      !requiresListenerProfileChoice;
+
   bool get isPendingVenue =>
+      isVenueApplicationSession ||
       accountStatus?.trim().toUpperCase() == 'PENDING_VENUE_REQUEST';
 
   bool get isPendingStudio =>

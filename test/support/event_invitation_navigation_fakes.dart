@@ -19,19 +19,27 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_m
 class InvitationSession extends ChangeNotifier implements AuthSessionManager {
   String? userId = 'owner-1';
   String token = 'token-1';
+  AuthSession? _snapshot;
   @override
-  AuthSession get session => userId == null
-      ? const AuthSession.guest()
-      : AuthSession.authenticated(
-          token: token,
-          userId: userId,
-          username: 'musician',
-          accountStatus: 'ACTIVE',
-          roles: const ['ROLE_MUSICIAN'],
-          permissions: const [],
-          expiresAt: DateTime(2100),
-          isAdmin: false,
-        );
+  AuthSession get session {
+    if (_snapshot?.userId == userId &&
+        (_snapshot?.token == token || userId == null)) {
+      return _snapshot!;
+    }
+    return _snapshot = userId == null
+        ? const AuthSession.guest()
+        : AuthSession.authenticated(
+            token: token,
+            userId: userId,
+            username: 'musician',
+            accountStatus: 'ACTIVE',
+            roles: const ['ROLE_MUSICIAN'],
+            permissions: const [],
+            expiresAt: DateTime(2100),
+            isAdmin: false,
+          );
+  }
+
   void switchTo(String? id) {
     userId = id;
     token = 'token-$id';

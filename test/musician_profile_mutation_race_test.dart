@@ -1,3 +1,11 @@
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_public_bottom_bar.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/musician_public_profile_screen.dart';
+import 'package:soundconnect_23_12_25codx/shared/widgets/session_logout_action.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/app_notification.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
@@ -361,6 +369,374 @@ void main() {
     expect(repository.updates, 0);
     expect(find.text('Açıklama güncellendi'), findsNothing);
   });
+  Future<GlobalKey<NavigatorState>> openProfileTab(
+    WidgetTester tester, {
+    _ReadCubit? reads,
+    bool public = false,
+    Object? arguments,
+  }) async {
+    serviceLocator
+      ..registerFactory<MusicianProfileCubit>(() => cubit)
+      ..registerFactory<ProfileMediaCubit>(() => _MediaCubit())
+      ..registerFactory<FollowCountCubit>(() => _CountCubit())
+      ..registerFactory<FollowActionCubit>(() => FollowActionCubit(_Follow()))
+      ..registerFactory<ArtistVenueConnectionsCubit>(() => _ConnectionsCubit())
+      ..registerFactory<InteractionStatsCubit>(
+        () => InteractionStatsCubit(_Engagement()),
+      )
+      ..registerSingleton<ArtistVenueConnectionRepository>(_Connections())
+      ..registerSingleton<LocationRepository>(_Locations())
+      ..registerSingleton<VenueDirectoryRepository>(_Venues())
+      ..registerSingleton<AudioHandler>(BaseAudioHandler());
+    final badge = _BadgeCubit();
+    serviceLocator.registerSingleton<DmBadgeCubit>(badge);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await badge.close();
+      await tester.binding.setSurfaceSize(null);
+    });
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.binding.setSurfaceSize(const Size(450, 1400));
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigator,
+        navigatorObservers: [notificationTargetRouteObserver],
+        theme: AppTheme.navy,
+        home: Scaffold(
+          body: const Text('Previous root'),
+          bottomNavigationBar: ProfilePublicBottomBar(
+            currentIndex: 0,
+            unreadCountOverride: 0,
+          ),
+        ),
+        onGenerateRoute: (settings) {
+          final profile = settings.name == AppRoutes.musicianProfile;
+          final route = MaterialPageRoute<void>(
+            settings: RouteSettings(
+              name: settings.name,
+              arguments: arguments ?? settings.arguments,
+            ),
+            builder: (_) => profile
+                ? public
+                      ? const MusicianPublicProfileScreen()
+                      : const MusicianProfileScreen()
+                : Scaffold(body: Text('Destination ${settings.name}')),
+          );
+          if (!profile || reads == null) return route;
+          return NotificationTargetRead(
+            notification: const AppNotification(
+              id: 'target',
+              recipientId: 'owner',
+              type: 'FOLLOW_CREATED',
+              title: '',
+              message: '',
+              read: false,
+              createdAt: null,
+              payload: {},
+            ),
+            cubit: reads,
+            sessions: session,
+          ).attach(route);
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Previous root'), findsNothing);
+    return navigator;
+  }
+
+  Future<void> menuAndConfirm(
+    WidgetTester tester, {
+    bool cancel = false,
+  }) async {
+    await tester.tap(find.byTooltip('Menü'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Yönetim Paneli'), findsNothing);
+    expect(find.text('Profil ve iletişim bilgileri'), findsNothing);
+    expect(find.text('Ayarlar'), findsOneWidget);
+    await tester.tap(find.byKey(sessionLogoutMenuTileKey));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Çıkış yapılsın mı?'), findsOneWidget);
+    await tester.tap(
+      cancel ? find.text('Vazgeç') : find.byKey(sessionLogoutConfirmKey),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+  }
+
+  for (final loading in [true, false]) {
+    testWidgets(
+      'first own profile ${loading ? "loading" : "error"} keeps normal logout',
+      (tester) async {
+        final pending = repository.pendingRead =
+            Completer<Result<MusicianProfile>>();
+        if (!loading) {
+          pending.complete(
+            const Result.failure(
+              AppError(code: 'offline', message: 'No connection'),
+            ),
+          );
+        }
+        final reads = _ReadCubit();
+        await openProfileTab(tester, reads: reads);
+        expect(repository.ownerReads, 1);
+        expect(find.byType(BottomNavigationBar), findsOneWidget);
+        expect(reads.ids, isEmpty);
+        await menuAndConfirm(tester);
+        expect(session.logouts, 1);
+        expect(session.session.isAuthenticated, isFalse);
+        if (loading) pending.complete(Result.success(_profile()));
+        await tester.pumpAndSettle();
+        expect(cubit.state.profile, isNull);
+        expect(find.text('aedrum'), findsNothing);
+        expect(reads.ids, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'cancel logout retains error and explicit single-flight recovery',
+    (tester) async {
+      repository.pendingRead = Completer<Result<MusicianProfile>>()
+        ..complete(
+          const Result.failure(
+            AppError(code: 'offline', message: 'No connection'),
+          ),
+        );
+      final reads = _ReadCubit();
+      await openProfileTab(tester, reads: reads);
+      await menuAndConfirm(tester, cancel: true);
+      expect(session.logouts, 0);
+      expect(session.session.isAuthenticated, isTrue);
+      expect(find.text('No connection'), findsOneWidget);
+      final pending = repository.pendingRead =
+          Completer<Result<MusicianProfile>>();
+      await tester.tap(find.text('Tekrar dene'));
+      await tester.tap(find.text('Tekrar dene'));
+      await tester.pump();
+      expect(repository.ownerReads, 2);
+      expect(reads.ids, isEmpty);
+      pending.complete(Result.success(_profile()));
+      await tester.pumpAndSettle();
+      expect(find.text('aedrum'), findsWidgets);
+      expect(find.text('No connection'), findsNothing);
+      expect(reads.ids, ['target']);
+      await tester.pumpAndSettle();
+      expect(reads.ids, ['target']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('error root can leave through the real bottom navigation', (
+    tester,
+  ) async {
+    repository.pendingRead = Completer<Result<MusicianProfile>>()
+      ..complete(
+        const Result.failure(
+          AppError(code: 'offline', message: 'No connection'),
+        ),
+      );
+    final nav = await openProfileTab(tester);
+    expect(nav.currentState!.canPop(), isFalse);
+    await tester.tap(find.text('Pazar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Destination ${AppRoutes.marketplace}'), findsOneWidget);
+    expect(find.text('No connection'), findsNothing);
+    expect(cubit.isClosed, isTrue);
+  });
+
+  for (final change in ['logout', 'account', 'token', 'removed', 'covered']) {
+    testWidgets('pending first GET cannot revive profile after $change', (
+      tester,
+    ) async {
+      final pending = repository.pendingRead =
+          Completer<Result<MusicianProfile>>();
+      final reads = _ReadCubit();
+      final nav = await openProfileTab(
+        tester,
+        reads: reads,
+        arguments: const MusicianProfileScreenArgs(openManagementPanel: true),
+      );
+      if (change == 'logout') {
+        await session.logout();
+      } else if (change == 'account' || change == 'token') {
+        session.current = _auth(
+          change == 'account' ? 'other' : 'owner',
+          token: 'replacement',
+        );
+        session.notifyListeners();
+      } else {
+        final cover = MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Cover')),
+        );
+        if (change == 'removed') {
+          unawaited(nav.currentState!.pushAndRemoveUntil(cover, (_) => false));
+        } else {
+          unawaited(nav.currentState!.push(cover));
+        }
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+      }
+      pending.complete(Result.success(_profile()));
+      await tester.pumpAndSettle();
+      expect(cubit.state.profile, isNull);
+      expect(find.text('aedrum'), findsNothing);
+      expect(reads.ids, isEmpty);
+      if (change == 'covered') {
+        expect(find.text('Cover'), findsOneWidget);
+        nav.currentState!.pop();
+        await tester.pumpAndSettle();
+        expect(find.text('Tekrar dene'), findsOneWidget);
+        expect(repository.ownerReads, 1);
+        expect(reads.ids, isEmpty);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('late GET after leaving tab cannot replace the new root', (
+    tester,
+  ) async {
+    final pending = repository.pendingRead =
+        Completer<Result<MusicianProfile>>();
+    final reads = _ReadCubit();
+    await openProfileTab(tester, reads: reads);
+    await tester.tap(find.text('Pazar'));
+    await tester.pumpAndSettle();
+    pending.complete(Result.success(_profile()));
+    await tester.pumpAndSettle();
+    expect(find.text('Destination ${AppRoutes.marketplace}'), findsOneWidget);
+    expect(reads.ids, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final change in ['account', 'token']) {
+    testWidgets('old logout confirmation cannot close a replacement $change', (
+      tester,
+    ) async {
+      repository.pendingRead = Completer<Result<MusicianProfile>>()
+        ..complete(
+          const Result.failure(
+            AppError(code: 'offline', message: 'No connection'),
+          ),
+        );
+      await openProfileTab(tester);
+      await tester.tap(find.byTooltip('Menü'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(sessionLogoutMenuTileKey));
+      await tester.pumpAndSettle();
+      final replacement = _auth(
+        change == 'account' ? 'other' : 'owner',
+        token: 'replacement',
+      );
+      session.current = replacement;
+      session.notifyListeners();
+      await tester.tap(find.byKey(sessionLogoutConfirmKey));
+      await tester.pumpAndSettle();
+      expect(session.logouts, 0);
+      expect(identical(session.session, replacement), isTrue);
+    });
+  }
+
+  testWidgets('old open menu cannot act on a replacement session', (
+    tester,
+  ) async {
+    repository.pendingRead = Completer<Result<MusicianProfile>>()
+      ..complete(
+        const Result.failure(
+          AppError(code: 'offline', message: 'No connection'),
+        ),
+      );
+    await openProfileTab(tester);
+    await tester.tap(find.byTooltip('Menü'));
+    await tester.pumpAndSettle();
+    session.current = _auth('other');
+    session.notifyListeners();
+    await tester.tap(find.byKey(sessionLogoutMenuTileKey));
+    await tester.pumpAndSettle();
+    expect(find.text('Çıkış yapılsın mı?'), findsNothing);
+    expect(session.logouts, 0);
+    await tester.tap(find.text('Ayarlar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Destination ${AppRoutes.settings}'), findsNothing);
+  });
+
+  testWidgets('settings remain reachable without fetching profile again', (
+    tester,
+  ) async {
+    repository.pendingRead = Completer<Result<MusicianProfile>>()
+      ..complete(
+        const Result.failure(
+          AppError(code: 'offline', message: 'No connection'),
+        ),
+      );
+    final nav = await openProfileTab(tester);
+    await tester.tap(find.byTooltip('Menü'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ayarlar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Destination ${AppRoutes.settings}'), findsOneWidget);
+    nav.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Tekrar dene'), findsOneWidget);
+    expect(repository.ownerReads, 1);
+  });
+
+  testWidgets('wrong owner response keeps error shell and never reads target', (
+    tester,
+  ) async {
+    repository.ownerProfile = _profile(user: 'other');
+    final reads = _ReadCubit();
+    await openProfileTab(tester, reads: reads);
+    await tester.pumpAndSettle();
+    expect(find.text('Profil yanıtı doğrulanamadı.'), findsOneWidget);
+    expect(find.text('aedrum'), findsNothing);
+    expect(find.text('Yönetim Paneli'), findsNothing);
+    expect(reads.ids, isEmpty);
+  });
+
+  for (final mismatch in [false, true]) {
+    testWidgets(
+      'public ${mismatch ? "wrong target" : "failure"} cannot expose own actions or read',
+      (tester) async {
+        repository.pendingPublicRead = Completer<Result<MusicianProfile>>();
+        final reads = _ReadCubit();
+        await openProfileTab(
+          tester,
+          reads: reads,
+          public: true,
+          arguments: const PublicProfileArgs(
+            profileId: 'public',
+            viewerUserId: 'spoofed',
+          ),
+        );
+        expect(repository.ownerReads, 0);
+        expect(reads.ids, isEmpty);
+        expect(find.byTooltip('Menü'), findsNothing);
+        repository.pendingPublicRead!.complete(
+          mismatch
+              ? Result.success(_profile(id: 'wrong', user: 'other'))
+              : const Result.failure(
+                  AppError(code: 'offline', message: 'No connection'),
+                ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Menü'), findsNothing);
+        expect(find.byKey(sessionLogoutMenuTileKey), findsNothing);
+        expect(find.text('Yönetim Paneli'), findsNothing);
+        expect(find.text('Profili düzenle'), findsNothing);
+        expect(reads.ids, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 MusicianProfile _profile({
@@ -385,8 +761,8 @@ MusicianProfile _profile({
   activeVenues: [],
   bands: [],
 );
-AuthSession _auth(String user) => AuthSession.authenticated(
-  token: 'token-$user',
+AuthSession _auth(String user, {String? token}) => AuthSession.authenticated(
+  token: token ?? 'token-$user',
   userId: user,
   username: user,
   roles: const ['ROLE_MUSICIAN'],
@@ -398,6 +774,14 @@ AuthSession _auth(String user) => AuthSession.authenticated(
 
 class _Session extends Fake with ChangeNotifier implements AuthSessionManager {
   AuthSession current = _auth('owner');
+  int logouts = 0;
+  @override
+  Future<void> logout() async {
+    logouts++;
+    current = const AuthSession.guest();
+    notifyListeners();
+  }
+
   @override
   AuthSession get session => current;
 }
@@ -411,6 +795,7 @@ class _Repository extends Fake implements MusicianProfileRepository {
   String? expectedAccount;
   Result<MusicianProfile> updateResult = Result.success(_profile());
   Completer<Result<MusicianProfile>>? pendingRead;
+  Completer<Result<MusicianProfile>>? pendingPublicRead;
   Completer<Result<MusicianProfile>>? pendingUpdate;
   @override
   Future<Result<MusicianProfile>> getMyProfile() async {
@@ -421,7 +806,7 @@ class _Repository extends Fake implements MusicianProfileRepository {
   @override
   Future<Result<MusicianProfile>> getPublicProfileByProfileId(
     String id,
-  ) async => Result.success(publicProfile);
+  ) async => pendingPublicRead?.future ?? Result.success(publicProfile);
   @override
   Future<Result<MusicianProfile>> updateMyProfile(
     MusicianProfileSaveRequest request, {
@@ -493,4 +878,14 @@ class _BadgeCubit extends DmBadgeCubit {
   _BadgeCubit() : super(_Dm(), _Tokens());
   @override
   Future<void> ensureStarted() async {}
+}
+
+class _ReadCubit extends Fake implements NotificationCubit {
+  final ids = <String>[];
+  @override
+  bool get isClosed => false;
+  @override
+  Future<void> markAsRead(AppNotification notification) async {
+    ids.add(notification.id);
+  }
 }

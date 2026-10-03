@@ -16,6 +16,7 @@ SnackBar appSnackBar(
   SnackBarAction? action,
   bool? persist,
   bool inlineAction = false,
+  VoidCallback? onVisible,
   EdgeInsetsGeometry margin = const EdgeInsets.fromLTRB(20, 12, 20, 18),
 }) {
   final scheme = Theme.of(context).colorScheme;
@@ -46,6 +47,7 @@ SnackBar appSnackBar(
       side: BorderSide(color: scheme.onSurface.withValues(alpha: .12)),
     ),
     duration: duration,
+    onVisible: onVisible,
     // Match the native action's default lifetime even though its layout lives
     // in content. Native overflow rows reserve 40% of the message width and
     // can push the floating bar off screen at large accessibility text sizes.

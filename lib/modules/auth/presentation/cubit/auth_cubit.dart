@@ -37,6 +37,7 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void>? _logoutInFlight;
   Future<void>? _registerInFlight;
   Future<void>? _otpActionInFlight;
+  int _credentialRequestRevision = 0;
   int _usernameAvailabilityRequest = 0;
   int _passwordResetAccountRequest = 0;
 
@@ -84,6 +85,9 @@ class AuthCubit extends Cubit<AuthState> {
     required String username,
     required String password,
   }) async {
+    final requestRevision = _credentialRequestRevision;
+    final credentialRevision = _sessionManager?.credentialRevision;
+    final initialSession = _sessionManager?.session;
     emit(
       state.copyWith(
         status: AuthStatus.loading,
@@ -92,9 +96,16 @@ class AuthCubit extends Cubit<AuthState> {
       ),
     );
     final result = await _loginUseCase(username: username, password: password);
+    if (isClosed ||
+        requestRevision != _credentialRequestRevision ||
+        credentialRevision != _sessionManager?.credentialRevision ||
+        !identical(initialSession, _sessionManager?.session)) {
+      return;
+    }
     if (result.isSuccess && result.data != null) {
       final loginResult = result.data!;
       final persistenceError = await _persistSession(loginResult);
+      if (isClosed) return;
       if (persistenceError != null) {
         emit(
           state.copyWith(
@@ -142,6 +153,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   Future<void> _performLogout() async {
+    _credentialRequestRevision++;
     final sessionManager = _sessionManager;
     if (sessionManager != null) {
       await sessionManager.logout();
@@ -293,6 +305,9 @@ class AuthCubit extends Cubit<AuthState> {
     required String email,
     required String code,
   }) async {
+    final requestRevision = _credentialRequestRevision;
+    final credentialRevision = _sessionManager?.credentialRevision;
+    final initialSession = _sessionManager?.session;
     emit(
       state.copyWith(
         status: AuthStatus.loading,
@@ -302,11 +317,18 @@ class AuthCubit extends Cubit<AuthState> {
       ),
     );
     final result = await _verifyCodeUseCase(email: email, code: code);
+    if (isClosed ||
+        requestRevision != _credentialRequestRevision ||
+        credentialRevision != _sessionManager?.credentialRevision ||
+        !identical(initialSession, _sessionManager?.session)) {
+      return;
+    }
     if (result.isSuccess) {
       final verification = result.data ?? const VerifyCodeResult();
-      final listenerSession = verification.listenerSession;
+      final listenerSession = verification.session;
       if (listenerSession != null &&
-          !verification.requiresListenerProfileChoice) {
+          !verification.requiresListenerProfileChoice &&
+          !verification.hasVenueApplicationSession) {
         emit(
           state.copyWith(
             status: AuthStatus.failure,
@@ -322,6 +344,7 @@ class AuthCubit extends Cubit<AuthState> {
       }
       if (listenerSession != null) {
         final persistenceError = await _persistSession(listenerSession);
+        if (isClosed) return;
         if (persistenceError != null) {
           emit(
             state.copyWith(

@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'package:flutter/material.dart';
 import 'venue_artists_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
@@ -117,7 +118,10 @@ class _MusicianPublicProfileViewState
       } else if (args is String) {
         _publicVenueId = args;
       }
-      context.read<VenueProfileCubit>().loadPublic(venueId: _publicVenueId);
+      context.read<VenueProfileCubit>().loadPublic(
+        venueId: _publicVenueId,
+        admitContent: NotificationTargetRead.beginFollowRequest(context),
+      );
     }
     if (_viewerUserIdResolved) return;
     _viewerUserIdResolved = true;
@@ -146,7 +150,10 @@ class _MusicianPublicProfileViewState
   Future<void> _refreshProfile() async {
     final venueId = _publicVenueId?.trim() ?? '';
     if (venueId.isEmpty) return;
-    await context.read<VenueProfileCubit>().loadPublic(venueId: venueId);
+    await context.read<VenueProfileCubit>().loadPublic(
+      venueId: venueId,
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
+    );
     if (!mounted) return;
 
     final profile = context.read<VenueProfileCubit>().state.publicProfile;
@@ -185,8 +192,17 @@ class _MusicianPublicProfileViewState
         if (publicProfile == null) {
           return Scaffold(
             body: Center(
-              child: Text(
-                venueProfileState.error?.message ?? 'Profil getirilemedi',
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    venueProfileState.error?.message ?? 'Profil getirilemedi',
+                  ),
+                  TextButton(
+                    onPressed: _refreshProfile,
+                    child: const Text('Tekrar dene'),
+                  ),
+                ],
               ),
             ),
           );
@@ -260,11 +276,17 @@ class _MusicianPublicProfileViewState
                 weeklyEvents: weeklyEvents,
                 onRefresh: _refreshProfile,
               );
-              return TrackVenueProfileView(
-                venueId: publicProfile.venueId,
-                sourceEventId: _sourceEventId,
-                enabled: publicProfile.venueId == _publicVenueId,
-                child: content,
+              return NotificationTargetReady(
+                contentIdentity: publicProfile,
+                ready:
+                    venueProfileState.status == VenueProfileStatus.success &&
+                    publicProfile.venueId == _publicVenueId,
+                child: TrackVenueProfileView(
+                  venueId: publicProfile.venueId,
+                  sourceEventId: _sourceEventId,
+                  enabled: publicProfile.venueId == _publicVenueId,
+                  child: content,
+                ),
               );
             },
           ),

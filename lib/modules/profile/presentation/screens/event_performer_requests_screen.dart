@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -744,29 +745,43 @@ class _EventPerformerRequestsScreenState
                   itemBuilder: (context, index) {
                     final request = requests[index];
                     final generation = _loadGeneration;
-                    return EventPerformerRequestCard(
+                    return NotificationTargetReady(
                       key: ValueKey(_identityOf(request)),
-                      request: request,
-                      reconsider: _rejected,
-                      expired: _expired(request),
-                      decisionAllowed: _canDecide(request),
-                      processing: _processingIds.contains(request.requestId),
-                      interactionLocked:
-                          _processingIds.isNotEmpty || _loadingMore,
-                      showOnProfile: _profileChoices.contains(
-                        _identityOf(request),
-                      ),
-                      onShowOnProfileChanged: (value) =>
-                          _setShowOnProfile(request, value, generation),
-                      onAccept: () => _decide(
-                        request,
-                        accept: true,
-                        generation: generation,
-                      ),
-                      onReject: () => _decide(
-                        request,
-                        accept: false,
-                        generation: generation,
+                      ready:
+                          !_loading &&
+                          _errorText == null &&
+                          _loadedSession != null &&
+                          _loadedSession == _session &&
+                          NotificationTargetRead.eventPerformerRequestReady(
+                            context,
+                            requestId: request.requestId,
+                            eventId: request.eventId,
+                          ),
+                      requireVisibleBounds: true,
+                      allowPartialVisibility: true,
+                      child: EventPerformerRequestCard(
+                        request: request,
+                        reconsider: _rejected,
+                        expired: _expired(request),
+                        decisionAllowed: _canDecide(request),
+                        processing: _processingIds.contains(request.requestId),
+                        interactionLocked:
+                            _processingIds.isNotEmpty || _loadingMore,
+                        showOnProfile: _profileChoices.contains(
+                          _identityOf(request),
+                        ),
+                        onShowOnProfileChanged: (value) =>
+                            _setShowOnProfile(request, value, generation),
+                        onAccept: () => _decide(
+                          request,
+                          accept: true,
+                          generation: generation,
+                        ),
+                        onReject: () => _decide(
+                          request,
+                          accept: false,
+                          generation: generation,
+                        ),
                       ),
                     );
                   },

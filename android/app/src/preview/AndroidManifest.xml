@@ -16,7 +16,7 @@
         android:roundIcon="@drawable/ic_preview_launcher"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        tools:replace="android:label,android:icon,android:allowBackup">
+        tools:replace="android:label,android:icon,android:roundIcon,android:allowBackup">
         <meta-data android:name="com.soundconnect.preview.QA" android:value="${previewQa}" />
         <activity
             android:name="com.berkayb.soundconnect.soundconnect_23_12_25codx.PreviewActivity"

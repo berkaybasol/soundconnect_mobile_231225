@@ -41,6 +41,11 @@ class AppRouteGuard {
       return isPublic ? null : AppRoutes.login;
     }
 
+    if (session.isVenueApplicationSession) {
+      return requested == AppRoutes.venuePending
+          ? null
+          : AppRoutes.venuePending;
+    }
     if (session.isPendingVenue) {
       if (requested == AppRoutes.venuePending ||
           _publicProfileRoutes.contains(requested)) {
@@ -186,6 +191,23 @@ class AppRouteGuard {
           : AppRoutes.listenerProfile;
     }
     return AppRoutes.login;
+  }
+
+  static String? approvedMembershipProfileFor(AuthSession session) {
+    if (!session.isAuthenticated ||
+        !session.isActive ||
+        session.isAdmin ||
+        session.isPendingBusiness ||
+        session.requiresListenerProfileChoice) {
+      return null;
+    }
+    if (session.hasAnyRole(const ['ROLE_VENUE', 'VENUE'])) {
+      return AppRoutes.venueProfile;
+    }
+    if (session.hasAnyRole(const ['ROLE_STUDIO', 'STUDIO'])) {
+      return AppRoutes.studioProfile;
+    }
+    return null;
   }
 
   static bool canOpenStudioOwnerReservationCalendar(AuthSession session) =>

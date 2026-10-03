@@ -26,6 +26,7 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
     final bandId = _bandId;
     if (bandId == null || bandId.isEmpty) return;
     final generation = ++_profileLoadGeneration;
+    final admitContent = NotificationTargetRead.beginFollowRequest(context);
     bool isCurrent() =>
         mounted && generation == _profileLoadGeneration && bandId == _bandId;
 
@@ -56,7 +57,8 @@ extension _BandProfileViewStateActions on _BandProfileViewState {
       if (result == null ||
           !result.isSuccess ||
           profile == null ||
-          profile.id.trim() != bandId.trim()) {
+          profile.id.trim() != bandId.trim() ||
+          (admitContent != null && !admitContent(profile, profile.id, null))) {
         _updateState(() {
           _loading = false;
           _profile = null;

@@ -13,7 +13,7 @@ import '../../../profile/domain/entities/listener_visibility_mode.dart';
 import '../../domain/dm_user_profile_resolver.dart';
 import '../../domain/entities/dm_message.dart';
 import '../../domain/entities/dm_profile_target.dart';
-import '../../../notification/presentation/cubit/notification_cubit.dart';
+import '../dm_chat_route_observer.dart';
 import '../cubit/dm_chat_cubit.dart';
 import '../cubit/dm_chat_state.dart';
 import '../dm_profile_navigation.dart';
@@ -62,17 +62,109 @@ class _DmChatView extends StatefulWidget {
   State<_DmChatView> createState() => _DmChatViewState();
 }
 
-class _DmChatViewState extends State<_DmChatView> {
+class _DmChatViewState extends State<_DmChatView>
+    with WidgetsBindingObserver, RouteAware {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   DmChatScreenArgs? _args;
-  int _lastMessageCount = 0;
+  bool _wasVisible = false;
+  bool _waitingForLatest = false;
+  bool _presentationScheduled = false;
+  int _latestScrollRequest = 0;
+  List<String> _laidOutHistory = const [];
   String? _lastNewestMessageId;
   bool _identityHydrationStarted = false;
+  ModalRoute<dynamic>? _route;
+  late DmChatCubit _chat;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  bool get _isVisible {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return (_route?.isCurrent ?? false) &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+  }
+
+  void _syncVisibility() {
+    final visible = _isVisible;
+    if (visible && !_wasVisible) _showLatestAfterLayout();
+    _wasVisible = visible;
+    _chat.setVisible(visible);
+  }
+
+  void _hideChat() {
+    _wasVisible = false;
+    _chat.setVisible(false);
+  }
+
+  void _showLatestAfterLayout() {
+    final request = ++_latestScrollRequest;
+    _waitingForLatest = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || request != _latestScrollRequest) return;
+      if (!_isVisible) {
+        _waitingForLatest = false;
+        return;
+      }
+      if (!_scrollController.hasClients || _scrollController.offset == 0) {
+        _waitingForLatest = false;
+        _presentHistory();
+        return;
+      }
+      // Latest is the fixed zero edge of the reversed viewport; it does not
+      // depend on lazy-list height estimates or on older-page insertions.
+      _scrollController.jumpTo(0);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || request != _latestScrollRequest) return;
+        _waitingForLatest = false;
+        _presentHistory();
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _scheduleHistoryPresentation() {
+    if (_presentationScheduled) return;
+    _presentationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _presentationScheduled = false;
+      if (mounted) _presentHistory();
+    });
+  }
+
+  void _presentHistory() {
+    if (!_isVisible || _waitingForLatest) return;
+    unawaited(_chat.acknowledgePresentedHistory(_laidOutHistory));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) => _syncVisibility();
+  @override
+  void didPush() => _syncVisibility();
+  @override
+  void didPopNext() => _syncVisibility();
+  @override
+  void didPushNext() => _hideChat();
+  @override
+  void didPop() => _hideChat();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _chat = context.read<DmChatCubit>();
+    _chat.requirePresentedHistory();
+    final route = ModalRoute.of(context);
+    if (route != _route) {
+      dmChatRouteObserver.unsubscribe(this);
+      _route = route;
+      if (route != null) dmChatRouteObserver.subscribe(this, route);
+    }
+    _syncVisibility();
     if (_args != null) return;
     final rawArgs = ModalRoute.of(context)?.settings.arguments;
     if (rawArgs is DmChatScreenArgs) {
@@ -143,14 +235,17 @@ class _DmChatViewState extends State<_DmChatView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    dmChatRouteObserver.unsubscribe(this);
+    _chat.setVisible(false);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels <= 140) {
+    if (!_scrollController.hasClients || _waitingForLatest) return;
+    if (_scrollController.position.extentAfter <= 140) {
       context.read<DmChatCubit>().loadMore();
     }
   }
@@ -273,8 +368,7 @@ class _DmChatViewState extends State<_DmChatView> {
             Expanded(
               child: BlocConsumer<DmChatCubit, DmChatState>(
                 listener: (context, state) {
-                  if (state.status == DmChatStatus.failure &&
-                      state.error != null) {
+                  if (state.error != null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       appSnackBar(
                         context,
@@ -283,40 +377,20 @@ class _DmChatViewState extends State<_DmChatView> {
                       ),
                     );
                   }
-                  final conversationId =
-                      state.conversationId?.trim() ??
-                      args?.conversationId?.trim() ??
-                      '';
-                  if (conversationId.isNotEmpty &&
-                      state.status == DmChatStatus.success) {
-                    if (serviceLocator.isRegistered<NotificationCubit>()) {
-                      serviceLocator<NotificationCubit>()
-                          .markDmConversationAsReadLocally(conversationId);
-                    }
-                  }
                   final newestMessageId = state.messages.isEmpty
                       ? null
                       : state.messages.last.messageId;
-                  final shouldScrollToBottom =
-                      state.messages.length != _lastMessageCount &&
-                      newestMessageId != null &&
-                      newestMessageId != _lastNewestMessageId;
-                  _lastNewestMessageId = newestMessageId;
-                  if (shouldScrollToBottom) {
-                    _lastMessageCount = state.messages.length;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!_scrollController.hasClients) return;
-                      _scrollController.animateTo(
-                        _scrollController.position.maxScrollExtent,
-                        duration: Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                      );
-                    });
-                  } else {
-                    _lastMessageCount = state.messages.length;
+                  if (newestMessageId != null &&
+                      newestMessageId != _lastNewestMessageId) {
+                    _showLatestAfterLayout();
                   }
+                  _lastNewestMessageId = newestMessageId;
                 },
                 builder: (context, state) {
+                  _laidOutHistory = state.messages
+                      .map((item) => item.messageId)
+                      .toList();
+                  _scheduleHistoryPresentation();
                   if (state.status == DmChatStatus.loading &&
                       state.messages.isEmpty) {
                     return Center(child: CircularProgressIndicator());
@@ -325,12 +399,16 @@ class _DmChatViewState extends State<_DmChatView> {
                     return _ChatEmptyState();
                   }
                   return NotificationListener<ScrollNotification>(
-                    onNotification: (_) {
-                      _onScroll();
+                    onNotification: (notification) {
+                      if (notification.depth == 0 &&
+                          notification is ScrollUpdateNotification) {
+                        _onScroll();
+                      }
                       return false;
                     },
                     child: ListView.builder(
                       controller: _scrollController,
+                      reverse: true,
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -338,17 +416,14 @@ class _DmChatViewState extends State<_DmChatView> {
                           state.messages.length +
                           (state.status == DmChatStatus.loadingMore ? 1 : 0),
                       itemBuilder: (context, index) {
-                        if (index == 0 &&
+                        if (index == state.messages.length &&
                             state.status == DmChatStatus.loadingMore) {
                           return Padding(
                             padding: EdgeInsets.symmetric(vertical: 10),
                             child: Center(child: CircularProgressIndicator()),
                           );
                         }
-                        final messageIndex =
-                            state.status == DmChatStatus.loadingMore
-                            ? index - 1
-                            : index;
+                        final messageIndex = state.messages.length - 1 - index;
                         if (messageIndex < 0 ||
                             messageIndex >= state.messages.length) {
                           return SizedBox.shrink();
@@ -426,6 +501,7 @@ class _DmChatViewState extends State<_DmChatView> {
                 border: Border.all(color: colors.outline),
               ),
               child: TextField(
+                maxLength: DmChatCubit.maxMessageLength,
                 controller: _messageController,
                 minLines: 1,
                 maxLines: 4,
@@ -508,7 +584,7 @@ class _DmChatViewState extends State<_DmChatView> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     final sent = await context.read<DmChatCubit>().send(text);
-    if (sent) {
+    if (mounted && sent && _messageController.text.trim() == text) {
       _messageController.clear();
     }
   }

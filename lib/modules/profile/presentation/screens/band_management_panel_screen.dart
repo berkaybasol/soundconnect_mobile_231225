@@ -20,6 +20,7 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/profile_management_sheet.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../location/domain/location_repository.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../setlist/presentation/screens/band_setlist_builder_screen.dart';
 import '../../domain/band_repository.dart';
 import '../../domain/band_member_title_policy.dart';
@@ -54,15 +55,21 @@ part 'band_management_panel_screen_venue_connections_sheet.dart';
 
 class BandManagementPanelScreen extends StatefulWidget {
   final BandProfile profile;
+  final bool openIncomingVenueApplications;
 
-  BandManagementPanelScreen({super.key, required this.profile});
+  BandManagementPanelScreen({
+    super.key,
+    required this.profile,
+    this.openIncomingVenueApplications = false,
+  });
 
   @override
   State<BandManagementPanelScreen> createState() =>
       _BandManagementPanelScreenState();
 }
 
-class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
+class _BandManagementPanelScreenState extends State<BandManagementPanelScreen>
+    with WidgetsBindingObserver, RouteAware {
   late final BandRepository _bandRepository = serviceLocator<BandRepository>();
   late final MusicianSearchRepository _musicianSearchRepository =
       serviceLocator<MusicianSearchRepository>();
@@ -81,6 +88,13 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
   int _profileLoadGeneration = 0;
   String? _errorText;
   final ValueNotifier<int> _profileRevision = ValueNotifier(0);
+  final _incomingSession = ProfileActionSession(
+    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+  );
+  ModalRoute<dynamic>? _incomingRoute;
+  BandProfile? _incomingProfile;
+  bool _incomingOpenScheduled = false;
+  bool _incomingOpenAttempted = false;
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -91,6 +105,12 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
   @override
   void dispose() {
     ++_profileLoadGeneration;
+    WidgetsBinding.instance.removeObserver(this);
+    notificationTargetRouteObserver.unsubscribe(this);
+    _incomingRoute?.animation?.removeStatusListener(_incomingAnimationChanged);
+    _incomingRoute?.secondaryAnimation?.removeStatusListener(
+      _incomingAnimationChanged,
+    );
     _profileRevision.dispose();
     super.dispose();
   }
@@ -98,7 +118,46 @@ class _BandManagementPanelScreenState extends State<BandManagementPanelScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshProfile();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (!identical(route, _incomingRoute)) {
+      notificationTargetRouteObserver.unsubscribe(this);
+      _incomingRoute?.animation?.removeStatusListener(
+        _incomingAnimationChanged,
+      );
+      _incomingRoute?.secondaryAnimation?.removeStatusListener(
+        _incomingAnimationChanged,
+      );
+      _incomingRoute = route;
+      if (route != null) {
+        notificationTargetRouteObserver.subscribe(this, route);
+        route.animation?.addStatusListener(_incomingAnimationChanged);
+        route.secondaryAnimation?.addStatusListener(_incomingAnimationChanged);
+      }
+    }
+    _scheduleIncomingVenueApplications();
+  }
+
+  void _incomingAnimationChanged(AnimationStatus status) =>
+      _scheduleIncomingVenueApplications();
+
+  @override
+  void didPush() => _scheduleIncomingVenueApplications();
+
+  @override
+  void didPopNext() => _scheduleIncomingVenueApplications();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _scheduleIncomingVenueApplications();
+    }
   }
 
   @override

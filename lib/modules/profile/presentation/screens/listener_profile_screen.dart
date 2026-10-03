@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -402,97 +403,106 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
         state.status == ListenerProfileStatus.saving ||
         _hasDraft;
     if (profile.isGhost) {
-      return ListenerGhostProfileContent(
-        username: profile.username ?? '',
-        profilePictureUrl: profile.profilePictureUrl,
-        owner: true,
-        busy: actionBusy,
-        onRefresh: _refreshProfile,
-        onEditAvatar: profile.avatarEditable
-            ? () => _openAvatarActions(profile)
-            : null,
-        onSwitchToStandard: () => unawaited(_confirmStandardMode()),
-        privatePlansAction: ListenerEventPlansButton(
-          listenerProfileId: profile.id,
-          userId: profile.userId,
+      return NotificationTargetReady(
+        ready: state.status == ListenerProfileStatus.success,
+        child: ListenerGhostProfileContent(
           username: profile.username ?? '',
-          avatarUrl: profile.profilePictureUrl,
+          profilePictureUrl: profile.profilePictureUrl,
+          owner: true,
+          busy: actionBusy,
+          onRefresh: _refreshProfile,
+          onEditAvatar: profile.avatarEditable
+              ? () => _openAvatarActions(profile)
+              : null,
+          onSwitchToStandard: () => unawaited(_confirmStandardMode()),
+          privatePlansAction: ListenerEventPlansButton(
+            listenerProfileId: profile.id,
+            userId: profile.userId,
+            username: profile.username ?? '',
+            avatarUrl: profile.profilePictureUrl,
+          ),
         ),
       );
     }
 
     _revealDraft();
-    return RefreshIndicator(
-      onRefresh: _refreshProfile,
-      child: ListenerProfileOwnerContent(
-        postsAreSlivers: !_hasDraft,
-        profile: profile,
-        scrollController: _profileScroll,
-        actionBusy: actionBusy,
-        onEditProfile: () => unawaited(_openSettings()),
-        onEditAvatar: () => _openAvatarActions(profile),
-        onEditPlaylists: () => unawaited(_openPlaylistManager(profile)),
-        onPlaylistTap: (playlist) async {
-          if (!await _beforeLeavingDraft() || !context.mounted) return;
-          await launchSpotifyPlaylist(context, playlist.spotifyUrl);
-        },
-        onPreviewAction: _showUnavailableMessage,
-        eventPlansAction: _hasDraft
-            ? null
-            : ListenerEventPlansButton(
-                listenerProfileId: profile.id,
-                userId: profile.userId,
-                username: profile.username ?? '',
-                avatarUrl: profile.profilePictureUrl,
-              ),
-        posts: _activeTableGroupDraft != null
-            ? Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: ListenerTableGroupDraftComposer(
-                  key: _tableGroupDraftKey,
-                  draft: _activeTableGroupDraft!,
-                  profile: profile,
-                  onFinished: _finishDraft,
-                  onStateChanged: _draftChanged,
+    return NotificationTargetReady(
+      ready:
+          state.status == ListenerProfileStatus.success &&
+          profile.profileContentVisible &&
+          !_hasDraft,
+      child: RefreshIndicator(
+        onRefresh: _refreshProfile,
+        child: ListenerProfileOwnerContent(
+          postsAreSlivers: !_hasDraft,
+          profile: profile,
+          scrollController: _profileScroll,
+          actionBusy: actionBusy,
+          onEditProfile: () => unawaited(_openSettings()),
+          onEditAvatar: () => _openAvatarActions(profile),
+          onEditPlaylists: () => unawaited(_openPlaylistManager(profile)),
+          onPlaylistTap: (playlist) async {
+            if (!await _beforeLeavingDraft() || !context.mounted) return;
+            await launchSpotifyPlaylist(context, playlist.spotifyUrl);
+          },
+          onPreviewAction: _showUnavailableMessage,
+          eventPlansAction: _hasDraft
+              ? null
+              : ListenerEventPlansButton(
+                  listenerProfileId: profile.id,
+                  userId: profile.userId,
+                  username: profile.username ?? '',
+                  avatarUrl: profile.profilePictureUrl,
                 ),
-              )
-            : _hasDraft
-            ? null
-            : ListenerProfilePostsSection(
-                asSliver: true,
-                key: ValueKey('listener-owner-posts-${profile.id}'),
-                listenerProfileId: profile.id,
-                username: profile.username ?? '',
-                avatarUrl: profile.profilePictureUrl,
-                ownerUserId: profile.userId,
-                profileContentVisible:
-                    profile.profileContentVisible && !profile.isGhost,
-                refreshSignal: _eventPostsRefresh,
-              ),
-        overthinkingPosts: _activeOverthinkingDraft != null
-            ? Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: ListenerOverthinkingDraftComposer(
-                  key: _overthinkingDraftKey,
-                  draft: _activeOverthinkingDraft!,
-                  profile: profile,
-                  onFinished: _finishDraft,
-                  onStateChanged: _draftChanged,
+          posts: _activeTableGroupDraft != null
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ListenerTableGroupDraftComposer(
+                    key: _tableGroupDraftKey,
+                    draft: _activeTableGroupDraft!,
+                    profile: profile,
+                    onFinished: _finishDraft,
+                    onStateChanged: _draftChanged,
+                  ),
+                )
+              : _hasDraft
+              ? null
+              : ListenerProfilePostsSection(
+                  asSliver: true,
+                  key: ValueKey('listener-owner-posts-${profile.id}'),
+                  listenerProfileId: profile.id,
+                  username: profile.username ?? '',
+                  avatarUrl: profile.profilePictureUrl,
+                  ownerUserId: profile.userId,
+                  profileContentVisible:
+                      profile.profileContentVisible && !profile.isGhost,
+                  refreshSignal: _eventPostsRefresh,
                 ),
-              )
-            : null,
-        eventPosts: _activeDraft != null
-            ? Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: ListenerEventDraftComposer(
-                  key: _draftKey,
-                  draft: _activeDraft!,
-                  profile: profile,
-                  onFinished: _finishDraft,
-                  onStateChanged: _draftChanged,
-                ),
-              )
-            : null,
+          overthinkingPosts: _activeOverthinkingDraft != null
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ListenerOverthinkingDraftComposer(
+                    key: _overthinkingDraftKey,
+                    draft: _activeOverthinkingDraft!,
+                    profile: profile,
+                    onFinished: _finishDraft,
+                    onStateChanged: _draftChanged,
+                  ),
+                )
+              : null,
+          eventPosts: _activeDraft != null
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ListenerEventDraftComposer(
+                    key: _draftKey,
+                    draft: _activeDraft!,
+                    profile: profile,
+                    onFinished: _finishDraft,
+                    onStateChanged: _draftChanged,
+                  ),
+                )
+              : null,
+        ),
       ),
     );
   }

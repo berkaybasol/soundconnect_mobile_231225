@@ -160,7 +160,8 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               );
               return;
             }
-            if (isVenuePending) {
+            if (state.loginResult?.sessionScope == 'VENUE_APPLICATION' ||
+                isVenuePending) {
               navigator.pushNamedAndRemoveUntil(
                 AppRoutes.venuePending,
                 (route) => false,

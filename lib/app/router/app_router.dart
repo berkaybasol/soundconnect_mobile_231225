@@ -28,6 +28,7 @@ import '../../modules/event/presentation/screens/event_discovery_screen.dart';
 import '../../modules/event_audience/presentation/event_audience_profile_draft.dart';
 import '../../modules/overthinking/presentation/overthinking_profile_draft.dart';
 import '../../modules/notification/presentation/screens/notification_screen.dart';
+import '../../modules/notification/presentation/notification_target_read.dart';
 import '../../modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
 import '../../modules/musician_feed/presentation/screens/musician_feed_muted_authors_screen.dart';
 import '../../modules/musician_feed/presentation/screens/listener_feed_screen.dart';
@@ -79,6 +80,21 @@ class AppRouter {
   }
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    final arguments = settings.arguments;
+    if (arguments is NotificationReadArguments) {
+      final route = _generateRoute(
+        RouteSettings(name: settings.name, arguments: arguments.arguments),
+      );
+      if (settings.name == arguments.routeName &&
+          route.settings.name == arguments.routeName) {
+        arguments.ticket.attach(route);
+      }
+      return route;
+    }
+    return _generateRoute(settings);
+  }
+
+  static Route<dynamic> _generateRoute(RouteSettings settings) {
     final session = serviceLocator<AuthSessionManager>().session;
     final redirect = AppRouteGuard.redirectFor(settings.name, session);
     if (redirect != null && redirect != settings.name) {
@@ -340,7 +356,7 @@ class AppRouter {
         final args = _arguments<TableGroupDetailArgs>(settings);
         if (args == null) {
           return MaterialPageRoute(
-            settings: settings,
+            settings: const RouteSettings(name: AppRoutes.tableGroupList),
             builder: (_) => TableGroupListScreen(),
           );
         }

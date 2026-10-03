@@ -29,6 +29,78 @@ class _MusicianPublicProfileViewState
   bool _completionTaskOpened = false;
   bool _openIncomingVenueApplicationsOnLoad = false;
   bool _incomingVenueApplicationsOpened = false;
+  bool _initialLoadStarted = false;
+
+  bool get _canPresent =>
+      mounted &&
+      _profileActionSession.isCurrent &&
+      ModalRoute.of(context)?.isCurrent == true;
+
+  Future<void> _loadProfile() async {
+    if (!_canPresent) return;
+    await context.read<MusicianProfileCubit>().loadMyProfile(
+      canPresent: () => _canPresent,
+    );
+  }
+
+  Future<void> _showUnavailableProfileMenu() async {
+    if (!_canPresent) return;
+    await showProfileQuickMenu(
+      context,
+      settingsTileKey: const Key('musician-account-settings'),
+      onSettings: () async {
+        if (!_canPresent) return;
+        await Navigator.of(context).pushNamed(AppRoutes.settings);
+      },
+    );
+  }
+
+  Widget _unavailableProfile(MusicianProfileState state) {
+    final current = _profileActionSession.isCurrent;
+    final loading = state.status == MusicianProfileStatus.loading;
+    return Scaffold(
+      appBar: AppBar(
+        title: const ProfileBrandTitle(),
+        centerTitle: true,
+        actions: current
+            ? [
+                IconButton(
+                  tooltip: 'Menü',
+                  onPressed: _showUnavailableProfileMenu,
+                  icon: const ProfileMenuLogo(),
+                ),
+                const SizedBox(width: 8),
+              ]
+            : null,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: loading && current
+              ? const CircularProgressIndicator()
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      current
+                          ? state.error?.message ?? 'Profil getirilemedi'
+                          : 'Oturum değişti. Profili yeniden aç.',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (current) ...[
+                      const SizedBox(height: 16),
+                      GradientOutlineButton(
+                        label: 'Tekrar dene',
+                        onPressed: _loadProfile,
+                      ),
+                    ],
+                  ],
+                ),
+        ),
+      ),
+      bottomNavigationBar: current ? ProfileBottomBar() : null,
+    );
+  }
 
   void _updateState(VoidCallback updater) {
     if (!mounted) return;
@@ -36,8 +108,8 @@ class _MusicianPublicProfileViewState
   }
 
   Future<void> _refreshProfile() async {
-    await context.read<MusicianProfileCubit>().loadMyProfile();
-    if (!mounted) return;
+    await _loadProfile();
+    if (!mounted || !_canPresent) return;
 
     final profile = context.read<MusicianProfileCubit>().state.profile;
     if (profile == null) return;
@@ -76,6 +148,10 @@ class _MusicianPublicProfileViewState
     } else if (args is String) {
       _viewerUserId = args;
     }
+    if (!_initialLoadStarted) {
+      _initialLoadStarted = true;
+      unawaited(_loadProfile());
+    }
   }
 
   @override
@@ -96,21 +172,8 @@ class _MusicianPublicProfileViewState
       ],
       child: BlocBuilder<MusicianProfileCubit, MusicianProfileState>(
         builder: (context, state) {
-          final isInitialLoading =
-              state.status == MusicianProfileStatus.loading &&
-              state.profile == null;
-          if (isInitialLoading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          if (state.profile == null) {
-            return Scaffold(
-              body: Center(
-                child: Text(state.error?.message ?? 'Profil getirilemedi'),
-              ),
-            );
+          if (state.profile == null || !_profileActionSession.isCurrent) {
+            return _unavailableProfile(state);
           }
 
           final profile = state.profile!;
@@ -155,29 +218,37 @@ class _MusicianPublicProfileViewState
               ? null
               : followState.followingCount;
           final actionState = context.watch<FollowActionCubit>().state;
-          return _MusicianPublicProfileContent(
-            profile: profile,
-            media: media,
-            followersCount: followersCount,
-            followingCount: followingCount,
-            activeVenues: venueItems,
-            viewerUserId: viewerUserId,
-            isFollowing: actionState.isFollowing,
-            followLoading: actionState.status == FollowActionStatus.loading,
-            spotifyTracks: profile.spotifyTracks,
-            spotifyLoading: false,
-            onEditPhoto: () => _editProfilePhoto(profile),
-            photoUploading: _photoUploading,
-            uploadedProfilePhotoUrl: _uploadedProfilePhotoUrl,
-            socialEditable: true,
-            onAddSocialLink: (platform) => _addSocialLink(profile, platform),
-            descriptionEditable: true,
-            onSaveDescription: _saveDescription,
-            ownerMode: true,
-            onEditProfilePressed: _onEditProfilePressed,
-            venueEditable: true,
-            onEditVenues: () => _editVenues(profile.id),
-            onRefresh: _refreshProfile,
+          return NotificationTargetReady(
+            ready:
+                state.status == MusicianProfileStatus.success &&
+                _profileActionSession.isCurrent &&
+                !_openIncomingVenueApplicationsOnLoad &&
+                !_openManagementPanelOnLoad &&
+                !_hasDirectCompletionEditor,
+            child: _MusicianPublicProfileContent(
+              profile: profile,
+              media: media,
+              followersCount: followersCount,
+              followingCount: followingCount,
+              activeVenues: venueItems,
+              viewerUserId: viewerUserId,
+              isFollowing: actionState.isFollowing,
+              followLoading: actionState.status == FollowActionStatus.loading,
+              spotifyTracks: profile.spotifyTracks,
+              spotifyLoading: false,
+              onEditPhoto: () => _editProfilePhoto(profile),
+              photoUploading: _photoUploading,
+              uploadedProfilePhotoUrl: _uploadedProfilePhotoUrl,
+              socialEditable: true,
+              onAddSocialLink: (platform) => _addSocialLink(profile, platform),
+              descriptionEditable: true,
+              onSaveDescription: _saveDescription,
+              ownerMode: true,
+              onEditProfilePressed: _onEditProfilePressed,
+              venueEditable: true,
+              onEditVenues: () => _editVenues(profile.id),
+              onRefresh: _refreshProfile,
+            ),
           );
         },
       ),
@@ -192,7 +263,7 @@ class _MusicianPublicProfileViewState
     }
     _managementPanelOpened = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+      if (!_canPresent) return;
       final session = ProfileActionSession(
         roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
       );
@@ -219,7 +290,7 @@ class _MusicianPublicProfileViewState
     if (completionEditor == null || _completionTaskOpened) return;
     _completionTaskOpened = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+      if (!_canPresent) return;
       final session = ProfileActionSession(
         roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
       );
@@ -264,7 +335,7 @@ class _MusicianPublicProfileViewState
     }
     _incomingVenueApplicationsOpened = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+      if (!_canPresent) return;
       final session = ProfileActionSession(
         roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
       );
@@ -273,6 +344,7 @@ class _MusicianPublicProfileViewState
         context: context,
         musicianProfileId: profile.id,
         mode: _MusicianVenueApplicationListMode.incoming,
+        forwardNotificationRead: true,
       );
       if (mounted && session.isCurrent) await _refreshProfile();
     });

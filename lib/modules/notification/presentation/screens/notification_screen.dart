@@ -1,6 +1,11 @@
-import '../../../overthinking/presentation/screens/overthinking_session_guard.dart';
+import 'inbox_product_notification_open.dart';
+import '../notification_direct_open.dart';
+import 'band_notification_open_screen.dart';
+import 'venue_notification_open_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
+import 'follow_notification_open_screen.dart';
+import 'media_notification_open_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,42 +13,23 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/error/result.dart';
+import '../../../../core/push/push_provider.dart';
+import '../../../auth/presentation/screens/venue_application_decision_screen.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
-import '../../../collab/presentation/collab_route_args.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
 import '../../../dm/presentation/dm_profile_navigation.dart';
-import '../../../dm/presentation/screens/dm_chat_screen.dart';
-import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
-import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
-import '../../../overthinking/domain/overthinking_repository.dart';
-import '../../../overthinking/presentation/cubit/overthinking_feed_cubit.dart';
-import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
-import '../../../overthinking/presentation/screens/overthinking_manage_screen.dart';
+import '../../../dm/presentation/screens/dm_notification_open_screen.dart';
 import '../../../profile/domain/entities/listener_visibility_context.dart';
-import '../../../profile/domain/entities/event_performer_request.dart';
-import '../../../profile/domain/entities/venue_event_detail.dart';
-import '../../../profile/domain/venue_event_repository.dart';
-import '../../../profile/domain/event_plan_repository.dart';
-import '../../../profile/domain/venue_profile_repository.dart';
-import '../../../profile/presentation/screens/band_invite_decision_screen.dart';
 import '../../../profile/presentation/screens/band_profile_screen.dart';
-import '../../../profile/presentation/screens/event_invitation_navigation.dart';
-import '../../../profile/presentation/screens/event_management_hub.dart';
-import '../../../profile/presentation/screens/venue_event_plan_screen.dart';
-import '../../../profile/presentation/screens/musician_profile_screen.dart';
-import '../../../profile/presentation/screens/media_detail_screen.dart';
-import '../../../profile/presentation/screens/profile_route_args.dart';
-import '../../../profile/presentation/screens/studio_profile_screen.dart';
-import '../../../profile/presentation/screens/weekly_event_detail_screen.dart';
-import '../../../tablegroup/presentation/screens/table_group_detail_screen.dart';
+import 'studio_reservation_notification_open_screen.dart';
+import 'table_notification_open_screen.dart';
 import '../../domain/entities/app_notification.dart';
-import '../../data/notification_media_repository.dart';
 import '../cubit/notification_cubit.dart';
 import '../cubit/notification_state.dart';
+import '../notification_target_read.dart';
 
 part 'notification_screen_support_widgets.dart';
 
@@ -63,7 +49,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(context.read<NotificationCubit>().markAllAsRead());
+      unawaited(context.read<NotificationCubit>().refresh());
     });
   }
 
@@ -209,6 +195,30 @@ class _NotificationTile extends StatefulWidget {
 
 class _NotificationTileState extends State<_NotificationTile> {
   bool _openingTarget = false;
+  NotificationTargetRead? _readTicket;
+  ModalRoute<dynamic>? _originRoute;
+
+  bool get _currentOpen =>
+      mounted &&
+      _readTicket?.isCurrent == true &&
+      _readTicket?.notification.id == notification.id &&
+      _originRoute?.isCurrent != false &&
+      (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
+
+  Future<void> _pushNamedTarget(
+    String name, {
+    Object? arguments,
+    bool acknowledge = true,
+  }) async {
+    if (!_currentOpen) return;
+    await Navigator.of(context).pushNamed<void>(
+      name,
+      arguments: acknowledge && !notification.read
+          ? _readTicket!.argumentsFor(name, arguments: arguments)
+          : arguments,
+    );
+  }
 
   AppNotification get notification => widget.notification;
 
@@ -288,9 +298,9 @@ class _NotificationTileState extends State<_NotificationTile> {
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: AppColors.isLight
-                                  ? const Color(0xFFB63B49)
-                                  : AppColors.coralAlt,
+                              gradient: LinearGradient(
+                                colors: AppColors.brandGradient,
+                              ),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -332,23 +342,51 @@ class _NotificationTileState extends State<_NotificationTile> {
 
   Future<void> _handleTap(BuildContext context) async {
     if (_openingTarget) return;
+    _readTicket = NotificationTargetRead(
+      notification: notification,
+      cubit: context.read<NotificationCubit>(),
+      sessions: serviceLocator<AuthSessionManager>(),
+    );
+    _originRoute = ModalRoute.of(context);
+    if (!_currentOpen) return;
     setState(() => _openingTarget = true);
-    unawaited(context.read<NotificationCubit>().markAsRead(notification));
     try {
-      if (notification.type == 'SOCIAL_LIKE' ||
-          notification.type == 'SOCIAL_COMMENT') {
-        await _openMediaEngagementTarget(context);
+      if (PushTarget.venueApplicationTypes.contains(notification.type)) {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => VenueApplicationDecisionScreen(
+              target: PushTarget(
+                notificationId: notification.id,
+                recipientId: notification.recipientId,
+                type: notification.type,
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      if (PushTarget.followTypes.contains(notification.type)) {
+        await _openDirect(
+          FollowNotificationOpenScreen(target: _pushTargetFor()),
+        );
+        return;
+      }
+      if (PushTarget.mediaTypes.contains(notification.type)) {
+        await _openDirect(
+          MediaNotificationOpenScreen(target: _pushTargetFor()),
+        );
         return;
       }
       if (_isDmNotification(notification)) {
-        final senderId =
-            notification.payload['senderId']?.toString().trim() ?? '';
-        if (senderId.isEmpty) return;
-        final args = await _resolveDmChatArgs(notification, senderId);
-        if (!context.mounted) return;
-        await Navigator.of(
-          context,
-        ).pushNamed(AppRoutes.dmChat, arguments: args);
+        await _openDirect(
+          DmNotificationOpenScreen(
+            target: _pushTargetFor(
+              conversationId: notification.payload['conversationId']
+                  ?.toString()
+                  .trim(),
+            ),
+          ),
+        );
         return;
       }
       if (_isStudioNotification(notification)) {
@@ -382,6 +420,18 @@ class _NotificationTileState extends State<_NotificationTile> {
       if (_isBandNotification(notification)) {
         await _openBandTarget(context, notification);
       }
+    } catch (_) {
+      if (context.mounted && _currentOpen) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: const Text(
+              'Bildirim hedefi şu anda açılamıyor. Tekrar dene.',
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _openingTarget = false);
     }
@@ -392,66 +442,18 @@ class _NotificationTileState extends State<_NotificationTile> {
     return module == 'DM' || notification.type.startsWith('DM');
   }
 
-  Future<void> _openMediaEngagementTarget(BuildContext context) async {
-    final sessions = serviceLocator<AuthSessionManager>();
-    final session = sessions.session;
-    final route = ModalRoute.of(context);
-    final notificationId = notification.id;
-    final targetId = notification.payload['targetId']?.toString().trim() ?? '';
-    if (notification.payload['targetType'] != 'MEDIA' || targetId.isEmpty) {
-      return;
-    }
-    final result = await serviceLocator<NotificationMediaRepository>().resolve(
-      notificationId,
-      targetId,
-    );
-    if (!context.mounted ||
-        !identical(session, sessions.session) ||
-        notification.id != notificationId ||
-        (route != null && !route.isCurrent)) {
-      return;
-    }
-    final media = result.data;
-    if (!result.isSuccess || media == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        appSnackBar(
-          context,
-          tone: AppSnackBarTone.error,
-          content: const Text(
-            'İçerik şu anda açılamıyor. Silinmiş, gizlenmiş veya bağlantı kesilmiş olabilir.',
-          ),
-        ),
-      );
-      return;
-    }
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider(
-              create: (_) => serviceLocator<InteractionStatsCubit>(),
-            ),
-            BlocProvider(create: (_) => serviceLocator<CommentThreadCubit>()),
-          ],
-          child: MediaDetailScreen(
-            title: media.title?.trim().isNotEmpty == true
-                ? media.title!
-                : 'İçerik',
-            isVideo: media.kind == 'VIDEO',
-            isImage: media.kind == 'IMAGE',
-            playbackUrl: media.playbackUrl ?? media.sourceUrl,
-            imageUrl: media.sourceUrl,
-            thumbnailUrl: media.thumbnailUrl,
-            durationSeconds: media.durationSeconds,
-            targetType: 'MEDIA',
-            targetId: media.id,
-            likeCount: null,
-            commentCount: null,
-          ),
-        ),
-      ),
-    );
-  }
+  PushTarget _pushTargetFor({String? conversationId}) => PushTarget(
+    notificationId: notification.id,
+    recipientId: notification.recipientId,
+    type: notification.type,
+    conversationId: conversationId,
+  );
+
+  Future<void> _openDirect(Widget opener) => NotificationDirectOpen.start(
+    context,
+    identity: notification.id,
+    builder: (_) => opener,
+  );
 
   bool get _isGhostContextualIdentity {
     final Object? rawVisibility;
@@ -473,14 +475,7 @@ class _NotificationTileState extends State<_NotificationTile> {
   Future<void> _openCollabTarget(
     BuildContext context,
     AppNotification notification,
-  ) async {
-    await Navigator.of(context).pushNamed(
-      AppRoutes.collabDiscovery,
-      arguments: CollabDiscoveryRouteArgs.fromNotificationPayload(
-        notification.payload,
-      ),
-    );
-  }
+  ) => _openDirect(InboxProductNotificationOpen(notification: notification));
 
   bool _isStudioNotification(AppNotification notification) {
     final module = notification.payload['module']?.toString().trim() ?? '';
@@ -491,111 +486,9 @@ class _NotificationTileState extends State<_NotificationTile> {
   Future<void> _openStudioReservationTarget(
     BuildContext context,
     AppNotification notification,
-  ) async {
-    final roomId = notification.payload['roomId']?.toString().trim() ?? '';
-    final studioProfileId =
-        notification.payload['studioProfileId']?.toString().trim() ?? '';
-    if (studioProfileId.isEmpty) return;
-    final action = notification.payload['action']?.toString().trim() ?? '';
-    if (action == 'CANCELLED_BY_STUDIO_ROOM_ARCHIVED') {
-      await Navigator.of(context).pushNamed(
-        AppRoutes.studioPublicProfile,
-        arguments: PublicProfileArgs(profileId: studioProfileId),
-      );
-      return;
-    }
-    if (roomId.isEmpty) return;
-    final ownerMode =
-        notification.type == 'STUDIO_RESERVATION_CREATED' ||
-        notification.type == 'STUDIO_RESERVATION_CONFLICTING_REQUESTS' ||
-        notification.type == 'STUDIO_RESERVATION_CANCELLED_BY_CUSTOMER';
-    final zoneId =
-        notification.payload['zoneId']?.toString().trim() ?? 'Europe/Istanbul';
-    final reservationDate = DateTime.tryParse(
-      notification.payload['localDate']?.toString().trim() ?? '',
-    );
-    final reservationId = notification.payload['reservationId']
-        ?.toString()
-        .trim();
-    await Navigator.of(context).pushNamed(
-      AppRoutes.studioReservationCalendar,
-      arguments: StudioReservationCalendarArgs(
-        roomId: roomId,
-        studioProfileId: studioProfileId,
-        ownerMode: ownerMode,
-        timeZone: zoneId.isEmpty ? 'Europe/Istanbul' : zoneId,
-        reservationDate: reservationDate,
-        reservationId: reservationId?.isEmpty == true ? null : reservationId,
-      ),
-    );
-  }
-
-  Future<DmChatScreenArgs> _resolveDmChatArgs(
-    AppNotification notification,
-    String senderId,
-  ) async {
-    final senderUsername =
-        notification.payload['senderUsername']?.toString().trim() ?? '';
-    final senderAvatarUrl = _senderAvatarUrl(notification.payload);
-    final senderVisibilityMode = parseContextualListenerVisibilityMode(
-      notification.payload['senderVisibilityMode'],
-    );
-    final conversationId = _cleanNullable(
-      notification.payload['conversationId']?.toString(),
-    );
-
-    if (senderVisibilityMode.isGhost) {
-      // Ghost notification payloads are sanitized by the backend at publish
-      // and read time. Do not allow a stale resolver/cache result to replace
-      // that authoritative identity or visibility marker.
-      return DmChatScreenArgs(
-        conversationId: conversationId,
-        otherUserId: senderId,
-        otherUsername: _cleanNullable(senderUsername),
-        otherUserProfilePicture: _cleanNullable(senderAvatarUrl),
-        otherUserVisibilityMode: senderVisibilityMode,
-      );
-    }
-
-    try {
-      final targets = await serviceLocator<DmUserProfileResolver>()
-          .resolveByUserId(userId: senderId, usernameHint: senderUsername);
-      final target = _preferredDmTarget(targets);
-      if (target != null) {
-        return DmChatScreenArgs(
-          conversationId: conversationId,
-          otherUserId: senderId,
-          otherUsername: target.displayName,
-          otherUserProfilePicture: _cleanNullable(target.imageUrl),
-          otherUserVisibilityMode: target.visibilityMode,
-        );
-      }
-    } catch (_) {
-      // Bildirimden mesaja giris, profil cozumu basarisiz olsa da calismali.
-    }
-
-    return DmChatScreenArgs(
-      conversationId: conversationId,
-      otherUserId: senderId,
-      otherUsername: _cleanNullable(senderUsername),
-      otherUserProfilePicture: _cleanNullable(senderAvatarUrl),
-      otherUserVisibilityMode: senderVisibilityMode,
-    );
-  }
-
-  DmProfileTarget? _preferredDmTarget(List<DmProfileTarget> targets) {
-    for (final target in targets) {
-      if (target.type == DmProfileTargetType.venue) {
-        return target;
-      }
-    }
-    return targets.isEmpty ? null : targets.first;
-  }
-
-  String? _cleanNullable(String? value) {
-    final trimmed = value?.trim() ?? '';
-    return trimmed.isEmpty ? null : trimmed;
-  }
+  ) => _openDirect(
+    StudioReservationNotificationOpenScreen(target: _pushTargetFor()),
+  );
 
   bool _isArtistVenueNotification(AppNotification notification) {
     final module = notification.payload['module']?.toString().trim() ?? '';
@@ -616,274 +509,8 @@ class _NotificationTileState extends State<_NotificationTile> {
     BuildContext context,
     AppNotification notification,
   ) async {
-    if (notification.payload['module']?.toString().trim().toUpperCase() ==
-        'EVENT_PLAN') {
-      await _openEventPlanTarget(context, notification);
-      return;
-    }
-    final type = notification.type.trim().toUpperCase();
-    final action =
-        notification.payload['action']?.toString().trim().toUpperCase() ?? '';
-    if (type == 'EVENT_PERFORMER_APPROVAL_REQUESTED' ||
-        action == 'APPROVAL_REQUESTED') {
-      final target = _performerInvitationTarget(notification);
-      if (target == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          appSnackBar(
-            context,
-            tone: AppSnackBarTone.error,
-            content: const Text('Davetin ait olduğu profil doğrulanamadı.'),
-          ),
-        );
-        return;
-      }
-      await openEventInvitations(
-        context,
-        targetType: target.type,
-        targetId: target.id,
-      );
-      return;
-    }
-
-    final eventId = notification.payload['eventId']?.toString().trim() ?? '';
-    if (eventId.isEmpty) {
-      final target = _performerInvitationTarget(notification);
-      if (target == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          appSnackBar(
-            context,
-            tone: AppSnackBarTone.error,
-            content: const Text('Davetin ait olduğu profil doğrulanamadı.'),
-          ),
-        );
-        return;
-      }
-      await openEventInvitations(
-        context,
-        targetType: target.type,
-        targetId: target.id,
-      );
-      return;
-    }
-
-    Result<VenueEventDetail> result;
-    try {
-      result = await serviceLocator<VenueEventRepository>().getDetail(eventId);
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        appSnackBar(
-          context,
-          tone: AppSnackBarTone.error,
-          content: const Text('Etkinlik ayrıntıları açılamadı.'),
-        ),
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    final detail = result.data;
-    if (!result.isSuccess || detail == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        appSnackBar(
-          context,
-          tone: AppSnackBarTone.error,
-          content: Text(
-            result.error?.message ?? 'Etkinlik ayrıntıları açılamadı.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    // The event detail is the current authorization source of truth. Never
-    // revive a performer link from a potentially stale notification payload.
-    final performerIdentity = detail.performerIdentity;
-    final musicianId = performerIdentity.musicianProfileId;
-    final bandId = performerIdentity.bandId;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => WeeklyEventDetailScreen(
-          event: WeeklyCalendarEvent(
-            id: eventId,
-            title:
-                _firstNonBlank(detail.title, notification.title) ?? 'Etkinlik',
-            artistName:
-                _firstNonBlank(
-                  detail.performerName,
-                  notification.payload['performerName']?.toString(),
-                ) ??
-                'Sanatçı',
-            artistProfileId: musicianId,
-            bandProfileId: bandId,
-            performerType: performerIdentity.performerType,
-            venueName:
-                _firstNonBlank(
-                  detail.venueName,
-                  notification.payload['venueName']?.toString(),
-                ) ??
-                'Mekan',
-            // Only live event data may authorize a venue link; an old
-            // notification can still contain a pending or rejected target.
-            venueId: _cleanNullable(detail.venueId),
-            city: detail.venueCity ?? '-',
-            district: detail.venueDistrict ?? '-',
-            neighborhood: detail.venueNeighborhood ?? '-',
-            eventDate: _notificationEventDate(detail.eventDate),
-            startTime: _shortEventTime(detail.startTime) ?? '-',
-            endTime: _shortEventTime(detail.endTime) ?? '-',
-            imageAssetPath: detail.posterImage,
-            description: detail.description?.trim() ?? '',
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openEventPlanTarget(
-    BuildContext context,
-    AppNotification notification,
-  ) async {
-    final sessions = serviceLocator<AuthSessionManager>();
-    final expected = sessions.session;
-    final route = ModalRoute.of(context);
-    bool current() =>
-        context.mounted &&
-        identical(sessions.session, expected) &&
-        expected.isAuthenticated &&
-        expected.isActive &&
-        route?.isCurrent != false;
-    final id = notification.payload['planId']?.toString().trim() ?? '';
-    if (!current() || id.isEmpty) return;
-    try {
-      if (expected.hasAnyRole(const ['VENUE', 'ROLE_VENUE'])) {
-        final result = await serviceLocator<EventPlanRepository>().getOwner(id);
-        if (!current()) return;
-        final plan = result.data;
-        if (!result.isSuccess || plan == null) {
-          throw StateError('Plan unavailable');
-        }
-        final owner = await serviceLocator<VenueProfileRepository>()
-            .getMyVenueProfileDetail(venueId: plan.definition.venueId);
-        if (!current()) return;
-        final profile = owner.data;
-        if (!owner.isSuccess ||
-            profile == null ||
-            profile.venueId != plan.definition.venueId ||
-            profile.ownerUserId != expected.userId) {
-          throw StateError('Owner changed');
-        }
-        if (!context.mounted) return;
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) =>
-                VenueEventPlanScreen(planId: id, ownerProfile: profile),
-          ),
-        );
-      } else {
-        final result = await serviceLocator<EventPlanRepository>().getPerformer(
-          id,
-        );
-        if (!current()) return;
-        final plan = result.data;
-        if (!result.isSuccess || plan == null) {
-          throw StateError('Plan unavailable');
-        }
-        final template = plan.definition.template;
-        final target = template.bandId ?? template.musicianProfileId;
-        if (target == null) throw StateError('Missing performer');
-        if (!context.mounted) return;
-        await openEventInvitations(
-          context,
-          targetType: template.bandId == null
-              ? EventPerformerTargetType.musician
-              : EventPerformerTargetType.band,
-          targetId: target,
-          destination: EventManagementDestination.plans,
-        );
-      }
-    } catch (_) {
-      if (!context.mounted || !current()) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        appSnackBar(
-          context,
-          tone: AppSnackBarTone.error,
-          content: const Text(
-            'Planın güncel bilgileri açılamadı. Davetlerden veya etkinlik yönetiminden tekrar dene.',
-          ),
-        ),
-      );
-    }
-  }
-
-  ({EventPerformerTargetType? type, String? id})? _performerInvitationTarget(
-    AppNotification notification,
-  ) {
-    final payload = notification.payload;
-    const identityFields = [
-      'performerType',
-      'targetType',
-      'musicianProfileId',
-      'bandId',
-      'targetId',
-    ];
-    // Truly legacy notifications resolve to the authenticated musician's own
-    // profile in the shared navigation guard, never to an aggregate band inbox.
-    if (identityFields.every((field) => payload[field] == null)) {
-      return (type: null, id: null);
-    }
-    if (identityFields.any(
-      (field) => payload[field] != null && payload[field] is! String,
-    )) {
-      return null;
-    }
-    final declared = _cleanNullable(
-      payload['performerType'] as String?,
-    )?.toUpperCase();
-    final alternate = _cleanNullable(
-      payload['targetType'] as String?,
-    )?.toUpperCase();
-    if (declared != null && alternate != null && declared != alternate) {
-      return null;
-    }
-    final type = declared ?? alternate;
-    final musicianId = _cleanNullable(payload['musicianProfileId'] as String?);
-    final bandId = _cleanNullable(payload['bandId'] as String?);
-    final targetId = _cleanNullable(payload['targetId'] as String?);
-    if (type == 'MUSICIAN' &&
-        musicianId != null &&
-        bandId == null &&
-        (targetId == null || targetId == musicianId)) {
-      return (type: EventPerformerTargetType.musician, id: musicianId);
-    }
-    if (type == 'BAND' &&
-        bandId != null &&
-        musicianId == null &&
-        (targetId == null || targetId == bandId)) {
-      return (type: EventPerformerTargetType.band, id: bandId);
-    }
-    return null;
-  }
-
-  String? _firstNonBlank(String? first, String? second) {
-    final normalizedFirst = first?.trim() ?? '';
-    if (normalizedFirst.isNotEmpty) return normalizedFirst;
-    final normalizedSecond = second?.trim() ?? '';
-    return normalizedSecond.isEmpty ? null : normalizedSecond;
-  }
-
-  String _notificationEventDate(DateTime? date) {
-    if (date == null) return '-';
-    return '${date.day.toString().padLeft(2, '0')}.'
-        '${date.month.toString().padLeft(2, '0')}.${date.year}';
-  }
-
-  String? _shortEventTime(String? raw) {
-    final value = raw?.trim() ?? '';
-    if (value.isEmpty) return null;
-    final pieces = value.split(':');
-    if (pieces.length < 2) return value;
-    return '${pieces[0].padLeft(2, '0')}:${pieces[1].padLeft(2, '0')}';
+    if (!_currentOpen) return;
+    await _openDirect(VenueNotificationOpenScreen(target: _pushTargetFor()));
   }
 
   bool _isOverthinkingNotification(AppNotification notification) {
@@ -910,163 +537,20 @@ class _NotificationTileState extends State<_NotificationTile> {
   Future<void> _openOverthinkingTarget(
     BuildContext context,
     AppNotification notification,
-  ) async {
-    final sessions = serviceLocator<AuthSessionManager>();
-    final session = sessions.session;
-    final sourceRoute = ModalRoute.of(context);
-    final notificationId = notification.id;
-    bool current() =>
-        context.mounted &&
-        identical(sessions.session, session) &&
-        session.isAuthenticated &&
-        session.isActive &&
-        !session.requiresListenerProfileChoice &&
-        session.userId == notification.recipientId &&
-        this.notification.id == notificationId &&
-        (sourceRoute == null || sourceRoute.isCurrent);
-    if (!context.mounted || !current()) return;
-    final type = notification.type;
-    final payload = notification.payload;
-    if (type == 'OVERTHINKING_REVEAL_REQUEST_RECEIVED') {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => identical(sessions.session, session)
-              ? const OverthinkingManageScreen(initialTabIndex: 1)
-              : const OverthinkingUnavailableScreen(),
-        ),
-      );
-      return;
-    }
-
-    if (type == 'OVERTHINKING_REVEAL_REQUEST_REJECTED') {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => identical(sessions.session, session)
-              ? const OverthinkingManageScreen(initialTabIndex: 2)
-              : const OverthinkingUnavailableScreen(),
-        ),
-      );
-      return;
-    }
-
-    final postId = payload['postId']?.toString().trim() ?? '';
-    if (postId.isEmpty) {
-      await Navigator.of(context).pushNamed(AppRoutes.overthinkingFeed);
-      return;
-    }
-
-    final result = await serviceLocator<OverthinkingRepository>().getDetail(
-      postId: postId,
-    );
-    if (!context.mounted || !current()) return;
-    if (!result.isSuccess || result.data == null) {
-      await Navigator.of(context).pushNamed(AppRoutes.overthinkingFeed);
-      return;
-    }
-
-    final detailCubit = serviceLocator<OverthinkingFeedCubit>()
-      ..refreshPost(result.data!.id);
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider(create: (_) => detailCubit),
-            BlocProvider(
-              create: (_) => serviceLocator<CommentThreadCubit>()
-                ..load(
-                  targetType: OverthinkingFeedCubit.targetType,
-                  targetId: result.data!.id,
-                ),
-            ),
-          ],
-          child: OverthinkingDetailScreen(
-            post: result.data!,
-            revealRequesting: false,
-          ),
-        ),
-      ),
-    );
-  }
+  ) => _openDirect(InboxProductNotificationOpen(notification: notification));
 
   Future<void> _openArtistVenueTarget(
     BuildContext context,
     Map<String, dynamic> payload,
   ) async {
-    final requestByType = payload['requestByType']?.toString().trim() ?? '';
-    final action = payload['action']?.toString().trim() ?? '';
-    final bandId = payload['bandId']?.toString().trim() ?? '';
-
-    final opensBand =
-        bandId.isNotEmpty &&
-        ((requestByType == 'BAND' && action != 'REQUEST_CREATED') ||
-            (requestByType == 'VENUE' && action == 'REQUEST_CREATED'));
-    if (opensBand) {
-      await Navigator.of(context).pushNamed(
-        AppRoutes.bandPublicProfile,
-        arguments: BandProfileScreenArgs(
-          bandId: bandId,
-          viewMode: BandProfileViewMode.public,
-        ),
-      );
-      return;
-    }
-
-    if (action == 'REQUEST_CREATED' &&
-        (requestByType == 'ARTIST' || requestByType == 'BAND')) {
-      await Navigator.of(context).pushNamed(
-        AppRoutes.venueProfile,
-        arguments: const VenueProfileArgs(openIncomingApplications: true),
-      );
-      return;
-    }
-
-    if (requestByType == 'VENUE') {
-      await Navigator.of(context).pushNamed(
-        action == 'REQUEST_CREATED'
-            ? AppRoutes.musicianProfile
-            : AppRoutes.venueProfile,
-        arguments: action == 'REQUEST_CREATED'
-            ? const MusicianProfileScreenArgs(
-                openIncomingVenueApplications: true,
-              )
-            : null,
-      );
-      return;
-    }
-
-    await Navigator.of(context).pushNamed(
-      action == 'REQUEST_CREATED'
-          ? AppRoutes.venueProfile
-          : AppRoutes.musicianProfile,
-    );
+    if (!_currentOpen) return;
+    await _openDirect(VenueNotificationOpenScreen(target: _pushTargetFor()));
   }
 
   Future<void> _openTableTarget(
     BuildContext context,
     AppNotification notification,
-  ) async {
-    final payload = notification.payload;
-    if (_shouldOpenTableList(notification.type)) {
-      await Navigator.of(context).pushNamed(AppRoutes.tableGroupList);
-      return;
-    }
-    final tableGroupId = payload['tableGroupId']?.toString().trim() ?? '';
-    if (tableGroupId.isEmpty) {
-      await Navigator.of(context).pushNamed(AppRoutes.tableGroupList);
-      return;
-    }
-    await Navigator.of(context).pushNamed(
-      AppRoutes.tableGroupDetail,
-      arguments: TableGroupDetailArgs(tableGroupId: tableGroupId),
-    );
-  }
-
-  bool _shouldOpenTableList(String type) {
-    return type == 'TABLE_JOIN_REQUEST_REJECTED' ||
-        type == 'TABLE_REMOVED' ||
-        type == 'TABLE_CANCELLED' ||
-        type == 'TABLE_EXPIRED';
-  }
+  ) => _openDirect(TableNotificationOpenScreen(notification: notification));
 
   Future<void> _openSocialTarget(
     BuildContext context,
@@ -1076,7 +560,7 @@ class _NotificationTileState extends State<_NotificationTile> {
     final action = payload['action']?.toString().trim() ?? '';
     final bandId = payload['bandId']?.toString().trim() ?? '';
     if (action == 'NEW_BAND_FOLLOWER' && bandId.isNotEmpty) {
-      await Navigator.of(context).pushNamed(
+      await _pushNamedTarget(
         AppRoutes.bandMemberProfile,
         arguments: BandProfileScreenArgs(
           bandId: bandId,
@@ -1099,7 +583,7 @@ class _NotificationTileState extends State<_NotificationTile> {
       userId: followerId,
       usernameHint: followerUsername,
     );
-    if (!context.mounted) return;
+    if (!context.mounted || !_currentOpen) return;
     final targets = resolvedTargets
         .map(
           (target) =>
@@ -1130,7 +614,7 @@ class _NotificationTileState extends State<_NotificationTile> {
       showDragHandle: true,
       builder: (_) => _SocialProfileTargetSheet(items: targets),
     );
-    if (!context.mounted || selected == null) return;
+    if (!context.mounted || selected == null || !_currentOpen) return;
     await _navigateToProfileTarget(context, selected);
   }
 
@@ -1140,69 +624,17 @@ class _NotificationTileState extends State<_NotificationTile> {
   ) async {
     final route = dmProfileRouteFor(target);
     if (route == null) return;
-    await Navigator.of(
-      context,
-    ).pushNamed(route.routeName, arguments: route.arguments);
+    await _pushNamedTarget(
+      route.routeName,
+      arguments: route.arguments,
+      acknowledge: route.routeName != AppRoutes.studioListenerInfo,
+    );
   }
 
   Future<void> _openBandTarget(
     BuildContext context,
     AppNotification notification,
-  ) async {
-    final action = notification.payload['action']?.toString().trim() ?? '';
-    final bandId = notification.payload['bandId']?.toString().trim() ?? '';
-    if (action == 'INVITE_RECEIVED' && bandId.isNotEmpty) {
-      final bandName =
-          notification.payload['bandName']?.toString().trim() ?? '';
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => BandInviteDecisionScreen(
-            args: BandInviteDecisionScreenArgs(
-              bandId: bandId,
-              bandName: bandName.isEmpty ? null : bandName,
-              title: notification.title,
-              message: notification.message,
-              invitationId: notification.payload['invitationId']
-                  ?.toString()
-                  .trim(),
-              expectedSessionKey: notification.recipientId,
-            ),
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (action == 'INVITE_RECEIVED' || action == 'MEMBER_REMOVED') {
-      await Navigator.of(context).pushNamed(AppRoutes.myBands);
-      return;
-    }
-    if (bandId.isEmpty) {
-      await Navigator.of(context).pushNamed(AppRoutes.myBands);
-      return;
-    }
-    await Navigator.of(context).pushNamed(
-      AppRoutes.bandMemberProfile,
-      arguments: BandProfileScreenArgs(
-        bandId: bandId,
-        viewMode: BandProfileViewMode.auto,
-      ),
-    );
-  }
-
-  String _senderAvatarUrl(Map<String, dynamic> payload) {
-    for (final key in const [
-      'senderAvatarUrl',
-      'senderProfilePictureUrl',
-      'senderProfilePicture',
-      'profilePictureUrl',
-      'avatarUrl',
-    ]) {
-      final value = payload[key]?.toString().trim() ?? '';
-      if (value.isNotEmpty) return value;
-    }
-    return '';
-  }
+  ) => _openDirect(BandNotificationOpenScreen(target: _pushTargetFor()));
 
   String _followerAvatarUrl(Map<String, dynamic> payload) {
     for (final key in const [

@@ -145,6 +145,12 @@ extension _StudioRoomDetailData on _StudioRoomDetailScreenState {
 
   void _openInitialReservationSheetIfPossible() {
     if (_initialReservationSheetHandled || !mounted) return;
+    // Notification deep links show the real selected reservation inline in the
+    // calendar. Its regular action sheet remains available on deliberate tap.
+    if (widget.notificationTarget != null) {
+      _initialReservationSheetHandled = true;
+      return;
+    }
     final reservationId = widget.initialReservationId?.trim() ?? '';
     if (reservationId.isEmpty) {
       _initialReservationSheetHandled = true;

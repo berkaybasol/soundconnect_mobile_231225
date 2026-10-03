@@ -330,6 +330,8 @@ Future<void> _capture(WidgetTester tester, GlobalKey key, String path) async {
 class _Badge extends Cubit<DmBadgeState> implements DmBadgeCubit {
   _Badge() : super(const DmBadgeState.initial());
   @override
+  Future<void> reconcileAfterResume() async {}
+  @override
   Future<void> ensureStarted() async {}
   @override
   Future<void> stop() async {}

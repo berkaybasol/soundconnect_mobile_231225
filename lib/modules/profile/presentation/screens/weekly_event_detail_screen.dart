@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -595,13 +596,16 @@ class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
         ),
       ),
     );
-    return TrackEventDetailView(
-      eventId: event.id,
-      enabled:
-          _analyticsEventVerified &&
-          (_venueProfile == null ||
-              _venueProfile!.ownerUserId != commentSession?.userId),
-      child: page,
+    return NotificationTargetReady(
+      ready: true,
+      child: TrackEventDetailView(
+        eventId: event.id,
+        enabled:
+            _analyticsEventVerified &&
+            (_venueProfile == null ||
+                _venueProfile!.ownerUserId != commentSession?.userId),
+        child: page,
+      ),
     );
   }
 }

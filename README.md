@@ -82,9 +82,13 @@ Release signing auto-loads `android/key.properties`. Release builds fail fast
 when the file or any required value is missing; debug signing is never used for
 a release artifact.
 
-Before the first Play Store upload, replace the temporary Android
-`applicationId` in `android/app/build.gradle.kts` with the reviewed permanent
-package identifier. Treat that identifier as immutable after publication.
+The permanent Android `applicationId` is `tr.com.soundconnect.app`, approved by
+the user on 2026-09-23. The isolated preview uses `tr.com.soundconnect.app.preview`.
+Use the permanent ID in Firebase Android registration, Play configuration, and
+Android App Links. The Kotlin namespace and Dart package name are independent
+implementation names and remain unchanged. Treat the application ID as immutable
+after publication. See [the identity migration note](docs/android-identity-20260923.md)
+for local installation behavior and verification status.
 
 Example `android/key.properties`:
 

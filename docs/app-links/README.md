@@ -18,6 +18,11 @@ scheme is a fallback only; public and shareable links must always remain HTTPS.
 
 ## Values still required before deployment
 
+The permanent Android application ID is `tr.com.soundconnect.app` (user-approved
+2026-09-23). The Android template uses this ID. iOS setup is deferred until general
+application development is complete; its existing identifier below must be
+reviewed again at that stage.
+
 - Android production SHA-256 signing certificate fingerprint. When Play App
   Signing is enabled, use the **App signing key certificate** fingerprint from
   Play Console, not the upload key. For non-Play distribution, use the release
@@ -30,7 +35,8 @@ scheme is a fallback only; public and shareable links must always remain HTTPS.
 Do not put placeholder values on the public domain. Copy the templates in this
 directory, replace their placeholders, then validate the resulting JSON.
 The Apple template uses the `appIDs` / `components` contract. The application
-deployment target is iOS 13 because `app_links` 7.0.0 requires iOS 13 or newer.
+deployment target is iOS 15 after the Firebase push foundation update; actual
+iOS build/signing and device verification remain pending.
 
 ## Files to publish on `soundconnect.com.tr`
 
@@ -66,9 +72,9 @@ Install a build signed with a fingerprint present in the deployed
 `assetlinks.json`, then run:
 
 ```shell
-adb shell pm set-app-links --package com.berkayb.soundconnect.soundconnect_23_12_25codx 0 all
-adb shell pm verify-app-links --re-verify com.berkayb.soundconnect.soundconnect_23_12_25codx
-adb shell pm get-app-links com.berkayb.soundconnect.soundconnect_23_12_25codx
+adb shell pm set-app-links --package tr.com.soundconnect.app 0 all
+adb shell pm verify-app-links --re-verify tr.com.soundconnect.app
+adb shell pm get-app-links tr.com.soundconnect.app
 adb shell am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "https://soundconnect.com.tr/is-birligi/ilan/550e8400-e29b-41d4-a716-446655440000"
 ```
 

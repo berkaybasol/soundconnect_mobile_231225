@@ -2,11 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/event_performer_request.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/musician_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_profile_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/event_performer_request_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_management_hub.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_invitation_navigation.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_performer_requests_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
@@ -21,7 +26,8 @@ void main() {
   late InvitationProfileRepository profiles;
   late InvitationRequests requests;
 
-  setUp(() {
+  setUp(() async {
+    await serviceLocator.reset();
     session = InvitationSession();
     personal = InvitationCalendar();
     band = InvitationCalendar();
@@ -30,10 +36,275 @@ void main() {
     requests = InvitationRequests();
   });
   tearDown(() async {
+    await serviceLocator.reset();
     session.dispose();
     await personal.dispose();
     await band.dispose();
   });
+
+  EventInvitationNavigationDependencies dependencies() =>
+      EventInvitationNavigationDependencies(
+        sessionKeyProvider: () => session.userId,
+        sessionChanges: session,
+        loadMyProfile: profiles.getMyProfile,
+        loadBand: bands.getBandById,
+        requests: requests,
+      );
+
+  Future<VoidCallback> origin(
+    WidgetTester tester,
+    GlobalKey<NavigatorState> key, {
+    bool push = false,
+    bool replace = false,
+    bool production = false,
+    EventPerformerTargetType type = EventPerformerTargetType.musician,
+    String id = 'musician-1',
+    EventManagementDestination destination =
+        EventManagementDestination.invitations,
+  }) async {
+    late VoidCallback open;
+    final page = Builder(
+      builder: (context) {
+        open = () => unawaited(
+          openEventInvitations(
+            context,
+            targetType: type,
+            targetId: id,
+            destination: destination,
+            dependencies: production ? null : dependencies(),
+          ),
+        );
+        return const Scaffold(body: Text('Entry origin'));
+      },
+    );
+    if (push) {
+      final route = MaterialPageRoute<void>(builder: (_) => page);
+      if (replace) {
+        unawaited(key.currentState!.pushReplacement(route));
+      } else {
+        unawaited(key.currentState!.push(route));
+      }
+    } else {
+      await tester.pumpWidget(MaterialApp(navigatorKey: key, home: page));
+    }
+    await tester.pumpAndSettle();
+    return open;
+  }
+
+  testWidgets('pending authority and retry share one origin entry', (
+    tester,
+  ) async {
+    final key = GlobalKey<NavigatorState>();
+    final pending = Completer<Result<MusicianProfile>>();
+    profiles.read = () => pending.future;
+    final open = await origin(tester, key);
+    open();
+    open();
+    await tester.pump();
+    expect(profiles.reads, 1);
+    pending.complete(
+      const Result.failure(AppError(code: 'offline', message: 'offline')),
+    );
+    await tester.pumpAndSettle();
+    open(); // The old origin is covered by its own retry dialog.
+    expect(profiles.reads, 1);
+    final retry = tester
+        .widget<GradientOutlineButton>(
+          find.byKey(const Key('event-invitations-retry')),
+        )
+        .onPressed!;
+    final retryPending = Completer<Result<MusicianProfile>>();
+    profiles.read = () => retryPending.future;
+    retry();
+    retry();
+    await tester.pumpAndSettle();
+    open();
+    open();
+    expect(profiles.reads, 2);
+    retryPending.complete(const Result.success(invitationProfile));
+    await tester.pumpAndSettle();
+    expect(requests.reads, 1);
+    expect(find.byType(EventPerformerRequestsScreen), findsOneWidget);
+  });
+
+  for (final removal in ['covered', 'popped', 'replaced']) {
+    testWidgets(
+      'old pending $removal origin cannot block or unlock newer entry',
+      (tester) async {
+        final key = GlobalKey<NavigatorState>();
+        await origin(tester, key);
+        final oldOpen = await origin(tester, key, push: true);
+        final oldPending = Completer<Result<MusicianProfile>>();
+        profiles.read = () => oldPending.future;
+        oldOpen();
+        await tester.pump();
+        if (removal == 'popped') {
+          key.currentState!.pop();
+          await tester.pumpAndSettle();
+        }
+        final newOpen = await origin(
+          tester,
+          key,
+          push: true,
+          replace: removal == 'replaced',
+        );
+        final newPending = Completer<Result<MusicianProfile>>();
+        profiles.read = () => newPending.future;
+        newOpen();
+        newOpen();
+        await tester.pump();
+        expect(profiles.reads, 2);
+        oldPending.complete(const Result.success(invitationProfile));
+        await tester.pumpAndSettle();
+        newOpen();
+        expect(profiles.reads, 2);
+        expect(requests.reads, 0);
+        newPending.complete(const Result.success(invitationProfile));
+        await tester.pumpAndSettle();
+        expect(requests.reads, 1);
+        expect(
+          find.byType(EventPerformerRequestsScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final completion in ['before-new', 'during-new']) {
+    testWidgets('same origin token replacement owns cleanup $completion', (
+      tester,
+    ) async {
+      serviceLocator.registerSingleton<AuthSessionManager>(session);
+      serviceLocator.registerSingleton<MusicianProfileRepository>(profiles);
+      serviceLocator.registerSingleton<EventPerformerRequestRepository>(
+        requests,
+      );
+      final key = GlobalKey<NavigatorState>();
+      final open = await origin(tester, key, production: true);
+      final oldPending = Completer<Result<MusicianProfile>>();
+      profiles.read = () => oldPending.future;
+      open();
+      await tester.pump();
+      session.switchTo(null);
+      session.switchTo('owner-1'); // Same user, new authenticated token.
+      if (completion == 'before-new') {
+        oldPending.complete(const Result.success(invitationProfile));
+        await tester.pumpAndSettle();
+      }
+      final newPending = Completer<Result<MusicianProfile>>();
+      profiles.read = () => newPending.future;
+      open();
+      open();
+      await tester.pump();
+      expect(profiles.reads, 2);
+      if (completion == 'during-new') {
+        oldPending.complete(const Result.success(invitationProfile));
+        await tester.pumpAndSettle();
+      }
+      open();
+      expect(profiles.reads, 2);
+      expect(requests.reads, 0);
+      newPending.complete(const Result.success(invitationProfile));
+      await tester.pumpAndSettle();
+      expect(requests.reads, 1);
+      expect(find.byType(EventPerformerRequestsScreen), findsOneWidget);
+    });
+  }
+
+  testWidgets('old destination closure cannot release a new pending origin', (
+    tester,
+  ) async {
+    final key = GlobalKey<NavigatorState>();
+    final first = await origin(tester, key);
+    first();
+    await tester.pumpAndSettle();
+    final oldRoute = ModalRoute.of(
+      tester.element(find.byType(EventPerformerRequestsScreen)),
+    )!;
+    final second = await origin(tester, key, push: true);
+    final pending = Completer<Result<MusicianProfile>>();
+    profiles.read = () => pending.future;
+    second();
+    await tester.pump();
+    key.currentState!.removeRoute(oldRoute);
+    await tester.pumpAndSettle();
+    second();
+    second();
+    expect(profiles.reads, 2);
+    pending.complete(const Result.success(invitationProfile));
+    await tester.pumpAndSettle();
+    expect(requests.reads, 2);
+    expect(
+      find.byType(EventPerformerRequestsScreen, skipOffstage: false),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('new band and destination are independent of old musician list', (
+    tester,
+  ) async {
+    final key = GlobalKey<NavigatorState>();
+    (await origin(tester, key))();
+    await tester.pumpAndSettle();
+    bands.read = (id) async => Result.success(invitationBand(id: id));
+    (await origin(
+      tester,
+      key,
+      push: true,
+      type: EventPerformerTargetType.band,
+      id: 'band-2',
+      destination: EventManagementDestination.rejected,
+    ))();
+    await tester.pumpAndSettle();
+    final screen = tester.widget<EventPerformerRequestsScreen>(
+      find.byType(EventPerformerRequestsScreen),
+    );
+    expect(screen.targetType, EventPerformerTargetType.band);
+    expect(screen.targetId, 'band-2');
+    expect(screen.status, EventPerformerRequestStatus.rejected);
+    expect(bands.ids, ['band-2']);
+    expect(requests.reads, 2);
+    expect(
+      find.byType(EventPerformerRequestsScreen, skipOffstage: false),
+      findsNWidgets(2),
+    );
+  });
+
+  for (final invalid in ['MEMBER', 'LEFT', 'wrong-band']) {
+    testWidgets('existing invitation cannot authorize second band $invalid', (
+      tester,
+    ) async {
+      final key = GlobalKey<NavigatorState>();
+      (await origin(tester, key))();
+      await tester.pumpAndSettle();
+      bands.read = (_) async => Result.success(
+        invitationBand(
+          id: invalid == 'wrong-band' ? 'other-band' : 'band-2',
+          role: invalid == 'MEMBER' ? 'MEMBER' : 'FOUNDER',
+          status: invalid == 'LEFT' ? 'LEFT' : 'ACTIVE',
+        ),
+      );
+      (await origin(
+        tester,
+        key,
+        push: true,
+        type: EventPerformerTargetType.band,
+        id: 'band-2',
+      ))();
+      await tester.pumpAndSettle();
+      expect(bands.ids, ['band-2']);
+      expect(requests.reads, 1);
+      expect(
+        find.byKey(const Key('event-invitations-unavailable')),
+        findsOneWidget,
+      );
+      expect(
+        find.byType(EventPerformerRequestsScreen, skipOffstage: false),
+        findsOneWidget,
+      );
+    });
+  }
 
   Future<void> launch(
     WidgetTester tester, {

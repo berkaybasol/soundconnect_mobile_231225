@@ -6,6 +6,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_commands.dart';
 import '../../domain/collab_types.dart';
@@ -216,7 +217,12 @@ class _DetailViewState extends State<_DetailView> {
               const SizedBox(width: 5),
             ],
           ),
-          body: _buildBody(context, state),
+          body: NotificationTargetReady(
+            ready:
+                state.status == CollabLoadStatus.success &&
+                state.listing?.id == widget.listingId,
+            child: _buildBody(context, state),
+          ),
           bottomNavigationBar: widget.showBottomNavigation
               ? ProfilePublicBottomBar(currentIndex: 1)
               : null,

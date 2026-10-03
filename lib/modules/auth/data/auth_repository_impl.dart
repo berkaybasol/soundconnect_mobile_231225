@@ -206,9 +206,10 @@ class AuthRepositoryImpl implements AuthRepository {
           if (json is! Map<String, dynamic>) {
             throw const FormatException('Invalid verification response');
           }
-          return VerifyCodeResult(
-            listenerSession: LoginResponse.fromJson(json).toEntity(),
-          );
+          final session = LoginResponse.fromJson(json).toEntity();
+          return session.sessionScope == 'VENUE_APPLICATION'
+              ? VerifyCodeResult(venueApplicationSession: session)
+              : VerifyCodeResult(listenerSession: session);
         },
       );
       return Result.success(response);

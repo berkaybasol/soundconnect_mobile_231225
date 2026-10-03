@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../artist_venue/domain/artist_venue_application_page.dart';
 import '../../../artist_venue/domain/artist_venue_failure_policy.dart';
 import 'application_paging_footer.dart';
@@ -103,10 +104,7 @@ class MusicianProfileScreen extends StatelessWidget {
     Theme.of(context);
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) =>
-              serviceLocator<MusicianProfileCubit>()..loadMyProfile(),
-        ),
+        BlocProvider(create: (_) => serviceLocator<MusicianProfileCubit>()),
         BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),

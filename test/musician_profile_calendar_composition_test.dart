@@ -248,6 +248,11 @@ void main() {
 Future<void> _pumpProfile(WidgetTester tester, {required bool owner}) async {
   await tester.binding.setSurfaceSize(const Size(390, 1700));
   addTearDown(() => tester.binding.setSurfaceSize(null));
+  if (owner && !serviceLocator.isRegistered<AuthSessionManager>()) {
+    serviceLocator.registerSingleton<AuthSessionManager>(
+      _Sessions('musician-user'),
+    );
+  }
   await tester.pumpWidget(
     MaterialApp(
       theme: ThemeData.dark(useMaterial3: true),
@@ -400,6 +405,9 @@ class _VenueDirectoryRepository extends Fake
 class _EngagementRepository extends Fake implements EngagementRepository {}
 
 class _BadgeCubit extends Cubit<DmBadgeState> implements DmBadgeCubit {
+  @override
+  Future<void> reconcileAfterResume() async {}
+
   _BadgeCubit() : super(const DmBadgeState.initial());
 
   @override

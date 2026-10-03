@@ -5,12 +5,16 @@ class JwtClaims {
   final List<String> roles;
   final List<String> permissions;
   final DateTime expiresAt;
+  final String? sessionScope;
+  final String? applicationId;
 
   const JwtClaims({
     required this.subject,
     required this.roles,
     required this.permissions,
     required this.expiresAt,
+    this.sessionScope,
+    this.applicationId,
   });
 
   static JwtClaims? tryParse(
@@ -42,7 +46,29 @@ class JwtClaims {
       final subject = decoded['sub']?.toString().trim();
       if (subject == null || subject.isEmpty) return null;
 
+      final scope = decoded['scope'];
+      final applicationId = decoded['applicationId'];
+      if (decoded.containsKey('scope') ||
+          decoded.containsKey('applicationId')) {
+        final uuid = RegExp(
+          r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        );
+        if (scope != 'VENUE_APPLICATION' ||
+            applicationId is! String ||
+            !uuid.hasMatch(applicationId) ||
+            !uuid.hasMatch(subject) ||
+            decoded.containsKey('roles') ||
+            decoded.containsKey('permissions') ||
+            decoded.containsKey('authorities') ||
+            decoded.containsKey('role')) {
+          return null;
+        }
+      }
       return JwtClaims(
+        sessionScope: scope as String?,
+        applicationId: scope == 'VENUE_APPLICATION'
+            ? applicationId as String
+            : null,
         subject: subject,
         roles: _stringList(
           decoded['roles'] ?? decoded['authorities'] ?? decoded['role'],

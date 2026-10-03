@@ -68,6 +68,7 @@ void main() {
           await cubit.close();
           await realtime.dispose();
         });
+        cubit.setVisible(true);
         await cubit.openOrCreateConversation(
           otherUserId: 'other',
           currentUserId: 'me',
@@ -362,6 +363,7 @@ void main() {
           await realtime.dispose();
         });
 
+        cubit.setVisible(true);
         await cubit.openOrCreateConversation(
           otherUserId: 'other',
           currentUserId: 'me',
@@ -382,7 +384,7 @@ void main() {
               .content,
           'updated',
         );
-        expect(repository.markedReadIds, containsAll(<String>['m-1']));
+        expect(repository.markedReadIds, containsAll(<String>['m-1', 'm-0']));
         expect(repository.requestedPages, <int>[0, 1]);
       },
     );
@@ -496,6 +498,19 @@ class _DmRepositoryFake implements DmRepository {
       conversations;
 
   @override
+  Future<Result<Page<DmConversationPreview>>> getMyConversationsPage({
+    String? cursor,
+    int size = 30,
+  }) async => conversations.isSuccess
+      ? Result.success(Page(items: conversations.data ?? [], hasNext: false))
+      : Result.failure(conversations.error);
+
+  @override
+  Future<Result<DmConversationPreview>> getConversationPreview({
+    required String conversationId,
+  }) => throw UnimplementedError();
+
+  @override
   Future<Result<int>> getUnreadCount() async => const Result.success(0);
 
   @override
@@ -526,6 +541,7 @@ class _DmRepositoryFake implements DmRepository {
     required String recipientId,
     required String content,
     String messageType = 'text',
+    String? clientMessageId,
   }) async {
     sentContents.add(content);
     lastMessageType = messageType;

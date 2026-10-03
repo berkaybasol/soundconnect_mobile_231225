@@ -1,4 +1,12 @@
+import '../../modules/auth/data/venue_application_repository.dart';
+import 'dart:async';
+
 import 'package:get_it/get_it.dart';
+import '../push/firebase_push_provider.dart';
+import '../push/push_coordinator.dart';
+import '../push/push_device_api.dart';
+import '../push/push_delivery_api.dart';
+import '../push/push_installation_store.dart';
 import '../../shared/images/private_media_image_cache.dart';
 import '../../modules/admin/data/musician_feed_report_admin_repository_impl.dart';
 import '../../modules/admin/data/marketplace_report_admin_repository.dart';
@@ -80,6 +88,7 @@ import '../../modules/instrument/domain/instrument_repository.dart';
 import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
 import '../../modules/notification/data/notification_realtime_client.dart';
 import '../../modules/notification/data/notification_repository_impl.dart';
+import '../../modules/notification/data/notification_target_repository.dart';
 import '../../modules/notification/data/notification_media_repository.dart';
 import '../../modules/notification/domain/notification_repository.dart';
 import '../../modules/notification/presentation/cubit/notification_cubit.dart';
@@ -308,6 +317,18 @@ void setupDependencies() {
     ..registerLazySingleton<NotificationRepository>(
       () => NotificationRepositoryImpl(serviceLocator<ApiClient>()),
     )
+    ..registerLazySingleton<VenueApplicationRepository>(
+      () => VenueApplicationRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<NotificationTargetRepository>(
+      () => NotificationTargetRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
     ..registerLazySingleton<NotificationMediaRepository>(
       () => NotificationMediaRepository(
         serviceLocator<ApiClient>(),
@@ -323,6 +344,8 @@ void setupDependencies() {
         serviceLocator<TokenStore>(),
         realtimeClient: serviceLocator<NotificationRealtimeClient>(),
         sessions: serviceLocator<AuthSessionManager>(),
+        onDeliveryStateChanged: () =>
+            serviceLocator<PushCoordinator>().reconcileDelivered(),
       ),
     )
     ..registerLazySingleton<MusicianProfileRepository>(
@@ -704,7 +727,10 @@ void setupDependencies() {
       ),
     )
     ..registerLazySingleton<DmRepository>(
-      () => DmRepositoryImpl(serviceLocator<ApiClient>()),
+      () => DmRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<DmUserProfileResolver>(
       () => DmUserProfileResolverImpl(
@@ -713,10 +739,30 @@ void setupDependencies() {
       ),
     )
     ..registerLazySingleton<DmRealtimeClient>(() => DmRealtimeClient())
+    ..registerLazySingleton<PushDeviceApi>(
+      () => HttpPushDeviceApi(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<PushCoordinator>(
+      () => PushCoordinator(
+        sessions: serviceLocator<AuthSessionManager>(),
+        provider: FirebasePushProvider(),
+        api: serviceLocator<PushDeviceApi>(),
+        deliveryApi: HttpPushDeliveryApi(serviceLocator<ApiClient>()),
+        store: SharedPreferencesPushInstallationStore(),
+        reconcileUnread: () async {
+          await Future.wait([
+            serviceLocator<NotificationCubit>().reconcileAfterResume(),
+            serviceLocator<DmBadgeCubit>().reconcileAfterResume(),
+          ]);
+        },
+      ),
+      dispose: (coordinator) => coordinator.dispose(),
+    )
     ..registerLazySingleton<DmBadgeCubit>(
       () => DmBadgeCubit(
         serviceLocator<DmRepository>(),
         serviceLocator<TokenStore>(),
+        sessions: serviceLocator<AuthSessionManager>(),
         realtimeClient: serviceLocator<DmRealtimeClient>(),
       ),
     )
@@ -724,6 +770,7 @@ void setupDependencies() {
       () => DmConversationsCubit(
         serviceLocator<DmRepository>(),
         serviceLocator<TokenStore>(),
+        sessions: serviceLocator<AuthSessionManager>(),
         realtimeClient: serviceLocator<DmRealtimeClient>(),
       ),
     )
@@ -731,7 +778,14 @@ void setupDependencies() {
       () => DmChatCubit(
         serviceLocator<DmRepository>(),
         serviceLocator<TokenStore>(),
+        sessions: serviceLocator<AuthSessionManager>(),
         realtimeClient: serviceLocator<DmRealtimeClient>(),
+        onReadAcknowledged: (messageId) {
+          serviceLocator<NotificationCubit>().markDmMessageAsReadLocally(
+            messageId,
+          );
+          unawaited(serviceLocator<PushCoordinator>().reconcileDelivered());
+        },
       ),
     );
 }

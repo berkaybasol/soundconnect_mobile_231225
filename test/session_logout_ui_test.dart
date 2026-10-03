@@ -77,6 +77,9 @@ void main() {
     await tester.tap(find.byKey(sessionLogoutButtonKey));
     await _openLogoutDialog(tester);
     await tester.tap(find.byKey(sessionLogoutConfirmKey));
+    // The manager was created by setUp outside the widget fake-async zone.
+    // Drain its credential-write chain before waiting for the busy icon.
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpAndSettle();
 
     expect(tokenStore.token, isNull);

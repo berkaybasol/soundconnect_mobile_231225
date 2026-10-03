@@ -10,6 +10,8 @@ const Key sessionLogoutMenuTileKey = Key('session-logout-menu-tile');
 const Key sessionLogoutConfirmKey = Key('session-logout-confirm');
 
 Future<bool> confirmAndLogoutSession(BuildContext context) async {
+  final manager = serviceLocator<AuthSessionManager>();
+  final session = manager.session;
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
@@ -105,8 +107,12 @@ Future<bool> confirmAndLogoutSession(BuildContext context) async {
     },
   );
 
-  if (confirmed != true || !context.mounted) return false;
-  await serviceLocator<AuthSessionManager>().logout();
+  if (confirmed != true ||
+      !context.mounted ||
+      !identical(manager.session, session)) {
+    return false;
+  }
+  await manager.logout();
   return true;
 }
 

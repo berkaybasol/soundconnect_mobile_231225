@@ -17,6 +17,7 @@ import '../../../instrument/domain/entities/instrument.dart';
 import '../../../instrument/domain/instrument_repository.dart';
 import '../../../location/domain/entities/city.dart';
 import '../../../location/domain/location_repository.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_commands.dart';
 import '../../domain/collab_discovery_models.dart';
@@ -152,18 +153,23 @@ class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
         return;
       case CollabDeepLinkTarget.listing:
         final listingId = args.initialListingId;
-        if (listingId != null) await _openListingId(listingId);
+        if (listingId != null) {
+          await _openListingId(listingId, notificationTarget: true);
+        }
         return;
       case CollabDeepLinkTarget.incomingApplications:
         final listingId = args.initialListingId;
         if (listingId != null) {
           await Navigator.of(context).push<void>(
-            collabPageRoute(
-              context: context,
-              builder: (_) => CollabIncomingApplicationsScreen(
-                listingId: listingId,
-                initialApplicationId: args.applicationId,
-                showBottomNavigation: widget.showBottomNavigation,
+            NotificationTargetRead.transfer(
+              context,
+              collabPageRoute<void>(
+                context: context,
+                builder: (_) => CollabIncomingApplicationsScreen(
+                  listingId: listingId,
+                  initialApplicationId: args.applicationId,
+                  showBottomNavigation: widget.showBottomNavigation,
+                ),
               ),
             ),
           );
@@ -171,12 +177,14 @@ class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
         return;
       case CollabDeepLinkTarget.myApplications:
         await _openMyApplicationsTarget(
+          notificationTarget: true,
           initialSection: CollabApplicationsSection.applications,
           initialApplicationId: args.applicationId,
         );
         return;
       case CollabDeepLinkTarget.jobs:
         await _openMyApplicationsTarget(
+          notificationTarget: true,
           initialSection: CollabApplicationsSection.jobs,
           initialJobId: args.jobId,
           initialAction: args.action,
@@ -184,6 +192,7 @@ class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
         return;
       case CollabDeepLinkTarget.reviews:
         await _openMyApplicationsTarget(
+          notificationTarget: true,
           initialSection: CollabApplicationsSection.jobs,
           initialJobId: args.jobId,
           initialReviewId: args.reviewId,
@@ -282,11 +291,21 @@ class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _DiscoveryHeader(
-                            onApplicationsTap: _openMyApplications,
-                            onJobsTap: _openMyJobs,
-                            onListingsTap: _openMyListings,
-                            onSavedTap: _openSavedListings,
+                          NotificationTargetReady(
+                            ready:
+                                state.status == CollabLoadStatus.success &&
+                                _routeArgsFor(widget).target ==
+                                    CollabDeepLinkTarget.discovery &&
+                                _routeArgsFor(
+                                      widget,
+                                    ).action?.trim().toUpperCase() ==
+                                    'REPORT_RESOLVED',
+                            child: _DiscoveryHeader(
+                              onApplicationsTap: _openMyApplications,
+                              onJobsTap: _openMyJobs,
+                              onListingsTap: _openMyListings,
+                              onSavedTap: _openSavedListings,
+                            ),
                           ),
                           const SizedBox(height: 18),
                           _CadenceSelector(
@@ -723,16 +742,22 @@ class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
     unawaited(_openListingId(listing.id));
   }
 
-  Future<void> _openListingId(String listingId) async {
-    await Navigator.of(context).push<void>(
-      collabPageRoute(
-        context: context,
-        builder: (_) => CollabListingDetailScreen(
-          listingId: listingId,
-          showBottomNavigation: widget.showBottomNavigation,
-          onListingChanged: _cubit.upsertListing,
-        ),
+  Future<void> _openListingId(
+    String listingId, {
+    bool notificationTarget = false,
+  }) async {
+    final route = collabPageRoute<void>(
+      context: context,
+      builder: (_) => CollabListingDetailScreen(
+        listingId: listingId,
+        showBottomNavigation: widget.showBottomNavigation,
+        onListingChanged: _cubit.upsertListing,
       ),
+    );
+    await Navigator.of(context).push<void>(
+      notificationTarget
+          ? NotificationTargetRead.transfer(context, route)
+          : route,
     );
     if (mounted) await _cubit.refresh();
   }
@@ -748,14 +773,15 @@ class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
   }
 
   Future<void> _openMyApplicationsTarget({
+    bool notificationTarget = false,
     CollabApplicationsSection initialSection =
         CollabApplicationsSection.applications,
     String? initialApplicationId,
     String? initialJobId,
     String? initialReviewId,
     String? initialAction,
-  }) => Navigator.of(context).push<void>(
-    collabPageRoute(
+  }) {
+    final route = collabPageRoute<void>(
       context: context,
       builder: (_) => CollabMyApplicationsScreen(
         showBottomNavigation: widget.showBottomNavigation,
@@ -765,8 +791,13 @@ class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
         initialReviewId: initialReviewId,
         initialAction: initialAction,
       ),
-    ),
-  );
+    );
+    return Navigator.of(context).push<void>(
+      notificationTarget
+          ? NotificationTargetRead.transfer(context, route)
+          : route,
+    );
+  }
 
   void _openMyListings() {
     Navigator.of(context).push<void>(

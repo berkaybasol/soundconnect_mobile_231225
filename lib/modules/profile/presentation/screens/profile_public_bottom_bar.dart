@@ -814,12 +814,13 @@ class _ForumIconWithBadge extends StatelessWidget {
             constraints: BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: AppColors.coralAlt,
-              shape: BoxShape.circle,
+              gradient: LinearGradient(colors: AppColors.brandGradient),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
               child: Text(
                 unreadCount > 99 ? '99+' : unreadCount.toString(),
+                textScaler: TextScaler.noScaling,
                 style: TextStyle(
                   color: AppColors.onAccent,
                   fontSize: 9,

@@ -258,6 +258,9 @@ Future<void> _mountAudio(WidgetTester tester, {bool studio = true}) async {
 }
 
 class _Badge extends Cubit<DmBadgeState> implements DmBadgeCubit {
+  @override
+  Future<void> reconcileAfterResume() async {}
+
   _Badge() : super(const DmBadgeState.initial());
   @override
   Future<void> ensureStarted() async {}

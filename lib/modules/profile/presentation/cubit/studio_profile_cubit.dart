@@ -34,13 +34,30 @@ class StudioProfileCubit extends Cubit<StudioProfileState> {
     );
   }
 
-  Future<void> loadPublicProfile(String profileId) async {
+  Future<void> loadPublicProfile(
+    String profileId, {
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     final generation = ++_loadGeneration;
     if (isClosed) return;
     emit(state.copyWith(status: StudioProfileStatus.loading, error: null));
     final result = await _repository.getPublicProfile(profileId);
     if (isClosed || generation != _loadGeneration) return;
     if (result.isSuccess && result.data != null) {
+      if (admitContent != null &&
+          !admitContent(result.data!, result.data!.id, result.data!.userId)) {
+        emit(
+          state.copyWith(
+            status: StudioProfileStatus.failure,
+            profile: null,
+            error: const AppError(
+              code: 'follow_target_changed',
+              message: 'Profil yüklenemedi. Tekrar dene.',
+            ),
+          ),
+        );
+        return;
+      }
       emit(
         state.copyWith(
           status: StudioProfileStatus.success,

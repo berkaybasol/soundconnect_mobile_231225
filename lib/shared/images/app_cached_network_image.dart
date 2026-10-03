@@ -27,6 +27,9 @@ class AppCachedNetworkImage extends StatefulWidget {
   final int? cacheHeight;
   final AppImageStateBuilder? placeholderBuilder;
   final AppImageStateBuilder? errorBuilder;
+
+  /// Invoked only for a decoded image frame, never a download or error frame.
+  final Widget Function(BuildContext, Widget)? loadedBuilder;
   final AppImageCacheProfile cacheProfile;
   final BaseCacheManager? cacheManager;
   final AppImageCacheManagerResolver? cacheManagerResolver;
@@ -45,6 +48,7 @@ class AppCachedNetworkImage extends StatefulWidget {
     this.cacheHeight,
     this.placeholderBuilder,
     this.errorBuilder,
+    this.loadedBuilder,
     this.cacheProfile = AppImageCacheProfile.compact,
     this.cacheManager,
     this.cacheManagerResolver,
@@ -170,6 +174,10 @@ class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
       gaplessPlayback: true,
       filterQuality: FilterQuality.medium,
       errorBuilder: (_, __, ___) => _error(context),
+      frameBuilder: (context, child, frame, synchronous) =>
+          frame != null || synchronous
+          ? (widget.loadedBuilder?.call(context, child) ?? child)
+          : _placeholder(context),
     );
   }
 
@@ -187,7 +195,9 @@ class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
         filterQuality: FilterQuality.medium,
         errorBuilder: (_, __, ___) => _error(context),
         frameBuilder: (context, child, frame, synchronous) =>
-            frame != null || synchronous ? child : _placeholder(context),
+            frame != null || synchronous
+            ? (widget.loadedBuilder?.call(context, child) ?? child)
+            : _placeholder(context),
       );
     }
     final stream = _fileStream;

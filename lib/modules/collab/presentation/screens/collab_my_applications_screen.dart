@@ -9,6 +9,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_commands.dart';
 import '../../domain/collab_types.dart';
@@ -113,6 +114,8 @@ class _CollabMyApplicationsScreenState
   bool _initialJobTargetScheduled = false;
   bool _initialJobRevealDeferred = false;
   bool _initialJobCompletedFallbackAttempted = false;
+  bool _notificationApplicationRevealed = false;
+  bool _notificationJobRevealed = false;
 
   @override
   void initState() {
@@ -335,23 +338,33 @@ class _CollabMyApplicationsScreenState
               key: application.id == widget.initialApplicationId?.trim()
                   ? _initialApplicationKey
                   : ValueKey<String>('collab-application-${application.id}'),
-              child: _OutgoingApplicationCard(
-                application: application,
-                busy: busy,
-                onSave: application.listing.isOpen
-                    ? () => _applicationsCubit.toggleSaved(application)
-                    : null,
-                onDetail: () => _openDetail(application.listing.id),
-                onMessage:
-                    application.listing.publisher.contactUserId.trim().isEmpty
-                    ? null
-                    : () => openCollabActorConversation(
-                        context,
-                        application.listing.publisher,
-                      ),
-                onWithdraw: application.isPending
-                    ? () => _confirmWithdraw(application)
-                    : null,
+              child: NotificationTargetReady(
+                requireVisibleBounds: true,
+                allowPartialVisibility: true,
+                contentIdentity: application,
+                ready:
+                    state.status == CollabLoadStatus.success &&
+                    _section == widget.initialSection &&
+                    _notificationApplicationRevealed &&
+                    application.id == widget.initialApplicationId?.trim(),
+                child: _OutgoingApplicationCard(
+                  application: application,
+                  busy: busy,
+                  onSave: application.listing.isOpen
+                      ? () => _applicationsCubit.toggleSaved(application)
+                      : null,
+                  onDetail: () => _openDetail(application.listing.id),
+                  onMessage:
+                      application.listing.publisher.contactUserId.trim().isEmpty
+                      ? null
+                      : () => openCollabActorConversation(
+                          context,
+                          application.listing.publisher,
+                        ),
+                  onWithdraw: application.isPending
+                      ? () => _confirmWithdraw(application)
+                      : null,
+                ),
               ),
             );
           },
@@ -393,22 +406,35 @@ class _CollabMyApplicationsScreenState
               key: job.id == widget.initialJobId?.trim()
                   ? _initialJobKey
                   : ValueKey<String>('collab-job-${job.id}'),
-              child: _JobCard(
-                job: job,
-                other: other,
-                busy: busy,
-                otherConfirmed: _otherConfirmed(job),
-                onProfile: () => openCollabActorProfile(context, other),
-                onMessage: other.contactUserId.trim().isEmpty
-                    ? null
-                    : () => openCollabActorConversation(context, other),
-                onDetail: () => _openDetail(job.listing.id),
-                onConfirm: !job.isCompleted && !job.confirmedByMe
-                    ? () => _confirmCompletion(job)
-                    : null,
-                onReview: job.isCompleted && !job.reviewedByMe
-                    ? () => _openReview(job)
-                    : null,
+              child: NotificationTargetReady(
+                requireVisibleBounds: true,
+                allowPartialVisibility: true,
+                contentIdentity: job,
+                ready:
+                    state.status == CollabLoadStatus.success &&
+                    _section == widget.initialSection &&
+                    _notificationJobRevealed &&
+                    job.id == widget.initialJobId?.trim() &&
+                    widget.initialReviewId?.trim().isNotEmpty != true &&
+                    widget.initialAction?.trim().toUpperCase() !=
+                        'REVIEW_RECEIVED',
+                child: _JobCard(
+                  job: job,
+                  other: other,
+                  busy: busy,
+                  otherConfirmed: _otherConfirmed(job),
+                  onProfile: () => openCollabActorProfile(context, other),
+                  onMessage: other.contactUserId.trim().isEmpty
+                      ? null
+                      : () => openCollabActorConversation(context, other),
+                  onDetail: () => _openDetail(job.listing.id),
+                  onConfirm: !job.isCompleted && !job.confirmedByMe
+                      ? () => _confirmCompletion(job)
+                      : null,
+                  onReview: job.isCompleted && !job.reviewedByMe
+                      ? () => _openReview(job)
+                      : null,
+                ),
               ),
             );
           },
@@ -490,9 +516,12 @@ class _CollabMyApplicationsScreenState
           estimatedItemExtent: 260,
         );
         if (!mounted) return;
-        _initialApplicationTargetScheduled = false;
-        _initialApplicationTargetHandled = revealed;
-        _initialApplicationRevealDeferred = !revealed;
+        setState(() {
+          _initialApplicationTargetScheduled = false;
+          _initialApplicationTargetHandled = revealed;
+          _initialApplicationRevealDeferred = !revealed;
+          _notificationApplicationRevealed = revealed;
+        });
         if (!revealed) {
           _showMessage(
             'Hedef başvuru yüklendi ancak otomatik kaydırılamadı. '
@@ -554,12 +583,15 @@ class _CollabMyApplicationsScreenState
               : target.applicant;
           unawaited(
             Navigator.of(context).push<void>(
-              collabPageRoute(
-                context: context,
-                builder: (_) => CollabActorReviewsScreen(
-                  actor: reviewedActor,
-                  initialReviewId: widget.initialReviewId,
-                  showBottomNavigation: widget.showBottomNavigation,
+              NotificationTargetRead.transfer(
+                context,
+                collabPageRoute<void>(
+                  context: context,
+                  builder: (_) => CollabActorReviewsScreen(
+                    actor: reviewedActor,
+                    initialReviewId: widget.initialReviewId,
+                    showBottomNavigation: widget.showBottomNavigation,
+                  ),
                 ),
               ),
             ),
@@ -582,9 +614,12 @@ class _CollabMyApplicationsScreenState
             estimatedItemExtent: 280,
           );
           if (!mounted) return;
-          _initialJobTargetScheduled = false;
-          _initialJobTargetHandled = revealed;
-          _initialJobRevealDeferred = !revealed;
+          setState(() {
+            _initialJobTargetScheduled = false;
+            _initialJobTargetHandled = revealed;
+            _initialJobRevealDeferred = !revealed;
+            _notificationJobRevealed = revealed;
+          });
           if (!revealed) {
             _showMessage(
               'Hedef Collab işi yüklendi ancak otomatik kaydırılamadı. '

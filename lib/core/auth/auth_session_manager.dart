@@ -39,6 +39,17 @@ class AuthSessionManager extends ChangeNotifier {
 
   Future<void>? _terminationInFlight;
   Timer? _expiryTimer;
+  int _credentialIntent = 0;
+
+  /// Changes before login/logout credential work, including guest-to-guest logout.
+  int get credentialRevision => _credentialIntent;
+  Future<void> _credentialWrites = Future<void>.value();
+
+  Future<T> _serializeCredentials<T>(Future<T> Function() action) {
+    final result = _credentialWrites.then((_) => action());
+    _credentialWrites = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
+  }
 
   Future<AuthSession> restore({Future<String?>? tokenOverride}) async {
     final isPreview = tokenOverride != null;
@@ -74,6 +85,7 @@ class AuthSessionManager extends ChangeNotifier {
     required String accountStatus,
     bool requiresListenerProfileChoice = false,
   }) async {
+    final intent = ++_credentialIntent;
     // Credential stores belong to the terminating session until its cleanup
     // completes. Otherwise a late clear could erase a newly committed login.
     final termination = _terminationInFlight;
@@ -90,17 +102,67 @@ class AuthSessionManager extends ChangeNotifier {
       throw const FormatException('Invalid or expired access token');
     }
 
-    // Metadata is written first; the token is the commit marker for restore.
+    await _serializeCredentials(() async {
+      if (intent != _credentialIntent) throw StateError('Session superseded');
+      // Metadata is written first; the token is the commit marker for restore.
+      await _sessionStore.write(metadata);
+      if (intent != _credentialIntent) throw StateError('Session superseded');
+      try {
+        await _tokenStore.writeToken(token.trim());
+      } catch (_) {
+        await _clearCredentialsBestEffort();
+        rethrow;
+      }
+      if (intent != _credentialIntent) throw StateError('Session superseded');
+      _setSession(next);
+    });
+  }
+
+  /// Only an authoritative approved application exchange may replace a limited
+  /// bearer. The queue prevents a delayed secure write from overwriting logout
+  /// or another login; identity checks prevent in-memory resurrection.
+  Future<bool> promoteVenueApplication({
+    required AuthSession expected,
+    required String token,
+    required String? username,
+  }) => _serializeCredentials(() async {
+    final intent = _credentialIntent;
+    if (!identical(_session, expected) || !expected.isVenueApplicationSession) {
+      return false;
+    }
+    final metadata = AuthSessionMetadata(
+      username: username,
+      accountStatus: 'ACTIVE',
+    );
+    final next = _sessionFromToken(token, metadata: metadata);
+    if (!next.isAuthenticated ||
+        !next.isActive ||
+        next.sessionScope != null ||
+        next.userId != expected.userId ||
+        !next.hasAnyRole(const ['ROLE_VENUE']) ||
+        next.requiresListenerProfileChoice) {
+      throw const FormatException('Invalid approved application session');
+    }
     await _sessionStore.write(metadata);
+    if (!identical(_session, expected) || intent != _credentialIntent) {
+      return false;
+    }
     try {
       await _tokenStore.writeToken(token.trim());
     } catch (_) {
-      // A failed commit must not leave an older token paired with new metadata.
-      await _clearCredentialsBestEffort();
+      // Restore the still-current restricted credential if commit failed.
+      if (identical(_session, expected)) {
+        await _tokenStore.writeToken(expected.token!);
+        await _restoreCurrentSessionMetadata();
+      }
       rethrow;
     }
+    if (!identical(_session, expected) || intent != _credentialIntent) {
+      return false;
+    }
     _setSession(next);
-  }
+    return true;
+  });
 
   Future<bool> updateUsername(
     String username, {
@@ -157,6 +219,8 @@ class AuthSessionManager extends ChangeNotifier {
         permissions: current.permissions,
         expiresAt: expiresAt,
         isAdmin: current.isAdmin,
+        sessionScope: current.sessionScope,
+        applicationId: current.applicationId,
         requiresListenerProfileChoice: current.requiresListenerProfileChoice,
       ),
     );
@@ -216,6 +280,8 @@ class AuthSessionManager extends ChangeNotifier {
         permissions: current.permissions,
         expiresAt: current.expiresAt!,
         isAdmin: current.isAdmin,
+        sessionScope: current.sessionScope,
+        applicationId: current.applicationId,
         requiresListenerProfileChoice: false,
       ),
     );
@@ -276,6 +342,8 @@ class AuthSessionManager extends ChangeNotifier {
         permissions: current.permissions,
         expiresAt: current.expiresAt!,
         isAdmin: current.isAdmin,
+        sessionScope: current.sessionScope,
+        applicationId: current.applicationId,
         requiresListenerProfileChoice: true,
       ),
     );
@@ -329,8 +397,9 @@ class AuthSessionManager extends ChangeNotifier {
   }
 
   Future<void> _terminateSessionInternal() async {
+    _credentialIntent++;
     _setSession(const AuthSession.guest());
-    await _clearCredentialsBestEffort();
+    await _serializeCredentials(_clearCredentialsBestEffort);
     try {
       await _onSessionEnded?.call();
     } catch (_) {
@@ -368,7 +437,9 @@ class AuthSessionManager extends ChangeNotifier {
     // metadata is only for UX fields that the token does not carry.
     final roles = claims.roles;
     final permissions = claims.permissions;
-    if (roles.isEmpty && metadata?.accountStatus == null) {
+    if (roles.isEmpty &&
+        metadata?.accountStatus == null &&
+        claims.sessionScope == null) {
       return const AuthSession.guest();
     }
     final normalizedRoles = roles.map((role) => role.toUpperCase()).toSet();
@@ -395,7 +466,11 @@ class AuthSessionManager extends ChangeNotifier {
       token: raw,
       userId: claims.subject,
       username: metadata?.username,
-      accountStatus: metadata?.accountStatus ?? 'ACTIVE',
+      accountStatus: claims.sessionScope == 'VENUE_APPLICATION'
+          ? 'PENDING_VENUE_REQUEST'
+          : metadata?.accountStatus ?? 'ACTIVE',
+      sessionScope: claims.sessionScope,
+      applicationId: claims.applicationId,
       roles: roles,
       permissions: permissions,
       expiresAt: claims.expiresAt,

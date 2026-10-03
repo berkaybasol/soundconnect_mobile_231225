@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_provider.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
@@ -17,6 +19,8 @@ import 'package:soundconnect_23_12_25codx/core/pagination/page.dart'
     as pagination;
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/collab_route_args.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_user_profile_resolver.dart';
+import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/dm/domain/entities/dm_conversation_preview.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/entities/dm_profile_target.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/screens/dm_chat_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/engagement_repository.dart';
@@ -25,11 +29,15 @@ import 'package:soundconnect_23_12_25codx/modules/notification/data/models/app_n
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_endpoints.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_realtime_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_repository_impl.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_target_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/studio_reservation_notification_target.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/app_notification.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/notification_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/notification_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/notification_target_read.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/studio_reservation_notification_open_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/event_performer_request.dart';
 
@@ -40,16 +48,105 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_profil
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/musician_calendar_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/data/band_calendar_repository_factory.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/venue_event_repository.dart';
-import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/event_performer_requests_screen.dart';
-import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/weekly_event_detail_screen.dart';
 
 import 'support/event_invitation_navigation_fakes.dart';
+import 'support/event_audience_fakes.dart';
+import 'support/studio_notification_product_fakes.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/studio/domain/studio_room_repository.dart';
 
 part 'notification_repository_cubit_test_cubit.dart';
 
+const _dmUser = '70000000-0000-4000-8000-000000000001';
+const _dmNotice = '50000000-0000-4000-8000-000000000001';
+const _dmConversation = '60000000-0000-4000-8000-000000000001';
+const _studioNotice = '80000000-0000-4000-8000-000000000001';
+
 void main() {
+  testWidgets(
+    'late event notification detail cannot open after account switch',
+    (tester) async {
+      await serviceLocator.reset();
+      addTearDown(serviceLocator.reset);
+      final sessions = AudienceTestSessions(
+        audienceSession(user: 'user-1', role: 'ROLE_VENUE'),
+      );
+      serviceLocator.registerSingleton<AuthSessionManager>(sessions);
+      addTearDown(sessions.dispose);
+      final detail = Completer<Result<VenueEventDetail>>();
+      final events = _DeferredEventRepository(detail);
+      serviceLocator.registerSingleton<VenueEventRepository>(events);
+      serviceLocator.registerSingleton<EngagementRepository>(
+        _PerformerNotificationEngagementRepository(),
+      );
+      serviceLocator.registerSingleton<MusicianProfileRepository>(
+        _PerformerNotificationMusicianRepository(),
+      );
+      final item = _notification(
+        'delayed-event',
+        type: 'EVENT_PERFORMER_APPROVED',
+        payload: const {
+          'module': 'EVENT_PERFORMER',
+          'action': 'APPROVED',
+          'eventId': 'event-1',
+        },
+      );
+      final repository = _NotificationRepositoryFake(
+        pages: {
+          0: Result.success(pagination.Page(items: [item], hasNext: false)),
+        },
+      );
+      final realtime = NotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.dispose();
+      });
+      _registerFreshNotificationTarget(cubit, item);
+      await tester.pumpWidget(
+        BlocProvider.value(
+          value: cubit,
+          child: MaterialApp(
+            navigatorObservers: [notificationTargetRouteObserver],
+            home: const NotificationScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('delayed-event'));
+      await tester.pump();
+      await tester.pump();
+      expect(events.reads, 1);
+      sessions.replace(
+        audienceSession(
+          user: 'replacement',
+          token: 'new-token',
+          role: 'ROLE_VENUE',
+        ),
+      );
+      detail.complete(
+        const Result.success(
+          VenueEventDetail(
+            id: 'event-1',
+            shareUrl: null,
+            posterImage: null,
+            performerName: 'Fixture',
+            musicianProfileId: null,
+            title: 'Old account event',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(WeeklyEventDetailScreen), findsNothing);
+    },
+  );
+
   test(
     'Collab notification actions select the intended management surface',
     () {
@@ -183,74 +280,98 @@ void main() {
 
   _registerNotificationCubitTests();
 
-  testWidgets('notification target opens before mark-as-read completes', (
-    tester,
-  ) async {
-    final notification = _notification(
-      'collab-pending-read',
-      type: 'COLLAB_APPLICATION_RECEIVED',
-      payload: const <String, dynamic>{
-        'module': 'COLLAB',
-        'action': 'APPLICATION_RECEIVED',
-        'listingId': 'listing-1',
-      },
-    );
-    final repository = _NotificationRepositoryFake(
-      pages: <int, Result<pagination.Page<AppNotification>>>{
-        0: Result.success(
-          pagination.Page<AppNotification>(
-            items: <AppNotification>[notification],
-            hasNext: false,
+  testWidgets(
+    'unresolved Collab notification stays on inbox without prematurely reading',
+    (tester) async {
+      final sessions = await _registerTapSession();
+      final notification = _notification(
+        'collab-pending-read',
+        type: 'COLLAB_APPLICATION_RECEIVED',
+        payload: const <String, dynamic>{
+          'module': 'COLLAB',
+          'action': 'APPLICATION_RECEIVED',
+          'listingId': 'listing-1',
+        },
+      );
+      final repository = _NotificationRepositoryFake(
+        pages: <int, Result<pagination.Page<AppNotification>>>{
+          0: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[notification],
+              hasNext: false,
+            ),
+          ),
+        },
+      )..markReadRequest = Completer<Result<void>>();
+      final realtime = _TestNotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        sessions: sessions,
+        realtimeClient: realtime,
+      );
+      addTearDown(() async {
+        if (!(repository.markReadRequest?.isCompleted ?? true)) {
+          repository.markReadRequest!.complete(const Result.success(null));
+        }
+        await cubit.close();
+        await realtime.closeStreams();
+      });
+      final lookup = Completer<Result<AppNotification>>();
+      serviceLocator.registerSingleton<NotificationTargetRepository>(
+        _FreshNotificationTarget(notification, lookup: lookup),
+      );
+      serviceLocator.registerSingleton<NotificationCubit>(cubit);
+      RouteSettings? pushedSettings;
+
+      await tester.pumpWidget(
+        BlocProvider<NotificationCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            navigatorObservers: [notificationTargetRouteObserver],
+            home: const NotificationScreen(),
+            onGenerateRoute: (settings) {
+              pushedSettings = _notificationRouteSettings(settings);
+              return _notificationTestRoute(settings, ready: true);
+            },
           ),
         ),
-      },
-    )..markReadRequest = Completer<Result<void>>();
-    final realtime = _TestNotificationRealtimeClient();
-    final cubit = NotificationCubit(
-      repository,
-      _MemoryTokenStore(),
-      realtimeClient: realtime,
-    );
-    addTearDown(() async {
-      if (!(repository.markReadRequest?.isCompleted ?? true)) {
-        repository.markReadRequest!.complete(const Result.success(null));
-      }
-      await cubit.close();
-      await realtime.closeStreams();
-    });
-    RouteSettings? pushedSettings;
+      );
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      BlocProvider<NotificationCubit>.value(
-        value: cubit,
-        child: MaterialApp(
-          home: const NotificationScreen(),
-          onGenerateRoute: (settings) {
-            pushedSettings = settings;
-            return MaterialPageRoute<void>(
-              settings: settings,
-              builder: (_) => const SizedBox.shrink(),
-            );
-          },
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('collab-pending-read'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('collab-pending-read'));
-    await tester.pump();
-
-    expect(pushedSettings?.name, AppRoutes.collabDiscovery);
-    expect(repository.markReadRequest!.isCompleted, isFalse);
-    repository.markReadRequest!.complete(const Result.success(null));
-    await tester.pump();
-  });
+      expect(pushedSettings, isNull);
+      expect(repository.markReadRequest!.isCompleted, isFalse);
+      expect(repository.markReadIds, isEmpty);
+      expect(repository.markAllCalls, 0);
+      expect(cubit.state.items.single.read, isFalse);
+      expect(find.byType(NotificationScreen), findsOneWidget);
+      lookup.complete(
+        const Result.failure(NotificationTargetRepository.unavailable),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Tekrar dene'), findsOneWidget);
+      expect(repository.markReadIds, isEmpty);
+    },
+  );
 
   testWidgets(
-    'customer cancellation notification opens the Studio owner calendar',
+    'customer cancellation resolves the exact current Studio owner reservation',
     (tester) async {
+      final sessions = await _registerTapSession(
+        user: _dmUser,
+        role: 'ROLE_STUDIO',
+      );
+      final targets = _StudioTargetRepository();
+      serviceLocator.registerSingleton<NotificationTargetRepository>(targets);
+      final rooms = StudioTargetRooms();
+      serviceLocator.registerSingleton<StudioRoomRepository>(rooms);
       final notification = _notification(
-        'cancelled-by-customer',
+        _studioNotice,
+        title: 'cancelled-by-customer',
+        recipientId: _dmUser,
         type: 'STUDIO_RESERVATION_CANCELLED_BY_CUSTOMER',
         payload: <String, dynamic>{
           'module': 'STUDIO',
@@ -276,8 +397,10 @@ void main() {
       final cubit = NotificationCubit(
         repository,
         _MemoryTokenStore(),
+        sessions: sessions,
         realtimeClient: realtime,
       );
+      serviceLocator.registerSingleton<NotificationCubit>(cubit);
       addTearDown(() async {
         await cubit.close();
         await realtime.dispose();
@@ -288,6 +411,7 @@ void main() {
         BlocProvider<NotificationCubit>.value(
           value: cubit,
           child: MaterialApp(
+            navigatorObservers: [notificationTargetRouteObserver],
             home: const NotificationScreen(),
             onGenerateRoute: (settings) {
               pushedSettings = settings;
@@ -303,21 +427,65 @@ void main() {
       await tester.tap(find.text('cancelled-by-customer'));
       await tester.pumpAndSettle();
 
-      expect(pushedSettings?.name, AppRoutes.studioReservationCalendar);
-      final args = pushedSettings?.arguments as StudioReservationCalendarArgs;
-      expect(args.ownerMode, isTrue);
-      expect(args.roomId, 'room-1');
-      expect(args.studioProfileId, 'studio-1');
-      expect(args.reservationId, 'reservation-1');
-      expect(args.reservationDate, DateTime(2026, 8, 3));
+      expect(
+        find.byType(StudioReservationNotificationOpenScreen),
+        findsNothing,
+      );
+      expect(find.byType(StudioReservationCalendarScreen), findsOneWidget);
+      final calendar = tester.widget<StudioReservationCalendarScreen>(
+        find.byType(StudioReservationCalendarScreen),
+      );
+      expect(calendar.args.roomId, studioTargetRoomId);
+      expect(calendar.args.studioProfileId, studioTargetProfileId);
+      expect(calendar.args.reservationId, studioTargetReservationId);
+      expect(calendar.args.reservationDate, DateTime(2026, 9, 28));
+      expect(calendar.args.ownerMode, isTrue);
+      expect(pushedSettings, isNull);
+      expect(targets.lookups.single.notificationId, notification.id);
+      expect(targets.lookups.single.recipientId, sessions.session.userId);
+      expect(targets.lookups.single.type, notification.type);
+      expect(find.text('Current verified room'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('studio-reservation-$studioTargetReservationId'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Seçili rezervasyon'), findsOneWidget);
+      expect(
+        find.text('Rezervasyon müşteri tarafından iptal edildi.'),
+        findsOneWidget,
+      );
+      expect(rooms.roomIds, [studioTargetRoomId]);
+      expect(rooms.ownerDates, contains(DateTime(2026, 9, 28)));
+      expect(targets.ackIds, [notification.id]);
+      expect(repository.markReadIds, isEmpty);
+      expect(repository.markAllCalls, 0);
+      expect(cubit.state.items.single.read, isTrue);
+      Navigator.of(
+        tester.element(find.byType(StudioReservationCalendarScreen)),
+      ).pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(NotificationScreen), findsOneWidget);
+      expect(
+        Navigator.of(tester.element(find.byType(NotificationScreen))).canPop(),
+        isFalse,
+      );
     },
   );
 
   testWidgets(
-    'archived-room cancellation opens the Studio profile instead of a dead room',
+    'archived-room cancellation stays unread on lookup failure then opens real studio profile',
     (tester) async {
+      final sessions = await _registerTapSession(user: _dmUser);
+      final targets = _StudioTargetRepository(archived: true)
+        ..failLookup = true;
+      serviceLocator.registerSingleton<NotificationTargetRepository>(targets);
+      final profiles = registerStudioTargetProfileSurface();
       final notification = _notification(
-        'archived-room',
+        _studioNotice,
+        title: 'archived-room',
+        recipientId: _dmUser,
         type: 'STUDIO_RESERVATION_CANCELLED_BY_STUDIO',
         payload: <String, dynamic>{
           'module': 'STUDIO',
@@ -325,6 +493,125 @@ void main() {
           'roomId': 'archived-room-1',
           'studioProfileId': 'studio-1',
           'reservationId': 'reservation-1',
+        },
+      );
+      final repository = _NotificationRepositoryFake(
+        pages: <int, Result<pagination.Page<AppNotification>>>{
+          0: Result.success(
+            pagination.Page<AppNotification>(
+              items: <AppNotification>[notification],
+              hasNext: false,
+            ),
+          ),
+        },
+      );
+      final realtime = NotificationRealtimeClient();
+      final cubit = NotificationCubit(
+        repository,
+        _MemoryTokenStore(),
+        sessions: sessions,
+        realtimeClient: realtime,
+      );
+      serviceLocator.registerSingleton<NotificationCubit>(cubit);
+      addTearDown(() async {
+        await cubit.close();
+        await realtime.dispose();
+      });
+      RouteSettings? pushedSettings;
+
+      await tester.pumpWidget(
+        BlocProvider<NotificationCubit>.value(
+          value: cubit,
+          child: MaterialApp(
+            navigatorObservers: [notificationTargetRouteObserver],
+            home: const NotificationScreen(),
+            onGenerateRoute: (settings) {
+              pushedSettings = settings;
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (_) => const SizedBox.shrink(),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('archived-room'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(StudioReservationNotificationOpenScreen),
+        findsNothing,
+      );
+      expect(
+        find.byType(
+          StudioReservationNotificationOpenScreen,
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(NotificationScreen), findsOneWidget);
+      expect(
+        Navigator.of(tester.element(find.byType(NotificationScreen))).canPop(),
+        isFalse,
+      );
+      expect(pushedSettings, isNull);
+      expect(find.text('Bu rezervasyon şu anda açılamıyor.'), findsOneWidget);
+      expect(targets.ackIds, isEmpty);
+      expect(repository.markReadIds, isEmpty);
+      expect(repository.markAllCalls, 0);
+      expect(cubit.state.items.single.read, isFalse);
+      targets.failLookup = false;
+      await tester.tap(find.text('Tekrar dene'));
+      await tester.pumpAndSettle();
+      expect(targets.lookups, hasLength(2));
+      expect(
+        targets.lookups.every(
+          (target) => target.notificationId == notification.id,
+        ),
+        isTrue,
+      );
+      expect(find.byType(StudioPublicProfileScreen), findsOneWidget);
+      expect(
+        find.byType(
+          StudioReservationNotificationOpenScreen,
+          skipOffstage: false,
+        ),
+        findsNothing,
+      );
+      expect(find.text('Current verified studio'), findsOneWidget);
+      expect(profiles.gets, 1);
+      expect(profiles.profileIds, [studioTargetProfileId]);
+      expect(find.text('Rezervasyonun odası arşivlendi.'), findsOneWidget);
+      expect(targets.ackIds, [notification.id]);
+      expect(cubit.state.items.single.read, isTrue);
+      expect(repository.markReadIds, isEmpty);
+      expect(repository.markAllCalls, 0);
+      Navigator.of(
+        tester.element(find.byType(StudioPublicProfileScreen)),
+      ).pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(NotificationScreen), findsOneWidget);
+      expect(
+        Navigator.of(tester.element(find.byType(NotificationScreen))).canPop(),
+        isFalse,
+      );
+    },
+  );
+
+  testWidgets(
+    'unverified Collab review payload does not open discovery or mark read',
+    (tester) async {
+      await _registerTapSession();
+      final notification = _notification(
+        'collab-review',
+        type: 'COLLAB_REVIEW_RECEIVED',
+        payload: <String, dynamic>{
+          'module': 'COLLAB',
+          'action': 'REVIEW_RECEIVED',
+          'listingId': 'listing-1',
+          'jobId': 'job-1',
+          'reviewId': 'review-1',
         },
       );
       final repository = _NotificationRepositoryFake(
@@ -355,93 +642,28 @@ void main() {
           child: MaterialApp(
             home: const NotificationScreen(),
             onGenerateRoute: (settings) {
-              pushedSettings = settings;
-              return MaterialPageRoute<void>(
-                settings: settings,
-                builder: (_) => const SizedBox.shrink(),
-              );
+              pushedSettings = _notificationRouteSettings(settings);
+              return _notificationTestRoute(settings);
             },
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('archived-room'));
+      await tester.tap(find.text('collab-review'));
       await tester.pumpAndSettle();
 
-      expect(pushedSettings?.name, AppRoutes.studioPublicProfile);
-      final args = pushedSettings?.arguments as PublicProfileArgs;
-      expect(args.profileId, 'studio-1');
+      expect(pushedSettings, isNull);
+      expect(find.byType(NotificationScreen), findsOneWidget);
+      expect(find.text('Tekrar dene'), findsOneWidget);
+      expect(repository.markReadIds, isEmpty);
+      expect(repository.markAllCalls, 0);
     },
   );
 
-  testWidgets('Collab review notification preserves its deep-link ids', (
-    tester,
-  ) async {
-    final notification = _notification(
-      'collab-review',
-      type: 'COLLAB_REVIEW_RECEIVED',
-      payload: <String, dynamic>{
-        'module': 'COLLAB',
-        'action': 'REVIEW_RECEIVED',
-        'listingId': 'listing-1',
-        'jobId': 'job-1',
-        'reviewId': 'review-1',
-      },
-    );
-    final repository = _NotificationRepositoryFake(
-      pages: <int, Result<pagination.Page<AppNotification>>>{
-        0: Result.success(
-          pagination.Page<AppNotification>(
-            items: <AppNotification>[notification],
-            hasNext: false,
-          ),
-        ),
-      },
-    );
-    final realtime = NotificationRealtimeClient();
-    final cubit = NotificationCubit(
-      repository,
-      _MemoryTokenStore(),
-      realtimeClient: realtime,
-    );
-    addTearDown(() async {
-      await cubit.close();
-      await realtime.dispose();
-    });
-    RouteSettings? pushedSettings;
-
-    await tester.pumpWidget(
-      BlocProvider<NotificationCubit>.value(
-        value: cubit,
-        child: MaterialApp(
-          home: const NotificationScreen(),
-          onGenerateRoute: (settings) {
-            pushedSettings = settings;
-            return MaterialPageRoute<void>(
-              settings: settings,
-              builder: (_) => const SizedBox.shrink(),
-            );
-          },
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('collab-review'));
-    await tester.pumpAndSettle();
-
-    expect(pushedSettings?.name, AppRoutes.collabDiscovery);
-    final args = pushedSettings?.arguments as CollabDiscoveryRouteArgs;
-    expect(args.target, CollabDeepLinkTarget.reviews);
-    expect(args.initialListingId, 'listing-1');
-    expect(args.jobId, 'job-1');
-    expect(args.reviewId, 'review-1');
-  });
-
   testWidgets(
-    'ghost DM payload bypasses stale resolver identity and propagates mode',
+    'ghost DM uses authoritative conversation identity instead of payload or resolver snapshots',
     (tester) async {
-      await serviceLocator.reset();
-      addTearDown(serviceLocator.reset);
+      await _registerTapSession(user: _dmUser, role: 'ROLE_LISTENER');
       final resolver = _RecordingDmProfileResolver(<DmProfileTarget>[
         const DmProfileTarget(
           type: DmProfileTargetType.listener,
@@ -451,12 +673,16 @@ void main() {
         ),
       ]);
       serviceLocator.registerSingleton<DmUserProfileResolver>(resolver);
+      final dm = _DmPreviewRepository();
+      serviceLocator.registerSingleton<DmRepository>(dm);
       final notification = _notification(
-        'ghost-dm',
-        type: 'DM_MESSAGE',
+        _dmNotice,
+        title: 'ghost-dm',
+        recipientId: _dmUser,
+        type: 'DM_NEW_MESSAGE',
         payload: const <String, dynamic>{
           'module': 'DM',
-          'conversationId': 'conversation-1',
+          'conversationId': _dmConversation,
           'senderId': 'listener-user-1',
           'senderUsername': 'payload-ghost-name',
           'senderVisibilityMode': 'GHOST',
@@ -490,11 +716,8 @@ void main() {
           child: MaterialApp(
             home: const NotificationScreen(),
             onGenerateRoute: (settings) {
-              pushedSettings = settings;
-              return MaterialPageRoute<void>(
-                settings: settings,
-                builder: (_) => const SizedBox.shrink(),
-              );
+              pushedSettings = _notificationRouteSettings(settings);
+              return _notificationTestRoute(settings);
             },
           ),
         ),
@@ -502,7 +725,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const ValueKey('notification-ghost-badge-ghost-dm')),
+        find.byKey(const ValueKey('notification-ghost-badge-$_dmNotice')),
         findsOneWidget,
       );
 
@@ -510,21 +733,24 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(resolver.calls, 0);
+      expect(dm.reads, [_dmConversation]);
       expect(pushedSettings?.name, AppRoutes.dmChat);
       final args = pushedSettings?.arguments as DmChatScreenArgs;
-      expect(args.conversationId, 'conversation-1');
-      expect(args.otherUserId, 'listener-user-1');
-      expect(args.otherUsername, 'payload-ghost-name');
+      expect(args.conversationId, _dmConversation);
+      expect(args.otherUserId, 'verified-listener-user');
+      expect(args.otherUsername, 'current-public-ghost-name');
       expect(args.otherUserProfilePicture, isNull);
       expect(args.otherUserVisibilityMode, ListenerVisibilityMode.ghost);
+      expect(repository.markReadIds, isEmpty);
+      expect(repository.markAllCalls, 0);
+      expect(cubit.state.items.single.read, isFalse);
     },
   );
 
   testWidgets(
-    'ghost follower sheet uses sanitized identity and shows ghost badge',
+    'unverified ghost follower keeps badge but never trusts payload identity',
     (tester) async {
-      await serviceLocator.reset();
-      addTearDown(serviceLocator.reset);
+      await _registerTapSession();
       final resolver = _RecordingDmProfileResolver(<DmProfileTarget>[
         const DmProfileTarget(
           type: DmProfileTargetType.listener,
@@ -579,11 +805,8 @@ void main() {
           child: MaterialApp(
             home: const NotificationScreen(),
             onGenerateRoute: (settings) {
-              pushedSettings = settings;
-              return MaterialPageRoute<void>(
-                settings: settings,
-                builder: (_) => const SizedBox.shrink(),
-              );
+              pushedSettings = _notificationRouteSettings(settings);
+              return _notificationTestRoute(settings);
             },
           ),
         ),
@@ -598,21 +821,13 @@ void main() {
       await tester.tap(find.text('ghost-follower'));
       await tester.pumpAndSettle();
 
-      expect(resolver.calls, 1);
-      expect(find.text('payload-ghost-name'), findsOneWidget);
-      expect(
-        find.byKey(
-          const ValueKey('social-target-ghost-badge-listener-profile-1'),
-        ),
-        findsOneWidget,
-      );
-
-      await tester.tap(find.text('payload-ghost-name'));
-      await tester.pumpAndSettle();
-
-      expect(pushedSettings?.name, AppRoutes.listenerPublicProfile);
-      final args = pushedSettings?.arguments as PublicProfileArgs;
-      expect(args.profileId, 'listener-profile-1');
+      expect(resolver.calls, 0);
+      expect(find.text('payload-ghost-name'), findsNothing);
+      expect(pushedSettings, isNull);
+      expect(find.byType(NotificationScreen), findsOneWidget);
+      expect(find.text('Tekrar dene'), findsOneWidget);
+      expect(repository.markReadIds, isEmpty);
+      expect(repository.markAllCalls, 0);
     },
   );
 
@@ -627,6 +842,7 @@ void main() {
       );
       final notification = _notification(
         'event-performer-request',
+        recipientId: 'owner-1',
         type: 'EVENT_PERFORMER_APPROVAL_REQUESTED',
         payload: const <String, dynamic>{
           'module': 'EVENT_PERFORMER',
@@ -656,10 +872,14 @@ void main() {
         await realtime.dispose();
       });
 
+      _registerFreshNotificationTarget(cubit, notification);
       await tester.pumpWidget(
         BlocProvider<NotificationCubit>.value(
           value: cubit,
-          child: const MaterialApp(home: NotificationScreen()),
+          child: MaterialApp(
+            navigatorObservers: [notificationTargetRouteObserver],
+            home: const NotificationScreen(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -819,7 +1039,7 @@ void main() {
       await _openApprovalNotification(tester, payload);
       expect(find.byType(EventPerformerRequestsScreen), findsNothing);
       expect(
-        find.text('Davetin ait olduğu profil doğrulanamadı.'),
+        find.text(NotificationTargetRepository.unavailable.message),
         findsOneWidget,
       );
     });
@@ -852,6 +1072,124 @@ void main() {
   );
 }
 
+Future<AudienceTestSessions> _registerTapSession({
+  String user = 'user-1',
+  String role = 'ROLE_MUSICIAN',
+}) async {
+  await serviceLocator.reset();
+  addTearDown(serviceLocator.reset);
+  final sessions = AudienceTestSessions(
+    audienceSession(user: user, role: role),
+  );
+  serviceLocator.registerSingleton<AuthSessionManager>(sessions);
+  addTearDown(sessions.dispose);
+  return sessions;
+}
+
+RouteSettings _notificationRouteSettings(RouteSettings settings) {
+  final arguments = settings.arguments;
+  return arguments is NotificationReadArguments
+      ? RouteSettings(name: settings.name, arguments: arguments.arguments)
+      : settings;
+}
+
+Route<void> _notificationTestRoute(
+  RouteSettings settings, {
+  bool ready = false,
+}) {
+  final route = MaterialPageRoute<void>(
+    settings: _notificationRouteSettings(settings),
+    builder: (_) => ready
+        ? const NotificationTargetReady(
+            child: Scaffold(body: Text('Verified test destination')),
+          )
+        : const SizedBox.shrink(),
+  );
+  final arguments = settings.arguments;
+  if (arguments is NotificationReadArguments &&
+      settings.name == arguments.routeName) {
+    arguments.ticket.attach(route);
+  }
+  return route;
+}
+
+class _DmPreviewRepository extends Fake implements DmRepository {
+  final reads = <String>[];
+
+  @override
+  Future<Result<DmConversationPreview>> getConversationPreview({
+    required String conversationId,
+  }) async {
+    reads.add(conversationId);
+    return Result.success(
+      DmConversationPreview(
+        conversationId: conversationId,
+        otherUserId: 'verified-listener-user',
+        otherUsername: 'current-public-ghost-name',
+        otherUserProfilePicture: null,
+        otherUserVisibilityMode: ListenerVisibilityMode.ghost,
+        lastMessageContent: null,
+        lastMessageType: null,
+        lastMessageSenderId: null,
+        lastMessageAt: null,
+        lastMessageRead: null,
+      ),
+    );
+  }
+}
+
+class _StudioTargetRepository extends Fake
+    implements NotificationTargetRepository {
+  _StudioTargetRepository({this.archived = false});
+  final bool archived;
+  bool failLookup = false;
+  final lookups = <PushTarget>[];
+  final ackIds = <String>[];
+
+  @override
+  Future<Result<StudioReservationNotificationTarget>> resolveStudio(
+    PushTarget target,
+    AuthSession session,
+  ) async {
+    lookups.add(target);
+    if (failLookup) {
+      return const Result.failure(NotificationTargetRepository.unavailable);
+    }
+    return Result.success(
+      StudioReservationNotificationTarget(
+        notificationId: target.notificationId,
+        recipientId: target.recipientId,
+        type: target.type,
+        reservationId: '90000000-0000-4000-8000-000000000001',
+        roomId: '90000000-0000-4000-8000-000000000002',
+        studioProfileId: '90000000-0000-4000-8000-000000000003',
+        studioName: 'Current verified studio',
+        roomName: 'Current verified room',
+        ownerMode: !archived,
+        status: archived ? 'CANCELLED_BY_STUDIO' : 'CANCELLED_BY_CUSTOMER',
+        roomArchived: archived,
+        completed: false,
+        startsAt: DateTime.utc(2026, 9, 28, 12),
+        endsAt: DateTime.utc(2026, 9, 28, 13),
+        zoneId: 'Europe/Istanbul',
+        localDate: '2026-09-28',
+        localEndDate: '2026-09-28',
+        localStartTime: '15:00',
+        localEndTime: '16:00',
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> acknowledge(
+    AppNotification item,
+    AuthSession session,
+  ) async {
+    ackIds.add(item.id);
+    return const Result.success(null);
+  }
+}
+
 Future<InvitationRequests> _openApprovalNotification(
   WidgetTester tester,
   Map<String, dynamic> target, {
@@ -875,6 +1213,7 @@ Future<InvitationRequests> _openApprovalNotification(
           items: [
             _notification(
               'scoped-invitation',
+              recipientId: 'owner-1',
               type: 'EVENT_PERFORMER_APPROVAL_REQUESTED',
               payload: {
                 'module': 'EVENT_PERFORMER',
@@ -898,10 +1237,17 @@ Future<InvitationRequests> _openApprovalNotification(
     await cubit.close();
     await realtime.dispose();
   });
+  _registerFreshNotificationTarget(
+    cubit,
+    repository.pages[0]!.data!.items.single,
+  );
   await tester.pumpWidget(
     BlocProvider<NotificationCubit>.value(
       value: cubit,
-      child: const MaterialApp(home: NotificationScreen()),
+      child: MaterialApp(
+        navigatorObservers: [notificationTargetRouteObserver],
+        home: const NotificationScreen(),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -941,6 +1287,11 @@ Future<WeeklyCalendarEvent> _openPerformerEventNotification(
 }) async {
   await serviceLocator.reset();
   addTearDown(serviceLocator.reset);
+  final sessions = AudienceTestSessions(
+    audienceSession(user: 'user-1', role: 'ROLE_VENUE'),
+  );
+  serviceLocator.registerSingleton<AuthSessionManager>(sessions);
+  addTearDown(sessions.dispose);
   serviceLocator.registerSingleton<VenueEventRepository>(
     _PerformerNotificationVenueEventRepository(detail),
   );
@@ -985,10 +1336,14 @@ Future<WeeklyCalendarEvent> _openPerformerEventNotification(
     await realtime.dispose();
   });
 
+  _registerFreshNotificationTarget(cubit, notification);
   await tester.pumpWidget(
     BlocProvider<NotificationCubit>.value(
       value: cubit,
-      child: const MaterialApp(home: NotificationScreen()),
+      child: MaterialApp(
+        navigatorObservers: [notificationTargetRouteObserver],
+        home: const NotificationScreen(),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -1002,6 +1357,7 @@ Future<WeeklyCalendarEvent> _openPerformerEventNotification(
 
 AppNotification _notification(
   String id, {
+  String? title,
   String recipientId = 'user-1',
   String type = 'GENERAL',
   bool read = false,
@@ -1011,7 +1367,7 @@ AppNotification _notification(
     id: id,
     recipientId: recipientId,
     type: type,
-    title: id,
+    title: title ?? id,
     message: 'Message',
     read: read,
     createdAt: null,
@@ -1093,6 +1449,8 @@ class _NotificationRepositoryFake implements NotificationRepository {
   final List<int> requestedPages = <int>[];
   Result<void> deleteResult = const Result.success(null);
   Completer<Result<void>>? markReadRequest;
+  final markReadIds = <String>[];
+  int markAllCalls = 0;
 
   @override
   Future<Result<pagination.Page<AppNotification>>> listNotifications({
@@ -1122,10 +1480,14 @@ class _NotificationRepositoryFake implements NotificationRepository {
       const Result.success(<AppNotification>[]);
 
   @override
-  Future<Result<int>> markAllAsRead() async => const Result.success(0);
+  Future<Result<int>> markAllAsRead() async {
+    markAllCalls++;
+    return const Result.success(0);
+  }
 
   @override
   Future<Result<void>> markAsRead({required String notificationId}) async {
+    markReadIds.add(notificationId);
     return markReadRequest?.future ?? const Result.success(null);
   }
 }
@@ -1167,6 +1529,17 @@ class _EmptyEventPerformerRequestRepository
   @override
   Future<Result<void>> reject(String requestId) async =>
       const Result.success(null);
+}
+
+class _DeferredEventRepository extends Fake implements VenueEventRepository {
+  _DeferredEventRepository(this.pending);
+  final Completer<Result<VenueEventDetail>> pending;
+  int reads = 0;
+  @override
+  Future<Result<VenueEventDetail>> getDetail(String eventId) {
+    reads++;
+    return pending.future;
+  }
 }
 
 class _PerformerNotificationVenueEventRepository
@@ -1341,4 +1714,38 @@ Future<void> _eventually(bool Function() predicate) async {
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
   expect(predicate(), isTrue);
+}
+
+// Domain-navigation tests receive an authoritative notification fixture here;
+// wire identity, recipient and token validation have their own repository suite.
+void _registerFreshNotificationTarget(
+  NotificationCubit cubit,
+  AppNotification item,
+) {
+  serviceLocator.registerSingleton<NotificationCubit>(cubit);
+  serviceLocator.registerSingleton<NotificationTargetRepository>(
+    _FreshNotificationTarget(item),
+  );
+}
+
+class _FreshNotificationTarget extends Fake
+    implements NotificationTargetRepository {
+  _FreshNotificationTarget(this.item, {this.lookup});
+  final AppNotification item;
+  final Completer<Result<AppNotification>>? lookup;
+  @override
+  Future<Result<AppNotification>> resolve(
+    PushTarget target,
+    AuthSession session,
+  ) async => Result.success(item);
+  @override
+  Future<Result<AppNotification>> resolveInboxProduct(
+    AppNotification selected,
+    AuthSession session,
+  ) async => lookup == null ? Result.success(item) : lookup!.future;
+  @override
+  Future<Result<void>> acknowledge(
+    AppNotification selected,
+    AuthSession session,
+  ) async => const Result.success(null);
 }

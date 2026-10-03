@@ -23,6 +23,9 @@ class NotificationMediaRepository {
     );
     if (!session.isAuthenticated ||
         !session.isActive ||
+        session.isVenueApplicationSession ||
+        session.requiresListenerProfileChoice ||
+        session.expiresAt?.isAfter(DateTime.now()) != true ||
         session.userId?.trim().isNotEmpty != true) {
       return const Result.failure(stale);
     }
@@ -30,7 +33,10 @@ class NotificationMediaRepository {
       final media = await api.request<MediaAsset>(
         ApiHttpMethod.get,
         '/api/v1/user/notifications/${Uri.encodeComponent(notificationId)}/media',
-        requestContext: ApiRequestContext(expectedSessionKey: session.userId),
+        requestContext: ApiRequestContext(
+          expectedSessionKey: session.userId,
+          expectedToken: session.token,
+        ),
         decoder: (json) {
           if (json is! Map<String, dynamic>) {
             throw const FormatException('Invalid notification media');

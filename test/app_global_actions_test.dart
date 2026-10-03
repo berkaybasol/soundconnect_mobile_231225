@@ -103,7 +103,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(h.observer.namedPushes, [AppRoutes.notifications]);
         expect(find.byType(NotificationScreen), findsOneWidget);
-        expect(h.notices.markAllCalls, 1);
+        expect(h.notices.markAllCalls, 0);
+        expect(h.notices.refreshCalls, 1);
         expect(h.notices.startCalls, 0);
         h.navigator.currentState!.pop();
         await tester.pumpAndSettle();
@@ -347,12 +348,18 @@ class _Notices extends Cubit<NotificationState> implements NotificationCubit {
   _Notices() : super(const NotificationState.initial());
   int startCalls = 0;
   int markAllCalls = 0;
+  int refreshCalls = 0;
 
   void setUnread(int count) => emit(state.copyWith(unreadCount: count));
 
   @override
   Future<void> ensureStarted() async {
     startCalls++;
+  }
+
+  @override
+  Future<void> refresh() async {
+    refreshCalls++;
   }
 
   @override

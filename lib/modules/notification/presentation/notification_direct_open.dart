@@ -21,23 +21,30 @@ abstract final class NotificationDirectOpen {
     bool replaceOrigin = false,
   }) {
     final navigator = Navigator.of(context);
-    final origin = ModalRoute.of(context) ??
-        notificationTargetRouteObserver.currentRoute;
+    final origin =
+        ModalRoute.of(context) ?? notificationTargetRouteObserver.currentRoute;
     final originContext = origin?.subtreeContext;
     if (origin == null || originContext == null || !origin.isCurrent) {
       return Future.value();
     }
     final previous = _active[navigator];
-    if (previous?.identity == identity && previous?.origin == origin &&
+    if (previous?.identity == identity &&
+        previous?.origin == origin &&
         previous?.done.isCompleted == false) {
       return previous!.done.future;
     }
     previous?.finish();
     final sessions = serviceLocator.isRegistered<AuthSessionManager>()
-        ? serviceLocator<AuthSessionManager>() : null;
+        ? serviceLocator<AuthSessionManager>()
+        : null;
     final opening = _Opening(
-      navigator, origin, originContext, identity, replaceOrigin,
-      sessions, sessions?.session,
+      navigator,
+      origin,
+      originContext,
+      identity,
+      replaceOrigin,
+      sessions,
+      sessions?.session,
     );
     _active[navigator] = opening;
     final weakOpening = WeakReference(opening);
@@ -54,6 +61,32 @@ abstract final class NotificationDirectOpen {
 
   static ModalRoute<dynamic>? routeOf(BuildContext context) =>
       _OpenScope.maybeOf(context)?.origin ?? ModalRoute.of(context);
+
+  /// A verified terminal result belongs to the existing origin, not a new route.
+  /// The shared terminal presenter still waits for the actual message to paint.
+  static Widget terminalFeedback(
+    BuildContext context, {
+    required NotificationTargetRead ticket,
+    required String message,
+    required Object contentIdentity,
+  }) {
+    final opening = _OpenScope.maybeOf(context);
+    if (opening == null) return const SizedBox.shrink();
+    // Mount the presenter even between foreground resolution and first paint.
+    // Its lifecycle/route observer must receive resume/uncover; the presenter's
+    // current, session and paint gates still guard both the message and ACK.
+    return NotificationTerminalFeedback.onOrigin(
+      message: message,
+      contentIdentity: contentIdentity,
+      readTicket: ticket,
+      origin: opening.origin,
+      originContext: opening.context,
+      isCurrent: () => opening.visible,
+      onPresented: () {
+        if (!opening.done.isCompleted) opening.done.complete();
+      },
+    );
+  }
 
   static Future<T?> push<T>(BuildContext context, Route<T> route) {
     final opening = _OpenScope.maybeOf(context);
@@ -73,11 +106,16 @@ abstract final class NotificationDirectOpen {
   }) {
     final opening = _OpenScope.maybeOf(context);
     if (opening == null) {
-      return Navigator.of(context).pushReplacementNamed(name, arguments: arguments);
+      return Navigator.of(
+        context,
+      ).pushReplacementNamed(name, arguments: arguments);
     }
     if (!opening.visible) return Future.value();
     final result = opening.replaceOrigin
-        ? opening.navigator.pushReplacementNamed<T, void>(name, arguments: arguments)
+        ? opening.navigator.pushReplacementNamed<T, void>(
+            name,
+            arguments: arguments,
+          )
         : opening.navigator.pushNamed<T>(name, arguments: arguments);
     opening.finish();
     return result;
@@ -97,20 +135,31 @@ abstract final class NotificationDirectOpen {
     }
     // Standalone test/legacy callers still use the same small product feedback.
     if (!context.mounted || isCurrent?.call() == false) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(appSnackBar(
-      context,
-      content: Text(message),
-      tone: AppSnackBarTone.info,
-      inlineAction: true,
-      duration: duration,
-      action: retry == null ? null : SnackBarAction(label: 'Tekrar dene', onPressed: retry),
-    ));
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      appSnackBar(
+        context,
+        content: Text(message),
+        tone: AppSnackBarTone.info,
+        inlineAction: true,
+        duration: duration,
+        action: retry == null
+            ? null
+            : SnackBarAction(label: 'Tekrar dene', onPressed: retry),
+      ),
+    );
   }
 }
 
 class _Opening {
-  _Opening(this.navigator, this.origin, this.context, this.identity, this.replaceOrigin,
-      this.sessions, this.session);
+  _Opening(
+    this.navigator,
+    this.origin,
+    this.context,
+    this.identity,
+    this.replaceOrigin,
+    this.sessions,
+    this.session,
+  );
   final NavigatorState navigator;
   final ModalRoute<dynamic> origin;
   final BuildContext context;
@@ -127,13 +176,23 @@ class _Opening {
   Duration feedbackDuration = const Duration(seconds: 4);
   bool finished = false;
 
-  bool get sessionMatches => sessions == null || identical(sessions!.session, session);
-  bool get visible => !finished && sessionMatches && context.mounted && origin.isActive &&
-      origin.isCurrent && (WidgetsBinding.instance.lifecycleState == null ||
-      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
+  bool get sessionMatches =>
+      sessions == null || identical(sessions!.session, session);
+  bool get visible =>
+      !finished &&
+      sessionMatches &&
+      context.mounted &&
+      origin.isActive &&
+      origin.isCurrent &&
+      (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
 
-  void feedback(String value, VoidCallback? retry, bool Function()? isCurrent,
-      Duration duration) {
+  void feedback(
+    String value,
+    VoidCallback? retry,
+    bool Function()? isCurrent,
+    Duration duration,
+  ) {
     if (!visible || isCurrent?.call() == false || message == value) return;
     message = value;
     retryAction = retry;
@@ -144,26 +203,36 @@ class _Opening {
       final messenger = ScaffoldMessenger.maybeOf(context);
       messenger?.clearSnackBars();
       messenger?.removeCurrentSnackBar();
-      snack = messenger?.showSnackBar(appSnackBar(
-        context,
-        content: Text(value),
-        tone: AppSnackBarTone.info,
-        inlineAction: true,
-        duration: duration,
-        action: retry == null ? null : SnackBarAction(
-          label: 'Tekrar dene',
-          onPressed: () {
-            if (!visible || isCurrent?.call() == false || !done.isCompleted) return;
-            // The previous failure released its caller. An explicit retry is
-            // a new flight that same-row/native selections must now share.
-            done = Completer<void>();
-            message = null;
-            retry();
-          },
+      snack = messenger?.showSnackBar(
+        appSnackBar(
+          context,
+          content: Text(value),
+          tone: AppSnackBarTone.info,
+          inlineAction: true,
+          duration: duration,
+          action: retry == null
+              ? null
+              : SnackBarAction(
+                  label: 'Tekrar dene',
+                  onPressed: () {
+                    if (!visible ||
+                        isCurrent?.call() == false ||
+                        !done.isCompleted) {
+                      return;
+                    }
+                    // The previous failure released its caller. An explicit retry is
+                    // a new flight that same-row/native selections must now share.
+                    done = Completer<void>();
+                    message = null;
+                    retry();
+                  },
+                ),
         ),
-      ));
+      );
       final shown = snack;
-      shown?.closed.then((_) { if (identical(snack, shown)) snack = null; });
+      shown?.closed.then((_) {
+        if (identical(snack, shown)) snack = null;
+      });
     });
     WidgetsBinding.instance.ensureVisualUpdate();
     // A failed request is finished for caller locks, but its explicit retry
@@ -178,7 +247,12 @@ class _Opening {
 
   void restoreFeedback() {
     final pending = message;
-    if (pending == null || snack != null || !visible || sessionCurrent?.call() == false) return;
+    if (pending == null ||
+        snack != null ||
+        !visible ||
+        sessionCurrent?.call() == false) {
+      return;
+    }
     message = null;
     feedback(pending, retryAction, sessionCurrent, feedbackDuration);
   }
@@ -223,9 +297,11 @@ class _OpenLifetimeState extends State<_OpenLifetime>
     WidgetsBinding.instance.addObserver(this);
     widget.opening.sessions?.addListener(_sessionChanged);
   }
+
   void _sessionChanged() {
     if (!widget.opening.sessionMatches) widget.opening.finish();
   }
+
   @override
   void didPop() => widget.opening.finish();
   @override
@@ -240,6 +316,7 @@ class _OpenLifetimeState extends State<_OpenLifetime>
       widget.opening.restoreFeedback();
     }
   }
+
   @override
   void dispose() {
     notificationTargetRouteObserver.unsubscribe(this);
@@ -250,6 +327,7 @@ class _OpenLifetimeState extends State<_OpenLifetime>
     widget.opening.finish();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) => widget.opening.sessionMatches
       ? Offstage(child: Builder(builder: widget.builder))

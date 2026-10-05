@@ -25,36 +25,49 @@ Future<void> _collabTraceWrite = Future<void>.value();
 int _collabTraceLines = 0;
 void _recordCollabTrace(String line) {
   debugPrint(line);
-  if (!kDebugMode || kIsWeb || defaultTargetPlatform != TargetPlatform.android ||
+  if (!kDebugMode ||
+      kIsWeb ||
+      defaultTargetPlatform != TargetPlatform.android ||
       !const bool.fromEnvironment('COLLAB_ACK_DIAGNOSTICS') ||
       _collabTraceLines++ >= 2048) {
     return;
   }
-  _collabTraceWrite = _collabTraceWrite.then((_) async {
-    final file = File('${Directory.systemTemp.path}/collab-ack-recovery.log');
-    if (await file.exists() && await file.length() > 512 * 1024) return;
-    await file.writeAsString('${DateTime.now().toUtc().toIso8601String()} $line\n',
-        mode: FileMode.append, flush: true);
-  }).catchError((Object _) {});
+  _collabTraceWrite = _collabTraceWrite
+      .then((_) async {
+        final file = File(
+          '${Directory.systemTemp.path}/collab-ack-recovery.log',
+        );
+        if (await file.exists() && await file.length() > 512 * 1024) return;
+        await file.writeAsString(
+          '${DateTime.now().toUtc().toIso8601String()} $line\n',
+          mode: FileMode.append,
+          flush: true,
+        );
+      })
+      .catchError((Object _) {});
 }
 
-class NotificationTargetRouteObserver extends RouteObserver<ModalRoute<dynamic>> {
+class NotificationTargetRouteObserver
+    extends RouteObserver<ModalRoute<dynamic>> {
   ModalRoute<dynamic>? currentRoute;
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     if (route is ModalRoute) currentRoute = route;
     super.didPush(route, previousRoute);
   }
+
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     currentRoute = previousRoute is ModalRoute ? previousRoute : null;
     super.didPop(route, previousRoute);
   }
+
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     if (newRoute is ModalRoute) currentRoute = newRoute;
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
   }
+
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
     if (identical(currentRoute, route)) {
@@ -203,7 +216,8 @@ class NotificationTargetRead {
   /// exact identity carried by the notification already attached to this route.
   static bool artistVenueRequestReady(BuildContext context, String requestId) {
     final ticket = _ticketFor(context);
-    return ticket?.notification.type == 'ARTIST_VENUE_LINK_APPLICATION_REQUEST' &&
+    return ticket?.notification.type ==
+            'ARTIST_VENUE_LINK_APPLICATION_REQUEST' &&
         ticket?.notification.payload['module'] == 'ARTIST_VENUE' &&
         ticket?.notification.payload['action'] == 'REQUEST_CREATED' &&
         _matchesListTarget(ticket, 'requestId', requestId);
@@ -383,61 +397,121 @@ class NotificationTerminalFeedback extends StatefulWidget {
     this.acknowledge = true,
     this.retry,
     this.ready = true,
-  });
+  }) : _origin = null,
+       _originContext = null,
+       _readTicket = null,
+       _originCurrent = null,
+       _onPresented = null;
+
+  const NotificationTerminalFeedback.onOrigin({
+    super.key,
+    required this.message,
+    required this.contentIdentity,
+    required NotificationTargetRead readTicket,
+    required ModalRoute<dynamic> origin,
+    required BuildContext originContext,
+    required bool Function() isCurrent,
+    required VoidCallback onPresented,
+  }) : child = const SizedBox.shrink(),
+       acknowledge = true,
+       retry = null,
+       ready = true,
+       _origin = origin,
+       _originContext = originContext,
+       _readTicket = readTicket,
+       _originCurrent = isCurrent,
+       _onPresented = onPresented;
   final String message;
   final Widget child;
   final Object? contentIdentity;
   final bool acknowledge;
   final VoidCallback? retry;
   final bool ready;
+  final ModalRoute<dynamic>? _origin;
+  final BuildContext? _originContext;
+  final NotificationTargetRead? _readTicket;
+  final bool Function()? _originCurrent;
+  final VoidCallback? _onPresented;
   @override
-  State<NotificationTerminalFeedback> createState() => _NotificationTerminalFeedbackState();
+  State<NotificationTerminalFeedback> createState() =>
+      _NotificationTerminalFeedbackState();
 }
 
-class _NotificationTerminalFeedbackState extends State<NotificationTerminalFeedback>
+class _NotificationTerminalFeedbackState
+    extends State<NotificationTerminalFeedback>
     with WidgetsBindingObserver, RouteAware {
-  GlobalKey _messageKey = GlobalKey();
+  BuildContext? _messageContext;
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   Animation<double>? _messageAnimation;
   ModalRoute<dynamic>? _route;
   NotificationTargetRead? _ticket;
-  bool _scheduled = false, _shown = false, _painted = false, _retryShown = false;
+  _TargetRetrySnack? _originSnack;
+  String? _originSnackMessage;
+  bool _scheduled = false,
+      _shown = false,
+      _painted = false,
+      _retryShown = false;
   bool _resultPresented = false;
   bool get _current {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
-    return mounted && widget.ready && _route?.isCurrent == true &&
+    return mounted &&
+        widget.ready &&
+        widget._originCurrent?.call() != false &&
+        _route?.isCurrent == true &&
         _route?.isActive == true &&
-        (_route?.animation == null || _route!.animation!.status == AnimationStatus.completed) &&
+        (_route?.animation == null ||
+            _route!.animation!.status == AnimationStatus.completed) &&
         (lifecycle == null || lifecycle == AppLifecycleState.resumed) &&
-        (!widget.acknowledge || (_ticket?.isCurrent == true &&
-          identical(_ticket?._destination, _route)));
+        (!widget.acknowledge ||
+            (_ticket?.isCurrent == true &&
+                identical(_ticket?._destination, _route)));
   }
+
   bool get _visible {
-    if (!_current || !_painted || _messageAnimation?.status != AnimationStatus.completed) return false;
-    final box = _messageKey.currentContext?.findRenderObject();
-    if (box is! RenderBox || !box.attached || !box.hasSize || box.size.isEmpty) return false;
+    if (!_current ||
+        !_painted ||
+        _messageAnimation?.status != AnimationStatus.completed) {
+      return false;
+    }
+    final box = _messageContext?.findRenderObject();
+    if (box is! RenderBox ||
+        !box.attached ||
+        !box.hasSize ||
+        box.size.isEmpty) {
+      return false;
+    }
     final rect = box.localToGlobal(Offset.zero) & box.size;
-    final messageContext = _messageKey.currentContext!;
-    final scaffold = Scaffold.maybeOf(messageContext)?.context.findRenderObject();
+    final messageContext = _messageContext!;
+    final scaffold = Scaffold.maybeOf(
+      messageContext,
+    )?.context.findRenderObject();
     final viewport = scaffold is RenderBox && scaffold.hasSize
         ? scaffold.localToGlobal(Offset.zero) & scaffold.size
         : Offset.zero & MediaQuery.sizeOf(messageContext);
-    return viewport.contains(rect.topLeft) && viewport.inflate(.5).contains(rect.bottomRight);
+    return viewport.contains(rect.topLeft) &&
+        viewport.inflate(.5).contains(rect.bottomRight);
   }
+
   bool get _readVisible => _current && _resultPresented;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
   }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final route = ModalRoute.of(context);
+    final route = widget._origin ?? ModalRoute.of(context);
     if (!identical(route, _route)) {
       _unbind();
       _route = route;
-      _ticket = route == null ? null : NotificationTargetRead._tickets[route];
+      _ticket =
+          widget._readTicket ??
+          (route == null ? null : NotificationTargetRead._tickets[route]);
+      // Keep an origin-only ticket local; do not overwrite a real destination's
+      // ticket in the route registry or let unrelated content acknowledge it.
+      if (widget._origin != null) _ticket?._destination = route;
       if (route != null) {
         notificationTargetRouteObserver.subscribe(this, route);
         route.animation?.addStatusListener(_animation);
@@ -447,16 +521,19 @@ class _NotificationTerminalFeedbackState extends State<NotificationTerminalFeedb
     }
     _schedule();
   }
+
   @override
   void didUpdateWidget(NotificationTerminalFeedback oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.message != widget.message || !identical(oldWidget.contentIdentity, widget.contentIdentity)) {
+    if (oldWidget.message != widget.message ||
+        !identical(oldWidget.contentIdentity, widget.contentIdentity)) {
       _hide();
       _shown = false;
       _resultPresented = false;
     }
     _schedule();
   }
+
   void _animation(AnimationStatus status) => _schedule();
   @override
   void didPush() => _schedule();
@@ -474,6 +551,7 @@ class _NotificationTerminalFeedbackState extends State<NotificationTerminalFeedb
       _suspend();
     }
   }
+
   void _suspend() {
     _ticket?._recovery?.suspend(this);
     if (!_resultPresented || (!widget.acknowledge && widget.retry != null)) {
@@ -481,20 +559,30 @@ class _NotificationTerminalFeedbackState extends State<NotificationTerminalFeedb
     }
     _hide();
   }
+
   void _hide() {
     _messageAnimation?.removeStatusListener(_animation);
     _messageAnimation = null;
     _painted = false;
     _retryShown = false;
-    _messengerKey.currentState?.removeCurrentSnackBar();
+    if (widget._origin != null) {
+      final snack = _originSnack;
+      if (snack?.painted == true) _originSnack = null;
+      snack?.retire();
+    } else {
+      _messengerKey.currentState?.removeCurrentSnackBar();
+    }
   }
+
   void _schedule() {
     if (!mounted || _scheduled) return;
     _scheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (!mounted) return;
-      final animation = _messageKey.currentContext?.findAncestorWidgetOfExactType<SnackBar>()?.animation;
+      final animation = _messageContext
+          ?.findAncestorWidgetOfExactType<SnackBar>()
+          ?.animation;
       if (!identical(animation, _messageAnimation)) {
         _messageAnimation?.removeStatusListener(_animation);
         _messageAnimation = animation;
@@ -509,15 +597,25 @@ class _NotificationTerminalFeedbackState extends State<NotificationTerminalFeedb
         _shown = true;
         _show(widget.message, widget.retry);
       }
-      if (widget.acknowledge && !_retryShown && _visible && widget.contentIdentity != null &&
-          ((_ticket?._tableContent != null && identical(_ticket?._tableContent, widget.contentIdentity)) ||
-           (_ticket?._mediaContent != null && identical(_ticket?._mediaContent, widget.contentIdentity)))) {
-        _resultPresented = true;
+      if (widget.acknowledge &&
+          !_retryShown &&
+          _visible &&
+          widget.contentIdentity != null &&
+          ((_ticket?._tableContent != null &&
+                  identical(_ticket?._tableContent, widget.contentIdentity)) ||
+              (_ticket?._mediaContent != null &&
+                  identical(_ticket?._mediaContent, widget.contentIdentity)))) {
+        if (!_resultPresented) {
+          _resultPresented = true;
+          widget._onPresented?.call();
+        }
       }
       if (widget.acknowledge && _readVisible) {
         _ticket?._presented(_route!, this, () => _readVisible);
       }
-      if (recovery?.showsRetryFor(this) == true && !_retryShown && !recovery!.busy) {
+      if (recovery?.showsRetryFor(this) == true &&
+          !_retryShown &&
+          !recovery!.busy) {
         _retryShown = true;
         _hide();
         _retryShown = true;
@@ -525,43 +623,115 @@ class _NotificationTerminalFeedbackState extends State<NotificationTerminalFeedb
           _retryShown = false;
           if (_readVisible) recovery.retry(this);
         });
-      } else if (_retryShown && recovery != null && !recovery.busy && !recovery.showsRetryFor(this)) {
+      } else if (_retryShown &&
+          recovery != null &&
+          !recovery.busy &&
+          !recovery.showsRetryFor(this)) {
         _hide();
       }
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }
+
   void _show(String message, VoidCallback? retry) {
-    _messageKey = GlobalKey();
-    _messengerKey.currentState?.showSnackBar(appSnackBar(
-      context,
-      content: Text(message, key: _messageKey),
-      tone: AppSnackBarTone.info,
-      inlineAction: true,
-      duration: retry != null && (_ticket?.notification.type.startsWith('COLLAB_') == true ||
-          PushTarget.overthinkingTypes.contains(_ticket?.notification.type))
-          ? const Duration(days: 1) : const Duration(seconds: 5),
-      onVisible: () {
-        if (!mounted) return;
-        _painted = true;
-        _schedule();
-      },
-      action: retry == null ? null : SnackBarAction(
-        label: 'Tekrar dene',
-        onPressed: () {
-          if (!_current) return;
-          retry();
+    final originContext = widget._originContext;
+    final messenger = originContext == null
+        ? _messengerKey.currentState
+        : originContext.mounted
+        ? ScaffoldMessenger.maybeOf(originContext)
+        : null;
+    if (messenger == null) return;
+    if (originContext != null &&
+        _originSnack != null &&
+        !_originSnack!.painted &&
+        !_originSnack!.closed &&
+        _originSnackMessage == message) {
+      _originSnack!.retired = false;
+      return;
+    }
+    _messageContext = null;
+    final snack = originContext == null ? null : _TargetRetrySnack(messenger);
+    if (snack != null) {
+      _originSnack = snack;
+      _originSnackMessage = message;
+    }
+    final controller = messenger.showSnackBar(
+      appSnackBar(
+        originContext ?? context,
+        // A shared messenger can render one bar in more than one Scaffold.
+        // Capture only this origin's content; a GlobalKey here would be reused
+        // across those Scaffolds and an offstage copy is never read evidence.
+        content: _TerminalFeedbackContent(
+          message: message,
+          onBuild: (messageContext) {
+            if (identical(ModalRoute.of(messageContext), _route)) {
+              _messageContext = messageContext;
+            }
+          },
+          onDeactivate: (messageContext) {
+            if (identical(_messageContext, messageContext)) {
+              _messageContext = null;
+            }
+          },
+        ),
+        tone: AppSnackBarTone.info,
+        inlineAction: true,
+        duration:
+            retry != null &&
+                (_ticket?.notification.type.startsWith('COLLAB_') == true ||
+                    PushTarget.overthinkingTypes.contains(
+                      _ticket?.notification.type,
+                    ))
+            ? const Duration(days: 1)
+            : const Duration(seconds: 5),
+        onVisible: () {
+          if (snack != null) {
+            snack.painted = true;
+            if (snack.retired ||
+                !mounted ||
+                !identical(_originSnack, snack) ||
+                !_current) {
+              snack.retire();
+              return;
+            }
+          }
+          if (!mounted) return;
+          _painted = true;
+          _schedule();
         },
+        action: retry == null
+            ? null
+            : SnackBarAction(
+                label: 'Tekrar dene',
+                onPressed: () {
+                  if (!_current) return;
+                  retry();
+                },
+              ),
       ),
-    ));
+    );
+    if (snack != null) {
+      snack.controller = controller;
+      unawaited(
+        controller.closed.then((_) {
+          snack.closed = true;
+          if (identical(_originSnack, snack)) _originSnack = null;
+        }),
+      );
+    }
   }
+
   void _unbind() {
     _ticket?._recovery?.suspend(this);
     _ticket?._sessions.removeListener(_schedule);
     _ticket?._recovery?.removeListener(_schedule);
     _route?.animation?.removeStatusListener(_animation);
+    if (widget._origin != null && identical(_ticket?._destination, _route)) {
+      _ticket?._destination = null;
+    }
     notificationTargetRouteObserver.unsubscribe(this);
   }
+
   @override
   void dispose() {
     _hide();
@@ -569,8 +739,41 @@ class _NotificationTerminalFeedbackState extends State<NotificationTerminalFeedb
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+
   @override
-  Widget build(BuildContext context) => ScaffoldMessenger(key: _messengerKey, child: widget.child);
+  Widget build(BuildContext context) => widget._origin != null
+      ? widget.child
+      : ScaffoldMessenger(key: _messengerKey, child: widget.child);
+}
+
+// A shared messenger may mount the same content in several Scaffolds. Track
+// each copy's lifetime so read checks never retain a deactivated context.
+class _TerminalFeedbackContent extends StatefulWidget {
+  const _TerminalFeedbackContent({
+    required this.message,
+    required this.onBuild,
+    required this.onDeactivate,
+  });
+  final String message;
+  final ValueChanged<BuildContext> onBuild;
+  final ValueChanged<BuildContext> onDeactivate;
+  @override
+  State<_TerminalFeedbackContent> createState() =>
+      _TerminalFeedbackContentState();
+}
+
+class _TerminalFeedbackContentState extends State<_TerminalFeedbackContent> {
+  @override
+  Widget build(BuildContext context) {
+    widget.onBuild(context);
+    return Text(widget.message);
+  }
+
+  @override
+  void deactivate() {
+    widget.onDeactivate(context);
+    super.deactivate();
+  }
 }
 
 /// Place around successfully loaded, authorized target content, never around
@@ -592,6 +795,7 @@ class NotificationTargetReady extends StatefulWidget {
   final bool ready;
   final Object? contentIdentity;
   final bool requireVisibleBounds;
+
   /// Long list cards can exceed the viewport. Require a meaningful visible
   /// portion (48 logical pixels), rather than making those cards unreadable.
   /// Other targets retain their existing full-bounds requirement.
@@ -618,24 +822,38 @@ class _NotificationTargetReadyState extends State<NotificationTargetReady>
   void _trace(String event) {
     if (!kDebugMode ||
         (_ticket?.notification.type.startsWith('COLLAB_') != true &&
-         !(const bool.fromEnvironment('COLLAB_ACK_DIAGNOSTICS') &&
-           PushTarget.overthinkingTypes.contains(_ticket?.notification.type)))) {
+            !(const bool.fromEnvironment('COLLAB_ACK_DIAGNOSTICS') &&
+                PushTarget.overthinkingTypes.contains(
+                  _ticket?.notification.type,
+                )))) {
       return;
     }
     if (!widget.ready && _lastVisible != true && _retrySnack == null) return;
-    _recordCollabTrace('COLLAB_ACK_RECOVERY event=$event notification=${_ticket!.notification.id} '
-        'owner=${identityHashCode(this)} route=${identityHashCode(_route)} '
-        'content=${identityHashCode(widget.contentIdentity)} routeCurrent=${_route?.isCurrent} '
-        'current=${_ticket!.isCurrent} ready=${widget.ready} '
-        'scroll=${_scrollPosition?.hasPixels == true ? _scrollPosition!.pixels : null} '
-        'lifecycle=${WidgetsBinding.instance.lifecycleState?.name}');
+    _recordCollabTrace(
+      'COLLAB_ACK_RECOVERY event=$event notification=${_ticket!.notification.id} '
+      'owner=${identityHashCode(this)} route=${identityHashCode(_route)} '
+      'content=${identityHashCode(widget.contentIdentity)} routeCurrent=${_route?.isCurrent} '
+      'current=${_ticket!.isCurrent} ready=${widget.ready} '
+      'scroll=${_scrollPosition?.hasPixels == true ? _scrollPosition!.pixels : null} '
+      'lifecycle=${WidgetsBinding.instance.lifecycleState?.name}',
+    );
   }
 
   bool get _visible {
-    if (!mounted || !widget.ready || _viewportDirty || !TickerMode.of(context)) return false;
+    if (!mounted ||
+        !widget.ready ||
+        _viewportDirty ||
+        !TickerMode.of(context)) {
+      return false;
+    }
     if (widget.requireVisibleBounds) {
       final box = context.findRenderObject();
-      if (box is! RenderBox || !box.attached || !box.hasSize || box.size.isEmpty) return false;
+      if (box is! RenderBox ||
+          !box.attached ||
+          !box.hasSize ||
+          box.size.isEmpty) {
+        return false;
+      }
       final rect = box.localToGlobal(Offset.zero) & box.size;
       var visible = Offset.zero & MediaQuery.sizeOf(context);
       RenderObject? ancestor = box.parent;
@@ -694,7 +912,10 @@ class _NotificationTargetReadyState extends State<NotificationTargetReady>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_retrySnack != null &&
-        !identical(_retrySnack!.messenger, ScaffoldMessenger.maybeOf(context))) {
+        !identical(
+          _retrySnack!.messenger,
+          ScaffoldMessenger.maybeOf(context),
+        )) {
       _hideRetry();
       _retrySnack = null;
       _trace('messenger_changed');
@@ -726,7 +947,8 @@ class _NotificationTargetReadyState extends State<NotificationTargetReady>
   void didUpdateWidget(NotificationTargetReady oldWidget) {
     super.didUpdateWidget(oldWidget);
     _bindScrollPosition();
-    if (!widget.ready || !identical(oldWidget.contentIdentity, widget.contentIdentity)) {
+    if (!widget.ready ||
+        !identical(oldWidget.contentIdentity, widget.contentIdentity)) {
       _suspend();
     }
     _schedule();
@@ -756,7 +978,9 @@ class _NotificationTargetReadyState extends State<NotificationTargetReady>
   }
 
   void _coverAnimationChanged(AnimationStatus status) {
-    if (!PushTarget.overthinkingTypes.contains(_ticket?.notification.type)) return;
+    if (!PushTarget.overthinkingTypes.contains(_ticket?.notification.type)) {
+      return;
+    }
     // didPopNext runs before the covering product's reverse transition ends.
     // Wait for the exact destination to be fully uncovered before presenting
     // recovery again or accepting an action/late response from that content.
@@ -879,43 +1103,57 @@ class _NotificationTargetReadyState extends State<NotificationTargetReady>
     final snack = _TargetRetrySnack(messenger);
     _retrySnack = snack;
     _trace('retry_show');
-    snack.controller = messenger.showSnackBar(appSnackBar(
-      context,
-      content: const Text('Okundu bilgisi kaydedilemedi.'),
-      duration: _ticket?.notification.type.startsWith('COLLAB_') == true ||
-          PushTarget.overthinkingTypes.contains(_ticket?.notification.type)
-          ? const Duration(days: 1) : const Duration(seconds: 4),
-      tone: AppSnackBarTone.info,
-      inlineAction: true,
-      onVisible: () {
-        snack.painted = true;
-        _trace('retry_painted');
-        if (snack.retired || !mounted || !identical(_retrySnack, snack) || !_visible) {
-          snack.retire();
-        }
-      },
-      action: SnackBarAction(
-        label: 'Tekrar dene',
-        onPressed: () {
-          if (!identical(_retrySnack, snack) || !_visible) return;
-          _trace('explicit_retry');
-          _hideRetry();
-          recovery.retry(this);
+    snack.controller = messenger.showSnackBar(
+      appSnackBar(
+        context,
+        content: const Text('Okundu bilgisi kaydedilemedi.'),
+        duration:
+            _ticket?.notification.type.startsWith('COLLAB_') == true ||
+                PushTarget.overthinkingTypes.contains(
+                  _ticket?.notification.type,
+                )
+            ? const Duration(days: 1)
+            : const Duration(seconds: 4),
+        tone: AppSnackBarTone.info,
+        inlineAction: true,
+        onVisible: () {
+          snack.painted = true;
+          _trace('retry_painted');
+          if (snack.retired ||
+              !mounted ||
+              !identical(_retrySnack, snack) ||
+              !_visible) {
+            snack.retire();
+          }
         },
+        action: SnackBarAction(
+          label: 'Tekrar dene',
+          onPressed: () {
+            if (!identical(_retrySnack, snack) || !_visible) return;
+            _trace('explicit_retry');
+            _hideRetry();
+            recovery.retry(this);
+          },
+        ),
       ),
-    ));
-    unawaited(snack.controller.closed.then((reason) {
-      snack.closed = true;
-      _trace('retry_closed_${reason.name}');
-      // A retired controller can complete after a newer message was shown.
-      // It must never clear that message or send an ACK.
-      if (!identical(_retrySnack, snack)) return;
-      _retrySnack = null;
-      if (mounted && (_ticket?.notification.type.startsWith('COLLAB_') == true ||
-          PushTarget.overthinkingTypes.contains(_ticket?.notification.type))) {
-        _schedule();
-      }
-    }));
+    );
+    unawaited(
+      snack.controller.closed.then((reason) {
+        snack.closed = true;
+        _trace('retry_closed_${reason.name}');
+        // A retired controller can complete after a newer message was shown.
+        // It must never clear that message or send an ACK.
+        if (!identical(_retrySnack, snack)) return;
+        _retrySnack = null;
+        if (mounted &&
+            (_ticket?.notification.type.startsWith('COLLAB_') == true ||
+                PushTarget.overthinkingTypes.contains(
+                  _ticket?.notification.type,
+                ))) {
+          _schedule();
+        }
+      }),
+    );
   }
 
   @override
@@ -928,7 +1166,8 @@ class _NotificationTargetReadyState extends State<NotificationTargetReady>
 class _TargetRetrySnack {
   _TargetRetrySnack(this.messenger);
   final ScaffoldMessengerState messenger;
-  late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason> controller;
+  late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
+  controller;
   bool retired = false, closed = false, painted = false;
   void retire() {
     retired = true;

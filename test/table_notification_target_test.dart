@@ -232,18 +232,26 @@ void main() {
     }
   }
 
-  Future<void> open(WidgetTester t, {AppNotification? selected, bool native = false}) async {
+  Future<void> open(
+    WidgetTester t, {
+    AppNotification? selected,
+    bool native = false,
+  }) async {
     unawaited(
       NotificationDirectOpen.start(
         inboxContext,
         identity: (selected ?? inbox.items.first).id,
-        builder: (_) => native ? TableNotificationOpenScreen.native(
-          target: PushTarget(notificationId: (selected ?? inbox.items.first).id,
-            recipientId: (selected ?? inbox.items.first).recipientId,
-            type: (selected ?? inbox.items.first).type),
-        ) : TableNotificationOpenScreen(
-          notification: selected ?? inbox.items.first,
-        ),
+        builder: (_) => native
+            ? TableNotificationOpenScreen.native(
+                target: PushTarget(
+                  notificationId: (selected ?? inbox.items.first).id,
+                  recipientId: (selected ?? inbox.items.first).recipientId,
+                  type: (selected ?? inbox.items.first).type,
+                ),
+              )
+            : TableNotificationOpenScreen(
+                notification: selected ?? inbox.items.first,
+              ),
       ),
     );
     await t.pump();
@@ -266,52 +274,279 @@ void main() {
     expect(reconciliations, 1);
   }
 
-  for (final type in PushTarget.tableTypes) {
-    for (final reason in type == 'TABLE_CANCELLED'
-        ? ['OWNER_CANCELLED', 'OWNER_JOINED_ANOTHER_TABLE'] : <String?>[null]) {
-      testWidgets('native TABLE $type $reason fresh terminal target and exact read', (t) async {
-        response = targetJson(type: type, reason: reason);
+  for (final boundary in ['none', 'inactive', 'cover']) {
+    testWidgets(
+      'terminal pre-mount caller control $boundary releases same-ID opening',
+      (t) async {
+        response['tableStatus'] = 'CANCELLED';
+        pendingGet = Completer<Object?>();
         await mount(t);
-        await open(t, native: true, selected: item(notificationId, type: type));
+        var firstDone = false;
+        final first = NotificationDirectOpen.start(
+          inboxContext,
+          identity: notificationId,
+          builder: (_) =>
+              TableNotificationOpenScreen(notification: item(notificationId)),
+        );
+        unawaited(first.then((_) => firstDone = true));
+        await t.pump();
+        expect(gets(), 1);
+        expect(acks, isEmpty);
+        // Flush the complete successful GET continuation, but do not build the
+        // state scheduled by _closedTarget's setState yet.
+        pendingGet!.complete(response);
+        await t.idle();
+        expect(find.byType(NotificationTerminalFeedback), findsNothing);
+        expect(firstDone, isFalse);
+        if (boundary == 'inactive') {
+          // Unlike paused, inactive still permits real production frames.
+          t.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+        } else if (boundary == 'cover') {
+          unawaited(
+            nav.currentState!.push(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Pre-mount cover')),
+              ),
+            ),
+          );
+        }
         await settle(t);
+        if (boundary != 'none') {
+          expect(acks, isEmpty);
+          expect(find.text('Bu masa kapatıldı.'), findsNothing);
+          if (boundary == 'inactive') {
+            t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+          } else {
+            nav.currentState!.pop();
+          }
+          await settle(t);
+        }
+        expect(find.text('Inbox'), findsOneWidget);
+        expect(routes.stack.length, 2);
+        // Recovery may present a terminal result or explicit retry. Either must
+        // release the row; an invisible pending future cannot own it forever.
+        final duplicate = NotificationDirectOpen.start(
+          inboxContext,
+          identity: notificationId,
+          builder: (_) =>
+              TableNotificationOpenScreen(notification: item(notificationId)),
+        );
+        final reusedPendingFlight = identical(first, duplicate) && !firstDone;
+        expect(
+          reusedPendingFlight,
+          isFalse,
+          reason:
+              'Returning from $boundary must not retain an invisible '
+              'same-ID flight that permanently disables the inbox row.',
+        );
+        await settle(t);
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+  }
+  for (final boundary in ['none', 'inactive', 'cover']) {
+    testWidgets(
+      'terminal pre-mount $boundary presents once and releases real inbox row',
+      (t) async {
+        response['tableStatus'] = 'CANCELLED';
+        pendingGet = Completer<Object?>();
+        await mount(t, realInbox: true);
+        final row = find
+            .descendant(
+              of: find.byKey(const ValueKey(notificationId)),
+              matching: find.byType(InkWell),
+            )
+            .first;
+        await t.tap(row);
+        await t.pump();
+        expect(gets(), 1);
+        expect(t.widget<InkWell>(row).onTap, isNull);
+        pendingGet!.complete(response);
+        // Resolve the foreground GET without drawing the first presenter.
+        await t.idle();
+        expect(find.byType(NotificationTerminalFeedback), findsNothing);
+        expect(acks, isEmpty);
+        if (boundary == 'inactive') {
+          t.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+        } else if (boundary == 'cover') {
+          unawaited(
+            nav.currentState!.push(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Pre-mount cover')),
+              ),
+            ),
+          );
+        }
+        await settle(t);
+        if (boundary != 'none') {
+          expect(acks, isEmpty);
+          expect(find.text('Bu masa kapatıldı.'), findsNothing);
+          unread();
+          if (boundary == 'inactive') {
+            expect(t.widget<InkWell>(row).onTap, isNull);
+            t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+          } else {
+            nav.currentState!.pop();
+          }
+          await settle(t);
+        }
+        expect(find.byType(NotificationScreen), findsOneWidget);
+        expect(find.text('Bu masa kapatıldı.'), findsOneWidget);
+        expect(routes.stack.length, 2);
         expect(gets(), 1);
         expect(acks, [notificationId]);
         onlyTarget();
-        expect(find.text('Masa bildirimi'), findsNothing);
-        nav.currentState!.pop();
+        expect(t.widget<InkWell>(row).onTap, isNotNull);
+        pendingGet = Completer<Object?>();
+        await t.tap(row);
+        await t.pump();
+        await t.tap(row);
+        await t.pump();
+        expect(gets(), 2, reason: 'Released row starts one new flight');
+        expect(acks, [notificationId]);
+        await t.pumpWidget(const SizedBox());
+        pendingGet!.complete(response);
+        await t.pump();
+        expect(acks, [notificationId]);
+      },
+    );
+  }
+
+  for (final loss in ['logout', 'switch', 'relogin', 'pop', 'dispose']) {
+    testWidgets(
+      'terminal pre-mount inactive fences $loss and releases future',
+      (t) async {
+        response['tableStatus'] = 'CANCELLED';
+        pendingGet = Completer<Object?>();
+        await mount(t);
+        var done = false;
+        final first = NotificationDirectOpen.start(
+          inboxContext,
+          identity: notificationId,
+          builder: (_) =>
+              TableNotificationOpenScreen(notification: inbox.items.first),
+        );
+        unawaited(first.then((_) => done = true));
+        await t.pump();
+        pendingGet!.complete(response);
+        await t.idle();
+        t.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
         await settle(t);
-        expect(find.text('Inbox'), findsOneWidget);
-      });
+        expect(done, isFalse);
+        expect(acks, isEmpty);
+        if (loss == 'pop') nav.currentState!.pop();
+        if (loss == 'dispose') await t.pumpWidget(const SizedBox());
+        if (['logout', 'switch', 'relogin'].contains(loss)) {
+          await t.runAsync(() async {
+            sessions.replace(
+              loss == 'logout'
+                  ? AuthSession.guest()
+                  : audienceSession(
+                      user: loss == 'switch' ? applicant : recipient,
+                      token: 'replacement',
+                    ),
+            );
+            await cubit.stop();
+          });
+        }
+        await settle(t);
+        t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+        await settle(t);
+        expect(done, isTrue);
+        expect(gets(), 1);
+        expect(acks, isEmpty);
+        expect(find.text('Bu masa kapatıldı.'), findsNothing);
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
+  for (final type in PushTarget.tableTypes) {
+    for (final reason
+        in type == 'TABLE_CANCELLED'
+            ? ['OWNER_CANCELLED', 'OWNER_JOINED_ANOTHER_TABLE']
+            : <String?>[null]) {
+      testWidgets(
+        'native TABLE $type $reason fresh terminal target and exact read',
+        (t) async {
+          response = targetJson(type: type, reason: reason);
+          await mount(t);
+          await open(
+            t,
+            native: true,
+            selected: item(notificationId, type: type),
+          );
+          await settle(t);
+          expect(gets(), 1);
+          expect(acks, [notificationId]);
+          onlyTarget();
+          expect(find.text('Masa bildirimi'), findsNothing);
+          if (response['tableStatus'] == 'ACTIVE') {
+            nav.currentState!.pop();
+            await settle(t);
+          } else {
+            expect(routes.stack.length, 2);
+          }
+          expect(find.text('Inbox'), findsOneWidget);
+        },
+      );
     }
   }
-  testWidgets('native TABLE target failure then explicit fresh retry', (t) async {
+  testWidgets('native TABLE target failure then explicit fresh retry', (
+    t,
+  ) async {
     failGet = true;
-    await mount(t); await open(t, native: true); await settle(t);
-    unread(); expect(gets(), 1);
-    failGet = false;
-    await t.tap(find.text('Tekrar dene')); await settle(t);
-    expect(gets(), 2); expect(acks, [notificationId]); onlyTarget();
-  });
-  testWidgets('native TABLE ACK-only retry never repeats target GET', (t) async {
-    failAck = true;
-    await mount(t); await open(t, native: true); await settle(t);
-    unread(); expect(gets(), 1); expect(acks, [notificationId]);
-    failAck = false;
-    await t.tap(find.text('Tekrar dene')); await settle(t);
-    expect(gets(), 1); expect(acks, [notificationId, notificationId]); onlyTarget();
-  });
-  testWidgets('native TABLE hidden result needs explicit fresh retry and keeps sibling unread', (t) async {
-    pendingGet = Completer<Object?>();
-    await mount(t); await open(t, native: true);
-    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    pendingGet!.complete(response); await t.pump(); unread();
-    pendingGet = null;
-    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await mount(t);
+    await open(t, native: true);
     await settle(t);
-    expect(gets(), 1); unread();
-    await t.tap(find.text('Tekrar dene')); await settle(t);
-    expect(gets(), 2); expect(acks, [notificationId]); onlyTarget();
+    unread();
+    expect(gets(), 1);
+    failGet = false;
+    await t.tap(find.text('Tekrar dene'));
+    await settle(t);
+    expect(gets(), 2);
+    expect(acks, [notificationId]);
+    onlyTarget();
   });
+  testWidgets('native TABLE ACK-only retry never repeats target GET', (
+    t,
+  ) async {
+    failAck = true;
+    await mount(t);
+    await open(t, native: true);
+    await settle(t);
+    unread();
+    expect(gets(), 1);
+    expect(acks, [notificationId]);
+    failAck = false;
+    await t.tap(find.text('Tekrar dene'));
+    await settle(t);
+    expect(gets(), 1);
+    expect(acks, [notificationId, notificationId]);
+    onlyTarget();
+  });
+  testWidgets(
+    'native TABLE hidden result needs explicit fresh retry and keeps sibling unread',
+    (t) async {
+      pendingGet = Completer<Object?>();
+      await mount(t);
+      await open(t, native: true);
+      t.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      pendingGet!.complete(response);
+      await t.pump();
+      unread();
+      pendingGet = null;
+      t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await settle(t);
+      expect(gets(), 1);
+      unread();
+      await t.tap(find.text('Tekrar dene'));
+      await settle(t);
+      expect(gets(), 2);
+      expect(acks, [notificationId]);
+      onlyTarget();
+    },
+  );
 
   for (final boundary in ['background', 'cover']) {
     for (final failed in [false, true]) {
@@ -603,7 +838,7 @@ void main() {
             ? ['OWNER_CANCELLED', 'OWNER_JOINED_ANOTHER_TABLE']
             : [null]) {
       testWidgets(
-        '${entry.key}/$reason shows actual overview/archive and small proven message then exact read',
+        '${entry.key}/$reason uses active detail or closed origin feedback then exact read',
         (t) async {
           inbox.items = [
             item(notificationId, type: entry.key),
@@ -614,7 +849,11 @@ void main() {
           await mount(t);
           await open(t);
           await settle(t);
-          expect(find.byType(TableGroupDetailScreen), findsOneWidget);
+          final closed = response['tableStatus'] != 'ACTIVE';
+          expect(
+            find.byType(TableGroupDetailScreen),
+            closed ? findsNothing : findsOneWidget,
+          );
           expect(find.byType(SnackBar), findsOneWidget);
           expect(find.text('Masa bildirimi'), findsNothing);
           expect(find.textContaining('Olay tarihi:'), findsNothing);
@@ -633,9 +872,11 @@ void main() {
             ),
             isTrue,
           );
-          expect(routes.stack.length, 3);
-          nav.currentState!.pop();
-          await settle(t);
+          expect(routes.stack.length, closed ? 2 : 3);
+          if (!closed) {
+            nav.currentState!.pop();
+            await settle(t);
+          }
           expect(find.text('Inbox'), findsOneWidget);
           expect(routes.stack.length, 2);
           await t.pumpWidget(const SizedBox());
@@ -669,22 +910,141 @@ void main() {
     });
   }
   testWidgets(
-    'closed inaccessible result uses real list with exact small message',
+    'closed inaccessible result stays on origin with exact small message',
     (t) async {
       response['tableStatus'] = 'CANCELLED';
       await mount(t);
       await open(t);
       await settle(t);
-      expect(find.byType(TableGroupListScreen), findsOneWidget);
+      expect(find.byType(TableGroupListScreen), findsNothing);
       expect(find.byType(TableGroupDetailScreen), findsNothing);
-      expect(find.text('Başvurun kabul edilmedi.'), findsOneWidget);
+      expect(find.text('Bu masa kapatıldı.'), findsOneWidget);
       onlyTarget();
-      nav.currentState!.pop();
-      await settle(t);
+      expect(routes.stack.length, 2);
       expect(find.text('Inbox'), findsOneWidget);
       await t.pumpWidget(const SizedBox());
     },
   );
+
+  for (final native in [false, true]) {
+    for (final status in ['CANCELLED', 'INACTIVE']) {
+      testWidgets(
+        'closed participant result $status native=$native has no extra Back',
+        (t) async {
+          response = targetJson(type: 'TABLE_PARTICIPANT_LEFT')
+            ..['tableStatus'] = status;
+          await mount(t);
+          await open(
+            t,
+            native: native,
+            selected: item(notificationId, type: 'TABLE_PARTICIPANT_LEFT'),
+          );
+          await settle(t);
+          expect(find.text('Inbox'), findsOneWidget);
+          expect(find.byType(TableGroupDetailScreen), findsNothing);
+          expect(find.byType(TableGroupListScreen), findsNothing);
+          expect(
+            find.text(
+              status == 'CANCELLED'
+                  ? 'Bu masa kapatıldı.'
+                  : 'Bu masanın süresi doldu.',
+            ),
+            findsOneWidget,
+          );
+          expect(routes.stack.length, 2);
+          expect(gets(), 1);
+          expect(acks, [notificationId]);
+          onlyTarget();
+          nav.currentState!.pop();
+          await settle(t);
+          expect(find.text('Home'), findsOneWidget);
+          await t.pumpWidget(const SizedBox());
+        },
+      );
+    }
+  }
+
+  testWidgets('closed origin ACK retry does not fetch the table again', (
+    t,
+  ) async {
+    response['tableStatus'] = 'CANCELLED';
+    failAck = true;
+    await mount(t);
+    await open(t);
+    await settle(t);
+    expect(find.text('Inbox'), findsOneWidget);
+    expect(find.text('Okundu bilgisi kaydedilemedi.'), findsOneWidget);
+    expect(acks, [notificationId]);
+    unread();
+    failAck = false;
+    await t.tap(find.text('Tekrar dene'));
+    await settle(t);
+    expect(gets(), 1);
+    expect(acks, [notificationId, notificationId]);
+    expect(routes.stack.length, 2);
+    onlyTarget();
+    await t.pumpWidget(const SizedBox());
+  });
+
+  for (final boundary in [
+    'none',
+    'cover',
+    'background',
+    'session',
+    'replace',
+  ]) {
+    testWidgets(
+      'closed origin queued message waits for paint and fences $boundary',
+      (t) async {
+        response['tableStatus'] = 'CANCELLED';
+        await mount(t);
+        final messenger = ScaffoldMessenger.of(inboxContext);
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Önceki işlem mesajı'), persist: true),
+        );
+        await settle(t);
+        await open(t);
+        await settle(t);
+        expect(find.text('Önceki işlem mesajı'), findsOneWidget);
+        expect(find.text('Bu masa kapatıldı.'), findsNothing);
+        expect(acks, isEmpty);
+        if (boundary == 'cover') {
+          unawaited(
+            nav.currentState!.push(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Cover')),
+              ),
+            ),
+          );
+        } else if (boundary == 'background') {
+          t.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        } else if (boundary == 'session') {
+          await t.runAsync(() async {
+            sessions.replace(audienceSession(user: applicant));
+            await Future<void>.delayed(Duration.zero);
+          });
+        } else if (boundary == 'replace') {
+          unawaited(
+            nav.currentState!.pushReplacement(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Replacement')),
+              ),
+            ),
+          );
+        }
+        await settle(t);
+        messenger.hideCurrentSnackBar();
+        await settle(t);
+        if (boundary == 'none') {
+          expect(find.text('Bu masa kapatıldı.'), findsOneWidget);
+          onlyTarget();
+        } else {
+          expect(acks, isEmpty);
+        }
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+  }
 
   testWidgets(
     'detail race falls back without read and fresh retry replaces failed route',
@@ -938,35 +1298,38 @@ void main() {
       await t.pumpWidget(const SizedBox());
     },
   );
-  testWidgets(
-    'late ACK after cover does not project; explicit idempotent recovery on return',
-    (t) async {
-      pendingAck = Completer<Object?>();
-      await mount(t);
-      await open(t);
-      await settle(t);
-      expect(acks.length, 1);
-      unawaited(
-        nav.currentState!.push(
-          MaterialPageRoute<void>(
-            builder: (_) => const Scaffold(body: Text('Cover')),
+  for (final closed in [false, true]) {
+    testWidgets(
+      'late ACK after cover closed=$closed does not project; explicit recovery on return',
+      (t) async {
+        if (closed) response['tableStatus'] = 'CANCELLED';
+        pendingAck = Completer<Object?>();
+        await mount(t);
+        await open(t);
+        await settle(t);
+        expect(acks.length, 1);
+        unawaited(
+          nav.currentState!.push(
+            MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('Cover')),
+            ),
           ),
-        ),
-      );
-      await settle(t);
-      pendingAck!.complete(null);
-      await settle(t);
-      unread();
-      nav.currentState!.pop();
-      await settle(t);
-      expect(acks.length, 1);
-      await t.tap(find.text('Tekrar dene'));
-      await settle(t);
-      onlyTarget();
-      expect(gets(), 1);
-      await t.pumpWidget(const SizedBox());
-    },
-  );
+        );
+        await settle(t);
+        pendingAck!.complete(null);
+        await settle(t);
+        unread();
+        nav.currentState!.pop();
+        await settle(t);
+        expect(acks.length, 1);
+        await t.tap(find.text('Tekrar dene'));
+        await settle(t);
+        onlyTarget();
+        expect(gets(), 1);
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+  }
   testWidgets('second notification on same table has a new exact ticket', (
     t,
   ) async {

@@ -35,10 +35,15 @@ if (pushValue != null && pushValue !in setOf("true", "false")) {
     throw GradleException("SOUNDCONNECT_PUSH_ENABLED accepts only true or false.")
 }
 val pushEnabled = pushValue == "true"
+val warmTestValue = providers.gradleProperty("soundconnectBridgeHarness").orNull
+if (warmTestValue != null && warmTestValue !in setOf("true", "false")) {
+    throw GradleException("soundconnectBridgeHarness accepts only true or false.")
+}
+val isBridgeHarness = warmTestValue == "true"
 if (pushEnabled && isPreview) {
     throw GradleException("Push is unavailable in offline preview builds.")
 }
-if (pushEnabled) {
+if (pushEnabled && !isBridgeHarness) {
     if (!file("google-services.json").isFile) {
         throw GradleException("Push requires android/app/google-services.json for this Firebase environment.")
     }
@@ -47,6 +52,39 @@ if (pushEnabled) {
 val flutterProject = rootProject.projectDir.parentFile.canonicalFile
 val requestedTarget = providers.gradleProperty("target").orElse("lib/main.dart").get()
 val targetFile = flutterProject.resolve(requestedTarget).canonicalFile
+val bridgeTarget = flutterProject.resolve("integration_test/native_push_bridge_harness.dart").canonicalFile
+if (isBridgeHarness != (targetFile == bridgeTarget)) {
+    throw GradleException("Bridge harness requires both -PsoundconnectBridgeHarness=true and its exact Dart target.")
+}
+if (isBridgeHarness && (!pushEnabled || isPreview)) {
+    throw GradleException("Bridge harness requires push enabled and preview disabled.")
+}
+// The Flutter SDK's integration_test project requests runner:1.2+ in its
+// own compile classpath. Pin that separate debug graph for both the product
+// and bridge harness, avoiding an offline dynamic-version lookup.
+rootProject.project(":integration_test").configurations.configureEach {
+    if (name.startsWith("debug", ignoreCase = true)) {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "androidx.test" && requested.name == "runner" &&
+                requested.version == "1.2+") {
+                useVersion("1.7.0")
+                because("Debug builds use the app's pinned AndroidJUnitRunner")
+            }
+        }
+    }
+}
+if (isBridgeHarness) {
+    fun forbiddenBridgeTask(name: String) =
+        name.contains("release", ignoreCase = true) || name.contains("profile", ignoreCase = true)
+    if (gradle.startParameter.taskNames.any(::forbiddenBridgeTask)) {
+        throw GradleException("Bridge harness is debug/test only.")
+    }
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { it.project == project && forbiddenBridgeTask(it.name) }) {
+            throw GradleException("Bridge harness is debug/test only.")
+        }
+    }
+}
 val previewMainTarget = flutterProject.resolve("lib/main_preview.dart").canonicalFile
 val previewQaTarget = flutterProject.resolve("integration_test/feed_preview_device_test.dart").canonicalFile
 val isPreviewTarget = targetFile == previewMainTarget || targetFile == previewQaTarget
@@ -122,6 +160,10 @@ android {
             applicationId = "tr.com.soundconnect.app.preview"
             manifestPlaceholders["previewQa"] = isPreviewQa.toString()
         }
+        if (isBridgeHarness) {
+            applicationId = "tr.com.soundconnect.app.warmtest"
+            testApplicationId = "tr.com.soundconnect.app.warmtest.test"
+        }
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
@@ -149,6 +191,12 @@ android {
         }
     }
 
+    // The very same fixture implementation/regressions run on JVM and Android.
+    sourceSets.getByName("test").java.srcDir("src/bridgeTest/kotlin")
+    sourceSets.getByName("androidTest").java.srcDir("src/bridgeTest/kotlin")
+    if (isBridgeHarness) {
+        sourceSets.getByName("debug").manifest.srcFile("src/bridgeHarness/AndroidManifest.xml")
+    }
     if (isPreview) {
         sourceSets.getByName("main") {
             manifest.srcFile("src/preview/AndroidManifest.xml")

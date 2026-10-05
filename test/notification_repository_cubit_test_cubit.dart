@@ -1,6 +1,7 @@
 part of 'notification_repository_cubit_test.dart';
 
 void _registerNotificationCubitTests() {
+  _registerConfirmedReadTests();
   group('NotificationCubit', () {
     test('refreshes and paginates while preserving server order', () async {
       final repository = _NotificationRepositoryFake(

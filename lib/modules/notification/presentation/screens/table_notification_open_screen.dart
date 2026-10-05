@@ -17,8 +17,14 @@ class TableNotificationOpenScreen extends StatefulWidget {
   const TableNotificationOpenScreen({super.key, required this.notification});
   TableNotificationOpenScreen.native({super.key, required PushTarget target})
     : notification = AppNotification(
-        id: target.notificationId, recipientId: target.recipientId, type: target.type,
-        title: '', message: '', read: false, createdAt: null, payload: const {},
+        id: target.notificationId,
+        recipientId: target.recipientId,
+        type: target.type,
+        title: '',
+        message: '',
+        read: false,
+        createdAt: null,
+        payload: const {},
       );
   final AppNotification notification;
   @override
@@ -36,6 +42,8 @@ class _TableNotificationOpenScreenState
   bool _initial = true, _scheduled = false, _busy = false;
   bool _deferredFailure = false;
   int _generation = 0;
+  TableNotificationTarget? _closedTarget;
+  NotificationTargetRead? _closedTicket;
   bool get _sessionCurrent =>
       identical(_sessions.session, _session) &&
       _session.isAuthenticated &&
@@ -82,6 +90,8 @@ class _TableNotificationOpenScreenState
       _busy = false;
       _deferredFailure = false;
       _initial = true;
+      _closedTarget = null;
+      _closedTicket = null;
       _schedule();
     }
   }
@@ -137,6 +147,20 @@ class _TableNotificationOpenScreenState
         return;
       }
       final target = response.data!;
+      if (target.result && target.tableStatus != 'ACTIVE') {
+        final ticket = NotificationTargetRead.table(
+          notification: target.notification,
+          cubit: serviceLocator<NotificationCubit>(),
+          sessions: _sessions,
+          repository: _repository,
+          content: target,
+        );
+        setState(() {
+          _closedTarget = target;
+          _closedTicket = ticket;
+        });
+        return;
+      }
       final route = MaterialPageRoute<void>(
         builder: (destinationContext) =>
             target.result && !_hasResultDetail(target)
@@ -210,7 +234,19 @@ class _TableNotificationOpenScreenState
   }
 
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    final target = _closedTarget;
+    final ticket = _closedTicket;
+    if (target == null || ticket == null) return const SizedBox.shrink();
+    return NotificationDirectOpen.terminalFeedback(
+      context,
+      ticket: ticket,
+      message: target.tableStatus == 'CANCELLED'
+          ? 'Bu masa kapatıldı.'
+          : 'Bu masanın süresi doldu.',
+      contentIdentity: target,
+    );
+  }
 
   // Normal table detail permits active public viewers, and closed-table owners
   // or accepted members. A historical ticket never opens the current pending

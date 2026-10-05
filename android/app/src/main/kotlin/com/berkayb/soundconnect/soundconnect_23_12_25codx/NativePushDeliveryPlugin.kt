@@ -14,8 +14,7 @@ internal class NativePushDeliveryPlugin : FlutterPlugin, MethodChannel.MethodCal
     private var channel: MethodChannel? = null
     private var owner: Any? = null
     private var ready = false
-    private data class Pending(val intent: Intent, val binding: PushNotificationState.Binding)
-    private var pending: Pending? = null
+    private var pending: NativePushOpen.Accepted? = null
     private var engineIdentity = 0
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -42,13 +41,10 @@ internal class NativePushDeliveryPlugin : FlutterPlugin, MethodChannel.MethodCal
     fun accept(activity: Any, intent: Intent?) {
         if (owner !== activity) return // A retired Activity cannot feed the new binding.
         val ctx = context ?: return
-        val target = NativePushOpen.target(ctx, intent)
-        if (target != null) {
-            val binding = PushNotificationState.capture(ctx, target.getValue("recipientId"))
-            if (binding != null) {
-                pending = Pending(Intent(intent), binding)
-                trace("queued", target["notificationId"])
-            }
+        val accepted = NativePushOpen.accept(ctx, intent)
+        if (accepted != null) {
+            pending = accepted
+            trace("queued", accepted.target["notificationId"])
         }
         clearIntent(intent)
         if (ready) takePending()?.let { channel?.invokeMethod("opened", it) }
@@ -65,9 +61,8 @@ internal class NativePushDeliveryPlugin : FlutterPlugin, MethodChannel.MethodCal
             trace("stale-pending")
             return null
         }
-        val target = NativePushOpen.target(ctx, value.intent)
-        if (target != null) trace("handoff", target["notificationId"])
-        return target
+        trace("handoff", value.target["notificationId"])
+        return value.target
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {

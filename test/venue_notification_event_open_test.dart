@@ -202,6 +202,124 @@ void main() {
     expect(f.plans.performerReads, [_plan]);
   });
 
+  for (final change in [
+    'none',
+    'visible-scroll',
+    'hide-return-same-frame',
+    'hidden-response',
+    'transport-failure',
+  ]) {
+    testWidgets(
+      'performer plan ACK recovery distinguishes $change without repeating target reads',
+      (tester) async {
+        f.plans.performerListItems = [
+          f.plans.value,
+          for (var i = 0; i < 8; i++)
+            f.plans.valueFor(id: 'unrelated-$i', title: 'Unrelated plan $i'),
+        ];
+        f.api.ackPending = Completer<void>();
+        f.api.failAck = change == 'transport-failure';
+        await f.mount(tester, type: _requested, plan: true);
+        await tester.pumpAndSettle();
+        expect(f.api.acks, [_notification]);
+        final marker = find.byKey(const ValueKey(_plan));
+        final owner = tester.element(marker);
+        final position = Scrollable.of(owner).position;
+        final initialOffset = position.pixels;
+        final hiddenOffset =
+            initialOffset +
+            tester.getRect(marker).bottom -
+            tester.getRect(find.byType(ListView)).top +
+            8;
+        final reads = List.of(f.plans.performerReads);
+        final lists = List.of(f.plans.performerLists);
+        final gets = f.api.gets;
+        final route = ModalRoute.of(owner);
+
+        if (change == 'visible-scroll') {
+          position.jumpTo(initialOffset + 12);
+          await tester.pumpAndSettle();
+          final visible = tester
+              .getRect(marker)
+              .intersect(tester.getRect(find.byType(ListView)));
+          expect(visible.height, greaterThanOrEqualTo(48));
+        } else if (change == 'hide-return-same-frame' ||
+            change == 'hidden-response') {
+          position.jumpTo(hiddenOffset);
+          if (change == 'hide-return-same-frame') {
+            // Both offsets change before another frame or HTTP completion.
+            position.jumpTo(initialOffset);
+          }
+          await tester.pumpAndSettle();
+        }
+        if (change == 'hidden-response') {
+          // The real sliver may dispose a wholly hidden long card. Its old
+          // owner must be fenced just like a still-mounted hidden marker.
+          expect(find.text(_retry), findsNothing);
+        } else {
+          expect(identical(tester.element(marker), owner), isTrue);
+        }
+        expect(f.api.acks.length, 1);
+        expect(f.cubit.state.unreadCount, 2);
+        expect(f.comparisons, 0);
+        f.api.ackPending!.complete();
+        await tester.pumpAndSettle();
+        // Remote persistence and the local projection are separate contracts.
+        expect(
+          f.notifications.items
+              .singleWhere((row) => row.id == _notification)
+              .read,
+          change != 'transport-failure',
+        );
+        if (change == 'none') {
+          f.expectOneRead(tester);
+          expect(find.text(_retry), findsNothing);
+        } else {
+          expect(f.cubit.state.items.every((row) => !row.read), isTrue);
+          expect(f.cubit.state.unreadCount, 2);
+          expect(f.comparisons, 0);
+          if (change == 'hidden-response') {
+            expect(find.text(_retry), findsNothing);
+            position.jumpTo(initialOffset);
+            await tester.pumpAndSettle();
+          }
+          expect(find.text(_retry), findsOneWidget);
+          expect(f.api.acks.length, 1); // Returning does not retry.
+          f.api.failAck = false;
+          f.api.ackPending = Completer<void>();
+          final action = tester
+              .widget<SnackBarAction>(find.byType(SnackBarAction))
+              .onPressed;
+          await tester.tap(find.text(_retry));
+          action(); // A retained/double action cannot overlap the retry.
+          await tester.pump();
+          expect(f.api.acks, [_notification, _notification]);
+          expect(f.cubit.state.unreadCount, 2);
+          f.api.ackPending!.complete();
+          await tester.pumpAndSettle();
+          f.expectOneRead(tester, attempts: 2);
+          expect(find.text(_retry), findsNothing);
+        }
+        expect(f.api.gets, gets);
+        expect(f.plans.performerReads, reads);
+        expect(f.plans.performerLists, lists);
+        expect(f.plans.ownerReads, isEmpty);
+        expect(f.plans.occurrenceReads, isEmpty);
+        expect(f.requests.reads, 0);
+        expect(identical(ModalRoute.of(tester.element(marker)), route), isTrue);
+        expect(find.byType(EventPlanPerformerScreen), findsOneWidget);
+        await f.cubit.refresh();
+        await f.cubit.loadMore();
+        expect(
+          f.cubit.state.items.singleWhere((row) => row.id == _other).read,
+          isFalse,
+        );
+        expect(f.cubit.state.unreadCount, 1);
+        expect(f.api.acks.length, change == 'none' ? 1 : 2);
+      },
+    );
+  }
+
   for (final failFirst in [false, true]) {
     testWidgets(
       'invitation reentry keeps old list and target-only read, GET failure=$failFirst',

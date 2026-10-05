@@ -310,6 +310,10 @@ class _ListenerEventFeedState extends State<_ListenerEventFeed>
   bool _routeCurrent = false;
   bool _tickersEnabled = true;
 
+  // Instance tear-offs keep add/removeListener identity across part helpers.
+  void _refresh() => _refreshFeed();
+  void _changed() => _feedChanged();
+
   @override
   void initState() {
     super.initState();

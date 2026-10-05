@@ -417,7 +417,7 @@ extension _TableGroupDetailScreenStateBootstrapMethods
       identical(_shareSessions?.session, _shareSession) &&
       _shareSession?.userId == _currentUserId;
 
-  void _profileShareSessionChanged() {
+  void _updateProfileShareSession() {
     if (mounted) _updateView(() {});
   }
 

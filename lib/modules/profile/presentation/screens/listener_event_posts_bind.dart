@@ -109,7 +109,7 @@ extension _ListenerEventFeedStateBindMethods on _ListenerEventFeedState {
     _scheduleTableRefresh();
   }
 
-  void _changed() {
+  void _feedChanged() {
     final feed = _feed;
     if (_noteDialog != null &&
         (feed == null ||
@@ -186,7 +186,7 @@ extension _ListenerEventFeedStateBindMethods on _ListenerEventFeedState {
   Future<void> _reloadFeed(ListenerEventFeedController feed) =>
       feed is ListenerProfileFeedController ? feed.revalidate() : feed.reload();
 
-  void _refresh() {
+  void _refreshFeed() {
     final feed = _feed;
     if (feed != null) unawaited(_reloadFeed(feed));
   }

@@ -262,4 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _updateView(VoidCallback change) => setState(change);
+
+  // Keep notifier registration and removal on the same instance callback.
+  void _handleUsernameChanged() => _updateUsernameAvailability();
 }

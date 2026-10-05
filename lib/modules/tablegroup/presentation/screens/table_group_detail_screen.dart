@@ -430,6 +430,9 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   }
 
   void _updateView(VoidCallback change) => setState(change);
+
+  // Keep notifier registration and removal on the same instance callback.
+  void _profileShareSessionChanged() => _updateProfileShareSession();
 }
 
 enum _DetailMenuAction { refresh, shareOnProfile, closeTable, leaveTable }

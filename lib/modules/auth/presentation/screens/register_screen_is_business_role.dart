@@ -33,7 +33,7 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
     return username;
   }
 
-  void _handleUsernameChanged() {
+  void _updateUsernameAvailability() {
     _usernameAvailabilityDebounce?.cancel();
     final username = UsernamePolicy.normalize(_usernameController.text);
     if (mounted) {

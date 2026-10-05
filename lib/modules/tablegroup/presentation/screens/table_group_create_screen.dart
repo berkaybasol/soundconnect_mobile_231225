@@ -923,6 +923,10 @@ class _TableGroupCreateScreenState extends State<_TableGroupCreateContent>
   }
 
   void _updateView(VoidCallback change) => setState(change);
+
+  // Instance tear-offs match removal on the owned controller and focus nodes.
+  void _onFocusChanged() => _updateFocus();
+  void _onVenueChanged() => _updateVenue();
 }
 
 /// Enforces the API's normalized Unicode code-point limit without cutting a

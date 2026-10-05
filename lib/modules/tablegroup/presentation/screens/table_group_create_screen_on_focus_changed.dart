@@ -2,11 +2,11 @@ part of 'table_group_create_screen.dart';
 
 extension _TableGroupCreateScreenStateOnFocusChangedMethods
     on _TableGroupCreateScreenState {
-  void _onFocusChanged() {
+  void _updateFocus() {
     if (mounted) _updateView(() {});
   }
 
-  void _onVenueChanged() {
+  void _updateVenue() {
     if (!context.mounted) return;
     if (_settingVenueText) return;
     if (!_cubit.state.hasSpecificVenue) return;

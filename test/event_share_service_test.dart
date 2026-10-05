@@ -266,8 +266,11 @@ void main() {
       expect(params.files!.single.mimeType, 'image/png');
       final file = File(params.files!.single.path);
       expect(
-        file.parent.path,
-        '${directory.path}${Platform.pathSeparator}collab_share',
+        FileSystemEntity.identicalSync(
+          file.parent.path,
+          '${directory.path}${Platform.pathSeparator}collab_share',
+        ),
+        isTrue,
       );
       expect(
         file.uri.pathSegments.last,

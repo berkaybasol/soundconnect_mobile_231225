@@ -46,6 +46,7 @@ CollabListing collabListingFixture({
   CollabProfileKind wantedType = CollabProfileKind.musician,
   CollabActor publisher = venueActor,
   CollabListingStatus status = CollabListingStatus.open,
+  DateTime? scheduledAt,
   int? feeAmountMinor = 150075,
   bool ownedByMe = false,
   bool appliedByMe = false,
@@ -64,7 +65,7 @@ CollabListing collabListingFixture({
   city: const CollabCitySummary(id: 'city-34', name: 'İstanbul'),
   genres: const <String>['Funk', 'Rock', 'Alternatif'],
   scheduledAt: cadence == CollabCadence.extra
-      ? DateTime.utc(2026, 8, 12, 19, 30)
+      ? scheduledAt ?? DateTime.utc(2026, 8, 12, 19, 30)
       : null,
   expiresAt: DateTime.utc(2026, 8, 12, 19, 30),
   feeAmountMinor: feeAmountMinor,

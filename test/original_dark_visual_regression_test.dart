@@ -106,7 +106,12 @@ void main() {
         final auth = createAuthCubit(RecordingAuthRepository());
         addTearDown(auth.close);
         final detail = CollabListingDetailCubit(
-          FakeCollabDetailRepository(listing: collabListingFixture()),
+          FakeCollabDetailRepository(
+            listing: collabListingFixture(
+              // Golden text uses a fixed local civil time on every runner.
+              scheduledAt: DateTime(2026, 8, 12, 22, 30),
+            ),
+          ),
         );
         addTearDown(detail.close);
         final boundary = GlobalKey();

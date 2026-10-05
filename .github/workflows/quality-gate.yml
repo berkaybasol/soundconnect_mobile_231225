@@ -38,11 +38,14 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.41.6
+          flutter-version: 3.44.2
           cache: true
 
       - name: Run Quality Gate
-        run: dart run tool/quality_gate.dart
+        run: |
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+          dart run tool/quality_gate.dart --skip-pub-get
 
       - name: Upload coverage
         if: always()
@@ -75,12 +78,15 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.41.6
+          flutter-version: 3.44.2
           cache: true
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
       - name: Prepare direct Gradle dependencies and Linux SDK paths
         run: |
           flutter precache --android
-          flutter pub get
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
           # Flutter normally injects these ignored wrapper files during flutter build.
           test -f android/gradlew || cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradlew" android/gradlew
           test -f android/gradle/wrapper/gradle-wrapper.jar || cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradle/wrapper/gradle-wrapper.jar" android/gradle/wrapper/gradle-wrapper.jar
@@ -159,14 +165,17 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.41.6
+          flutter-version: 3.44.2
           cache: true
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
       - name: Prepare isolated warmtest APKs
         shell: bash
         run: |
           set -o pipefail
           flutter precache --android
-          flutter pub get
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
           test -f android/gradlew || cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradlew" android/gradlew
           test -f android/gradle/wrapper/gradle-wrapper.jar || cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradle/wrapper/gradle-wrapper.jar" android/gradle/wrapper/gradle-wrapper.jar
           chmod +x android/gradlew

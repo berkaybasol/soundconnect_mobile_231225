@@ -32,6 +32,8 @@ part 'marketplace_collection_screen.dart';
 part 'marketplace_detail_screen.dart';
 part 'marketplace_editor_screen.dart';
 part 'marketplace_widgets.dart';
+part 'marketplace_editor_screen_bind.dart';
+part 'marketplace_editor_screen_product_fields.dart';
 
 class MarketplaceScreen extends StatelessWidget {
   const MarketplaceScreen({

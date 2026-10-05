@@ -120,9 +120,11 @@ Future<void> main(List<String> args) async {
   await _runStep('flutter analyze', 'flutter', <String>['analyze']);
 
   if (!skipTests) {
+    await Directory('coverage').create(recursive: true);
     await _runStep('flutter test --coverage', 'flutter', <String>[
       'test',
       '--coverage',
+      '--file-reporter=json:coverage/tests.jsonl',
     ]);
     final CoverageSummary coverage = await _loadCoverageSummary(
       _coverageLcovPath,

@@ -4,8 +4,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.SystemClock
+import android.security.NetworkSecurityPolicy
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
@@ -33,6 +35,15 @@ import java.util.concurrent.atomic.AtomicReference
  */
 @RunWith(AndroidJUnit4::class)
 class PushAvatarHttpInstrumentationTest {
+    @Before fun verifyLoopbackTransportPolicy() {
+        val policy = NetworkSecurityPolicy.getInstance()
+        assertTrue("Loopback HTTP fixture must be reachable", policy.isCleartextTrafficPermitted("127.0.0.1"))
+        if (BuildConfig.APPLICATION_ID == "tr.com.soundconnect.app.warmtest") {
+            assertFalse("Harness must not enable general cleartext traffic", policy.isCleartextTrafficPermitted)
+            assertFalse("Only the loopback fixture is allowed", policy.isCleartextTrafficPermitted("example.com"))
+        }
+    }
+
     @Test(timeout = 12_000) fun requestTimeout408IsRetryableOnAndroidTransport() =
         assertHttpFailure(408, PushAvatarReason.HTTP_TRANSIENT, PushAvatarOutcome.RETRY)
 

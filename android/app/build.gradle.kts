@@ -196,6 +196,7 @@ android {
     sourceSets.getByName("androidTest").java.srcDir("src/bridgeTest/kotlin")
     if (isBridgeHarness) {
         sourceSets.getByName("debug").manifest.srcFile("src/bridgeHarness/AndroidManifest.xml")
+        sourceSets.getByName("debug").res.srcDir("src/bridgeHarness/res")
     }
     if (isPreview) {
         sourceSets.getByName("main") {

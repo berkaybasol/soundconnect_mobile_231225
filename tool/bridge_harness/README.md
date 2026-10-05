@@ -112,6 +112,12 @@ paket finally içinde ayrı ayrı temizlenir, cleanup hatası başarısızlıkt�
 Yerel PC'de emulator açılmaz. Workflow tanımının varlığı hosted başarı değildir;
 yerel 55-test Vivo sonucu izole native kabulüdür, ürün FCM/read/görsel onay değildir.
 
+Hosted HTTP transport fixture'ı yalnız `127.0.0.1` üzerinde çalışır. Harness debug
+manifesti kendi `bridgeHarness/res` ağ politikasını kullanarak yalnız bu adrese
+cleartext izni verir; genel ve dış host trafiği kapalı kalır. Yedi mevcut HTTP
+testinin setup'ı bu sınırı Android `NetworkSecurityPolicy` üzerinden doğrular.
+Normal ürünün manifesti ve kaynak setleri bu harness kaynağını almaz.
+
 ## Vivo, boş kurulum ve veri koruyan güncelleme
 
 Run için Prepare parametrelerine `-Mode Run -Adb ... -Serial ... -AndroidUser 0

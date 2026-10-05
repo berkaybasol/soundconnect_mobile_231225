@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-    <application android:allowBackup="false" tools:replace="android:allowBackup">
+    <application android:allowBackup="false"
+        android:networkSecurityConfig="@xml/bridge_network_security_config"
+        tools:replace="android:allowBackup">
         <!-- Synthetic native lifecycle only: no Firebase project/config or auto-init. -->
         <provider android:name="com.google.firebase.provider.FirebaseInitProvider" tools:node="remove" />
         <provider android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingInitProvider" tools:node="remove" />

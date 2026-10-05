@@ -68,6 +68,8 @@ dependencies:
   app_links: 7.0.0
 
 dev_dependencies:
+  firebase_core_platform_interface: 8.1.1
+  firebase_messaging_platform_interface: 4.10.0
   flutter_test:
     sdk: flutter
   integration_test:

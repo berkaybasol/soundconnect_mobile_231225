@@ -15,7 +15,10 @@ concurrency:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    # Existing exact-pixel goldens were captured on Windows. Flutter's font
+    # rasterization differs across operating systems; keep those references
+    # and run the entire unchanged quality gate on their canonical platform.
+    runs-on: windows-latest
     timeout-minutes: 25
 
     steps:
@@ -25,7 +28,8 @@ jobs:
           fetch-depth: 2
 
       - name: Record exact checkout provenance
-        run: python3 .github/scripts/capture-provenance.py "$RUNNER_TEMP/source-provenance.json"
+        shell: pwsh
+        run: python .github/scripts/capture-provenance.py "$env:RUNNER_TEMP/source-provenance.json"
 
       - name: Preserve checkout provenance
         if: always()
@@ -44,17 +48,23 @@ jobs:
           cache: true
 
       - name: Run Quality Gate
+        shell: pwsh
         run: |
           flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --exit-code -- pubspec.lock
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dart run tool/quality_gate.dart --skip-pub-get
+          exit $LASTEXITCODE
 
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
-          path: coverage/
+          path: |
+            coverage/
+            test/**/failures/
           if-no-files-found: ignore
           retention-days: 7
 

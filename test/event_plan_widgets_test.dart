@@ -823,11 +823,13 @@ void main() {
     await tester.ensureVisible(
       find.byKey(const ValueKey('plan-withdraw-plan-1')),
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('plan-withdraw-plan-1')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(
       find.widgetWithText(FilledButton, 'Onayımı geri çek'),
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Onayımı geri çek'));
     await tester.pumpAndSettle();
     expect(plans.decision, 'WITHDRAW');
@@ -1029,13 +1031,12 @@ void main() {
   );
 
   setUpAll(() async {
-    final file = File('C:/Windows/Fonts/segoeui.ttf');
-    if (file.existsSync()) {
-      final bytes = await file.readAsBytes();
-      final loader = FontLoader('Roboto')
-        ..addFont(Future.value(ByteData.sublistView(bytes)));
-      await loader.load();
-    }
+    final fonts =
+        '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
+    final bytes = await File('$fonts/Roboto-Regular.ttf').readAsBytes();
+    final loader = FontLoader('Roboto')
+      ..addFont(Future.value(ByteData.sublistView(bytes)));
+    await loader.load();
     await (FontLoader(
       'MaterialIcons',
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();

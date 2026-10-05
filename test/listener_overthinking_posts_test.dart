@@ -699,10 +699,10 @@ Future<void> _loadFonts(WidgetTester tester) async => tester.runAsync(() async {
   final directory =
       '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
   final roboto = FontLoader('Roboto');
-  for (final weight in ['regular', 'medium', 'bold', 'black']) {
+  for (final weight in ['Regular', 'Medium', 'Bold', 'Black']) {
     roboto.addFont(
       File(
-        '$directory/roboto-$weight.ttf',
+        '$directory/Roboto-$weight.ttf',
       ).readAsBytes().then(ByteData.sublistView),
     );
   }
@@ -710,7 +710,7 @@ Future<void> _loadFonts(WidgetTester tester) async => tester.runAsync(() async {
   final loader = FontLoader('Ahem')
     ..addFont(
       File(
-        '$directory/roboto-regular.ttf',
+        '$directory/Roboto-Regular.ttf',
       ).readAsBytes().then(ByteData.sublistView),
     );
   await loader.load();

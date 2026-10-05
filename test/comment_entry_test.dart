@@ -271,10 +271,10 @@ void main() {
         final fonts =
             '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
         final loader = FontLoader('Roboto');
-        for (final name in ['regular', 'medium', 'bold', 'black']) {
+        for (final name in ['Regular', 'Medium', 'Bold', 'Black']) {
           loader.addFont(
             File(
-              '$fonts/roboto-$name.ttf',
+              '$fonts/Roboto-$name.ttf',
             ).readAsBytes().then(ByteData.sublistView),
           );
         }

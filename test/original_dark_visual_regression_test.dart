@@ -51,9 +51,9 @@ void main() {
       flutterRoot,
     ).uri.resolve('../../bin/cache/artifacts/material_fonts/');
     final loader = FontLoader('Roboto');
-    for (final weight in ['regular', 'medium', 'bold']) {
+    for (final weight in ['Regular', 'Medium', 'Bold']) {
       final bytes = await File.fromUri(
-        fontDirectory.resolve('roboto-$weight.ttf'),
+        fontDirectory.resolve('Roboto-$weight.ttf'),
       ).readAsBytes();
       loader.addFont(Future.value(ByteData.sublistView(bytes)));
     }
@@ -62,7 +62,7 @@ void main() {
     final fallback = FontLoader('Ahem');
     fallback.addFont(
       File.fromUri(
-        fontDirectory.resolve('roboto-regular.ttf'),
+        fontDirectory.resolve('Roboto-Regular.ttf'),
       ).readAsBytes().then(ByteData.sublistView),
     );
     await fallback.load();

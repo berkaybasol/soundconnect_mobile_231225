@@ -204,7 +204,7 @@ Future<void> _loadFonts(WidgetTester tester) async {
     for (final family in ['Roboto', 'Ahem']) {
       await (FontLoader(family)..addFont(
             File(
-              '$fonts/roboto-regular.ttf',
+              '$fonts/Roboto-Regular.ttf',
             ).readAsBytes().then(ByteData.sublistView),
           ))
           .load();

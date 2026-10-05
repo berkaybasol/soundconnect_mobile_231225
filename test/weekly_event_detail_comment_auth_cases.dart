@@ -455,10 +455,10 @@ void _commentAccessPreviewTests(_CommentsRepository Function() repository) {
             '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
         final font = FontLoader('Roboto');
         for (final name in [
-          'roboto-regular.ttf',
-          'roboto-medium.ttf',
-          'roboto-bold.ttf',
-          'roboto-black.ttf',
+          'Roboto-Regular.ttf',
+          'Roboto-Medium.ttf',
+          'Roboto-Bold.ttf',
+          'Roboto-Black.ttf',
         ]) {
           font.addFont(
             File('$fonts/$name').readAsBytes().then(ByteData.sublistView),

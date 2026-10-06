@@ -1,5 +1,19 @@
 # SoundConnect Frontend — kalıcı proje kararları
 
+## Kod kalitesi ve mevcut altyapı
+
+3 Ekim 2026 açık kullanıcı kararı: üretime hazır (prod-ready) seviyede kod
+kalitesi hedefle. Her ihtiyaçta önce mevcut altyapıyı tara; ihtiyacı karşılayan
+yapı varsa yeniden yazma, kullan ve gerektiğinde geliştir. Uygun yapı yoksa veya
+mevcut yapı yetersizse gerekçesini belirterek gereken yeni yapıyı oluştur. Yeni
+kod yasak değildir; gereksiz kopya altyapıdan kaçınılır.
+
+Değişiklikte doğruluk, oturum/yetki/mahremiyet, lifecycle/eşzamanlılık, hata ve
+retry davranışı, kaynak kullanımı, bakım kolaylığı ve anlamlı doğrulama gözetilir.
+Kontrolleri/testleri susturarak işi kapatma; ilgisiz geniş refactor yapma. Bu
+kalite hedefi deploy veya üretim kabulü anlamına gelmez. Controller incelemesi
+mevcut yapıların kullanımını ve gerektiğinde yeni yapı gerekçesini değerlendirir.
+
 ## Bildirim açılışları
 
 30 Eylül 2026 kullanıcı UX kararı; 1 Ekim 2026 kalıcı talimat uygulaması:

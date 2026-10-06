@@ -58,6 +58,7 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/s
 import 'package:soundconnect_23_12_25codx/modules/studio/domain/studio_room_repository.dart';
 
 part 'notification_repository_cubit_test_cubit.dart';
+part 'notification_repository_cubit_test_confirmed_read.dart';
 
 const _dmUser = '70000000-0000-4000-8000-000000000001';
 const _dmNotice = '50000000-0000-4000-8000-000000000001';
@@ -1594,6 +1595,8 @@ class _ControlledNotificationRepository implements NotificationRepository {
   int unreadCalls = 0;
   Completer<Result<int>>? markAllRequest;
   Completer<Result<int>>? clearAllRequest;
+  Completer<Result<void>>? markReadRequest;
+  Completer<Result<void>>? deleteRequest;
 
   @override
   Future<Result<pagination.Page<AppNotification>>> listNotifications({
@@ -1618,7 +1621,7 @@ class _ControlledNotificationRepository implements NotificationRepository {
   @override
   Future<Result<void>> deleteNotification({
     required String notificationId,
-  }) async => const Result.success(null);
+  }) async => deleteRequest?.future ?? const Result.success(null);
 
   @override
   Future<Result<List<AppNotification>>> getRecentNotifications() async =>
@@ -1630,7 +1633,7 @@ class _ControlledNotificationRepository implements NotificationRepository {
 
   @override
   Future<Result<void>> markAsRead({required String notificationId}) async =>
-      const Result.success(null);
+      markReadRequest?.future ?? const Result.success(null);
 }
 
 class _TestNotificationRealtimeClient extends NotificationRealtimeClient {

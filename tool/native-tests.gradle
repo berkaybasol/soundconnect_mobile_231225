@@ -1,0 +1,14 @@
+// Machine-readable JUnit lifecycle evidence. Only the full app JVM task is affected.
+gradle.projectsEvaluated {
+    // Init scripts also see Flutter's included Gradle plugin build.
+    def app = gradle.rootProject.findProject(':app')
+    if (app == null) return
+    app.tasks.withType(Test).configureEach {
+        if (name == 'testDebugUnitTest') {
+            outputs.upToDateWhen { false }
+            beforeTest { d -> println "SC_NATIVE_START ${d.className}#${d.name}" }
+            afterTest { d, r -> println "SC_NATIVE_${r.resultType == org.gradle.api.tasks.testing.TestResult.ResultType.SUCCESS ? 'PASS' : 'FAIL'} ${d.className}#${d.name}" }
+            afterSuite { d, r -> if (!d.parent) println "SC_NATIVE_FINAL ${r.testCount} ${r.successfulTestCount} ${r.failedTestCount} ${r.skippedTestCount}" }
+        }
+    }
+}

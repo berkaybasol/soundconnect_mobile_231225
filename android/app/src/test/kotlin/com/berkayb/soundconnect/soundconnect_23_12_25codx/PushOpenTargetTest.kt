@@ -10,6 +10,20 @@ class PushOpenTargetTest {
     private fun extras(): Map<String, String?> = mapOf("recipientId" to recipient,
         "conversationId" to conversation, "type" to "DM_NEW_MESSAGE")
 
+    @Test fun allSupportedNotificationFixturesPreserveExactMetadata() {
+        assertEquals(45, NativePushOpenCases.types.toSet().size)
+        for (type in NativePushOpenCases.types) {
+            val fields = mapOf("recipientId" to recipient, "notificationId" to notice, "type" to type) +
+                if (type == "DM_NEW_MESSAGE") mapOf("conversationId" to conversation) else emptyMap()
+            assertEquals(type, fields, PushOpenTarget.parse(PushOpenTarget.NOTIFICATION_ACTION, fields))
+            if (type != "DM_NEW_MESSAGE") {
+                assertTrue(type, VenuePushPayload.supportsType(type))
+                assertNull(PushOpenTarget.parse(PushOpenTarget.CONVERSATION_ACTION, fields))
+                assertNull(PushOpenTarget.parse(PushOpenTarget.NOTIFICATION_ACTION, fields + ("conversationId" to conversation)))
+            }
+        }
+    }
+
     @Test fun repeatedShortcutTapsHaveDistinctNavigationIdsWithoutNotificationIdentity() {
         val first = PushOpenTarget.parse(PushOpenTarget.CONVERSATION_ACTION, extras())!!
         val second = PushOpenTarget.parse(PushOpenTarget.CONVERSATION_ACTION, extras())!!

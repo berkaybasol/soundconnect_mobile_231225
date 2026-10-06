@@ -315,7 +315,10 @@ void setupDependencies() {
       () => CollabActorReviewsCubit(serviceLocator<CollabRepository>()),
     )
     ..registerLazySingleton<NotificationRepository>(
-      () => NotificationRepositoryImpl(serviceLocator<ApiClient>()),
+      () => NotificationRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<VenueApplicationRepository>(
       () => VenueApplicationRepository(

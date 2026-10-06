@@ -220,6 +220,13 @@ void main() {
   });
 
   group('NotificationRepositoryImpl', () {
+    late AudienceTestSessions repositorySessions;
+    setUp(() {
+      repositorySessions = AudienceTestSessions(
+        audienceSession(user: 'user-1', role: 'ROLE_MUSICIAN'),
+      );
+    });
+    tearDown(() => repositorySessions.dispose());
     test('decodes a page and sends stable pagination and sort query', () async {
       final apiClient = _NotificationApiClientFake((path, query) async {
         expect(path, NotificationEndpoints.list);
@@ -232,7 +239,10 @@ void main() {
           ],
         };
       });
-      final repository = NotificationRepositoryImpl(apiClient);
+      final repository = NotificationRepositoryImpl(
+        apiClient,
+        repositorySessions,
+      );
 
       final result = await repository.listNotifications(page: 3, size: 7);
 
@@ -257,6 +267,7 @@ void main() {
                 ? <String, dynamic>{'unread': 8.9}
                 : <String, dynamic>{};
           }),
+          repositorySessions,
         );
 
         final first = await repository.getUnreadCount();
@@ -271,9 +282,11 @@ void main() {
       const typed = AppError(code: '401', message: 'Unauthorized');
       final typedRepository = NotificationRepositoryImpl(
         _NotificationApiClientFake((_, __) => throw ApiException(typed)),
+        repositorySessions,
       );
       final unknownRepository = NotificationRepositoryImpl(
         _NotificationApiClientFake((_, __) => throw StateError('bad payload')),
+        repositorySessions,
       );
 
       final typedResult = await typedRepository.getRecentNotifications();

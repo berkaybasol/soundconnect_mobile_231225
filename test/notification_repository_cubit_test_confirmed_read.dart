@@ -56,9 +56,16 @@ void _registerConfirmedReadTests() {
         final bulk = cubit.markAllAsRead();
         await _eventually(() => repository.listRequests.length == 2);
         if (timing == 'during refresh') await frame(exact);
-        repository.listRequests.last.complete(
+        repository.listRequests[1].complete(
           page([exact.copyWith(read: true), sibling.copyWith(read: true)]),
         );
+        if (timing == 'during refresh') {
+          // The frame queues one authoritative follow-up behind bulk refresh.
+          await _eventually(() => repository.listRequests.length == 3);
+          repository.listRequests.last.complete(
+            page([exact.copyWith(read: true), sibling.copyWith(read: true)]),
+          );
+        }
         await bulk;
         if (timing == 'after refresh') await frame(exact);
         expect(cubit.state.items.every((item) => item.read), isTrue);
@@ -77,8 +84,12 @@ void _registerConfirmedReadTests() {
       final fresh = _notification('fresh');
       await frame(exact);
       await frame(fresh);
-      repository.listRequests.last.complete(
+      repository.listRequests[1].complete(
         page([exact.copyWith(read: true), sibling.copyWith(read: true)]),
+      );
+      await _eventually(() => repository.listRequests.length == 3);
+      repository.listRequests.last.complete(
+        page([fresh, exact.copyWith(read: true), sibling.copyWith(read: true)]),
       );
       await bulk;
       expect(cubit.state.items.first.id, fresh.id);

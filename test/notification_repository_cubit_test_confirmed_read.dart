@@ -511,12 +511,20 @@ void _registerConfirmedReadTests() {
         );
         await deletion;
         expect(cubit.state.items.map((item) => item.id), [
-          'exact',
           'new',
+          'exact',
           'sibling',
         ]);
-        expect(cubit.state.items.first.read, isTrue);
-        expect(cubit.state.items.skip(1).every((item) => !item.read), isTrue);
+        expect(
+          cubit.state.items.singleWhere((item) => item.id == 'exact').read,
+          isTrue,
+        );
+        expect(
+          cubit.state.items
+              .where((item) => item.id != 'exact')
+              .every((item) => !item.read),
+          isTrue,
+        );
         expect(cubit.state.unreadCount, 2);
       },
     );

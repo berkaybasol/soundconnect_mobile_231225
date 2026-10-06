@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
@@ -11,7 +12,32 @@ import 'notification_endpoints.dart';
 class NotificationRepositoryImpl implements NotificationRepository {
   final ApiClient _apiClient;
 
-  NotificationRepositoryImpl(this._apiClient);
+  final AuthSessionManager _sessions;
+
+  NotificationRepositoryImpl(this._apiClient, this._sessions);
+
+  ApiRequestContext _mutationContext() {
+    // Capture before the first await. A delayed transport must never adopt a
+    // newly signed-in account's bearer for an older inbox action.
+    final session = _sessions.session;
+    if (!session.isAuthenticated ||
+        !session.isActive ||
+        session.requiresListenerProfileChoice ||
+        session.userId?.trim().isNotEmpty != true ||
+        session.token?.trim().isNotEmpty != true ||
+        session.expiresAt?.isAfter(DateTime.now()) != true) {
+      throw ApiException(
+        const AppError(
+          code: 'api_session_fence',
+          message: 'Oturum istek tamamlanmadan önce değişti.',
+        ),
+      );
+    }
+    return ApiRequestContext(
+      expectedSessionKey: session.userId,
+      expectedToken: session.token,
+    );
+  }
 
   @override
   Future<Result<Page<AppNotification>>> listNotifications({
@@ -83,8 +109,10 @@ class NotificationRepositoryImpl implements NotificationRepository {
   @override
   Future<Result<void>> markAsRead({required String notificationId}) async {
     try {
-      await _apiClient.post<Object?>(
+      await _apiClient.request<Object?>(
+        ApiHttpMethod.post,
         NotificationEndpoints.markRead(notificationId),
+        requestContext: _mutationContext(),
         body: null,
         decoder: (_) => null,
       );
@@ -104,8 +132,10 @@ class NotificationRepositoryImpl implements NotificationRepository {
   @override
   Future<Result<int>> markAllAsRead() async {
     try {
-      final response = await _apiClient.post<int>(
+      final response = await _apiClient.request<int>(
+        ApiHttpMethod.post,
         NotificationEndpoints.markAllRead,
+        requestContext: _mutationContext(),
         body: null,
         decoder: (json) {
           final map = json as Map<String, dynamic>? ?? const {};
@@ -130,8 +160,10 @@ class NotificationRepositoryImpl implements NotificationRepository {
     required String notificationId,
   }) async {
     try {
-      await _apiClient.delete<Object?>(
+      await _apiClient.request<Object?>(
+        ApiHttpMethod.delete,
         NotificationEndpoints.delete(notificationId),
+        requestContext: _mutationContext(),
         decoder: (_) => null,
       );
       return const Result.success(null);
@@ -150,8 +182,10 @@ class NotificationRepositoryImpl implements NotificationRepository {
   @override
   Future<Result<int>> clearAllNotifications() async {
     try {
-      final response = await _apiClient.delete<int>(
+      final response = await _apiClient.request<int>(
+        ApiHttpMethod.delete,
         NotificationEndpoints.clearAll,
+        requestContext: _mutationContext(),
         decoder: (json) {
           final map = json as Map<String, dynamic>? ?? const {};
           return (map['deleted'] as num?)?.toInt() ?? 0;

@@ -119,6 +119,10 @@ class NotificationCubit extends Cubit<NotificationState> {
   // A clear-all response has no server deletion watermark. Afterwards, REST
   // must verify unknown realtime IDs: a delayed pre-clear frame may be deleted.
   bool _verifyRealtimeAfterClear = false;
+  // Bulk read has no ID watermark. A later unread creation frame may refer to
+  // a now-read ID outside the refreshed first page. Verify such frames through
+  // the same bounded REST reconciliation used after a realtime gap.
+  bool _verifyUnreadRealtimeAfterBulkRead = false;
   Object? _clearOperation;
 
   Future<void> ensureStarted() async {
@@ -153,6 +157,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       _pendingDeletionIds.clear();
       _deletedNotificationIds.clear();
       _verifyRealtimeAfterClear = false;
+      _verifyUnreadRealtimeAfterBulkRead = false;
       _clearOperation = null;
       emit(const NotificationState.initial().copyWith(initialized: true));
       return;
@@ -166,6 +171,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     _pendingDeletionIds.clear();
     _deletedNotificationIds.clear();
     _verifyRealtimeAfterClear = false;
+    _verifyUnreadRealtimeAfterBulkRead = false;
     _clearOperation = null;
     if (switchingUser) emit(const NotificationState.initial());
 
@@ -599,7 +605,11 @@ class NotificationCubit extends Cubit<NotificationState> {
       return;
     }
     unawaited(_notifyDeliveryStateChanged(generation, sessionRevision));
-    await _refresh(generation, sessionRevision: sessionRevision);
+    _verifyUnreadRealtimeAfterBulkRead = true;
+    // Retire pre-mutation refresh/page responses before joining their queued
+    // reconciliation. A failed follow-up must not expose an older unread page.
+    _refreshSequence += 1;
+    await _reconcileAfterRealtimeGap(generation);
   }
 
   Future<void> deleteNotification(AppNotification notification) async {
@@ -749,6 +759,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     _pendingDeletionIds.clear();
     _deletedNotificationIds.clear();
     _verifyRealtimeAfterClear = false;
+    _verifyUnreadRealtimeAfterBulkRead = false;
     _clearOperation = null;
     if (_isCurrent(generation)) emit(const NotificationState.initial());
   }
@@ -799,7 +810,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (_startedUserId == null || recipientId != _startedUserId) return;
     if (!_canShowNotification(notification)) return;
     if (_isDeleted(notification.id)) return;
-    if (_verifyRealtimeAfterClear) {
+    if (_verifyRealtimeAfterClear ||
+        (_verifyUnreadRealtimeAfterBulkRead &&
+            !notification.read &&
+            !_confirmedReadIds.contains(notification.id))) {
       unawaited(_reconcileAfterRealtimeGap(_lifecycleGeneration));
       return;
     }

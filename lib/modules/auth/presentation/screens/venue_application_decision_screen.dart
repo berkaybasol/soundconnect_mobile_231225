@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/push/push_coordinator.dart';
@@ -39,6 +40,9 @@ class _VenueApplicationDecisionScreenState
   String? _error;
   bool _busy = false, _acked = false, _ackBusy = false, _ackFailed = false;
   bool _promotionAttempted = false, _promotionFailed = false;
+  bool _promotionInFlight = false;
+  int? _promotionCredentialRevision;
+  AuthSession? _promotionSuccessor;
   ModalRoute<dynamic>? _route;
   int _foregroundRevision = 0;
   bool get _current =>
@@ -64,13 +68,47 @@ class _VenueApplicationDecisionScreenState
 
   void _onSessionChanged() {
     if (!mounted || identical(_sessions.session, _session)) return;
+    if (_hasPromotionPresentation) return;
+    final next = _sessions.session;
+    final detail = _detail;
+    // The manager commits this screen's signed promotion before the app resets
+    // routes in the next frame. Preserve only that exact successor's existing
+    // presentation; _current still forbids all predecessor requests and ACKs.
+    if (_promotionSuccessor == null &&
+        _promotionInFlight &&
+        _promotionCredentialRevision == _sessions.credentialRevision &&
+        _session.isVenueApplicationSession &&
+        detail?.status == 'APPROVED' &&
+        detail?.id == _session.applicationId &&
+        detail?.applicantUserId == _session.userId &&
+        next.isAuthenticated &&
+        next.isActive &&
+        next.userId == _session.userId &&
+        next.hasAnyRole(const ['ROLE_VENUE']) &&
+        next.sessionScope == null &&
+        next.applicationId == null &&
+        !next.requiresListenerProfileChoice) {
+      setState(() {
+        _promotionSuccessor = next;
+        _busy = true;
+        _error = null;
+      });
+      return;
+    }
     setState(() {
+      _promotionInFlight = false;
+      _promotionSuccessor = null;
       _detail = null;
       _notification = null;
       _busy = false;
       _error = 'Oturum değişti. Başvurunu yeniden aç.';
     });
   }
+
+  bool get _hasPromotionPresentation =>
+      _promotionSuccessor != null &&
+      identical(_sessions.session, _promotionSuccessor) &&
+      _sessions.credentialRevision == _promotionCredentialRevision;
 
   @override
   void didChangeDependencies() {
@@ -250,7 +288,10 @@ class _VenueApplicationDecisionScreenState
       _promotionFailed = false;
       _error = null;
     });
+    _promotionCredentialRevision = _sessions.credentialRevision;
+    _promotionInFlight = true;
     final result = await _repository.promote(detail!.id, _session);
+    _promotionInFlight = false;
     // SoundConnectApp observes the signed session replacement and resets routes.
     if (!mounted || !identical(_sessions.session, _session)) return;
     setState(() {
@@ -274,7 +315,10 @@ class _VenueApplicationDecisionScreenState
 
   @override
   Widget build(BuildContext context) {
-    final detail = identical(_sessions.session, _session) ? _detail : null;
+    final detail =
+        identical(_sessions.session, _session) || _hasPromotionPresentation
+        ? _detail
+        : null;
     return Scaffold(
       appBar: AppBar(title: const Text('Başvuru durumu')),
       body: Container(

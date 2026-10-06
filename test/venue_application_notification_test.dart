@@ -43,6 +43,13 @@ PushTarget _target(String decision) => PushTarget(
   type: 'VENUE_APPLICATION_$decision',
 );
 
+String _normalToken(String userId) =>
+    'header.${base64Url.encode(utf8.encode(jsonEncode({
+      'sub': userId,
+      'roles': ['ROLE_VENUE'],
+      'exp': DateTime.now().add(const Duration(days: 1)).millisecondsSinceEpoch ~/ 1000,
+    })))}.signature';
+
 void main() {
   late _Fixture f;
   setUp(() async {
@@ -181,6 +188,162 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  for (final nativeTarget in [true, false]) {
+    testWidgets(
+      'own promotion preserves approved presentation in every transition frame native=$nativeTarget',
+      (tester) async {
+        f.api.decision = 'APPROVED';
+        f.api.promoteGate = Completer<void>();
+        if (nativeTarget) f.provider.initial = _target('APPROVED');
+        await f.mount(tester);
+        expect(f.api.promotions, 1);
+        expect(find.text('Current owned venue'), findsOneWidget);
+        expect(f.api.readIds, nativeTarget ? [_nid] : isEmpty);
+        final revision = f.sessions.credentialRevision;
+        f.api.promoteGate!.complete();
+        var sawHandoffFrame = false;
+        var reachedProfile = false;
+        for (var frame = 0; frame < 40; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          final decision = find.byType(VenueApplicationDecisionScreen);
+          final profile = find.byType(VenueProfileScreen);
+          final error = find.text('Oturum değişti. Başvurunu yeniden aç.');
+          debugPrint(
+            'promotion-frame native=$nativeTarget frame=$frame '
+            'decision=${decision.evaluate().isNotEmpty} '
+            'profile=${profile.evaluate().isNotEmpty} '
+            'sessionError=${error.evaluate().isNotEmpty}',
+          );
+          expect(error, findsNothing, reason: 'false error in frame $frame');
+          expect(find.text('Tekrar dene'), findsNothing);
+          if (decision.evaluate().isNotEmpty && profile.evaluate().isEmpty) {
+            expect(find.text('Current owned venue'), findsOneWidget);
+            expect(find.text('Mekân başvurun onaylandı.'), findsOneWidget);
+            expect(find.text('Profilin açılıyor…'), findsOneWidget);
+            expect(
+              tester
+                  .widget<TextButton>(
+                    find.widgetWithText(TextButton, 'Çıkış yap'),
+                  )
+                  .onPressed,
+              isNull,
+            );
+            sawHandoffFrame |= !f.sessions.session.isVenueApplicationSession;
+          }
+          if (profile.evaluate().isNotEmpty) {
+            reachedProfile = true;
+            break;
+          }
+        }
+        expect(sawHandoffFrame, isTrue);
+        expect(reachedProfile, isTrue);
+        expect(f.sessions.credentialRevision, revision);
+        expect(f.api.promotions, 1);
+        expect(f.api.readIds, nativeTarget ? [_nid] : isEmpty);
+        expect(f.api.unread, nativeTarget ? {_other} : {_nid, _other});
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Mekân başvurun onaylandı. Profilin hazır!'),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final replacement in ['logout', 'other-user', 'same-user-login']) {
+    testWidgets(
+      'in-flight approval clears private detail immediately for $replacement',
+      (tester) async {
+        f.api.decision = 'APPROVED';
+        f.api.promoteGate = Completer<void>();
+        await f.mountDecision(tester);
+        expect(find.text('Current owned venue'), findsOneWidget);
+        final revision = f.sessions.credentialRevision;
+        if (replacement == 'logout') {
+          await f.sessions.logout();
+        } else {
+          await f.sessions.startSession(
+            token: _normalToken(
+              replacement == 'other-user' ? _other : applicantId,
+            ),
+            username: 'replacement',
+            accountStatus: 'ACTIVE',
+          );
+        }
+        final replacementSession = f.sessions.session;
+        expect(f.sessions.credentialRevision, greaterThan(revision));
+        await tester.pump();
+        expect(find.text('Current owned venue'), findsNothing);
+        expect(find.text('Mekân başvurun onaylandı.'), findsNothing);
+        f.api.promoteGate!.complete();
+        await tester.pumpAndSettle();
+        expect(identical(f.sessions.session, replacementSession), isTrue);
+        expect(find.text('Current owned venue'), findsNothing);
+        expect(
+          find.text('Mekân başvurun onaylandı. Profilin hazır!'),
+          findsNothing,
+        );
+        expect(f.api.readIds, isEmpty);
+        expect(f.api.promotions, 1);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final replacement in [
+    'logout',
+    'other-user',
+    'same-user-login',
+    'same-revision-object',
+  ]) {
+    testWidgets(
+      'accepted promotion presentation clears on subsequent $replacement',
+      (tester) async {
+        f.api.decision = 'APPROVED';
+        f.api.promoteGate = Completer<void>();
+        // Keep this real screen mounted after the real manager commits, so a
+        // subsequent replacement is tested before any app route disposal.
+        await f.mountDecision(tester);
+        f.api.promoteGate!.complete();
+        await tester.pump();
+        expect(f.sessions.session.isActive, isTrue);
+        expect(find.text('Current owned venue'), findsOneWidget);
+        expect(
+          find.text('Oturum değişti. Başvurunu yeniden aç.'),
+          findsNothing,
+        );
+        final successor = f.sessions.session;
+        final revision = f.sessions.credentialRevision;
+        if (replacement == 'logout') {
+          await f.sessions.logout();
+        } else if (replacement == 'same-revision-object') {
+          await f.sessions.updateUsername('updated');
+          expect(f.sessions.credentialRevision, revision);
+        } else {
+          await f.sessions.startSession(
+            token: _normalToken(
+              replacement == 'other-user' ? _other : applicantId,
+            ),
+            username: 'replacement',
+            accountStatus: 'ACTIVE',
+          );
+        }
+        expect(identical(f.sessions.session, successor), isFalse);
+        await tester.pump();
+        expect(find.text('Current owned venue'), findsNothing);
+        expect(find.text('Mekân başvurun onaylandı.'), findsNothing);
+        expect(
+          find.text('Oturum değişti. Başvurunu yeniden aç.'),
+          findsOneWidget,
+        );
+        expect(f.api.promotions, 1);
+        expect(f.api.readIds, isEmpty);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   for (final defect in ['application', 'recipient', 'status', 'source']) {
     testWidgets('mismatched current $defect never presents decision or ACKs', (
@@ -481,6 +644,15 @@ class _Fixture {
         await tester.pump();
       }
     }
+  }
+
+  Future<void> mountDecision(WidgetTester tester) async {
+    await setup();
+    await sessions.restore();
+    await tester.pumpWidget(
+      const MaterialApp(home: VenueApplicationDecisionScreen()),
+    );
+    await tester.pumpAndSettle();
   }
 
   Future<void> close() async {

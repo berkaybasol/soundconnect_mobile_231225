@@ -50,6 +50,136 @@ void _registerConfirmedReadTests() {
       sessions.dispose();
     });
 
+    for (final timing in ['during refresh', 'after refresh']) {
+      test('bulk read proof survives delayed unread frame $timing', () async {
+        repository.unreadResult = const Result.success(0);
+        final bulk = cubit.markAllAsRead();
+        await _eventually(() => repository.listRequests.length == 2);
+        if (timing == 'during refresh') await frame(exact);
+        repository.listRequests.last.complete(
+          page([exact.copyWith(read: true), sibling.copyWith(read: true)]),
+        );
+        await bulk;
+        if (timing == 'after refresh') await frame(exact);
+        expect(cubit.state.items.every((item) => item.read), isTrue);
+        expect(cubit.state.unreadCount, 0);
+        // A later stale REST projection cannot undo the confirmed bulk result.
+        await refreshWith([exact, sibling]);
+        expect(cubit.state.items.every((item) => item.read), isTrue);
+        expect(cubit.state.unreadCount, 0);
+      });
+    }
+
+    test('bulk read proof preserves a new arrival during refresh', () async {
+      repository.unreadResult = const Result.success(1);
+      final bulk = cubit.markAllAsRead();
+      await _eventually(() => repository.listRequests.length == 2);
+      final fresh = _notification('fresh');
+      await frame(exact);
+      await frame(fresh);
+      repository.listRequests.last.complete(
+        page([exact.copyWith(read: true), sibling.copyWith(read: true)]),
+      );
+      await bulk;
+      expect(cubit.state.items.first.id, fresh.id);
+      expect(cubit.state.items.first.read, isFalse);
+      expect(cubit.state.items.skip(1).every((item) => item.read), isTrue);
+      expect(cubit.state.unreadCount, 1);
+    });
+
+    test(
+      'read page proof protects duplicate and unloaded pagination IDs',
+      () async {
+        final more = cubit.loadMore();
+        final external = _notification('external');
+        repository.listRequests.last.complete(
+          page([sibling.copyWith(read: true), external.copyWith(read: true)]),
+        );
+        await more;
+        expect(cubit.state.items.map((item) => item.id), [
+          'exact',
+          'sibling',
+          'external',
+        ]);
+        expect(cubit.state.items.first.read, isFalse);
+        expect(cubit.state.items.skip(1).every((item) => item.read), isTrue);
+        await refreshWith([exact]);
+        await frame(sibling);
+        await frame(external);
+        expect(
+          cubit.state.items
+              .where((item) => item.id != exact.id)
+              .every((item) => item.read),
+          isTrue,
+        );
+        expect(
+          cubit.state.items.singleWhere((item) => item.id == exact.id).read,
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'read realtime proof survives a delayed creation projection',
+      () async {
+        await frame(exact.copyWith(read: true));
+        await frame(exact);
+        expect(cubit.state.items.first.read, isTrue);
+        expect(cubit.state.items.last.read, isFalse);
+      },
+    );
+
+    test('bulk read page proof is retired on logout and relogin', () async {
+      repository.unreadResult = const Result.success(0);
+      final bulk = cubit.markAllAsRead();
+      await _eventually(() => repository.listRequests.length == 2);
+      repository.listRequests.last.complete(
+        page([exact.copyWith(read: true), sibling.copyWith(read: true)]),
+      );
+      await bulk;
+      sessions.replace(const AuthSession.guest());
+      await _eventually(() => cubit.state.items.isEmpty);
+      sessions.replace(audienceSession(user: 'user-1', role: 'ROLE_MUSICIAN'));
+      await _eventually(() => repository.listRequests.length == 3);
+      repository.unreadResult = const Result.success(2);
+      repository.listRequests.last.complete(page([exact, sibling]));
+      await _eventually(() => cubit.state.status == NotificationStatus.success);
+      expect(cubit.state.items.every((item) => !item.read), isTrue);
+      expect(cubit.state.unreadCount, 2);
+    });
+
+    test('read page proof survives a pending deletion rollback', () async {
+      repository.deleteRequest = Completer<Result<void>>();
+      final deletion = cubit.deleteNotification(exact);
+      repository.unreadResult = const Result.success(1);
+      await refreshWith([exact.copyWith(read: true), sibling]);
+      expect(cubit.state.items.single.id, sibling.id);
+      repository.deleteRequest!.complete(
+        const Result.failure(
+          AppError(code: 'delete', message: 'Delete failed'),
+        ),
+      );
+      await deletion;
+      expect(cubit.state.items.first.read, isTrue);
+      expect(cubit.state.items.last.read, isFalse);
+      expect(cubit.state.unreadCount, 1);
+    });
+
+    test(
+      'another recipient read projection cannot poison current IDs',
+      () async {
+        final other = _notification(
+          exact.id,
+          recipientId: 'user-2',
+        ).copyWith(read: true);
+        await refreshWith([other, sibling]);
+        await frame(exact);
+        expect(cubit.state.items.first.id, exact.id);
+        expect(cubit.state.items.first.read, isFalse);
+        expect(cubit.state.items.last.read, isFalse);
+      },
+    );
+
     test(
       'loaded ACK survives duplicate frames and preserves new fields',
       () async {

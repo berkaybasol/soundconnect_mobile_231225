@@ -109,8 +109,8 @@ class NotificationCubit extends Cubit<NotificationState> {
   int _realtimeRevision = 0;
   int _badgeRevision = 0;
   final Map<String, int> _realtimeRevisionById = <String, int>{};
-  // ACKs are monotonic for an ID in this session. Neither an offset page nor
-  // an unversioned socket frame proves that an absent ID can be forgotten.
+  // Confirmed reads are monotonic for an ID in this session. Neither an offset
+  // page nor an unversioned socket frame proves an absent ID can be forgotten.
   // Keep only distinct IDs (no payloads), until deletion or session teardown;
   // TTL/LRU eviction would allow a delayed unread frame to undo a valid ACK.
   final Set<String> _confirmedReadIds = <String>{};
@@ -362,9 +362,17 @@ class NotificationCubit extends Cubit<NotificationState> {
       return;
     }
 
-    final realtimeItems = state.items.where(
-      (item) => (_realtimeRevisionById[item.id] ?? 0) > realtimeRevisionAtStart,
-    );
+    // A successful bulk read returns a count, not an ID watermark. Learn only
+    // the server's explicit read projections; never infer read for new arrivals.
+    // Remember them before merging: a delayed creation frame may have arrived
+    // during this request and therefore take precedence over the REST row.
+    _rememberReadProjections(pageResult.data!.items);
+    final realtimeItems = state.items
+        .where(
+          (item) =>
+              (_realtimeRevisionById[item.id] ?? 0) > realtimeRevisionAtStart,
+        )
+        .map(_withConfirmedRead);
     final pageItems = pageResult.data!.items.map(_withConfirmedRead);
     final mergedItems =
         _mergeById(<AppNotification>[...realtimeItems, ...pageItems])
@@ -423,6 +431,8 @@ class NotificationCubit extends Cubit<NotificationState> {
     // Offset pages can shift when a realtime notification is inserted between
     // page requests. Preserve the server order while suppressing an ID that
     // was already loaded (or repeated inside the response).
+    // A duplicate row can still carry fresh read proof for an existing item.
+    _rememberReadProjections(result.data!.items);
     final seenIds = state.items.map((item) => item.id).toSet();
     final uniqueNextItems = result.data!.items
         .where((item) => !_isDeleted(item.id))
@@ -433,7 +443,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     emit(
       state.copyWith(
         status: NotificationStatus.success,
-        items: [...state.items, ...uniqueNextItems],
+        items: [...state.items.map(_withConfirmedRead), ...uniqueNextItems],
         page: nextPage,
         hasNext: result.data!.hasNext,
         clearError: true,
@@ -750,6 +760,18 @@ class NotificationCubit extends Cubit<NotificationState> {
   bool _isDeleted(String id) =>
       _pendingDeletionIds.contains(id) || _deletedNotificationIds.contains(id);
 
+  void _rememberReadProjections(Iterable<AppNotification> notifications) {
+    for (final notification in notifications) {
+      if (notification.read &&
+          !_deletedNotificationIds.contains(notification.id) &&
+          _canShowNotification(notification)) {
+        // Optimistic deletion can still roll back; retain read proof until its
+        // server success installs the tombstone and retires this ID's proof.
+        _confirmedReadIds.add(notification.id);
+      }
+    }
+  }
+
   AppNotification _withConfirmedRead(AppNotification notification) =>
       !notification.read && _confirmedReadIds.contains(notification.id)
       ? notification.copyWith(read: true)
@@ -781,6 +803,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       unawaited(_reconcileAfterRealtimeGap(_lifecycleGeneration));
       return;
     }
+    if (notification.read) _confirmedReadIds.add(notification.id);
     notification = _withConfirmedRead(notification);
     _realtimeRevision += 1;
     _realtimeRevisionById[notification.id] = _realtimeRevision;

@@ -109,6 +109,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   int? _gapReconciliationGeneration;
   bool _gapReconciliationQueued = false;
   Timer? _badgeReconciliationTimer;
+  Timer? _realtimeCountReconciliationTimer;
   int _lifecycleGeneration = 0;
   int _sessionRevision = 0;
   int _refreshSequence = 0;
@@ -328,6 +329,9 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   void _scheduleBadgeReconciliation(int generation, int sessionRevision) {
+    // The pending badge refresh already fetches an authoritative count.
+    _realtimeCountReconciliationTimer?.cancel();
+    _realtimeCountReconciliationTimer = null;
     _badgeReconciliationTimer?.cancel();
     _badgeReconciliationTimer = Timer(const Duration(milliseconds: 250), () {
       _badgeReconciliationTimer = null;
@@ -1128,6 +1132,12 @@ class NotificationCubit extends Cubit<NotificationState> {
         clearError: true,
       ),
     );
+    if (!notification.read) {
+      _scheduleRealtimeCountReconciliation(
+        _lifecycleGeneration,
+        _sessionRevision,
+      );
+    }
   }
 
   List<AppNotification> _mergeById(Iterable<AppNotification> items) {

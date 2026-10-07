@@ -1,8 +1,40 @@
 part of 'notification_cubit.dart';
 
 // The inbox owns the session and projection revisions. Keep its bounded,
-// shared count flight together without introducing another owner or timer.
+// shared count flight and arrival window together under the same owner.
 extension _NotificationCountReconciliation on NotificationCubit {
+  void _scheduleRealtimeCountReconciliation(
+    int generation,
+    int sessionRevision,
+  ) {
+    if (!_isCurrentSession(generation, sessionRevision)) return;
+    // An unknown ID may already be included in the count while outside the
+    // loaded pages. Keep the optimistic arrival, then reconcile count only.
+    _countReconciliationNeeded = true;
+    if (_countReconciliationInFlight != null ||
+        _badgeReconciliationTimer != null ||
+        _realtimeCountReconciliationTimer != null) {
+      return;
+    }
+    // A fixed window coalesces a burst without postponing recovery forever.
+    // During the shared flight, arrivals use its existing two-snapshot bound.
+    _realtimeCountReconciliationTimer = Timer(
+      const Duration(milliseconds: 250),
+      () {
+        _realtimeCountReconciliationTimer = null;
+        if (_isCurrentSession(generation, sessionRevision)) {
+          unawaited(
+            _reconcileConfirmedCount(
+              generation,
+              sessionRevision,
+              newMutation: false,
+            ),
+          );
+        }
+      },
+    );
+  }
+
   Future<void> _reconcileConfirmedCount(
     int generation,
     int sessionRevision, {
@@ -11,6 +43,8 @@ extension _NotificationCountReconciliation on NotificationCubit {
     if (!_isCurrentSession(generation, sessionRevision)) {
       return Future<void>.value();
     }
+    _realtimeCountReconciliationTimer?.cancel();
+    _realtimeCountReconciliationTimer = null;
     _countReconciliationNeeded = true;
     if (newMutation) _confirmedCountMutationRevision += 1;
     final inFlight = _countReconciliationInFlight;
@@ -91,6 +125,8 @@ extension _NotificationCountReconciliation on NotificationCubit {
   }
 
   void _cancelCountReconciliation() {
+    _realtimeCountReconciliationTimer?.cancel();
+    _realtimeCountReconciliationTimer = null;
     final cancellation = _countReconciliationCancellation;
     if (cancellation != null && !cancellation.isCompleted) {
       cancellation.complete();

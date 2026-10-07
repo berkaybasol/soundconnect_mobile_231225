@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/token_store.dart';
 import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/error/result.dart';
 import '../../data/dm_auth_support.dart';
 import '../../data/dm_realtime_client.dart';
 import '../../domain/dm_repository.dart';
@@ -14,6 +15,7 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
   final TokenStore _tokenStore;
   final DmRealtimeClient _realtimeClient;
   final AuthSessionManager? _sessions;
+  final Duration _countReconciliationTimeout;
   String? _sessionToken;
   String? _sessionUserId;
   bool _sessionEligible = false;
@@ -23,8 +25,10 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
     this._tokenStore, {
     DmRealtimeClient? realtimeClient,
     AuthSessionManager? sessions,
+    Duration countReconciliationTimeout = const Duration(seconds: 15),
   }) : _realtimeClient = realtimeClient ?? DmRealtimeClient(),
        _sessions = sessions,
+       _countReconciliationTimeout = countReconciliationTimeout,
        super(const DmBadgeState.initial()) {
     _realtimeClient.retain();
     _sessionToken = sessions?.session.token;
@@ -41,6 +45,12 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
   int _lifecycleGeneration = 0;
   int _badgeRevision = 0;
   int _seedSequence = 0;
+  int _readRevision = 0;
+  bool _readReconciliationNeeded = false;
+  bool _verifyBadgeAfterRead = false;
+  Timer? _badgeReconciliationTimer;
+  Future<void>? _countInFlight;
+  Completer<void>? _countCancellation;
   bool _realtimeReady = false;
   Future<void>? _stopInFlight;
   bool _closing = false;
@@ -110,6 +120,8 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
       if (!_realtimeReady || !_realtimeClient.isConnected) {
         await _connectRealtime(currentUserId, generation);
         await _seedUnreadCount(generation);
+      } else if (_readReconciliationNeeded) {
+        await _seedUnreadCount(generation);
       }
       return;
     }
@@ -129,6 +141,27 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
     _badgeSubscription = _realtimeClient.badgeStream.listen((count) {
       if (_isCurrent(generation)) {
         _badgeRevision += 1;
+        if (_verifyBadgeAfterRead) {
+          // An unversioned count may have been published before our ACK, even
+          // after its post-read HTTP snapshot was already accepted. Keep the
+          // last verified value and coalesce a fresh count for this session.
+          _readReconciliationNeeded = true;
+          // One fixed window: sustained traffic cannot postpone it forever.
+          // An active flight already observes this revision and owns its retry.
+          if (_countInFlight != null || _badgeReconciliationTimer != null) {
+            return;
+          }
+          _badgeReconciliationTimer = Timer(
+            const Duration(milliseconds: 250),
+            () {
+              _badgeReconciliationTimer = null;
+              if (_isCurrent(generation) && _readReconciliationNeeded) {
+                unawaited(_seedUnreadCount(generation));
+              }
+            },
+          );
+          return;
+        }
         emit(
           state.copyWith(
             unreadCount: count.clamp(0, 999999),
@@ -169,20 +202,116 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
     _realtimeReady = true;
   }
 
-  Future<void> _seedUnreadCount(int generation) async {
-    final sequence = ++_seedSequence;
-    final revisionBeforeRequest = _badgeRevision;
-    final result = await _repository.getUnreadCount();
-    if (!_isCurrent(generation) || sequence != _seedSequence) return;
+  /// A successful current-session read is independent of best-effort WS badge
+  /// delivery. Reuse the same count flight as startup/reconnect/resume; no
+  /// optimistic subtraction, because the current badge may already include it.
+  Future<void> reconcileAfterRead() {
+    final generation = _lifecycleGeneration;
+    if (!_isCurrent(generation)) return Future<void>.value();
+    _readRevision++;
+    _readReconciliationNeeded = true;
+    _verifyBadgeAfterRead = true;
+    return _reconcileAfterRead(generation);
+  }
 
-    // A realtime update that arrives while REST is in flight is newer and
-    // must not be overwritten by the seed response.
-    if (_badgeRevision != revisionBeforeRequest) return;
+  Future<void> _reconcileAfterRead(int generation) async {
+    if (_startedUserId == null) await ensureStarted();
+    if (_isCurrent(generation) &&
+        _startedUserId != null &&
+        _readReconciliationNeeded) {
+      await _seedUnreadCount(generation);
+    }
+  }
 
-    final count = result.isSuccess && result.data != null
-        ? result.data!.clamp(0, 999999)
-        : state.unreadCount;
-    emit(state.copyWith(unreadCount: count, initialized: true));
+  Future<void> _seedUnreadCount(int generation) {
+    if (!_isCurrent(generation)) return Future<void>.value();
+    final existing = _countInFlight;
+    if (existing != null) return existing;
+    _badgeReconciliationTimer?.cancel();
+    _badgeReconciliationTimer = null;
+    final cancellation = Completer<void>();
+    _countCancellation = cancellation;
+    // Install the identity before invoking repository code, including a
+    // synchronous exception or cancellation. Its finally can then retire it.
+    final completion = Completer<void>();
+    _countInFlight = completion.future;
+    unawaited(
+      _runCountReconciliation(generation, cancellation).then<void>(
+        (_) => completion.complete(),
+        onError: (Object error, StackTrace stack) =>
+            completion.completeError(error, stack),
+      ),
+    );
+    return completion.future;
+  }
+
+  Future<void> _runCountReconciliation(
+    int generation,
+    Completer<void> cancellation,
+  ) async {
+    // Each additional confirmed read can require one later snapshot. N such
+    // revisions therefore cost at most N+2 requests; WS contention alone gets
+    // one follow-up. No repeat ACK, timer polling, or retry loop on failures.
+    var contentionRetryAvailable = true;
+    try {
+      while (_isCurrent(generation)) {
+        _seedSequence++;
+        final readRevision = _readRevision;
+        final badgeRevision = _badgeRevision;
+        final timeout = Completer<Result<int>?>();
+        final timer = Timer(
+          _countReconciliationTimeout,
+          () => timeout.complete(null),
+        );
+        Result<int>? result;
+        try {
+          result = await Future.any<Result<int>?>([
+            _repository.getUnreadCount(),
+            timeout.future,
+            cancellation.future.then((_) => null),
+          ]);
+        } catch (_) {
+          // Projection failures never repeat an ACK or escape an unawaited
+          // reconnect callback. Keep any read debt for an existing retry path.
+        } finally {
+          timer.cancel();
+        }
+        if (!_isCurrent(generation)) return;
+        if (result == null || !result.isSuccess || result.data == null) {
+          emit(state.copyWith(initialized: true));
+          return;
+        }
+        // Several completed reads during one HTTP request coalesce into one
+        // later snapshot. The chat continues its next ACK while this waits.
+        if (_readRevision != readRevision) continue;
+        if (_badgeRevision != badgeRevision) {
+          // Preserve ordinary WS-over-seed behavior. With local read debt an
+          // unversioned frame is not proof of the post-ACK total: retry once.
+          if (_readReconciliationNeeded && contentionRetryAvailable) {
+            contentionRetryAvailable = false;
+            continue;
+          }
+          return;
+        }
+        _readReconciliationNeeded = false;
+        _badgeReconciliationTimer?.cancel();
+        _badgeReconciliationTimer = null;
+        emit(
+          state.copyWith(
+            unreadCount: result.data!.clamp(0, 999999),
+            initialized: true,
+          ),
+        );
+        return;
+      }
+    } finally {
+      // Retire synchronously with the loop, so a new ACK cannot join a finished
+      // flight before a later completion callback clears its identity.
+      if (identical(_countCancellation, cancellation)) {
+        _countInFlight = null;
+        _countCancellation = null;
+      }
+    }
   }
 
   Future<void> stop() {
@@ -197,6 +326,17 @@ class DmBadgeCubit extends Cubit<DmBadgeState> {
 
   Future<void> _stop() async {
     _lifecycleGeneration += 1;
+    final cancellation = _countCancellation;
+    if (cancellation != null && !cancellation.isCompleted) {
+      cancellation.complete();
+    }
+    _countInFlight = null;
+    _countCancellation = null;
+    _readReconciliationNeeded = false;
+    _verifyBadgeAfterRead = false;
+    _badgeReconciliationTimer?.cancel();
+    _badgeReconciliationTimer = null;
+    _readRevision = 0;
     _resumeInFlight = null;
     _badgeRevision = 0;
     _realtimeReady = false;

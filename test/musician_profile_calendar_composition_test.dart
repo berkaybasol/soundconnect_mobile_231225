@@ -408,6 +408,9 @@ class _BadgeCubit extends Cubit<DmBadgeState> implements DmBadgeCubit {
   @override
   Future<void> reconcileAfterResume() async {}
 
+  @override
+  Future<void> reconcileAfterRead() async {}
+
   _BadgeCubit() : super(const DmBadgeState.initial());
 
   @override

@@ -13,6 +13,8 @@ import '../../domain/notification_audience_policy.dart';
 import '../../domain/notification_repository.dart';
 import 'notification_state.dart';
 
+part 'notification_count_reconciliation.dart';
+
 class NotificationCubit extends Cubit<NotificationState> {
   final NotificationRepository _repository;
   final TokenStore _tokenStore;
@@ -141,6 +143,10 @@ class NotificationCubit extends Cubit<NotificationState> {
   // Keep only distinct IDs (no payloads), until deletion or session teardown;
   // TTL/LRU eviction would allow a delayed unread frame to undo a valid ACK.
   final Set<String> _confirmedReadIds = <String>{};
+  // A page/frame can prove read before its ACK response arrives. Keep ACK
+  // identities separate so that first response still invalidates an older
+  // count flight, while duplicate callbacks share the same mutation revision.
+  final Set<String> _confirmedExternalReadIds = <String>{};
   // A successful DM ACK can precede this notification's first loaded page.
   // Retain its message identity for delayed pages/frames in this session too.
   final Set<String> _confirmedDmMessageIds = <String>{};
@@ -190,6 +196,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       _startedUserId = null;
       _realtimeRevisionById.clear();
       _confirmedReadIds.clear();
+      _confirmedExternalReadIds.clear();
       _confirmedDmMessageIds.clear();
       _cancelCountReconciliation();
       _pendingDeletionIds.clear();
@@ -213,6 +220,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     _startedUserId = currentUserId;
     _realtimeRevisionById.clear();
     _confirmedReadIds.clear();
+    _confirmedExternalReadIds.clear();
     _confirmedDmMessageIds.clear();
     _cancelCountReconciliation();
     _pendingDeletionIds.clear();
@@ -685,7 +693,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     final revision = _sessionRevision;
     final newlyConfirmed =
         !_deletedNotificationIds.contains(notification.id) &&
-        _confirmedReadIds.add(notification.id);
+        _confirmedExternalReadIds.add(notification.id);
+    if (!_deletedNotificationIds.contains(notification.id)) {
+      _confirmedReadIds.add(notification.id);
+    }
     if (newlyConfirmed) _badgeRevision += 1;
     emit(
       state.copyWith(
@@ -869,6 +880,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     _deletedNotificationIds.add(notification.id);
     _realtimeRevisionById.remove(notification.id);
     _confirmedReadIds.remove(notification.id);
+    _confirmedExternalReadIds.remove(notification.id);
     _paginationDeletionRevision += 1;
     // HTTP success can arrive after a next-page GET already observed the
     // committed deletion. Repair from the boundary saved before that DELETE,
@@ -911,105 +923,12 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
   }
 
-  Future<void> _reconcileConfirmedCount(
-    int generation,
-    int sessionRevision, {
-    bool newMutation = true,
-  }) {
-    if (!_isCurrentSession(generation, sessionRevision)) {
-      return Future<void>.value();
-    }
-    _countReconciliationNeeded = true;
-    if (newMutation) _confirmedCountMutationRevision += 1;
-    final inFlight = _countReconciliationInFlight;
-    if (inFlight != null) return inFlight;
-    final cancellation = Completer<void>();
-    _countReconciliationCancellation = cancellation;
-    final operation = _runCountReconciliation(
-      generation,
-      sessionRevision,
-      cancellation,
-    );
-    _countReconciliationInFlight = operation;
-    return operation.whenComplete(() {
-      if (identical(_countReconciliationInFlight, operation)) {
-        _countReconciliationInFlight = null;
-        _countReconciliationCancellation = null;
-      }
-    });
-  }
-
-  Future<void> _runCountReconciliation(
-    int generation,
-    int sessionRevision,
-    Completer<void> cancellation,
-  ) async {
-    // One shared flight. A newly confirmed mutation requires a snapshot taken
-    // after its ACK; coalesce all such ACKs before the next request. In addition,
-    // permit one contention retry for unversioned arrivals/other projections.
-    // N additional confirmed mutations cost at most N+2 requests; an arrival
-    // storm alone costs two. No timer polling or domain retry. Error/timeout
-    // leaves the debt for a later mutation or existing badge/resume/refresh.
-    var contentionRetryAvailable = true;
-    while (_isCurrentSession(generation, sessionRevision)) {
-      final mutationRevision = _confirmedCountMutationRevision;
-      final serverRevision = _serverCountRevision;
-      final badgeRevision = _badgeRevision;
-      final realtimeRevision = _realtimeRevision;
-      final timeout = Completer<Result<int>?>();
-      final timer = Timer(
-        _countReconciliationTimeout,
-        () => timeout.complete(null),
-      );
-      Result<int>? result;
-      try {
-        result = await Future.any<Result<int>?>([
-          _repository.getUnreadCount(),
-          timeout.future,
-          cancellation.future.then((_) => null),
-        ]);
-      } catch (_) {
-        // A failed read-only projection does not undo the successful ACK or
-        // leak an unobserved error through the synchronous DM callback.
-        return;
-      } finally {
-        timer.cancel();
-      }
-      if (!_isCurrentSession(generation, sessionRevision) ||
-          result == null ||
-          !result.isSuccess ||
-          result.data == null) {
-        return;
-      }
-      if (_confirmedCountMutationRevision != mutationRevision) continue;
-      // A newer local mutation/arrival may fall after this count's snapshot.
-      // Read it again; never repeat DELETE or discard the loaded inbox rows.
-      if (_badgeRevision != badgeRevision ||
-          _realtimeRevision != realtimeRevision ||
-          _serverCountRevision != serverRevision) {
-        if (contentionRetryAvailable) {
-          contentionRetryAvailable = false;
-          continue;
-        }
-        return;
-      }
-      _serverCountRevision += 1;
-      _countOnlyRevision += 1;
-      _badgeRevision += 1;
-      _countReconciliationNeeded = false;
-      emit(state.copyWith(unreadCount: result.data!.clamp(0, 999999)));
-      return;
-    }
-  }
-
-  void _cancelCountReconciliation() {
-    final cancellation = _countReconciliationCancellation;
-    if (cancellation != null && !cancellation.isCompleted) {
-      cancellation.complete();
-    }
-    _countReconciliationInFlight = null;
-    _countReconciliationCancellation = null;
+  void _acceptReconciledCount(int unreadCount) {
+    _serverCountRevision += 1;
+    _countOnlyRevision += 1;
+    _badgeRevision += 1;
     _countReconciliationNeeded = false;
+    emit(state.copyWith(unreadCount: unreadCount.clamp(0, 999999)));
   }
 
   Future<void> clearAllNotifications() async {
@@ -1036,6 +955,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       // An ACK of an unknown/new arrival may have completed during clear-all.
       // Without a server watermark, only the known deleted IDs can be retired.
       _confirmedReadIds.removeAll(_deletedNotificationIds);
+      _confirmedExternalReadIds.removeAll(_deletedNotificationIds);
       _badgeRevision++;
       emit(
         state.copyWith(
@@ -1097,6 +1017,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     await _realtimeClient.disconnect();
     _realtimeRevisionById.clear();
     _confirmedReadIds.clear();
+    _confirmedExternalReadIds.clear();
     _confirmedDmMessageIds.clear();
     _pendingDeletionIds.clear();
     _pendingDeletionOrder = null;

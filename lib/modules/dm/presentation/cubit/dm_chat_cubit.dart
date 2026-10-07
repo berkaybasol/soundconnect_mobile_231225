@@ -17,7 +17,7 @@ class DmChatCubit extends Cubit<DmChatState> {
   final DmRepository _repository;
   final TokenStore _tokenStore;
   final DmRealtimeClient _realtimeClient;
-  final void Function(String messageId)? _onReadAcknowledged;
+  final FutureOr<void> Function(String messageId)? _onReadAcknowledged;
   final AuthSessionManager? _sessions;
   String? _ownerToken;
   String? _ownerId;
@@ -28,7 +28,7 @@ class DmChatCubit extends Cubit<DmChatState> {
     this._repository,
     this._tokenStore, {
     DmRealtimeClient? realtimeClient,
-    void Function(String messageId)? onReadAcknowledged,
+    FutureOr<void> Function(String messageId)? onReadAcknowledged,
     AuthSessionManager? sessions,
   }) : _realtimeClient = realtimeClient ?? DmRealtimeClient(),
        _sessions = sessions,
@@ -341,46 +341,62 @@ class DmChatCubit extends Cubit<DmChatState> {
     final generation = _generation;
     final otherUserId = _otherUserId;
     if (otherUserId == null || otherUserId.trim().isEmpty) return;
-    for (final message in messages) {
-      if (!_visible || isClosed || generation != _generation) return;
-      if (message.senderId == otherUserId &&
-          (_presentedHistory == null ||
-              _presentedHistory!.contains(message.messageId)) &&
-          message.readAt == null &&
-          _reading.add(message.messageId)) {
-        try {
-          final result = await _repository.markMessageAsRead(
-            messageId: message.messageId,
-          );
-          if (isClosed || generation != _generation) return;
-          if (!result.isSuccess) {
-            emit(state.copyWith(error: result.error));
-            return;
+    final projections = <Future<void>>[];
+    try {
+      for (final message in messages) {
+        if (!_visible || isClosed || generation != _generation) return;
+        if (message.senderId == otherUserId &&
+            (_presentedHistory == null ||
+                _presentedHistory!.contains(message.messageId)) &&
+            message.readAt == null &&
+            _reading.add(message.messageId)) {
+          try {
+            final result = await _repository.markMessageAsRead(
+              messageId: message.messageId,
+            );
+            if (isClosed || generation != _generation) return;
+            if (!result.isSuccess) {
+              emit(state.copyWith(error: result.error));
+              return;
+            }
+            _messageRevisions[message.messageId] = ++_messageRevision;
+            final updated = state.messages
+                .map(
+                  (item) => item.messageId == message.messageId
+                      ? DmMessage(
+                          messageId: item.messageId,
+                          conversationId: item.conversationId,
+                          senderId: item.senderId,
+                          recipientId: item.recipientId,
+                          content: item.content,
+                          messageType: item.messageType,
+                          sentAt: item.sentAt,
+                          readAt: DateTime.now(),
+                          deletedAt: item.deletedAt,
+                        )
+                      : item,
+                )
+                .toList();
+            emit(state.copyWith(messages: updated, error: null));
+            projections.add(_notifyReadAcknowledged(message.messageId));
+          } finally {
+            _reading.remove(message.messageId);
           }
-          _messageRevisions[message.messageId] = ++_messageRevision;
-          final updated = state.messages
-              .map(
-                (item) => item.messageId == message.messageId
-                    ? DmMessage(
-                        messageId: item.messageId,
-                        conversationId: item.conversationId,
-                        senderId: item.senderId,
-                        recipientId: item.recipientId,
-                        content: item.content,
-                        messageType: item.messageType,
-                        sentAt: item.sentAt,
-                        readAt: DateTime.now(),
-                        deletedAt: item.deletedAt,
-                      )
-                    : item,
-              )
-              .toList();
-          emit(state.copyWith(messages: updated, error: null));
-          _onReadAcknowledged?.call(message.messageId);
-        } finally {
-          _reading.remove(message.messageId);
         }
       }
+    } finally {
+      // Let every presented message's ACK proceed without waiting for count
+      // HTTP. Overlapping projections share the inbox's bounded count flight.
+      await Future.wait(projections);
+    }
+  }
+
+  Future<void> _notifyReadAcknowledged(String messageId) async {
+    try {
+      await _onReadAcknowledged?.call(messageId);
+    } catch (_) {
+      // Projection failure cannot undo a committed message read or repeat ACK.
+      // The inbox retains its normal count recovery paths.
     }
   }
 

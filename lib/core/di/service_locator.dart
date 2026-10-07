@@ -784,10 +784,10 @@ void setupDependencies() {
         sessions: serviceLocator<AuthSessionManager>(),
         realtimeClient: serviceLocator<DmRealtimeClient>(),
         onReadAcknowledged: (messageId) {
-          serviceLocator<NotificationCubit>().markDmMessageAsReadLocally(
-            messageId,
-          );
+          final count = serviceLocator<NotificationCubit>()
+              .markDmMessageAsReadLocally(messageId);
           unawaited(serviceLocator<PushCoordinator>().reconcileDelivered());
+          return count;
         },
       ),
     );

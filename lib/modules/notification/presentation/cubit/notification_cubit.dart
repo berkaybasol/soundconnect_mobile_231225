@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/auth/token_store.dart';
+import '../../../../core/error/result.dart';
 import '../../data/notification_auth_support.dart';
 import '../../data/notification_realtime_client.dart';
 import '../../domain/entities/app_notification.dart';
@@ -18,6 +19,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   final NotificationRealtimeClient _realtimeClient;
   final AuthSessionManager? _sessions;
   final Future<void> Function()? _onDeliveryStateChanged;
+  final Duration _countReconciliationTimeout;
   AuthSession? _observedSession;
   bool _closing = false;
 
@@ -27,9 +29,11 @@ class NotificationCubit extends Cubit<NotificationState> {
     NotificationRealtimeClient? realtimeClient,
     AuthSessionManager? sessions,
     Future<void> Function()? onDeliveryStateChanged,
+    Duration countReconciliationTimeout = const Duration(seconds: 15),
   }) : _realtimeClient = realtimeClient ?? NotificationRealtimeClient(),
        _sessions = sessions,
        _onDeliveryStateChanged = onDeliveryStateChanged,
+       _countReconciliationTimeout = countReconciliationTimeout,
        super(const NotificationState.initial()) {
     _realtimeClient.retain();
     _observedSession = _sessions?.session;
@@ -114,12 +118,32 @@ class NotificationCubit extends Cubit<NotificationState> {
   // Count-only events can already include a pending ACK. Page refreshes also
   // carry per-row read proof: an unread snapshot must still accept a later ACK.
   int _countOnlyRevision = 0;
+  Future<void>? _countReconciliationInFlight;
+  Completer<void>? _countReconciliationCancellation;
+  bool _countReconciliationNeeded = false;
+  int _confirmedCountMutationRevision = 0;
+  static const _pageSize = 20;
+  // Offset pages move left after a successful deletion. The last accepted
+  // page remembers the deletion revision at request start; later successes
+  // rewind its next boundary without dropping rows the user already loaded.
+  int _paginationDeletionRevision = 0;
+  int _paginationDeletionBaseline = 0;
+  int? _paginationRepairPage;
+  int? _paginationRepairThroughPage;
+  // A successful refresh replaces the loaded pagination window while DELETE
+  // may still be pending. Keep its boundary and whether that window has more
+  // rows together, rather than retaining only DELETE's original terminal flag.
+  final Map<String, ({int offset, bool hasNext})> _pendingDeletionBoundaries =
+      {};
   final Map<String, int> _realtimeRevisionById = <String, int>{};
   // Confirmed reads are monotonic for an ID in this session. Neither an offset
   // page nor an unversioned socket frame proves an absent ID can be forgotten.
   // Keep only distinct IDs (no payloads), until deletion or session teardown;
   // TTL/LRU eviction would allow a delayed unread frame to undo a valid ACK.
   final Set<String> _confirmedReadIds = <String>{};
+  // A successful DM ACK can precede this notification's first loaded page.
+  // Retain its message identity for delayed pages/frames in this session too.
+  final Set<String> _confirmedDmMessageIds = <String>{};
   final Set<String> _pendingDeletionIds = <String>{};
   // Shared by overlapping deletions so removing two top rows cannot capture
   // the same rollback index. Keep server/display order, including timestamp ties.
@@ -166,6 +190,8 @@ class NotificationCubit extends Cubit<NotificationState> {
       _startedUserId = null;
       _realtimeRevisionById.clear();
       _confirmedReadIds.clear();
+      _confirmedDmMessageIds.clear();
+      _cancelCountReconciliation();
       _pendingDeletionIds.clear();
       _pendingDeletionOrder = null;
       _offPageDeletionIds.clear();
@@ -173,6 +199,11 @@ class NotificationCubit extends Cubit<NotificationState> {
       _verifyRealtimeAfterClear = false;
       _verifyUnreadRealtimeAfterBulkRead = false;
       _clearOperation = null;
+      _paginationDeletionRevision = 0;
+      _paginationDeletionBaseline = 0;
+      _paginationRepairPage = null;
+      _paginationRepairThroughPage = null;
+      _pendingDeletionBoundaries.clear();
       emit(const NotificationState.initial().copyWith(initialized: true));
       return;
     }
@@ -182,6 +213,8 @@ class NotificationCubit extends Cubit<NotificationState> {
     _startedUserId = currentUserId;
     _realtimeRevisionById.clear();
     _confirmedReadIds.clear();
+    _confirmedDmMessageIds.clear();
+    _cancelCountReconciliation();
     _pendingDeletionIds.clear();
     _pendingDeletionOrder = null;
     _offPageDeletionIds.clear();
@@ -189,6 +222,11 @@ class NotificationCubit extends Cubit<NotificationState> {
     _verifyRealtimeAfterClear = false;
     _verifyUnreadRealtimeAfterBulkRead = false;
     _clearOperation = null;
+    _paginationDeletionRevision = 0;
+    _paginationDeletionBaseline = 0;
+    _paginationRepairPage = null;
+    _paginationRepairThroughPage = null;
+    _pendingDeletionBoundaries.clear();
     if (switchingUser) emit(const NotificationState.initial());
 
     await _notificationSubscription?.cancel();
@@ -351,6 +389,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     final requestSequence = ++_refreshSequence;
     final realtimeRevisionAtStart = _realtimeRevision;
     final badgeRevisionAtStart = _badgeRevision;
+    final deletionRevisionAtStart = _paginationDeletionRevision;
     emit(
       state.copyWith(
         status: NotificationStatus.loading,
@@ -358,7 +397,7 @@ class NotificationCubit extends Cubit<NotificationState> {
         initialized: true,
       ),
     );
-    final pageResult = await _repository.listNotifications();
+    final pageResult = await _repository.listNotifications(size: _pageSize);
     if (!_isCurrentSessionRefresh(
       generation,
       sessionRevision,
@@ -436,6 +475,15 @@ class NotificationCubit extends Cubit<NotificationState> {
       }
     }
 
+    _paginationDeletionBaseline = deletionRevisionAtStart;
+    _paginationRepairPage = null;
+    _paginationRepairThroughPage = null;
+    _pendingDeletionBoundaries.updateAll(
+      (_, boundary) => (
+        offset: boundary.offset < _pageSize ? boundary.offset : _pageSize,
+        hasNext: pageResult.data!.hasNext,
+      ),
+    );
     emit(
       state.copyWith(
         status: NotificationStatus.success,
@@ -458,11 +506,34 @@ class NotificationCubit extends Cubit<NotificationState> {
     final generation = _lifecycleGeneration;
     final sessionRevision = _sessionRevision;
     final refreshSequence = _refreshSequence;
-    final nextPage = state.page + 1;
+    final deletionRevisionAtStart = _paginationDeletionRevision;
+    final deletedSincePage =
+        deletionRevisionAtStart - _paginationDeletionBaseline;
+    final previousBoundary = (state.page + 1) * _pageSize;
+    var nextPage =
+        (previousBoundary - deletedSincePage).clamp(0, previousBoundary) ~/
+        _pageSize;
+    final repairPage = _paginationRepairPage;
+    if (repairPage != null && repairPage < nextPage) nextPage = repairPage;
+    final repairThroughPage = _paginationRepairThroughPage;
+    final repairingLoadedPages =
+        repairThroughPage != null && nextPage <= repairThroughPage;
     emit(state.copyWith(status: NotificationStatus.loadingMore));
-    final result = await _repository.listNotifications(page: nextPage);
+    final result = await _repository.listNotifications(
+      page: nextPage,
+      size: _pageSize,
+    );
     if (!_isCurrentSession(generation, sessionRevision) ||
         !_isCurrentRefresh(generation, refreshSequence)) {
+      return;
+    }
+    if (result.isSuccess &&
+        _paginationDeletionRevision != deletionRevisionAtStart) {
+      // This response may have selected its offset after DELETE committed.
+      // Advancing to that page would lose the row which moved behind its
+      // offset. Retry from the previous accepted boundary instead.
+      emit(state.copyWith(status: NotificationStatus.success));
+      await loadMore();
       return;
     }
     if (!result.isSuccess || result.data == null) {
@@ -503,9 +574,21 @@ class NotificationCubit extends Cubit<NotificationState> {
         .where((item) => seenIds.add(item.id))
         .map(_withConfirmedRead)
         .toList(growable: false);
+    final pageItems = result.data!.items
+        .where((item) => !_isDeleted(item.id))
+        .where(_canShowNotification)
+        .map(_withConfirmedRead)
+        .toList();
+    final itemsById = {
+      for (final item in pageItems) item.id: item,
+      for (final item in retainedItems) item.id: item,
+    };
+    final mergedPageItems = _mergePageOrder(
+      retainedItems.map((item) => item.id),
+      pageItems.map((item) => item.id),
+    ).map((id) => itemsById[id]!).toList();
     final deletionOrder = _pendingDeletionOrder;
     if (deletionOrder != null) {
-      final knownIds = deletionOrder.toSet();
       // A pending row omitted by page zero still needs its position learned
       // from later pages, even though it remains hidden until DELETE resolves.
       final unseenPendingIds = deletionOrder
@@ -513,25 +596,37 @@ class NotificationCubit extends Cubit<NotificationState> {
             (id) => _offPageDeletionIds.contains(id) && !pageIds.contains(id),
           )
           .toList();
+      final mergedDeletionOrder = _mergePageOrder(
+        deletionOrder.where((id) => !_offPageDeletionIds.contains(id)),
+        pageIds,
+      );
       deletionOrder
-        ..removeWhere(_offPageDeletionIds.contains)
-        ..addAll(
-          pageIds.where(
-            (id) => _offPageDeletionIds.contains(id) || !knownIds.contains(id),
-          ),
-        )
+        ..clear()
+        ..addAll(mergedDeletionOrder)
         ..addAll(unseenPendingIds);
     }
     _offPageDeletionIds.removeAll(pageIds);
+    _paginationDeletionBaseline = deletionRevisionAtStart;
+    _paginationRepairPage = null;
+    if (repairThroughPage != null && nextPage >= repairThroughPage) {
+      _paginationRepairThroughPage = null;
+    }
     emit(
       state.copyWith(
         status: NotificationStatus.success,
-        items: [...retainedItems, ...uniqueNextItems, ...unseenRestoredItems],
+        items: [...mergedPageItems, ...unseenRestoredItems],
         page: nextPage,
         hasNext: result.data!.hasNext,
         clearError: true,
       ),
     );
+    if (uniqueNextItems.isEmpty &&
+        result.data!.hasNext &&
+        (deletedSincePage > 0 || repairPage != null || repairingLoadedPages)) {
+      // An overlapping repair page can contain only already-loaded IDs.
+      // Continue to new rows without requiring a second scroll gesture.
+      await loadMore();
+    }
   }
 
   Future<void> markAsRead(AppNotification notification) async {
@@ -582,16 +677,16 @@ class NotificationCubit extends Cubit<NotificationState> {
   ) async {
     if (!identical(_sessions?.session, session) ||
         !_canShowNotification(notification) ||
+        _closing ||
         isClosed) {
       return;
     }
     final generation = _lifecycleGeneration;
     final revision = _sessionRevision;
-    if (!_deletedNotificationIds.contains(notification.id)) {
-      _confirmedReadIds.add(notification.id);
-    }
-    final badgeRevision = ++_badgeRevision;
-    final serverCountRevision = _serverCountRevision;
+    final newlyConfirmed =
+        !_deletedNotificationIds.contains(notification.id) &&
+        _confirmedReadIds.add(notification.id);
+    if (newlyConfirmed) _badgeRevision += 1;
     emit(
       state.copyWith(
         items: state.items
@@ -603,18 +698,11 @@ class NotificationCubit extends Cubit<NotificationState> {
       ),
     );
     unawaited(_notifyDeliveryStateChanged(generation, revision));
-    final count = await _repository.getUnreadCount();
-    if (!_isCurrentSession(generation, revision) ||
-        !identical(_sessions?.session, session) ||
-        _badgeRevision != badgeRevision ||
-        _serverCountRevision != serverCountRevision) {
-      return;
-    }
-    if (count.isSuccess && count.data != null) {
-      _serverCountRevision += 1;
-      _countOnlyRevision += 1;
-      emit(state.copyWith(unreadCount: count.data!.clamp(0, 999999)));
-    }
+    await _reconcileConfirmedCount(
+      generation,
+      revision,
+      newMutation: newlyConfirmed,
+    );
   }
 
   void markDmConversationAsReadLocally(String conversationId) {
@@ -650,27 +738,30 @@ class NotificationCubit extends Cubit<NotificationState> {
 
   /// Called only after this particular message's explicit read ACK succeeds.
   /// A page load is not acknowledgement for older or concurrently arriving DMs.
-  void markDmMessageAsReadLocally(String messageId) {
-    if (isClosed || messageId.trim().isEmpty) return;
-    var changed = 0;
+  Future<void> markDmMessageAsReadLocally(String messageId) async {
+    final id = messageId.trim();
+    if (_closing || isClosed || id.isEmpty) return;
+    final newlyConfirmed = _confirmedDmMessageIds.add(id);
     final items = state.items.map((item) {
       if (!item.read &&
           item.type == 'DM_NEW_MESSAGE' &&
-          item.payload['messageId']?.toString() == messageId) {
-        changed++;
+          item.payload['messageId']?.toString().trim() == id) {
         _confirmedReadIds.add(item.id);
         return item.copyWith(read: true);
       }
       return item;
     }).toList();
-    if (changed == 0) return;
-    _badgeRevision++;
-    emit(
-      state.copyWith(
-        items: items,
-        unreadCount: (state.unreadCount - changed).clamp(0, 999999),
-      ),
-    );
+    if (newlyConfirmed) _badgeRevision += 1;
+    emit(state.copyWith(items: items));
+    // A count received before this callback may already include the committed
+    // read. Loaded row changes cannot tell us whether to subtract from it.
+    if (newlyConfirmed || _countReconciliationNeeded) {
+      await _reconcileConfirmedCount(
+        _lifecycleGeneration,
+        _sessionRevision,
+        newMutation: newlyConfirmed,
+      );
+    }
   }
 
   Future<void> markAllAsRead() async {
@@ -687,6 +778,8 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
     unawaited(_notifyDeliveryStateChanged(generation, sessionRevision));
     _verifyUnreadRealtimeAfterBulkRead = true;
+    _badgeRevision += 1;
+    _confirmedCountMutationRevision += 1;
     // Retire pre-mutation refresh/page responses before joining their queued
     // reconciliation. A failed follow-up must not expose an older unread page.
     _refreshSequence += 1;
@@ -706,6 +799,14 @@ class NotificationCubit extends Cubit<NotificationState> {
     final serverCountRevision = _serverCountRevision;
     _badgeRevision += 1;
     final currentNotification = state.items[currentIndex];
+    final boundary = (state.page + 1) * _pageSize;
+    _pendingDeletionBoundaries[notification.id] = (
+      offset:
+          (boundary -
+                  (_paginationDeletionRevision - _paginationDeletionBaseline))
+              .clamp(0, boundary),
+      hasNext: state.hasNext,
+    );
     final realtimeRevision = _realtimeRevisionById.remove(notification.id);
     emit(
       state.copyWith(
@@ -759,12 +860,156 @@ class NotificationCubit extends Cubit<NotificationState> {
       return;
     }
     unawaited(_notifyDeliveryStateChanged(generation, sessionRevision));
+    final pendingBoundary = _pendingDeletionBoundaries[notification.id];
+    final deletionBoundary = pendingBoundary?.offset ?? 0;
     _finishPendingDeletion(notification.id);
+    if (_deletedNotificationIds.contains(notification.id)) return;
     // Keep a session-scoped tombstone: a page that was already in flight may
     // still contain the successfully deleted notification.
     _deletedNotificationIds.add(notification.id);
     _realtimeRevisionById.remove(notification.id);
     _confirmedReadIds.remove(notification.id);
+    _paginationDeletionRevision += 1;
+    // HTTP success can arrive after a next-page GET already observed the
+    // committed deletion. Repair from the boundary saved before that DELETE,
+    // not merely from the newest accepted page which may have skipped a row.
+    final repairPage =
+        (deletionBoundary - 1).clamp(0, deletionBoundary) ~/ _pageSize;
+    if (_paginationRepairPage == null || repairPage < _paginationRepairPage!) {
+      _paginationRepairPage = repairPage;
+    }
+    if (_paginationRepairThroughPage == null ||
+        state.page > _paginationRepairThroughPage!) {
+      _paginationRepairThroughPage = state.page;
+    }
+    if (pendingBoundary?.hasNext == true && !state.hasNext) {
+      // A terminal page received while DELETE was pending may already have
+      // skipped the boundary row, including after a refresh of a previously
+      // complete inbox. Allow repair for that pagination window. A complete
+      // refresh (or no refresh of a complete inbox) needs no extra page.
+      emit(state.copyWith(hasNext: true));
+    }
+    // A refresh started before DELETE committed must not replace its local
+    // count contribution when it finishes later. If a server count already
+    // superseded that contribution, its snapshot may still include this row.
+    _badgeRevision += 1;
+    if (_serverCountRevision != serverCountRevision ||
+        _countReconciliationNeeded) {
+      final existingFlight = _countReconciliationInFlight;
+      final reconciliation = _reconcileConfirmedCount(
+        generation,
+        sessionRevision,
+      );
+      // An existing read count will take a post-DELETE snapshot. Do not hold
+      // this otherwise-complete DELETE behind that unrelated pending response.
+      if (existingFlight == null ||
+          _serverCountRevision != serverCountRevision) {
+        await reconciliation;
+      } else {
+        unawaited(reconciliation);
+      }
+    }
+  }
+
+  Future<void> _reconcileConfirmedCount(
+    int generation,
+    int sessionRevision, {
+    bool newMutation = true,
+  }) {
+    if (!_isCurrentSession(generation, sessionRevision)) {
+      return Future<void>.value();
+    }
+    _countReconciliationNeeded = true;
+    if (newMutation) _confirmedCountMutationRevision += 1;
+    final inFlight = _countReconciliationInFlight;
+    if (inFlight != null) return inFlight;
+    final cancellation = Completer<void>();
+    _countReconciliationCancellation = cancellation;
+    final operation = _runCountReconciliation(
+      generation,
+      sessionRevision,
+      cancellation,
+    );
+    _countReconciliationInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_countReconciliationInFlight, operation)) {
+        _countReconciliationInFlight = null;
+        _countReconciliationCancellation = null;
+      }
+    });
+  }
+
+  Future<void> _runCountReconciliation(
+    int generation,
+    int sessionRevision,
+    Completer<void> cancellation,
+  ) async {
+    // One shared flight. A newly confirmed mutation requires a snapshot taken
+    // after its ACK; coalesce all such ACKs before the next request. In addition,
+    // permit one contention retry for unversioned arrivals/other projections.
+    // N additional confirmed mutations cost at most N+2 requests; an arrival
+    // storm alone costs two. No timer polling or domain retry. Error/timeout
+    // leaves the debt for a later mutation or existing badge/resume/refresh.
+    var contentionRetryAvailable = true;
+    while (_isCurrentSession(generation, sessionRevision)) {
+      final mutationRevision = _confirmedCountMutationRevision;
+      final serverRevision = _serverCountRevision;
+      final badgeRevision = _badgeRevision;
+      final realtimeRevision = _realtimeRevision;
+      final timeout = Completer<Result<int>?>();
+      final timer = Timer(
+        _countReconciliationTimeout,
+        () => timeout.complete(null),
+      );
+      Result<int>? result;
+      try {
+        result = await Future.any<Result<int>?>([
+          _repository.getUnreadCount(),
+          timeout.future,
+          cancellation.future.then((_) => null),
+        ]);
+      } catch (_) {
+        // A failed read-only projection does not undo the successful ACK or
+        // leak an unobserved error through the synchronous DM callback.
+        return;
+      } finally {
+        timer.cancel();
+      }
+      if (!_isCurrentSession(generation, sessionRevision) ||
+          result == null ||
+          !result.isSuccess ||
+          result.data == null) {
+        return;
+      }
+      if (_confirmedCountMutationRevision != mutationRevision) continue;
+      // A newer local mutation/arrival may fall after this count's snapshot.
+      // Read it again; never repeat DELETE or discard the loaded inbox rows.
+      if (_badgeRevision != badgeRevision ||
+          _realtimeRevision != realtimeRevision ||
+          _serverCountRevision != serverRevision) {
+        if (contentionRetryAvailable) {
+          contentionRetryAvailable = false;
+          continue;
+        }
+        return;
+      }
+      _serverCountRevision += 1;
+      _countOnlyRevision += 1;
+      _badgeRevision += 1;
+      _countReconciliationNeeded = false;
+      emit(state.copyWith(unreadCount: result.data!.clamp(0, 999999)));
+      return;
+    }
+  }
+
+  void _cancelCountReconciliation() {
+    final cancellation = _countReconciliationCancellation;
+    if (cancellation != null && !cancellation.isCompleted) {
+      cancellation.complete();
+    }
+    _countReconciliationInFlight = null;
+    _countReconciliationCancellation = null;
+    _countReconciliationNeeded = false;
   }
 
   Future<void> clearAllNotifications() async {
@@ -834,6 +1079,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     final generation = ++_lifecycleGeneration;
     _sessionRevision += 1;
     _refreshSequence += 1;
+    _cancelCountReconciliation();
     _startedUserId = null;
     // A previous audience's network request may remain pending after logout.
     // Its generation is fenced; a new session must not wait for it to finish.
@@ -851,6 +1097,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     await _realtimeClient.disconnect();
     _realtimeRevisionById.clear();
     _confirmedReadIds.clear();
+    _confirmedDmMessageIds.clear();
     _pendingDeletionIds.clear();
     _pendingDeletionOrder = null;
     _offPageDeletionIds.clear();
@@ -858,6 +1105,11 @@ class NotificationCubit extends Cubit<NotificationState> {
     _verifyRealtimeAfterClear = false;
     _verifyUnreadRealtimeAfterBulkRead = false;
     _clearOperation = null;
+    _paginationDeletionRevision = 0;
+    _paginationDeletionBaseline = 0;
+    _paginationRepairPage = null;
+    _paginationRepairThroughPage = null;
+    _pendingDeletionBoundaries.clear();
     if (_isCurrent(generation)) emit(const NotificationState.initial());
   }
 
@@ -870,6 +1122,7 @@ class NotificationCubit extends Cubit<NotificationState> {
 
   void _finishPendingDeletion(String id, {bool restore = false}) {
     _pendingDeletionIds.remove(id);
+    _pendingDeletionBoundaries.remove(id);
     if (!restore) _offPageDeletionIds.remove(id);
     if (_pendingDeletionIds.isEmpty) _pendingDeletionOrder = null;
   }
@@ -887,7 +1140,12 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   AppNotification _withConfirmedRead(AppNotification notification) =>
-      !notification.read && _confirmedReadIds.contains(notification.id)
+      !notification.read &&
+          (_confirmedReadIds.contains(notification.id) ||
+              (notification.type == 'DM_NEW_MESSAGE' &&
+                  _confirmedDmMessageIds.contains(
+                    notification.payload['messageId']?.toString().trim(),
+                  )))
       ? notification.copyWith(read: true)
       : notification;
 
@@ -954,6 +1212,30 @@ class NotificationCubit extends Cubit<NotificationState> {
   List<AppNotification> _mergeById(Iterable<AppNotification> items) {
     final seenIds = <String>{};
     return items.where((item) => seenIds.add(item.id)).toList(growable: false);
+  }
+
+  List<String> _mergePageOrder(
+    Iterable<String> retained,
+    Iterable<String> page,
+  ) {
+    final result = retained.toList();
+    final ids = page.toList();
+    final firstAnchor = ids
+        .map(result.indexOf)
+        .where((index) => index >= 0)
+        .firstOrNull;
+    var insertAt = firstAnchor ?? result.length;
+    for (final id in ids) {
+      final existing = result.indexOf(id);
+      if (existing >= 0) {
+        insertAt = existing + 1;
+      } else {
+        // Repair rows may belong before later pages already on screen.
+        // Share these anchors with pending DELETE rollback order as well.
+        result.insert(insertAt++, id);
+      }
+    }
+    return result;
   }
 
   @override

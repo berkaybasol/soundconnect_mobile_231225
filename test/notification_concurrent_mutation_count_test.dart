@@ -345,7 +345,10 @@ void main() {
           repository.completeRead('b');
           await b;
         } else {
-          cubit.markDmMessageAsReadLocally('b');
+          // The callback is emitted only after the server's DM transaction
+          // has also committed this notification read.
+          repository.rows[1] = repository.rows[1].copyWith(read: true);
+          await cubit.markDmMessageAsReadLocally('b');
         }
         repository.completeDelete('a', success: false);
         await a;

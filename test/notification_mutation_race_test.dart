@@ -143,8 +143,12 @@ void main() {
       repository.pendingPage =
           Completer<Result<pagination.Page<AppNotification>>>();
       final refresh = cubit.refresh();
-      cubit.markDmMessageAsReadLocally('one');
-      repository.pendingPage!.complete(_page(repository.items));
+      final stalePage = _page(repository.items.toList());
+      // Preserve the older page while the successful DM transaction commits
+      // the notification read before invoking the product callback.
+      repository.items[0] = repository.items[0].copyWith(read: true);
+      await cubit.markDmMessageAsReadLocally('one');
+      repository.pendingPage!.complete(stalePage);
       await refresh;
       expect(
         cubit.state.items.singleWhere((item) => item.id == 'dm-one').read,

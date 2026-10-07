@@ -42,6 +42,7 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   final ScrollController _scrollController = ScrollController();
+  bool _paginationCheckScheduled = false;
 
   @override
   void initState() {
@@ -69,80 +70,114 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
+  bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    if (notification.depth == 0) _schedulePaginationCheck();
+    return false;
+  }
+
+  void _schedulePaginationCheck() {
+    if (_paginationCheckScheduled) return;
+    _paginationCheckScheduled = true;
+    // Refresh can clamp the offset during layout without notifying the scroll
+    // controller. Check the new boundary once layout and Bloc updates settle.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _paginationCheckScheduled = false;
+      if (!mounted) return;
+      final state = context.read<NotificationCubit>().state;
+      if (state.status == NotificationStatus.success &&
+          state.errorMessage == null &&
+          state.hasNext) {
+        _onScroll();
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
-    return BlocConsumer<NotificationCubit, NotificationState>(
-      listenWhen: (previous, current) =>
-          previous.errorMessage != current.errorMessage,
-      listener: (context, state) {
-        final error = state.errorMessage;
-        if (error == null || error.trim().isEmpty) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          appSnackBar(
-            context,
-            tone: AppSnackBarTone.error,
-            content: Text(error),
-          ),
-        );
+    return BlocListener<NotificationCubit, NotificationState>(
+      listenWhen: (previous, current) => !previous.hasNext && current.hasNext,
+      listener: (_, _) {
+        // A late DELETE can reopen an offset repair at the current bottom
+        // without changing the list's dimensions or scroll position.
+        _schedulePaginationCheck();
       },
-      builder: (context, state) {
-        final loading =
-            state.status == NotificationStatus.loading && state.items.isEmpty;
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Bildirimler'),
-            actions: [
-              PopupMenuButton<_NotificationAction>(
-                onSelected: (action) => _handleAction(context, state, action),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: _NotificationAction.markAllRead,
-                    enabled: state.unreadCount > 0,
-                    child: const Text('Tümünü oku'),
-                  ),
-                  PopupMenuItem(
-                    value: _NotificationAction.clearAll,
-                    enabled: state.items.isNotEmpty,
-                    child: const Text('Tümünü temizle'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          body: RefreshIndicator(
-            onRefresh: () => context.read<NotificationCubit>().refresh(),
-            child: loading
-                ? const _NotificationLoadingList()
-                : state.items.isEmpty
-                ? const _EmptyNotifications()
-                : ListView.separated(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
-                    itemBuilder: (context, index) {
-                      if (index >= state.items.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(18),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      final item = state.items[index];
-                      return _NotificationTile(
-                        key: ValueKey(item.id),
-                        notification: item,
-                      );
-                    },
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemCount:
-                        state.items.length +
-                        (state.status == NotificationStatus.loadingMore
-                            ? 1
-                            : 0),
-                  ),
-          ),
-        );
-      },
+      child: BlocConsumer<NotificationCubit, NotificationState>(
+        listenWhen: (previous, current) =>
+            previous.errorMessage != current.errorMessage,
+        listener: (context, state) {
+          final error = state.errorMessage;
+          if (error == null || error.trim().isEmpty) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            appSnackBar(
+              context,
+              tone: AppSnackBarTone.error,
+              content: Text(error),
+            ),
+          );
+        },
+        builder: (context, state) {
+          final loading =
+              state.status == NotificationStatus.loading && state.items.isEmpty;
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Bildirimler'),
+              actions: [
+                PopupMenuButton<_NotificationAction>(
+                  onSelected: (action) => _handleAction(context, state, action),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: _NotificationAction.markAllRead,
+                      enabled: state.unreadCount > 0,
+                      child: const Text('Tümünü oku'),
+                    ),
+                    PopupMenuItem(
+                      value: _NotificationAction.clearAll,
+                      enabled: state.items.isNotEmpty,
+                      child: const Text('Tümünü temizle'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            body: RefreshIndicator(
+              onRefresh: () => context.read<NotificationCubit>().refresh(),
+              child: loading
+                  ? const _NotificationLoadingList()
+                  : state.items.isEmpty
+                  ? const _EmptyNotifications()
+                  : NotificationListener<ScrollMetricsNotification>(
+                      onNotification: _onScrollMetrics,
+                      child: ListView.separated(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
+                        itemBuilder: (context, index) {
+                          if (index >= state.items.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(18),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final item = state.items[index];
+                          return _NotificationTile(
+                            key: ValueKey(item.id),
+                            notification: item,
+                          );
+                        },
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemCount:
+                            state.items.length +
+                            (state.status == NotificationStatus.loadingMore
+                                ? 1
+                                : 0),
+                      ),
+                    ),
+            ),
+          );
+        },
+      ),
     );
   }
 

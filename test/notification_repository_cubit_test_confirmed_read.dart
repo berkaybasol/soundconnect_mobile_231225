@@ -350,7 +350,12 @@ void _registerConfirmedReadTests() {
         );
         realtime.emitBadge(9);
         await frame(external);
-        repository.unreadRequest!.complete(const Result.success(2));
+        final oldCount = repository.unreadRequest!;
+        repository.unreadRequest = null;
+        // A follow-up request sees the same current server state which
+        // produced badge 9; only the held response retains snapshot 2.
+        repository.unreadResult = const Result.success(9);
+        oldCount.complete(const Result.success(2));
         await ack;
         await frame(external);
         expect(cubit.state.items.first.read, isTrue);
@@ -425,8 +430,8 @@ void _registerConfirmedReadTests() {
           payload: {'conversationId': 'same', 'messageId': 'two'},
         );
         await refreshWith([first, second]);
-        cubit.markDmMessageAsReadLocally('one');
         repository.unreadResult = const Result.success(1);
+        await cubit.markDmMessageAsReadLocally('one');
         await refreshWith([first, second]);
         await frame(first);
         await frame(second);

@@ -68,10 +68,14 @@ void main() {
           expect(cubit.state.unreadCount, 0);
           if (badgeFirst) {
             realtime.badges.add(0);
+            // Let the async stream listener arm its debounce before starting
+            // the wall-clock wait, including on a busy build/test host.
+            await _flush();
             await Future<void>.delayed(const Duration(milliseconds: 300));
           }
           realtime.frames.add(_item(21));
           if (!badgeFirst) realtime.badges.add(0);
+          await _flush();
           await Future<void>.delayed(const Duration(milliseconds: 300));
           expect(cubit.state.items.every((n) => n.read), isTrue);
           expect(cubit.state.unreadCount, 0);

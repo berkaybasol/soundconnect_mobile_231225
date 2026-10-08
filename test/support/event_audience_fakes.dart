@@ -33,9 +33,13 @@ class AudienceTestSessions extends Fake
     implements AuthSessionManager {
   AudienceTestSessions(this.current);
   AuthSession current;
+  int _credentialRevision = 0;
+  @override
+  int get credentialRevision => _credentialRevision;
   @override
   AuthSession get session => current;
   void replace(AuthSession next) {
+    _credentialRevision++;
     current = next;
     notifyListeners();
   }

@@ -15,3 +15,13 @@ void installFlutterErrorHandler() {
     }
   };
 }
+
+/// Preserve the engine's handling decision while observing uncaught root-isolate
+/// errors. Child isolate/native process crashes remain outside this Dart seam.
+void installPlatformErrorHandler() {
+  final previousHandler = PlatformDispatcher.instance.onError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    AppDiagnostics.reportPlatformError(error, stack);
+    return previousHandler?.call(error, stack) ?? false;
+  };
+}

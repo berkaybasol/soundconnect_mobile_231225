@@ -1,4 +1,5 @@
 import '../../core/auth/auth_session.dart';
+import '../../modules/admin/domain/system_health.dart';
 import '../../core/policy/access_policy.dart';
 import '../../core/policy/profile_feed_availability.dart';
 import '../../modules/admin/domain/musician_feed_report_admin.dart';
@@ -124,6 +125,10 @@ class AppRouteGuard {
     }
 
     if (requested == AppRoutes.adminDashboard && !session.isAdmin) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminSystemHealth &&
+        !canViewSystemHealth(session)) {
       return startRouteFor(session);
     }
     if (requested == AppRoutes.adminNotificationCampaigns &&

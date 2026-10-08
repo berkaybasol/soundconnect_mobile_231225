@@ -35,6 +35,20 @@ if (pushValue != null && pushValue !in setOf("true", "false")) {
     throw GradleException("SOUNDCONNECT_PUSH_ENABLED accepts only true or false.")
 }
 val pushEnabled = pushValue == "true"
+val diagnosticDefines = decodedDartDefines.filter { it.substringBefore('=') == "SOUNDCONNECT_DIAGNOSTICS_ENABLED" }
+val diagnosticValue = diagnosticDefines.singleOrNull()?.substringAfter('=', "")
+if (diagnosticDefines.size > 1 || (diagnosticValue != null && diagnosticValue !in setOf("true", "false"))) {
+    throw GradleException("SOUNDCONNECT_DIAGNOSTICS_ENABLED accepts one true or false value.")
+}
+val diagnosticsEnabled = diagnosticValue == "true"
+val environmentDefines = decodedDartDefines.filter { it.substringBefore('=') == "SOUNDCONNECT_ENVIRONMENT" }
+val diagnosticsEnvironment = environmentDefines.singleOrNull()?.substringAfter('=', "")
+if (diagnosticsEnabled && (environmentDefines.size != 1 || diagnosticsEnvironment !in setOf("local", "staging", "production"))) {
+    throw GradleException("Diagnostics require an explicit local, staging or production environment.")
+}
+if (diagnosticsEnabled && isPreview) {
+    throw GradleException("Diagnostics are unavailable in offline preview builds.")
+}
 val warmTestValue = providers.gradleProperty("soundconnectBridgeHarness").orNull
 if (warmTestValue != null && warmTestValue !in setOf("true", "false")) {
     throw GradleException("soundconnectBridgeHarness accepts only true or false.")
@@ -42,6 +56,9 @@ if (warmTestValue != null && warmTestValue !in setOf("true", "false")) {
 val isBridgeHarness = warmTestValue == "true"
 if (pushEnabled && isPreview) {
     throw GradleException("Push is unavailable in offline preview builds.")
+}
+if (diagnosticsEnabled && isBridgeHarness) {
+    throw GradleException("Bridge harness must not send diagnostic reports.")
 }
 if (pushEnabled && !isBridgeHarness) {
     if (!file("google-services.json").isFile) {

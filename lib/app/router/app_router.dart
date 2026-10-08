@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/network/api_client.dart';
+import '../../modules/admin/data/system_health_repository.dart';
+import '../../modules/admin/presentation/screens/system_health_screen.dart';
 import '../../modules/admin/data/notification_campaign_repository.dart';
 import '../../modules/admin/presentation/screens/notification_campaign_screen.dart';
 import '../../core/auth/auth_session_manager.dart';
@@ -121,6 +124,17 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AdminDashboardScreen(),
+        );
+      case AppRoutes.adminSystemHealth:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => SystemHealthScreen(
+            repository: SystemHealthRepository(
+              serviceLocator<ApiClient>(),
+              serviceLocator<AuthSessionManager>(),
+            ),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
         );
       case AppRoutes.adminNotificationCampaigns:
         return MaterialPageRoute(

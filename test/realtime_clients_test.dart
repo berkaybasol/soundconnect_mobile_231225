@@ -337,6 +337,45 @@ void main() {
   });
 
   group('realtime payload validation', () {
+    test(
+      'DM rejects old-account frames and reconnects a replaced token',
+      () async {
+        final harness = _TransportHarness(_Activation.connect);
+        final client = DmRealtimeClient(transportFactory: harness.create);
+        addTearDown(client.dispose);
+        final messages = <String>[];
+        final badges = <int>[];
+        final messageSubscription = client.messageStream.listen(
+          (message) => messages.add(message.messageId),
+        );
+        final badgeSubscription = client.badgeStream.listen(badges.add);
+        addTearDown(messageSubscription.cancel);
+        addTearDown(badgeSubscription.cancel);
+        await client.connect(userId: 'user-1', token: 'first');
+        final oldTransport = harness.transport!;
+        await client.connect(userId: 'user-2', token: 'second');
+        oldTransport.deliver('/topic/dm.user-1.badge', '99');
+        oldTransport.deliver(
+          '/topic/dm.user-1',
+          jsonEncode({
+            'messageId': 'old',
+            'conversationId': 'old-c',
+            'senderId': 'other',
+            'recipientId': 'user-1',
+            'content': 'old',
+          }),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(messages, isEmpty);
+        expect(badges, isEmpty);
+        await client.connect(userId: 'user-2', token: 'rotated');
+        expect(harness.createCalls, 3);
+        harness.transport!.deliver('/topic/dm.user-2.badge', '2');
+        await Future<void>.delayed(Duration.zero);
+        expect(badges, [2]);
+      },
+    );
+
     test('DM exposes invalid message payloads', () async {
       final harness = _TransportHarness(_Activation.connect);
       final client = DmRealtimeClient(transportFactory: harness.create);

@@ -4,6 +4,60 @@ enum _BandVenueApplicationListMode { connections, outgoing, incoming }
 
 extension _BandManagementPanelVenueConnectionHub
     on _BandManagementPanelScreenState {
+  bool get _canPresentIncomingVenueApplications {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    final route = _incomingRoute;
+    return mounted &&
+        widget.openIncomingVenueApplications &&
+        !_incomingOpenAttempted &&
+        !_loading &&
+        _errorText == null &&
+        _incomingSession.isCurrent &&
+        _incomingProfile != null &&
+        identical(_incomingProfile, _profile) &&
+        _profile.id.trim() == widget.profile.id.trim() &&
+        route?.isCurrent == true &&
+        route?.isActive == true &&
+        (route?.animation == null ||
+            route!.animation!.status == AnimationStatus.completed) &&
+        (route?.secondaryAnimation == null ||
+            route!.secondaryAnimation!.status == AnimationStatus.dismissed) &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+  }
+
+  void _scheduleIncomingVenueApplications() {
+    if (_incomingOpenScheduled || !_canPresentIncomingVenueApplications) return;
+    _incomingOpenScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _incomingOpenScheduled = false;
+      if (!_canPresentIncomingVenueApplications) return;
+      _incomingOpenAttempted = true;
+      final founder = _profile.members.any(
+        (member) =>
+            member.userId.trim() == _incomingSession.userId?.trim() &&
+            member.isFounder &&
+            member.status.trim().toUpperCase() == 'ACTIVE',
+      );
+      if (!founder) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.info,
+            content: const Text('Bu işlem için yetkin yok.'),
+          ),
+        );
+        return;
+      }
+      unawaited(
+        _showBandVenueApplicationList(
+          mode: _BandVenueApplicationListMode.incoming,
+          forwardNotificationRead: true,
+        ),
+      );
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
   Future<void> _openVenueConnectionHub() async {
     final originRoute = ModalRoute.of(context);
     final session = ProfileActionSession(
@@ -43,7 +97,9 @@ extension _BandManagementPanelVenueConnectionHub
 
   Future<void> _showBandVenueApplicationList({
     required _BandVenueApplicationListMode mode,
+    bool forwardNotificationRead = false,
   }) {
+    final bandId = _profile.id;
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -51,8 +107,17 @@ extension _BandManagementPanelVenueConnectionHub
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) =>
-          _BandVenueApplicationsSheet(bandId: _profile.id, mode: mode),
+      builder: (sheetContext) {
+        if (forwardNotificationRead) {
+          final route = ModalRoute.of(sheetContext);
+          if (route != null) NotificationTargetRead.transfer(context, route);
+        }
+        return _BandVenueApplicationsSheet(
+          bandId: bandId,
+          mode: mode,
+          session: forwardNotificationRead ? _incomingSession : null,
+        );
+      },
     );
   }
 }
@@ -60,8 +125,13 @@ extension _BandManagementPanelVenueConnectionHub
 class _BandVenueApplicationsSheet extends StatefulWidget {
   final String bandId;
   final _BandVenueApplicationListMode mode;
+  final ProfileActionSession? session;
 
-  const _BandVenueApplicationsSheet({required this.bandId, required this.mode});
+  const _BandVenueApplicationsSheet({
+    required this.bandId,
+    required this.mode,
+    this.session,
+  });
 
   @override
   State<_BandVenueApplicationsSheet> createState() =>
@@ -70,9 +140,9 @@ class _BandVenueApplicationsSheet extends StatefulWidget {
 
 class _BandVenueApplicationsSheetState
     extends State<_BandVenueApplicationsSheet> {
-  final _session = ProfileActionSession(
-    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
-  );
+  late final _session =
+      widget.session ??
+      ProfileActionSession(roles: const ['MUSICIAN', 'ROLE_MUSICIAN']);
   int _loadGeneration = 0;
   final _repository = serviceLocator<ArtistVenueConnectionRepository>();
   bool _loadingMore = false;
@@ -135,6 +205,7 @@ class _BandVenueApplicationsSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SafeArea(
       top: false,
       child: SizedBox(
@@ -215,7 +286,27 @@ class _BandVenueApplicationsSheetState
       child: ListView.separated(
         itemCount: _items.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, index) => _buildItem(_items[index]),
+        itemBuilder: (context, index) {
+          final item = _items[index];
+          return NotificationTargetReady(
+            key: ValueKey('artist-venue-request-${item.id}'),
+            ready:
+                !_showOutgoing &&
+                !_showConnections &&
+                _session.isCurrent &&
+                !_accessRevoked &&
+                !_loading &&
+                _error == null &&
+                NotificationTargetRead.artistVenueRequestReady(
+                  context,
+                  item.id,
+                ),
+            contentIdentity: item,
+            requireVisibleBounds: true,
+            allowPartialVisibility: true,
+            child: _buildItem(item),
+          );
+        },
       ),
     );
   }
@@ -249,9 +340,9 @@ class _BandVenueApplicationsSheetState
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainer,
+                  backgroundColor: (AppColors.isLight
+                      ? AppColors.avatarBackground
+                      : Theme.of(context).colorScheme.surfaceContainer),
                   child: ClipOval(
                     child: _isValidImageUrl(item.venueProfilePictureUrl)
                         ? AppCachedNetworkImage(

@@ -87,7 +87,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       endOptions.add(index + 1);
     }
     if (endOptions.isEmpty || !mounted) return;
-    final endIndex = await showModalBottomSheet<int>(
+    final endIndex = await showStudioModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -127,10 +127,10 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
 
   Future<void> _removeManualBusyRange(_StudioManualBusyRange range) async {
     if (_calendarMutationInFlight) return;
-    final shouldRemove = await showDialog<bool>(
+    final shouldRemove = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Saatler müsait yapılsın mı?'),
         content: Text(
           '${_manualHourLabel(range.startIndex)}–${_manualHourLabel(range.endIndex)} aralığı yeniden rezervasyona açılacak.',
@@ -172,7 +172,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     _StudioOwnerReservation reservation,
   ) async {
     final profileTarget = _resolveReservationGuestProfileTarget(reservation);
-    await showModalBottomSheet<void>(
+    await showStudioModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -235,10 +235,10 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       await _loadCalendarData(showLoading: false);
       return;
     }
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Rezervasyon iptal edilsin mi?'),
         content: Text(
           '${reservation.userName} tarafından oluşturulan rezervasyon kaldırılacak.',
@@ -294,10 +294,10 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       await _loadCalendarData(showLoading: false);
       return;
     }
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Rezervasyon talebi reddedilsin mi?'),
         content: Text(
           '${reservation.userName} tarafından gönderilen rezervasyon talebi '
@@ -346,7 +346,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
   }
 
   Future<void> _showReservationDetails(_StudioOwnerReservation reservation) {
-    return showDialog<void>(
+    return showStudioDialog<void>(
       context: context,
       builder: (_) => _StudioReservationDetailsDialog(
         reservation: reservation,
@@ -405,19 +405,23 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     final lastDate = _latestBookableDate;
     final date = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
       firstDate: today,
       lastDate: lastDate,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: AppColors.socialPink,
-            onPrimary: Colors.white,
-            surface: const Color(0xFF101722),
-            onSurface: Colors.white,
-          ),
+          colorScheme:
+              (AppColors.isOriginalDark
+                      ? const ColorScheme.dark()
+                      : Theme.of(context).colorScheme)
+                  .copyWith(
+                    primary: AppColors.socialPink,
+                    onPrimary: Colors.white,
+                    surface: AppColors.legacy(const Color(0xFF101722)),
+                    onSurface: AppColors.legacy(Colors.white),
+                  ),
         ),
-        child: child!,
+        child: StudioListenerAccessGate(builder: (_) => child!),
       ),
     );
     if (date == null || !mounted) return;
@@ -506,10 +510,10 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       reservation.localEndTime,
       reservation.endsAt,
     );
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Rezervasyonunu iptal et'),
         content: Text(
           '${_room.name}\n'
@@ -631,7 +635,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
   Future<void> _confirmReservation() async {
     final time = _selectedTime;
     if (time == null || !_canUseDuration(_durationHours)) return;
-    final contactPhone = await showDialog<String>(
+    final contactPhone = await showStudioDialog<String>(
       context: context,
       builder: (_) => _StudioReservationConfirmDialog(
         roomName: _room.name,

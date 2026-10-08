@@ -15,33 +15,213 @@ concurrency:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    # Existing exact-pixel goldens were captured on Windows. Flutter's font
+    # rasterization differs across operating systems; keep those references
+    # and run the entire unchanged quality gate on their canonical platform.
+    runs-on: windows-latest
     timeout-minutes: 25
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Record exact checkout provenance
+        shell: pwsh
+        run: python .github/scripts/capture-provenance.py "$env:RUNNER_TEMP/source-provenance.json"
+
+      - name: Preserve checkout provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-provenance-${{ github.job }}
+          path: ${{ runner.temp }}/source-provenance.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.41.6
+          flutter-version: 3.44.2
           cache: true
 
       - name: Run Quality Gate
-        run: dart run tool/quality_gate.dart
-
-      - name: Verify Android debug build
-        run: >-
-          flutter build apk --debug
-          --dart-define=SOUNDCONNECT_BASE_URL=http://127.0.0.1:8080
+        shell: pwsh
+        run: |
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --exit-code -- pubspec.lock
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dart run tool/quality_gate.dart --skip-pub-get
+          exit $LASTEXITCODE
 
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
-          path: coverage/
+          path: |
+            coverage/
+            test/**/failures/
           if-no-files-found: ignore
+          retention-days: 7
+
+  native-products:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record exact checkout provenance
+        run: python3 .github/scripts/capture-provenance.py "$RUNNER_TEMP/source-provenance.json"
+      - name: Preserve checkout provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-provenance-${{ github.job }}
+          path: ${{ runner.temp }}/source-provenance.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.2
+          cache: true
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
+      - name: Prepare direct Gradle dependencies and Linux SDK paths
+        run: |
+          flutter precache --android
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+          # Flutter normally injects these ignored wrapper files during flutter build.
+          test -f android/gradlew || cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradlew" android/gradlew
+          test -f android/gradle/wrapper/gradle-wrapper.jar || cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradle/wrapper/gradle-wrapper.jar" android/gradle/wrapper/gradle-wrapper.jar
+          chmod +x android/gradlew
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' "$ANDROID_HOME" "$FLUTTER_ROOT" > android/local.properties
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
+          mkdir -p build/native-ci
+      - name: Verify native report parsers and existing APK verifier
+        run: |
+          python3 tool/test_native_gate.py
+          pwsh -NoProfile -File tool/bridge_harness/test_verify_apks.ps1 -EvidenceDirectory build/native-ci/apk-parser
+          pwsh -NoProfile -File tool/bridge_harness/test_runner_report.ps1 -EvidenceDirectory build/native-ci/runner-parser
+      - name: Full native JVM inventory (including clock and time contract suites)
+        shell: bash
+        run: |
+          set -o pipefail
+          cd android
+          ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" -I ../tool/native-tests.gradle --no-daemon --console=plain -Ptarget-platform=android-x64 :app:testDebugUnitTest 2>&1 | tee ../build/native-ci/jvm.log
+          cd ..
+          python3 tool/native_gate.py jvm --reports build/app/test-results/testDebugUnitTest --events build/native-ci/jvm.log
+      - name: Normal product push disabled build and APK gate
+        shell: bash
+        run: |
+          set -o pipefail
+          cd android
+          ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" --no-daemon --console=plain -Ptarget-platform=android-x64 -Ptarget=lib/main.dart -Pdart-defines=U09VTkRDT05ORUNUX1BVU0hfRU5BQkxFRD1mYWxzZQ== :app:assembleDebug 2>&1 | tee ../build/native-ci/push-off-build.log
+          cd ..
+          python3 tool/native_gate.py product --push false --apk build/app/outputs/apk/debug/app-debug.apk --manifest build/app/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml --aapt "$ANDROID_HOME/build-tools/36.0.0/aapt" --output build/native-ci/push-off
+          cp build/app/outputs/apk/debug/app-debug.apk build/native-ci/push-off/product-build-only.apk
+          cp build/app/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml build/native-ci/push-off/merged-manifest.xml
+          sha256sum build/native-ci/push-off/product-build-only.apk build/native-ci/push-off/merged-manifest.xml > build/native-ci/push-off/SHA256SUMS
+      - name: Synthetic build-only Firebase configuration (normal Google Services plugin)
+        run: python3 tool/native_gate.py firebase
+      - name: Normal product push enabled build and APK gate
+        shell: bash
+        run: |
+          set -o pipefail
+          cd android
+          ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" --no-daemon --console=plain -Ptarget-platform=android-x64 -Ptarget=lib/main.dart -Pdart-defines=U09VTkRDT05ORUNUX1BVU0hfRU5BQkxFRD10cnVl :app:assembleDebug 2>&1 | tee ../build/native-ci/push-on-build.log
+          cd ..
+          python3 tool/native_gate.py product --push true --apk build/app/outputs/apk/debug/app-debug.apk --manifest build/app/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml --aapt "$ANDROID_HOME/build-tools/36.0.0/aapt" --output build/native-ci/push-on
+          cp build/app/outputs/apk/debug/app-debug.apk build/native-ci/push-on/product-build-only.apk
+          cp build/app/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml build/native-ci/push-on/merged-manifest.xml
+          sha256sum build/native-ci/push-on/product-build-only.apk build/native-ci/push-on/merged-manifest.xml > build/native-ci/push-on/SHA256SUMS
+      - name: Preserve native build and test reports on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-product-reports-build-only
+          path: |
+            build/native-ci/
+            build/app/test-results/testDebugUnitTest/
+            build/app/reports/tests/testDebugUnitTest/
+          if-no-files-found: error
+          retention-days: 7
+
+  native-instrumentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record exact checkout provenance
+        run: python3 .github/scripts/capture-provenance.py "$RUNNER_TEMP/source-provenance.json"
+      - name: Preserve checkout provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-provenance-${{ github.job }}
+          path: ${{ runner.temp }}/source-provenance.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.2
+          cache: true
+      - name: Setup Android command-line tools
+        uses: android-actions/setup-android@v4
+      - name: Prepare isolated warmtest APKs
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter precache --android
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+          test -f android/gradlew || cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradlew" android/gradlew
+          test -f android/gradle/wrapper/gradle-wrapper.jar || cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradle/wrapper/gradle-wrapper.jar" android/gradle/wrapper/gradle-wrapper.jar
+          chmod +x android/gradlew
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' "$ANDROID_HOME" "$FLUTTER_ROOT" > android/local.properties
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
+          mkdir -p build/native-ci/apks
+          cd android
+          ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" --no-daemon --console=plain -Ptarget-platform=android-x64 -PsoundconnectBridgeHarness=true -Ptarget=integration_test/native_push_bridge_harness.dart -Pdart-defines=U09VTkRDT05ORUNUX1BVU0hfRU5BQkxFRD10cnVl :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee ../build/native-ci/harness-build.log
+          cd ..
+          cp build/app/outputs/apk/debug/app-debug.apk build/native-ci/apks/warmtest.apk
+          cp build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk build/native-ci/apks/warmtest-test.apk
+      - name: Enable hosted KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exact hosted emulator and reviewed method inventory
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          emulator-port: 5554
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
+          script: pwsh -NoProfile -File tool/bridge_harness/run_hosted.ps1 -Serial emulator-5554 -AppApk build/native-ci/apks/warmtest.apk -TestApk build/native-ci/apks/warmtest-test.apk -Aapt "$ANDROID_HOME/build-tools/36.0.0/aapt" -EvidenceDirectory build/native-ci/hosted
+      - name: Preserve isolated instrumentation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-instrumentation-reports
+          path: |
+            build/native-ci/*.log
+            build/native-ci/hosted/
+            build/native-ci/apks/
+          if-no-files-found: error
           retention-days: 7

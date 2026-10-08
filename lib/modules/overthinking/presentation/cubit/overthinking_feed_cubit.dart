@@ -220,13 +220,26 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
     return true;
   }
 
-  Future<void> refreshPost(String postId) => _refreshPost(postId);
+  Future<void> refreshPost(String postId) async => await _refreshPost(postId);
 
-  Future<void> _refreshPost(
+  /// The notification destination owns this request. A reply after its route,
+  /// visibility or session lease changes must not project content or authorize ACK.
+  Future<bool> refreshNotificationPost(
+    String postId, {
+    required bool Function() acceptResult,
+  }) => _refreshPost(postId, acceptResult: acceptResult);
+
+  Future<bool> _refreshPost(
     String postId, {
     bool reconcileReveal = false,
+    bool Function()? acceptResult,
   }) async {
-    if (!isSessionCurrent || isClosed || _deletedIds.contains(postId)) return;
+    if (!isSessionCurrent ||
+        isClosed ||
+        _deletedIds.contains(postId) ||
+        acceptResult?.call() == false) {
+      return false;
+    }
     final generation = (_detailGenerations[postId] ?? 0) + 1;
     _detailGenerations[postId] = generation;
     final readGeneration = ++_readGeneration;
@@ -237,8 +250,9 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
         isClosed ||
         (!reconcileReveal && sortGeneration != _sortGeneration) ||
         _deletedIds.contains(postId) ||
-        _detailGenerations[postId] != generation) {
-      return;
+        _detailGenerations[postId] != generation ||
+        acceptResult?.call() == false) {
+      return false;
     }
     if (!result.isSuccess || result.data == null) {
       if (result.error?.code == '404' || result.error?.code == '9401') {
@@ -254,8 +268,9 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
       } else {
         emit(state.copyWith(error: result.error));
       }
-      return;
+      return false;
     }
+    if (acceptResult != null && result.data!.id != postId) return false;
     final current = _findPost(postId);
     final merged = current != null && (_postRevisions[postId] ?? 0) > revision
         ? current
@@ -272,7 +287,9 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
     // detail from the previous page must not insert that post into the new one.
     if (current != null || sortGeneration == _sortGeneration) {
       _replacePost(projection);
+      return true;
     }
+    return false;
   }
 
   Future<bool> updatePost({

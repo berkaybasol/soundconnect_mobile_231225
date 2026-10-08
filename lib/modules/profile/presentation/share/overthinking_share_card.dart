@@ -87,13 +87,11 @@ class OverthinkingShareCard extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              AppColors.brandGradient.first.withValues(
-                                alpha: 0.8,
-                              ),
+                              AppColors.originalDark.brandGradient.first
+                                  .withValues(alpha: 0.8),
                               const Color(0xFF35394C),
-                              AppColors.brandGradient.last.withValues(
-                                alpha: 0.65,
-                              ),
+                              AppColors.originalDark.brandGradient.last
+                                  .withValues(alpha: 0.65),
                             ],
                           ),
                         ),
@@ -162,7 +160,7 @@ class OverthinkingShareCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      'Birbirimizi tanımıyoruz.\nAma bu hissi biliyoruz.',
+                      'Birbirimizi tanÄ±mÄ±yoruz.\nAma bu hissi biliyoruz.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 11,
@@ -294,7 +292,7 @@ class _MusicRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'BU YAZIYA EŞLİK EDEN',
+              'BU YAZIYA EÅLÄ°K EDEN',
               style: TextStyle(
                 color: Color(0xFF959EB4),
                 fontSize: 7,
@@ -305,7 +303,7 @@ class _MusicRow extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               data.trackName.isEmpty
-                  ? 'Bir şarkı eşlik ediyor'
+                  ? 'Bir ÅŸarkÄ± eÅŸlik ediyor'
                   : data.trackName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -336,8 +334,9 @@ class _QuoteMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ShaderMask(
-    shaderCallback: (rect) =>
-        LinearGradient(colors: AppColors.brandGradient).createShader(rect),
+    shaderCallback: (rect) => LinearGradient(
+      colors: AppColors.originalDark.brandGradient,
+    ).createShader(rect),
     blendMode: BlendMode.srcIn,
     child: const Icon(
       Icons.format_quote_rounded,
@@ -404,7 +403,7 @@ class _RecordPainter extends CustomPainter {
       false,
       Paint()
         ..shader = LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.originalDark.brandGradient,
         ).createShader(rect)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2,

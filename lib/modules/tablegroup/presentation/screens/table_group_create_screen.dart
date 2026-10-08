@@ -9,12 +9,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../../shared/widgets/soundconnect_time_picker.dart';
 import '../../data/models/table_group_create_request.dart';
 import '../../domain/entities/table_group_venue_option.dart';
 import '../../domain/table_group_expiry_policy.dart';
 import '../cubit/table_group_create_cubit.dart';
 import '../cubit/table_group_create_state.dart';
 import 'table_group_route_args.dart';
+
+part 'table_group_create_screen_on_focus_changed.dart';
+part 'table_group_create_screen_table_seat_preview.dart';
 
 enum _SeatGender { me, female, male, other }
 
@@ -35,17 +41,28 @@ typedef _TableGroupCreateDraft = ({
   String? neighborhoodId,
 });
 
-class TableGroupCreateScreen extends StatefulWidget {
+class TableGroupCreateScreen extends StatelessWidget {
   final DateTime Function() now;
 
   TableGroupCreateScreen({super.key, DateTime Function()? now})
     : now = now ?? DateTime.now;
 
   @override
-  State<TableGroupCreateScreen> createState() => _TableGroupCreateScreenState();
+  Widget build(BuildContext context) =>
+      AppSurfaceThemeScope(child: _TableGroupCreateContent(now: now));
 }
 
-class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
+class _TableGroupCreateContent extends StatefulWidget {
+  const _TableGroupCreateContent({required this.now});
+
+  final DateTime Function() now;
+
+  @override
+  State<_TableGroupCreateContent> createState() =>
+      _TableGroupCreateScreenState();
+}
+
+class _TableGroupCreateScreenState extends State<_TableGroupCreateContent>
     with WidgetsBindingObserver {
   late final TableGroupCreateCubit _cubit;
   final _formKey = GlobalKey<FormState>();
@@ -91,86 +108,6 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
     )..start();
   }
 
-  void _onFocusChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _onVenueChanged() {
-    if (!context.mounted) return;
-    if (_settingVenueText) return;
-    if (!_cubit.state.hasSpecificVenue) return;
-    if (_cubit.state.venueMode == TableGroupVenueMode.registered) {
-      setState(() {
-        _selectedCityId = null;
-        _selectedDistrictId = null;
-        _selectedNeighborhoodId = null;
-      });
-    }
-    _cubit.venueTextChanged(_venueController.text);
-  }
-
-  void _selectRegisteredVenue(TableGroupVenueOption option) {
-    if (_cubit.state.status == TableGroupCreateStatus.submitting) return;
-    _cubit.selectRegisteredVenue(option);
-    _settingVenueText = true;
-    _venueController.value = TextEditingValue(
-      text: option.name,
-      selection: TextSelection.collapsed(offset: option.name.length),
-    );
-    _settingVenueText = false;
-    setState(() {
-      _selectedCityId = option.cityId;
-      _selectedDistrictId = option.districtId;
-      _selectedNeighborhoodId = option.neighborhoodId;
-    });
-  }
-
-  void _useCustomVenue() {
-    if (_cubit.state.status == TableGroupCreateStatus.submitting) return;
-    _cubit.useCustomVenue(_venueController.text);
-  }
-
-  void _clearRegisteredVenue() {
-    if (_cubit.state.status == TableGroupCreateStatus.submitting) return;
-
-    _settingVenueText = true;
-    _venueController.clear();
-    _settingVenueText = false;
-    setState(() {
-      _selectedCityId = null;
-      _selectedDistrictId = null;
-      _selectedNeighborhoodId = null;
-    });
-    _cubit.detachRegisteredVenue('');
-    _venueFocusNode.requestFocus();
-  }
-
-  void _setHasSpecificVenue(bool value) {
-    if (_cubit.state.status == TableGroupCreateStatus.submitting ||
-        value == _cubit.state.hasSpecificVenue) {
-      return;
-    }
-    if (value) {
-      _cubit.enableSpecificVenue();
-      return;
-    }
-
-    final leavingRegisteredVenue =
-        _cubit.state.venueMode == TableGroupVenueMode.registered;
-    _venueFocusNode.unfocus();
-    _settingVenueText = true;
-    _venueController.clear();
-    _settingVenueText = false;
-    if (leavingRegisteredVenue) {
-      setState(() {
-        _selectedCityId = null;
-        _selectedDistrictId = null;
-        _selectedNeighborhoodId = null;
-      });
-    }
-    _cubit.disableSpecificVenue();
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -199,555 +136,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
     }
   }
 
-  int get _guestCount => _femaleCount + _maleCount + _otherCount;
-
-  int get _totalSeats => _guestCount + 1;
-
-  String get _genderDistributionText {
-    final parts = <String>[];
-    if (_femaleCount > 0) parts.add('$_femaleCount kız');
-    if (_maleCount > 0) parts.add('$_maleCount erkek');
-    if (_otherCount > 0) parts.add('$_otherCount fark etmez');
-    if (parts.isEmpty) return 'Seçim yok';
-    return parts.join(', ');
-  }
-
-  void _changeGenderCount(_SeatGender type, int delta) {
-    final total = _guestCount;
-    if (delta > 0 && total >= 5) return;
-
-    setState(() {
-      switch (type) {
-        case _SeatGender.female:
-          _femaleCount = (_femaleCount + delta).clamp(0, 5);
-        case _SeatGender.male:
-          _maleCount = (_maleCount + delta).clamp(0, 5);
-        case _SeatGender.other:
-          _otherCount = (_otherCount + delta).clamp(0, 5);
-        case _SeatGender.me:
-          break;
-      }
-    });
-  }
-
-  List<_SeatGender> _seatGenders() {
-    final list = <_SeatGender>[_SeatGender.me];
-    list.addAll(List<_SeatGender>.filled(_femaleCount, _SeatGender.female));
-    list.addAll(List<_SeatGender>.filled(_maleCount, _SeatGender.male));
-    list.addAll(List<_SeatGender>.filled(_otherCount, _SeatGender.other));
-    return list;
-  }
-
-  List<String> _buildGenderPrefs() {
-    final prefs = <String>['OTHER'];
-    prefs.addAll(List<String>.filled(_femaleCount, 'FEMALE'));
-    prefs.addAll(List<String>.filled(_maleCount, 'MALE'));
-    prefs.addAll(List<String>.filled(_otherCount, 'OTHER'));
-    return prefs;
-  }
-
-  String _formatCardTime() {
-    final now = widget.now();
-    return formatTableGroupMeetingAt(
-      resolveTableGroupMeetingAt(
-        now: now,
-        hour: _selectedTime.hour,
-        minute: _selectedTime.minute,
-      ),
-      now: now,
-    );
-  }
-
-  void _requestBackNavigation() {
-    if (!mounted || _cubit.state.status == TableGroupCreateStatus.submitting) {
-      return;
-    }
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) navigator.pop();
-  }
-
-  Future<void> _pickTime() async {
-    if (_cubit.state.status == TableGroupCreateStatus.submitting) return;
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppColors.brandGradient.last,
-              surface: Theme.of(context).colorScheme.surfaceContainer,
-              onSurface: Theme.of(context).colorScheme.onSurface,
-            ),
-            dialogTheme: DialogThemeData(
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-            ),
-            timePickerTheme: TimePickerThemeData(
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-              dialBackgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest,
-              hourMinuteColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest,
-              hourMinuteTextColor: Theme.of(context).colorScheme.onSurface,
-              dayPeriodColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest,
-              dayPeriodTextColor: Theme.of(context).colorScheme.onSurface,
-              entryModeIconColor: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant,
-              dialHandColor: AppColors.brandGradient.last,
-              dialTextColor: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (!mounted || picked == null) return;
-    setState(() => _selectedTime = picked);
-  }
-
-  Widget _venuePickerFeedback(
-    BuildContext context,
-    TableGroupCreateState state, {
-    required bool submitting,
-  }) {
-    final selected = state.selectedVenue;
-    if (state.venueMode == TableGroupVenueMode.registered && selected != null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: _compactVenueRow(
-          context,
-          selected,
-          key: const Key('table_group_registered_venue_summary'),
-          infoKey: const Key('table_group_selected_venue_info'),
-          selected: true,
-          infoEnabled: !submitting,
-        ),
-      );
-    }
-
-    final query = state.venueQuery;
-    if (query.length < 2 || !state.venueSuggestionsVisible) {
-      return const SizedBox.shrink();
-    }
-    return Container(
-      key: const Key('table_group_venue_search_results'),
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (state.venueSearchLoading)
-            const LinearProgressIndicator(minHeight: 2),
-          if (state.venueSearchError != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-              child: Text(
-                state.venueSearchError!.message,
-                key: const Key('table_group_venue_search_error'),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          for (var index = 0; index < state.venueOptions.length; index++) ...[
-            _compactVenueRow(
-              context,
-              state.venueOptions[index],
-              key: ValueKey<String>(
-                'table_group_venue_option-${state.venueOptions[index].id}',
-              ),
-              infoKey: ValueKey<String>(
-                'table_group_venue_info-${state.venueOptions[index].id}',
-              ),
-              onTap: submitting
-                  ? null
-                  : () => _selectRegisteredVenue(state.venueOptions[index]),
-              infoEnabled: !submitting,
-            ),
-            if (index < state.venueOptions.length - 1)
-              const Divider(height: 1, indent: 64),
-          ],
-          TextButton(
-            key: const Key('table_group_use_custom_venue'),
-            onPressed: submitting ? null : _useCustomVenue,
-            child: Text('“$query” adını serbest kullan'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _compactVenueRow(
-    BuildContext context,
-    TableGroupVenueOption option, {
-    required Key key,
-    required Key infoKey,
-    VoidCallback? onTap,
-    bool selected = false,
-    bool infoEnabled = true,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final foreground = colorScheme.onSurface;
-    final secondary = colorScheme.onSurfaceVariant;
-
-    return Semantics(
-      key: ValueKey<String>('table_group_venue_semantics-${option.id}'),
-      selected: selected ? true : null,
-      child: Material(
-        key: key,
-        color: selected
-            ? colorScheme.surfaceContainerHighest
-            : Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: selected
-              ? BorderSide(
-                  color: AppColors.brandGradient.last.withValues(alpha: 0.72),
-                  width: 1.2,
-                )
-              : BorderSide.none,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  key: ValueKey<String>(
-                    'table_group_venue_avatar-${option.id}',
-                  ),
-                  radius: 21,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  child: ClipOval(
-                    child: AppCachedNetworkImage(
-                      key: ValueKey<String>(
-                        'table_group_venue_image-${option.id}',
-                      ),
-                      imageUrl: option.profilePictureUrl,
-                      width: 42,
-                      height: 42,
-                      cacheWidth: 126,
-                      cacheHeight: 126,
-                      errorBuilder: (context) => Icon(
-                        Icons.storefront_rounded,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        option.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: foreground,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        option.locationSummary,
-                        key: selected
-                            ? const Key('table_group_locked_venue_location')
-                            : null,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: secondary, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  key: infoKey,
-                  tooltip: '${option.name} hakkında bilgi',
-                  icon: const Icon(Icons.info_outline_rounded, size: 20),
-                  color: secondary,
-                  onPressed: infoEnabled
-                      ? () =>
-                            unawaited(_showVenueSelectionInfo(context, option))
-                      : null,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showVenueSelectionInfo(
-    BuildContext context,
-    TableGroupVenueOption option,
-  ) {
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        key: const Key('table_group_venue_info_dialog'),
-        scrollable: true,
-        title: Text(option.name, key: const Key('table_group_venue_info_name')),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              option.locationSummary,
-              key: const Key('table_group_venue_info_location'),
-              style: Theme.of(dialogContext).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              option.address,
-              key: const Key('table_group_venue_info_address'),
-            ),
-            const Divider(height: 24),
-            const Text(
-              'Bu mekânı seçmen yalnızca masanın buluşma konumunu belirtir. '
-              'Mekâna bildirim gönderilmez ve rezervasyon oluşturulmaz.',
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            key: const Key('table_group_venue_info_close'),
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Anladım'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _descriptionField(BuildContext context, {required bool loading}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _FieldCaption('Masa açıklaması'),
-        const SizedBox(height: 8),
-        _GradientFocusFrame(
-          isFocused: _descriptionFocusNode.hasFocus,
-          child: TextFormField(
-            key: const Key('table_group_description_input'),
-            controller: _descriptionController,
-            focusNode: _descriptionFocusNode,
-            readOnly: loading,
-            minLines: 3,
-            maxLines: 5,
-            inputFormatters: const [
-              _DescriptionCodePointLengthFormatter(
-                TableGroupCreateRequest.maxDescriptionLength,
-              ),
-            ],
-            textCapitalization: TextCapitalization.sentences,
-            keyboardType: TextInputType.multiline,
-            textInputAction: TextInputAction.newline,
-            decoration: InputDecoration(
-              hintText: 'Masada nasıl bir buluşma planladığını kısaca anlat.',
-              alignLabelWithHint: true,
-              counterText: '',
-              contentPadding: const EdgeInsets.fromLTRB(16, 11, 16, 11),
-              filled: true,
-              fillColor: const Color(0xFF071321),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            validator: (value) {
-              final description = TableGroupCreateRequest.normalizeDescription(
-                value ?? '',
-              );
-              if (description.isEmpty) {
-                return 'Masa açıklaması zorunlu';
-              }
-              if (TableGroupCreateRequest.descriptionCodePointLength(
-                    description,
-                  ) >
-                  TableGroupCreateRequest.maxDescriptionLength) {
-                return 'Masa açıklaması en fazla 280 karakter olabilir';
-              }
-              return null;
-            },
-          ),
-        ),
-        const SizedBox(height: 6),
-        _DescriptionCounter(controller: _descriptionController),
-      ],
-    );
-  }
-
-  Future<void> _submit(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-
-    if (!_attemptedSubmit) setState(() => _attemptedSubmit = true);
-    if (_formKey.currentState?.validate() != true) return;
-    if (_guestCount < 1) {
-      messenger.showSnackBar(
-        appSnackBar(
-          context,
-          tone: AppSnackBarTone.warning,
-          content: Text('En az 1 katılımcı seçmelisin'),
-        ),
-      );
-      return;
-    }
-    final selectedVenue = _cubit.state.selectedVenue;
-    final registered =
-        _cubit.state.hasSpecificVenue &&
-        _cubit.state.venueMode == TableGroupVenueMode.registered &&
-        selectedVenue != null;
-    final cityId = registered ? selectedVenue.cityId : _selectedCityId;
-    if (cityId == null || cityId.isEmpty) {
-      messenger.showSnackBar(
-        appSnackBar(
-          context,
-          tone: AppSnackBarTone.warning,
-          content: Text('Şehir seçimi zorunlu'),
-        ),
-      );
-      return;
-    }
-
-    final venueId = registered ? selectedVenue.id : null;
-    final venueName = !_cubit.state.hasSpecificVenue || registered
-        ? null
-        : _venueController.text.trim();
-    final districtId = registered
-        ? selectedVenue.districtId
-        : _selectedDistrictId;
-    final neighborhoodId = registered
-        ? selectedVenue.neighborhoodId
-        : _selectedNeighborhoodId;
-    final draft = (
-      venueId: venueId,
-      venueName: venueName,
-      description: _descriptionController.text.trim(),
-      maxPersonCount: _totalSeats,
-      femaleCount: _femaleCount,
-      maleCount: _maleCount,
-      otherCount: _otherCount,
-      ageMin: _ageRange.start.round(),
-      ageMax: _ageRange.end.round(),
-      hour: _selectedTime.hour,
-      minute: _selectedTime.minute,
-      cityId: cityId,
-      districtId: districtId,
-      neighborhoodId: neighborhoodId,
-    );
-
-    var request = _retryableCreateDraft == draft
-        ? _retryableCreateRequest
-        : null;
-    if (request == null) {
-      final now = widget.now();
-      final meetingAt = resolveTableGroupMeetingAt(
-        now: now,
-        hour: _selectedTime.hour,
-        minute: _selectedTime.minute,
-      );
-      final meetingLead = meetingAt.difference(now);
-      if (meetingLead <= Duration.zero ||
-          meetingLead > tableGroupMaximumMeetingLead) {
-        messenger.showSnackBar(
-          appSnackBar(
-            context,
-            tone: AppSnackBarTone.warning,
-            content: Text('Buluşma saati en fazla 24 saat sonrası olabilir'),
-          ),
-        );
-        return;
-      }
-      request = TableGroupCreateRequest(
-        venueId: venueId,
-        venueName: venueName,
-        description: draft.description,
-        maxPersonCount: draft.maxPersonCount,
-        genderPrefs: _buildGenderPrefs(),
-        ageMin: draft.ageMin,
-        ageMax: draft.ageMax,
-        meetingAt: meetingAt,
-        cityId: draft.cityId,
-        districtId: draft.districtId,
-        neighborhoodId: draft.neighborhoodId,
-      );
-      // A committed response can be lost. Keep the exact request snapshot for
-      // semantically identical retries so the backend's replay fingerprint is
-      // preserved even if the selected minute has rolled into tomorrow.
-      _retryableCreateDraft = draft;
-      _retryableCreateRequest = request;
-    }
-
-    final ok = await _cubit.createTableGroup(request);
-    if (!mounted) return;
-    if (!ok) {
-      if (identical(_retryableCreateRequest, request) &&
-          _isDefinitiveCreateRejection(_cubit.state.error?.code)) {
-        _retryableCreateDraft = null;
-        _retryableCreateRequest = null;
-      }
-      return;
-    }
-    ScaffoldMessenger.of(this.context).showSnackBar(
-      appSnackBar(
-        this.context,
-        tone: AppSnackBarTone.success,
-        duration: const Duration(seconds: 6),
-        content: const Text(
-          'Masa oluşturuldu.\n'
-          'Masana Mesajlar bölümünden ulaşabilirsin.',
-        ),
-      ),
-    );
-    Navigator.of(
-      this.context,
-    ).pop(TableGroupCreateResult(cityId: request.cityId));
-  }
-
-  bool _isDefinitiveCreateRejection(String? rawCode) {
-    final code = rawCode?.trim().toUpperCase();
-    if (code == null || code.isEmpty) return false;
-
-    // These responses prove that this exact request did not commit. Keep the
-    // snapshot for transport/decode ambiguity and every 5xx path so a replay
-    // can still recover a response that was lost after commit.
-    return const <String>{
-      '9100', // VENUE_ID_AND_NAME_CONFLICT
-      '9102', // INVALID_AGE_RANGE
-      '9103', // GENDER_AND_COUNT_MISMATCH
-      '9104', // TABLE_END_DATE_PASSED
-      '9112', // TABLE_GROUP_DURATION_INVALID
-      '9114', // TABLE_GROUP_VENUE_LOCATION_MISMATCH
-      '9127', // TABLE_GROUP_OWNER_ACTIVE_EXISTS
-    }.contains(code);
-  }
-
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocProvider.value(
       value: _cubit,
       child: BlocConsumer<TableGroupCreateCubit, TableGroupCreateState>(
@@ -788,6 +179,9 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
             },
             child: Scaffold(
               appBar: AppBar(
+                backgroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).scaffoldBackgroundColor
+                    : null,
                 title: Text('Masa Oluştur'),
                 leading: IconButton(
                   key: Key('table_group_create_back'),
@@ -1021,7 +415,11 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                           )
                                         : null,
                                     filled: true,
-                                    fillColor: const Color(0xFF071321),
+                                    fillColor: (AppColors.isOriginalDark
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
+                                        : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide.none,
@@ -1118,7 +516,11 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                       vertical: 10,
                                     ),
                                     filled: true,
-                                    fillColor: const Color(0xFF071321),
+                                    fillColor: (AppColors.isOriginalDark
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
+                                        : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide.none,
@@ -1186,7 +588,11 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                       vertical: 10,
                                     ),
                                     filled: true,
-                                    fillColor: const Color(0xFF071321),
+                                    fillColor: (AppColors.isOriginalDark
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
+                                        : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide.none,
@@ -1253,7 +659,11 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                       vertical: 10,
                                     ),
                                     filled: true,
-                                    fillColor: const Color(0xFF071321),
+                                    fillColor: (AppColors.isOriginalDark
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest
+                                        : AppColors.inputFill),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: BorderSide.none,
@@ -1385,7 +795,11 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                 foregroundColor: Theme.of(
                                   context,
                                 ).colorScheme.onSurface,
-                                backgroundColor: const Color(0xFF071321),
+                                backgroundColor: (AppColors.isOriginalDark
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest
+                                    : AppColors.inputFill),
                                 side: BorderSide(
                                   color: Theme.of(
                                     context,
@@ -1460,7 +874,7 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
                                           context,
                                         ).dividerColor.withValues(alpha: 0.7),
                                       ]
-                                    : AppColors.brandGradient,
+                                    : AppColors.decorativeGradient,
                               ),
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -1508,6 +922,12 @@ class _TableGroupCreateScreenState extends State<TableGroupCreateScreen>
       ),
     );
   }
+
+  void _updateView(VoidCallback change) => setState(change);
+
+  // Instance tear-offs match removal on the owned controller and focus nodes.
+  void _onFocusChanged() => _updateFocus();
+  void _onVenueChanged() => _updateVenue();
 }
 
 /// Enforces the API's normalized Unicode code-point limit without cutting a
@@ -1594,700 +1014,6 @@ class _DescriptionCodePointLengthFormatter extends TextInputFormatter {
       text: truncatedText,
       selection: selection,
       composing: TextRange.empty,
-    );
-  }
-}
-
-class _TableSeatPreview extends StatelessWidget {
-  final List<_SeatGender> seatGenders;
-  final int totalSeats;
-
-  _TableSeatPreview({required this.seatGenders, required this.totalSeats});
-
-  List<Color> _seatGradient() {
-    return AppColors.brandGradient;
-  }
-
-  IconData _seatIcon(_SeatGender gender) {
-    return switch (gender) {
-      _SeatGender.me => Icons.bookmark_rounded,
-      _SeatGender.female => Icons.female_rounded,
-      _SeatGender.male => Icons.male_rounded,
-      _SeatGender.other => Icons.all_inclusive_rounded,
-    };
-  }
-
-  double _seatIconSize(_SeatGender gender) {
-    return switch (gender) {
-      _SeatGender.me => 18,
-      _SeatGender.female => 24,
-      _SeatGender.male => 24,
-      _SeatGender.other => 19,
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 194,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final center = Offset(constraints.maxWidth / 2, 102);
-          final rx = constraints.maxWidth * 0.39;
-          final ry = 56.0;
-          final seats = <Widget>[
-            Positioned(
-              left: center.dx - 113,
-              top: center.dy - 56,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(42),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFCFBFF), Color(0xFFF2EEF9)],
-                  ),
-                  border: Border.all(
-                    color: AppColors.white.withValues(alpha: 0.45),
-                    width: 1.0,
-                  ),
-                ),
-                child: SizedBox(
-                  width: 226,
-                  height: 122,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Positioned(
-                        bottom: 10,
-                        child: Container(
-                          width: 52,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            color: AppColors.pureBlack.withValues(alpha: 0.10),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 20,
-                        child: Container(
-                          width: 12,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: Color(0xFFF0EDF7),
-                            border: Border.all(
-                              color: AppColors.white.withValues(alpha: 0.8),
-                              width: 0.8,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        width: 170,
-                        height: 86,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(34),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: AppColors.brandGradient
-                                .map((color) => color.withValues(alpha: 0.32))
-                                .toList(),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(1.4),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(32.6),
-                            child: Container(
-                              color: AppColors.white.withValues(alpha: 0.88),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Opacity(
-                        opacity: 0.72,
-                        child: Image.asset(
-                          'assets/logotransparent.png',
-                          width: 132,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ];
-
-          for (int i = 0; i < seatGenders.length; i++) {
-            final angle = -1.570796 + (6.283185 * i / seatGenders.length);
-            final seatCenter = Offset(
-              center.dx + rx * cos(angle),
-              center.dy + ry * sin(angle),
-            );
-            final inwardShadowOffset = Offset(
-              -cos(angle) * 1.6,
-              -sin(angle) * 1.6,
-            );
-            final isMe = i == 0;
-            final seatGradient = _seatGradient();
-            seats.add(
-              Positioned(
-                left: seatCenter.dx - 18,
-                top: seatCenter.dy - 18,
-                child: SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Container(
-                    width: 27,
-                    height: 27,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: seatGradient,
-                      ),
-                      border: Border.all(
-                        color: AppColors.white.withValues(alpha: 0.96),
-                        width: 1.7,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.pureBlack.withValues(alpha: 0.20),
-                          blurRadius: 4.8,
-                          offset: inwardShadowOffset,
-                        ),
-                      ],
-                    ),
-                    child: isMe
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Icon(
-                                  Icons.bookmark_rounded,
-                                  size: 18,
-                                  color: AppColors.white.withValues(
-                                    alpha: 0.98,
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 5.5,
-                                  child: Icon(
-                                    Icons.star_rounded,
-                                    size: 8,
-                                    color: AppColors.white.withValues(
-                                      alpha: 0.98,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : Icon(
-                            _seatIcon(seatGenders[i]),
-                            size: _seatIconSize(seatGenders[i]),
-                            color: AppColors.white.withValues(alpha: 0.98),
-                          ),
-                  ),
-                ),
-              ),
-            );
-          }
-
-          return Stack(children: seats);
-        },
-      ),
-    );
-  }
-}
-
-class _PremiumVenueToggle extends StatelessWidget {
-  final Key controlKey;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-
-  const _PremiumVenueToggle({
-    required this.controlKey,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final enabled = onChanged != null;
-    final accent = AppColors.brandGradient.last;
-
-    return Semantics(
-      container: true,
-      button: true,
-      enabled: enabled,
-      toggled: value,
-      label: 'Belirli bir mekâna mı gidiyorsunuz?',
-      value: value ? 'Açık' : 'Kapalı',
-      child: ExcludeSemantics(
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 180),
-          opacity: enabled ? 1 : 0.55,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: controlKey,
-              borderRadius: BorderRadius.circular(16),
-              onTap: enabled ? () => onChanged!(!value) : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: const Color(0xFF071321),
-                  border: Border.all(
-                    color: value
-                        ? accent.withValues(alpha: 0.82)
-                        : const Color(0xFF263A52),
-                    width: value ? 1.2 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: AppColors.brandGradient,
-                        ),
-                      ),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colorScheme.surface,
-                        ),
-                        child: Icon(
-                          value
-                              ? Icons.location_on_rounded
-                              : Icons.location_on_outlined,
-                          color: colorScheme.onSurface,
-                          size: 26,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Belirli bir mekâna mı gidiyorsunuz?',
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            value
-                                ? 'Mekânını aşağıdaki alandan seç'
-                                : 'Dilersen buluşma mekânını ekle',
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                              height: 1.25,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      width: 56,
-                      height: 34,
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        gradient: value
-                            ? LinearGradient(colors: AppColors.brandGradient)
-                            : null,
-                        color: value ? null : const Color(0xFF0B1829),
-                        border: Border.all(
-                          color: value
-                              ? AppColors.white.withValues(alpha: 0.18)
-                              : const Color(0xFF2A4059),
-                        ),
-                      ),
-                      child: AnimatedAlign(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        alignment: value
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.pureBlack.withValues(
-                                  alpha: 0.22,
-                                ),
-                                blurRadius: 5,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DescriptionCounter extends StatelessWidget {
-  final TextEditingController controller;
-
-  const _DescriptionCounter({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<TextEditingValue>(
-      valueListenable: controller,
-      builder: (context, value, _) {
-        final length = TableGroupCreateRequest.descriptionCodePointLength(
-          value.text,
-        );
-        final limit = TableGroupCreateRequest.maxDescriptionLength;
-        return Align(
-          alignment: Alignment.centerRight,
-          child: Semantics(
-            label: '$length / $limit karakter',
-            child: ExcludeSemantics(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Text(
-                  '$length/$limit',
-                  key: const Key('table_group_description_counter'),
-                  style: TextStyle(
-                    color: length > limit
-                        ? Theme.of(context).colorScheme.error
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Widget child;
-
-  _SectionCard({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _FieldCaption extends StatelessWidget {
-  final String text;
-
-  _FieldCaption(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontSize: 13.5,
-        fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-}
-
-class _GradientFocusFrame extends StatelessWidget {
-  final bool isFocused;
-  final Widget child;
-
-  _GradientFocusFrame({required this.isFocused, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      padding: const EdgeInsets.all(1.1),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: isFocused
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: AppColors.brandGradient,
-              )
-            : const LinearGradient(
-                colors: [Color(0xFF263A52), Color(0xFF263A52)],
-              ),
-      ),
-      child: child,
-    );
-  }
-}
-
-class _PremiumAgeRangeSlider extends StatelessWidget {
-  final RangeValues values;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<RangeValues>? onChanged;
-
-  _PremiumAgeRangeSlider({
-    required this.values,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final startPercent = ((values.start - min) / (max - min)).clamp(0.0, 1.0);
-    final endPercent = ((values.end - min) / (max - min)).clamp(0.0, 1.0);
-
-    return SizedBox(
-      height: 48,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final trackWidth = constraints.maxWidth - 24;
-          final activeLeft = 12 + (trackWidth * startPercent);
-          final activeRight = 12 + (trackWidth * endPercent);
-
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned(
-                left: 12,
-                right: 12,
-                child: Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    color: Theme.of(
-                      context,
-                    ).dividerColor.withValues(alpha: 0.95),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: activeLeft,
-                width: (activeRight - activeLeft) < 8
-                    ? 8
-                    : (activeRight - activeLeft),
-                child: Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.all(Radius.circular(999)),
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: AppColors.brandGradient,
-                    ),
-                  ),
-                ),
-              ),
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 0.01,
-                  activeTrackColor: Colors.transparent,
-                  inactiveTrackColor: Colors.transparent,
-                  thumbColor: AppColors.white,
-                  overlayColor: Color(0xFFC15CE0).withValues(alpha: 0.16),
-                  rangeThumbShape: RoundRangeSliderThumbShape(
-                    enabledThumbRadius: 10,
-                  ),
-                  rangeValueIndicatorShape:
-                      PaddleRangeSliderValueIndicatorShape(),
-                  valueIndicatorColor: AppColors.brandGradient.last,
-                  valueIndicatorTextStyle: TextStyle(
-                    color: AppColors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                child: RangeSlider(
-                  values: values,
-                  min: min,
-                  max: max,
-                  divisions: divisions,
-                  labels: RangeLabels(
-                    values.start.round().toString(),
-                    values.end.round().toString(),
-                  ),
-                  onChanged: onChanged,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _GenderSeatMiniControl extends StatelessWidget {
-  final String keyPrefix;
-  final IconData icon;
-  final int count;
-  final VoidCallback? onAdd;
-  final VoidCallback? onRemove;
-
-  _GenderSeatMiniControl({
-    required this.keyPrefix,
-    required this.icon,
-    required this.count,
-    required this.onAdd,
-    required this.onRemove,
-  });
-
-  List<Color> _seatGradient() {
-    return AppColors.brandGradient;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: _seatGradient(),
-            ),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.95),
-              width: 1.2,
-            ),
-          ),
-          child: Icon(
-            icon,
-            size: 24,
-            color: AppColors.white.withValues(alpha: 0.98),
-          ),
-        ),
-        SizedBox(height: 5),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            InkWell(
-              key: Key('table_group_seat_$keyPrefix-remove'),
-              borderRadius: BorderRadius.circular(999),
-              onTap: onRemove,
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: Icon(
-                  Icons.remove,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 20,
-              child: Text(
-                count.toString(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            InkWell(
-              key: Key('table_group_seat_$keyPrefix-add'),
-              borderRadius: BorderRadius.circular(999),
-              onTap: onAdd,
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: Icon(
-                  Icons.add,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

@@ -84,11 +84,16 @@ extension _VenueEventDraftSheetStateMethods on _VenueEventDraftSheetState {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final initial = _selectedDate ?? now;
     final picked = await showSoundConnectDatePicker(
       context: context,
-      initialDate: _selectedDate ?? now,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 3),
+      initialDate: initial,
+      firstDate: initial.isBefore(DateTime(now.year - 1))
+          ? initial
+          : DateTime(now.year - 1),
+      lastDate: initial.isAfter(DateTime(now.year + 3))
+          ? initial
+          : DateTime(now.year + 3),
       helpText: 'Etkinlik tarihi',
     );
     if (!mounted || picked == null) return;
@@ -100,6 +105,10 @@ extension _VenueEventDraftSheetStateMethods on _VenueEventDraftSheetState {
 
   Future<void> _submit() async {
     if (_submitting) return;
+    if (!_sameDraftSession) {
+      _setFormError('Oturum değişti. Formu yeniden aç.');
+      return;
+    }
     if (_uncertainSubmission) {
       // Venue creation has no server-side replay key. Check the refreshed
       // list before explicitly starting another creation after a lost response.
@@ -164,7 +173,58 @@ extension _VenueEventDraftSheetStateMethods on _VenueEventDraftSheetState {
     });
     Result<void> result;
     try {
-      result = await widget.onSave(draft);
+      if (_repeating) {
+        final startDate = DateUtils.dateOnly(draft.eventDate);
+        final untilDate = _unlimited || _untilDate == null
+            ? null
+            : DateUtils.dateOnly(_untilDate!);
+        if (_weekdays.isEmpty ||
+            (!_unlimited &&
+                (untilDate == null || untilDate.isBefore(startDate)))) {
+          _updateState(() {
+            _submitting = false;
+            _formError = 'Tekrar günlerini ve bitiş tarihini kontrol et.';
+          });
+          return;
+        }
+        final definition = EventPlanDefinition(
+          venueId: widget.ownerProfile.venueId,
+          startDate: startDate,
+          untilDate: untilDate,
+          weekdays: _weekdays.toList()..sort(),
+          excludedDates: (widget.initialPlan?.excludedDates ?? <DateTime>[])
+              .where(
+                (date) =>
+                    !date.isBefore(startDate) &&
+                    (untilDate == null || !date.isAfter(untilDate)) &&
+                    _weekdays.contains(date.weekday),
+              ),
+          template: EventPlanTemplate.fromDraft(draft),
+        );
+        final confirmed = await showModalBottomSheet<EventPlanDefinition>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .85,
+          ),
+          builder: (_) => EventPlanPreviewSheet(
+            definition: definition,
+            repository: serviceLocator<EventPlanRepository>(),
+            planId: widget.editingPlanId,
+            expectedVersion: widget.editingPlanVersion,
+          ),
+        );
+        if (!mounted) return;
+        if (confirmed == null || !_sameDraftSession) {
+          _updateState(() => _submitting = false);
+          return;
+        }
+        result = await widget.onPlanSave!(confirmed, _clientRequestId);
+      } else {
+        result = await widget.onSave(draft);
+      }
     } catch (_) {
       result = const Result.failure(
         AppError(code: 'event_create_unknown', message: 'Kayıt doğrulanamadı.'),
@@ -172,7 +232,7 @@ extension _VenueEventDraftSheetStateMethods on _VenueEventDraftSheetState {
     }
     if (!mounted) return;
     if (result.isSuccess) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
       return;
     }
     final error = result.error!;

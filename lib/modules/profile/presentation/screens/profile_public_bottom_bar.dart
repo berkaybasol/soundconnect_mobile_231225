@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
@@ -13,13 +12,13 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/access_policy.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../dm/presentation/cubit/dm_badge_cubit.dart';
 import '../../../dm/presentation/cubit/dm_badge_state.dart';
 import '../../../event/presentation/screens/event_discovery_screen.dart';
 import '../../../overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../../overthinking/presentation/widgets/overthinking_unread_dot.dart';
 import '../../../tablegroup/presentation/screens/table_group_route_args.dart';
-import 'backstage_profiles_home_screen.dart';
 import 'profile_bottom_navigation.dart';
 import 'profile_bottom_bar_avatar_cache.dart';
 
@@ -30,6 +29,9 @@ class ProfilePublicBottomBar extends StatelessWidget {
   final int? mainstageCurrentIndex;
   final bool profileTapAlwaysOpensOwnProfile;
   final FutureOr<bool> Function()? onBeforeNavigate;
+  final ValueChanged<int>? onDestinationSelected;
+  final int? unreadCountOverride;
+  final bool allowCurrentDestinationNavigation;
 
   ProfilePublicBottomBar({
     super.key,
@@ -39,48 +41,59 @@ class ProfilePublicBottomBar extends StatelessWidget {
     this.mainstageCurrentIndex,
     this.profileTapAlwaysOpensOwnProfile = false,
     this.onBeforeNavigate,
+    this.onDestinationSelected,
+    this.unreadCountOverride,
+    this.allowCurrentDestinationNavigation = false,
   });
 
   Widget _profileAvatar(BuildContext context, bool active) {
-    final tint = IconTheme.of(context).color;
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(tint ?? Colors.white, BlendMode.srcIn),
-      child: Image.asset(
-        'assets/ME!2-transparent.png',
-        width: active ? 25 : 23,
-        height: active ? 25 : 23,
-        fit: BoxFit.contain,
+    return const Icon(Icons.person_outline_rounded);
+  }
+
+  Widget _announcementIcon(BuildContext context) {
+    return const Icon(Icons.handshake_outlined);
+  }
+
+  Widget _assetIcon(BuildContext context, String assetName) {
+    return Builder(
+      builder: (iconContext) => ColorFiltered(
+        colorFilter: ColorFilter.mode(
+          IconTheme.of(iconContext).color ??
+              Theme.of(iconContext).colorScheme.onSurfaceVariant,
+          BlendMode.srcIn,
+        ),
+        child: Image.asset(assetName, width: 22, height: 22),
       ),
     );
   }
 
-  Widget _announcementIcon(BuildContext context) {
-    return const Icon(Icons.device_hub);
-  }
-
-  Widget _assetIcon(BuildContext context, String assetName) {
-    final tint = Theme.of(
-      context,
-    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.72);
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(tint, BlendMode.srcIn),
-      child: Image.asset(assetName, width: 22, height: 22),
-    );
-  }
-
   Widget _discoveryIcon(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ui.ImageFilter.dilate(radiusX: 0.35, radiusY: 0.35),
-      child: _assetIcon(context, 'assets/music-note.png'),
-    );
+    return _assetIcon(context, 'assets/music-note.png');
   }
 
   List<BottomNavigationBarItem> _backstageItems(
     BuildContext context,
-    DmBadgeState state,
+    int unreadCount,
+    bool canAccessMarketplace,
   ) {
     return [
-      BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Akış'),
+      if (canAccessMarketplace)
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.storefront_outlined),
+          activeIcon: Icon(Icons.storefront_outlined),
+          label: 'Pazar',
+          tooltip: 'Ekipman Pazarı',
+        )
+      else
+        const BottomNavigationBarItem(
+          icon: SizedBox(
+            key: Key('backstage-reserved-navigation-slot'),
+            width: 24,
+            height: 24,
+          ),
+          label: '',
+          tooltip: '',
+        ),
       BottomNavigationBarItem(
         icon: _announcementIcon(context),
         label: 'Collab',
@@ -90,7 +103,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
         label: 'Git',
       ),
       BottomNavigationBarItem(
-        icon: _ForumIconWithBadge(unreadCount: state.unreadCount),
+        icon: _ForumIconWithBadge(unreadCount: unreadCount),
         label: 'Mesajlar',
       ),
       BottomNavigationBarItem(
@@ -103,7 +116,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
   List<BottomNavigationBarItem> _mainstageItems(
     BuildContext context,
-    DmBadgeState state,
+    int unreadCount,
   ) {
     return [
       BottomNavigationBarItem(
@@ -114,7 +127,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
       BottomNavigationBarItem(
         icon: OverthinkingBoundUnreadDot(
           badgeKey: const ValueKey('overthinking-navigation-unread-dot'),
-          child: _assetIcon(context, 'assets/confined.png'),
+          child: const Icon(Icons.bubble_chart_outlined),
         ),
         label: 'Overthinking',
       ),
@@ -123,7 +136,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
         label: 'Müzik Birleştirir!',
       ),
       BottomNavigationBarItem(
-        icon: _ForumIconWithBadge(unreadCount: state.unreadCount),
+        icon: _ForumIconWithBadge(unreadCount: unreadCount),
         label: 'Mesajlar',
       ),
       BottomNavigationBarItem(
@@ -149,13 +162,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
     if (!await _navigationAllowed()) return;
     if (!context.mounted || !current()) return;
     if (index == 0) {
-      replaceProfileBottomNavigationRoute(
-        context,
-        AppRoutes.backstageProfilesHome,
-        arguments: BackstageProfilesHomeArgs(
-          profileImageUrl: resolvedProfileImageUrl,
-        ),
-      );
+      replaceProfileBottomNavigationRoute(context, AppRoutes.marketplace);
       return;
     }
     if (index == 1) {
@@ -416,7 +423,8 @@ class ProfilePublicBottomBar extends StatelessWidget {
   Future<void> _handleMainstageTap(BuildContext context, int index) async {
     final current = _navigationFence(context);
     if (!context.mounted || !current()) return;
-    if (index == (mainstageCurrentIndex ?? currentIndex) &&
+    if (!allowCurrentDestinationNavigation &&
+        index == (mainstageCurrentIndex ?? currentIndex) &&
         !(index == 4 && profileTapAlwaysOpensOwnProfile)) {
       return;
     }
@@ -452,6 +460,7 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final manager = serviceLocator.isRegistered<AuthSessionManager>()
         ? serviceLocator<AuthSessionManager>()
         : null;
@@ -464,6 +473,11 @@ class ProfilePublicBottomBar extends StatelessWidget {
 
   Widget _buildForViewer(BuildContext context, AuthSessionManager? manager) {
     final session = manager?.session;
+    final canAccessMarketplace =
+        session != null &&
+        session.isAuthenticated &&
+        session.isActive &&
+        AccessPolicy.canAccessMarketplace(session.roles);
     final effectiveStage = StageModeResolver.forViewer(
       session,
       requested: stageMode,
@@ -473,36 +487,175 @@ class ProfilePublicBottomBar extends StatelessWidget {
         : ProfileBottomBarAvatarCache.lastProfileImageUrl;
     ProfileBottomBarAvatarCache.remember(resolvedProfileImageUrl);
 
+    Widget navigation(int unreadCount) {
+      final scheme = Theme.of(context).colorScheme;
+      final light = scheme.brightness == Brightness.light;
+      final activeIndex = effectiveStage == StageMode.mainstage
+          ? mainstageCurrentIndex ?? currentIndex
+          : currentIndex;
+      final items = effectiveStage == StageMode.mainstage
+          ? _mainstageItems(context, unreadCount)
+          : _backstageItems(context, unreadCount, canAccessMarketplace);
+      final accent = light
+          ? AppColors.lightPalette.coral
+          : AppColors.originalDark.coralLight;
+      final surface = light
+          ? scheme.surface
+          : Color.lerp(scheme.surface, scheme.surfaceContainerHighest, .35)!;
+      return SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: light ? .65 : .5),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: light ? .06 : .2),
+                blurRadius: 20,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: BottomNavigationBar(
+                currentIndex: activeIndex,
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                iconSize: 22,
+                selectedItemColor: accent,
+                unselectedItemColor: scheme.onSurfaceVariant.withValues(
+                  alpha: .82,
+                ),
+                selectedFontSize: 11,
+                unselectedFontSize: 11,
+                selectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                ),
+                onTap: (index) {
+                  if (!canAccessMarketplace &&
+                      effectiveStage == StageMode.backstage &&
+                      index == 0) {
+                    return;
+                  }
+                  if (manager != null && !identical(manager.session, session)) {
+                    return;
+                  }
+                  final selected = onDestinationSelected;
+                  if (selected != null) {
+                    selected(index);
+                    return;
+                  }
+                  if (effectiveStage == StageMode.mainstage) {
+                    unawaited(_handleMainstageTap(context, index));
+                    return;
+                  }
+                  unawaited(
+                    _handleBackstageTap(
+                      context,
+                      index,
+                      resolvedProfileImageUrl,
+                    ),
+                  );
+                },
+                items: [
+                  for (var index = 0; index < items.length; index++)
+                    BottomNavigationBarItem(
+                      label: items[index].label,
+                      tooltip: items[index].tooltip,
+                      icon: _BottomBarGlyph(
+                        active:
+                            index == activeIndex && items[index].label != '',
+                        launcher:
+                            effectiveStage == StageMode.backstage && index == 2,
+                        child: index == activeIndex
+                            ? items[index].activeIcon
+                            : items[index].icon,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (unreadCountOverride case final count?) return navigation(count);
     final badgeCubit = serviceLocator<DmBadgeCubit>()..ensureStarted();
     return BlocProvider<DmBadgeCubit>.value(
       value: badgeCubit,
       child: BlocBuilder<DmBadgeCubit, DmBadgeState>(
-        builder: (context, state) {
-          return BottomNavigationBar(
-            currentIndex: effectiveStage == StageMode.mainstage
-                ? mainstageCurrentIndex ?? currentIndex
-                : currentIndex,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: AppColors.navBlueDeep,
-            selectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-            unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-            onTap: (index) {
-              if (manager != null && !identical(manager.session, session)) {
-                return;
-              }
-              if (effectiveStage == StageMode.mainstage) {
-                unawaited(_handleMainstageTap(context, index));
-                return;
-              }
-              unawaited(
-                _handleBackstageTap(context, index, resolvedProfileImageUrl),
-              );
-            },
-            items: effectiveStage == StageMode.mainstage
-                ? _mainstageItems(context, state)
-                : _backstageItems(context, state),
-          );
-        },
+        builder: (context, state) => navigation(state.unreadCount),
+      ),
+    );
+  }
+}
+
+class _BottomBarGlyph extends StatelessWidget {
+  const _BottomBarGlyph({
+    required this.active,
+    required this.launcher,
+    required this.child,
+  });
+
+  final bool active, launcher;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final brandColors = scheme.brightness == Brightness.light
+        ? AppColors.lightPalette.brandGradient
+        : AppColors.originalDark.brandGradient;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: GradientOutline(
+        radius: 13,
+        strokeWidth: .8,
+        colors: [
+          for (final color in brandColors)
+            color.withValues(alpha: active ? .48 : 0),
+        ],
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          width: 46,
+          height: 32,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                for (final color in brandColors)
+                  active
+                      ? color.withValues(alpha: .16)
+                      : launcher
+                      ? scheme.onSurface.withValues(alpha: .035)
+                      : Colors.transparent,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: launcher && !active
+                  ? scheme.outlineVariant.withValues(alpha: .6)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Center(child: child),
+        ),
       ),
     );
   }
@@ -529,36 +682,54 @@ class _MainstageLauncherTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final textColor = enabled
         ? Theme.of(context).colorScheme.onSurface
         : Theme.of(
             context,
           ).colorScheme.onSurfaceVariant.withValues(alpha: 0.55);
-    final leading = Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: enabled
-            ? LinearGradient(colors: AppColors.brandGradient)
-            : null,
-        color: enabled ? null : Theme.of(context).disabledColor,
-      ),
-      child: assetName == null
-          ? Icon(
-              icon ?? Icons.circle_outlined,
-              color: enabled ? AppColors.white : AppColors.navBlueDeep,
-              size: 20,
-            )
-          : Center(
-              child: ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  enabled ? AppColors.white : AppColors.navBlueDeep,
-                  BlendMode.srcIn,
+    final leading = GradientOutline(
+      enabled: AppColors.isLight,
+      radius: 18,
+      colors: enabled
+          ? null
+          : [Theme.of(context).dividerColor, Theme.of(context).dividerColor],
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: enabled && AppColors.isOriginalDark
+              ? LinearGradient(colors: AppColors.decorativeGradient)
+              : null,
+          color: enabled || AppColors.isLight
+              ? null
+              : Theme.of(context).disabledColor,
+        ),
+        child: assetName == null
+            ? Icon(
+                icon ?? Icons.circle_outlined,
+                color: enabled
+                    ? AppColors.decorativeForeground
+                    : AppColors.isLight
+                    ? AppColors.textMuted
+                    : AppColors.navBlueDeep,
+                size: 20,
+              )
+            : Center(
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    enabled
+                        ? AppColors.decorativeForeground
+                        : AppColors.isLight
+                        ? AppColors.textMuted
+                        : AppColors.navBlueDeep,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset(assetName!, width: 21, height: 21),
                 ),
-                child: Image.asset(assetName!, width: 21, height: 21),
               ),
-            ),
+      ),
     );
     return InkWell(
       onTap: enabled ? onTap : null,
@@ -623,15 +794,12 @@ class _ForumIconWithBadge extends StatelessWidget {
   _ForumIconWithBadge({required this.unreadCount});
 
   Widget _dmIcon(BuildContext context) {
-    final tint = IconTheme.of(context).color;
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(tint ?? Colors.white, BlendMode.srcIn),
-      child: Image.asset('assets/dm.png', width: 22, height: 22),
-    );
+    return const Icon(Icons.chat_bubble_outline_rounded);
   }
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (unreadCount <= 0) {
       return _dmIcon(context);
     }
@@ -646,14 +814,15 @@ class _ForumIconWithBadge extends StatelessWidget {
             constraints: BoxConstraints(minWidth: 16, minHeight: 16),
             padding: EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: AppColors.coralAlt,
-              shape: BoxShape.circle,
+              gradient: LinearGradient(colors: AppColors.brandGradient),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
               child: Text(
                 unreadCount > 99 ? '99+' : unreadCount.toString(),
+                textScaler: TextScaler.noScaling,
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.onAccent,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                 ),

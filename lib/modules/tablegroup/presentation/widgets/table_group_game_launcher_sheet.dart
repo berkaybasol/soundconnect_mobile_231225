@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../domain/entities/table_group_game.dart';
 
 Future<TableGroupGameMode?> showTableGroupGameLauncherSheet(
@@ -11,7 +12,8 @@ Future<TableGroupGameMode?> showTableGroupGameLauncherSheet(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: AppColors.pureBlack.withValues(alpha: 0.72),
-    builder: (context) => const _TableGroupGameLauncherSheet(),
+    builder: (context) =>
+        const AppSurfaceThemeScope(child: _TableGroupGameLauncherSheet()),
   );
 }
 
@@ -20,6 +22,7 @@ class _TableGroupGameLauncherSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     return SafeArea(
       top: false,
@@ -30,7 +33,7 @@ class _TableGroupGameLauncherSheet extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.topRight,
-            colors: AppColors.brandGradient
+            colors: AppColors.decorativeGradient
                 .map((color) => color.withValues(alpha: 0.78))
                 .toList(growable: false),
           ),
@@ -43,8 +46,10 @@ class _TableGroupGameLauncherSheet extends StatelessWidget {
           ],
         ),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Color(0xFF0A1526),
+          decoration: BoxDecoration(
+            color: (AppColors.isOriginalDark
+                ? Theme.of(context).colorScheme.surfaceContainer
+                : AppColors.navBlue),
             borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
           ),
           child: Padding(
@@ -76,13 +81,17 @@ class _TableGroupGameLauncherSheet extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors: AppColors.brandGradient,
+                            colors: AppColors.decorativeGradient,
                           ),
                         ),
-                        child: const DecoratedBox(
+                        child: DecoratedBox(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Color(0xFF101D31),
+                            color: (AppColors.isOriginalDark
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHigh
+                                : AppColors.navBlueSoft),
                           ),
                           child: Center(
                             child: Text('🎮', style: TextStyle(fontSize: 22)),
@@ -170,12 +179,19 @@ class _GameModeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      color: const Color(0xFF071321),
+      color: (AppColors.isOriginalDark
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
+          : AppColors.inputFill),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFF263A52)),
+        side: BorderSide(
+          color: (AppColors.isOriginalDark
+              ? Theme.of(context).colorScheme.outline
+              : AppColors.border),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -188,9 +204,15 @@ class _GameModeTile extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111F34),
+                  color: (AppColors.isOriginalDark
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                      : AppColors.inputFill),
                   borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: const Color(0xFF2A4059)),
+                  border: Border.all(
+                    color: (AppColors.isOriginalDark
+                        ? Theme.of(context).colorScheme.outline
+                        : AppColors.border),
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: Text(emoji, style: const TextStyle(fontSize: 23)),

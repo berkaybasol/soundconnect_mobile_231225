@@ -2,14 +2,29 @@ import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/auth/auth_session_manager.dart';
+import '../domain/announcement_access.dart';
+import '../domain/entities/announcement.dart';
+import '../domain/entities/announcement_statistics.dart';
 import '../domain/entities/promotion_item.dart';
 import '../domain/promotion_repository.dart';
 import 'models/promotion_item_model.dart';
 
-class PromotionRepositoryImpl implements PromotionRepository {
-  final ApiClient _apiClient;
+part 'promotion_repository_announcements.dart';
 
-  PromotionRepositoryImpl(this._apiClient);
+class PromotionRepositoryImpl
+    with _PromotionAnnouncementOperations
+    implements PromotionRepository {
+  final ApiClient _apiClient;
+  final AuthSessionManager? _sessions;
+
+  PromotionRepositoryImpl(this._apiClient, {AuthSessionManager? sessions})
+    : _sessions = sessions;
+
+  @override
+  ApiClient get _announcementApi => _apiClient;
+  @override
+  AuthSessionManager? get _announcementSessions => _sessions;
 
   @override
   Future<Result<List<PromotionItem>>> getDisplayableByPlacement(

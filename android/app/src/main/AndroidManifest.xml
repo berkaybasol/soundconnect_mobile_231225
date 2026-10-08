@@ -1,13 +1,37 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
-        android:label="soundconnect_23_12_25codx"
+        android:label="Soundconnect"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/ic_soundconnect"
+        android:roundIcon="@mipmap/ic_soundconnect_round"
         android:usesCleartextTraffic="false">
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <meta-data android:name="com.soundconnect.push_avatar_host" android:value="${pushAvatarHost}" />
+        <service android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService" tools:node="remove" />
+        <service android:name=".SoundconnectMessagingService" android:exported="false"
+            android:enabled="${soundconnectPushEnabled}">
+            <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
+        </service>
+        <!-- Old tokens can survive an upgrade. Disable both incoming routes and
+             the SDK fallback, not just future Firebase initialization. -->
+        <receiver android:name="com.google.firebase.iid.FirebaseInstanceIdReceiver"
+            android:enabled="${soundconnectPushEnabled}" />
+        <receiver android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingReceiver"
+            android:enabled="${soundconnectPushEnabled}" />
+        <service android:name="com.google.firebase.messaging.FirebaseMessagingService"
+            android:enabled="${soundconnectPushEnabled}" />
+        <service android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingBackgroundService"
+            android:enabled="${soundconnectPushEnabled}" />
+        <receiver android:name=".PushNotificationDismissReceiver" android:exported="false" />
+        <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="soundconnect_notifications" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_notification" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.collab_share_files"

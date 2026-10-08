@@ -232,6 +232,7 @@ class _BandMemberTitleDialogState extends State<_BandMemberTitleDialog> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     return Dialog(
       key: const Key('band-member-title-dialog'),

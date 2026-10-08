@@ -13,35 +13,40 @@ class _SongSlotTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          gradient: selected
-              ? LinearGradient(colors: AppColors.brandGradient)
-              : null,
-          color: selected
-              ? null
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
-          border: Border.all(
+    Theme.of(context);
+    return GradientOutline(
+      enabled: AppColors.isLight && selected,
+      radius: 10,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: selected && AppColors.isOriginalDark
+                ? LinearGradient(colors: AppColors.decorativeGradient)
+                : null,
             color: selected
-                ? Colors.transparent
-                : Theme.of(context).dividerColor,
+                ? null
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: Border.all(
+              color: selected
+                  ? Colors.transparent
+                  : Theme.of(context).dividerColor,
+            ),
           ),
-        ),
-        child: Text(
-          '${index + 1}',
-          style: TextStyle(
-            color: selected
-                ? AppColors.white
-                : Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w800,
-            fontSize: 12,
+          child: Text(
+            '${index + 1}',
+            style: TextStyle(
+              color: selected
+                  ? AppColors.decorativeForeground
+                  : Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
           ),
         ),
       ),
@@ -57,35 +62,40 @@ class _SetMarkerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          gradient: selected
-              ? LinearGradient(colors: AppColors.brandGradient)
-              : null,
-          color: selected
-              ? null
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
-          border: Border.all(
+    Theme.of(context);
+    return GradientOutline(
+      enabled: AppColors.isLight && selected,
+      radius: 10,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: selected && AppColors.isOriginalDark
+                ? LinearGradient(colors: AppColors.decorativeGradient)
+                : null,
             color: selected
-                ? Colors.transparent
-                : Theme.of(context).dividerColor,
+                ? null
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: Border.all(
+              color: selected
+                  ? Colors.transparent
+                  : Theme.of(context).dividerColor,
+            ),
           ),
-        ),
-        child: Text(
-          '|',
-          style: TextStyle(
-            color: selected
-                ? AppColors.white
-                : Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w900,
-            fontSize: 16,
+          child: Text(
+            '|',
+            style: TextStyle(
+              color: selected
+                  ? AppColors.decorativeForeground
+                  : Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
           ),
         ),
       ),
@@ -108,6 +118,7 @@ class _AddMiniTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final enabled = onTap != null;
     return Opacity(
       opacity: enabled ? opacity : 0.3,
@@ -151,6 +162,7 @@ class _SelectedSetEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
@@ -207,11 +219,12 @@ class _SelectedSongEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     Widget shell(Widget child) {
       return Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(colors: AppColors.brandGradient),
+          gradient: LinearGradient(colors: AppColors.decorativeGradient),
         ),
         child: Container(
           margin: EdgeInsets.all(1.2),
@@ -248,7 +261,9 @@ class _SelectedSongEditor extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.coralLight,
+                    color: AppColors.isLight
+                        ? AppColors.accentText
+                        : AppColors.coralLight,
                   ),
                 ),
               ),
@@ -322,6 +337,7 @@ class _InlineActionHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -375,6 +391,7 @@ class _TonePickerField<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return DropdownButtonFormField<T>(
       value: value,
       isExpanded: true,
@@ -427,6 +444,7 @@ class _CodeEditorPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final palette = _PreviewPalette.fromTheme(theme);
     final logoAlignment = fullscreenMode
         ? Alignment.center
@@ -462,7 +480,9 @@ class _CodeEditorPreview extends StatelessWidget {
               margin: EdgeInsets.only(bottom: rowBottomMargin),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(
+                  colors: AppColors.originalDark.brandGradient,
+                ),
               ),
               child: Container(
                 margin: EdgeInsets.all(1.2),
@@ -473,7 +493,11 @@ class _CodeEditorPreview extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.segment, size: 16, color: AppColors.coral),
+                    Icon(
+                      Icons.segment,
+                      size: 16,
+                      color: AppColors.originalDark.coral,
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -532,7 +556,9 @@ class _CodeEditorPreview extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(6),
-                      gradient: LinearGradient(colors: AppColors.brandGradient),
+                      gradient: LinearGradient(
+                        colors: AppColors.originalDark.brandGradient,
+                      ),
                     ),
                     child: Text(
                       '$songNo',
@@ -738,7 +764,7 @@ class _CodeEditorPreview extends StatelessWidget {
             maxLines: 6,
             overflow: TextOverflow.clip,
             style: TextStyle(
-              color: AppColors.coralLight,
+              color: AppColors.originalDark.coralLight,
               fontFamily: 'monospace',
               fontSize: 5.4,
               fontWeight: FontWeight.w700,

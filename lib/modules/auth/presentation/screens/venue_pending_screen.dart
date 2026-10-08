@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
+import 'venue_application_decision_screen.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -59,6 +60,14 @@ class VenuePendingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
+    if (membershipType == PendingMembershipType.venue &&
+        serviceLocator.isRegistered<AuthSessionManager>() &&
+        serviceLocator<AuthSessionManager>()
+            .session
+            .isVenueApplicationSession) {
+      return const VenueApplicationDecisionScreen();
+    }
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -86,7 +95,11 @@ class VenuePendingScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.coralAlt.withValues(alpha: 0.35),
+                        color:
+                            (AppColors.isLight
+                                    ? AppColors.decorativeGradient.first
+                                    : AppColors.coralAlt)
+                                .withValues(alpha: 0.35),
                         blurRadius: 24,
                         spreadRadius: 2,
                       ),
@@ -218,11 +231,12 @@ class _GradientIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) {
         return LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.decorativeGradient,
         ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height));
       },
       child: Icon(icon, size: size),
@@ -238,6 +252,7 @@ class _GradientOutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return SizedBox(
       width: double.infinity,
       height: 52,
@@ -245,7 +260,7 @@ class _GradientOutlineButton extends StatelessWidget {
         painter: _GradientBorderPainter(
           borderRadius: 18,
           strokeWidth: 1.4,
-          colors: AppColors.brandGradient,
+          colors: AppColors.decorativeGradient,
         ),
         child: Material(
           color: Colors.transparent,

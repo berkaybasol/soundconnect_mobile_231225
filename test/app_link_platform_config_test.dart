@@ -70,11 +70,11 @@ void main() {
       hasLength(3),
     );
     expect(
-      RegExp(r'IPHONEOS_DEPLOYMENT_TARGET = 13\.0;').allMatches(project),
+      RegExp(r'IPHONEOS_DEPLOYMENT_TARGET = 15\.0;').allMatches(project),
       hasLength(3),
     );
-    expect(frameworkInfo, contains('<string>13.0</string>'));
-    expect(podfile, contains("platform :ios, '13.0'"));
+    expect(frameworkInfo, contains('<string>15.0</string>'));
+    expect(podfile, contains("platform :ios, '15.0'"));
   });
 
   test('deployment templates match the application identifiers and path', () {
@@ -89,10 +89,7 @@ void main() {
         (assetLinks.single as Map<String, dynamic>)['target']
             as Map<String, dynamic>;
 
-    expect(
-      androidTarget['package_name'],
-      'com.berkayb.soundconnect.soundconnect_23_12_25codx',
-    );
+    expect(androidTarget['package_name'], 'tr.com.soundconnect.app');
     expect(
       androidTarget['sha256_cert_fingerprints'],
       contains('REPLACE_WITH_PLAY_APP_SIGNING_OR_RELEASE_CERT_SHA256'),

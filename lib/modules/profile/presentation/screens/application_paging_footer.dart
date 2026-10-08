@@ -17,6 +17,7 @@ class ApplicationPagingFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (loading) {
       return const Padding(
         padding: EdgeInsets.all(12),

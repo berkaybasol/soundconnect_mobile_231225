@@ -157,6 +157,8 @@ void main() {
       await open(tester);
       await _capture(tester, 'manage-390x844');
       await tester.ensureVisible(find.text('Daha fazla göster'));
+      await tester.pumpAndSettle();
+      expect(find.text('Daha fazla göster').hitTestable(), findsOneWidget);
       await tester.tap(find.text('Daha fazla göster'));
       await tester.pumpAndSettle();
       expect(repository.postPages, [0, 1]);
@@ -287,6 +289,8 @@ void main() {
         find.byKey(const ValueKey('manage-post-post-1')),
       );
       await tester.ensureVisible(find.text('Daha fazla göster'));
+      await tester.pumpAndSettle();
+      expect(find.text('Daha fazla göster').hitTestable(), findsOneWidget);
       await tester.tap(find.text('Daha fazla göster'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
@@ -569,10 +573,10 @@ Future<void> _loadPreviewFonts(WidgetTester tester) async {
         '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
     final loader = FontLoader('Roboto');
     for (final name in [
-      'roboto-regular.ttf',
-      'roboto-medium.ttf',
-      'roboto-bold.ttf',
-      'roboto-black.ttf',
+      'Roboto-Regular.ttf',
+      'Roboto-Medium.ttf',
+      'Roboto-Bold.ttf',
+      'Roboto-Black.ttf',
     ]) {
       loader.addFont(
         File('$fonts/$name').readAsBytes().then(ByteData.sublistView),
@@ -581,7 +585,7 @@ Future<void> _loadPreviewFonts(WidgetTester tester) async {
     await loader.load();
     await (FontLoader('Ahem')..addFont(
           File(
-            '$fonts/roboto-regular.ttf',
+            '$fonts/Roboto-Regular.ttf',
           ).readAsBytes().then(ByteData.sublistView),
         ))
         .load();

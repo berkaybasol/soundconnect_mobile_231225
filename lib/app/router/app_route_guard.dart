@@ -1,5 +1,11 @@
 import '../../core/auth/auth_session.dart';
 import '../../core/policy/access_policy.dart';
+import '../../core/policy/profile_feed_availability.dart';
+import '../../modules/admin/domain/musician_feed_report_admin.dart';
+import '../../modules/admin/domain/marketplace_report_admin.dart';
+import '../../modules/admin/domain/notification_campaign.dart';
+import '../../modules/musician_feed/domain/backstage_feed_session.dart';
+import '../../modules/promotion/domain/announcement_access.dart';
 import 'app_routes.dart';
 
 class AppRouteGuard {
@@ -36,6 +42,11 @@ class AppRouteGuard {
       return isPublic ? null : AppRoutes.login;
     }
 
+    if (session.isVenueApplicationSession) {
+      return requested == AppRoutes.venuePending
+          ? null
+          : AppRoutes.venuePending;
+    }
     if (session.isPendingVenue) {
       if (requested == AppRoutes.venuePending ||
           _publicProfileRoutes.contains(requested)) {
@@ -76,6 +87,34 @@ class AppRouteGuard {
     if (isListener && requested == AppRoutes.listenerProfileChoice) {
       return AppRoutes.listenerProfile;
     }
+    if (!ProfileFeedAvailability.enabled &&
+        const {
+          AppRoutes.backstageProfilesHome,
+          AppRoutes.listenerFeed,
+          AppRoutes.musicianFeedMutedAuthors,
+        }.contains(requested)) {
+      return startRouteFor(session);
+    }
+    if (isListener &&
+        const {
+          AppRoutes.studioProfile,
+          AppRoutes.studioPublicProfile,
+          AppRoutes.studioReservationCalendar,
+        }.contains(requested)) {
+      return AppRoutes.studioListenerInfo;
+    }
+    if (isListener && requested == AppRoutes.collabDiscovery) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.marketplace &&
+        !AccessPolicy.canAccessMarketplace(session.roles)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.listenerFeed &&
+        backstageFeedSessionIdentity(session)?.audience !=
+            BackstageFeedAudience.listener) {
+      return startRouteFor(session);
+    }
 
     if (_anonymousRoutes.contains(requested) ||
         requested == AppRoutes.venuePending ||
@@ -87,7 +126,28 @@ class AppRouteGuard {
     if (requested == AppRoutes.adminDashboard && !session.isAdmin) {
       return startRouteFor(session);
     }
+    if (requested == AppRoutes.adminNotificationCampaigns &&
+        !canManageNotificationCampaigns(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminAnnouncements &&
+        announcementSessionIdentity(session, admin: true) == null) {
+      return startRouteFor(session);
+    }
 
+    if (requested == AppRoutes.adminMusicianFeedReports &&
+        !canManageMusicianFeedReports(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminMarketplaceReports &&
+        !canManageMarketplaceReports(session)) {
+      return startRouteFor(session);
+    }
+
+    if (requested == AppRoutes.musicianFeedMutedAuthors &&
+        backstageFeedSessionIdentity(session) == null) {
+      return startRouteFor(session);
+    }
     if (_musicianOwnerRoutes.contains(requested) &&
         !session.hasAnyRole(const ['ROLE_MUSICIAN', 'MUSICIAN'])) {
       return startRouteFor(session);
@@ -136,6 +196,23 @@ class AppRouteGuard {
           : AppRoutes.listenerProfile;
     }
     return AppRoutes.login;
+  }
+
+  static String? approvedMembershipProfileFor(AuthSession session) {
+    if (!session.isAuthenticated ||
+        !session.isActive ||
+        session.isAdmin ||
+        session.isPendingBusiness ||
+        session.requiresListenerProfileChoice) {
+      return null;
+    }
+    if (session.hasAnyRole(const ['ROLE_VENUE', 'VENUE'])) {
+      return AppRoutes.venueProfile;
+    }
+    if (session.hasAnyRole(const ['ROLE_STUDIO', 'STUDIO'])) {
+      return AppRoutes.studioProfile;
+    }
+    return null;
   }
 
   static bool canOpenStudioOwnerReservationCalendar(AuthSession session) =>

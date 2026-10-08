@@ -13,6 +13,8 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
   final MusicianProfileRepository _repository;
   int _generation = 0;
   Future<Result<MusicianProfile>>? _update;
+  Future<void>? _ownerLoad;
+  int? _ownerLoadGeneration;
   final AuthSessionManager? _sessions;
 
   MusicianProfileCubit(this._repository, {AuthSessionManager? sessions})
@@ -37,7 +39,32 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     return super.close();
   }
 
-  Future<void> loadMyProfile() async {
+  Future<void> loadMyProfile({
+    bool Function()? canPresent,
+    bool Function(Object, String, String?)? admitContent,
+  }) {
+    // A notification admission belongs to the request that captured its route.
+    // It must not reuse an older owner refresh without that admission callback.
+    if (admitContent == null &&
+        _ownerLoad != null &&
+        _ownerLoadGeneration == _generation) {
+      return _ownerLoad!;
+    }
+    final operation = _loadMyProfile(
+      canPresent: canPresent,
+      admitContent: admitContent,
+    );
+    _ownerLoad = operation;
+    _ownerLoadGeneration = _generation;
+    return operation.whenComplete(() {
+      if (identical(_ownerLoad, operation)) _ownerLoad = null;
+    });
+  }
+
+  Future<void> _loadMyProfile({
+    bool Function()? canPresent,
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     if (isClosed) return;
     // Reserve presentation before waiting: a later navigation must not be
     // replaced when this owner refresh resumes after the write commits.
@@ -54,13 +81,19 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
       _repository.getMyProfile,
       ownerRead: true,
       reservedGeneration: generation,
+      canPresent: canPresent,
+      admitContent: admitContent,
     );
   }
 
-  Future<void> loadPublicProfile(String profileId) async {
+  Future<void> loadPublicProfile(
+    String profileId, {
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     await _run(
       () => _repository.getPublicProfileByProfileId(profileId),
       targetProfileId: profileId,
+      admitContent: admitContent,
     );
   }
 
@@ -101,6 +134,8 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     String? expectedSessionKey,
     String? targetProfileId,
     int? reservedGeneration,
+    bool Function()? canPresent,
+    bool Function(Object, String, String?)? admitContent,
   }) async {
     const stale = Result<MusicianProfile>.failure(
       AppError(
@@ -148,6 +183,14 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     if (generation != _generation && action != MusicianProfileAction.update) {
       return stale;
     }
+    if (canPresent != null && !canPresent()) {
+      result = const Result.failure(
+        AppError(
+          code: 'musician_profile_hidden',
+          message: 'Profil yüklenemedi. Tekrar dene.',
+        ),
+      );
+    }
     final profile = result.data;
     final expectedUser =
         expectedSessionKey ??
@@ -166,6 +209,12 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
           message: 'Profil yanıtı doğrulanamadı.',
         ),
       );
+    }
+    if (result.isSuccess &&
+        result.data != null &&
+        admitContent != null &&
+        !admitContent(result.data!, result.data!.id, result.data!.userId)) {
+      result = stale;
     }
     // A newer view owns presentation, but the editor still needs the actual
     // mutation result instead of treating a committed write as a failure.

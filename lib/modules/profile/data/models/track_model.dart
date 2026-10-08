@@ -8,6 +8,7 @@ class TrackModel extends Track {
     required super.playbackUrl,
     required super.durationSeconds,
     required super.bpm,
+    super.contentAudience,
   });
 
   factory TrackModel.fromJson(Map<String, dynamic> json) {
@@ -19,6 +20,7 @@ class TrackModel extends Track {
       playbackUrl: json['playbackUrl']?.toString(),
       durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
       bpm: (json['bpm'] as num?)?.toInt(),
+      contentAudience: json['contentAudience']?.toString() ?? 'MAINSTAGE',
     );
   }
 }

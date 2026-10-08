@@ -81,6 +81,7 @@ class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final title = _showConnections
         ? 'Bağlantılarım'
         : _showOutgoing
@@ -144,7 +145,24 @@ class _VenueApplicationsSheetState extends State<VenueApplicationsSheet> {
                           separatorBuilder: (_, __) => SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final item = _items[index];
-                            return _buildApplicationItem(item);
+                            return NotificationTargetReady(
+                              key: ValueKey('artist-venue-request-${item.id}'),
+                              ready:
+                                  !_showOutgoing &&
+                                  !_showConnections &&
+                                  _session.isCurrent &&
+                                  !_accessRevoked &&
+                                  !_loading &&
+                                  _error == null &&
+                                  NotificationTargetRead.artistVenueRequestReady(
+                                    context,
+                                    item.id,
+                                  ),
+                              contentIdentity: item,
+                              requireVisibleBounds: true,
+                              allowPartialVisibility: true,
+                              child: _buildApplicationItem(item),
+                            );
                           },
                         ),
                       ),

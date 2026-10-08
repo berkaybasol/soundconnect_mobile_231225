@@ -7,8 +7,10 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/access_policy.dart';
+import '../../../../core/policy/profile_feed_availability.dart';
 import '../../../../core/policy/stage_mode.dart';
 import '../../../location/domain/location_repository.dart';
+import '../../../musician_feed/domain/backstage_feed_session.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../../tablegroup/presentation/screens/table_group_route_args.dart';
 import '../../domain/event_discovery_search_repository.dart';
@@ -101,6 +103,20 @@ class _MemberDiscoveryState extends State<MemberEventDiscoveryScreen> {
       now: widget.now,
       watchClock: widget.watchClock,
       showGuestFooter: false,
+      headerAction:
+          ProfileFeedAvailability.enabled &&
+              backstageFeedSessionIdentity(session)?.audience ==
+                  BackstageFeedAudience.listener
+          ? TextButton.icon(
+              key: const Key('listener-discovery-feed'),
+              onPressed: () {
+                if (!identical(_sessions.session, session)) return;
+                Navigator.of(context).pushNamed(AppRoutes.listenerFeed);
+              },
+              icon: const Icon(Icons.home_outlined),
+              label: const Text('Akış'),
+            )
+          : null,
       tableHint: AccessPolicy.canCreateOrJoinTableGroups(session.roles)
           ? 'Masa açmak için\ndokunun'
           : 'Masaları görmek için\ndokunun',

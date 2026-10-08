@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../app/router/app_routes.dart';
@@ -242,6 +243,7 @@ class _MyBandsScreenState extends State<MyBandsScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     Widget box(Widget child) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -301,155 +303,168 @@ class _MyBandsScreenState extends State<MyBandsScreen>
             ),
           ),
         );
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bandlerim'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: 'Yenile',
-            onPressed: _authorized && !_navigating ? _refresh : null,
-            icon: const Icon(Icons.refresh_rounded),
+    return NotificationTargetRead.bandRemovalResult(
+      context,
+      ready:
+          _authorized &&
+          _bandsLoaded &&
+          !_loadingBands &&
+          _bandError == null &&
+          NotificationTargetRead.bandRemovalReady(
+            context,
+            _bands.map((band) => band.id),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: !_authorized
-            ? const Center(child: Text('Müzisyen hesabınla giriş yap.'))
-            : RefreshIndicator(
-                onRefresh: _navigating ? () async {} : _refresh,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: section(
-                        'Grupların',
-                        _bandsLoaded ? '${_bands.length} grup' : '—',
-                        Icons.groups_outlined,
-                      ),
-                    ),
-                    if (_bandError != null)
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Bandlerim'),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              tooltip: 'Yenile',
+              onPressed: _authorized && !_navigating ? _refresh : null,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: !_authorized
+              ? const Center(child: Text('Müzisyen hesabınla giriş yap.'))
+              : RefreshIndicator(
+                  onRefresh: _navigating ? () async {} : _refresh,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
                       SliverToBoxAdapter(
-                        child: state(_bandError!, retry: _loadBands),
+                        child: section(
+                          'Grupların',
+                          _bandsLoaded ? '${_bands.length} grup' : '—',
+                          Icons.groups_outlined,
+                        ),
                       ),
-                    if (_loadingBands)
-                      SliverToBoxAdapter(child: state('', loading: true)),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      sliver: SliverList.builder(
-                        itemCount: _bands.length,
-                        itemBuilder: (context, index) {
-                          final band = _bands[index];
-                          return _BandListTile(
-                            name: band.name,
-                            picture: band.profilePictureUrl,
-                            subtitle: 'Grup profili',
-                            onTap: _navigating
-                                ? null
-                                : () => _open(
-                                    () => Navigator.of(context).pushNamed(
-                                      AppRoutes.bandProfile,
-                                      arguments: BandProfileScreenArgs(
-                                        bandId: band.id,
-                                        viewMode: BandProfileViewMode.auto,
+                      if (_bandError != null)
+                        SliverToBoxAdapter(
+                          child: state(_bandError!, retry: _loadBands),
+                        ),
+                      if (_loadingBands)
+                        SliverToBoxAdapter(child: state('', loading: true)),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        sliver: SliverList.builder(
+                          itemCount: _bands.length,
+                          itemBuilder: (context, index) {
+                            final band = _bands[index];
+                            return _BandListTile(
+                              name: band.name,
+                              picture: band.profilePictureUrl,
+                              subtitle: 'Grup profili',
+                              onTap: _navigating
+                                  ? null
+                                  : () => _open(
+                                      () => Navigator.of(context).pushNamed(
+                                        AppRoutes.bandProfile,
+                                        arguments: BandProfileScreenArgs(
+                                          bandId: band.id,
+                                          viewMode: BandProfileViewMode.auto,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                          );
-                        },
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: box(
-                        Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: GradientOutlineButton(
-                            label: 'Grup oluştur',
-                            leading: const Icon(Icons.add_rounded, size: 20),
-                            onPressed:
-                                !_navigating &&
-                                    _bandsLoaded &&
-                                    !_loadingBands &&
-                                    _bandError == null &&
-                                    _creationQuotaKnown &&
-                                    _foundedBandCount < 3
-                                ? () => _open(
-                                    () => Navigator.of(
-                                      context,
-                                    ).pushNamed(AppRoutes.createBand),
-                                  )
-                                : null,
-                          ),
+                            );
+                          },
                         ),
                       ),
-                    ),
-                    if (_bandsLoaded)
-                      SliverToBoxAdapter(
-                        child: state(
-                          _creationQuotaKnown
-                              ? 'Kurduğun gruplar: $_foundedBandCount / 3'
-                              : 'Grup kurma hakkın doğrulanamadı. Listeyi yenile.',
-                        ),
-                      ),
-                    if (_creationQuotaKnown && _foundedBandCount >= 3)
-                      SliverToBoxAdapter(
-                        child: state('En fazla 3 grup kurabilirsin.'),
-                      ),
-                    SliverToBoxAdapter(
-                      child: section(
-                        'Gelen Davetler',
-                        '$_total',
-                        Icons.mail_outline_rounded,
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      sliver: SliverList.builder(
-                        itemCount: _invitations.length,
-                        itemBuilder: (context, index) {
-                          final invitation = _invitations[index];
-                          return _BandListTile(
-                            name: invitation.bandName,
-                            picture: invitation.profilePictureUrl,
-                            subtitle: 'Grup daveti · Yanıtını bekliyor',
-                            invitation: true,
-                            onTap: _navigating
-                                ? null
-                                : () => _openInvitation(invitation),
-                          );
-                        },
-                      ),
-                    ),
-                    if (_loadingInvitations)
-                      SliverToBoxAdapter(child: state('', loading: true))
-                    else if (_invitationError != null)
-                      SliverToBoxAdapter(
-                        child: state(
-                          _invitationError!,
-                          retry: () => _loadInvitations(reset: _nextPage == 0),
-                        ),
-                      )
-                    else if (_invitations.isEmpty)
-                      SliverToBoxAdapter(
-                        child: state('Bekleyen grup davetin yok.'),
-                      ),
-                    if (_hasNext &&
-                        !_loadingInvitations &&
-                        _invitationError == null)
                       SliverToBoxAdapter(
                         child: box(
-                          TextButton(
-                            onPressed: _navigating
-                                ? null
-                                : () => _loadInvitations(reset: false),
-                            child: const Text('Daha fazla göster'),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: GradientOutlineButton(
+                              label: 'Grup oluştur',
+                              leading: const Icon(Icons.add_rounded, size: 20),
+                              onPressed:
+                                  !_navigating &&
+                                      _bandsLoaded &&
+                                      !_loadingBands &&
+                                      _bandError == null &&
+                                      _creationQuotaKnown &&
+                                      _foundedBandCount < 3
+                                  ? () => _open(
+                                      () => Navigator.of(
+                                        context,
+                                      ).pushNamed(AppRoutes.createBand),
+                                    )
+                                  : null,
+                            ),
                           ),
                         ),
                       ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                  ],
+                      if (_bandsLoaded)
+                        SliverToBoxAdapter(
+                          child: state(
+                            _creationQuotaKnown
+                                ? 'Kurduğun gruplar: $_foundedBandCount / 3'
+                                : 'Grup kurma hakkın doğrulanamadı. Listeyi yenile.',
+                          ),
+                        ),
+                      if (_creationQuotaKnown && _foundedBandCount >= 3)
+                        SliverToBoxAdapter(
+                          child: state('En fazla 3 grup kurabilirsin.'),
+                        ),
+                      SliverToBoxAdapter(
+                        child: section(
+                          'Gelen Davetler',
+                          '$_total',
+                          Icons.mail_outline_rounded,
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        sliver: SliverList.builder(
+                          itemCount: _invitations.length,
+                          itemBuilder: (context, index) {
+                            final invitation = _invitations[index];
+                            return _BandListTile(
+                              name: invitation.bandName,
+                              picture: invitation.profilePictureUrl,
+                              subtitle: 'Grup daveti · Yanıtını bekliyor',
+                              invitation: true,
+                              onTap: _navigating
+                                  ? null
+                                  : () => _openInvitation(invitation),
+                            );
+                          },
+                        ),
+                      ),
+                      if (_loadingInvitations)
+                        SliverToBoxAdapter(child: state('', loading: true))
+                      else if (_invitationError != null)
+                        SliverToBoxAdapter(
+                          child: state(
+                            _invitationError!,
+                            retry: () =>
+                                _loadInvitations(reset: _nextPage == 0),
+                          ),
+                        )
+                      else if (_invitations.isEmpty)
+                        SliverToBoxAdapter(
+                          child: state('Bekleyen grup davetin yok.'),
+                        ),
+                      if (_hasNext &&
+                          !_loadingInvitations &&
+                          _invitationError == null)
+                        SliverToBoxAdapter(
+                          child: box(
+                            TextButton(
+                              onPressed: _navigating
+                                  ? null
+                                  : () => _loadInvitations(reset: false),
+                              child: const Text('Daha fazla göster'),
+                            ),
+                          ),
+                        ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                    ],
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }
@@ -469,10 +484,18 @@ class _BandListTile extends StatelessWidget {
   final bool invitation;
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     Widget fallback(BuildContext _) => ColoredBox(
-      color: colors.surfaceContainerHighest,
-      child: Icon(Icons.groups_rounded, color: AppColors.brandGradient[1]),
+      color: AppColors.isLight
+          ? AppColors.avatarBackground
+          : colors.surfaceContainerHighest,
+      child: Icon(
+        Icons.groups_rounded,
+        color: AppColors.isLight
+            ? AppColors.avatarForeground
+            : AppColors.brandGradient[1],
+      ),
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -494,7 +517,7 @@ class _BandListTile extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: invitation
-                        ? LinearGradient(colors: AppColors.brandGradient)
+                        ? LinearGradient(colors: AppColors.decorativeGradient)
                         : null,
                   ),
                   child: ClipOval(

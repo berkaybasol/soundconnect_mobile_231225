@@ -85,126 +85,151 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
   }
 
   Future<void> _pickAndUploadVideo() async {
-    if (_videoUploading) return;
-    final messenger = ScaffoldMessenger.of(context);
-    final mediaCubit = context.read<ProfileMediaCubit>();
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      withData: false,
-      withReadStream: true,
-      allowMultiple: false,
-      allowedExtensions: ['mp4', 'mov', 'mkv'],
-    );
-    final file = result?.files.isNotEmpty == true ? result!.files.first : null;
-    if (file == null) return;
-
-    final pickedPath = file.path;
-    final pickedBytes = file.bytes;
-    final pickedName = file.name.trim().isNotEmpty
-        ? file.name.trim()
-        : (file.path != null ? _fileNameFromPath(file.path!) : 'video.mp4');
-    if ((pickedPath == null && pickedBytes == null) || pickedName.isEmpty) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        appSnackBar(
-          messenger.context,
-          tone: AppSnackBarTone.warning,
-          content: Text('Önce bir video dosyası seç.'),
-        ),
-      );
-      return;
-    }
-
-    if (!mounted) return;
-    _updateState(() {
-      _videoUploading = true;
-      _videoUploadProgress = 0;
-      _videoUploadStatus = 'Video hazırlanıyor';
-    });
-
-    var step = 'dosya hazırlama';
+    if (_videoUploading || _videoSelecting) return;
+    _videoSelecting = true;
     try {
-      final source = await createProfileUploadSource(
-        filePath: file.readStream == null ? pickedPath : null,
-        bytes: pickedBytes,
-        readStream: file.readStream,
-        sizeBytes: file.size,
+      final sessions = serviceLocator<AuthSessionManager>();
+      final session = sessions.session;
+      final target = widget;
+      bool current() =>
+          mounted &&
+          identical(session, sessions.session) &&
+          widget.profileId == target.profileId &&
+          widget.uploadOwnerType == target.uploadOwnerType;
+      final contentAudience = await chooseMediaContentAudience(
+        context,
+        ownerType: target.uploadOwnerType,
       );
-      final mimeType = _mimeFromVideoFileName(pickedName);
-
-      step = 'init-upload';
-      final completed = await uploadProfileMediaAsset(
-        source: source,
-        ownerType: widget.uploadOwnerType,
-        ownerId: widget.profileId,
-        mediaKind: 'VIDEO',
-        mimeType: mimeType,
-        originalFileName: pickedName,
-        attachmentIntent: ProfileUploadAttachmentIntent.gallery(
-          profileType: widget.profileType,
-        ),
-        onStageChanged: (stage) {
-          final label = switch (stage) {
-            ProfileUploadStage.initializing => 'Yükleme hazırlanıyor',
-            ProfileUploadStage.uploading => 'Video yükleniyor',
-            ProfileUploadStage.verifying => 'Video dogrulaniyor',
-            ProfileUploadStage.attaching => 'Video profile ekleniyor',
-            ProfileUploadStage.backgroundProcessing =>
-              'Video arka planda hazırlanıyor',
-            ProfileUploadStage.completed => 'Video işleme alındı',
-          };
-          _updateState(() => _videoUploadStatus = label);
-        },
-        onProgress: (sent, total) {
-          if (!mounted || total <= 0) return;
-          final next = (sent / total).clamp(0.0, 1.0).toDouble();
-          if ((next - _videoUploadProgress).abs() < 0.01 && next < 1) return;
-          _updateState(() => _videoUploadProgress = next);
-        },
+      if (!mounted || !current() || contentAudience == null) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final mediaCubit = context.read<ProfileMediaCubit>();
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        withData: false,
+        withReadStream: true,
+        allowMultiple: false,
+        allowedExtensions: ['mp4', 'mov', 'mkv'],
       );
+      final file = result?.files.isNotEmpty == true
+          ? result!.files.first
+          : null;
+      if (!current()) return;
+      if (file == null) return;
 
-      final assetId = completed.uuid.trim();
-      if (assetId.isEmpty) {
-        throw Exception('Yükleme sonrasında medya kimliği alınamadı');
-      }
-
-      step = 'refresh';
-      if (assetId.isNotEmpty && mounted) {
-        _addProcessingVideo(assetId);
-      }
-
-      await mediaCubit.loadMedia(
-        profileType: widget.profileType,
-        profileId: widget.profileId,
-      );
-
-      if (!mounted) return;
-      messenger.showSnackBar(
-        appSnackBar(
-          messenger.context,
-          tone: AppSnackBarTone.success,
-          content: Text(
-            'Video yüklendi, işleniyor. Kısa süre sonra görünecek.',
+      final pickedPath = file.path;
+      final pickedBytes = file.bytes;
+      final pickedName = file.name.trim().isNotEmpty
+          ? file.name.trim()
+          : (file.path != null ? _fileNameFromPath(file.path!) : 'video.mp4');
+      if ((pickedPath == null && pickedBytes == null) || pickedName.isEmpty) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          appSnackBar(
+            messenger.context,
+            tone: AppSnackBarTone.warning,
+            content: Text('Önce bir video dosyası seç.'),
           ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        appSnackBar(
-          messenger.context,
-          tone: AppSnackBarTone.error,
-          content: Text('Yükleme başarısız ($step): $e'),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        _updateState(() {
-          _videoUploading = false;
-          _videoUploadProgress = 0;
-          _videoUploadStatus = null;
-        });
+        );
+        return;
       }
+
+      if (!mounted) return;
+      _updateState(() {
+        _videoUploading = true;
+        _videoUploadProgress = 0;
+        _videoUploadStatus = 'Video hazırlanıyor';
+      });
+
+      var step = 'dosya hazırlama';
+      try {
+        final source = await createProfileUploadSource(
+          filePath: file.readStream == null ? pickedPath : null,
+          bytes: pickedBytes,
+          readStream: file.readStream,
+          sizeBytes: file.size,
+        );
+        final mimeType = _mimeFromVideoFileName(pickedName);
+        if (!current()) return;
+
+        step = 'init-upload';
+        final completed = await uploadProfileMediaAsset(
+          source: source,
+          ownerType: target.uploadOwnerType,
+          ownerId: target.profileId,
+          mediaKind: 'VIDEO',
+          mimeType: mimeType,
+          originalFileName: pickedName,
+          contentAudience: contentAudience,
+          attachmentIntent: ProfileUploadAttachmentIntent.gallery(
+            profileType: widget.profileType,
+          ),
+          onStageChanged: (stage) {
+            if (!current()) return;
+            final label = switch (stage) {
+              ProfileUploadStage.initializing => 'Yükleme hazırlanıyor',
+              ProfileUploadStage.uploading => 'Video yükleniyor',
+              ProfileUploadStage.verifying => 'Video dogrulaniyor',
+              ProfileUploadStage.attaching => 'Video profile ekleniyor',
+              ProfileUploadStage.backgroundProcessing =>
+                'Video arka planda hazırlanıyor',
+              ProfileUploadStage.completed => 'Video işleme alındı',
+            };
+            _updateState(() => _videoUploadStatus = label);
+          },
+          onProgress: (sent, total) {
+            if (!current() || total <= 0) return;
+            final next = (sent / total).clamp(0.0, 1.0).toDouble();
+            if ((next - _videoUploadProgress).abs() < 0.01 && next < 1) return;
+            _updateState(() => _videoUploadProgress = next);
+          },
+        );
+
+        final assetId = completed.uuid.trim();
+        if (!current()) return;
+        if (assetId.isEmpty) {
+          throw Exception('Yükleme sonrasında medya kimliği alınamadı');
+        }
+
+        step = 'refresh';
+        if (assetId.isNotEmpty && mounted) {
+          _addProcessingVideo(assetId);
+        }
+
+        await mediaCubit.loadMedia(
+          profileType: widget.profileType,
+          profileId: widget.profileId,
+        );
+
+        if (!mounted || !current()) return;
+        messenger.showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.success,
+            content: Text(
+              'Video yüklendi, işleniyor. Kısa süre sonra görünecek.',
+            ),
+          ),
+        );
+      } catch (e) {
+        if (!mounted || !current()) return;
+        messenger.showSnackBar(
+          appSnackBar(
+            context,
+            tone: AppSnackBarTone.error,
+            content: Text('Yükleme başarısız ($step): $e'),
+          ),
+        );
+      } finally {
+        if (mounted) {
+          _updateState(() {
+            _videoUploading = false;
+            _videoUploadProgress = 0;
+            _videoUploadStatus = null;
+          });
+        }
+      }
+    } finally {
+      _videoSelecting = false;
     }
   }
 
@@ -327,6 +352,20 @@ extension _ProfileOwnerVideoTabStateMethods on _ProfileOwnerVideoTabState {
                 size: 36,
               ),
             ),
+            if (widget.ownerMode)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: MediaContentAudienceMenu(
+                  assetId: item.id,
+                  ownerType: widget.uploadOwnerType,
+                  contentAudience: item.contentAudience,
+                  onChanged: () => context.read<ProfileMediaCubit>().loadMedia(
+                    profileType: widget.profileType,
+                    profileId: widget.profileId,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

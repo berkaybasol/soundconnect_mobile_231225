@@ -399,6 +399,7 @@ class ListenerSourceDraftComposerState<T>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     super.build(context);
     if (!_allowed) return const SizedBox.shrink();
     final source = _source;
@@ -413,7 +414,11 @@ class ListenerSourceDraftComposerState<T>
                 ? 'Son işlemin doğrulanamadı. Açıklamanı koruduk. Devam etmeden önce güncel durumu kontrol et.'
                 : _error!,
             key: Key('${widget.keyPrefix}-error'),
-            style: TextStyle(color: AppColors.socialPink),
+            style: TextStyle(
+              color: AppColors.isLight
+                  ? Theme.of(context).colorScheme.error
+                  : AppColors.socialPink,
+            ),
           ),
           TextButton(
             key: Key('${widget.keyPrefix}-reload'),
@@ -476,7 +481,7 @@ class ListenerSourceDraftComposerState<T>
         key: Key('${widget.keyPrefix}-loading'),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: listenerProfileSurface,
+          color: AppColors.legacy(listenerProfileSurface),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(

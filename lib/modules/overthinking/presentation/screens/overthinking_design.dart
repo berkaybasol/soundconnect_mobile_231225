@@ -1,31 +1,48 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
+import '../../../../shared/theme/backstage_palette.dart';
 import '../../../tablegroup/presentation/widgets/table_group_overview_style.dart';
 
 export '../../../tablegroup/presentation/widgets/table_group_overview_style.dart';
 
 abstract final class OverthinkingPalette {
-  // Use the same source of truth as the TableGroup overview, including its
-  // backdrop, card depth and warm typography. No separate module palette.
-  static const background = TableGroupOverviewStyle.pageBase;
-  static const surface = TableGroupOverviewStyle.cardTop;
-  static const surfaceRaised = TableGroupOverviewStyle.insetTop;
-  static const border = TableGroupOverviewStyle.cardBorder;
-  static const text = TableGroupOverviewStyle.primaryText;
-  static const muted = TableGroupOverviewStyle.bodyMuted;
-  static const accent = TableGroupOverviewStyle.warmHeading;
-  static const lilac = TableGroupOverviewStyle.headingMuted;
+  // Keep the established light palette while adopting the shared dark neutrals.
+  static Color get background => AppColors.isOriginalDark
+      ? BackstagePalette.canvas
+      : TableGroupOverviewStyle.pageBase;
+  static Color get surface => AppColors.isOriginalDark
+      ? BackstagePalette.surface
+      : TableGroupOverviewStyle.cardTop;
+  static Color get surfaceRaised => AppColors.isOriginalDark
+      ? BackstagePalette.input
+      : TableGroupOverviewStyle.insetTop;
+  static Color get border => AppColors.isOriginalDark
+      ? BackstagePalette.border
+      : TableGroupOverviewStyle.cardBorder;
+  static Color get text => AppColors.isOriginalDark
+      ? BackstagePalette.textPrimary
+      : TableGroupOverviewStyle.primaryText;
+  static Color get muted => AppColors.isOriginalDark
+      ? BackstagePalette.textMuted
+      : TableGroupOverviewStyle.bodyMuted;
+  static Color get accent => AppColors.isOriginalDark
+      ? BackstagePalette.textPrimary
+      : TableGroupOverviewStyle.warmHeading;
+  static Color get lilac => AppColors.isOriginalDark
+      ? BackstagePalette.textMuted
+      : TableGroupOverviewStyle.headingMuted;
 
   static ThemeData theme(BuildContext context) {
     final base = Theme.of(context);
-    return base.copyWith(
+    final themed = base.copyWith(
       scaffoldBackgroundColor: background,
       dividerColor: border,
       colorScheme: base.colorScheme.copyWith(
-        brightness: Brightness.dark,
+        brightness: base.brightness,
         primary: AppColors.gradientC,
-        onPrimary: AppColors.white,
+        onPrimary: AppColors.onAccent,
         secondary: AppColors.brandGradient.last,
         surface: surface,
         onSurface: text,
@@ -43,21 +60,35 @@ abstract final class OverthinkingPalette {
       textTheme: base.textTheme.apply(bodyColor: text, displayColor: text),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: TableGroupOverviewStyle.cardTop,
-          foregroundColor: TableGroupOverviewStyle.primaryText,
+          backgroundColor: surface,
+          foregroundColor: text,
           minimumSize: const Size(48, 48),
           textStyle: base.textTheme.labelLarge?.copyWith(
             fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
           shape: RoundedRectangleBorder(
-            side: const BorderSide(color: TableGroupOverviewStyle.cardBorder),
+            side: BorderSide(color: border),
             borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
     );
+    return base.brightness == Brightness.dark
+        ? appSurfaceTheme(themed)
+        : themed;
   }
+}
+
+/// Place above stateful screens so callbacks and modal routes inherit the same
+/// surfaces as the visible content. The Theme wrapper stays stable on switches.
+class OverthinkingThemeScope extends StatelessWidget {
+  const OverthinkingThemeScope({required this.child, super.key});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      Theme(data: OverthinkingPalette.theme(context), child: child);
 }
 
 class OverthinkingSurface extends StatelessWidget {
@@ -70,41 +101,45 @@ class OverthinkingSurface extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      gradient: TableGroupOverviewStyle.cardGradient,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: TableGroupOverviewStyle.cardBorder),
-      boxShadow: TableGroupOverviewStyle.cardShadows,
-    ),
-    child: Material(
-      color: Colors.transparent,
-      clipBehavior: Clip.antiAlias,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(padding: padding, child: child),
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: TableGroupSurfaceStyle.of(context).cardGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: TableGroupSurfaceStyle.of(context).cardBorder,
+        ),
+        boxShadow: TableGroupSurfaceStyle.of(context).cardShadows,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        clipBehavior: Clip.antiAlias,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(padding: padding, child: child),
+      ),
+    );
+  }
 }
 
 class OverthinkingEyebrow extends StatelessWidget {
-  const OverthinkingEyebrow(
-    this.text, {
-    super.key,
-    this.color = OverthinkingPalette.muted,
-  });
+  const OverthinkingEyebrow(this.text, {super.key, this.color});
   final String text;
-  final Color color;
+  final Color? color;
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(
-      color: color,
-      fontSize: 13,
-      fontWeight: FontWeight.w700,
-      letterSpacing: .1,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Text(
+      text,
+      style: TextStyle(
+        color: color ?? OverthinkingPalette.muted,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        letterSpacing: .1,
+      ),
+    );
+  }
 }
 
 class OverthinkingBrandIcon extends StatelessWidget {
@@ -112,15 +147,18 @@ class OverthinkingBrandIcon extends StatelessWidget {
   final IconData icon;
   final double size;
   @override
-  Widget build(BuildContext context) => ShaderMask(
-    shaderCallback: (bounds) => const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: TableGroupOverviewStyle.brandGradient,
-    ).createShader(bounds),
-    blendMode: BlendMode.srcIn,
-    child: Icon(icon, size: size, color: AppColors.white),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return ShaderMask(
+      shaderCallback: (bounds) => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: TableGroupSurfaceStyle.of(context).decorativeGradient,
+      ).createShader(bounds),
+      blendMode: BlendMode.srcIn,
+      child: Icon(icon, size: size, color: AppColors.white),
+    );
+  }
 }
 
 class OverthinkingPrimaryAction extends StatelessWidget {
@@ -136,15 +174,18 @@ class OverthinkingPrimaryAction extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool busy;
   @override
-  Widget build(BuildContext context) => GradientOutlineButton(
-    onPressed: onPressed,
-    loading: busy,
-    backgroundColor: TableGroupOverviewStyle.insetTop,
-    strokeWidth: .7,
-    leading: Icon(icon, size: 20),
-    maxLines: null,
-    label: label,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return GradientOutlineButton(
+      onPressed: onPressed,
+      loading: busy,
+      backgroundColor: TableGroupSurfaceStyle.of(context).insetTop,
+      strokeWidth: .7,
+      leading: Icon(icon, size: 20),
+      maxLines: null,
+      label: label,
+    );
+  }
 }
 
 class OverthinkingEmptyState extends StatelessWidget {
@@ -161,40 +202,43 @@ class OverthinkingEmptyState extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 40),
-    child: Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: OverthinkingPalette.surfaceRaised,
-            borderRadius: BorderRadius.circular(24),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 40),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: OverthinkingPalette.surfaceRaised,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Icon(icon, color: OverthinkingPalette.lilac, size: 30),
           ),
-          child: Icon(icon, color: OverthinkingPalette.lilac, size: 30),
-        ),
-        const SizedBox(height: 22),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 21,
-            fontWeight: FontWeight.w800,
-            color: OverthinkingPalette.text,
+          const SizedBox(height: 22),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 21,
+              fontWeight: FontWeight.w800,
+              color: OverthinkingPalette.text,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: OverthinkingPalette.muted,
-            height: 1.6,
-            fontSize: 14,
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: OverthinkingPalette.muted,
+              height: 1.6,
+              fontSize: 14,
+            ),
           ),
-        ),
-        if (action != null) ...[const SizedBox(height: 22), action!],
-      ],
-    ),
-  );
+          if (action != null) ...[const SizedBox(height: 22), action!],
+        ],
+      ),
+    );
+  }
 }

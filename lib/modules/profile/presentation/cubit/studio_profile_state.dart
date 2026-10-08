@@ -9,11 +9,7 @@ class StudioProfileState {
   final StudioProfile? profile;
   final AppError? error;
 
-  const StudioProfileState({
-    required this.status,
-    this.profile,
-    this.error,
-  });
+  const StudioProfileState({required this.status, this.profile, this.error});
 
   const StudioProfileState.idle()
     : status = StudioProfileStatus.idle,

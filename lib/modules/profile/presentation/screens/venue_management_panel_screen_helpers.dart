@@ -42,7 +42,7 @@ Widget _buildManagementActionCard({
         ),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.white, size: 24),
+            Icon(icon, color: AppColors.legacyWhite(), size: 24),
             SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -58,10 +58,14 @@ Widget _buildManagementActionCard({
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.08),
+                  color: AppColors.legacy(
+                    AppColors.white,
+                  ).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: AppColors.white.withValues(alpha: 0.16),
+                    color: AppColors.legacy(
+                      AppColors.white,
+                    ).withValues(alpha: 0.16),
                   ),
                 ),
                 child: Text(

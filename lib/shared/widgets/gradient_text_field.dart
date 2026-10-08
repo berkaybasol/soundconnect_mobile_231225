@@ -79,7 +79,7 @@ class _GradientTextFieldState extends State<GradientTextField> {
         boxShadow: _isFocused
             ? [
                 BoxShadow(
-                  color: AppColors.neonPurpleGradient[1].withValues(
+                  color: AppColors.decorativeNeonPurpleGradient[1].withValues(
                     alpha: 0.22,
                   ),
                   blurRadius: 8,
@@ -94,15 +94,17 @@ class _GradientTextFieldState extends State<GradientTextField> {
             : null,
         gradient: _isFocused
             ? LinearGradient(
-                colors: [
-                  AppColors.neonPurpleGradient[0],
-                  AppColors.neonPurpleGradient[1],
-                  AppColors.neonPurpleGradient[2],
-                  AppColors.neonPurpleGradient[3],
-                  AppColors.neonPurpleGradient[4],
-                  AppColors.neonPurpleGradient[5],
-                  AppColors.neonPurpleGradient[0],
-                ],
+                colors: AppColors.isLight
+                    ? AppColors.brandGradient
+                    : [
+                        AppColors.decorativeNeonPurpleGradient[0],
+                        AppColors.decorativeNeonPurpleGradient[1],
+                        AppColors.decorativeNeonPurpleGradient[2],
+                        AppColors.decorativeNeonPurpleGradient[3],
+                        AppColors.decorativeNeonPurpleGradient[4],
+                        AppColors.decorativeNeonPurpleGradient[5],
+                        AppColors.decorativeNeonPurpleGradient[0],
+                      ],
               )
             : null,
       ),

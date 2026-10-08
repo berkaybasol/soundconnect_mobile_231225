@@ -19,16 +19,19 @@ class OverthinkingUnreadDot extends StatelessWidget {
   final Key? badgeKey;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: hasUnread == true ? 'Yeni kimlik isteği var' : null,
-    child: Badge(
-      key: badgeKey,
-      isLabelVisible: hasUnread == true,
-      backgroundColor: AppColors.gradientC,
-      smallSize: 7,
-      child: child,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      label: hasUnread == true ? 'Yeni kimlik isteği var' : null,
+      child: Badge(
+        key: badgeKey,
+        isLabelVisible: hasUnread == true,
+        backgroundColor: AppColors.gradientC,
+        smallSize: 7,
+        child: child,
+      ),
+    );
+  }
 }
 
 /// Navigation entries observe the inbox without marking requests as seen.
@@ -44,6 +47,7 @@ class OverthinkingBoundUnreadDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final unread = findOverthinkingIncomingUnreadScope();
     if (unread == null) return child;
     return BlocBuilder<OverthinkingIncomingUnreadScope, bool?>(

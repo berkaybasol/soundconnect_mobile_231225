@@ -1,4 +1,13 @@
 import 'dart:async';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
+import 'support/event_audience_fakes.dart';
+import 'support/event_invitation_navigation_fakes.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/artist_venue/data/artist_venue_connection_repository_impl.dart';
+import 'package:soundconnect_23_12_25codx/modules/artist_venue/data/artist_venue_connection_endpoints.dart';
+import 'package:soundconnect_23_12_25codx/modules/artist_venue/domain/artist_venue_connection_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/band_management_panel_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,11 +19,14 @@ import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/pagination/page.dart'
     as pagination;
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_realtime_client.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_target_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/app_notification.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/notification_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/notification_target_read.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/notification_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/band_profile_screen.dart';
+import 'support/recording_api_client.dart';
 
 void main() {
   late _Repository repository;
@@ -31,7 +43,7 @@ void main() {
     await realtime.dispose();
   });
 
-  testWidgets('opening inbox reads all without tapping a notification', (
+  testWidgets('opening inbox refreshes without reading any notification', (
     tester,
   ) async {
     repository.items = [_notification(), _notification(id: 'second')];
@@ -42,16 +54,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(repository.markAllCalls, 1);
+    expect(repository.markAllCalls, 0);
     expect(cubit.state.items, hasLength(2));
-    expect(cubit.state.items.every((item) => item.read), isTrue);
-    expect(cubit.state.unreadCount, 0);
+    expect(cubit.state.items.every((item) => !item.read), isTrue);
+    expect(cubit.state.unreadCount, 2);
     // Rebuilds and refreshes must not silently read later arrivals.
     repository.items.add(_notification(id: 'later'));
     await cubit.refresh();
     await tester.pumpAndSettle();
-    expect(repository.markAllCalls, 1);
-    expect(cubit.state.unreadCount, 1);
+    expect(repository.markAllCalls, 0);
+    expect(cubit.state.unreadCount, 3);
     expect(
       cubit.state.items.firstWhere((item) => item.id == 'later').read,
       isFalse,
@@ -69,6 +81,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(repository.markAllCalls, 0);
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tümünü oku'));
+    await tester.pumpAndSettle();
+    expect(repository.markAllCalls, 1);
     expect(cubit.state.items.single.read, isFalse);
     expect(cubit.state.unreadCount, 1);
     expect(find.text('Read failed'), findsOneWidget);
@@ -105,6 +123,44 @@ void main() {
     expect(cubit.state.items.single.read, isTrue);
     expect(cubit.state.unreadCount, 0);
   });
+
+  test(
+    'DM ACK only projects its own message and survives an older refresh',
+    () async {
+      repository.items = [
+        _notification(
+          id: 'dm-one',
+          type: 'DM_NEW_MESSAGE',
+          payload: {'messageId': 'one', 'conversationId': 'same'},
+        ),
+        _notification(
+          id: 'dm-two',
+          type: 'DM_NEW_MESSAGE',
+          payload: {'messageId': 'two', 'conversationId': 'same'},
+        ),
+      ];
+      await cubit.refresh();
+      repository.pendingPage =
+          Completer<Result<pagination.Page<AppNotification>>>();
+      final refresh = cubit.refresh();
+      final stalePage = _page(repository.items.toList());
+      // Preserve the older page while the successful DM transaction commits
+      // the notification read before invoking the product callback.
+      repository.items[0] = repository.items[0].copyWith(read: true);
+      await cubit.markDmMessageAsReadLocally('one');
+      repository.pendingPage!.complete(stalePage);
+      await refresh;
+      expect(
+        cubit.state.items.singleWhere((item) => item.id == 'dm-one').read,
+        isTrue,
+      );
+      expect(
+        cubit.state.items.singleWhere((item) => item.id == 'dm-two').read,
+        isFalse,
+      );
+      expect(cubit.state.unreadCount, 1);
+    },
+  );
 
   test(
     'read acknowledgement during refresh preserves server notification order',
@@ -175,6 +231,7 @@ void main() {
       'requestByType': 'VENUE',
       'action': 'REQUEST_CREATED',
       'bandId': 'band',
+      'requestId': 'c0000000-0000-4000-8000-000000000001',
     },
     {
       'module': 'ARTIST_VENUE',
@@ -186,13 +243,85 @@ void main() {
     testWidgets(
       'band connection notification ${payload['action']} resolves current band membership',
       (tester) async {
-        repository.items = [_notification(payload: payload)];
+        await serviceLocator.reset();
+        final sessions = AudienceTestSessions(
+          audienceSession(user: 'owner-1', role: 'ROLE_MUSICIAN'),
+        );
+        serviceLocator
+          ..registerSingleton<AuthSessionManager>(sessions)
+          ..registerSingleton<NotificationCubit>(cubit);
+        addTearDown(() async {
+          sessions.dispose();
+          await serviceLocator.reset();
+        });
+        final bands = InvitationBands()
+          ..read = (id) async => Result.success(invitationBand(id: id));
+        serviceLocator.registerSingleton<BandRepository>(bands);
+        final applicationsApi = RecordingApiClient((request) {
+          expect(request.method, RecordedHttpMethod.get);
+          expect(
+            request.path,
+            '${ArtistVenueConnectionEndpoints.base}/band/band/page',
+          );
+          expect(request.query, {'incoming': true, 'page': 0, 'size': 20});
+          expect(request.requestContext?.expectedSessionKey, 'owner-1');
+          return {
+            'content': [],
+            'page': 0,
+            'size': 20,
+            'totalElements': 0,
+            'totalPages': 0,
+            'last': true,
+          };
+        });
+        serviceLocator.registerSingleton<ArtistVenueConnectionRepository>(
+          ArtistVenueConnectionRepositoryImpl(applicationsApi),
+        );
+        final original = _notification(
+          id: 'b724cbf7-8fbc-4709-a856-024ba1e96ba8',
+          type: payload['action'] == 'REQUEST_CREATED'
+              ? 'ARTIST_VENUE_LINK_APPLICATION_REQUEST'
+              : 'ARTIST_VENUE_LINK_APPLICATION_ACCEPT',
+          payload: payload,
+        );
+        repository.items = [
+          AppNotification(
+            id: original.id,
+            recipientId: 'owner-1',
+            type: original.type,
+            title: original.title,
+            message: original.message,
+            read: original.read,
+            createdAt: original.createdAt,
+            payload: original.payload,
+          ),
+        ];
+        final api = RecordingApiClient((request) {
+          expect(request.method, RecordedHttpMethod.get);
+          expect(request.path, '/api/v1/user/notifications/${original.id}');
+          return {
+            'id': original.id,
+            'recipientId': 'owner-1',
+            'type': original.type,
+            'title': original.title,
+            'message': original.message,
+            'read': false,
+            'payload': payload,
+          };
+        });
+        serviceLocator.registerSingleton<NotificationTargetRepository>(
+          NotificationTargetRepository(api, sessions),
+        );
         RouteSettings? opened;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
         await tester.pumpWidget(
           BlocProvider<NotificationCubit>.value(
             value: cubit,
             child: MaterialApp(
               home: const NotificationScreen(),
+              navigatorObservers: [notificationTargetRouteObserver],
               onGenerateRoute: (settings) {
                 opened = settings;
                 return MaterialPageRoute<void>(
@@ -205,10 +334,40 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Notification'));
         await tester.pumpAndSettle();
-        expect(opened?.name, AppRoutes.bandPublicProfile);
-        final args = opened?.arguments as BandProfileScreenArgs;
-        expect(args.bandId, 'band');
-        expect(args.viewMode, BandProfileViewMode.public);
+        if (payload['action'] == 'REQUEST_CREATED') {
+          expect(opened, isNull);
+          final panel = tester.widget<BandManagementPanelScreen>(
+            find.byType(BandManagementPanelScreen),
+          );
+          expect(panel.profile.id, 'band');
+          expect(panel.profile.members.single.isFounder, isTrue);
+          expect(panel.profile.members.single.status, 'ACTIVE');
+          expect(panel.openIncomingVenueApplications, isTrue);
+          expect(find.text('Gelen İstekler'), findsOneWidget);
+          expect(find.text('Gelen mekan isteği bulunmuyor.'), findsOneWidget);
+          expect(applicationsApi.requests, hasLength(1));
+          expect(bands.ids, ['band', 'band']);
+        } else {
+          expect(opened?.name, AppRoutes.bandPublicProfile);
+          final envelope = opened?.arguments as NotificationReadArguments;
+          expect(envelope.routeName, AppRoutes.bandPublicProfile);
+          expect(envelope.ticket.notification.id, original.id);
+          final args = envelope.arguments as BandProfileScreenArgs;
+          expect(args.bandId, 'band');
+          expect(args.viewMode, BandProfileViewMode.public);
+          expect(applicationsApi.requests, isEmpty);
+          expect(bands.ids, ['band']);
+        }
+        expect(api.requests, hasLength(1));
+        expect(api.lastRequest.requestContext?.expectedSessionKey, 'owner-1');
+        expect(
+          api.lastRequest.requestContext?.expectedToken,
+          sessions.session.token,
+        );
+        expect(cubit.state.items.single.id, original.id);
+        expect(cubit.state.items.single.read, isFalse);
+        expect(cubit.state.unreadCount, 1);
+        expect(tester.takeException(), isNull);
       },
     );
   }
@@ -216,11 +375,12 @@ void main() {
 
 AppNotification _notification({
   String id = 'notification',
+  String type = 'ARTIST_VENUE',
   Map<String, dynamic> payload = const {},
 }) => AppNotification(
   id: id,
   recipientId: 'account',
-  type: 'ARTIST_VENUE',
+  type: type,
   title: 'Notification',
   message: 'Message',
   read: false,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import 'profile_common_widgets.dart';
 import 'profile_screen_support.dart';
 
@@ -40,6 +41,7 @@ class ListenerProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ProfileTopSection(
       header: _ListenerAvatar(
         imageUrl: imageUrl,
@@ -102,11 +104,14 @@ class _ListenerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final theme = Theme.of(context);
     final candidate = imageUrl?.trim();
     final fallback = Icon(
       Icons.person_outline,
-      color: theme.colorScheme.onSurfaceVariant,
+      color: (AppColors.isLight
+          ? AppColors.avatarForeground
+          : theme.colorScheme.onSurfaceVariant),
       size: 40,
     );
     final edit = busy ? null : onEdit;
@@ -125,11 +130,15 @@ class _ListenerAvatar extends StatelessWidget {
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: theme.colorScheme.surfaceContainerHighest,
+                color: (AppColors.isLight
+                    ? AppColors.avatarBackground
+                    : theme.colorScheme.surfaceContainerHighest),
                 border: Border.all(color: theme.dividerColor),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.brandGradient[2].withValues(alpha: 0.35),
+                    color: (AppColors.isLight
+                        ? AppColors.avatarShadow.withValues(alpha: 0.16)
+                        : AppColors.brandGradient[2].withValues(alpha: 0.35)),
                     blurRadius: 18,
                     spreadRadius: 1,
                   ),
@@ -157,30 +166,43 @@ class _ListenerAvatar extends StatelessWidget {
               child: Semantics(
                 label: 'Dinleyici profili',
                 image: true,
-                child: Container(
-                  key: const Key('listener-profile-type-badge'),
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: AppColors.brandGradient,
-                    ),
-                    border: Border.all(
-                      color: theme.scaffoldBackgroundColor,
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: Image.asset(
-                      'assets/headphone2.png',
-                      width: 14,
-                      height: 14,
-                      color: AppColors.white,
-                      colorBlendMode: BlendMode.srcIn,
-                      excludeFromSemantics: true,
+                child: GradientOutline(
+                  enabled: AppColors.isLight,
+                  radius: 999,
+                  child: Container(
+                    key: const Key('listener-profile-type-badge'),
+                    width: 26,
+                    height: 26,
+                    decoration: AppColors.isLight
+                        ? BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.transparent,
+                              width: 2,
+                            ),
+                          )
+                        : BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: AppColors.decorativeGradient,
+                            ),
+                            border: Border.all(
+                              color: theme.scaffoldBackgroundColor,
+                              width: 2,
+                            ),
+                          ),
+                    child: Center(
+                      child: Image.asset(
+                        'assets/headphone2.png',
+                        width: 14,
+                        height: 14,
+                        color: AppColors.decorativeForeground,
+                        colorBlendMode: BlendMode.srcIn,
+                        excludeFromSemantics: true,
+                      ),
                     ),
                   ),
                 ),
@@ -206,25 +228,40 @@ class _ListenerAvatar extends StatelessWidget {
                         child: Center(
                           child: Transform.translate(
                             offset: const Offset(12, 12),
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: AppColors.brandGradient,
+                            child: GradientOutline(
+                              enabled: AppColors.isLight,
+                              radius: 999,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: AppColors.isLight
+                                    ? BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.transparent,
+                                          width: 2,
+                                        ),
+                                      )
+                                    : BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: AppColors.decorativeGradient,
+                                        ),
+                                        border: Border.all(
+                                          color: theme.scaffoldBackgroundColor,
+                                          width: 2,
+                                        ),
+                                      ),
+                                child: Icon(
+                                  Icons.edit,
+                                  size: 14,
+                                  color: AppColors.decorativeForeground,
                                 ),
-                                border: Border.all(
-                                  color: theme.scaffoldBackgroundColor,
-                                  width: 2,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.edit,
-                                size: 14,
-                                color: AppColors.white,
                               ),
                             ),
                           ),
@@ -243,13 +280,17 @@ class _ListenerAvatar extends StatelessWidget {
                   height: 28,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: theme.colorScheme.surfaceContainerHighest,
+                    color: (AppColors.isLight
+                        ? AppColors.avatarBackground
+                        : theme.colorScheme.surfaceContainerHighest),
                     border: Border.all(color: theme.dividerColor),
                   ),
                   child: Icon(
                     markerIcon,
                     size: 14,
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: (AppColors.isLight
+                        ? AppColors.avatarForeground
+                        : theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
               ),

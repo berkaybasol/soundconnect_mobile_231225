@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../artist_venue/domain/artist_venue_application_page.dart';
 import '../../../artist_venue/domain/artist_venue_failure_policy.dart';
 import 'application_paging_footer.dart';
@@ -11,6 +12,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/error/result.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../promotion/domain/entities/promotion_item.dart';
@@ -44,6 +46,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final reporting = VenueAnalyticsReportingScope.of(context).enabled;
     return Scaffold(
       appBar: AppBar(title: Text('Mekan Yönetimi'), centerTitle: true),
@@ -75,7 +78,7 @@ class VenueManagementPanelScreen extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.brandTextGradient,
                       ),
                       style: TextStyle(
                         fontSize: 24,
@@ -140,7 +143,9 @@ class VenueManagementPanelScreen extends StatelessWidget {
                     ? null
                     : () {
                         if (!context.mounted ||
-                            !VenueAnalyticsReportingScope.read(context).enabled) {
+                            !VenueAnalyticsReportingScope.read(
+                              context,
+                            ).enabled) {
                           return;
                         }
                         Navigator.of(context).push(

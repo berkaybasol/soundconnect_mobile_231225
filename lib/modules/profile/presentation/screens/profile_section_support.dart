@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 
 class ProfilePillBadge extends StatelessWidget {
   final String text;
@@ -9,6 +10,7 @@ class ProfilePillBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
@@ -50,6 +52,7 @@ class ProfileActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (ownerMode) {
       return SizedBox.shrink();
     }
@@ -78,17 +81,30 @@ class ProfileActionButtons extends StatelessWidget {
           ),
           SizedBox(width: 12),
           Expanded(
-            child: ElevatedButton(
-              onPressed: onMessagePressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.coralAlt,
-                foregroundColor: AppColors.white,
-                padding: EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+            child: GradientOutline(
+              enabled: AppColors.isLight,
+              colors: onMessagePressed == null
+                  ? [
+                      Theme.of(context).dividerColor,
+                      Theme.of(context).dividerColor,
+                    ]
+                  : null,
+              child: ElevatedButton(
+                onPressed: onMessagePressed,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.isLight
+                      ? Colors.transparent
+                      : AppColors.coralAlt,
+                  shadowColor: AppColors.isLight ? Colors.transparent : null,
+                  elevation: AppColors.isLight ? 0 : null,
+                  foregroundColor: AppColors.actionForeground,
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                 ),
+                child: Text('Mesaj Gönder'),
               ),
-              child: Text('Mesaj Gönder'),
             ),
           ),
         ],
@@ -104,6 +120,7 @@ class ProfileSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Text(
@@ -132,6 +149,7 @@ class ProfileSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
@@ -156,7 +174,9 @@ class ProfileSectionHeader extends StatelessWidget {
                   actionLabel!,
                   style: TextStyle(
                     color: actionOnTap != null
-                        ? AppColors.coralAlt
+                        ? (AppColors.isLight
+                              ? AppColors.accentText
+                              : AppColors.coralAlt)
                         : Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

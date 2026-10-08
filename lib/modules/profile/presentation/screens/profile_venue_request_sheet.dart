@@ -94,6 +94,7 @@ class _VenueRequestSheetState extends State<_VenueRequestSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final filteredVenues = _filteredVenues();
     return AnimatedPadding(
       duration: Duration(milliseconds: 180),

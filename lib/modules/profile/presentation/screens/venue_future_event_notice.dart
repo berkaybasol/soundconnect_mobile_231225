@@ -10,6 +10,7 @@ class VenueFutureEventNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final date = venueEventProfileVisibleFrom(eventDate);
     const months = [

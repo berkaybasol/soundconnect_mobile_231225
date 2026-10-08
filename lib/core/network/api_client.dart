@@ -5,6 +5,7 @@ class ApiRequestContext {
     this.expectedSessionKey,
     this.expectedToken,
     this.requireGuestSession = false,
+    this.announcementSource,
   });
 
   final String? expectedSessionKey;
@@ -16,6 +17,10 @@ class ApiRequestContext {
   /// Prevents a queued anonymous operation from adopting a later login.
   /// Mutually exclusive with a nonempty [expectedSessionKey].
   final bool requireGuestSession;
+
+  /// Context for server-confirmed announcement engagement attribution.
+  /// Only FEED/DIRECTORY on an authenticated, identity-fenced request is valid.
+  final String? announcementSource;
 }
 
 abstract class ApiClient {
@@ -60,7 +65,8 @@ abstract class ApiClient {
   }) {
     if (requestContext?.expectedSessionKey?.trim().isNotEmpty == true ||
         requestContext?.expectedToken != null ||
-        requestContext?.requireGuestSession == true) {
+        requestContext?.requireGuestSession == true ||
+        requestContext?.announcementSource != null) {
       return Future<T>.error(
         UnsupportedError(
           'This ApiClient does not support transport-level session fencing',

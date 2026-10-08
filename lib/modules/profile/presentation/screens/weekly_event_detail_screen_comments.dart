@@ -91,11 +91,18 @@ extension _EventCommentsView on _WeeklyEventDetailScreenState {
 
     dialog = DialogRoute<bool>(
       context: context,
+      themes: InheritedTheme.capture(
+        from: context,
+        to: Navigator.of(context).context,
+      ),
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.navBlue,
+        backgroundColor: appCardSurface(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(22),
-          side: BorderSide(color: AppColors.border, width: .7),
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.outline,
+            width: .7,
+          ),
         ),
         icon: const BrandGradientIcon.social(
           Icons.delete_outline_rounded,
@@ -133,6 +140,7 @@ extension _EventCommentsView on _WeeklyEventDetailScreenState {
       }
       if (deleted) {
         _updateState(_resetReplyThreads);
+        widget.onEngagementChanged?.call();
       }
       if (ModalRoute.of(context)?.isCurrent != true) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -199,7 +207,9 @@ extension _EventCommentsView on _WeeklyEventDetailScreenState {
                     _canComment
                         ? 'Henüz yorum yok. İlk yorumu sen yaz.'
                         : 'Henüz yorum yok.',
-                    style: TextStyle(color: AppColors.textMuted),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   )
                 else if (state.hasMore)
                   TextButton.icon(

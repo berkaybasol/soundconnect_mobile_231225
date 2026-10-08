@@ -48,6 +48,7 @@ class ListenerTableGroupDraftComposerState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final repository =
         widget.repository ?? serviceLocator<TableGroupProfileShareRepository>();
     final draft = widget.draft;

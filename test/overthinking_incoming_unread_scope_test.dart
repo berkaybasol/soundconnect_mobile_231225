@@ -128,24 +128,62 @@ void main() {
   );
 
   test(
+    'notification ACK badge does not refetch a settled seen incoming inbox',
+    () async {
+      final repository = _Inbox();
+      final badges = StreamController<void>.broadcast(sync: true);
+      final incoming = StreamController<AppNotification>.broadcast(sync: true);
+      final scope = OverthinkingIncomingUnreadScope(
+        repository,
+        notifications: incoming.stream,
+        invalidations: badges.stream,
+      );
+      addTearDown(() async {
+        await scope.close();
+        await badges.close();
+        await incoming.close();
+      });
+      await scope.ensureStarted();
+      await scope.markSeen();
+      await _flush();
+      final reads = repository.reads.length;
+      badges.add(null);
+      await _flush();
+      expect(repository.reads, hasLength(reads));
+      expect(scope.state, isFalse);
+      repository.values['test'] = _value(true, 6);
+      incoming.add(_notification());
+      await _flush();
+      expect(scope.state, isTrue);
+      repository.values['test'] = _value(false, 6);
+      badges.add(null);
+      await _flush();
+      expect(scope.state, isFalse);
+    },
+  );
+
+  test(
     'notification badge invalidates a cancelled request even during a pending read',
     () async {
       final repository = _Inbox()..values['test'] = _value(false, 5);
       final badges = StreamController<int>.broadcast(sync: true);
+      final incoming = StreamController<AppNotification>.broadcast(sync: true);
       final scope = OverthinkingIncomingUnreadScope(
         repository,
+        notifications: incoming.stream,
         invalidations: badges.stream.map<void>((_) {}),
       );
       addTearDown(() async {
         await scope.close();
         await badges.close();
+        await incoming.close();
       });
       await scope.ensureStarted();
       badges.add(8);
       await _flush();
       expect(scope.state, isFalse);
       repository.values['test'] = _value(true, 6);
-      badges.add(0);
+      incoming.add(_notification());
       await _flush();
       expect(scope.state, isTrue);
       final oldRead = Completer<Result<OverthinkingIncomingUnreadStatus>>();

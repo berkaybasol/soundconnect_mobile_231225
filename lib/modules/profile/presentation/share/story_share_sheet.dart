@@ -12,6 +12,7 @@ class StoryShareSheet extends StatefulWidget {
     required this.accessibilityDescription,
     required this.title,
     required this.keyPrefix,
+    this.useThemeColors = false,
     this.validityChanges,
     this.isValid,
   });
@@ -19,6 +20,10 @@ class StoryShareSheet extends StatefulWidget {
   final String accessibilityDescription;
   final String title;
   final String keyPrefix;
+
+  /// Opts dark event previews into their host's neutral surfaces while other
+  /// story previews and the established light treatment remain unchanged.
+  final bool useThemeColors;
   final Listenable? validityChanges;
   final bool Function()? isValid;
 
@@ -96,6 +101,10 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final useThemeColors =
+        widget.useThemeColors && theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
     if (!_valid) return const SizedBox.shrink();
     final android = defaultTargetPlatform == TargetPlatform.android && !kIsWeb;
     return ConstrainedBox(
@@ -119,7 +128,9 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 width: 34,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3A4253),
+                  color: useThemeColors
+                      ? scheme.outline
+                      : AppColors.legacy(const Color(0xFF3A4253)),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -130,8 +141,10 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 Expanded(
                   child: Text(
                     widget.title,
-                    style: const TextStyle(
-                      color: AppColors.white,
+                    style: TextStyle(
+                      color: useThemeColors
+                          ? scheme.onSurface
+                          : AppColors.legacy(AppColors.white),
                       fontSize: 21,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.4,
@@ -141,9 +154,11 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 IconButton(
                   onPressed: _finish,
                   tooltip: 'Kapat',
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
-                    color: Color(0xFFA8A9BB),
+                    color: useThemeColors
+                        ? scheme.onSurfaceVariant
+                        : AppColors.legacy(const Color(0xFFA8A9BB)),
                   ),
                 ),
               ],
@@ -167,10 +182,15 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               '1080 × 1920 · Hikâye formatı',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFFA8A9BB), fontSize: 12),
+              style: TextStyle(
+                color: useThemeColors
+                    ? scheme.onSurfaceVariant
+                    : AppColors.legacy(const Color(0xFFA8A9BB)),
+                fontSize: 12,
+              ),
             ),
             const SizedBox(height: 22),
             if (android)
@@ -188,6 +208,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                       onTap: _finish,
                       keyPrefix: widget.keyPrefix,
                       horizontal: stacked,
+                      useThemeColors: useThemeColors,
                     ),
                     _TargetButton(
                       label: 'WhatsApp',
@@ -196,6 +217,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                       onTap: _finish,
                       keyPrefix: widget.keyPrefix,
                       horizontal: stacked,
+                      useThemeColors: useThemeColors,
                     ),
                     _TargetButton(
                       label: 'Diğer',
@@ -204,6 +226,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                       onTap: _finish,
                       keyPrefix: widget.keyPrefix,
                       horizontal: stacked,
+                      useThemeColors: useThemeColors,
                     ),
                   ];
                   if (stacked) {
@@ -246,6 +269,7 @@ class _StoryShareSheetState extends State<StoryShareSheet> {
                 target: EventShareTarget.other,
                 onTap: _finish,
                 keyPrefix: widget.keyPrefix,
+                useThemeColors: useThemeColors,
               ),
           ],
         ),
@@ -261,86 +285,97 @@ class _TargetButton extends StatelessWidget {
     required this.target,
     required this.onTap,
     required this.keyPrefix,
+    required this.useThemeColors,
     this.horizontal = false,
   });
   final String label;
   final String keyPrefix;
   final bool horizontal;
+  final bool useThemeColors;
   final Widget icon;
   final EventShareTarget target;
   final ValueChanged<EventShareTarget> onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: AppColors.brandGradient),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(0.7),
-        child: Material(
-          color: const Color(0xFF151D2D),
-          borderRadius: BorderRadius.circular(17.3),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: Key('$keyPrefix-target-${target.name}'),
-            onTap: () => onTap(target),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: horizontal ? 17 : 15,
-                horizontal: horizontal ? 18 : 5,
-              ),
-              child: horizontal
-                  ? Row(
-                      children: [
-                        IconTheme(
-                          data: const IconThemeData(
-                            size: 24,
-                            color: Color(0xFFE58BB8),
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: AppColors.brandGradient),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(0.7),
+          child: Material(
+            color: useThemeColors
+                ? scheme.surfaceContainerHighest
+                : AppColors.legacy(const Color(0xFF151D2D)),
+            borderRadius: BorderRadius.circular(17.3),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: Key('$keyPrefix-target-${target.name}'),
+              onTap: () => onTap(target),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  vertical: horizontal ? 17 : 15,
+                  horizontal: horizontal ? 18 : 5,
+                ),
+                child: horizontal
+                    ? Row(
+                        children: [
+                          IconTheme(
+                            data: const IconThemeData(
+                              size: 24,
+                              color: Color(0xFFE58BB8),
+                            ),
+                            child: icon,
                           ),
-                          child: icon,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            label.replaceAll('\n', ' '),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.white,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              label.replaceAll('\n', ' '),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: useThemeColors
+                                    ? scheme.onSurface
+                                    : AppColors.legacy(AppColors.white),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconTheme(
-                          data: const IconThemeData(
-                            size: 24,
-                            color: Color(0xFFE58BB8),
+                        ],
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconTheme(
+                            data: const IconThemeData(
+                              size: 24,
+                              color: Color(0xFFE58BB8),
+                            ),
+                            child: icon,
                           ),
-                          child: icon,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          label,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.white,
+                          const SizedBox(height: 10),
+                          Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: useThemeColors
+                                  ? scheme.onSurface
+                                  : AppColors.legacy(AppColors.white),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

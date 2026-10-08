@@ -68,6 +68,7 @@ class _DailyChartState extends State<VenueAnalyticsDailyChart> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final points = widget.points;
     final values = points
         .map(
@@ -356,6 +357,7 @@ class VenueAnalyticsComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final data = comparison;
     final available =
         data?.status == VenueAnalyticsComparisonStatus.available &&
@@ -435,6 +437,7 @@ class _ComparisonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final difference = current - previous;
     final change = previous == 0
         ? current == 0
@@ -466,7 +469,11 @@ class _ComparisonRow extends StatelessWidget {
           change,
           key: Key('analytics-comparison-$metricKey-change'),
           style: TextStyle(
-            color: difference == 0 ? AppColors.textMuted : AppColors.socialPink,
+            color: difference == 0
+                ? AppColors.textMuted
+                : AppColors.isLight
+                ? AppColors.accentText
+                : AppColors.socialPink,
             fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
@@ -481,15 +488,18 @@ class AnalyticsReportSurface extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: AppColors.navBlue,
-      border: Border.all(color: AppColors.border),
-      borderRadius: BorderRadius.circular(22),
-    ),
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.navBlue,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: child,
+    );
+  }
 }
 
 class _ReportTitle extends StatelessWidget {
@@ -498,18 +508,21 @@ class _ReportTitle extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      BrandGradientIcon.social(icon, size: 22),
-      const SizedBox(width: 9),
-      Expanded(
-        child: Text(
-          title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Row(
+      children: [
+        BrandGradientIcon.social(icon, size: 22),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 TextStyle get _muted =>

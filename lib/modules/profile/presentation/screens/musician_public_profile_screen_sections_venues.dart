@@ -8,6 +8,7 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
@@ -42,5 +43,8 @@ class _VenueCarousel extends StatelessWidget {
   _VenueCarousel({required this.items});
 
   @override
-  Widget build(BuildContext context) => VenueNameCarousel(items: items);
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return VenueNameCarousel(items: items);
+  }
 }

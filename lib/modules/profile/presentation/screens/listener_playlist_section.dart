@@ -23,6 +23,7 @@ class ListenerPlaylistSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (playlists.isEmpty && !showWhenEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -48,7 +49,9 @@ class ListenerPlaylistSection extends StatelessWidget {
                   key: const Key('listener-playlist-edit'),
                   onPressed: onEdit,
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.coralAlt,
+                    foregroundColor: (AppColors.isLight
+                        ? AppColors.accentText
+                        : AppColors.coralAlt),
                     minimumSize: const Size(48, 48),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -110,6 +113,7 @@ class _EmptyPlaylistCallout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Semantics(
       button: onTap != null,
       excludeSemantics: true,
@@ -118,7 +122,8 @@ class _EmptyPlaylistCallout extends StatelessWidget {
       child: SizedBox.square(
         dimension: 62,
         child: CustomPaint(
-          foregroundPainter: const _DashedPlaylistBorderPainter(),
+          key: const Key('listener-playlist-empty-border'),
+          foregroundPainter: _DashedPlaylistBorderPainter(),
           child: Material(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(18),
@@ -143,7 +148,9 @@ class _EmptyPlaylistCallout extends StatelessWidget {
 }
 
 class _DashedPlaylistBorderPainter extends CustomPainter {
-  const _DashedPlaylistBorderPainter();
+  final bool _isLight = AppColors.isLight;
+
+  _DashedPlaylistBorderPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -176,7 +183,7 @@ class _DashedPlaylistBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DashedPlaylistBorderPainter oldDelegate) {
-    return false;
+    return oldDelegate._isLight != _isLight;
   }
 }
 
@@ -197,6 +204,7 @@ class _PlaylistTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final pixelRatio = MediaQuery.devicePixelRatioOf(context);
     return Semantics(
       button: true,
@@ -248,7 +256,7 @@ class _PlaylistTile extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(7.7),
                       child: ColoredBox(
-                        color: _playlistDeepSurface,
+                        color: AppColors.legacy(_playlistDeepSurface),
                         child: AppCachedNetworkImage(
                           imageUrl: playlist.coverImageUrl,
                           width: artworkSize - 2.6,
@@ -266,8 +274,8 @@ class _PlaylistTile extends StatelessWidget {
                       playlist.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.legacy(Colors.white),
                         fontSize: 11.5,
                         height: 1.15,
                         fontWeight: FontWeight.w700,
@@ -296,12 +304,17 @@ class _PlaylistArtworkFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    Theme.of(context);
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF32213D), Color(0xFF1B2435), Color(0xFF101722)],
+          colors: [
+            AppColors.legacy(Color(0xFF32213D)),
+            AppColors.legacy(Color(0xFF1B2435)),
+            AppColors.legacy(Color(0xFF101722)),
+          ],
         ),
       ),
       child: Center(

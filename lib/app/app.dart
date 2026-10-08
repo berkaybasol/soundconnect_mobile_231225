@@ -1,5 +1,13 @@
+import '../modules/notification/presentation/notification_direct_open.dart';
+import '../modules/notification/presentation/screens/custom_notification_open_screen.dart';
+import '../modules/auth/presentation/screens/venue_application_decision_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
+import '../modules/notification/presentation/screens/follow_notification_open_screen.dart';
+import '../modules/notification/presentation/screens/band_notification_open_screen.dart';
+import '../modules/notification/presentation/screens/table_notification_open_screen.dart';
+import '../modules/notification/presentation/screens/inbox_product_notification_open.dart';
+import '../modules/notification/presentation/screens/media_notification_open_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,20 +20,28 @@ import '../core/deep_link/app_deep_link_policy.dart';
 import '../core/deep_link/pending_app_deep_link_store.dart';
 import '../core/diagnostics/app_diagnostics.dart';
 import '../core/di/service_locator.dart';
+import '../core/push/push_coordinator.dart';
+import '../modules/dm/presentation/screens/dm_notification_open_screen.dart';
+import '../modules/dm/presentation/cubit/dm_badge_cubit.dart';
+import '../modules/dm/presentation/dm_chat_route_observer.dart';
+import '../modules/notification/presentation/notification_target_read.dart';
 import '../modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../modules/analytics/presentation/widgets/analytics_exposure.dart';
 import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/screens/venue_pending_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../modules/event/presentation/screens/guest_event_home_screen.dart';
-import '../modules/profile/presentation/screens/backstage_profiles_home_screen.dart';
+import 'backstage_home_screen.dart';
 import '../modules/profile/presentation/screens/listener_profile_screen.dart';
 import '../modules/auth/presentation/screens/listener_profile_choice_screen.dart';
 import '../modules/profile/domain/profile_media_upload_repository.dart';
 import '../modules/location/presentation/cubit/location_cubit.dart';
 import '../modules/notification/presentation/cubit/notification_cubit.dart';
+import '../modules/notification/presentation/screens/venue_notification_open_screen.dart';
+import '../modules/notification/presentation/screens/studio_reservation_notification_open_screen.dart';
 import '../modules/collab/presentation/collab_route_args.dart';
 import '../shared/theme/app_theme.dart';
+import '../shared/theme/app_theme_controller.dart';
 import 'router/app_route_guard.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
@@ -43,18 +59,54 @@ enum AppLaunchTarget {
 }
 
 bool shouldStartAuthenticatedSessionServices(AuthSession session) =>
-    session.isActive && !session.requiresListenerProfileChoice;
+    session.isAuthenticated &&
+    session.isActive &&
+    !session.requiresListenerProfileChoice;
 
 String? resolveSessionChangeNavigationRoute({
   required bool wasAuthenticated,
   required bool wasListenerChoiceRequired,
   required AuthSession current,
+  String? previousUserId,
+  String? previousToken,
+  AuthSession? previousSession,
+  bool accountResetPending = false,
 }) {
   if (wasAuthenticated && !current.isAuthenticated) return AppRoutes.login;
+  final approvalRoute = resolveMembershipApprovalRoute(
+    previousSession,
+    current,
+  );
+  if (approvalRoute != null) return approvalRoute;
+  if (accountResetPending) return AppRouteGuard.startRouteFor(current);
+  if (wasAuthenticated &&
+      current.isAuthenticated &&
+      ((previousUserId != null && previousUserId != current.userId) ||
+          (previousToken != null && previousToken != current.token))) {
+    return AppRouteGuard.startRouteFor(current);
+  }
   if (current.isAuthenticated &&
       current.requiresListenerProfileChoice &&
       !wasListenerChoiceRequired) {
     return AppRoutes.listenerProfileChoice;
+  }
+  return null;
+}
+
+String? resolveMembershipApprovalRoute(
+  AuthSession? previous,
+  AuthSession current,
+) {
+  if (previous == null ||
+      !previous.isAuthenticated ||
+      previous.userId == null ||
+      previous.userId != current.userId) {
+    return null;
+  }
+  final route = AppRouteGuard.approvedMembershipProfileFor(current);
+  if (previous.isPendingVenue && route == AppRoutes.venueProfile) return route;
+  if (previous.isPendingStudio && route == AppRoutes.studioProfile) {
+    return route;
   }
   return null;
 }
@@ -105,13 +157,19 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
       GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<Uri>? _appLinkSubscription;
   bool _wasAuthenticated = false;
+  String? _previousUserId;
+  String? _previousToken;
+  AuthSession? _previousSession;
   bool _wasListenerChoiceRequired = false;
+  bool _sessionRouteResetPending = false;
   bool _observedInitialSessionState = false;
   bool _sessionRestoreCompleted = false;
   bool _processingPendingLink = false;
   bool _processPendingLinkAgain = false;
   bool _pendingLinkFrameScheduled = false;
   String? _lastAccessNoticeIdentity;
+  PushCoordinator? _push;
+  bool _pushNavigationInFlight = false;
 
   @override
   void initState() {
@@ -123,6 +181,18 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
     _sessionManager.addListener(_onSessionChanged);
     _initialSessionFuture = _sessionManager.restore(
       tokenOverride: widget.initialTokenFuture,
+    );
+    if (serviceLocator.isRegistered<PushCoordinator>()) {
+      _push = serviceLocator<PushCoordinator>();
+      _push!.addListener(_schedulePendingLinkProcessing);
+      unawaited(_push!.start(initialSession: _initialSessionFuture));
+    }
+    unawaited(
+      _initialSessionFuture.then((_) {
+        if (!mounted) return;
+        _sessionRestoreCompleted = true;
+        _schedulePendingLinkProcessing();
+      }),
     );
     final appLinkSource = widget.appLinkSource;
     if (appLinkSource != null) {
@@ -136,19 +206,13 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
           );
         },
       );
-      unawaited(
-        _initialSessionFuture.then((_) {
-          if (!mounted) return;
-          _sessionRestoreCompleted = true;
-          _schedulePendingLinkProcessing();
-        }),
-      );
     }
   }
 
   @override
   void dispose() {
     _sessionManager.removeListener(_onSessionChanged);
+    _push?.removeListener(_schedulePendingLinkProcessing);
     unawaited(_appLinkSubscription?.cancel());
     super.dispose();
   }
@@ -169,7 +233,83 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
       _pendingLinkFrameScheduled = false;
       if (!mounted) return;
       unawaited(_processPendingAppLink());
+      unawaited(_processPendingPush());
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _processPendingPush() async {
+    if (!mounted ||
+        !_sessionRestoreCompleted ||
+        _pushNavigationInFlight ||
+        _routeObserver.currentRouteName == AppRoutes.login) {
+      return;
+    }
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) return;
+    final target = _push?.consumePending();
+    if (target == null) return;
+    _pushNavigationInFlight = true;
+    final session = _sessionManager.session;
+    try {
+      if (target.isVenueApplication) {
+        navigator.push<void>(
+          MaterialPageRoute(
+            settings: const RouteSettings(name: '/venue-application-decision'),
+            builder: (_) => VenueApplicationDecisionScreen(target: target),
+          ),
+        );
+        return;
+      }
+      final Widget? opener = target.type == 'ADMIN_BROADCAST'
+          ? CustomNotificationOpenScreen(target: target)
+          : target.isCollab || target.isOverthinking
+          ? InboxProductNotificationOpen.native(target: target)
+          : target.isTable
+          ? TableNotificationOpenScreen.native(target: target)
+          : target.isBand
+          ? BandNotificationOpenScreen(target: target)
+          : target.isMedia
+          ? MediaNotificationOpenScreen(target: target)
+          : target.isFollow
+          ? FollowNotificationOpenScreen(target: target)
+          : target.isVenue
+          ? VenueNotificationOpenScreen(target: target)
+          : target.isStudio
+          ? StudioReservationNotificationOpenScreen(target: target)
+          : target.type == 'DM_NEW_MESSAGE'
+          ? DmNotificationOpenScreen(target: target)
+          : null;
+      if (opener != null) {
+        unawaited(
+          NotificationDirectOpen.start(
+            navigator.context,
+            identity: target.notificationId,
+            builder: (_) => opener,
+          ),
+        );
+        return;
+      }
+      if (mounted &&
+          _sessionManager.session.token == session.token &&
+          _sessionManager.session.userId == session.userId &&
+          shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
+        navigator.pushNamed<void>(AppRoutes.notifications);
+      }
+    } catch (_) {
+      // A failed open must not replace its target with a generic inbox.
+      if (mounted &&
+          _sessionManager.session.token == session.token &&
+          _sessionManager.session.userId == session.userId &&
+          shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
+        _messengerKey.currentState?.showSnackBar(
+          const SnackBar(content: Text('Bildirim şu anda açılamıyor.')),
+        );
+      }
+    } finally {
+      _pushNavigationInFlight = false;
+      if (_push?.pending != null) _schedulePendingLinkProcessing();
+    }
   }
 
   Future<void> _processPendingAppLink() async {
@@ -272,22 +412,58 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
     if (!_observedInitialSessionState) {
       _observedInitialSessionState = true;
       _wasAuthenticated = isAuthenticated;
+      _previousUserId = session.userId;
+      _previousToken = session.token;
+      _previousSession = session;
       _wasListenerChoiceRequired = listenerChoiceRequired;
       return;
     }
+    final approvalRoute = resolveMembershipApprovalRoute(
+      _previousSession,
+      session,
+    );
     final destination = resolveSessionChangeNavigationRoute(
       wasAuthenticated: _wasAuthenticated,
       wasListenerChoiceRequired: _wasListenerChoiceRequired,
       current: session,
+      previousUserId: _previousUserId,
+      previousToken: _previousToken,
+      previousSession: _previousSession,
+      accountResetPending: _sessionRouteResetPending,
     );
     _wasAuthenticated = isAuthenticated;
+    _previousUserId = session.userId;
+    _previousToken = session.token;
+    _previousSession = session;
     _wasListenerChoiceRequired = listenerChoiceRequired;
     if (destination == null) return;
+    _sessionRouteResetPending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _sessionManager.session.token != session.token ||
+          _sessionManager.session.userId != session.userId) {
+        return;
+      }
       final navigator = _navigatorKey.currentState;
       if (navigator == null) return;
+      _sessionRouteResetPending = false;
       if (_routeObserver.currentRouteName == destination) return;
       navigator.pushNamedAndRemoveUntil(destination, (route) => false);
+      if (approvalRoute != null) {
+        final messenger = _messengerKey.currentState;
+        messenger?.showSnackBar(
+          appSnackBar(
+            messenger.context,
+            tone: AppSnackBarTone.success,
+            duration: const Duration(seconds: 3),
+            content: Text(
+              approvalRoute == AppRoutes.venueProfile
+                  ? 'Mekân başvurun onaylandı. Profilin hazır!'
+                  : 'Stüdyo başvurun onaylandı. Profilin hazır!',
+            ),
+          ),
+        );
+      }
     });
   }
 
@@ -312,36 +488,44 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
             ),
           ],
           child: _NotificationBootstrap(
-            child: MaterialApp(
-              navigatorKey: _navigatorKey,
-              scaffoldMessengerKey: _messengerKey,
-              navigatorObservers: <NavigatorObserver>[
-                _routeObserver,
-                analyticsRouteObserver,
-              ],
-              title: 'SoundConnect',
-              theme: AppTheme.navy,
-              themeMode: ThemeMode.dark,
-              onGenerateRoute: AppRouter.onGenerateRoute,
-              home: waitingForToken
-                  ? _LaunchLoadingScreen()
-                  : switch (launchTarget) {
-                      AppLaunchTarget.home =>
-                        const BackstageProfilesHomeScreen(),
-                      AppLaunchTarget.listener => ListenerProfileScreen(),
-                      AppLaunchTarget.listenerProfileChoice =>
-                        const ListenerProfileChoiceScreen(),
-                      AppLaunchTarget.admin => const AdminDashboardScreen(),
-                      AppLaunchTarget.venuePending => VenuePendingScreen(),
-                      AppLaunchTarget.studioPending => VenuePendingScreen(
-                        membershipType: PendingMembershipType.studio,
-                      ),
-                      AppLaunchTarget.studioRejected => VenuePendingScreen(
-                        membershipType: PendingMembershipType.studioRejected,
-                      ),
-                      AppLaunchTarget.login => LoginScreen(),
-                      AppLaunchTarget.guest => GuestEventHomeScreen(),
-                    },
+            child: ListenableBuilder(
+              listenable: AppThemeController.instance,
+              builder: (context, _) => MaterialApp(
+                navigatorKey: _navigatorKey,
+                scaffoldMessengerKey: _messengerKey,
+                navigatorObservers: <NavigatorObserver>[
+                  notificationTargetRouteObserver,
+                  _routeObserver,
+                  analyticsRouteObserver,
+                  dmChatRouteObserver,
+                ],
+                title: 'Soundconnect',
+                theme: AppTheme.current,
+                themeMode:
+                    AppThemeController.instance.variant == AppThemeVariant.light
+                    ? ThemeMode.light
+                    : ThemeMode.dark,
+                themeAnimationDuration: Duration.zero,
+                onGenerateRoute: AppRouter.onGenerateRoute,
+                home: waitingForToken
+                    ? _LaunchLoadingScreen()
+                    : switch (launchTarget) {
+                        AppLaunchTarget.home => const BackstageHomeScreen(),
+                        AppLaunchTarget.listener => ListenerProfileScreen(),
+                        AppLaunchTarget.listenerProfileChoice =>
+                          const ListenerProfileChoiceScreen(),
+                        AppLaunchTarget.admin => const AdminDashboardScreen(),
+                        AppLaunchTarget.venuePending => VenuePendingScreen(),
+                        AppLaunchTarget.studioPending => VenuePendingScreen(
+                          membershipType: PendingMembershipType.studio,
+                        ),
+                        AppLaunchTarget.studioRejected => VenuePendingScreen(
+                          membershipType: PendingMembershipType.studioRejected,
+                        ),
+                        AppLaunchTarget.login => LoginScreen(),
+                        AppLaunchTarget.guest => GuestEventHomeScreen(),
+                      },
+              ),
             ),
           ),
         );
@@ -421,11 +605,18 @@ class _NotificationBootstrapState extends State<_NotificationBootstrap>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed ||
-        !shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
+    if (state != AppLifecycleState.resumed) return;
+    if (_sessionManager.session.canRegisterPush &&
+        serviceLocator.isRegistered<PushCoordinator>()) {
+      unawaited(serviceLocator<PushCoordinator>().reconcile());
+    }
+    if (!shouldStartAuthenticatedSessionServices(_sessionManager.session)) {
       return;
     }
     unawaited(serviceLocator<NotificationCubit>().reconcileAfterResume());
+    if (serviceLocator.isRegistered<DmBadgeCubit>()) {
+      unawaited(serviceLocator<DmBadgeCubit>().reconcileAfterResume());
+    }
   }
 
   Future<void> _syncNotifications() async {
@@ -440,11 +631,18 @@ class _NotificationBootstrapState extends State<_NotificationBootstrap>
         }
         return;
       }
+      if (serviceLocator.isRegistered<DmBadgeCubit>()) {
+        unawaited(serviceLocator<DmBadgeCubit>().ensureStarted());
+      }
       unawaited(
         serviceLocator<ProfileMediaUploadRepository>().resumePendingUploads(),
       );
     } else {
       await cubit.stop();
+      if (generation == _syncGeneration &&
+          serviceLocator.isRegistered<DmBadgeCubit>()) {
+        await serviceLocator<DmBadgeCubit>().stop();
+      }
     }
   }
 

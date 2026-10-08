@@ -8,6 +8,7 @@ class _ProfileIdentityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 8.0;
@@ -124,6 +125,7 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final resolvedImage = imageUrl?.trim();
     final hasImage = _isNetworkLikePath(resolvedImage);
     final isInteractive = onTap != null;
@@ -144,7 +146,7 @@ class _MetaChip extends StatelessWidget {
             border: Border.all(
               width: _borderWidth,
               color: isInteractive
-                  ? AppColors.white.withValues(alpha: 0.14)
+                  ? AppColors.legacy(AppColors.white).withValues(alpha: 0.14)
                   : Theme.of(context).dividerColor,
             ),
           ),
@@ -182,7 +184,7 @@ class _MetaChip extends StatelessWidget {
                               return LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: AppColors.brandGradient,
+                                colors: AppColors.brandTextGradient,
                               ).createShader(bounds);
                             },
                             child: Text(
@@ -252,6 +254,7 @@ class _MetaLeadingVisual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (imageUrl != null) {
       return Container(
         width: 20,
@@ -288,6 +291,7 @@ class _GradientIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) {

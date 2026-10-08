@@ -1,4 +1,5 @@
 import '../../../core/error/app_error.dart';
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -7,8 +8,10 @@ import '../domain/profile_search_repository.dart';
 
 class ProfileSearchRepositoryImpl implements ProfileSearchRepository {
   final ApiClient _apiClient;
+  final AuthSessionManager? _sessions;
 
-  ProfileSearchRepositoryImpl(this._apiClient);
+  ProfileSearchRepositoryImpl(this._apiClient, {AuthSessionManager? sessions})
+    : _sessions = sessions;
 
   @override
   Future<Result<List<ProfileSearchResult>>> searchProfiles(
@@ -16,13 +19,24 @@ class ProfileSearchRepositoryImpl implements ProfileSearchRepository {
     Set<ProfileSearchResultType>? types,
   }) async {
     try {
+      final session = _sessions?.session;
+      final listener =
+          session?.hasAnyRole(const ['LISTENER', 'ROLE_LISTENER']) == true;
       final normalizedQuery = query.trim();
-      final allowedTypes = types ?? const <ProfileSearchResultType>{};
+      final requestedTypes = types?.isNotEmpty == true
+          ? types!
+          : ProfileSearchResultType.values.toSet();
+      final allowedTypes = listener
+          ? requestedTypes.difference(const {
+              ProfileSearchResultType.studio,
+              ProfileSearchResultType.unknown,
+            })
+          : types ?? const <ProfileSearchResultType>{};
+      if (listener && allowedTypes.isEmpty) {
+        return const Result.success(<ProfileSearchResult>[]);
+      }
       final apiTypes =
-          (types ?? const <ProfileSearchResultType>{})
-              .map(_apiType)
-              .whereType<String>()
-              .toList(growable: false)
+          allowedTypes.map(_apiType).whereType<String>().toList(growable: false)
             ..sort();
       final response = await _apiClient.get<List<ProfileSearchResult>>(
         '/api/v1/public/search/profiles',
@@ -59,6 +73,14 @@ class ProfileSearchRepositoryImpl implements ProfileSearchRepository {
           return List<ProfileSearchResult>.unmodifiable(results);
         },
       );
+      if (_sessions != null && !identical(_sessions.session, session)) {
+        return const Result.failure(
+          AppError(
+            code: 'profile_search_session_changed',
+            message: 'Hesabın değişti. Aramayı yeniden dene.',
+          ),
+        );
+      }
       return Result.success(response);
     } on ApiException catch (e) {
       return Result.failure(e.error);

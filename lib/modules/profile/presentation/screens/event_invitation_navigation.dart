@@ -1,3 +1,5 @@
+import '../../../notification/presentation/notification_direct_open.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -16,6 +18,7 @@ import '../../domain/musician_profile_repository.dart';
 import 'event_performer_requests_screen.dart';
 import 'event_profile_publications_screen.dart';
 import 'event_management_hub.dart';
+import 'event_plan_performer_screen.dart';
 import '../../domain/event_profile_publication_repository.dart';
 
 @visibleForTesting
@@ -37,8 +40,16 @@ class EventInvitationNavigationDependencies {
   final EventProfilePublicationRepository? publications;
 }
 
-final _activeInvitationEntries = Expando<bool>();
+// One flow per origin, including its explicit retry and destination lifetime.
+// A newer notification has its own origin and must verify/open independently.
+final _activeInvitationEntries = Expando<_InvitationEntry>();
 final _activeManagementMenus = Expando<bool>();
+
+class _InvitationEntry {
+  _InvitationEntry(this.isValid);
+
+  final bool Function() isValid;
+}
 
 Future<void> openEventManagement(
   BuildContext context, {
@@ -90,10 +101,14 @@ Future<void> openEventInvitations(
   EventInvitationNavigationDependencies? dependencies,
   EventManagementDestination destination =
       EventManagementDestination.invitations,
+  VoidCallback? onOpened,
+  NotificationTargetRead? readTicket,
+  bool replaceOrigin = false,
+  bool notificationDirect = false,
 }) async {
   final navigator = Navigator.of(context);
-  if (_activeInvitationEntries[navigator] == true) return;
-  final originRoute = ModalRoute.of(context);
+  final originRoute = NotificationDirectOpen.routeOf(context);
+  final origin = originRoute ?? context;
   final id = targetId?.trim();
   if ((targetType == null) != (targetId == null) || id == '') {
     _showInvitationMessage(context, 'Davetin ait olduğu profil doğrulanamadı.');
@@ -127,6 +142,16 @@ Future<void> openEventInvitations(
     );
     return;
   }
+  if (!canNavigate()) return;
+  final active = _activeInvitationEntries[origin];
+  if (active != null && active.isValid()) return;
+  final entry = _InvitationEntry(
+    () =>
+        context.mounted &&
+        navigator.mounted &&
+        originRoute?.isActive != false &&
+        sameSession(),
+  );
 
   final type = targetType ?? EventPerformerTargetType.musician;
   String? resolvedId;
@@ -174,35 +199,47 @@ Future<void> openEventInvitations(
     }
   }
 
-  _activeInvitationEntries[navigator] = true;
+  _activeInvitationEntries[origin] = entry;
   try {
     while (canNavigate()) {
       final authorized = await verifyTarget();
       if (!canNavigate()) return;
       if (authorized) {
-        final unavailable = await navigator.push<bool>(
-          MaterialPageRoute(
-            builder: (_) => _InvitationSessionGuard(
-              sameSession: sameSession,
-              verifyTarget: verifyTarget,
-              sessionChanges: dependencies?.sessionChanges ?? manager,
-              targetType: type,
-              targetId: resolvedId!,
-              requests: dependencies?.requests,
-              publications: dependencies?.publications,
-              destination: destination,
-              sessionKeyProvider: readSession,
-            ),
+        final destinationRoute = MaterialPageRoute<bool>(
+          builder: (_) => _InvitationSessionGuard(
+            sameSession: sameSession,
+            verifyTarget: verifyTarget,
+            sessionChanges: dependencies?.sessionChanges ?? manager,
+            targetType: type,
+            targetId: resolvedId!,
+            requests: dependencies?.requests,
+            publications: dependencies?.publications,
+            destination: destination,
+            sessionKeyProvider: readSession,
           ),
         );
+        final readRoute =
+            readTicket?.attach(destinationRoute) ?? destinationRoute;
+        if (!context.mounted) return;
+        final opened = notificationDirect
+            ? NotificationDirectOpen.push<bool>(context, readRoute)
+            : replaceOrigin
+            ? navigator.pushReplacement<bool, void>(readRoute)
+            : navigator.push<bool>(readRoute);
+        onOpened?.call();
+        final unavailable = await opened;
         if (unavailable != true || !canNavigate()) return;
       }
       if (!context.mounted) return;
+      if (notificationDirect) return;
       final retry = await _showUnavailableDialog(context);
       if (retry != true || !canNavigate()) return;
     }
   } finally {
-    _activeInvitationEntries[navigator] = false;
+    // A stale session's response/route closure cannot release a newer owner.
+    if (identical(_activeInvitationEntries[origin], entry)) {
+      _activeInvitationEntries[origin] = null;
+    }
   }
 }
 
@@ -366,25 +403,32 @@ class _InvitationSessionGuardState extends State<_InvitationSessionGuard>
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _visible && !_closing && widget.sameSession()
-      ? widget.destination == EventManagementDestination.events
-            ? EventProfilePublicationsScreen(
-                targetType: widget.targetType,
-                targetId: widget.targetId,
-                repository: widget.publications,
-                sessionKeyProvider: widget.sessionKeyProvider,
-                showPeriods: true,
-              )
-            : EventPerformerRequestsScreen(
-                targetType: widget.targetType,
-                targetId: widget.targetId,
-                repository: widget.requests,
-                sessionKeyProvider: widget.sessionKeyProvider,
-                status:
-                    widget.destination == EventManagementDestination.rejected
-                    ? EventPerformerRequestStatus.rejected
-                    : EventPerformerRequestStatus.pending,
-              )
-      : const Scaffold(body: Center(child: CircularProgressIndicator()));
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _visible && !_closing && widget.sameSession()
+        ? widget.destination == EventManagementDestination.plans
+              ? EventPlanPerformerScreen(
+                  targetType: widget.targetType,
+                  targetId: widget.targetId,
+                )
+              : widget.destination == EventManagementDestination.events
+              ? EventProfilePublicationsScreen(
+                  targetType: widget.targetType,
+                  targetId: widget.targetId,
+                  repository: widget.publications,
+                  sessionKeyProvider: widget.sessionKeyProvider,
+                  showPeriods: true,
+                )
+              : EventPerformerRequestsScreen(
+                  targetType: widget.targetType,
+                  targetId: widget.targetId,
+                  repository: widget.requests,
+                  sessionKeyProvider: widget.sessionKeyProvider,
+                  status:
+                      widget.destination == EventManagementDestination.rejected
+                      ? EventPerformerRequestStatus.rejected
+                      : EventPerformerRequestStatus.pending,
+                )
+        : const Scaffold(body: Center(child: CircularProgressIndicator()));
+  }
 }

@@ -166,6 +166,7 @@ class _BandPendingInvitationsSliverState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!widget.canManage ||
         (_items.isEmpty && !_hasNext && !_loading && _error == null)) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
@@ -267,6 +268,7 @@ class _PendingInvitationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

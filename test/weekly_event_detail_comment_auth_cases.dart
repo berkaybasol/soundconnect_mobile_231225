@@ -119,6 +119,30 @@ void _commentAuthenticationTests(_CommentsRepository Function() repository) {
       expect(_replyAction(), findsOneWidget);
     });
 
+    testWidgets('successful comment reports an event engagement mutation', (
+      tester,
+    ) async {
+      _registerCommentMember();
+      var engagementChanges = 0;
+      await _openDetail(
+        tester,
+        _event(),
+        onEngagementChanged: () => engagementChanges += 1,
+      );
+
+      await tester.enterText(_commentField(), 'Akış sayacını yenile');
+      tester
+          .widget<TextField>(_commentField())
+          .onSubmitted!
+          .call('Akış sayacını yenile');
+      await tester.pumpAndSettle();
+
+      expect(repository().creations, [
+        ('EVENT', 'event-design-1', 'Akış sayacını yenile'),
+      ]);
+      expect(engagementChanges, 1);
+    });
+
     testWidgets(
       'session changes update gate clear drafts and unsubscribe on dispose',
       (tester) async {
@@ -431,10 +455,10 @@ void _commentAccessPreviewTests(_CommentsRepository Function() repository) {
             '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
         final font = FontLoader('Roboto');
         for (final name in [
-          'roboto-regular.ttf',
-          'roboto-medium.ttf',
-          'roboto-bold.ttf',
-          'roboto-black.ttf',
+          'Roboto-Regular.ttf',
+          'Roboto-Medium.ttf',
+          'Roboto-Bold.ttf',
+          'Roboto-Black.ttf',
         ]) {
           font.addFont(
             File('$fonts/$name').readAsBytes().then(ByteData.sublistView),

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_commands.dart';
 import '../../domain/collab_types.dart';
@@ -22,11 +25,14 @@ import 'collab_actor_reviews_screen.dart';
 import 'collab_application_compose_screen.dart';
 import 'collab_profile_selection_screen.dart';
 
-class CollabListingDetailScreen extends StatefulWidget {
+part 'collab_listing_detail_screen_detail_error.dart';
+
+class CollabListingDetailScreen extends StatelessWidget {
   const CollabListingDetailScreen({
     required this.listingId,
     this.showBottomNavigation = true,
     this.onListingChanged,
+    this.onApplied,
     this.detailCubit,
     this.shareService,
     super.key,
@@ -35,6 +41,7 @@ class CollabListingDetailScreen extends StatefulWidget {
   final String listingId;
   final bool showBottomNavigation;
   final ValueChanged<CollabListing>? onListingChanged;
+  final VoidCallback? onApplied;
 
   /// Test/embedding seam. Production callers use the route-scoped GetIt
   /// factory and should leave this null.
@@ -42,11 +49,48 @@ class CollabListingDetailScreen extends StatefulWidget {
   final CollabShareService? shareService;
 
   @override
-  State<CollabListingDetailScreen> createState() =>
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabListingDetailScreenContent(
+        listingId: listingId,
+        showBottomNavigation: showBottomNavigation,
+        onListingChanged: onListingChanged,
+        onApplied: onApplied,
+        detailCubit: detailCubit,
+        shareService: shareService,
+      ),
+    );
+  }
+}
+
+class _CollabListingDetailScreenContent extends StatefulWidget {
+  const _CollabListingDetailScreenContent({
+    required this.listingId,
+    this.showBottomNavigation = true,
+    this.onListingChanged,
+    this.onApplied,
+    this.detailCubit,
+    this.shareService,
+  });
+
+  final String listingId;
+  final bool showBottomNavigation;
+  final ValueChanged<CollabListing>? onListingChanged;
+  final VoidCallback? onApplied;
+
+  /// Test/embedding seam. Production callers use the route-scoped GetIt
+  /// factory and should leave this null.
+  final CollabListingDetailCubit? detailCubit;
+  final CollabShareService? shareService;
+
+  @override
+  State<_CollabListingDetailScreenContent> createState() =>
       _CollabListingDetailScreenState();
 }
 
-class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
+class _CollabListingDetailScreenState
+    extends State<_CollabListingDetailScreenContent> {
   late final CollabListingDetailCubit _cubit;
   late final bool _ownsCubit;
 
@@ -59,7 +103,7 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
   }
 
   @override
-  void didUpdateWidget(covariant CollabListingDetailScreen oldWidget) {
+  void didUpdateWidget(covariant _CollabListingDetailScreenContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.listingId != widget.listingId) {
       _cubit.load(widget.listingId);
@@ -74,12 +118,14 @@ class _CollabListingDetailScreenState extends State<CollabListingDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return BlocProvider<CollabListingDetailCubit>.value(
       value: _cubit,
       child: _DetailView(
         listingId: widget.listingId,
         showBottomNavigation: widget.showBottomNavigation,
         onListingChanged: widget.onListingChanged,
+        onApplied: widget.onApplied,
         shareService: widget.shareService ?? PlatformCollabShareService(),
       ),
     );
@@ -92,11 +138,13 @@ class _DetailView extends StatefulWidget {
     required this.showBottomNavigation,
     required this.shareService,
     this.onListingChanged,
+    this.onApplied,
   });
 
   final String listingId;
   final bool showBottomNavigation;
   final ValueChanged<CollabListing>? onListingChanged;
+  final VoidCallback? onApplied;
   final CollabShareService shareService;
 
   @override
@@ -108,6 +156,7 @@ class _DetailViewState extends State<_DetailView> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return MultiBlocListener(
       listeners: [
         BlocListener<CollabListingDetailCubit, CollabListingDetailState>(
@@ -170,7 +219,12 @@ class _DetailViewState extends State<_DetailView> {
               const SizedBox(width: 5),
             ],
           ),
-          body: _buildBody(context, state),
+          body: NotificationTargetReady(
+            ready:
+                state.status == CollabLoadStatus.success &&
+                state.listing?.id == widget.listingId,
+            child: _buildBody(context, state),
+          ),
           bottomNavigationBar: widget.showBottomNavigation
               ? ProfilePublicBottomBar(currentIndex: 1)
               : null,
@@ -198,7 +252,10 @@ class _DetailViewState extends State<_DetailView> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 7, 14, 30),
         children: [
-          _ListingHero(listing: listing),
+          _ListingHero(
+            listing: listing,
+            onProfileTap: () => _openPublisherProfile(listing.publisher),
+          ),
           const SizedBox(height: 20),
           const CollabSectionTitle('Açıklama'),
           const SizedBox(height: 9),
@@ -252,6 +309,7 @@ class _DetailViewState extends State<_DetailView> {
           _OwnerCard(
             actor: listing.publisher,
             onTap: () => _openOwnerActions(listing.publisher),
+            onProfileTap: () => _openPublisherProfile(listing.publisher),
           ),
           const SizedBox(height: 18),
           CollabPrimaryAction(
@@ -341,8 +399,22 @@ class _DetailViewState extends State<_DetailView> {
     return Icons.rocket_launch_outlined;
   }
 
+  void _openPublisherProfile(CollabActor actor) {
+    if (!mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        actor.sourceProfileId.trim().isEmpty) {
+      return;
+    }
+    final listing = context.read<CollabListingDetailCubit>().state.listing;
+    if (listing?.id != widget.listingId ||
+        listing?.publisher.actorId != actor.actorId) {
+      return;
+    }
+    openCollabActorProfile(context, actor);
+  }
+
   Future<void> _openOwnerActions(CollabActor actor) async {
-    final action = await showModalBottomSheet<_OwnerAction>(
+    final action = await showCollabModalBottomSheet<_OwnerAction>(
       context: context,
       showDragHandle: true,
       useSafeArea: true,
@@ -356,6 +428,7 @@ class _DetailViewState extends State<_DetailView> {
       case _OwnerAction.reviews:
         await Navigator.of(context).push<void>(
           collabPageRoute(
+            context: context,
             builder: (_) => CollabActorReviewsScreen(
               actor: actor,
               showBottomNavigation: widget.showBottomNavigation,
@@ -385,6 +458,7 @@ class _DetailViewState extends State<_DetailView> {
     } else {
       actor = await Navigator.of(context).push<CollabActor>(
         collabPageRoute(
+          context: context,
           builder: (_) => CollabProfileSelectionScreen(
             actors: actors,
             wantedType: listing.wantedType,
@@ -398,6 +472,7 @@ class _DetailViewState extends State<_DetailView> {
     if (selectedActor == null) return;
     final submitted = await Navigator.of(context).push<bool>(
       collabPageRoute(
+        context: context,
         builder: (_) => BlocProvider<CollabListingDetailCubit>.value(
           value: cubit,
           child: CollabApplicationComposeScreen(
@@ -411,11 +486,16 @@ class _DetailViewState extends State<_DetailView> {
     );
     if (mounted && submitted == true) {
       _showMessage('Başvurun gönderildi.', tone: AppSnackBarTone.success);
+      try {
+        widget.onApplied?.call();
+      } catch (_) {
+        // Optional embedding telemetry must not alter the Collab flow.
+      }
     }
   }
 
   Future<void> _confirmClose(CollabListing listing) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showCollabDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('İlanı kapat'),
@@ -440,7 +520,7 @@ class _DetailViewState extends State<_DetailView> {
   }
 
   Future<void> _showReportSheet() async {
-    final input = await showModalBottomSheet<CollabReportInput>(
+    final input = await showCollabModalBottomSheet<CollabReportInput>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -477,9 +557,10 @@ class _DetailViewState extends State<_DetailView> {
 }
 
 class _ListingHero extends StatelessWidget {
-  const _ListingHero({required this.listing});
+  const _ListingHero({required this.listing, required this.onProfileTap});
 
   final CollabListing listing;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -490,41 +571,46 @@ class _ListingHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CollabIdentityAvatar(
-                initials: listing.publisher.initials,
-                profileKind: listing.publisher.profileType,
-                avatarUrl: listing.publisher.avatarUrl,
-                size: 62,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      listing.publisher.displayName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      listing.publisher.profileType.label,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+          _PublisherProfileLink(
+            key: const ValueKey('collab-listing-publisher-profile'),
+            actor: listing.publisher,
+            onTap: onProfileTap,
+            child: Row(
+              children: [
+                CollabIdentityAvatar(
+                  initials: listing.publisher.initials,
+                  profileKind: listing.publisher.profileType,
+                  avatarUrl: listing.publisher.avatarUrl,
+                  size: 62,
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        listing.publisher.displayName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        listing.publisher.profileType.label,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -670,10 +756,15 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _OwnerCard extends StatelessWidget {
-  const _OwnerCard({required this.actor, required this.onTap});
+  const _OwnerCard({
+    required this.actor,
+    required this.onTap,
+    required this.onProfileTap,
+  });
 
   final CollabActor actor;
   final VoidCallback onTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -688,98 +779,186 @@ class _OwnerCard extends StatelessWidget {
         child: CollabGradientFrame(
           radius: 18,
           padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              CollabIdentityAvatar(
-                initials: actor.initials,
-                profileKind: actor.profileType,
-                avatarUrl: actor.avatarUrl,
-                size: 58,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      actor.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      actor.profileType.label,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star_rounded,
-                          color: AppColors.socialPurple,
-                          size: 18,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked =
+                  constraints.maxWidth < 290 ||
+                  MediaQuery.textScalerOf(context).scale(14.5) > 20;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      _PublisherProfileLink(
+                        key: const ValueKey('collab-owner-avatar-profile'),
+                        actor: actor,
+                        onTap: onProfileTap,
+                        child: CollabIdentityAvatar(
+                          initials: actor.initials,
+                          profileKind: actor.profileType,
+                          avatarUrl: actor.avatarUrl,
+                          size: 58,
                         ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            actor.reviewCount == 0
-                                ? 'Henüz değerlendirme yok'
-                                : '${actor.rating.toStringAsFixed(1)} / 5 · ${actor.reviewCount} değerlendirme',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 11.5,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _PublisherProfileLink(
+                              key: const ValueKey('collab-owner-name-profile'),
+                              actor: actor,
+                              onTap: onProfileTap,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    actor.displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    actor.profileType.label,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.star_rounded,
+                                  color: AppColors.socialPurple,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    actor.reviewCount == 0
+                                        ? 'Henüz değerlendirme yok'
+                                        : '${actor.rating.toStringAsFixed(1)} / 5 · ${actor.reviewCount} değerlendirme',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
+                      ),
+                      if (!stacked) ...[
+                        Container(
+                          width: 1,
+                          height: 43,
+                          color: theme.dividerColor,
+                          margin: const EdgeInsets.symmetric(horizontal: 11),
+                        ),
+                        _completedJobs(theme),
                       ],
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        key: const ValueKey('collab-owner-actions-trigger'),
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                  if (stacked) ...[
+                    const SizedBox(height: 12),
+                    Divider(height: 1, color: theme.dividerColor),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: _completedJobs(theme),
+                      ),
                     ),
                   ],
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 43,
-                color: theme.dividerColor,
-                margin: const EdgeInsets.symmetric(horizontal: 11),
-              ),
-              Column(
-                children: [
-                  Text(
-                    '${actor.completedJobCount}',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    'Tamamlanan\nİş',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 9.5,
-                      height: 1.15,
-                    ),
-                  ),
                 ],
-              ),
-              const SizedBox(width: 2),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _completedJobs(ThemeData theme) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        '${actor.completedJobCount}',
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 17,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      Text(
+        'Tamamlanan\nİş',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontSize: 9.5,
+          height: 1.15,
+        ),
+      ),
+    ],
+  );
+}
+
+/// Identity taps go directly to the publisher; adjacent review/job controls
+/// keep the existing owner-actions sheet instead of competing for the tap.
+class _PublisherProfileLink extends StatelessWidget {
+  const _PublisherProfileLink({
+    super.key,
+    required this.actor,
+    required this.onTap,
+    required this.child,
+  });
+
+  final CollabActor actor;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    final enabled = actor.sourceProfileId.trim().isNotEmpty;
+    return Semantics(
+      button: enabled,
+      label: '${actor.displayName} profilini aç',
+      onTap: enabled ? onTap : null,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          excludeFromSemantics: true,
+          borderRadius: BorderRadius.circular(12),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: child,
+            ),
           ),
         ),
       ),
@@ -916,183 +1095,3 @@ class _OutlineDetailAction extends StatelessWidget {
     );
   }
 }
-
-class _DetailError extends StatelessWidget {
-  const _DetailError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline_rounded, size: 42),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 14),
-            FilledButton.tonal(
-              onPressed: onRetry,
-              child: const Text('Tekrar Dene'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ReportSheet extends StatefulWidget {
-  const _ReportSheet();
-
-  @override
-  State<_ReportSheet> createState() => _ReportSheetState();
-}
-
-class _ReportSheetState extends State<_ReportSheet> {
-  final _detailsController = TextEditingController();
-  CollabReportReason _reason = CollabReportReason.misleading;
-
-  @override
-  void dispose() {
-    _detailsController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        4,
-        16,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'İlanı şikayet et',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              'Bildirim nedenini seç ve gerekliyse kısa bir açıklama ekle.',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ...CollabReportReason.values.map(
-              (reason) => RadioListTile<CollabReportReason>(
-                value: reason,
-                groupValue: _reason,
-                title: Text(_reportReasonLabel(reason)),
-                onChanged: (value) {
-                  if (value != null) setState(() => _reason = value);
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _detailsController,
-              minLines: 2,
-              maxLines: 4,
-              maxLength: 500,
-              decoration: InputDecoration(
-                hintText: _reason == CollabReportReason.other
-                    ? 'Açıklama zorunlu'
-                    : 'Açıklama (isteğe bağlı)',
-              ),
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: () {
-                final input = CollabReportInput(
-                  reason: _reason,
-                  details: _detailsController.text.trim(),
-                );
-                if (!input.isValid) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    appSnackBar(
-                      context,
-                      tone: AppSnackBarTone.warning,
-                      content: const Text(
-                        'Diğer nedeni için açıklama yazmalısın.',
-                      ),
-                    ),
-                  );
-                  return;
-                }
-                Navigator.of(context).pop(input);
-              },
-              child: const Text('Bildirimi Gönder'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-bool _supportsFee(CollabListing listing) =>
-    listing.cadence == CollabCadence.extra ||
-    (listing.cadence == CollabCadence.regular &&
-        listing.publisher.profileType == CollabProfileKind.venue);
-
-String _wantedSummary(CollabListing listing) {
-  final base = listing.wantedType.wantedLabel;
-  final specialty = listing.specialtyLabel;
-  return listing.wantedType == CollabProfileKind.musician && specialty != null
-      ? '$base: $specialty'
-      : base;
-}
-
-String _dateTimeText(DateTime? value) {
-  if (value == null) return 'Tarih belirtilmemiş';
-  final local = value.toLocal();
-  return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}.${local.year} · '
-      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-}
-
-String _feeText(CollabListing listing) {
-  final minor = listing.feeAmountMinor;
-  if (minor == null) return 'Ücret belirtilmemiş';
-  final major = minor ~/ 100;
-  final fraction = minor.remainder(100).abs();
-  final grouped = major.toString().replaceAllMapped(
-    RegExp(r'\B(?=(\d{3})+(?!\d))'),
-    (_) => '.',
-  );
-  final amount = fraction == 0
-      ? grouped
-      : '$grouped,${fraction.toString().padLeft(2, '0')}';
-  return listing.currency == 'TRY'
-      ? '₺$amount'
-      : '$amount ${listing.currency ?? ''}'.trim();
-}
-
-String _statusLabel(CollabListingStatus status) => switch (status) {
-  CollabListingStatus.draft => 'Taslak',
-  CollabListingStatus.open => 'Açık',
-  CollabListingStatus.closed => 'İlan Kapandı',
-  CollabListingStatus.expired => 'İlanın Süresi Doldu',
-};
-
-String _reportReasonLabel(CollabReportReason reason) => switch (reason) {
-  CollabReportReason.spam => 'Spam veya tekrar eden ilan',
-  CollabReportReason.inappropriate => 'Uygunsuz içerik',
-  CollabReportReason.misleading => 'Yanıltıcı veya hatalı ilan',
-  CollabReportReason.other => 'Diğer',
-};

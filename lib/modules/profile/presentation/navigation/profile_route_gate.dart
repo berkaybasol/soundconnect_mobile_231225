@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import 'profile_route_resolver.dart';
+import '../screens/studio_listener_info_screen.dart';
 
 class ProfileRouteGate extends StatefulWidget {
   final ProfileRouteTarget target;
@@ -82,6 +84,14 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
     final generation = ++_generation;
     final session = _manager?.session ?? const AuthSession.guest();
     final target = widget.target;
+    if (target.kind == ProfileRouteKind.studio &&
+        isStudioRestrictedListener(session)) {
+      setState(() {
+        _public = false;
+        _loading = false;
+      });
+      return;
+    }
     setState(() {
       _public = false;
       _loading = true;
@@ -131,7 +141,11 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
         });
         return;
       }
-      _replaceDestination(destination, stillValid);
+      _replaceDestination(
+        destination,
+        stillValid,
+        forwardNotificationRead: true,
+      );
     } catch (_) {
       if (!stillValid()) return;
       setState(() {
@@ -143,8 +157,9 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
 
   void _replaceDestination(
     ProfileRouteDestination destination,
-    bool Function() stillValid,
-  ) {
+    bool Function() stillValid, {
+    bool forwardNotificationRead = false,
+  }) {
     // Replace only this entry, preserving the page beneath it for Back.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!stillValid()) return;
@@ -157,7 +172,13 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
       }
       Navigator.of(context).pushReplacementNamed(
         destination.route,
-        arguments: destination.arguments,
+        arguments: forwardNotificationRead
+            ? NotificationTargetRead.forwardNamed(
+                context,
+                destination.route,
+                arguments: destination.arguments,
+              )
+            : destination.arguments,
       );
     });
     setState(() {});
@@ -165,6 +186,11 @@ class _ProfileRouteGateState extends State<ProfileRouteGate> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
+    if (widget.target.kind == ProfileRouteKind.studio &&
+        isStudioRestrictedListener(_manager?.session)) {
+      return const StudioListenerInfoScreen();
+    }
     if (_public) return widget.publicBuilder(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),

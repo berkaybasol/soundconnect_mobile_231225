@@ -11,6 +11,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/stage_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_state.dart';
@@ -42,6 +43,36 @@ void main() {
   });
   tearDown(() async => serviceLocator.reset());
 
+  testWidgets(
+    'listener feed availability preserves discovery and its saved search',
+    (tester) async {
+      final search = _Search();
+      await _mount(tester, search: search);
+      await _chooseCity(tester);
+      final reads = search.calls.length;
+      if (!ProfileFeedAvailability.enabled) {
+        expect(find.byKey(const Key('listener-discovery-feed')), findsNothing);
+        expect(find.text('LISTENER FEED'), findsNothing);
+        expect(find.text('Ankara'), findsOneWidget);
+        expect(find.text('Keşfet'), findsOneWidget);
+        expect(search.calls.length, reads);
+        return;
+      }
+      await tester.ensureVisible(
+        find.byKey(const Key('listener-discovery-feed')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('listener-discovery-feed')));
+      await tester.pumpAndSettle();
+      expect(find.text('LISTENER FEED'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Ankara'), findsOneWidget);
+      expect(search.calls.length, reads);
+      expect(find.text('Keşfet'), findsOneWidget);
+    },
+  );
+
   if (Platform.environment['MEMBER_DISCOVERY_RENDER_DIR'] != null) {
     testWidgets('render authenticated discovery with real fonts and actual bar', (
       tester,
@@ -51,10 +82,10 @@ void main() {
             '${File(Platform.resolvedExecutable).parent.parent.parent.path}/material_fonts';
         final loader = FontLoader('Roboto');
         for (final file in [
-          'roboto-regular.ttf',
-          'roboto-medium.ttf',
-          'roboto-bold.ttf',
-          'roboto-black.ttf',
+          'Roboto-Regular.ttf',
+          'Roboto-Medium.ttf',
+          'Roboto-Bold.ttf',
+          'Roboto-Black.ttf',
         ]) {
           loader.addFont(
             File('$fonts/$file').readAsBytes().then(ByteData.sublistView),
@@ -448,6 +479,8 @@ Future<void> _mount(
         ),
       ),
       routes: {
+        AppRoutes.listenerFeed: (_) =>
+            Scaffold(appBar: AppBar(), body: const Text('LISTENER FEED')),
         AppRoutes.tableGroupList: (context) {
           onTable?.call(
             ModalRoute.of(context)!.settings.arguments! as TableGroupListArgs,

@@ -21,6 +21,144 @@ const _storedInstallId = '30000000-0000-4000-8000-000000000001';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets(
+    'signed announcement batches obey the byte cap without losing retry IDs',
+    (tester) async {
+      final fixture = await _Fixture.create(session: _user('account-a'));
+      fixture.repository.errorCode = 'network';
+      for (var index = 0; index < 9; index++) {
+        fixture.tracker.recordAnnouncementImpression(
+          announcementId: _eventId,
+          source: 'FEED',
+          impressionToken: '${'x' * 4000}-$index',
+        );
+      }
+      await tester.pump();
+      final queued = _storedRows(
+        fixture.preferences,
+      ).map((row) => (row as Map)['id']).toList();
+      await fixture.tracker.flush();
+      final first = fixture.repository.calls.single.observations;
+      expect(first.length, lessThan(9));
+      fixture.repository.errorCode = null;
+      await fixture.tracker.flush();
+      expect(
+        fixture.repository.calls[1].observations.map((row) => row.id),
+        first.map((row) => row.id),
+      );
+      for (
+        var index = 0;
+        index < 9 && _storedRows(fixture.preferences).isNotEmpty;
+        index++
+      ) {
+        await fixture.tracker.flush();
+      }
+      expect(_storedRows(fixture.preferences), isEmpty);
+      expect(
+        fixture.repository.calls
+            .skip(1)
+            .expand((call) => call.observations)
+            .map((row) => row.id),
+        queued,
+      );
+      for (final call in fixture.repository.calls) {
+        expect(
+          analyticsRequestBytes(call.clientId, call.observations),
+          lessThanOrEqualTo(analyticsMaxBodyBytes),
+        );
+      }
+      await fixture.close();
+    },
+  );
+
+  testWidgets(
+    'announcement receipts retain source, feed proof and retry identity',
+    (tester) async {
+      final fixture = await _Fixture.create(session: _user('account-a'));
+      fixture.repository.errorCode = 'network';
+      fixture.tracker.recordAnnouncementImpression(
+        announcementId: _eventId,
+        source: 'FEED',
+        impressionToken: 'delivery-proof',
+      );
+      fixture.tracker.recordAnnouncementImpression(
+        announcementId: _eventId,
+        source: 'FEED',
+        impressionToken: 'delivery-proof',
+      );
+      fixture.tracker.recordAnnouncementImpression(
+        announcementId: _eventId,
+        source: 'DIRECTORY',
+      );
+      await tester.pump();
+      await fixture.tracker.flush();
+      final first = fixture.repository.calls.single.observations;
+      expect(first, hasLength(2));
+      expect(first.map((event) => event.source), ['FEED', 'DIRECTORY']);
+      expect(first.first.impressionToken, 'delivery-proof');
+      expect(first.last.impressionToken, isNull);
+      expect(_storedRows(fixture.preferences), hasLength(2));
+      fixture.repository.errorCode = null;
+      await fixture.tracker.flush();
+      expect(
+        fixture.repository.calls.last.observations.map((e) => e.toJson()),
+        first.map((e) => e.toJson()),
+      );
+      expect(_storedRows(fixture.preferences), isEmpty);
+      await fixture.close();
+    },
+  );
+
+  testWidgets(
+    'announcement video dedupe is scoped to each real playback identity',
+    (tester) async {
+      final fixture = await _Fixture.create(session: _user('account-a'));
+      for (final playback in [_eventId, _eventId, _venueId]) {
+        fixture.tracker.recordAnnouncementVideoStart(
+          announcementId: _eventId,
+          source: 'DIRECTORY',
+          playbackId: playback,
+        );
+        fixture.tracker.recordAnnouncementVideoComplete(
+          announcementId: _eventId,
+          source: 'DIRECTORY',
+          playbackId: playback,
+        );
+      }
+      await tester.pump();
+      await fixture.tracker.flush();
+      final rows = fixture.repository.calls.single.observations;
+      expect(rows, hasLength(4));
+      expect(
+        rows.where(
+          (row) => row.type == AnalyticsObservationType.announcementVideoStart,
+        ),
+        hasLength(2),
+      );
+      expect(rows.map((row) => row.playbackId).toSet(), {_eventId, _venueId});
+      await fixture.close();
+    },
+  );
+
+  testWidgets('guest and admin previews never enqueue announcement views', (
+    tester,
+  ) async {
+    final fixture = await _Fixture.create();
+    fixture.tracker.recordAnnouncementDetailView(
+      announcementId: _eventId,
+      source: 'DIRECTORY',
+    );
+    fixture.manager.change(_user('admin', admin: true));
+    fixture.tracker.recordAnnouncementImpression(
+      announcementId: _eventId,
+      source: 'DIRECTORY',
+    );
+    await tester.pump();
+    await fixture.tracker.flush();
+    expect(fixture.repository.calls, isEmpty);
+    await fixture.close();
+  });
+
   testWidgets('records only explicit calls and persists installation once', (
     tester,
   ) async {

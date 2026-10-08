@@ -26,7 +26,7 @@ extension _StudioProfileContactEditorActions on _StudioProfileViewState {
     final profileCubit = context.read<StudioProfileCubit>();
     final profile = profileCubit.state.profile;
     if (profile == null) return;
-    await showModalBottomSheet<void>(
+    await showStudioModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -54,7 +54,7 @@ extension _StudioProfileContactEditorActions on _StudioProfileViewState {
   }
 }
 
-class StudioProfileContactEditorSheet extends StatefulWidget {
+class StudioProfileContactEditorSheet extends StatelessWidget {
   const StudioProfileContactEditorSheet({
     required this.profile,
     required this.onSave,
@@ -65,12 +65,31 @@ class StudioProfileContactEditorSheet extends StatefulWidget {
   final Future<String?> Function(StudioProfileContactDraft draft) onSave;
 
   @override
-  State<StudioProfileContactEditorSheet> createState() =>
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return StudioListenerAccessGate(
+      builder: (_) =>
+          _StudioProfileContactEditorView(profile: profile, onSave: onSave),
+    );
+  }
+}
+
+class _StudioProfileContactEditorView extends StatefulWidget {
+  const _StudioProfileContactEditorView({
+    required this.profile,
+    required this.onSave,
+  });
+
+  final StudioProfile profile;
+  final Future<String?> Function(StudioProfileContactDraft draft) onSave;
+
+  @override
+  State<_StudioProfileContactEditorView> createState() =>
       _StudioProfileContactEditorSheetState();
 }
 
 class _StudioProfileContactEditorSheetState
-    extends State<StudioProfileContactEditorSheet> {
+    extends State<_StudioProfileContactEditorView> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _addressController;
@@ -136,6 +155,7 @@ class _StudioProfileContactEditorSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Material(

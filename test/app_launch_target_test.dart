@@ -2,9 +2,62 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/app.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 
 void main() {
+  for (final kind in ['VENUE', 'STUDIO']) {
+    test('$kind approval resets to own profile only for the same account', () {
+      AuthSession owner(String id, String status, List<String> roles) =>
+          AuthSession.authenticated(
+            token: status,
+            userId: id,
+            username: 'owner',
+            accountStatus: status,
+            roles: roles,
+            permissions: const [],
+            expiresAt: DateTime.utc(2030),
+            isAdmin: false,
+          );
+      final pending = owner('one', 'PENDING_${kind}_REQUEST', []);
+      final active = owner('one', 'ACTIVE', ['ROLE_$kind']);
+      final expected = kind == 'VENUE'
+          ? AppRoutes.venueProfile
+          : AppRoutes.studioProfile;
+      expect(resolveMembershipApprovalRoute(pending, active), expected);
+      expect(
+        resolveSessionChangeNavigationRoute(
+          wasAuthenticated: true,
+          wasListenerChoiceRequired: false,
+          previousSession: pending,
+          previousUserId: 'one',
+          previousToken: pending.token,
+          current: active,
+        ),
+        expected,
+      );
+      expect(
+        resolveMembershipApprovalRoute(
+          pending,
+          owner('two', 'ACTIVE', ['ROLE_$kind']),
+        ),
+        isNull,
+      );
+      expect(
+        resolveMembershipApprovalRoute(
+          pending,
+          owner('one', 'ACTIVE', ['ROLE_LISTENER']),
+        ),
+        isNull,
+      );
+      expect(resolveMembershipApprovalRoute(active, active), isNull);
+      expect(resolveMembershipApprovalRoute(pending, pending), isNull);
+      expect(
+        resolveMembershipApprovalRoute(pending, const AuthSession.guest()),
+        isNull,
+      );
+    });
+  }
   group('resolveLaunchTarget', () {
     test('returns guest when token is null or blank', () {
       expect(resolveLaunchTarget(null), AppLaunchTarget.guest);

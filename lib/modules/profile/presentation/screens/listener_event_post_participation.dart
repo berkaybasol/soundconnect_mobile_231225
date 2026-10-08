@@ -105,25 +105,28 @@ class _ListenerEventPostParticipationState
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _controller,
-    builder: (context, _) {
-      final controller = _controller;
-      final canInteract = widget.canInteract;
-      final going = _controller.state?.intent == EventAudienceStatus.going;
-      final available =
-          _current(_controller) &&
-          (going ||
-              _controller.state == null ||
-              _controller.needsRefresh ||
-              _controller.state!.canSetIntent);
-      return widget.builder(
-        going,
-        _controller.busy && available,
-        available && !_controller.busy
-            ? () => unawaited(_toggle(controller, canInteract))
-            : null,
-      );
-    },
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final controller = _controller;
+        final canInteract = widget.canInteract;
+        final going = _controller.state?.intent == EventAudienceStatus.going;
+        final available =
+            _current(_controller) &&
+            (going ||
+                _controller.state == null ||
+                _controller.needsRefresh ||
+                _controller.state!.canSetIntent);
+        return widget.builder(
+          going,
+          _controller.busy && available,
+          available && !_controller.busy
+              ? () => unawaited(_toggle(controller, canInteract))
+              : null,
+        );
+      },
+    );
+  }
 }

@@ -5,7 +5,6 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/error/app_error.dart';
 import '../../../event_audience/domain/event_audience_repository.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_state.dart';
-import '../../../overthinking/domain/entities/overthinking_post.dart';
 import '../../../overthinking/domain/overthinking_profile_share_repository.dart';
 import 'listener_event_feed_controller.dart';
 import '../../../tablegroup/domain/table_group_profile_share_repository.dart';
@@ -373,24 +372,25 @@ class ListenerProfileFeedController extends ListenerEventFeedController {
     notifyListeners();
   }
 
-  /// Keep a confirmed source projection in the feed that owns a lazy row.
-  /// Recreated tiles must not fall back to the pre-mutation page snapshot.
+  /// Keep confirmed wrapper engagement in the feed that owns a lazy row.
   /// Exact publication identity also makes a newer page/session win over a
-  /// late source response, including a response from an offscreen tile.
-  void updateOverthinkingSource({
+  /// late response, including a response from an offscreen tile.
+  void updateOverthinkingEngagement({
     required AuthSession expectedSession,
     required OverthinkingProfileShare expectedShare,
-    required OverthinkingPost post,
+    required InteractionStatsItemState stats,
   }) {
     if (!containsShare(expectedSession, expectedShare) ||
-        post.id != expectedShare.post.id) {
+        stats.loading ||
+        stats.error != null ||
+        !stats.hasLikeCount ||
+        !stats.hasCommentCount) {
       return;
     }
-    final publication = OverthinkingProfileShare(
-      shareId: expectedShare.shareId,
-      note: expectedShare.note,
-      publishedAt: expectedShare.publishedAt,
-      post: post,
+    final publication = expectedShare.copyWithEngagement(
+      likeCount: stats.likeCount,
+      commentCount: stats.commentCount,
+      likedByMe: stats.isLiked,
     );
     entries = List.unmodifiable([
       for (final entry in entries)

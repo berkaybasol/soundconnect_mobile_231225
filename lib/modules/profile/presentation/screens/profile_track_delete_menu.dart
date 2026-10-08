@@ -3,11 +3,16 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/network/api_client.dart';
 import '../../data/profile_track_deletion_repository.dart';
+import '../../domain/entities/media_content_audience.dart';
+import 'media_content_audience_controls.dart';
 
 class ProfileTrackDeleteMenu extends StatefulWidget {
   final String ownerType;
   final String ownerId;
   final String trackId;
+  final String mediaAssetId;
+  final String contentAudience;
+  final Future<void> Function()? onAudienceChanged;
   final ProfileTrackDeletionRepository? repository;
   final Future<void> Function() onDeleted;
   const ProfileTrackDeleteMenu({
@@ -15,6 +20,9 @@ class ProfileTrackDeleteMenu extends StatefulWidget {
     required this.ownerType,
     required this.ownerId,
     required this.trackId,
+    this.mediaAssetId = '',
+    this.contentAudience = 'MAINSTAGE',
+    this.onAudienceChanged,
     this.repository,
     required this.onDeleted,
   });
@@ -34,6 +42,7 @@ class _ProfileTrackDeleteMenuState extends State<ProfileTrackDeleteMenu> {
     if (oldWidget.ownerType != widget.ownerType ||
         oldWidget.ownerId != widget.ownerId ||
         oldWidget.trackId != widget.trackId ||
+        oldWidget.mediaAssetId != widget.mediaAssetId ||
         oldWidget.repository != widget.repository) {
       ++_generation;
       _busy = false;
@@ -155,31 +164,65 @@ class _ProfileTrackDeleteMenuState extends State<ProfileTrackDeleteMenu> {
   }
 
   @override
-  Widget build(BuildContext context) => _busy
-      ? const SizedBox(
-          width: 48,
-          height: 48,
-          child: Padding(
-            padding: EdgeInsets.all(14),
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        )
-      : SizedBox(
-          width: 48,
-          height: 48,
-          child: PopupMenuButton<String>(
-            enabled: !_confirming,
-            tooltip: 'Ses seçenekleri',
-            padding: EdgeInsets.zero,
-            icon: Icon(
-              Icons.more_vert,
-              size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _busy
+        ? const SizedBox(
+            width: 48,
+            height: 48,
+            child: Padding(
+              padding: EdgeInsets.all(14),
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            onSelected: (_) => _delete(),
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'delete', child: Text('Sil')),
-            ],
-          ),
-        );
+          )
+        : SizedBox(
+            width: 48,
+            height: 48,
+            child: PopupMenuButton<String>(
+              enabled: !_confirming,
+              tooltip: 'Ses seçenekleri',
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                Icons.more_vert,
+                size: 18,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              onSelected: (action) async {
+                if (action == 'delete') {
+                  await _delete();
+                  return;
+                }
+                if (_busy || _confirming) return;
+                final target = widget;
+                final generation = _generation;
+                setState(() => _busy = true);
+                try {
+                  final changed = await editMediaContentAudience(
+                    context,
+                    assetId: target.mediaAssetId,
+                    ownerType: target.ownerType,
+                    currentAudience: target.contentAudience,
+                    isCurrent: () => mounted && generation == _generation,
+                  );
+                  if (changed && mounted && generation == _generation) {
+                    await target.onAudienceChanged?.call();
+                  }
+                } finally {
+                  if (mounted && generation == _generation) {
+                    setState(() => _busy = false);
+                  }
+                }
+              },
+              itemBuilder: (_) => [
+                if (widget.mediaAssetId.isNotEmpty &&
+                    MediaContentAudience.canChoose(widget.ownerType))
+                  const PopupMenuItem(
+                    value: 'audience',
+                    child: Text('Hedef kitleyi düzenle'),
+                  ),
+                const PopupMenuItem(value: 'delete', child: Text('Sil')),
+              ],
+            ),
+          );
+  }
 }

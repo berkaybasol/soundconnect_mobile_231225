@@ -1,34 +1,53 @@
 part of 'guest_event_home_screen.dart';
 
 class _DiscoverySurface extends StatelessWidget {
-  const _DiscoverySurface({required this.child});
+  const _DiscoverySurface({
+    required this.child,
+    this.darkenBackground = false,
+    super.key,
+  });
   final Widget child;
+  final bool darkenBackground;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: AppColors.navBlue,
-      borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
-    ),
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: darkenBackground && theme.brightness == Brightness.dark
+            ? Color.lerp(
+                appCardSurface(context),
+                theme.scaffoldBackgroundColor,
+                .45,
+              )
+            : appCardSurface(context),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.8),
+        ),
+      ),
+      child: child,
+    );
+  }
 }
 
 class _DiscoveryLabel extends StatelessWidget {
   const _DiscoveryLabel(this.label);
   final String label;
   @override
-  Widget build(BuildContext context) => Text(
-    label,
-    style: TextStyle(
-      color: AppColors.textMuted,
-      fontSize: 10,
-      fontWeight: FontWeight.w800,
-      letterSpacing: 1.3,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Text(
+      label,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.3,
+      ),
+    );
+  }
 }
 
 class _DiscoveryChoice extends StatelessWidget {
@@ -44,62 +63,70 @@ class _DiscoveryChoice extends StatelessWidget {
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    label: label,
-    onTap: onTap,
-    child: ExcludeSemantics(
-      child: Container(
-        padding: const EdgeInsets.all(0.8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(13),
-          gradient: selected
-              ? LinearGradient(colors: AppColors.brandGradient)
-              : null,
-          color: selected ? null : AppColors.border,
-        ),
-        child: Material(
-          color: AppColors.inputFill,
-          borderRadius: BorderRadius.circular(12.2),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 9),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (icon != null) ...[
-                      BrandGradientIcon.social(icon!, size: 13),
-                      const SizedBox(width: 5),
-                    ],
-                    Flexible(
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: selected
-                              ? FontWeight.w800
-                              : FontWeight.w500,
-                          color: selected
-                              ? AppColors.textPrimary
-                              : AppColors.textMuted,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.all(0.8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(13),
+            gradient: selected
+                ? LinearGradient(colors: AppColors.decorativeGradient)
+                : null,
+            color: selected ? null : Theme.of(context).colorScheme.outline,
+          ),
+          child: Material(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12.2),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 9,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (icon != null) ...[
+                        BrandGradientIcon.social(icon!, size: 13),
+                        const SizedBox(width: 5),
+                      ],
+                      Flexible(
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: selected
+                                ? FontWeight.w800
+                                : FontWeight.w500,
+                            color: selected
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DiscoveryField extends StatelessWidget {
@@ -116,71 +143,78 @@ class _DiscoveryField extends StatelessWidget {
   final bool loading;
   final bool compact;
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    enabled: onTap != null && !loading,
-    child: Material(
-      color: AppColors.inputFill,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: loading ? null : onTap,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      button: true,
+      enabled: onTap != null && !loading,
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 58),
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 12 : 14,
-            vertical: 14,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              if (!compact) ...[
-                if (onTap != null && !loading)
-                  BrandGradientIcon.social(icon, size: 20)
-                else
-                  Icon(icon, color: AppColors.textMuted, size: 20),
-                const SizedBox(width: 11),
-              ],
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: onTap != null && !loading
-                        ? AppColors.textPrimary
-                        : AppColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                    fontSize: compact ? 12 : 14,
+        child: InkWell(
+          onTap: loading ? null : onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 12 : 14,
+              vertical: 14,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
+            ),
+            child: Row(
+              children: [
+                if (!compact) ...[
+                  if (onTap != null && !loading)
+                    BrandGradientIcon.social(icon, size: 20)
+                  else
+                    Icon(
+                      icon,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  const SizedBox(width: 11),
+                ],
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: onTap != null && !loading
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      fontSize: compact ? 12 : 14,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              if (loading)
-                const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else if (onTap != null)
-                BrandGradientIcon.social(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: compact ? 16 : 20,
-                )
-              else
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.textMuted,
-                  size: compact ? 16 : 20,
-                ),
-            ],
+                const SizedBox(width: 8),
+                if (loading)
+                  const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (onTap != null)
+                  BrandGradientIcon.social(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: compact ? 16 : 20,
+                  )
+                else
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    size: compact ? 16 : 20,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DiscoveryPrimaryButton extends StatelessWidget {
@@ -197,98 +231,111 @@ class _DiscoveryPrimaryButton extends StatelessWidget {
   final IconData? icon;
   final bool brandBorder;
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    enabled: onTap != null && !loading,
-    label: loading ? 'Yükleniyor' : label,
-    child: Container(
-      padding: const EdgeInsets.all(0.9),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: brandBorder && (onTap != null || loading)
-            ? LinearGradient(colors: AppColors.brandGradient)
-            : null,
-        color: !brandBorder || (onTap == null && !loading)
-            ? AppColors.border
-            : null,
-      ),
-      child: Material(
-        color: AppColors.inputFill,
-        borderRadius: BorderRadius.circular(14.1),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: loading ? null : onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (loading)
-                    const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else if (icon != null && onTap != null)
-                    BrandGradientIcon.social(icon!, size: 19)
-                  else if (icon != null)
-                    Icon(icon!, size: 19, color: AppColors.textMuted),
-                  if (loading || icon != null) const SizedBox(width: 9),
-                  Flexible(
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: onTap == null && !loading
-                            ? AppColors.textMuted
-                            : AppColors.textPrimary,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Semantics(
+      button: true,
+      enabled: onTap != null && !loading,
+      label: loading ? 'Yükleniyor' : label,
+      child: Container(
+        padding: const EdgeInsets.all(0.9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          gradient: brandBorder && (onTap != null || loading)
+              ? LinearGradient(colors: AppColors.decorativeGradient)
+              : null,
+          color: !brandBorder || (onTap == null && !loading)
+              ? Theme.of(context).colorScheme.outline
+              : null,
+        ),
+        child: Material(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(14.1),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: loading ? null : onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 52),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 13,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (loading)
+                      const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else if (icon != null && onTap != null)
+                      BrandGradientIcon.social(icon!, size: 19)
+                    else if (icon != null)
+                      Icon(
+                        icon!,
+                        size: 19,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    if (loading || icon != null) const SizedBox(width: 9),
+                    Flexible(
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: onTap == null && !loading
+                              ? Theme.of(context).colorScheme.onSurfaceVariant
+                              : Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DiscoveryAuthFooter extends StatelessWidget {
   const _DiscoveryAuthFooter();
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-    decoration: BoxDecoration(
-      color: AppColors.navBlueDeep,
-      border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: _DiscoveryPrimaryButton(
-            label: 'Giriş Yap',
-            icon: null,
-            brandBorder: false,
-            onTap: () => Navigator.of(context).pushNamed(AppRoutes.login),
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _DiscoveryPrimaryButton(
+              label: 'Giriş Yap',
+              icon: null,
+              brandBorder: false,
+              onTap: () => Navigator.of(context).pushNamed(AppRoutes.login),
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _DiscoveryPrimaryButton(
-            label: 'Üye Ol',
-            icon: null,
-            onTap: () => openRegistrationOptions(context),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _DiscoveryPrimaryButton(
+              label: 'Üye Ol',
+              icon: null,
+              onTap: () => openRegistrationOptions(context),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _DiscoveryBetaNotice extends StatelessWidget {
@@ -297,38 +344,43 @@ class _DiscoveryBetaNotice extends StatelessWidget {
   final VoidCallback? onSuggest;
 
   @override
-  Widget build(BuildContext context) => _DiscoverySurface(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Beta sürecinde olduğumuz için etkinlikler ağırlıklı olarak Ankara’da. '
-          'Diğer şehirler için çalışmaya devam ediyoruz. 🌱',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 13,
-            height: 1.5,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return _DiscoverySurface(
+      key: const Key('discovery-suggestion-surface'),
+      darkenBackground: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Beta sürecinde olduğumuz için etkinlikler ağırlıklı olarak Ankara’da. '
+            'Diğer şehirler için çalışmaya devam ediyoruz. 🌱',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 13,
+              height: 1.5,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'SoundConnect’te bulamadığın bir mekanı önererek mekanla '
-          'iletişime geçmemize yardımcı olabilirsin.',
-          style: TextStyle(
-            color: AppColors.textMuted,
-            fontSize: 13,
-            height: 1.5,
+          const SizedBox(height: 10),
+          Text(
+            'SoundConnect’te bulamadığın bir mekanı önererek mekanla '
+            'iletişime geçmemize yardımcı olabilirsin.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+              height: 1.5,
+            ),
           ),
-        ),
-        const SizedBox(height: 14),
-        _DiscoveryPrimaryButton(
-          label: 'Mekan öner',
-          icon: Icons.add_location_alt_outlined,
-          onTap: onSuggest,
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 14),
+          _DiscoveryPrimaryButton(
+            label: 'Mekan öner',
+            icon: Icons.add_location_alt_outlined,
+            onTap: onSuggest,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DiscoveryRetry extends StatelessWidget {
@@ -336,27 +388,33 @@ class _DiscoveryRetry extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          message,
-          style: TextStyle(
-            color: AppColors.textMuted,
-            height: 1.45,
-            fontSize: 13,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.45,
+              fontSize: 13,
+            ),
           ),
-        ),
-        TextButton.icon(
-          onPressed: onRetry,
-          icon: const BrandGradientIcon.social(Icons.refresh_rounded, size: 17),
-          label: const Text('Tekrar dene'),
-        ),
-      ],
-    ),
-  );
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const BrandGradientIcon.social(
+              Icons.refresh_rounded,
+              size: 17,
+            ),
+            label: const Text('Tekrar dene'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DiscoveryDateSheet extends StatelessWidget {
@@ -364,99 +422,111 @@ class _DiscoveryDateSheet extends StatelessWidget {
   final DateTime today;
   final DateTime selected;
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Hangi gün?',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Hangi gün?',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            'Önümüzdeki günler',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-          ),
-          const SizedBox(height: 22),
-          for (
-            var offset = 2;
-            offset < EventDiscoveryDatePolicy.dayCount;
-            offset++
-          ) ...[
-            Builder(
-              builder: (context) {
-                final date = DateTime(
-                  today.year,
-                  today.month,
-                  today.day + offset,
-                );
-                final active = date == selected;
-                return Semantics(
-                  selected: active,
-                  button: true,
-                  child: Container(
-                    padding: const EdgeInsets.all(0.8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(15),
-                      gradient: active
-                          ? LinearGradient(colors: AppColors.brandGradient)
-                          : null,
-                      color: active ? null : AppColors.border,
-                    ),
-                    child: Material(
-                      color: AppColors.inputFill,
-                      borderRadius: BorderRadius.circular(14.2),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => Navigator.of(context).pop(date),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 16,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${EventDiscoveryDatePolicy.longDate(date)} · ${EventDiscoveryDatePolicy.weekday(date)}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: active
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
+            const SizedBox(height: 7),
+            Text(
+              'Önümüzdeki günler',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 22),
+            for (
+              var offset = 2;
+              offset < EventDiscoveryDatePolicy.dayCount;
+              offset++
+            ) ...[
+              Builder(
+                builder: (context) {
+                  final date = DateTime(
+                    today.year,
+                    today.month,
+                    today.day + offset,
+                  );
+                  final active = date == selected;
+                  return Semantics(
+                    selected: active,
+                    button: true,
+                    child: Container(
+                      padding: const EdgeInsets.all(0.8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        gradient: active
+                            ? LinearGradient(
+                                colors: AppColors.decorativeGradient,
+                              )
+                            : null,
+                        color: active
+                            ? null
+                            : Theme.of(context).colorScheme.outline,
+                      ),
+                      child: Material(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(14.2),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => Navigator.of(context).pop(date),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${EventDiscoveryDatePolicy.longDate(date)} · ${EventDiscoveryDatePolicy.weekday(date)}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: active
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              BrandGradientIcon.social(
-                                active
-                                    ? Icons.check_circle_outline_rounded
-                                    : Icons.chevron_right_rounded,
-                                size: 20,
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                BrandGradientIcon.social(
+                                  active
+                                      ? Icons.check_circle_outline_rounded
+                                      : Icons.chevron_right_rounded,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 9),
+                  );
+                },
+              ),
+              const SizedBox(height: 9),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DiscoveryLocationSheet extends StatefulWidget {
@@ -490,6 +560,7 @@ class _DiscoveryLocationSheetState extends State<_DiscoveryLocationSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final query = _fold(_query);
     final options = <_FilterOption>[
       if (widget.allowAll && query.isEmpty)
@@ -527,7 +598,9 @@ class _DiscoveryLocationSheetState extends State<_DiscoveryLocationSheet> {
                       Icons.search_rounded,
                     ),
                     filled: true,
-                    fillColor: AppColors.inputFill,
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -540,7 +613,11 @@ class _DiscoveryLocationSheetState extends State<_DiscoveryLocationSheet> {
                     ? Center(
                         child: Text(
                           'Sonuç bulunamadı.',
-                          style: TextStyle(color: AppColors.textMuted),
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.builder(
@@ -577,6 +654,7 @@ class _DiscoveryEventTile extends StatelessWidget {
   final DiscoveryEvent item;
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final oldCard = _EventCard(item: item);
     final fallback = EventPosterFallback(title: item.title);
     final poster = item.posterImageUrl?.trim() ?? '';
@@ -585,7 +663,7 @@ class _DiscoveryEventTile extends StatelessWidget {
       item.venueCity,
     ].whereType<String>().where((part) => part.trim().isNotEmpty).join(' · ');
     return Material(
-      color: AppColors.inputFill,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -593,7 +671,7 @@ class _DiscoveryEventTile extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -622,13 +700,15 @@ class _DiscoveryEventTile extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.navBlueDeep.withValues(alpha: .92),
+                          color: Theme.of(
+                            context,
+                          ).scaffoldBackgroundColor.withValues(alpha: .92),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           oldCard._timeLabel(),
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
@@ -676,7 +756,9 @@ class _DiscoveryEventTile extends StatelessWidget {
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: AppColors.textMuted,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -696,9 +778,11 @@ class _DiscoveryEventTile extends StatelessWidget {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              color: AppColors.navBlue,
+                              color: appCardSurface(context),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
                             ),
                             child: const Center(
                               child: BrandGradientIcon.social(
@@ -739,7 +823,9 @@ class _DiscoveryEventTile extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontSize: 11,
                           ),
                         ),
@@ -756,48 +842,8 @@ class _DiscoveryEventTile extends StatelessWidget {
 }
 
 Future<void> _openDiscoveryTableGate(BuildContext context) =>
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: AppColors.navBlueDeep,
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Masalar',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Masaları görmek veya masa açmak için giriş yap.',
-                style: TextStyle(color: AppColors.textMuted, height: 1.5),
-              ),
-              const SizedBox(height: 22),
-              _GradientActionButton(
-                label: 'Giriş yap',
-                backgroundColor: AppColors.navBlueDeep,
-                onPressed: () {
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushNamed(AppRoutes.login);
-                },
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushNamed(AppRoutes.register);
-                },
-                child: const Text('Üye ol'),
-              ),
-            ],
-          ),
-        ),
-      ),
+    showGuestAccessSheet(
+      context,
+      title: 'Masalar',
+      message: 'Masaları görmek veya masa açmak için giriş yap.',
     );

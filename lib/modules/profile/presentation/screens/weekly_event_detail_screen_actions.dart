@@ -24,10 +24,12 @@ extension _WeeklyEventDetailScreenStateActions
   }
 
   Future<void> _loadShareUrl() async {
+    final revision = ++_detailRequestRevision;
     try {
       final result = await _venueEventRepository.getDetail(widget.event.id);
       final payload = result.data;
       if (!mounted ||
+          revision != _detailRequestRevision ||
           !result.isSuccess ||
           payload == null ||
           payload.id != widget.event.id) {
@@ -211,6 +213,11 @@ extension _WeeklyEventDetailScreenStateActions
         _commentController.text == originalText) {
       _commentController.clear();
     }
+    if (_isCurrentCommentSession(expectedSession) &&
+        widget.event.id == expectedEventId &&
+        sent) {
+      widget.onEngagementChanged?.call();
+    }
     if (!sent &&
         mounted &&
         _isCurrentCommentSession(expectedSession) &&
@@ -226,6 +233,19 @@ extension _WeeklyEventDetailScreenStateActions
     }
   }
 
+  bool _allowProfileNavigation() {
+    final session = serviceLocator.isRegistered<AuthSessionManager>()
+        ? serviceLocator<AuthSessionManager>().session
+        : null;
+    if (session?.isAuthenticated == true) return true;
+    showGuestAccessSheet(
+      context,
+      title: 'Profiller',
+      message: 'Profilleri görüntülemek için giriş yap veya üye ol.',
+    );
+    return false;
+  }
+
   Future<void> _openArtistProfile() async {
     if (!mounted ||
         _isOpeningArtistProfile ||
@@ -233,6 +253,7 @@ extension _WeeklyEventDetailScreenStateActions
         !widget.event.hasLinkedPerformerProfile) {
       return;
     }
+    if (!_allowProfileNavigation()) return;
     final event = widget.event;
     final bandId = event.linkedBandProfileId;
     final profileId = event.linkedArtistProfileId;
@@ -341,6 +362,7 @@ extension _WeeklyEventDetailScreenStateActions
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     final venueId = widget.event.venueId?.trim();
     if (venueId == null || venueId.isEmpty) return;
+    if (!_allowProfileNavigation()) return;
     // A tap on the verified, current detail is also an actual page visit. Queue
     // it before navigation so a very quick profile tap retains attribution.
     if (_analyticsEventVerified &&
@@ -432,7 +454,7 @@ extension _WeeklyEventDetailScreenStateActions
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        backgroundColor: AppColors.navBlue,
+        backgroundColor: appCardSurface(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
         ),
@@ -471,6 +493,11 @@ extension _WeeklyEventDetailScreenStateActions
                   )) {
                 _updateState(() => _expandedReplyParents.add(targetComment.id));
                 await _loadReplies(targetComment.id, restart: true);
+              }
+              if (sent &&
+                  _isCurrentCommentSession(expectedSession) &&
+                  widget.event.id == eventId) {
+                widget.onEngagementChanged?.call();
               }
               return sent;
             },

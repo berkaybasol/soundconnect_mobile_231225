@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
@@ -20,7 +22,7 @@ import 'collab_create_listing_screen.dart';
 import 'collab_incoming_applications_screen.dart';
 import 'collab_listing_detail_screen.dart';
 
-class CollabMyListingsScreen extends StatefulWidget {
+class CollabMyListingsScreen extends StatelessWidget {
   const CollabMyListingsScreen({
     this.showBottomNavigation = true,
     this.onCreateListing,
@@ -33,10 +35,36 @@ class CollabMyListingsScreen extends StatefulWidget {
   final CollabMyListingsCubit? cubit;
 
   @override
-  State<CollabMyListingsScreen> createState() => _CollabMyListingsScreenState();
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabMyListingsScreenContent(
+        showBottomNavigation: showBottomNavigation,
+        onCreateListing: onCreateListing,
+        cubit: cubit,
+      ),
+    );
+  }
 }
 
-class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
+class _CollabMyListingsScreenContent extends StatefulWidget {
+  const _CollabMyListingsScreenContent({
+    this.showBottomNavigation = true,
+    this.onCreateListing,
+    this.cubit,
+  });
+
+  final bool showBottomNavigation;
+  final VoidCallback? onCreateListing;
+  final CollabMyListingsCubit? cubit;
+
+  @override
+  State<_CollabMyListingsScreenContent> createState() =>
+      _CollabMyListingsScreenState();
+}
+
+class _CollabMyListingsScreenState
+    extends State<_CollabMyListingsScreenContent> {
   late final CollabMyListingsCubit _cubit;
   late final bool _ownsCubit;
   late final ScrollController _scrollController;
@@ -202,6 +230,7 @@ class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
   Future<void> _openCreate() async {
     final result = await Navigator.of(context).push<CollabCreateListingResult>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabCreateListingScreen(
           showBottomNavigation: widget.showBottomNavigation,
         ),
@@ -221,6 +250,7 @@ class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
   Future<void> _openEditor(CollabListing listing) async {
     final result = await Navigator.of(context).push<CollabCreateListingResult>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabCreateListingScreen(
           initialListing: listing,
           showBottomNavigation: widget.showBottomNavigation,
@@ -234,6 +264,7 @@ class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
   Future<void> _openDetail(CollabListing listing) async {
     await Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabListingDetailScreen(
           listingId: listing.id,
           showBottomNavigation: widget.showBottomNavigation,
@@ -246,6 +277,7 @@ class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
   Future<void> _openApplications(CollabListing listing) async {
     await Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabIncomingApplicationsScreen(
           listingId: listing.id,
           listingTitle: listing.title,
@@ -280,7 +312,7 @@ class _CollabMyListingsScreenState extends State<CollabMyListingsScreen> {
     required String message,
     required String action,
   }) async {
-    return await showDialog<bool>(
+    return await showCollabDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text(title),
@@ -335,7 +367,7 @@ class _Header extends StatelessWidget {
             children: [
               GradientText(
                 text: 'Collab',
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(colors: AppColors.brandTextGradient),
                 style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
@@ -370,6 +402,7 @@ class _StatusRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     const options = <(CollabListingStatus?, String)>[
       (CollabListingStatus.open, 'Yayında'),
       (CollabListingStatus.draft, 'Taslaklar'),
@@ -581,6 +614,7 @@ class _LoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),

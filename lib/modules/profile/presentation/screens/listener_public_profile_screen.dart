@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,7 @@ class ListenerPublicProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ListenerProfileTheme(
       inheritAppTheme: true,
       child: MultiBlocProvider(
@@ -79,7 +81,10 @@ class _ListenerPublicProfileViewState
 
     if (_profileId.isNotEmpty) {
       unawaited(
-        context.read<ListenerProfileCubit>().loadPublicProfile(_profileId),
+        context.read<ListenerProfileCubit>().loadPublicProfile(
+          _profileId,
+          admitContent: NotificationTargetRead.beginFollowRequest(context),
+        ),
       );
     }
     _resolveViewerFromAuthenticatedSession();
@@ -96,6 +101,7 @@ class _ListenerPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocListener<ListenerProfileCubit, ListenerProfileState>(
       listenWhen: (previous, current) =>
           current.status == ListenerProfileStatus.failure &&
@@ -140,15 +146,21 @@ class _ListenerPublicProfileViewState
             }
 
             if (profile.isGhost) {
-              return ListenerGhostProfileContent(
-                username: profile.username,
-                profilePictureUrl: profile.profilePictureUrl,
-                owner: false,
-                busy: false,
-                onRefresh: _refresh,
-                onMessage: _canMessage(profile)
-                    ? () => _openMessage(profile)
-                    : null,
+              return NotificationTargetReady(
+                contentIdentity: profile,
+                ready:
+                    state.status == ListenerProfileStatus.success &&
+                    profile.id == _profileId,
+                child: ListenerGhostProfileContent(
+                  username: profile.username,
+                  profilePictureUrl: profile.profilePictureUrl,
+                  owner: false,
+                  busy: false,
+                  onRefresh: _refresh,
+                  onMessage: _canMessage(profile)
+                      ? () => _openMessage(profile)
+                      : null,
+                ),
               );
             }
 
@@ -156,30 +168,38 @@ class _ListenerPublicProfileViewState
             return BlocBuilder<FollowActionCubit, FollowActionState>(
               builder: (context, followState) {
                 final canFollow = _canFollow(profile);
-                return ListenerPublicProfileContent(
-                  postsAreSlivers: true,
-                  profile: profile,
-                  isFollowing: followState.isFollowing,
-                  followBusy: followState.status == FollowActionStatus.loading,
-                  onRefresh: _refresh,
-                  onPlaylistTap: (playlist) => unawaited(
-                    launchSpotifyPlaylist(context, playlist.spotifyUrl),
-                  ),
-                  onFollow: canFollow
-                      ? () => unawaited(_toggleFollow(profile))
-                      : null,
-                  onMessage: _canMessage(profile)
-                      ? () => _openMessage(profile)
-                      : null,
-                  posts: ListenerProfilePostsSection(
-                    asSliver: true,
-                    key: ValueKey('listener-public-posts-${profile.id}'),
-                    listenerProfileId: profile.id,
-                    username: profile.username,
-                    avatarUrl: profile.profilePictureUrl,
-                    profileContentVisible:
-                        !profile.restricted && !profile.isGhost,
-                    refreshSignal: _eventPostsRefresh,
+                return NotificationTargetReady(
+                  contentIdentity: profile,
+                  ready:
+                      state.status == ListenerProfileStatus.success &&
+                      profile.id == _profileId &&
+                      !profile.restricted,
+                  child: ListenerPublicProfileContent(
+                    postsAreSlivers: true,
+                    profile: profile,
+                    isFollowing: followState.isFollowing,
+                    followBusy:
+                        followState.status == FollowActionStatus.loading,
+                    onRefresh: _refresh,
+                    onPlaylistTap: (playlist) => unawaited(
+                      launchSpotifyPlaylist(context, playlist.spotifyUrl),
+                    ),
+                    onFollow: canFollow
+                        ? () => unawaited(_toggleFollow(profile))
+                        : null,
+                    onMessage: _canMessage(profile)
+                        ? () => _openMessage(profile)
+                        : null,
+                    posts: ListenerProfilePostsSection(
+                      asSliver: true,
+                      key: ValueKey('listener-public-posts-${profile.id}'),
+                      listenerProfileId: profile.id,
+                      username: profile.username,
+                      avatarUrl: profile.profilePictureUrl,
+                      profileContentVisible:
+                          !profile.restricted && !profile.isGhost,
+                      refreshSignal: _eventPostsRefresh,
+                    ),
                   ),
                 );
               },
@@ -272,7 +292,10 @@ class _ListenerPublicProfileViewState
 
   Future<void> _refresh() async {
     _loadedFollowKey = null;
-    await context.read<ListenerProfileCubit>().loadPublicProfile(_profileId);
+    await context.read<ListenerProfileCubit>().loadPublicProfile(
+      _profileId,
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
+    );
     if (mounted) _eventPostsRefresh.value++;
   }
 }
@@ -297,6 +320,7 @@ class _PublicProfileFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final resolvedMessage = message?.trim() ?? '';
     return ListView(
       key: const Key('listener-public-profile-failure'),

@@ -103,6 +103,7 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return PopScope<_StudioRoomSettingsResult>(
       canPop: _allowPop || !_isDirty,
       onPopInvokedWithResult: (didPop, _) {
@@ -146,11 +147,11 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
                   maxLength: 100,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Oda adı',
                     prefixIcon: Icon(
                       Icons.meeting_room_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                   validator: (value) => value == null || value.trim().isEmpty
@@ -163,12 +164,12 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
                   maxLength: 60,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Kısa açıklama (opsiyonel)',
                     hintText: 'Örn. Prova',
                     prefixIcon: Icon(
                       Icons.short_text_rounded,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                   ),
                 ),
@@ -180,12 +181,12 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9\-–— ]')),
                   ],
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Kapasite',
                     hintText: 'Örn. 4-6',
                     prefixIcon: Icon(
                       Icons.people_outline,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                     suffixText: 'kişi',
                   ),
@@ -202,11 +203,11 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                   controller: _hourlyPriceController,
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Saatlik ücret (opsiyonel)',
                     prefixIcon: Icon(
                       Icons.payments_outlined,
-                      color: _roomFormIconColor,
+                      color: AppColors.legacy(_roomFormIconColor),
                     ),
                     prefixText: '₺ ',
                     suffixText: '/ saat',
@@ -230,9 +231,12 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                   label: 'Oda Özellikleri',
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Bir özellik yazıp Enter’a veya ekle butonuna bas.',
-                  style: TextStyle(color: Color(0xFF8F99A9), fontSize: 12),
+                  style: TextStyle(
+                    color: AppColors.legacy(Color(0xFF8F99A9)),
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -246,9 +250,9 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                         onSubmitted: (_) => _addFeature(),
                         decoration: InputDecoration(
                           hintText: 'Örn. Akustik izolasyon',
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.add_circle_outline,
-                            color: _roomFormIconColor,
+                            color: AppColors.legacy(_roomFormIconColor),
                           ),
                           errorText: _featureError,
                         ),
@@ -463,17 +467,22 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
         '${effectiveDate.day.toString().padLeft(2, '0')}.'
         '${effectiveDate.month.toString().padLeft(2, '0')}.'
         '${effectiveDate.year}';
-    return await showDialog<bool>(
+    return await showStudioDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            backgroundColor: const Color(0xFF101722),
+            backgroundColor: AppColors.legacy(const Color(0xFF101722)),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: Color(0xFF2B3546)),
+              side: BorderSide(
+                color: AppColors.legacyBorder(Color(0xFF2B3546)),
+              ),
             ),
             title: Row(
               children: [
-                const Icon(Icons.schedule_rounded, color: _roomFormIconColor),
+                Icon(
+                  Icons.schedule_rounded,
+                  color: AppColors.legacy(_roomFormIconColor),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -492,8 +501,8 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
                         '$effectiveDateLabel saat 00:00’dan itibaren geçerli '
                         'olacak. Mevcut rezervasyon ve talepler oluşturuldukları '
                         'andaki onay kuralını koruyacak.',
-              style: const TextStyle(
-                color: Color(0xFFB8C0CC),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFFB8C0CC)),
                 fontSize: 14,
                 height: 1.45,
               ),
@@ -532,13 +541,13 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
     _deleteDialogOpen = true;
     bool? shouldDelete;
     try {
-      shouldDelete = await showDialog<bool>(
+      shouldDelete = await showStudioDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          backgroundColor: const Color(0xFF101722),
+          backgroundColor: AppColors.legacy(const Color(0xFF101722)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFF3A2630)),
+            side: BorderSide(color: AppColors.legacyBorder(Color(0xFF3A2630))),
           ),
           title: const Row(
             children: [
@@ -553,8 +562,8 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
             've fotoğraf bağlantıları çözülür. Geçmiş işlem kayıtları güvenlik '
             've denetim amacıyla korunur. Bu işlem geri alınamaz. Yine de devam '
             'etmek istiyor musunuz?',
-            style: const TextStyle(
-              color: Color(0xFFB8C0CC),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFFB8C0CC)),
               fontSize: 14,
               height: 1.45,
             ),
@@ -569,7 +578,7 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFD84A5A),
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.legacy(Colors.white),
               ),
               icon: const Icon(Icons.delete_outline_rounded, size: 19),
               label: const Text('Odayı Sil'),
@@ -609,20 +618,20 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
   Future<void> _confirmDiscardChanges() async {
     if (_isExitDialogOpen) return;
     _isExitDialogOpen = true;
-    final shouldDiscard = await showDialog<bool>(
+    final shouldDiscard = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF293548)),
+          side: BorderSide(color: AppColors.legacyBorder(Color(0xFF293548))),
         ),
         title: const Text('Değişiklikler kaydedilmedi'),
-        content: const Text(
+        content: Text(
           'Bu ekrandan çıkarsanız oda ayarlarında yaptığınız değişiklikler '
           'kaybolacak. Yine de çıkmak istiyor musunuz?',
           style: TextStyle(
-            color: Color(0xFFB8C0CC),
+            color: AppColors.legacy(Color(0xFFB8C0CC)),
             fontSize: 14,
             height: 1.45,
           ),
@@ -805,10 +814,10 @@ class _StudioRoomSettingsScreenState extends State<_StudioRoomSettingsScreen> {
       );
       return;
     }
-    final shouldReload = await showDialog<bool>(
+    final shouldReload = await showStudioDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF101722),
+        backgroundColor: AppColors.legacy(const Color(0xFF101722)),
         title: const Text('Oda bilgileri değişti'),
         content: const Text(
           'Bu oda başka bir oturumda güncellendi. Güncel bilgileri yükleyip '

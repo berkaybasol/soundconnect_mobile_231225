@@ -47,7 +47,10 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
     message: 'Mekân profili yanıtı doğrulanamadı.',
   );
 
-  Future<void> loadOwner({String? venueId}) async {
+  Future<void> loadOwner({
+    String? venueId,
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     if (isClosed) return;
     final generation = ++_generation;
     final sessions = _sessions;
@@ -84,6 +87,16 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
         !_validOwner(result.data, target, session?.userId)) {
       result = const Result.failure(_invalid);
     }
+    if (result.isSuccess &&
+        result.data != null &&
+        admitContent != null &&
+        !admitContent(
+          result.data!,
+          result.data!.venueId,
+          result.data!.ownerUserId,
+        )) {
+      result = const Result.failure(_invalid);
+    }
     emit(
       state.copyWith(
         status: result.isSuccess
@@ -95,7 +108,10 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
     );
   }
 
-  Future<void> loadPublic({String? venueId}) async {
+  Future<void> loadPublic({
+    String? venueId,
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     if (isClosed) return;
     final generation = ++_generation;
     final sessions = _sessions;
@@ -128,6 +144,16 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
             profile.ownerUserId.trim().isEmpty ||
             (target?.isNotEmpty == true && profile.venueId != target))) {
       result = const Result<VenuePublicProfile>.failure(_invalid);
+    }
+    if (result.isSuccess &&
+        result.data != null &&
+        admitContent != null &&
+        !admitContent(
+          result.data!,
+          result.data!.venueId,
+          result.data!.ownerUserId,
+        )) {
+      result = const Result.failure(_invalid);
     }
     emit(
       state.copyWith(

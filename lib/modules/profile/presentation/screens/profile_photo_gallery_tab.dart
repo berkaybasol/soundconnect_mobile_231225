@@ -8,6 +8,8 @@ import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
 import 'media_detail_screen.dart';
 import 'profile_image_url_resolver.dart';
+import 'media_content_audience_controls.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 class ProfilePhotoGalleryTab extends StatelessWidget {
   final List<MediaAsset> items;
@@ -16,6 +18,8 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
   final bool uploading;
   final double uploadProgress;
   final String? uploadStatusLabel;
+  final String ownerType;
+  final Future<void> Function()? onAudienceChanged;
 
   ProfilePhotoGalleryTab({
     super.key,
@@ -25,6 +29,8 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
     this.uploading = false,
     this.uploadProgress = 0,
     this.uploadStatusLabel,
+    this.ownerType = '',
+    this.onAudienceChanged,
   });
 
   void _openImage(BuildContext context, MediaAsset item) {
@@ -75,7 +81,11 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             gradient: LinearGradient(
-              colors: [Color(0x1AFFFFFF), Color(0x1A8A5CFF), Color(0x1AFF7A3D)],
+              colors: [
+                AppColors.legacy(Color(0x1AFFFFFF)),
+                Color(0x1A8A5CFF),
+                Color(0x1AFF7A3D),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -148,6 +158,7 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final visibleItems = items
         .where((item) => resolveMediaPreviewImageUrl(item) != null)
         .toList(growable: false);
@@ -223,6 +234,17 @@ class ProfilePhotoGalleryTab extends StatelessWidget {
                           );
                         },
                       ),
+                      if (ownerMode && onAudienceChanged != null)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: MediaContentAudienceMenu(
+                            assetId: item.id,
+                            ownerType: ownerType,
+                            contentAudience: item.contentAudience,
+                            onChanged: onAudienceChanged!,
+                          ),
+                        ),
                     ],
                   ),
                 ),

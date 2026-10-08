@@ -18,6 +18,7 @@ class CollabShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     final specialty = listing.specialtyLabel ?? listing.wantedType.label;
     return SizedBox(
       key: const ValueKey('collab-share-card'),
@@ -45,7 +46,9 @@ class CollabShareCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: AppColors.socialGradient),
+                    gradient: LinearGradient(
+                      colors: AppColors.originalDark.socialGradient,
+                    ),
                     borderRadius: BorderRadius.circular(26),
                     boxShadow: const [
                       BoxShadow(
@@ -161,40 +164,43 @@ class _BrandRow extends StatelessWidget {
   const _BrandRow();
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 212,
-    height: 54,
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-          left: 0,
-          top: 0,
-          width: 212,
-          height: 45,
-          child: Image.asset(
-            'assets/Logoyanyana.png',
-            fit: BoxFit.fitWidth,
-            alignment: Alignment.center,
-            filterQuality: FilterQuality.high,
-          ),
-        ),
-        const Positioned(
-          left: 45,
-          top: 33,
-          child: Text(
-            'COLLAB',
-            style: TextStyle(
-              color: Color(0xFFB8C0D0),
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2.4,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return SizedBox(
+      width: 212,
+      height: 54,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            width: 212,
+            height: 45,
+            child: Image.asset(
+              'assets/Logoyanyana.png',
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.high,
             ),
           ),
-        ),
-      ],
-    ),
-  );
+          const Positioned(
+            left: 45,
+            top: 33,
+            child: Text(
+              'COLLAB',
+              style: TextStyle(
+                color: Color(0xFFB8C0D0),
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Publisher extends StatelessWidget {
@@ -204,47 +210,53 @@ class _Publisher extends StatelessWidget {
   final ImageProvider? avatarImage;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      CircleAvatar(
-        radius: 22,
-        backgroundColor: const Color(0xFFB85CFF),
-        foregroundImage: avatarImage,
-        onForegroundImageError: avatarImage == null ? null : (_, _) {},
-        child: Text(
-          listing.publisher.initials,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: const Color(0xFFB85CFF),
+          foregroundImage: avatarImage,
+          onForegroundImageError: avatarImage == null ? null : (_, _) {},
+          child: Text(
+            listing.publisher.initials,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
-      ),
-      const SizedBox(width: 11),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              listing.publisher.displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w900,
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                listing.publisher.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              listing.publisher.profileType.label,
-              style: const TextStyle(color: Color(0xFF9EA8B7), fontSize: 10.5),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                listing.publisher.profileType.label,
+                style: const TextStyle(
+                  color: Color(0xFF9EA8B7),
+                  fontSize: 10.5,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _MetaRow extends StatelessWidget {
@@ -254,24 +266,27 @@ class _MetaRow extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Icon(icon, color: const Color(0xFFE67AAE), size: 17),
-      const SizedBox(width: 9),
-      Expanded(
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFFEFF2F8),
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFFE67AAE), size: 17),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFEFF2F8),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _GenreChip extends StatelessWidget {
@@ -280,22 +295,25 @@ class _GenreChip extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(
-      color: const Color(0xFF171F2D),
-      borderRadius: BorderRadius.circular(99),
-      border: Border.all(color: const Color(0xFF303B4C)),
-    ),
-    child: Text(
-      label,
-      style: const TextStyle(
-        color: Color(0xFFDCE1EA),
-        fontSize: 9.5,
-        fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171F2D),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: const Color(0xFF303B4C)),
       ),
-    ),
-  );
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFFDCE1EA),
+          fontSize: 9.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 }
 
 String _wantedSummary(CollabListing listing, String specialty) =>

@@ -1,0 +1,875 @@
+import 'package:flutter/material.dart';
+
+import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/di/service_locator.dart';
+import '../../../../shared/images/app_cached_network_image.dart';
+import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../domain/backstage_feed_session.dart';
+import '../../domain/musician_feed_like_users_target.dart';
+import '../../domain/musician_feed_models.dart';
+import 'musician_feed_card_registry.dart';
+
+class MusicianFeedSurface extends StatelessWidget {
+  const MusicianFeedSurface({
+    super.key,
+    required this.item,
+    required this.actions,
+    required this.child,
+    this.onTap,
+    this.showAuthor = true,
+    this.contentPadding = const EdgeInsets.fromLTRB(14, 13, 14, 10),
+  });
+
+  final MusicianFeedItem item;
+  final MusicianFeedCardActions actions;
+  final Widget child;
+  final VoidCallback? onTap;
+  final bool showAuthor;
+  final EdgeInsetsGeometry contentPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    final hasAuthor = showAuthor && item.author != null;
+    final authorIdentity = musicianFeedAuthorProfileIdentity(item.author);
+    final publicationActor =
+        item.reason.actors.firstOrNull ??
+        (item.author?.followedByViewer == true ? item.author : null);
+    // A publication needs one identity row. Preserve a different publisher
+    // (for example a venue sharing a performer), social context and disclosures.
+    final mergedPublication =
+        hasAuthor &&
+        item.promotion == null &&
+        item.reason.code == 'FOLLOWING_PUBLICATION' &&
+        authorIdentity != null &&
+        musicianFeedAuthorProfileIdentity(publicationActor) == authorIdentity;
+    final surface = Container(
+      color: Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!mergedPublication)
+            MusicianFeedReasonRow(
+              item: item,
+              actions: actions,
+              showOverflow: !hasAuthor,
+            ),
+          Padding(
+            padding: contentPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (hasAuthor) ...[
+                  MusicianFeedAuthorHeader(
+                    author: item.author!,
+                    occurredAt: item.occurredAt,
+                    onTap: () => actions.openAuthor(item, item.author!),
+                    onOverflow: () => showMusicianFeedActions(
+                      context,
+                      item: item,
+                      actions: actions,
+                    ),
+                    onHide:
+                        mergedPublication &&
+                            item.feedbackCapabilities.contains(
+                              MusicianFeedFeedbackAction.hide,
+                            )
+                        ? () => actions.feedback(
+                            item,
+                            MusicianFeedFeedbackAction.hide,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                child,
+                if (_hasEngagementContent(item.engagement)) ...[
+                  const SizedBox(height: 12),
+                  MusicianFeedEngagementBar(item: item, actions: actions),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return surface;
+    return Semantics(
+      button: true,
+      label: _semanticLabel(item),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(onTap: onTap, child: surface),
+      ),
+    );
+  }
+
+  String _semanticLabel(MusicianFeedItem item) {
+    final author = item.author?.visibleName;
+    final disclosure = item.promotion == null
+        ? null
+        : musicianFeedPromotionDisclosureLabel(item.promotion!.disclosure);
+    final kind = switch (item.type) {
+      MusicianFeedItemType.track => 'müzik kaydı',
+      MusicianFeedItemType.profileMedia => 'medya paylaşımı',
+      MusicianFeedItemType.collab => 'Collab ilanı',
+      MusicianFeedItemType.event ||
+      MusicianFeedItemType.eventProfileShare => 'etkinlik',
+      MusicianFeedItemType.overthinkingProfileShare =>
+        'Overthinking profil paylaşımı',
+      MusicianFeedItemType.tableGroupProfileShare => 'masa profil paylaşımı',
+      MusicianFeedItemType.profile => 'profil önerisi',
+      MusicianFeedItemType.profileCompletion => 'profil tamamlama önerisi',
+      MusicianFeedItemType.sponsored => 'sponsorlu içerik',
+      MusicianFeedItemType.announcement => 'SoundConnect duyurusu',
+      _ => 'sosyal aktivite',
+    };
+    final content = author == null ? kind : '$author tarafından $kind';
+    return disclosure == null ? content : '$disclosure, $content';
+  }
+}
+
+class MusicianFeedReasonRow extends StatelessWidget {
+  const MusicianFeedReasonRow({
+    super.key,
+    required this.item,
+    required this.actions,
+    this.showOverflow = false,
+  });
+
+  final MusicianFeedItem item;
+  final MusicianFeedCardActions actions;
+  final bool showOverflow;
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    final promotion = item.promotion;
+    // The reason actor can differ from the content author: a followed venue
+    // can surface an event whose author header identifies the performer.
+    final publicationActor =
+        promotion == null && item.reason.code == 'FOLLOWING_PUBLICATION'
+        ? item.reason.actors.firstOrNull ??
+              (item.author?.followedByViewer == true ? item.author : null)
+        : null;
+    final audience = serviceLocator.isRegistered<AuthSessionManager>()
+        ? backstageFeedSessionIdentity(
+            serviceLocator<AuthSessionManager>().session,
+          )?.audience
+        : null;
+    final label = promotion == null
+        ? musicianFeedReasonLabel(
+            item.reason,
+            publicationAuthor: item.author,
+            audience: audience,
+          )
+        : musicianFeedPromotionDisclosureLabel(promotion.disclosure);
+    final icon = promotion == null
+        ? _reasonIcon(item.reason.code)
+        : _promotionDisclosureIcon(promotion.disclosure);
+    final isAnnouncement =
+        (promotion?.disclosure ?? item.reason.code).trim().toUpperCase() ==
+        'PLATFORM_ANNOUNCEMENT';
+    final isLikeReason =
+        promotion == null &&
+        (item.reason.code == 'FOLLOWED_USER_LIKED' ||
+            item.reason.code == 'FOLLOWING_LIKED');
+    final canOpenLikes =
+        isLikeReason && musicianFeedLikeUsersTarget(item) != null;
+    final canHide = item.feedbackCapabilities.contains(
+      MusicianFeedFeedbackAction.hide,
+    );
+    final hasMenu =
+        showOverflow &&
+        (item.feedbackCapabilities.contains(
+              MusicianFeedFeedbackAction.showLess,
+            ) ||
+            item.feedbackCapabilities.contains(
+              MusicianFeedFeedbackAction.report,
+            ) ||
+            musicianFeedAuthorProfileIdentity(item.author) != null);
+    if (label == null && !canHide && !hasMenu) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      constraints: const BoxConstraints(minHeight: 44),
+      padding: const EdgeInsetsDirectional.only(start: 14, end: 4),
+      child: Row(
+        children: [
+          if (publicationActor != null)
+            Expanded(
+              child: _PublicationReasonLink(
+                actor: publicationActor,
+                onTap:
+                    musicianFeedAuthorProfileIdentity(publicationActor) == null
+                    ? null
+                    : () => actions.openAuthor(item, publicationActor),
+              ),
+            )
+          else if (label != null && canOpenLikes)
+            Expanded(
+              child: _LikesReasonLink(
+                label: label,
+                icon: icon,
+                onTap: () => actions.openLikes(item),
+              ),
+            )
+          else if (label != null) ...[
+            if (isAnnouncement)
+              BrandGradientIcon(icon, size: 18)
+            else
+              Icon(
+                icon,
+                size: isLikeReason ? 18 : 16,
+                color: isLikeReason
+                    ? AppColors.likeHeart
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ] else
+            const Spacer(),
+          if (hasMenu)
+            IconButton(
+              onPressed: () => showMusicianFeedActions(
+                context,
+                item: item,
+                actions: actions,
+              ),
+              icon: const Icon(Icons.more_vert_rounded, size: 20),
+              tooltip: 'Kart seçenekleri',
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              padding: EdgeInsets.zero,
+            ),
+          if (canHide)
+            IconButton(
+              onPressed: () =>
+                  actions.feedback(item, MusicianFeedFeedbackAction.hide),
+              icon: const Icon(Icons.close_rounded, size: 20),
+              tooltip: item.type == MusicianFeedItemType.announcement
+                  ? 'Bu duyuruyu akışta bir daha gösterme'
+                  : 'Bu kartı gizle',
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              padding: EdgeInsets.zero,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LikesReasonLink extends StatelessWidget {
+  const _LikesReasonLink({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Semantics(
+      button: true,
+      label: '$label. Beğenenleri göster',
+      onTap: onTap,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          excludeFromSemantics: true,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(0, 7, 6, 7),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: AppColors.likeHeart),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PublicationReasonLink extends StatelessWidget {
+  const _PublicationReasonLink({required this.actor, required this.onTap});
+
+  final MusicianFeedActor actor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final name = actor.visibleName;
+    return Semantics(
+      button: onTap != null,
+      label: onTap == null ? '$name paylaştı' : '$name profilini aç',
+      value: onTap == null ? null : 'Paylaştı',
+      onTap: onTap,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          excludeFromSemantics: true,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(0, 7, 6, 7),
+              child: Row(
+                children: [
+                  ClipOval(
+                    child: AppCachedNetworkImage(
+                      imageUrl: actor.avatarUrl,
+                      width: 26,
+                      height: 26,
+                      cacheWidth: 78,
+                      cacheHeight: 78,
+                      placeholderBuilder: (_) =>
+                          _AuthorFallback(author: actor, compact: true),
+                      errorBuilder: (_) =>
+                          _AuthorFallback(author: actor, compact: true),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: name,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const TextSpan(text: ' paylaştı'),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 12,
+                        height: 1.3,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MusicianFeedAuthorHeader extends StatelessWidget {
+  const MusicianFeedAuthorHeader({
+    super.key,
+    required this.author,
+    required this.occurredAt,
+    required this.onTap,
+    required this.onOverflow,
+    this.onHide,
+  });
+
+  final MusicianFeedActor author;
+  final DateTime occurredAt;
+  final VoidCallback onTap;
+  final VoidCallback onOverflow;
+  final VoidCallback? onHide;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Semantics(
+          button: true,
+          label: '${author.visibleName} profilini aç',
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(24),
+            child: CircleAvatar(
+              radius: 22,
+              backgroundColor: AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : Theme.of(context).colorScheme.surfaceContainerHigh,
+              child: ClipOval(
+                child: AppCachedNetworkImage(
+                  imageUrl: author.avatarUrl,
+                  width: 44,
+                  height: 44,
+                  cacheWidth: 132,
+                  cacheHeight: 132,
+                  placeholderBuilder: (_) => _AuthorFallback(author: author),
+                  errorBuilder: (_) => _AuthorFallback(author: author),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    author.visibleName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${_profileTypeLabel(author.profileType)} · ${musicianFeedRelativeTime(occurredAt)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: onOverflow,
+          icon: const Icon(Icons.more_vert_rounded),
+          tooltip: 'Kart seçenekleri',
+          constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+        ),
+        if (onHide != null)
+          IconButton(
+            onPressed: onHide,
+            icon: const Icon(Icons.close_rounded, size: 20),
+            tooltip: 'Bu kartı gizle',
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            padding: EdgeInsets.zero,
+          ),
+      ],
+    );
+  }
+}
+
+bool _hasEngagementContent(MusicianFeedEngagement? engagement) =>
+    engagement != null &&
+    (engagement.likable ||
+        engagement.commentable ||
+        engagement.likeCount > 0 ||
+        engagement.commentCount > 0);
+
+class MusicianFeedEngagementBar extends StatelessWidget {
+  const MusicianFeedEngagementBar({
+    super.key,
+    required this.item,
+    required this.actions,
+  });
+
+  final MusicianFeedItem item;
+  final MusicianFeedCardActions actions;
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    if (!_hasEngagementContent(item.engagement)) {
+      return const SizedBox.shrink();
+    }
+    final engagement = item.engagement!;
+    final hasActions = engagement.likable || engagement.commentable;
+    return Column(
+      children: [
+        if (engagement.likeCount > 0 || engagement.commentCount > 0) ...[
+          Row(
+            children: [
+              if (engagement.likeCount > 0) ...[
+                const Icon(
+                  Icons.favorite_rounded,
+                  size: 18,
+                  color: AppColors.likeHeart,
+                ),
+                const SizedBox(width: 5),
+                Text('${engagement.likeCount}', style: _metadataStyle(context)),
+              ],
+              const Spacer(),
+              if (engagement.commentCount > 0)
+                Text(
+                  '${engagement.commentCount} yorum',
+                  style: _metadataStyle(context),
+                ),
+            ],
+          ),
+          if (hasActions) ...[
+            const SizedBox(height: 8),
+            Divider(
+              height: 1,
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+            const SizedBox(height: 2),
+          ],
+        ],
+        if (hasActions)
+          Row(
+            children: [
+              if (engagement.likable)
+                Expanded(
+                  child: _FeedActionButton(
+                    icon: engagement.likedByMe
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    label: engagement.likedByMe ? 'Beğendin' : 'Beğen',
+                    color: engagement.likedByMe ? AppColors.likeHeart : null,
+                    iconColor: AppColors.likeHeart,
+                    iconSize: 18,
+                    onPressed: () => actions.toggleLike(item),
+                  ),
+                ),
+              if (engagement.commentable)
+                Expanded(
+                  child: _FeedActionButton(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    label: 'Yorum',
+                    onPressed: () => actions.openComments(item),
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  TextStyle _metadataStyle(BuildContext context) => TextStyle(
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
+    fontSize: 11.5,
+    fontWeight: FontWeight.w600,
+  );
+}
+
+class _FeedActionButton extends StatelessWidget {
+  const _FeedActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.color,
+    this.iconColor,
+    this.iconSize = 19,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final Color? color;
+  final Color? iconColor;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = color ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    final stacked = MediaQuery.textScalerOf(context).scale(1) >= 1.6;
+    return SizedBox(
+      height: stacked ? 68 : 44,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.symmetric(horizontal: stacked ? 2 : 6),
+        ),
+        child: stacked
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: iconSize, color: iconColor ?? foreground),
+                  const SizedBox(height: 2),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: iconSize, color: iconColor ?? foreground),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+Future<void> showMusicianFeedActions(
+  BuildContext context, {
+  required MusicianFeedItem item,
+  required MusicianFeedCardActions actions,
+}) async {
+  final author = item.author;
+  final selected = await showModalBottomSheet<_FeedMenuAction>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+    builder: (sheetContext) => SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (item.feedbackCapabilities.contains(
+              MusicianFeedFeedbackAction.showLess,
+            ))
+              ListTile(
+                minTileHeight: 48,
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('Bunun gibi daha az göster'),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _FeedMenuAction.showLess),
+              ),
+            if (musicianFeedAuthorProfileIdentity(author) != null)
+              ListTile(
+                minTileHeight: 48,
+                leading: const Icon(Icons.volume_off_outlined),
+                title: Text('${author!.visibleName} paylaşımlarını sessize al'),
+                onTap: () => Navigator.pop(sheetContext, _FeedMenuAction.mute),
+              ),
+            if (item.feedbackCapabilities.contains(
+              MusicianFeedFeedbackAction.report,
+            ))
+              ListTile(
+                minTileHeight: 48,
+                leading: Icon(
+                  Icons.flag_outlined,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: const Text('Bildir'),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _FeedMenuAction.report),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (!context.mounted || selected == null) return;
+  switch (selected) {
+    case _FeedMenuAction.showLess:
+      actions.feedback(item, MusicianFeedFeedbackAction.showLess);
+      break;
+    case _FeedMenuAction.mute:
+      if (author != null) actions.muteAuthor(item, author);
+      break;
+    case _FeedMenuAction.report:
+      actions.feedback(item, MusicianFeedFeedbackAction.report);
+      break;
+  }
+}
+
+String? musicianFeedReasonLabel(
+  MusicianFeedReason reason, {
+  MusicianFeedActor? publicationAuthor,
+  BackstageFeedAudience? audience,
+}) {
+  final actor = reason.actors.isEmpty ? null : reason.actors.first.visibleName;
+  final publicationName =
+      actor ??
+      (publicationAuthor?.followedByViewer == true
+          ? publicationAuthor?.visibleName
+          : null);
+  final others = reason.secondaryActorCount;
+  final actorWithOthers = actor == null
+      ? null
+      : others > 0
+      ? '$actor ve $others kişi daha'
+      : actor;
+  return switch (reason.code) {
+    'FOLLOWING_PUBLICATION' =>
+      publicationName != null ? '$publicationName paylaştı' : 'Paylaşım',
+    'FOLLOWED_USER_COMMENTED' || 'FOLLOWING_COMMENTED' =>
+      '${actorWithOthers ?? 'Takip ettiğin biri'} yorum yaptı',
+    'FOLLOWED_USER_LIKED' || 'FOLLOWING_LIKED' =>
+      '${actorWithOthers ?? 'Takip ettiğin biri'} bunu beğendi',
+    'FOLLOWED_USER_FOLLOWED' || 'FOLLOWING_FOLLOWED' =>
+      '${actorWithOthers ?? 'Takip ettiğin biri'} bu profili takip ediyor',
+    'CITY_AND_INSTRUMENT_MATCH' => 'Şehrin ve enstrümanınla eşleşiyor',
+    'CITY_MATCH' =>
+      audience == BackstageFeedAudience.venue
+          ? 'Mekânınla aynı şehirde'
+          : audience == BackstageFeedAudience.studio
+          ? 'Stüdyonla aynı şehirde'
+          : audience == BackstageFeedAudience.listener
+          ? 'Senin şehrinde'
+          : 'Fırsat görmek istediğin şehirde',
+    'INSTRUMENT_MATCH' => 'Enstrümanınla eşleşiyor',
+    'DISCOVERY' => 'Senin için keşfedildi',
+    'PROFILE_INCOMPLETE' ||
+    'PROFILE_COMPLETION' => 'Akışını sana göre şekillendir',
+    'SPONSORED' => 'Sponsorlu',
+    'FEATURED' => 'Öne Çıkan',
+    'PLATFORM_ANNOUNCEMENT' => 'SoundConnect duyurusu',
+    _ => null,
+  };
+}
+
+String musicianFeedPromotionDisclosureLabel(String disclosure) {
+  return switch (disclosure.trim().toUpperCase()) {
+    'FEATURED' => 'Öne Çıkan',
+    'PLATFORM_ANNOUNCEMENT' => 'SoundConnect duyurusu',
+    'SPONSORED' => 'Sponsorlu',
+    // Promotion metadata is authoritative. Unknown additive disclosure types
+    // must remain visibly disclosed instead of falling back to a native
+    // discovery/following reason.
+    _ => 'Sponsorlu',
+  };
+}
+
+String musicianFeedRelativeTime(DateTime value, {DateTime? now}) {
+  final difference = (now ?? DateTime.now().toUtc()).difference(value.toUtc());
+  if (difference.isNegative || difference.inSeconds < 45) return 'şimdi';
+  if (difference.inMinutes < 60) return '${difference.inMinutes} dk';
+  if (difference.inHours < 24) return '${difference.inHours} sa';
+  if (difference.inDays < 7) return '${difference.inDays} gün';
+  if (difference.inDays < 30) return '${difference.inDays ~/ 7} hf';
+  if (difference.inDays < 365) return '${difference.inDays ~/ 30} ay';
+  return '${difference.inDays ~/ 365} yıl';
+}
+
+IconData _reasonIcon(String code) => switch (code) {
+  'FOLLOWED_USER_COMMENTED' ||
+  'FOLLOWING_COMMENTED' => Icons.chat_bubble_outline_rounded,
+  'FOLLOWED_USER_LIKED' || 'FOLLOWING_LIKED' => Icons.favorite_border_rounded,
+  'FOLLOWED_USER_FOLLOWED' ||
+  'FOLLOWING_FOLLOWED' => Icons.person_add_alt_1_rounded,
+  'CITY_AND_INSTRUMENT_MATCH' || 'CITY_MATCH' => Icons.location_on_outlined,
+  'INSTRUMENT_MATCH' => Icons.music_note_rounded,
+  'PROFILE_INCOMPLETE' || 'PROFILE_COMPLETION' => Icons.auto_awesome_rounded,
+  'SPONSORED' => Icons.campaign_outlined,
+  'FEATURED' => Icons.workspace_premium_outlined,
+  'PLATFORM_ANNOUNCEMENT' => Icons.campaign_rounded,
+  _ => Icons.people_alt_outlined,
+};
+
+IconData _promotionDisclosureIcon(String disclosure) =>
+    switch (disclosure.trim().toUpperCase()) {
+      'FEATURED' => Icons.workspace_premium_outlined,
+      'PLATFORM_ANNOUNCEMENT' => Icons.campaign_rounded,
+      _ => Icons.campaign_outlined,
+    };
+
+String _profileTypeLabel(String value) => switch (value.toUpperCase()) {
+  'MUSICIAN' => 'Müzisyen',
+  'BAND' => 'Grup',
+  'VENUE' => 'Mekân',
+  'STUDIO' => 'Stüdyo',
+  'LISTENER' => 'Dinleyici',
+  _ => 'SoundConnect',
+};
+
+class _AuthorFallback extends StatelessWidget {
+  const _AuthorFallback({required this.author, this.compact = false});
+  final MusicianFeedActor author;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    final visibleName = author.visibleName.trim();
+    final initial = visibleName.isEmpty
+        ? null
+        : visibleName.characters.first.toUpperCase();
+    return ColoredBox(
+      color: AppColors.isLight
+          ? AppColors.avatarBackground
+          : Theme.of(context).colorScheme.surfaceContainerHigh,
+      child: Center(
+        child: initial == null
+            ? AppColors.isLight
+                  ? Icon(
+                      Icons.person_outline_rounded,
+                      color: AppColors.avatarForeground,
+                    )
+                  : const BrandGradientIcon.social(Icons.person_outline_rounded)
+            : Text(
+                initial,
+                textScaler: compact ? TextScaler.noScaling : null,
+                style: TextStyle(
+                  color: AppColors.isLight ? AppColors.avatarForeground : null,
+                  fontSize: compact ? 11 : null,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+enum _FeedMenuAction { showLess, mute, report }

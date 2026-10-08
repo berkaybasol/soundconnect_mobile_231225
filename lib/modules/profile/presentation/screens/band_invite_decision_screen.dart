@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -111,6 +112,7 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen>
       !_checkingInvitation &&
       _invitationError == null &&
       widget.args.invitationId?.isNotEmpty == true &&
+      _currentInvitation?.bandId == widget.args.bandId &&
       _currentInvitation?.invitationId == widget.args.invitationId;
 
   String get _bandName {
@@ -394,6 +396,7 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_validSession) {
       return Scaffold(
         appBar: AppBar(title: const Text('Grup Daveti')),
@@ -454,110 +457,119 @@ class _BandInviteDecisionScreenState extends State<BandInviteDecisionScreen>
         .where((member) => member.status.trim().toUpperCase() == 'ACTIVE')
         .toList();
 
-    return PopScope(
-      canPop: !_submitting,
-      child: Scaffold(
-        appBar: AppBar(title: const Text('Grup Daveti'), centerTitle: true),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _BandInviteHero(
-                          bandName: _bandName,
-                          imageUrl: profile?.profilePictureUrl,
-                          title: title.isEmpty
-                              ? '$_bandName seni gruba davet etti'
-                              : title,
-                          message: message,
-                        ),
-                        const SizedBox(height: 16),
-                        if (_loadingProfile)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(18),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        else if (_errorText != null)
-                          _InlineInfoMessage(
-                            icon: Icons.info_outline_rounded,
-                            message: _errorText!,
-                          )
-                        else ...[
-                          Text(
-                            'Mevcut Üyeler',
-                            style: TextStyle(
-                              color: colors.onSurface,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
+    return NotificationTargetReady(
+      ready:
+          _validSession &&
+          _currentInviteMatches &&
+          !_loadingProfile &&
+          _errorText == null &&
+          profile != null &&
+          profile.id == widget.args.bandId,
+      child: PopScope(
+        canPop: !_submitting,
+        child: Scaffold(
+          appBar: AppBar(title: const Text('Grup Daveti'), centerTitle: true),
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _BandInviteHero(
+                            bandName: _bandName,
+                            imageUrl: profile?.profilePictureUrl,
+                            title: title.isEmpty
+                                ? '$_bandName seni gruba davet etti'
+                                : title,
+                            message: message,
                           ),
-                          const SizedBox(height: 10),
-                          if (members.isEmpty)
-                            const _InlineInfoMessage(
-                              icon: Icons.groups_outlined,
-                              message: 'Bu grup için aktif üye bilgisi yok.',
+                          const SizedBox(height: 16),
+                          if (_loadingProfile)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(18),
+                                child: CircularProgressIndicator(),
+                              ),
                             )
-                          else
-                            ...members.map(
-                              (member) => _BandInviteMemberTile(
-                                member: member,
-                                avatarUrl: _effectiveAvatar(member),
-                                onTap: () => _openMemberProfile(member),
+                          else if (_errorText != null)
+                            _InlineInfoMessage(
+                              icon: Icons.info_outline_rounded,
+                              message: _errorText!,
+                            )
+                          else ...[
+                            Text(
+                              'Mevcut Üyeler',
+                              style: TextStyle(
+                                color: colors.onSurface,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
+                            const SizedBox(height: 10),
+                            if (members.isEmpty)
+                              const _InlineInfoMessage(
+                                icon: Icons.groups_outlined,
+                                message: 'Bu grup için aktif üye bilgisi yok.',
+                              )
+                            else
+                              ...members.map(
+                                (member) => _BandInviteMemberTile(
+                                  member: member,
+                                  avatarUrl: _effectiveAvatar(member),
+                                  onTap: () => _openMemberProfile(member),
+                                ),
+                              ),
+                          ],
                         ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest.withValues(
+                        alpha: 0.88,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Bu daveti kabul edersen $_bandName üyeliğin aktif olur.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        GradientOutlineButton(
+                          onPressed: _submitting ? null : _acceptInvite,
+                          label: 'Kabul et',
+                          loading: _submitting,
+                          leading: const Icon(Icons.check_rounded),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: _submitting ? null : _rejectInvite,
+                          icon: const Icon(Icons.close_rounded),
+                          label: const Text('Reddet'),
+                        ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest.withValues(
-                      alpha: 0.88,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Bu daveti kabul edersen $_bandName üyeliğin aktif olur.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          height: 1.35,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      GradientOutlineButton(
-                        onPressed: _submitting ? null : _acceptInvite,
-                        label: 'Kabul et',
-                        loading: _submitting,
-                        leading: const Icon(Icons.check_rounded),
-                      ),
-                      const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        onPressed: _submitting ? null : _rejectInvite,
-                        icon: const Icon(Icons.close_rounded),
-                        label: const Text('Reddet'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -581,6 +593,7 @@ class _BandInviteHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final hasImage = _hasImage(imageUrl);
 
@@ -599,11 +612,17 @@ class _BandInviteHero extends StatelessWidget {
             height: 104,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: AppColors.brandGradient),
+              gradient: LinearGradient(
+                colors: AppColors.isLight
+                    ? [AppColors.avatarBackground, AppColors.avatarShadow]
+                    : AppColors.brandGradient,
+              ),
             ),
             padding: const EdgeInsets.all(2.5),
             child: CircleAvatar(
-              backgroundColor: colors.surfaceContainer,
+              backgroundColor: (AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : colors.surfaceContainer),
               child: ClipOval(
                 child: hasImage
                     ? AppCachedNetworkImage(
@@ -678,6 +697,7 @@ class _BandInviteMemberTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final imageUrl = avatarUrl?.trim() ?? '';
 
@@ -691,7 +711,9 @@ class _BandInviteMemberTile extends StatelessWidget {
       child: ListTile(
         onTap: onTap,
         leading: CircleAvatar(
-          backgroundColor: colors.surfaceContainer,
+          backgroundColor: (AppColors.isLight
+              ? AppColors.avatarBackground
+              : colors.surfaceContainer),
           child: ClipOval(
             child: _hasImage(imageUrl)
                 ? AppCachedNetworkImage(
@@ -738,6 +760,7 @@ class _InlineInfoMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final colors = Theme.of(context).colorScheme;
 
     return Container(

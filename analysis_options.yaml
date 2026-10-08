@@ -13,6 +13,8 @@ analyzer:
   exclude:
     - build/**
     - .dart_tool/**
+    # Temporary previews, reports, and historical source copies.
+    - tmp/**
     - "**/*.g.dart"
     - "**/*.freezed.dart"
   errors:

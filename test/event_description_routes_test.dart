@@ -7,6 +7,7 @@ import 'package:soundconnect_23_12_25codx/modules/engagement/domain/engagement_r
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_detail.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_item.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_event_management.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_owner_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_public_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/venue_event_repository.dart';
@@ -89,6 +90,26 @@ class _DescriptionEventRepository implements VenueEventRepository {
   _DescriptionEventRepository(this.description);
 
   final String? description;
+
+  @override
+  Future<Result<VenueEventManagementSnapshot>> loadManagement(
+    String venueId,
+  ) async => Result.success(
+    VenueEventManagementSnapshot(
+      upcomingEvents: (await listByVenue(venueId)).data!,
+      pastCount: 0,
+      historyAsOf: DateTime.now(),
+    ),
+  );
+
+  @override
+  Future<Result<VenueEventHistoryPage>> loadHistory(
+    String venueId, {
+    required DateTime asOf,
+    String? cursor,
+  }) async => const Result.success(
+    VenueEventHistoryPage(items: [], nextCursor: null, hasNext: false),
+  );
 
   @override
   Future<Result<List<VenueOwnerEventItem>>> listByVenue(String venueId) async {

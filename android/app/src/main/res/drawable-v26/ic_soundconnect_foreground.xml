@@ -1,0 +1,12 @@
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="12.247475%"
+    android:insetRight="15.025253%"
+    android:insetTop="13.210227%"
+    android:insetBottom="14.062500%">
+    <!-- Byte-identical assets/logo.png. Approved B optical alignment places its
+         visible alpha center at (52.5,54). Visible emblem height is 54dp,
+         leaving 9dp above and below it in the 72dp circular badge.
+         Fractional insets require API 26, matching adaptive icon availability. -->
+    <bitmap android:src="@drawable/soundconnect_emblem"
+        android:gravity="fill" android:filter="true" />
+</inset>

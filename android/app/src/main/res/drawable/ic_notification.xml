@@ -1,0 +1,9 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="400" android:viewportHeight="400">
+    <!-- Original emblem paths at 87.25% visible height with balanced breathing room.
+         Optical left shift uses the approved B ratio (1.5 / 54 of visible height).
+         This shared resource intentionally updates status-bar and native badge icons. -->
+    <group android:translateX="-65.69444444444" android:translateY="-59.5">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M160,202C150,202 143,210 143,219L143,298C143,308 150,315 160,315C169,315 177,308 177,298L177,219C177,210 169,202 160,202Z M223,145C214,145 206,153 206,162L206,354C206,364 214,372 223,372C233,372 241,364 241,354L241,162C241,153 233,145 223,145Z M287,85C277,85 269,93 269,103L269,416C269,426 277,434 287,434C296,434 304,426 304,416L304,103C304,93 296,85 287,85Z M351,168C342,168 334,176 334,185L334,331C334,341 342,349 351,349C361,349 369,341 369,331L369,185C369,176 361,168 351,168Z" />
+    </group>
+</vector>

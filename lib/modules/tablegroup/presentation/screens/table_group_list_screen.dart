@@ -11,9 +11,12 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/policy/access_policy.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../dm/data/dm_auth_support.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/table_group.dart';
 import '../../domain/table_group_expiry_policy.dart';
@@ -37,9 +40,12 @@ class TableGroupListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => serviceLocator<TableGroupListCubit>()..initialize(),
-      child: _TableGroupListView(args: args, now: now),
+    Theme.of(context);
+    return AppSurfaceThemeScope(
+      child: BlocProvider(
+        create: (_) => serviceLocator<TableGroupListCubit>()..initialize(),
+        child: _TableGroupListView(args: args, now: now),
+      ),
     );
   }
 }
@@ -61,6 +67,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
   Offset _fabOffset = Offset.zero;
   String? _currentUserId;
   bool _currentUserResolved = false;
+  bool _notificationFeedLoaded = false;
   Future<void>? _currentUserResolutionInFlight;
   late final TableGroupLocalDayRefreshScheduler _dayRefreshScheduler;
 
@@ -377,17 +384,10 @@ class _TableGroupListViewState extends State<_TableGroupListView>
                                 .setNeighborhood(value),
                     ),
                     SizedBox(height: 14),
-                    ElevatedButton(
+                    GradientOutlineButton(
+                      label: 'Kapat',
+                      strokeWidth: .7,
                       onPressed: () => Navigator.of(sheetContext).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.gradientC,
-                        foregroundColor: AppColors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: EdgeInsets.symmetric(vertical: 13),
-                      ),
-                      child: Text('Kapat'),
                     ),
                   ],
                 );
@@ -490,14 +490,24 @@ class _TableGroupListViewState extends State<_TableGroupListView>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<TableGroupListCubit, TableGroupListState>(
       listenWhen: (previous, current) =>
-          current.status == TableGroupListStatus.failure &&
-          current.error != null &&
-          !(current.items.isEmpty && current.feedError != null) &&
-          (previous.status != current.status ||
-              previous.error != current.error),
+          current.status == TableGroupListStatus.loading ||
+          (previous.status == TableGroupListStatus.loading &&
+              current.status == TableGroupListStatus.idle) ||
+          (current.status == TableGroupListStatus.failure &&
+              current.error != null &&
+              !(current.items.isEmpty && current.feedError != null) &&
+              (previous.status != current.status ||
+                  previous.error != current.error)),
       listener: (context, state) {
+        if (state.status == TableGroupListStatus.loading) {
+          _notificationFeedLoaded = false;
+        } else if (state.status == TableGroupListStatus.idle &&
+            state.feedError == null) {
+          _notificationFeedLoaded = true;
+        }
         if (state.status == TableGroupListStatus.failure &&
             state.error != null &&
             !(state.items.isEmpty && state.feedError != null)) {
@@ -515,402 +525,450 @@ class _TableGroupListViewState extends State<_TableGroupListView>
         final canCreateOrJoin = _canCreateOrJoin;
         final currentUserProfileImage = _resolveCurrentUserProfileImage(state);
 
-        return Scaffold(
-          backgroundColor: TableGroupOverviewStyle.pageBase,
-          bottomNavigationBar: SafeArea(
-            top: false,
-            child: ProfilePublicBottomBar(
-              currentIndex: 2,
-              profileImageUrl: currentUserProfileImage,
-              stageMode: widget.args.bottomBarStageMode,
+        return NotificationTargetReady(
+          customModuleKinds: const {'TABLES'},
+          ready: _notificationFeedLoaded && !loading && state.feedError == null,
+          child: Scaffold(
+            backgroundColor: TableGroupSurfaceStyle.of(context).pageBase,
+            bottomNavigationBar: SafeArea(
+              top: false,
+              child: ProfilePublicBottomBar(
+                currentIndex: 2,
+                profileImageUrl: currentUserProfileImage,
+                stageMode: widget.args.bottomBarStageMode,
+              ),
             ),
-          ),
-          body: TableGroupOverviewBackdrop(
-            child: SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // Bounds use the body above navigation, including safe insets.
-                  const margin = 16.0;
-                  final maxLeft =
-                      (constraints.maxWidth -
-                              _CreateTableFab.size.width -
-                              margin)
-                          .clamp(margin, double.infinity);
-                  final maxTop =
-                      (constraints.maxHeight -
-                              _CreateTableFab.size.height -
-                              margin)
-                          .clamp(margin, double.infinity);
-                  final baseFab = Offset(maxLeft, maxTop);
-                  Offset constrainFab(Offset position) => Offset(
-                    position.dx.clamp(margin, maxLeft),
-                    position.dy.clamp(margin, maxTop),
-                  );
-                  final fabPosition = constrainFab(baseFab + _fabOffset);
-                  return Stack(
-                    children: [
-                      Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(5, 6, 5, 0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                SizedBox(
-                                  height: 48,
-                                  child: Row(
-                                    children: [
-                                      IconButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).maybePop(),
-                                        icon: const Icon(
-                                          Icons.arrow_back_ios_new_rounded,
-                                          color:
-                                              TableGroupOverviewStyle.bodyMuted,
-                                          size: 28,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      IconButton(
-                                        key: const Key(
-                                          'table_group_open_filters',
-                                        ),
-                                        onPressed: _openFilterSheet,
-                                        icon: ShaderMask(
-                                          shaderCallback: (bounds) =>
-                                              const LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: TableGroupOverviewStyle
-                                                    .brandGradient,
-                                              ).createShader(bounds),
-                                          blendMode: BlendMode.srcIn,
-                                          child: const Icon(
-                                            Icons.tune_rounded,
-                                            color: AppColors.white,
-                                            size: 29,
+            body: TableGroupSurfaceBackdrop(
+              child: SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Bounds use the body above navigation, including safe insets.
+                    const margin = 16.0;
+                    final maxLeft =
+                        (constraints.maxWidth -
+                                _CreateTableFab.size.width -
+                                margin)
+                            .clamp(margin, double.infinity);
+                    final maxTop =
+                        (constraints.maxHeight -
+                                _CreateTableFab.size.height -
+                                margin)
+                            .clamp(margin, double.infinity);
+                    final baseFab = Offset(maxLeft, maxTop);
+                    Offset constrainFab(Offset position) => Offset(
+                      position.dx.clamp(margin, maxLeft),
+                      position.dy.clamp(margin, maxTop),
+                    );
+                    final fabPosition = constrainFab(baseFab + _fabOffset);
+                    return Stack(
+                      children: [
+                        Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(5, 6, 5, 0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  SizedBox(
+                                    height: 48,
+                                    child: Row(
+                                      children: [
+                                        IconButton(
+                                          onPressed: () =>
+                                              Navigator.of(context).maybePop(),
+                                          icon: Icon(
+                                            Icons.arrow_back_ios_new_rounded,
+                                            color: TableGroupSurfaceStyle.of(
+                                              context,
+                                            ).bodyMuted,
+                                            size: 28,
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.fromLTRB(23, 14, 23, 0),
-                                  child: Text(
-                                    'Müzik Birleştirir!',
-                                    key: Key('table_group_hero_title'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color:
-                                          TableGroupOverviewStyle.warmHeading,
-                                      fontSize: 34,
-                                      height: 1.02,
-                                      fontWeight: FontWeight.w800,
+                                        const Spacer(),
+                                        IconButton(
+                                          key: const Key(
+                                            'table_group_open_filters',
+                                          ),
+                                          onPressed: _openFilterSheet,
+                                          icon: ShaderMask(
+                                            shaderCallback: (bounds) =>
+                                                LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors:
+                                                      TableGroupOverviewStyle
+                                                          .decorativeGradient,
+                                                ).createShader(bounds),
+                                            blendMode: BlendMode.srcIn,
+                                            child: const Icon(
+                                              Icons.tune_rounded,
+                                              color: AppColors.white,
+                                              size: 29,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.fromLTRB(23, 6, 23, 0),
-                                  child: Text(
-                                    'Hadi sana bir masa bulalim',
-                                    key: Key('table_group_hero_subtitle'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: TableGroupOverviewStyle.bodyMuted,
-                                      fontSize: 17,
-                                      height: 1.25,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Açık Masalar',
-                                    key: Key('table_group_section_title'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color:
-                                          TableGroupOverviewStyle.headingMuted,
-                                      fontSize: 23,
-                                      height: 1.15,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Container(
-                                  key: const Key('table_group_count_pill'),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 9,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF111B2A),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: TableGroupOverviewStyle.cardBorder,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _tableCountLabel(state),
-                                    key: const Key('table_group_count_label'),
-                                    maxLines: 1,
-                                    style: const TextStyle(
-                                      color:
-                                          TableGroupOverviewStyle.primaryText,
-                                      fontSize: 14,
-                                      height: 1.2,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_hasActiveFilters(state))
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                              child: Row(
-                                children: [
-                                  Flexible(
+                                  Padding(
+                                    padding: EdgeInsets.fromLTRB(23, 14, 23, 0),
                                     child: Text(
-                                      'Filtreler:',
+                                      'Müzik Birleştirir!',
+                                      key: Key('table_group_hero_title'),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: Theme.of(
+                                        color: TableGroupSurfaceStyle.of(
                                           context,
-                                        ).colorScheme.onSurfaceVariant,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                                        ).warmHeading,
+                                        fontSize: 34,
+                                        height: 1.02,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                   ),
-                                  SizedBox(width: 8),
-                                  Flexible(
-                                    flex: 3,
-                                    child: Container(
-                                      padding: EdgeInsets.fromLTRB(12, 0, 0, 0),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(
+                                  Padding(
+                                    padding: EdgeInsets.fromLTRB(23, 6, 23, 0),
+                                    child: Text(
+                                      'Hadi sana bir masa bulalim',
+                                      key: Key('table_group_hero_subtitle'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: TableGroupSurfaceStyle.of(
                                           context,
-                                        ).colorScheme.surfaceContainerHighest,
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                        border: Border.all(
-                                          color: Theme.of(context).dividerColor,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              _filterLabel(state),
-                                              key: const Key(
-                                                'table_group_filter_label',
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurface,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(width: 6),
-                                          IconButton(
-                                            key: const Key(
-                                              'table_group_clear_filters',
-                                            ),
-                                            tooltip: 'Tüm filtreleri temizle',
-                                            onPressed: () => context
-                                                .read<TableGroupListCubit>()
-                                                .setCity(null),
-                                            constraints: const BoxConstraints(
-                                              minWidth: 48,
-                                              minHeight: 48,
-                                            ),
-                                            padding: EdgeInsets.zero,
-                                            icon: Icon(
-                                              Icons.close_rounded,
-                                              size: 16,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurface,
-                                            ),
-                                          ),
-                                        ],
+                                        ).bodyMuted,
+                                        fontSize: 17,
+                                        height: 1.25,
+                                        fontWeight: FontWeight.w400,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          Expanded(
-                            child: RefreshIndicator(
-                              onRefresh: () =>
-                                  context.read<TableGroupListCubit>().refresh(),
-                              child: ListView.builder(
-                                controller: _scrollController,
-                                physics: AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  10,
-                                  12,
-                                  110,
-                                ),
-                                itemCount: loading
-                                    ? 1
-                                    : state.items.isEmpty
-                                    ? 1
-                                    : state.items.length +
-                                          (state.status ==
-                                                  TableGroupListStatus
-                                                      .loadingMore
-                                              ? 1
-                                              : 0),
-                                itemBuilder: (context, index) {
-                                  if (loading) {
-                                    return Padding(
-                                      padding: EdgeInsets.only(top: 120),
-                                      child: Center(
-                                        child: CircularProgressIndicator(),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Açık Masalar',
+                                      key: Key('table_group_section_title'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: TableGroupSurfaceStyle.of(
+                                          context,
+                                        ).headingMuted,
+                                        fontSize: 23,
+                                        height: 1.15,
+                                        fontWeight: FontWeight.w800,
                                       ),
-                                    );
-                                  }
-
-                                  if (state.items.isEmpty) {
-                                    final feedError = state.feedError;
-                                    if (feedError != null) {
-                                      return Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          24,
-                                          110,
-                                          24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Container(
+                                    key: const Key('table_group_count_pill'),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 9,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: (AppColors.isOriginalDark
+                                          ? Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest
+                                          : AppColors.navBlueSoft),
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(
+                                        color: TableGroupSurfaceStyle.of(
+                                          context,
+                                        ).cardBorder,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      _tableCountLabel(state),
+                                      key: const Key('table_group_count_label'),
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        color: TableGroupSurfaceStyle.of(
+                                          context,
+                                        ).primaryText,
+                                        fontSize: 14,
+                                        height: 1.2,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_hasActiveFilters(state))
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        'Filtreler:',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Flexible(
+                                      flex: 3,
+                                      child: Container(
+                                        padding: EdgeInsets.fromLTRB(
+                                          12,
+                                          0,
+                                          0,
                                           0,
                                         ),
-                                        child: Center(
-                                          child: Column(
-                                            key: const Key(
-                                              'table_group_feed_error',
-                                            ),
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.cloud_off_rounded,
-                                                size: 42,
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurfaceVariant,
-                                              ),
-                                              const SizedBox(height: 12),
-                                              Text(
-                                                feedError.message,
-                                                textAlign: TextAlign.center,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                          border: Border.all(
+                                            color: Theme.of(
+                                              context,
+                                            ).dividerColor,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                _filterLabel(state),
+                                                key: const Key(
+                                                  'table_group_filter_label',
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
-                                              const SizedBox(height: 16),
-                                              FilledButton.icon(
-                                                key: const Key(
-                                                  'table_group_retry_feed',
-                                                ),
-                                                onPressed: () => context
-                                                    .read<TableGroupListCubit>()
-                                                    .refresh(),
-                                                icon: const Icon(
-                                                  Icons.refresh_rounded,
-                                                ),
-                                                label: const Text(
-                                                  'Tekrar dene',
-                                                ),
+                                            ),
+                                            SizedBox(width: 6),
+                                            IconButton(
+                                              key: const Key(
+                                                'table_group_clear_filters',
                                               ),
-                                            ],
+                                              tooltip: 'Tüm filtreleri temizle',
+                                              onPressed: () => context
+                                                  .read<TableGroupListCubit>()
+                                                  .setCity(null),
+                                              constraints: const BoxConstraints(
+                                                minWidth: 48,
+                                                minHeight: 48,
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              icon: Icon(
+                                                Icons.close_rounded,
+                                                size: 16,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            Expanded(
+                              child: RefreshIndicator(
+                                onRefresh: () => context
+                                    .read<TableGroupListCubit>()
+                                    .refresh(),
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  physics: AlwaysScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    10,
+                                    12,
+                                    110,
+                                  ),
+                                  itemCount: loading
+                                      ? 1
+                                      : state.items.isEmpty
+                                      ? 1
+                                      : state.items.length +
+                                            (state.status ==
+                                                    TableGroupListStatus
+                                                        .loadingMore
+                                                ? 1
+                                                : 0),
+                                  itemBuilder: (context, index) {
+                                    if (loading) {
+                                      return Padding(
+                                        padding: EdgeInsets.only(top: 120),
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      );
+                                    }
+
+                                    if (state.items.isEmpty) {
+                                      final feedError = state.feedError;
+                                      if (feedError != null) {
+                                        return Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            24,
+                                            110,
+                                            24,
+                                            0,
+                                          ),
+                                          child: Center(
+                                            child: Column(
+                                              key: const Key(
+                                                'table_group_feed_error',
+                                              ),
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.cloud_off_rounded,
+                                                  size: 42,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Text(
+                                                  feedError.message,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 16),
+                                                GradientOutline(
+                                                  enabled: AppColors.isLight,
+                                                  radius: 999,
+                                                  child: FilledButton.icon(
+                                                    style: AppColors.isLight
+                                                        ? FilledButton.styleFrom(
+                                                            backgroundColor:
+                                                                Colors
+                                                                    .transparent,
+                                                            foregroundColor:
+                                                                AppColors
+                                                                    .textPrimary,
+                                                          )
+                                                        : null,
+                                                    key: const Key(
+                                                      'table_group_retry_feed',
+                                                    ),
+                                                    onPressed: () => context
+                                                        .read<
+                                                          TableGroupListCubit
+                                                        >()
+                                                        .refresh(),
+                                                    icon: const Icon(
+                                                      Icons.refresh_rounded,
+                                                    ),
+                                                    label: const Text(
+                                                      'Tekrar dene',
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 130,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            'Bu filtrede aktif masa bulunamadi',
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       );
                                     }
-                                    return Padding(
-                                      padding: const EdgeInsets.only(top: 130),
-                                      child: Center(
-                                        child: Text(
-                                          'Bu filtrede aktif masa bulunamadi',
-                                          style: TextStyle(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+
+                                    if (index >= state.items.length) {
+                                      return Padding(
+                                        padding: EdgeInsets.all(14),
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
                                         ),
+                                      );
+                                    }
+
+                                    final group = state.items[index];
+                                    return _TableGroupListCard(
+                                      group: group,
+                                      onOpenDetail: () async {
+                                        await _openDetail(group);
+                                      },
+                                      meetingTimeText: _timeLabel(
+                                        group.meetingAt,
                                       ),
                                     );
-                                  }
-
-                                  if (index >= state.items.length) {
-                                    return Padding(
-                                      padding: EdgeInsets.all(14),
-                                      child: Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    );
-                                  }
-
-                                  final group = state.items[index];
-                                  return _TableGroupListCard(
-                                    group: group,
-                                    onOpenDetail: () async {
-                                      await _openDetail(group);
-                                    },
-                                    meetingTimeText: _timeLabel(
-                                      group.meetingAt,
-                                    ),
-                                  );
-                                },
+                                  },
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      if (canCreateOrJoin)
-                        Positioned(
-                          left: fabPosition.dx,
-                          top: fabPosition.dy,
-                          child: _CreateTableFab(
-                            onTap: _openCreate,
-                            onDragDelta: (delta) {
-                              setState(() {
-                                _fabOffset =
-                                    constrainFab(
-                                      constrainFab(baseFab + _fabOffset) +
-                                          delta,
-                                    ) -
-                                    baseFab;
-                              });
-                            },
-                          ),
+                          ],
                         ),
-                    ],
-                  );
-                },
+                        if (canCreateOrJoin)
+                          Positioned(
+                            left: fabPosition.dx,
+                            top: fabPosition.dy,
+                            child: _CreateTableFab(
+                              onTap: _openCreate,
+                              onDragDelta: (delta) {
+                                setState(() {
+                                  _fabOffset =
+                                      constrainFab(
+                                        constrainFab(baseFab + _fabOffset) +
+                                            delta,
+                                      ) -
+                                      baseFab;
+                                });
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),

@@ -59,6 +59,9 @@ Debug builds can fall back to the local development default in
 `lib/core/network/network_config.dart`. Non-debug builds require
 `SOUNDCONNECT_BASE_URL` and enforce HTTPS.
 
+Media delivery is HTTPS-only, including when the API uses a local HTTP URL.
+Use the normal backend media/storage configuration for uploaded content.
+
 ## Realtime STOMP Contract
 
 Broker subscriptions use RabbitMQ-compatible `/topic/...` destinations. In
@@ -79,9 +82,13 @@ Release signing auto-loads `android/key.properties`. Release builds fail fast
 when the file or any required value is missing; debug signing is never used for
 a release artifact.
 
-Before the first Play Store upload, replace the temporary Android
-`applicationId` in `android/app/build.gradle.kts` with the reviewed permanent
-package identifier. Treat that identifier as immutable after publication.
+The permanent Android `applicationId` is `tr.com.soundconnect.app`, approved by
+the user on 2026-09-23. The isolated preview uses `tr.com.soundconnect.app.preview`.
+Use the permanent ID in Firebase Android registration, Play configuration, and
+Android App Links. The Kotlin namespace and Dart package name are independent
+implementation names and remain unchanged. Treat the application ID as immutable
+after publication. See [the identity migration note](docs/android-identity-20260923.md)
+for local installation behavior and verification status.
 
 Example `android/key.properties`:
 

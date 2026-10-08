@@ -6,6 +6,7 @@ import '../../../spotify/domain/entities/spotify_playlist_preview.dart';
 import 'listener_playlist_section.dart';
 import 'listener_profile_header.dart';
 import 'listener_profile_theme.dart';
+import '../../../../shared/theme/app_colors.dart';
 
 class ListenerPublicProfileContent extends StatelessWidget {
   const ListenerPublicProfileContent({
@@ -37,6 +38,7 @@ class ListenerPublicProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     assert(
       !profile.isGhost && !profile.restricted,
       'Standard public content cannot render a restricted listener profile.',
@@ -99,10 +101,10 @@ class ListenerPublicProfileContent extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text(
+                            Text(
                               'Paylaşımlar',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.legacy(Colors.white),
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -170,6 +172,7 @@ class _PublicProfileActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final theme = Theme.of(context);
     final followButton = onFollow == null
         ? null

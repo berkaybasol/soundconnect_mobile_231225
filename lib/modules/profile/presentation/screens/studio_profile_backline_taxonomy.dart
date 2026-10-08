@@ -189,6 +189,7 @@ class _BacklineCategoriesScreenState extends State<_BacklineCategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.black,
       appBar: AppBar(
@@ -196,13 +197,13 @@ class _BacklineCategoriesScreenState extends State<_BacklineCategoriesScreen> {
         elevation: 0,
         leading: IconButton(
           tooltip: 'Geri',
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: AppColors.legacy(Colors.white)),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Tüm Backline Kategorileri',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.legacy(Colors.white),
             fontSize: 18,
             fontWeight: FontWeight.w900,
           ),
@@ -232,12 +233,14 @@ class _BacklineCategoriesScreenState extends State<_BacklineCategoriesScreen> {
                 onRetry: () => _load(_pageIndex),
               )
             else if (_categories.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),
                 child: Center(
                   child: Text(
                     'Yayınlanmış backline kategorisi bulunmuyor.',
-                    style: TextStyle(color: Color(0xFF9AA4B2)),
+                    style: TextStyle(
+                      color: AppColors.legacy(Color(0xFF9AA4B2)),
+                    ),
                   ),
                 ),
               )
@@ -303,8 +306,9 @@ class _BacklineAllCategoriesTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Material(
-      color: const Color(0xFF101722),
+      color: AppColors.legacy(const Color(0xFF101722)),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -313,9 +317,11 @@ class _BacklineAllCategoriesTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFF202B3A)),
+            border: Border.all(
+              color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+            ),
           ),
-          child: const Row(
+          child: Row(
             children: [
               _StudioSocialGradientIcon(Icons.apps_rounded, size: 22),
               SizedBox(width: 14),
@@ -323,13 +329,17 @@ class _BacklineAllCategoriesTile extends StatelessWidget {
                 child: Text(
                   'Tüm Kategoriler',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              Icon(Icons.chevron_right, color: Color(0xFF758092), size: 20),
+              Icon(
+                Icons.chevron_right,
+                color: AppColors.legacy(Color(0xFF758092)),
+                size: 20,
+              ),
             ],
           ),
         ),
@@ -345,46 +355,49 @@ class _BacklineCategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF202B3A)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF202B3A)),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         iconColor: const Color(0xFFFF8A8A),
-        collapsedIconColor: const Color(0xFF9AA4B2),
+        collapsedIconColor: AppColors.legacy(const Color(0xFF9AA4B2)),
         leading: _BacklineCategoryIcon(category: category),
         title: Text(
           category.name,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: AppColors.legacy(Colors.white),
             fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
         ),
         children: [
-          const Divider(height: 1, color: Color(0xFF202B3A)),
+          Divider(height: 1, color: AppColors.legacy(Color(0xFF202B3A))),
           ListTile(
             dense: true,
             contentPadding: const EdgeInsets.only(left: 54, right: 12),
-            leading: const Icon(
+            leading: Icon(
               Icons.select_all_rounded,
-              color: Color(0xFF758092),
+              color: AppColors.legacy(Color(0xFF758092)),
               size: 18,
             ),
             title: Text(
               '${category.name} içindeki tüm ekipmanlar',
-              style: const TextStyle(
-                color: Color(0xFFD4D9E2),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFFD4D9E2)),
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            trailing: const Icon(
+            trailing: Icon(
               Icons.chevron_right,
-              color: Color(0xFF758092),
+              color: AppColors.legacy(Color(0xFF758092)),
               size: 18,
             ),
             onTap: () => Navigator.of(context).pop(category.name),
@@ -395,15 +408,15 @@ class _BacklineCategoryTile extends StatelessWidget {
               contentPadding: const EdgeInsets.only(left: 54, right: 12),
               title: Text(
                 subcategory,
-                style: const TextStyle(
-                  color: Color(0xFFB5BDCA),
+                style: TextStyle(
+                  color: AppColors.legacy(Color(0xFFB5BDCA)),
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              trailing: const Icon(
+              trailing: Icon(
                 Icons.chevron_right,
-                color: Color(0xFF758092),
+                color: AppColors.legacy(Color(0xFF758092)),
                 size: 18,
               ),
               onTap: () => Navigator.of(context).pop(subcategory),
@@ -421,6 +434,7 @@ class _BacklineCategoryIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final assetPath = category.assetPath;
     if (assetPath == null) {
       return _StudioSocialGradientIcon(category.icon, size: 20);
@@ -433,7 +447,7 @@ class _BacklineCategoryIcon extends StatelessWidget {
       fit: BoxFit.contain,
       filterQuality: FilterQuality.high,
       errorBuilder: (_, __, ___) =>
-          Icon(category.icon, size: 22, color: Colors.white),
+          Icon(category.icon, size: 22, color: AppColors.legacy(Colors.white)),
     );
     return ShaderMask(
       blendMode: BlendMode.srcIn,

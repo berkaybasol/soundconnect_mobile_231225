@@ -162,6 +162,11 @@ class _DmBadge extends Cubit<DmBadgeState> implements DmBadgeCubit {
   @override
   Future<void> ensureStarted() async {}
   @override
+  Future<void> reconcileAfterResume() async {}
+
+  @override
+  Future<void> reconcileAfterRead() async {}
+  @override
   Future<void> stop() async {}
 }
 
@@ -202,7 +207,7 @@ Future<void> _loadFonts(WidgetTester tester) async {
     for (final family in ['Roboto', 'Ahem']) {
       await (FontLoader(family)..addFont(
             File(
-              '$fonts/roboto-regular.ttf',
+              '$fonts/Roboto-Regular.ttf',
             ).readAsBytes().then(ByteData.sublistView),
           ))
           .load();

@@ -10,6 +10,7 @@ const listenerProfileMuted = Color(0xFFA8B2C2);
 
 ThemeData listenerProfileDarkTheme(BuildContext context) {
   final inherited = Theme.of(context);
+  if (inherited.brightness == Brightness.light) return inherited;
   const scheme = ColorScheme.dark(
     primary: Color(0xFFF06C86),
     secondary: Color(0xFFC15CE0),
@@ -56,16 +57,14 @@ class ListenerProfileTheme extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (inheritAppTheme) return child;
     final theme = listenerProfileDarkTheme(context);
     return Theme(
       data: theme,
       // A nested Theme does not replace the enclosing Material's text style.
       // Keep publication text identical when this scope is inside a profile.
-      child: DefaultTextStyle(
-        style: theme.textTheme.bodyMedium!,
-        child: child,
-      ),
+      child: DefaultTextStyle(style: theme.textTheme.bodyMedium!, child: child),
     );
   }
 }

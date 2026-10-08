@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/auth/auth_session_manager.dart';
+import '../../core/di/service_locator.dart';
 
 import '../screens/support_screen.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_surface_theme.dart';
 import 'app_theme_menu_option.dart';
 import 'session_logout_action.dart';
 
@@ -31,100 +34,141 @@ Future<void> showProfileQuickMenu(
   BuildContext context, {
   required ProfileQuickMenuAction onSettings,
   ProfileQuickMenuAction? onManagement,
+  ProfileQuickMenuAction? onAnnouncements,
+  ProfileQuickMenuAction? onFeed,
   ProfileQuickMenuAction? onProfileContact,
   Key? settingsTileKey,
   Key? profileContactTileKey,
+  WidgetBuilder Function(WidgetBuilder)? routeBoundary,
 }) {
+  final manager = serviceLocator.isRegistered<AuthSessionManager>()
+      ? serviceLocator<AuthSessionManager>()
+      : null;
+  final session = manager?.session;
+  bool isCurrent() =>
+      context.mounted &&
+      (manager == null || identical(manager.session, session));
+  WidgetBuilder guardRoute(WidgetBuilder builder) =>
+      routeBoundary?.call(builder) ?? builder;
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Kapat',
     barrierColor: AppColors.pureBlack.withValues(alpha: 0.35),
     transitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (dialogContext, animation, secondaryAnimation) {
+    pageBuilder: (dialogContext, animation, secondaryAnimation) => guardRoute((
+      dialogContext,
+    ) {
       Future<void> closeThen(ProfileQuickMenuAction action) async {
+        if (!isCurrent() || ModalRoute.of(dialogContext)?.isCurrent != true) {
+          return;
+        }
         Navigator.of(dialogContext).pop();
         await action();
       }
 
-      return Align(
-        alignment: Alignment.centerRight,
-        child: FractionallySizedBox(
-          widthFactor: 0.58,
-          heightFactor: 1,
-          child: Material(
-            color: Theme.of(dialogContext).colorScheme.surface,
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(20),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: SafeArea(
-              left: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
-                child: CustomScrollView(
-                  slivers: [
-                    SliverList.list(
-                      children: [
-                        const SizedBox(height: 8),
-                        ListTile(
-                          key: settingsTileKey,
-                          leading: const Icon(Icons.settings_outlined),
-                          title: const Text('Ayarlar'),
-                          onTap: () async => closeThen(onSettings),
-                        ),
-                        if (onProfileContact != null)
-                          ListTile(
-                            key: profileContactTileKey,
-                            leading: const Icon(Icons.badge_outlined),
-                            title: const Text('Profil ve iletişim bilgileri'),
-                            onTap: () async => closeThen(onProfileContact),
-                          ),
-                        if (onManagement != null)
-                          ListTile(
-                            leading: const Icon(
-                              Icons.dashboard_customize_outlined,
+      final menuTheme = appSurfaceTheme(Theme.of(dialogContext));
+      return Theme(
+        data: menuTheme,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: FractionallySizedBox(
+            widthFactor: 0.58,
+            heightFactor: 1,
+            child: Material(
+              color: menuTheme.colorScheme.surface,
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(20),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: SafeArea(
+                left: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverList.list(
+                        children: [
+                          const SizedBox(height: 8),
+                          if (onFeed != null)
+                            ListTile(
+                              key: const Key('profile-menu-feed'),
+                              leading: const Icon(Icons.home_outlined),
+                              title: const Text('Akış'),
+                              onTap: () async => closeThen(onFeed),
                             ),
-                            title: const Text('Yönetim Paneli'),
-                            onTap: () async => closeThen(onManagement),
+                          ListTile(
+                            key: settingsTileKey,
+                            leading: const Icon(Icons.settings_outlined),
+                            title: const Text('Ayarlar'),
+                            onTap: () async => closeThen(onSettings),
                           ),
-                        ListTile(
-                          key: profileMenuThemeTileKey,
-                          leading: const Icon(Icons.palette_outlined),
-                          title: const Text('Tema'),
-                          onTap: () async => closeThen(
-                            () => showProfileMenuThemePicker(context),
+                          if (onProfileContact != null)
+                            ListTile(
+                              key: profileContactTileKey,
+                              leading: const Icon(Icons.badge_outlined),
+                              title: const Text('Profil ve iletişim bilgileri'),
+                              onTap: () async => closeThen(onProfileContact),
+                            ),
+                          if (onManagement != null)
+                            ListTile(
+                              leading: const Icon(
+                                Icons.dashboard_customize_outlined,
+                              ),
+                              title: const Text('Yönetim Paneli'),
+                              onTap: () async => closeThen(onManagement),
+                            ),
+                          if (onAnnouncements != null)
+                            ListTile(
+                              key: const Key('profile-menu-announcements'),
+                              leading: const Icon(Icons.campaign_outlined),
+                              title: const Text('Tüm duyurular'),
+                              onTap: () async => closeThen(onAnnouncements),
+                            ),
+                          ListTile(
+                            key: profileMenuThemeTileKey,
+                            leading: const Icon(Icons.palette_outlined),
+                            title: const Text('Tema'),
+                            onTap: () async => closeThen(
+                              () => showProfileMenuThemePicker(context),
+                            ),
                           ),
-                        ),
-                        ListTile(
-                          key: profileMenuSupportTileKey,
-                          leading: const Icon(Icons.support_agent_rounded),
-                          title: const Text('Destek'),
-                          onTap: () async =>
-                              closeThen(() => showProfileMenuSupport(context)),
-                        ),
-                      ],
-                    ),
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: SessionLogoutMenuTile(
-                          onTap: () async {
-                            Navigator.of(dialogContext).pop();
-                            await confirmAndLogoutSession(context);
-                          },
+                          ListTile(
+                            key: profileMenuSupportTileKey,
+                            leading: const Icon(Icons.support_agent_rounded),
+                            title: const Text('Destek'),
+                            onTap: () async => closeThen(
+                              () => showProfileMenuSupport(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: SessionLogoutMenuTile(
+                            onTap: () async {
+                              if (!isCurrent() ||
+                                  ModalRoute.of(dialogContext)?.isCurrent !=
+                                      true) {
+                                return;
+                              }
+                              Navigator.of(dialogContext).pop();
+                              await confirmAndLogoutSession(context);
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
       );
-    },
+    })(dialogContext),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(
         parent: animation,
@@ -178,7 +222,7 @@ Future<void> showProfileMenuThemePicker(BuildContext context) async {
                   ? ShaderMask(
                       blendMode: BlendMode.srcIn,
                       shaderCallback: (bounds) => LinearGradient(
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.decorativeGradient,
                       ).createShader(bounds),
                       child: const Icon(
                         Icons.check_circle_rounded,
@@ -187,7 +231,10 @@ Future<void> showProfileMenuThemePicker(BuildContext context) async {
                     )
                   : null,
               onTap: option.isEnabled
-                  ? () => Navigator.of(sheetContext).pop()
+                  ? () {
+                      Navigator.of(sheetContext).pop();
+                      option.select(context);
+                    }
                   : null,
             ),
           const SizedBox(height: 12),

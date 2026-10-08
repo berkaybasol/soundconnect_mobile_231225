@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import '../../core/network/app_media_url.dart';
+
 typedef AppImageStateBuilder = Widget Function(BuildContext context);
 typedef AppImageCacheManagerResolver =
     BaseCacheManager Function(AppImageCacheProfile profile);
@@ -25,9 +27,15 @@ class AppCachedNetworkImage extends StatefulWidget {
   final int? cacheHeight;
   final AppImageStateBuilder? placeholderBuilder;
   final AppImageStateBuilder? errorBuilder;
+
+  /// Invoked only for a decoded image frame, never a download or error frame.
+  final Widget Function(BuildContext, Widget)? loadedBuilder;
   final AppImageCacheProfile cacheProfile;
   final BaseCacheManager? cacheManager;
   final AppImageCacheManagerResolver? cacheManagerResolver;
+
+  /// Private, expiring media must never enter the persistent public disk cache.
+  final bool persistentCache;
 
   const AppCachedNetworkImage({
     super.key,
@@ -40,9 +48,11 @@ class AppCachedNetworkImage extends StatefulWidget {
     this.cacheHeight,
     this.placeholderBuilder,
     this.errorBuilder,
+    this.loadedBuilder,
     this.cacheProfile = AppImageCacheProfile.compact,
     this.cacheManager,
     this.cacheManagerResolver,
+    this.persistentCache = true,
   });
 
   @override
@@ -51,17 +61,10 @@ class AppCachedNetworkImage extends StatefulWidget {
 
 class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
   Stream<FileResponse>? _fileStream;
+  ImageProvider? _privateProvider;
 
   String? get _normalizedUrl {
-    final value = widget.imageUrl?.trim();
-    if (value == null || value.isEmpty) return null;
-    final uri = Uri.tryParse(value);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty) {
-      return null;
-    }
-    return value;
+    return resolveAppMediaUrl(widget.imageUrl);
   }
 
   BaseCacheManager get _cacheManager =>
@@ -82,16 +85,38 @@ class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
     if (oldWidget.imageUrl != widget.imageUrl ||
         oldWidget.cacheProfile != widget.cacheProfile ||
         oldWidget.cacheManager != widget.cacheManager ||
+        oldWidget.persistentCache != widget.persistentCache ||
+        oldWidget.cacheWidth != widget.cacheWidth ||
+        oldWidget.cacheHeight != widget.cacheHeight ||
         oldWidget.cacheManagerResolver != widget.cacheManagerResolver) {
       _refreshStream();
     }
   }
 
   void _refreshStream() {
+    _privateProvider?.evict();
+    _privateProvider = null;
     final url = _normalizedUrl;
+    if (!widget.persistentCache) {
+      _fileStream = null;
+      if (url != null) {
+        _privateProvider = ResizeImage.resizeIfNeeded(
+          widget.cacheWidth,
+          widget.cacheHeight,
+          NetworkImage(url),
+        );
+      }
+      return;
+    }
     _fileStream = url == null
         ? null
         : _cacheManager.getFileStream(url, withProgress: true);
+  }
+
+  @override
+  void dispose() {
+    _privateProvider?.evict();
+    super.dispose();
   }
 
   Widget _placeholder(BuildContext context, {double? progress}) {
@@ -149,11 +174,32 @@ class _AppCachedNetworkImageState extends State<AppCachedNetworkImage> {
       gaplessPlayback: true,
       filterQuality: FilterQuality.medium,
       errorBuilder: (_, __, ___) => _error(context),
+      frameBuilder: (context, child, frame, synchronous) =>
+          frame != null || synchronous
+          ? (widget.loadedBuilder?.call(context, child) ?? child)
+          : _placeholder(context),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.persistentCache) {
+      final provider = _privateProvider;
+      if (provider == null) return _error(context);
+      return Image(
+        image: provider,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        alignment: widget.alignment,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, __, ___) => _error(context),
+        frameBuilder: (context, child, frame, synchronous) =>
+            frame != null || synchronous
+            ? (widget.loadedBuilder?.call(context, child) ?? child)
+            : _placeholder(context),
+      );
+    }
     final stream = _fileStream;
     if (stream == null) return _error(context);
 

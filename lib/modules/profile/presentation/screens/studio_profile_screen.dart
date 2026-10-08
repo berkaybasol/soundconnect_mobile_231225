@@ -1,3 +1,5 @@
+import '../../../notification/presentation/notification_target_read.dart';
+import '../../../notification/domain/entities/studio_reservation_notification_target.dart';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
@@ -46,12 +48,14 @@ import '../../domain/studio_profile_repository.dart';
 import '../cubit/profile_media_cubit.dart';
 import '../cubit/studio_profile_cubit.dart';
 import '../cubit/studio_profile_state.dart';
+import '../navigation/studio_navigation.dart';
 import 'profile_audio_tab_shared.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_route_args.dart';
 import 'profile_screen_support.dart';
 import 'profile_social_support.dart';
 import 'studio_profile_website_link.dart';
+import 'studio_listener_info_screen.dart';
 import 'studio_room_photo_order_controls.dart';
 
 part 'studio_profile_backline_taxonomy.dart';
@@ -98,18 +102,26 @@ class StudioProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) => serviceLocator<StudioProfileCubit>()..loadMyProfile(),
+    Theme.of(context);
+    return StudioListenerAccessGate(
+      builder: (context) => MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) => serviceLocator<StudioProfileCubit>()
+              ..loadMyProfile(
+                admitContent: NotificationTargetRead.beginFollowRequest(
+                  context,
+                ),
+              ),
+          ),
+          BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
+          BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
+          BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
+        ],
+        child: _StudioProfileView(
+          isPublic: false,
+          openContactEditor: openContactEditor,
         ),
-        BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
-        BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
-        BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
-      ],
-      child: _StudioProfileView(
-        isPublic: false,
-        openContactEditor: openContactEditor,
       ),
     );
   }
@@ -120,15 +132,21 @@ class StudioPublicProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) => serviceLocator<StudioProfileCubit>()),
-        BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
-        BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
-        BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),
-        BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
-      ],
-      child: const _StudioProfileView(isPublic: true, openContactEditor: false),
+    Theme.of(context);
+    return StudioListenerAccessGate(
+      builder: (context) => MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => serviceLocator<StudioProfileCubit>()),
+          BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
+          BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
+          BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),
+          BlocProvider(create: (_) => serviceLocator<InteractionStatsCubit>()),
+        ],
+        child: const _StudioProfileView(
+          isPublic: true,
+          openContactEditor: false,
+        ),
+      ),
     );
   }
 }
@@ -141,6 +159,7 @@ class StudioReservationCalendarArgs {
     this.timeZone = 'Europe/Istanbul',
     this.reservationDate,
     this.reservationId,
+    this.notificationTarget,
   });
 
   final String roomId;
@@ -149,20 +168,35 @@ class StudioReservationCalendarArgs {
   final String timeZone;
   final DateTime? reservationDate;
   final String? reservationId;
+  final StudioReservationNotificationTarget? notificationTarget;
 }
 
-class StudioReservationCalendarScreen extends StatefulWidget {
+class StudioReservationCalendarScreen extends StatelessWidget {
   const StudioReservationCalendarScreen({required this.args, super.key});
 
   final StudioReservationCalendarArgs args;
 
   @override
-  State<StudioReservationCalendarScreen> createState() =>
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return StudioListenerAccessGate(
+      builder: (_) => _StudioReservationCalendarView(args: args),
+    );
+  }
+}
+
+class _StudioReservationCalendarView extends StatefulWidget {
+  const _StudioReservationCalendarView({required this.args});
+
+  final StudioReservationCalendarArgs args;
+
+  @override
+  State<_StudioReservationCalendarView> createState() =>
       _StudioReservationCalendarScreenState();
 }
 
 class _StudioReservationCalendarScreenState
-    extends State<StudioReservationCalendarScreen> {
+    extends State<_StudioReservationCalendarView> {
   final StudioRoomRepository _repository =
       serviceLocator<StudioRoomRepository>();
   _StudioRoomItem? _room;
@@ -177,16 +211,43 @@ class _StudioReservationCalendarScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final room = _room;
     if (room != null) {
-      return _StudioRoomDetailScreen(
+      final calendar = _StudioRoomDetailScreen(
         room: room,
         studioProfileId: widget.args.studioProfileId,
         canReserve: !widget.args.ownerMode,
         ownerRooms: widget.args.ownerMode ? [room] : const [],
         initialDate: widget.args.reservationDate,
         initialReservationId: widget.args.reservationId,
+        notificationTarget: widget.args.notificationTarget,
       );
+      final target = widget.args.notificationTarget;
+      if (target != null &&
+          !target.ownerMode &&
+          DateTime.parse(target.localDate).isBefore(room.todayLocalDate)) {
+        // Public availability intentionally cannot query historical dates.
+        // Keep the real room calendar, with the fresh verified terminal result
+        // in its ordinary small status message; do not claim today's grid is
+        // the old reservation or reconstruct a notification snapshot page.
+        final message = switch (target.status) {
+          'REJECTED_BY_STUDIO' => 'Rezervasyon talebi kabul edilmedi.',
+          'CANCELLED_BY_CUSTOMER' => 'Rezervasyonunu iptal ettin.',
+          'CANCELLED_BY_STUDIO' =>
+            'Rezervasyon stüdyo tarafından iptal edildi.',
+          'EXPIRED' => 'Rezervasyon talebinin süresi doldu.',
+          _ => target.completed ? 'Bu rezervasyonun zamanı geçti.' : null,
+        };
+        if (message != null) {
+          return NotificationTerminalFeedback(
+            message: message,
+            contentIdentity: target,
+            child: calendar,
+          );
+        }
+      }
+      return calendar;
     }
     return Scaffold(
       appBar: AppBar(
@@ -273,7 +334,10 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       }
       final id = _targetProfileId?.trim() ?? '';
       if (id.isNotEmpty) {
-        context.read<StudioProfileCubit>().loadPublicProfile(id);
+        context.read<StudioProfileCubit>().loadPublicProfile(
+          id,
+          admitContent: NotificationTargetRead.beginFollowRequest(context),
+        );
       }
     }
     if (!_viewerResolved) {
@@ -293,9 +357,16 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
     final profileCubit = context.read<StudioProfileCubit>();
     if (widget.isPublic) {
       final id = _targetProfileId?.trim() ?? '';
-      if (id.isNotEmpty) await profileCubit.loadPublicProfile(id);
+      if (id.isNotEmpty) {
+        await profileCubit.loadPublicProfile(
+          id,
+          admitContent: NotificationTargetRead.beginFollowRequest(context),
+        );
+      }
     } else {
-      await profileCubit.loadMyProfile();
+      await profileCubit.loadMyProfile(
+        admitContent: NotificationTargetRead.beginFollowRequest(context),
+      );
     }
     if (!mounted) return;
 
@@ -340,7 +411,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       // The upload pipeline already attaches the media through the Studio
       // profile endpoint, which advances the optimistic version. Reload the
       // authoritative profile instead of issuing a stale duplicate update.
-      await profileCubit.loadMyProfile();
+      await profileCubit.loadMyProfile(
+        admitContent: NotificationTargetRead.beginFollowRequest(context),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -357,6 +430,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<StudioProfileCubit, StudioProfileState>(
       listener: (context, state) {
         if (state.status == StudioProfileStatus.failure) {
@@ -436,53 +510,59 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
             widget.isPublic &&
             viewerUserId.isNotEmpty &&
             viewerUserId != profile.userId;
-        return DefaultTabController(
-          initialIndex: 0,
-          length: 3,
-          child: Scaffold(
-            body: RefreshIndicator(
-              onRefresh: _refresh,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: widget.isPublic
-                    ? _StudioPublicDashboardContent(
-                        profile: profile,
-                        location: _studioLocationText(profile) ?? '',
-                        followersCount: followersCount,
-                        followingCount: followingCount,
-                        onBack: () => Navigator.of(context).maybePop(),
-                        onMessage: () => _openDm(profile),
-                        isFollowing: followActionState.isFollowing,
-                        followLoading:
-                            followActionState.status ==
-                            FollowActionStatus.loading,
-                        contentRevision: _contentRevision,
-                        onFollow: canFollow
-                            ? () => _toggleFollow(profile)
-                            : null,
-                      )
-                    : _StudioOwnerDashboardContent(
-                        profile: profile,
-                        location: _studioLocationText(profile) ?? '',
-                        followersCount: followersCount,
-                        followingCount: followingCount,
-                        photoUploading: _photoUploading,
-                        onBack: () => Navigator.of(context).maybePop(),
-                        onMenu: () => _showOwnerQuickMenu(context),
-                        onEditPhoto: () => _pickPhoto(profile),
-                        onEditDescription: () =>
-                            _showDescriptionEditor(profile.description),
-                        onEditSocialLink: (platform) =>
-                            _editSocialLink(profile, platform),
-                        contentRevision: _contentRevision,
-                        onManagement: () => _openManagementPanel(context),
-                      ),
+        return NotificationTargetReady(
+          contentIdentity: profile,
+          ready:
+              state.status == StudioProfileStatus.success &&
+              (!widget.isPublic || profile.id == _targetProfileId?.trim()),
+          child: DefaultTabController(
+            initialIndex: 0,
+            length: 3,
+            child: Scaffold(
+              body: RefreshIndicator(
+                onRefresh: _refresh,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: widget.isPublic
+                      ? _StudioPublicDashboardContent(
+                          profile: profile,
+                          location: _studioLocationText(profile) ?? '',
+                          followersCount: followersCount,
+                          followingCount: followingCount,
+                          onBack: () => Navigator.of(context).maybePop(),
+                          onMessage: () => _openDm(profile),
+                          isFollowing: followActionState.isFollowing,
+                          followLoading:
+                              followActionState.status ==
+                              FollowActionStatus.loading,
+                          contentRevision: _contentRevision,
+                          onFollow: canFollow
+                              ? () => _toggleFollow(profile)
+                              : null,
+                        )
+                      : _StudioOwnerDashboardContent(
+                          profile: profile,
+                          location: _studioLocationText(profile) ?? '',
+                          followersCount: followersCount,
+                          followingCount: followingCount,
+                          photoUploading: _photoUploading,
+                          onBack: () => Navigator.of(context).maybePop(),
+                          onMenu: () => _showOwnerQuickMenu(context),
+                          onEditPhoto: () => _pickPhoto(profile),
+                          onEditDescription: () =>
+                              _showDescriptionEditor(profile.description),
+                          onEditSocialLink: (platform) =>
+                              _editSocialLink(profile, platform),
+                          contentRevision: _contentRevision,
+                          onManagement: () => _openManagementPanel(context),
+                        ),
+                ),
               ),
-            ),
-            bottomNavigationBar: ProfilePublicBottomBar(
-              currentIndex: 4,
-              profileImageUrl: profile.profilePictureUrl,
-              profileTapAlwaysOpensOwnProfile: widget.isPublic,
+              bottomNavigationBar: ProfilePublicBottomBar(
+                currentIndex: 4,
+                profileImageUrl: profile.profilePictureUrl,
+                profileTapAlwaysOpensOwnProfile: widget.isPublic,
+              ),
             ),
           ),
         );
@@ -575,7 +655,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
 
   Future<void> _showDescriptionEditor(String? currentDescription) async {
     final profileCubit = context.read<StudioProfileCubit>();
-    await showModalBottomSheet<void>(
+    await showStudioModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -605,6 +685,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       platform: platform,
       initialValue: currentUrl,
       allowRemoval: true,
+      routeBoundary: studioRouteBoundary,
     );
     if (!mounted ||
         normalizedUrl == null ||
@@ -628,7 +709,13 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
         action: SnackBarAction(
           label: 'Tekrar Dene',
           onPressed: () async {
-            if (!profileCubit.isClosed) await profileCubit.loadMyProfile();
+            if (!profileCubit.isClosed) {
+              await profileCubit.loadMyProfile(
+                admitContent: NotificationTargetRead.beginFollowRequest(
+                  context,
+                ),
+              );
+            }
           },
         ),
       ),
@@ -643,12 +730,14 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       return;
     }
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+      studioPageRoute<void>(
         builder: (_) => StudioManagementPanelScreen(profile: profile),
       ),
     );
-    if (!mounted) return;
-    await profileCubit.loadMyProfile();
+    if (!mounted || !context.mounted) return;
+    await profileCubit.loadMyProfile(
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
+    );
     if (mounted) setState(() => _contentRevision++);
   }
 
@@ -657,10 +746,13 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       context,
       settingsTileKey: const Key('studio-account-settings'),
       profileContactTileKey: const Key('studio-profile-contact-editor'),
+      routeBoundary: studioRouteBoundary,
       onSettings: () async {
         await Navigator.of(context).pushNamed(AppRoutes.settings);
         if (!context.mounted) return;
-        await context.read<StudioProfileCubit>().loadMyProfile();
+        await context.read<StudioProfileCubit>().loadMyProfile(
+          admitContent: NotificationTargetRead.beginFollowRequest(context),
+        );
       },
       onProfileContact: _showProfileContactEditor,
       onManagement: () => _openManagementPanel(context),
@@ -725,6 +817,7 @@ class _StudioDescriptionEditorSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Container(

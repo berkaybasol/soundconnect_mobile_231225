@@ -55,6 +55,7 @@ class ListenerOverthinkingDraftComposerState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final sessions = widget.sessions ?? serviceLocator<AuthSessionManager>();
     final repository =
         widget.repository ??

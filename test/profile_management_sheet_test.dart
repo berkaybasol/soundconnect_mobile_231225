@@ -144,13 +144,14 @@ void main() {
         await tester.tap(find.text('Etkinlik Yönetimi'));
         await tester.pumpAndSettle();
         final eventStyle = _sheetStyle(tester, const [
+          'Planlı Etkinlik Davetleri',
           'Etkinlik Davetleri',
           'Etkinliklerim',
           'Reddedilen Etkinlikler',
         ]);
         expect(eventStyle.$1, venueStyle.$1);
         expect(eventStyle.$2, venueStyle.$2);
-        expect(eventStyle.$3, venueStyle.$3);
+        expect(eventStyle.$3, everyElement(venueStyle.$3.first));
         expect(tester.takeException(), isNull);
       },
     );
@@ -374,7 +375,7 @@ void main() {
   );
   expect(
     find.descendant(of: sheetFinder, matching: find.byType(Text)),
-    findsNWidgets(hasCreate ? 5 : 4),
+    findsNWidgets(labels.length + 1 + (hasCreate ? 1 : 0)),
   );
   expect(
     find.descendant(
@@ -398,7 +399,7 @@ void main() {
       )
       .where((icon) => icon.size == 24)
       .toList();
-  expect(leadingIcons, hasLength(3));
+  expect(leadingIcons, hasLength(labels.length));
   expect(leadingIcons.every((icon) => icon.color == scheme.onSurface), isTrue);
   return (sheet.backgroundColor, sheet.shape, styles);
 }

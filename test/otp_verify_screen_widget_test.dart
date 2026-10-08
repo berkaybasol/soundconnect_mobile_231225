@@ -7,6 +7,7 @@ import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_result.dart';
+import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/register_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/resend_code_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/user_status.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/verify_code_result.dart';
@@ -233,6 +234,176 @@ void main() {
     expect(find.textContaining('0:07'), findsOneWidget);
     expect(find.textContaining('(9s)'), findsOneWidget);
   });
+
+  testWidgets(
+    'resumed registration shows the account email and accepts an existing code without a guessed expiry',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      repository.verifyResult = const Result.failure(
+        AppError(code: 'otp_invalid', message: 'Code rejected by server'),
+      );
+      await tester.pumpWidget(
+        app(
+          args: const OtpVerifyArgs(
+            email: 'berna.account@example.com',
+            resumedRegistration: true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('berna.account@example.com'), findsOneWidget);
+      expect(find.textContaining('Kod geçerliliği:'), findsNothing);
+      expect(find.textContaining('3:00'), findsNothing);
+      expect(repository.resendCalls, 0);
+      expect(
+        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        isNotNull,
+      );
+
+      await tester.pump(const Duration(minutes: 4));
+      await tester.enterText(find.byType(TextField), '012345');
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.pumpAndSettle();
+
+      expect(repository.verifyCalls, 1);
+      expect(repository.lastVerifyEmail, 'berna.account@example.com');
+      expect(repository.lastVerifyCode, '012345');
+      expect(repository.resendCalls, 0);
+      expect(find.text('Code rejected by server'), findsOneWidget);
+      expect(find.text('Kodun süresi doldu. Tekrar gönder.'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'resumed registration starts and enforces only the explicit resend server TTL',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      repository.resendResult = const Result.success(
+        ResendCodeResult(
+          otpTtlSeconds: 7,
+          mailQueued: true,
+          cooldownSeconds: 9,
+        ),
+      );
+      await tester.pumpWidget(
+        app(
+          args: const OtpVerifyArgs(
+            email: 'berna.account@example.com',
+            resumedRegistration: true,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.textContaining('Kod geçerliliği:'), findsNothing);
+
+      await tester.tap(find.byType(TextButton));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.resendCalls, 1);
+      expect(repository.lastResendEmail, 'berna.account@example.com');
+      expect(find.textContaining('0:07'), findsOneWidget);
+      expect(find.textContaining('(9s)'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 8));
+      await tester.enterText(find.byType(TextField), '012345');
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.pump();
+
+      expect(repository.verifyCalls, 0);
+      expect(find.text('Kodun süresi doldu. Tekrar gönder.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'resumed verification ignores a prior account registration status and role',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      repository.registerResult = const Result.success(
+        RegisterResult(
+          email: 'old-venue@example.com',
+          status: UserStatus.pendingVenueRequest,
+          otpTtlSeconds: 180,
+          mailQueued: true,
+        ),
+      );
+      await cubit.register(
+        username: 'old-venue',
+        email: 'old-venue@example.com',
+        password: 'old-password',
+        rePassword: 'old-password',
+        role: 'ROLE_VENUE',
+      );
+      expect(
+        cubit.state.registerResult?.status,
+        UserStatus.pendingVenueRequest,
+      );
+      await tester.pumpWidget(
+        app(
+          args: const OtpVerifyArgs(
+            email: 'berna.account@example.com',
+            role: 'ROLE_VENUE',
+            resumedRegistration: true,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '012345');
+
+      await tester.tap(find.byType(GradientOutlineButton));
+      await tester.pumpAndSettle();
+
+      expect(repository.lastVerifyEmail, 'berna.account@example.com');
+      expect(find.text('login-target'), findsOneWidget);
+      expect(find.text('venue-pending-target'), findsNothing);
+      expect(find.text('studio-pending-target'), findsNothing);
+      expect(find.text('listener-choice-target'), findsNothing);
+      expect(cubit.state.loginResult, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'resumed verification without an email cannot reuse another registered account',
+    (tester) async {
+      _disposeOtpAfterTest(tester);
+      repository.registerResult = const Result.success(
+        RegisterResult(
+          email: 'old-venue@example.com',
+          status: UserStatus.pendingVenueRequest,
+          otpTtlSeconds: 180,
+          mailQueued: true,
+        ),
+      );
+      await cubit.register(
+        username: 'old-venue',
+        email: 'old-venue@example.com',
+        password: 'old-password',
+        rePassword: 'old-password',
+        role: 'ROLE_VENUE',
+      );
+      await tester.pumpWidget(
+        app(args: const OtpVerifyArgs(resumedRegistration: true)),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '012345');
+
+      expect(find.text('old-venue@example.com'), findsNothing);
+      expect(
+        tester
+            .widget<GradientOutlineButton>(find.byType(GradientOutlineButton))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        isNull,
+      );
+      expect(repository.verifyCalls, 0);
+      expect(repository.resendCalls, 0);
+    },
+  );
 
   for (final scenario in <({String role, String target})>[
     (role: 'ROLE_VENUE', target: 'venue-pending-target'),

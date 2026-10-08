@@ -19,12 +19,12 @@ const _sourceId = '35f9719a-ae8a-4d93-86f7-9bdd5aa31511';
 const _shareId = '5e36e411-0e6a-4575-8e68-88aee7072cbd';
 
 void main() {
-  testWidgets('shared writing lists and creates the source thread', (
+  testWidgets('shared writing lists and creates its publication thread', (
     tester,
   ) async {
     final repository = _Repository();
     await _mount(tester, repository);
-    expect(repository.reads.single, ('OVERTHINKING', _sourceId));
+    expect(repository.reads.single, ('OVERTHINKING_PROFILE_SHARE', _shareId));
     expect(
       find.byKey(const Key('listener-overthinking-comments-panel')),
       findsOneWidget,
@@ -34,23 +34,23 @@ void main() {
     await tester.tap(find.byTooltip('Yorumu gönder'));
     await tester.pumpAndSettle();
     expect(repository.writes.single, (
-      'OVERTHINKING',
-      _sourceId,
+      'OVERTHINKING_PROFILE_SHARE',
+      _shareId,
       'Asıl yazıya yeni yorum',
     ));
     expect(repository.reads.length, 2);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('source scope rejects a share ID and EVENT_POST operations', (
+  testWidgets('publication scope rejects source and EVENT_POST operations', (
     tester,
   ) async {
     final repository = _Repository();
     await _mount(tester, repository);
     final scoped = _scoped(tester);
     for (final scope in [
-      ('OVERTHINKING', _shareId),
-      ('EVENT_POST', _sourceId),
+      ('OVERTHINKING', _sourceId),
+      ('EVENT_POST', _shareId),
     ]) {
       final result = await scoped.createComment(
         targetType: scope.$1,
@@ -65,7 +65,7 @@ void main() {
   });
 
   for (final code in ['9401', '9700', '1102', '403', '404', '410']) {
-    testWidgets('source rejection $code removes comments and draft', (
+    testWidgets('publication rejection $code removes comments and draft', (
       tester,
     ) async {
       final repository = _Repository();
@@ -73,7 +73,10 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Kaldırılacak taslak');
       final thread = _thread(tester);
       repository.error = AppError(code: code, message: 'Source unavailable');
-      await thread.load(targetType: 'OVERTHINKING', targetId: _sourceId);
+      await thread.load(
+        targetType: 'OVERTHINKING_PROFILE_SHARE',
+        targetId: _shareId,
+      );
       await tester.pumpAndSettle();
       _expectUnavailable(tester);
       expect(thread.isClosed, isTrue);
@@ -82,33 +85,35 @@ void main() {
   }
 
   for (final code in ['9350', '9353', '9355', '403', '404', '410', '503']) {
-    testWidgets('individual comment rejection $code preserves source draft', (
-      tester,
-    ) async {
-      final repository = _Repository();
-      await _mount(tester, repository);
-      await tester.enterText(find.byType(TextField), 'Korunan taslak');
-      repository.error = AppError(code: code, message: 'Comment unavailable');
-      final result = await _scoped(tester).listReplyPage('removed-comment');
-      await tester.pumpAndSettle();
-      expect(result.isSuccess, isFalse);
-      expect(find.text('Asıl yazıdaki yorum'), findsOneWidget);
-      expect(find.text('Korunan taslak'), findsOneWidget);
-      expect(_thread(tester).isClosed, isFalse);
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'individual comment rejection $code preserves publication draft',
+      (tester) async {
+        final repository = _Repository();
+        await _mount(tester, repository);
+        await tester.enterText(find.byType(TextField), 'Korunan taslak');
+        repository.error = AppError(code: code, message: 'Comment unavailable');
+        final result = await _scoped(tester).listReplyPage('removed-comment');
+        await tester.pumpAndSettle();
+        expect(result.isSuccess, isFalse);
+        expect(find.text('Asıl yazıdaki yorum'), findsOneWidget);
+        expect(find.text('Korunan taslak'), findsOneWidget);
+        expect(_thread(tester).isClosed, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
-  testWidgets('source rejection during a reply revokes every cached root', (
-    tester,
-  ) async {
-    final repository = _Repository();
-    await _mount(tester, repository);
-    repository.error = const AppError(code: '9700', message: 'Source gone');
-    await _scoped(tester).listReplyPage('comment');
-    await tester.pumpAndSettle();
-    _expectUnavailable(tester);
-  });
+  testWidgets(
+    'publication rejection during a reply revokes every cached root',
+    (tester) async {
+      final repository = _Repository();
+      await _mount(tester, repository);
+      repository.error = const AppError(code: '9700', message: 'Source gone');
+      await _scoped(tester).listReplyPage('comment');
+      await tester.pumpAndSettle();
+      _expectUnavailable(tester);
+    },
+  );
 
   for (final changeSession in [false, true]) {
     testWidgets(
@@ -130,8 +135,8 @@ void main() {
         final pending = Completer<Result<CommentPage>>();
         repository.pending = pending.future;
         final loading = thread.load(
-          targetType: 'OVERTHINKING',
-          targetId: _sourceId,
+          targetType: 'OVERTHINKING_PROFILE_SHARE',
+          targetId: _shareId,
         );
         if (changeSession) {
           sessions.replace(audienceSession(user: 'other'));
@@ -142,8 +147,8 @@ void main() {
         pending.complete(Result.success(_page));
         await loading;
         final staleWrite = await scoped.createComment(
-          targetType: 'OVERTHINKING',
-          targetId: _sourceId,
+          targetType: 'OVERTHINKING_PROFILE_SHARE',
+          targetId: _shareId,
           text: 'Eski ekrandan gönderme',
         );
         await tester.pumpAndSettle();
@@ -171,7 +176,10 @@ void _expectUnavailable(WidgetTester tester) {
     find.byKey(const Key('listener-overthinking-comments-unavailable')),
     findsOneWidget,
   );
-  expect(find.text('Bu yazı artık görüntülenemiyor.'), findsOneWidget);
+  expect(
+    find.text('Bu profil paylaşımı artık görüntülenemiyor.'),
+    findsOneWidget,
+  );
   expect(find.byType(CommentThreadView), findsNothing);
   expect(find.byType(TextField), findsNothing);
   expect(tester.takeException(), isNull);
@@ -189,7 +197,7 @@ Future<void> _mount(
     MaterialApp(
       home: Scaffold(
         body: ListenerEventPostCommentsSheet.overthinking(
-          postId: _sourceId,
+          postId: _shareId,
           repository: repository,
           sessions: manager,
           expectedSession: manager.session,

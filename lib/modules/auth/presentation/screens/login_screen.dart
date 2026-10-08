@@ -15,9 +15,11 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/app_theme_menu_option.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../domain/password_policy.dart';
+import '../../domain/password_reset_identifier_policy.dart';
 import '../../domain/username_policy.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
+import 'otp_verify_screen.dart';
 
 class LoginRouteArgs {
   const LoginRouteArgs({this.initialNotice});
@@ -73,6 +75,44 @@ class _LoginScreenState extends State<LoginScreen> {
     return username;
   }
 
+  void _submitLogin() {
+    final username = _canonicalizeUsername();
+    final password = _passwordController.text;
+    if (username.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('kullanıcı adı boş olamaz'),
+        ),
+      );
+      return;
+    }
+    if (PasswordPolicy.isBlank(password)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('şifre boş olamaz'),
+        ),
+      );
+      return;
+    }
+    if (PasswordPolicy.exceedsBcryptLimit(password)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.warning,
+          content: const Text('Şifre UTF-8 olarak en fazla 72 bayt olmalı'),
+        ),
+      );
+      return;
+    }
+    unawaited(
+      context.read<AuthCubit>().login(username: username, password: password),
+    );
+  }
+
   Future<void> _navigateAfterLogin() async {
     final loginRoute = ModalRoute.of(context);
     if (!mounted || loginRoute?.isCurrent != true) return;
@@ -118,22 +158,35 @@ class _LoginScreenState extends State<LoginScreen> {
     if (pending != null) await inbox?.complete(pending);
     if (!mounted || loginRoute?.isCurrent != true) return;
 
-    final route = AppRouteGuard.startRouteFor(session);
-    final messenger = shouldExplainUnavailableLink
+    if (!identical(sessionManager.session, session)) return;
+    final membershipProfile = AppRouteGuard.approvedMembershipProfileFor(
+      session,
+    );
+    final route = membershipProfile ?? AppRouteGuard.startRouteFor(session);
+    final messenger = shouldExplainUnavailableLink || membershipProfile != null
         ? ScaffoldMessenger.of(context)
         : null;
     navigator.pushNamedAndRemoveUntil<void>(route, (route) => false);
     if (messenger != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!messenger.mounted) return;
+        if (!messenger.mounted || !identical(sessionManager.session, session)) {
+          return;
+        }
         messenger
           ..removeCurrentSnackBar()
           ..showSnackBar(
             appSnackBar(
               messenger.context,
-              tone: AppSnackBarTone.warning,
-              content: const Text(
-                'Bu ilanı müzisyen, mekan veya stüdyo hesabıyla görüntüleyebilirsin.',
+              tone: shouldExplainUnavailableLink
+                  ? AppSnackBarTone.warning
+                  : AppSnackBarTone.success,
+              duration: const Duration(seconds: 3),
+              content: Text(
+                shouldExplainUnavailableLink
+                    ? 'Bu ilanı müzisyen, mekan veya stüdyo hesabıyla görüntüleyebilirsin.'
+                    : membershipProfile == AppRoutes.venueProfile
+                    ? 'Mekân profilin hazır!'
+                    : 'Stüdyo profilin hazır!',
               ),
             ),
           );
@@ -143,6 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state.action != AuthAction.login) return;
@@ -159,6 +213,35 @@ class _LoginScreenState extends State<LoginScreen> {
         } else if (state.status == AuthStatus.failure) {
           final route = ModalRoute.of(context);
           if (route?.isCurrent != true) return;
+          final error = state.error;
+          if (error?.code == 'auth_email_verification_required' &&
+              error!.details.length == 1 &&
+              PasswordResetIdentifierPolicy.isValidEmail(
+                error.details.single,
+              )) {
+            if (_loginNavigationStarted) return;
+            _loginNavigationStarted = true;
+            final navigator = Navigator.of(context);
+            final email = error.details.single.trim();
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted || !navigator.mounted || route?.isCurrent != true) {
+                if (mounted) setState(() => _loginNavigationStarted = false);
+                return;
+              }
+              try {
+                await navigator.pushNamed<void>(
+                  AppRoutes.otpVerify,
+                  arguments: OtpVerifyArgs(
+                    email: email,
+                    resumedRegistration: true,
+                  ),
+                );
+              } finally {
+                if (mounted) setState(() => _loginNavigationStarted = false);
+              }
+            });
+            return;
+          }
           final pendingRoute = switch (state.error?.code) {
             'auth_pending_venue_approval' => AppRoutes.venuePending,
             'auth_pending_studio_approval' => AppRoutes.studioPending,
@@ -203,7 +286,8 @@ class _LoginScreenState extends State<LoginScreen> {
               PopupMenuButton<AppThemeMenuOption>(
                 tooltip: 'Tema seç',
                 enabled: !navigationLocked,
-                initialValue: AppThemeMenuOption.dark,
+                initialValue: AppThemeMenuOption.selected,
+                onSelected: (option) => unawaited(option.select(context)),
                 itemBuilder: (_) => AppThemeMenuOption.values
                     .map(
                       (option) => PopupMenuItem<AppThemeMenuOption>(
@@ -289,48 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(height: 18),
                 InkWell(
                   borderRadius: BorderRadius.circular(18),
-                  onTap: navigationLocked
-                      ? null
-                      : () {
-                          final username = _canonicalizeUsername();
-                          final password = _passwordController.text;
-                          if (username.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              appSnackBar(
-                                context,
-                                tone: AppSnackBarTone.warning,
-                                content: const Text('kullanıcı adı boş olamaz'),
-                              ),
-                            );
-                            return;
-                          }
-                          if (PasswordPolicy.isBlank(password)) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              appSnackBar(
-                                context,
-                                tone: AppSnackBarTone.warning,
-                                content: const Text('şifre boş olamaz'),
-                              ),
-                            );
-                            return;
-                          }
-                          if (PasswordPolicy.exceedsBcryptLimit(password)) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              appSnackBar(
-                                context,
-                                tone: AppSnackBarTone.warning,
-                                content: const Text(
-                                  'Şifre UTF-8 olarak en fazla 72 bayt olmalı',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          context.read<AuthCubit>().login(
-                            username: username,
-                            password: password,
-                          );
-                        },
+                  onTap: navigationLocked ? null : _submitLogin,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -343,7 +386,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   context,
                                 ).dividerColor.withValues(alpha: 0.7),
                               ]
-                            : AppColors.brandGradient,
+                            : AppColors.decorativeGradient,
                       ),
                       borderRadius: BorderRadius.circular(18),
                     ),

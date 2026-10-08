@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../domain/entities/table_group_game.dart';
 import '../../domain/entities/table_group_message.dart';
@@ -44,6 +45,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final game = message.game;
     if (game == null) return Text(message.content);
     final currentPlayer = game.playerFor(currentUserId);
@@ -66,7 +68,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: AppColors.brandGradient
+              colors: AppColors.decorativeGradient
                   .map((color) => color.withValues(alpha: 0.62))
                   .toList(growable: false),
             ),
@@ -80,7 +82,9 @@ class TableGroupGameMessageCard extends StatelessWidget {
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFF0A1526),
+              color: (AppColors.isOriginalDark
+                  ? Theme.of(context).colorScheme.surfaceContainer
+                  : AppColors.navBlue),
               borderRadius: BorderRadius.circular(17),
             ),
             child: Padding(
@@ -199,12 +203,19 @@ class TableGroupGameMessageCard extends StatelessWidget {
           runSpacing: 8,
           children: [
             if (!joined)
-              FilledButton.icon(
-                key: const ValueKey<String>('table-group-game-join'),
-                onPressed: actionInFlight ? null : onJoin,
-                style: _filledStyle(context),
-                icon: const Icon(Icons.login_rounded),
-                label: const Text('Katıl'),
+              GradientOutline(
+                enabled: AppColors.isLight,
+                radius: 13,
+                colors: !actionInFlight
+                    ? AppColors.decorativeGradient
+                    : [AppColors.border, AppColors.border],
+                child: FilledButton.icon(
+                  key: const ValueKey<String>('table-group-game-join'),
+                  onPressed: actionInFlight ? null : onJoin,
+                  style: _filledStyle(context),
+                  icon: const Icon(Icons.login_rounded),
+                  label: const Text('Katıl'),
+                ),
               ),
             if (joined && !isCreator)
               OutlinedButton(
@@ -214,13 +225,20 @@ class TableGroupGameMessageCard extends StatelessWidget {
                 child: const Text('Oyundan ayrıl'),
               ),
             if (isCreator)
-              FilledButton(
-                key: const ValueKey<String>('table-group-game-start'),
-                onPressed: actionInFlight || joinedPlayers.length < 2
-                    ? null
-                    : onStart,
-                style: _filledStyle(context),
-                child: const Text('Şimdi başlat'),
+              GradientOutline(
+                enabled: AppColors.isLight,
+                radius: 13,
+                colors: !actionInFlight && joinedPlayers.length >= 2
+                    ? AppColors.decorativeGradient
+                    : [AppColors.border, AppColors.border],
+                child: FilledButton(
+                  key: const ValueKey<String>('table-group-game-start'),
+                  onPressed: actionInFlight || joinedPlayers.length < 2
+                      ? null
+                      : onStart,
+                  style: _filledStyle(context),
+                  child: const Text('Şimdi başlat'),
+                ),
               ),
             if (canCancel)
               TextButton(
@@ -300,16 +318,19 @@ class TableGroupGameMessageCard extends StatelessWidget {
         runSpacing: 7,
         children: [
           _actionButton(
+            context,
             key: 'game-action-rock',
             label: '✊ Taş',
             action: TableGroupGameAction.rock,
           ),
           _actionButton(
+            context,
             key: 'game-action-paper',
             label: '✋ Kağıt',
             action: TableGroupGameAction.paper,
           ),
           _actionButton(
+            context,
             key: 'game-action-scissors',
             label: '✌️ Makas',
             action: TableGroupGameAction.scissors,
@@ -318,6 +339,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
       ),
       TableGroupGamePhase.dice => Center(
         child: _actionButton(
+          context,
           key: 'game-action-roll',
           label: '🎲 Zarı at',
           action: TableGroupGameAction.roll,
@@ -332,6 +354,7 @@ class TableGroupGameMessageCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _actionButton(
+            context,
             key: 'game-action-tie-roll',
             label: '🎲 Zarı at',
             action: TableGroupGameAction.roll,
@@ -344,7 +367,8 @@ class TableGroupGameMessageCard extends StatelessWidget {
     };
   }
 
-  Widget _actionButton({
+  Widget _actionButton(
+    BuildContext context, {
     required String key,
     required String label,
     required TableGroupGameAction action,
@@ -352,17 +376,24 @@ class TableGroupGameMessageCard extends StatelessWidget {
   }) {
     final onPressed = actionInFlight ? null : () => onAction(action, null);
     if (filled) {
-      return FilledButton(
-        key: ValueKey<String>(key),
-        onPressed: onPressed,
-        style: _filledStyle(null),
-        child: Text(label),
+      return GradientOutline(
+        enabled: AppColors.isLight,
+        radius: 13,
+        colors: !actionInFlight
+            ? AppColors.decorativeGradient
+            : [AppColors.border, AppColors.border],
+        child: FilledButton(
+          key: ValueKey<String>(key),
+          onPressed: onPressed,
+          style: _filledStyle(null),
+          child: Text(label),
+        ),
       );
     }
     return OutlinedButton(
       key: ValueKey<String>(key),
       onPressed: onPressed,
-      style: _outlinedStyle(null),
+      style: _outlinedStyle(context),
       child: Text(label),
     );
   }
@@ -412,10 +443,12 @@ class TableGroupGameMessageCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF171C32),
+        color: (AppColors.isOriginalDark
+            ? Theme.of(context).colorScheme.surfaceContainerHigh
+            : AppColors.navBlueSoft),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.brandGradient.first.withValues(alpha: 0.42),
+          color: AppColors.decorativeGradient.first.withValues(alpha: 0.42),
         ),
       ),
       child: const Text(
@@ -457,9 +490,15 @@ class TableGroupGameMessageCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF071321),
+        color: (AppColors.isOriginalDark
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : AppColors.inputFill),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF263A52)),
+        border: Border.all(
+          color: (AppColors.isOriginalDark
+              ? Theme.of(context).colorScheme.outline
+              : AppColors.border),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -537,9 +576,15 @@ class TableGroupGameMessageCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF071321),
+        color: (AppColors.isOriginalDark
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : AppColors.inputFill),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF263A52)),
+        border: Border.all(
+          color: (AppColors.isOriginalDark
+              ? Theme.of(context).colorScheme.outline
+              : AppColors.border),
+        ),
       ),
       child: Text(text, textAlign: TextAlign.center),
     );
@@ -646,9 +691,15 @@ class TableGroupGameMessageCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF111F34),
+        color: (AppColors.isOriginalDark
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : AppColors.inputFill),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFF2A4059)),
+        border: Border.all(
+          color: (AppColors.isOriginalDark
+              ? Theme.of(context).colorScheme.outline
+              : AppColors.border),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -679,17 +730,19 @@ class TableGroupGameMessageCard extends StatelessWidget {
     );
   }
 
-  ButtonStyle _outlinedStyle(BuildContext? context, {bool emphasized = false}) {
-    final foreground = context == null
-        ? AppColors.white
-        : Theme.of(context).colorScheme.onSurface;
+  ButtonStyle _outlinedStyle(BuildContext context, {bool emphasized = false}) {
+    final foreground = Theme.of(context).colorScheme.onSurface;
     return OutlinedButton.styleFrom(
       foregroundColor: foreground,
-      backgroundColor: const Color(0xFF071321),
+      backgroundColor: (AppColors.isOriginalDark
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
+          : AppColors.inputFill),
       side: BorderSide(
         color: emphasized
-            ? AppColors.brandGradient.first.withValues(alpha: 0.78)
-            : const Color(0xFF2A4059),
+            ? AppColors.decorativeGradient.first.withValues(alpha: 0.78)
+            : (AppColors.isOriginalDark
+                  ? Theme.of(context).colorScheme.outline
+                  : AppColors.border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
@@ -697,12 +750,14 @@ class TableGroupGameMessageCard extends StatelessWidget {
   }
 
   ButtonStyle _filledStyle(BuildContext? context) {
-    final foreground = context == null
-        ? AppColors.white
+    final foreground = AppColors.isLight || context == null
+        ? AppColors.onAccent
         : Theme.of(context).colorScheme.onPrimary;
     return FilledButton.styleFrom(
       foregroundColor: foreground,
-      backgroundColor: AppColors.brandGradient.last,
+      backgroundColor: AppColors.isLight
+          ? Colors.transparent
+          : AppColors.brandGradient.last,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
     );

@@ -6,6 +6,15 @@ import 'entities/dm_message.dart';
 abstract class DmRepository {
   Future<Result<List<DmConversationPreview>>> getMyConversations();
 
+  Future<Result<Page<DmConversationPreview>>> getMyConversationsPage({
+    String? cursor,
+    int size = 30,
+  });
+
+  Future<Result<DmConversationPreview>> getConversationPreview({
+    required String conversationId,
+  });
+
   Future<Result<int>> getUnreadCount();
 
   Future<Result<String>> getOrCreateConversation({required String otherUserId});
@@ -21,6 +30,7 @@ abstract class DmRepository {
     required String recipientId,
     required String content,
     String messageType = 'text',
+    String? clientMessageId,
   });
 
   Future<Result<void>> markMessageAsRead({required String messageId});

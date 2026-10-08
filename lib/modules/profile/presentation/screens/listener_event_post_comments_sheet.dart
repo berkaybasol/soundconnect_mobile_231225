@@ -15,12 +15,13 @@ import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/domain/entities/comment_item.dart';
 import '../../../engagement/domain/entities/comment_like_state.dart';
 import '../../../engagement/domain/entities/comment_page.dart';
+import '../../../engagement/domain/entities/like_user_page.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/cubit/comment_thread_state.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 
-/// Event publications own their threads; Overthinking shares use the source
-/// post's thread so comments remain the same everywhere the writing appears.
+/// Every listener profile publication owns its thread. Raw Overthinking posts
+/// keep using the source-level OVERTHINKING conversation outside this widget.
 class ListenerEventPostCommentsSheet extends StatefulWidget {
   const ListenerEventPostCommentsSheet({
     super.key,
@@ -38,7 +39,7 @@ class ListenerEventPostCommentsSheet extends StatefulWidget {
     required this.sessions,
     required this.expectedSession,
     this.publicationAvailable,
-  }) : _scopedTargetType = 'OVERTHINKING';
+  }) : _scopedTargetType = 'OVERTHINKING_PROFILE_SHARE';
 
   static const targetType = 'EVENT_POST';
   const ListenerEventPostCommentsSheet.tableGroup({
@@ -51,7 +52,7 @@ class ListenerEventPostCommentsSheet extends StatefulWidget {
   }) : _scopedTargetType = 'TABLE_GROUP_POST';
 
   final String _scopedTargetType;
-  bool get _isOverthinking => _scopedTargetType == 'OVERTHINKING';
+  bool get _isOverthinking => _scopedTargetType == 'OVERTHINKING_PROFILE_SHARE';
   final String postId;
   final EngagementRepository repository;
   final AuthSessionManager sessions;
@@ -178,6 +179,7 @@ class _ListenerEventPostCommentsSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_eligible) {
       return const SafeArea(
         top: false,
@@ -202,7 +204,7 @@ class _ListenerEventPostCommentsSheetState
             children: [
               Text(
                 widget._isOverthinking
-                    ? 'Bu yazı artık görüntülenemiyor.'
+                    ? 'Bu profil paylaşımı artık görüntülenemiyor.'
                     : 'Bu paylaşım artık görüntülenemiyor.',
               ),
               TextButton(
@@ -217,7 +219,7 @@ class _ListenerEventPostCommentsSheetState
     return BlocProvider.value(
       value: _thread!,
       child: ColoredBox(
-        color: const Color(0xFF101722),
+        color: AppColors.legacy(const Color(0xFF101722)),
         child: SafeArea(
           top: false,
           child: LayoutBuilder(
@@ -354,11 +356,11 @@ class _PublicationCommentsRepository implements EngagementRepository {
   final bool Function() current;
   final VoidCallback onUnavailable;
   bool _revoked = false;
-  bool get _isOverthinking => targetType == 'OVERTHINKING';
+  bool get _isOverthinking => targetType == 'OVERTHINKING_PROFILE_SHARE';
   AppError get _unavailable => _isOverthinking
       ? const AppError(
           code: 'overthinking_comments_unavailable',
-          message: 'Bu yazı artık görüntülenemiyor.',
+          message: 'Bu profil paylaşımı artık görüntülenemiyor.',
         )
       : const AppError(
           code: 'event_post_comments_unavailable',
@@ -378,7 +380,7 @@ class _PublicationCommentsRepository implements EngagementRepository {
 
   Future<Result<T>> _guard<T>(
     Future<Result<T>> Function() action, {
-    bool sourceScoped = false,
+    bool publicationScoped = false,
   }) async {
     if (_revoked || !current()) return Result.failure(_unavailable);
     final result = await action();
@@ -386,11 +388,11 @@ class _PublicationCommentsRepository implements EngagementRepository {
     // Dio preserves the API error code when supplied, otherwise HTTP status.
     // 9350/9353 concern one missing/non-owned comment, not the publication.
     // A bare HTTP rejection on a comment-ID operation is also ambiguous: only
-    // a source-scoped request can infer that the whole writing is unavailable.
+    // a publication-scoped request can infer that the whole card is unavailable.
     final code = result.error?.code;
     final unavailable = _isOverthinking
         ? const {'9401', '9700', '1102'}.contains(code) ||
-              (sourceScoped && const {'403', '404', '410'}.contains(code))
+              (publicationScoped && const {'403', '404', '410'}.contains(code))
         : const {'9700', '1102', '403', '404'}.contains(code);
     if (!result.isSuccess && unavailable) {
       _revoked = true;
@@ -415,7 +417,7 @@ class _PublicationCommentsRepository implements EngagementRepository {
             page: page,
             size: size,
           ),
-          sourceScoped: true,
+          publicationScoped: true,
         );
 
   @override
@@ -433,7 +435,7 @@ class _PublicationCommentsRepository implements EngagementRepository {
             text: text,
             parentCommentId: parentCommentId,
           ),
-          sourceScoped: true,
+          publicationScoped: true,
         );
 
   @override
@@ -471,6 +473,24 @@ class _PublicationCommentsRepository implements EngagementRepository {
   }) => _guard(() => delegate.readCommentLike(commentId: commentId));
 
   @override
+  Future<Result<LikeUserPage>> listLikeUsers({
+    required String targetType,
+    required String targetId,
+    String? cursor,
+    int size = 20,
+  }) => !_scope(targetType, targetId)
+      ? Future.value(Result.failure(_wrongScope))
+      : _guard(
+          () => delegate.listLikeUsers(
+            targetType: targetType,
+            targetId: targetId,
+            cursor: cursor,
+            size: size,
+          ),
+          publicationScoped: true,
+        );
+
+  @override
   Future<Result<int>> getLikeCount({
     required String targetType,
     required String targetId,
@@ -479,7 +499,21 @@ class _PublicationCommentsRepository implements EngagementRepository {
       : _guard(
           () =>
               delegate.getLikeCount(targetType: targetType, targetId: targetId),
-          sourceScoped: true,
+          publicationScoped: true,
+        );
+
+  @override
+  Future<Result<int>> getCommentCount({
+    required String targetType,
+    required String targetId,
+  }) => !_scope(targetType, targetId)
+      ? Future.value(Result.failure(_wrongScope))
+      : _guard(
+          () => delegate.getCommentCount(
+            targetType: targetType,
+            targetId: targetId,
+          ),
+          publicationScoped: true,
         );
 
   @override
@@ -490,7 +524,7 @@ class _PublicationCommentsRepository implements EngagementRepository {
       ? Future.value(Result.failure(_wrongScope))
       : _guard(
           () => delegate.isLiked(targetType: targetType, targetId: targetId),
-          sourceScoped: true,
+          publicationScoped: true,
         );
 
   @override
@@ -501,7 +535,7 @@ class _PublicationCommentsRepository implements EngagementRepository {
       ? Future.value(Result.failure(_wrongScope))
       : _guard(
           () => delegate.like(targetType: targetType, targetId: targetId),
-          sourceScoped: true,
+          publicationScoped: true,
         );
 
   @override
@@ -512,6 +546,6 @@ class _PublicationCommentsRepository implements EngagementRepository {
       ? Future.value(Result.failure(_wrongScope))
       : _guard(
           () => delegate.unlike(targetType: targetType, targetId: targetId),
-          sourceScoped: true,
+          publicationScoped: true,
         );
 }

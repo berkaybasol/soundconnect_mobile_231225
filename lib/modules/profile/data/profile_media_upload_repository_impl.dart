@@ -7,6 +7,7 @@ import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../domain/entities/media_content_audience.dart';
 import '../domain/entities/profile_upload_result.dart';
 import '../domain/profile_media_upload_repository.dart';
 import 'pending_draft_media_cleanup_store.dart';
@@ -32,6 +33,7 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
   final Future<void> Function(Duration delay) _delay;
   final DateTime Function() _clock;
   final String? Function() _sessionKeyProvider;
+  final String? Function()? _tokenProvider;
   final PendingProfileUploadStore _pendingStore;
   final PendingDraftMediaCleanupStore _pendingDraftCleanupStore;
   final StreamController<ProfileUploadRecoveryEvent> _recoveryEvents =
@@ -48,6 +50,7 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
     Future<void> Function(Duration delay)? delay,
     DateTime Function()? clock,
     String? Function()? sessionKeyProvider,
+    String? Function()? tokenProvider,
     PendingProfileUploadStore? pendingStore,
     PendingDraftMediaCleanupStore? pendingDraftCleanupStore,
   }) : assert(!completionDeadline.isNegative),
@@ -67,6 +70,7 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
        _delay = delay ?? _wait,
        _clock = clock ?? DateTime.now,
        _sessionKeyProvider = sessionKeyProvider ?? _localSession,
+       _tokenProvider = tokenProvider,
        _pendingStore = pendingStore ?? MemoryPendingProfileUploadStore(),
        _pendingDraftCleanupStore =
            pendingDraftCleanupStore ?? MemoryPendingDraftMediaCleanupStore();
@@ -83,12 +87,30 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
     required String mediaKind,
     required String mimeType,
     required String originalFileName,
+    String visibility = 'PUBLIC',
+    String contentAudience = 'MAINSTAGE',
     ProfileUploadAttachmentIntent attachmentIntent =
         const ProfileUploadAttachmentIntent.none(),
     ProfileUploadProgress? onProgress,
     ProfileUploadStageChanged? onStageChanged,
     ProfileUploadCancellation? cancellation,
   }) async {
+    if (!MediaContentAudience.isValid(contentAudience)) {
+      return const Result.failure(
+        AppError(
+          code: 'profile_upload_audience',
+          message: 'Hedef kitle geçersiz.',
+        ),
+      );
+    }
+    if (visibility != 'PUBLIC' && visibility != 'PRIVATE') {
+      return const Result.failure(
+        AppError(
+          code: 'profile_upload_visibility',
+          message: 'Medya görünürlüğü geçersiz.',
+        ),
+      );
+    }
     if (source.sizeBytes <= 0) {
       return Result.failure(
         const AppError(
@@ -101,6 +123,9 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
     if (intentError != null) return Result.failure(intentError);
 
     final sessionKey = _normalizedSessionKey();
+    // Only the initiating request carries this token fence. Durable recovery
+    // remains keyed by account; credentials are never stored with uploads.
+    final initiatingToken = _tokenProvider?.call();
     if (sessionKey == null) {
       return Result.failure(
         const AppError(
@@ -116,13 +141,22 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
       if (cancellation?.isCancelled == true) return _cancelledResult();
 
       onStageChanged?.call(ProfileUploadStage.initializing);
-      final initResult = await _apiClient.post<ProfileUploadInitResult>(
+      final initResult = await _apiClient.request<ProfileUploadInitResult>(
+        ApiHttpMethod.post,
         '/api/v1/user/media/init-upload',
+        requestContext: ApiRequestContext(
+          expectedSessionKey: sessionKey,
+          expectedToken: initiatingToken,
+        ),
         body: {
           'ownerType': ownerType,
           'ownerId': ownerId,
           'kind': mediaKind,
-          'visibility': 'PUBLIC',
+          'visibility': visibility,
+          'contentAudience': MediaContentAudience.forOwner(
+            ownerType,
+            contentAudience,
+          ),
           'mimeType': mimeType,
           'sizeBytes': source.sizeBytes,
           'originalFileName': originalFileName,
@@ -154,6 +188,10 @@ class ProfileMediaUploadRepositoryImpl implements ProfileMediaUploadRepository {
       }
 
       onStageChanged?.call(ProfileUploadStage.uploading);
+      _assertActiveSession(pending);
+      if (_tokenProvider != null && _tokenProvider() != initiatingToken) {
+        throw const _ProfileUploadSessionChanged();
+      }
       final uploadStream = source.openRead().map(
         (chunk) => chunk is Uint8List ? chunk : Uint8List.fromList(chunk),
       );

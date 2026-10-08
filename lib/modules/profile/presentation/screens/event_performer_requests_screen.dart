@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -659,6 +660,7 @@ class _EventPerformerRequestsScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final requests = _visibleRequests;
     return Scaffold(
       appBar: AppBar(
@@ -743,29 +745,43 @@ class _EventPerformerRequestsScreenState
                   itemBuilder: (context, index) {
                     final request = requests[index];
                     final generation = _loadGeneration;
-                    return EventPerformerRequestCard(
+                    return NotificationTargetReady(
                       key: ValueKey(_identityOf(request)),
-                      request: request,
-                      reconsider: _rejected,
-                      expired: _expired(request),
-                      decisionAllowed: _canDecide(request),
-                      processing: _processingIds.contains(request.requestId),
-                      interactionLocked:
-                          _processingIds.isNotEmpty || _loadingMore,
-                      showOnProfile: _profileChoices.contains(
-                        _identityOf(request),
-                      ),
-                      onShowOnProfileChanged: (value) =>
-                          _setShowOnProfile(request, value, generation),
-                      onAccept: () => _decide(
-                        request,
-                        accept: true,
-                        generation: generation,
-                      ),
-                      onReject: () => _decide(
-                        request,
-                        accept: false,
-                        generation: generation,
+                      ready:
+                          !_loading &&
+                          _errorText == null &&
+                          _loadedSession != null &&
+                          _loadedSession == _session &&
+                          NotificationTargetRead.eventPerformerRequestReady(
+                            context,
+                            requestId: request.requestId,
+                            eventId: request.eventId,
+                          ),
+                      requireVisibleBounds: true,
+                      allowPartialVisibility: true,
+                      child: EventPerformerRequestCard(
+                        request: request,
+                        reconsider: _rejected,
+                        expired: _expired(request),
+                        decisionAllowed: _canDecide(request),
+                        processing: _processingIds.contains(request.requestId),
+                        interactionLocked:
+                            _processingIds.isNotEmpty || _loadingMore,
+                        showOnProfile: _profileChoices.contains(
+                          _identityOf(request),
+                        ),
+                        onShowOnProfileChanged: (value) =>
+                            _setShowOnProfile(request, value, generation),
+                        onAccept: () => _decide(
+                          request,
+                          accept: true,
+                          generation: generation,
+                        ),
+                        onReject: () => _decide(
+                          request,
+                          accept: false,
+                          generation: generation,
+                        ),
                       ),
                     );
                   },
@@ -835,6 +851,7 @@ class _FilteredSearchContinuationState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -882,6 +899,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -927,6 +945,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -967,6 +986,7 @@ class _LoadMoreFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (atPageLimit) return const _PageLimitNotice();
     if (loading) {
       return const Padding(
@@ -1014,12 +1034,15 @@ class _PageLimitNotice extends StatelessWidget {
   const _PageLimitNotice();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 18, horizontal: 12),
-    child: Text(
-      'Bu listenin görüntüleme sınırına ulaştın.',
-      key: Key('event-invitation-page-limit'),
-      textAlign: TextAlign.center,
-    ),
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      child: Text(
+        'Bu listenin görüntüleme sınırına ulaştın.',
+        key: Key('event-invitation-page-limit'),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 }

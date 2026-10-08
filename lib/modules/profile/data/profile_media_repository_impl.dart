@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/error/app_error.dart';
 import '../../../core/error/result.dart';
 import '../../../core/network/api_client.dart';
@@ -11,29 +12,79 @@ import 'profile_media_endpoints.dart';
 
 class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
   final ApiClient _apiClient;
+  final AuthSessionManager? _sessions;
 
-  ProfileMediaRepositoryImpl(this._apiClient);
+  ProfileMediaRepositoryImpl(this._apiClient, {AuthSessionManager? sessions})
+    : _sessions = sessions;
 
   @override
   Future<Result<ProfileMedia>> getProfileMedia({
     required String profileType,
     required String profileId,
   }) async {
+    final sessions = _sessions;
+    final session = sessions?.session;
+    var revoked = false;
+    void observe() {
+      if (!identical(session, sessions?.session)) revoked = true;
+    }
+
+    void ensureCurrent() {
+      if (revoked || !identical(session, sessions?.session)) {
+        throw ApiException(_sessionChanged);
+      }
+    }
+
+    final requestContext = session == null
+        ? null
+        : session.isAuthenticated
+        ? ApiRequestContext(
+            expectedSessionKey: session.userId,
+            expectedToken: session.token,
+          )
+        : const ApiRequestContext(requireGuestSession: true);
+    sessions?.addListener(observe);
     try {
-      final response = await _apiClient.get<ProfileMedia>(
+      final result = await _getProfileMedia(
+        profileType: profileType,
+        profileId: profileId,
+        requestContext: requestContext,
+        ensureCurrent: ensureCurrent,
+      );
+      ensureCurrent();
+      return result;
+    } on ApiException catch (error) {
+      return Result.failure(error.error);
+    } finally {
+      sessions?.removeListener(observe);
+    }
+  }
+
+  Future<Result<ProfileMedia>> _getProfileMedia({
+    required String profileType,
+    required String profileId,
+    required ApiRequestContext? requestContext,
+    required void Function() ensureCurrent,
+  }) async {
+    try {
+      final response = await _apiClient.request<ProfileMedia>(
+        ApiHttpMethod.get,
         ProfileMediaEndpoints.media(
           profileType: profileType,
           profileId: profileId,
         ),
+        requestContext: requestContext,
         decoder: (json) =>
             ProfileMediaModel.fromJson(json as Map<String, dynamic>),
       );
+      ensureCurrent();
 
       ProfileMedia finalMedia = response;
       if (response.featuredVideo == null && response.videos.isEmpty) {
         final fallbackMedia = await _loadPublicMedia(
           profileType: profileType,
           profileId: profileId,
+          requestContext: requestContext,
         );
         if (fallbackMedia != null && fallbackMedia.isNotEmpty) {
           finalMedia = ProfileMedia(
@@ -50,9 +101,11 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
       // hidden-profile and transport failures must remain visible to callers.
       if (e.error.code != '404') return Result.failure(e.error);
       try {
+        ensureCurrent();
         final fallbackMedia = await _loadPublicMedia(
           profileType: profileType,
           profileId: profileId,
+          requestContext: requestContext,
         );
         if (fallbackMedia != null) {
           return Result.success(
@@ -65,6 +118,8 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
         }
       } on FormatException {
         return const Result.failure(_invalidResponse);
+      } on ApiException catch (error) {
+        return Result.failure(error.error);
       }
       return Result.failure(e.error);
     } on FormatException {
@@ -82,10 +137,13 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
   Future<List<MediaAsset>?> _loadPublicMedia({
     required String profileType,
     required String profileId,
+    required ApiRequestContext? requestContext,
   }) async {
     try {
-      return await _apiClient.get<List<MediaAssetModel>>(
+      return await _apiClient.request<List<MediaAssetModel>>(
+        ApiHttpMethod.get,
         '/api/v1/public/media/owner/${_mediaOwnerType(profileType)}/$profileId/kind/VIDEO',
+        requestContext: requestContext,
         query: const {'page': 0, 'size': 20, 'sort': 'createdAt,desc'},
         decoder: (json) {
           if (json is! Map<String, dynamic>) {
@@ -109,6 +167,9 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
       );
     } on FormatException {
       rethrow;
+    } on ApiException catch (error) {
+      if (error.error.code == _sessionChanged.code) rethrow;
+      return null;
     } catch (_) {
       return null;
     }
@@ -129,5 +190,9 @@ class ProfileMediaRepositoryImpl implements ProfileMediaRepository {
   static const _invalidResponse = AppError(
     code: 'profile_media_invalid_response',
     message: 'Profil medyası yanıtı doğrulanamadı.',
+  );
+  static const _sessionChanged = AppError(
+    code: 'api_session_fence',
+    message: 'Oturum istek tamamlanmadan önce değişti.',
   );
 }

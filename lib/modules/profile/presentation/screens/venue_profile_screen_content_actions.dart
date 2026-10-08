@@ -9,20 +9,20 @@ extension _VenueProfileScreenContentActions on _MusicianPublicProfileContent {
       barrierColor: AppColors.pureBlack.withValues(alpha: 0.35),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: FractionallySizedBox(
-            widthFactor: 0.58,
-            heightFactor: 1,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(dialogContext).colorScheme.surface,
-                  borderRadius: BorderRadius.horizontal(
-                    left: Radius.circular(20),
-                  ),
+        final menuTheme = appSurfaceTheme(Theme.of(dialogContext));
+        return Theme(
+          data: menuTheme,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.58,
+              heightFactor: 1,
+              child: Material(
+                color: menuTheme.colorScheme.surface,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(20),
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: SafeArea(
                   left: false,
                   child: Padding(

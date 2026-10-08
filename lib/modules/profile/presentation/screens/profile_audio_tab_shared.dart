@@ -50,6 +50,7 @@ class ProfileAudioTab extends StatelessWidget {
   final String emptyUploadPrompt;
   final String uploadActionLabel;
   final String spotifyCatalogTitle;
+  final WidgetBuilder Function(WidgetBuilder)? routeBoundary;
   final Future<bool> Function(List<SpotifyTrackPreview> tracks)?
   onSpotifyTracksChanged;
 
@@ -69,7 +70,11 @@ class ProfileAudioTab extends StatelessWidget {
     this.spotifyCatalogTitle =
         'Sanat\u00e7\u0131n\u0131n Spotify Katalo\u011fu',
     this.onSpotifyTracksChanged,
+    this.routeBoundary,
   });
+
+  WidgetBuilder _guardRoute(WidgetBuilder builder) =>
+      routeBoundary?.call(builder) ?? builder;
 
   Future<bool> persistSpotifyTracks(
     BuildContext context,
@@ -106,6 +111,7 @@ class ProfileAudioTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final positionStream = audioHandler is AudioPlayerHandler
         ? (audioHandler as AudioPlayerHandler).positionStream
         : Stream<Duration>.empty();

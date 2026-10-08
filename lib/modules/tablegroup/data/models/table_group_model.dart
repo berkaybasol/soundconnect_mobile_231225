@@ -242,6 +242,7 @@ class TableGroupModel extends TableGroup {
     }
     return TableGroupParticipant(
       userId: _requiredText(item, 'userId'),
+      applicationId: _optionalWireText(item['applicationId'], 'applicationId'),
       joinedAt: joinedAt,
       status: status,
       joinNote: _optionalWireText(item['joinNote'], 'joinNote'),
@@ -291,6 +292,7 @@ class TableGroupModel extends TableGroup {
       };
       return TableGroupParticipant(
         userId: item['userId']?.toString() ?? '',
+        applicationId: item['applicationId']?.toString(),
         joinedAt: parseTableGroupWireDate(item['joinedAt']),
         status: status,
         joinNote: item['joinNote']?.toString(),

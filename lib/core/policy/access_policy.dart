@@ -35,7 +35,25 @@ class AccessPolicy {
   }
 
   static bool canAccessCollab(List<String> roles) {
-    return roles.map(_normalizeRole).any(collabRoles.contains);
+    final normalized = roles.map(_normalizeRole).toSet();
+    return !normalized.contains('ROLE_LISTENER') &&
+        normalized.any(collabRoles.contains);
+  }
+
+  /// Each market participant acts through one current professional identity.
+  /// Administrative authorities do not grant consumer access on their own.
+  static bool canAccessMarketplace(List<String> roles) {
+    final normalized = roles.map(_normalizeRole).toSet();
+    final personalRoles = normalized.intersection(const {
+      'ROLE_MUSICIAN',
+      'ROLE_VENUE',
+      'ROLE_STUDIO',
+      'ROLE_LISTENER',
+      'ROLE_ORGANIZER',
+      'ROLE_PRODUCER',
+    });
+    return personalRoles.length == 1 &&
+        collabRoles.contains(personalRoles.single);
   }
 
   static bool canCreateOrJoinTableGroups(List<String> roles) {

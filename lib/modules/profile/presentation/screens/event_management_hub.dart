@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/profile_management_sheet.dart';
 
-enum EventManagementDestination { invitations, events, rejected }
+enum EventManagementDestination { invitations, events, rejected, plans }
 
 Future<EventManagementDestination?> showEventManagementHub(
   BuildContext context,
@@ -9,6 +9,12 @@ Future<EventManagementDestination?> showEventManagementHub(
   context,
   title: 'Etkinlik Yönetimi',
   options: const [
+    ProfileManagementSheetOption(
+      key: Key('event-management-plans'),
+      value: EventManagementDestination.plans,
+      icon: Icons.event_repeat_outlined,
+      label: 'Planlı Etkinlik Davetleri',
+    ),
     ProfileManagementSheetOption(
       key: Key('event-management-invitations'),
       value: EventManagementDestination.invitations,

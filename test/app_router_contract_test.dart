@@ -9,11 +9,14 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/access_policy.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/core/policy/stage_mode.dart';
 import 'package:soundconnect_23_12_25codx/modules/event/presentation/screens/event_discovery_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/event_audience/presentation/event_audience_profile_draft.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/domain/musician_feed_report_admin_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/musician_feed_report_admin_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_pending_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
@@ -21,6 +24,46 @@ import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/p
 void main() {
   tearDown(() async {
     await GetIt.instance.reset();
+  });
+
+  test('marketplace only admits one active professional identity', () {
+    for (final roles in <List<String>>[
+      ['ROLE_MUSICIAN'],
+      [' venue '],
+      ['STUDIO'],
+      ['ROLE_ADMIN', 'ROLE_MUSICIAN'],
+    ]) {
+      expect(AccessPolicy.canAccessMarketplace(roles), isTrue);
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.marketplace, _activeSession(roles)),
+        isNull,
+      );
+    }
+    for (final roles in <List<String>>[
+      [],
+      ['ROLE_LISTENER'],
+      ['ROLE_ADMIN'],
+      ['ROLE_OWNER'],
+      ['ROLE_PRODUCER'],
+      ['ROLE_ORGANIZER'],
+      ['ROLE_LISTENER', 'ROLE_MUSICIAN'],
+      ['ROLE_MUSICIAN', 'ROLE_STUDIO'],
+      ['ROLE_MUSICIAN', 'ROLE_PRODUCER'],
+    ]) {
+      expect(AccessPolicy.canAccessMarketplace(roles), isFalse);
+      final session = _activeSession(roles);
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.marketplace, session),
+        AppRouteGuard.startRouteFor(session),
+      );
+    }
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.marketplace,
+        const AuthSession.guest(),
+      ),
+      AppRoutes.login,
+    );
   });
 
   testWidgets('own listener route forwards only typed event draft arguments', (
@@ -49,6 +92,157 @@ void main() {
       final screen = route.builder(context) as ListenerProfileScreen;
       expect(screen.eventDraft, arguments == draft ? same(draft) : isNull);
     }
+  });
+
+  test('muted feed settings follow rollout for active profile audiences', () {
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.musicianFeedMutedAuthors,
+        const AuthSession.guest(),
+      ),
+      AppRoutes.login,
+    );
+    for (final role in [
+      'ROLE_MUSICIAN',
+      'ROLE_VENUE',
+      'ROLE_STUDIO',
+      'ROLE_LISTENER',
+    ]) {
+      expect(
+        AppRouteGuard.redirectFor(
+          AppRoutes.musicianFeedMutedAuthors,
+          _activeSession([role]),
+        ),
+        ProfileFeedAvailability.enabled
+            ? isNull
+            : AppRouteGuard.startRouteFor(_activeSession([role])),
+      );
+    }
+    for (final role in ['ROLE_PRODUCER', 'ROLE_ORGANIZER']) {
+      final session = _activeSession([role]);
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.musicianFeedMutedAuthors, session),
+        AppRouteGuard.startRouteFor(session),
+      );
+    }
+  });
+
+  test('parked feed routes redirect every profile audience to its start', () {
+    for (final role in [
+      'ROLE_MUSICIAN',
+      'ROLE_VENUE',
+      'ROLE_STUDIO',
+      'ROLE_LISTENER',
+    ]) {
+      final session = _activeSession([role]);
+      for (final route in [
+        AppRoutes.backstageProfilesHome,
+        AppRoutes.listenerFeed,
+        AppRoutes.musicianFeedMutedAuthors,
+      ]) {
+        if (!ProfileFeedAvailability.enabled) {
+          expect(
+            AppRouteGuard.redirectFor(route, session),
+            AppRouteGuard.startRouteFor(session),
+            reason: '$role must not reach $route while feeds are parked',
+          );
+        }
+      }
+      expect(
+        AppRouteGuard.redirectFor(
+          AppRouteGuard.startRouteFor(session),
+          session,
+        ),
+        isNull,
+      );
+    }
+  });
+
+  test('feed moderation requires its exact permission and active session', () {
+    expect(
+      AppRouteGuard.redirectFor(
+        AppRoutes.adminMusicianFeedReports,
+        const AuthSession.guest(),
+      ),
+      AppRoutes.login,
+    );
+    for (final session in <AuthSession>[
+      _activeSession(['ROLE_MUSICIAN']),
+      _activeSession(['ROLE_ADMIN'], isAdmin: true),
+      _activeSession(
+        ['ROLE_OWNER'],
+        isAdmin: true,
+        permissions: ['ADMIN_PANEL_ACCESS', 'MANAGE_COLLAB_REPORTS'],
+      ),
+    ]) {
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.adminMusicianFeedReports, session),
+        AppRouteGuard.startRouteFor(session),
+      );
+    }
+    final allowed = _activeSession(
+      ['ROLE_ADMIN'],
+      isAdmin: true,
+      permissions: ['MANAGE_MUSICIAN_FEED_REPORTS'],
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.adminMusicianFeedReports, allowed),
+      isNull,
+    );
+    final suspended = _activeSession(
+      ['ROLE_ADMIN'],
+      isAdmin: true,
+      permissions: ['MANAGE_MUSICIAN_FEED_REPORTS'],
+      accountStatus: 'SUSPENDED',
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.adminMusicianFeedReports, suspended),
+      AppRoutes.login,
+    );
+  });
+
+  testWidgets('real moderation route injects the authenticated repository', (
+    tester,
+  ) async {
+    _registerSession(
+      _activeSession(
+        ['ROLE_ADMIN'],
+        isAdmin: true,
+        permissions: ['MANAGE_MUSICIAN_FEED_REPORTS'],
+      ),
+    );
+    final repository = _UnusedReportAdminRepository();
+    GetIt.instance.registerSingleton<MusicianFeedReportAdminRepository>(
+      repository,
+    );
+    await tester.pumpWidget(
+      const MaterialApp(home: SizedBox(key: Key('moderation-route-host'))),
+    );
+    final route =
+        AppRouter.onGenerateRoute(
+              const RouteSettings(name: AppRoutes.adminMusicianFeedReports),
+            )
+            as MaterialPageRoute;
+    final screen =
+        route.builder(
+              tester.element(find.byKey(const Key('moderation-route-host'))),
+            )
+            as MusicianFeedReportAdminScreen;
+    expect(route.settings.name, AppRoutes.adminMusicianFeedReports);
+    expect(screen.repository, same(repository));
+    expect(screen.sessions, same(GetIt.instance<AuthSessionManager>()));
+  });
+
+  test('real moderation route redirects an admin without its permission', () {
+    _registerSession(_activeSession(['ROLE_ADMIN'], isAdmin: true));
+    final route = AppRouter.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.adminMusicianFeedReports),
+    );
+    expect(route.settings.name, AppRoutes.adminDashboard);
+    expect(
+      GetIt.instance.isRegistered<MusicianFeedReportAdminRepository>(),
+      isFalse,
+    );
   });
 
   test('member discovery keeps authentication and onboarding gates', () {
@@ -357,51 +551,90 @@ void main() {
     },
   );
 
-  test('Studio owner calendar rejects invalid args and non-Studio roles', () {
-    final listener = AuthSession.authenticated(
-      token: 'test-token',
-      userId: 'listener-id',
-      username: 'listener',
-      accountStatus: 'ACTIVE',
-      roles: const <String>['ROLE_LISTENER'],
-      permissions: const <String>[],
-      expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
-      isAdmin: false,
-    );
-    _registerSession(listener);
+  test(
+    'Studio calendar blocks listeners and preserves musician customer access',
+    () async {
+      final listener = AuthSession.authenticated(
+        token: 'test-token',
+        userId: 'listener-id',
+        username: 'listener',
+        accountStatus: 'ACTIVE',
+        roles: const <String>['ROLE_LISTENER'],
+        permissions: const <String>[],
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        isAdmin: false,
+      );
+      _registerSession(listener);
 
-    final invalidArgsRoute = AppRouter.onGenerateRoute(
-      const RouteSettings(name: AppRoutes.studioReservationCalendar),
-    );
-    final unauthorizedOwnerRoute = AppRouter.onGenerateRoute(
-      const RouteSettings(
-        name: AppRoutes.studioReservationCalendar,
-        arguments: StudioReservationCalendarArgs(
-          roomId: 'room-1',
-          studioProfileId: 'studio-1',
-          ownerMode: true,
+      final invalidArgsRoute = AppRouter.onGenerateRoute(
+        const RouteSettings(name: AppRoutes.studioReservationCalendar),
+      );
+      final unauthorizedOwnerRoute = AppRouter.onGenerateRoute(
+        const RouteSettings(
+          name: AppRoutes.studioReservationCalendar,
+          arguments: StudioReservationCalendarArgs(
+            roomId: 'room-1',
+            studioProfileId: 'studio-1',
+            ownerMode: true,
+          ),
         ),
-      ),
-    );
-    final customerRoute = AppRouter.onGenerateRoute(
-      const RouteSettings(
-        name: AppRoutes.studioReservationCalendar,
-        arguments: StudioReservationCalendarArgs(
-          roomId: 'room-1',
-          studioProfileId: 'studio-1',
-          ownerMode: false,
+      );
+      final customerRoute = AppRouter.onGenerateRoute(
+        const RouteSettings(
+          name: AppRoutes.studioReservationCalendar,
+          arguments: StudioReservationCalendarArgs(
+            roomId: 'room-1',
+            studioProfileId: 'studio-1',
+            ownerMode: false,
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(invalidArgsRoute.settings.name, AppRoutes.listenerProfile);
-    expect(unauthorizedOwnerRoute.settings.name, AppRoutes.listenerProfile);
-    expect(customerRoute.settings.name, AppRoutes.studioReservationCalendar);
-    expect(
-      AppRouteGuard.canOpenStudioOwnerReservationCalendar(listener),
-      isFalse,
-    );
-  });
+      expect(invalidArgsRoute.settings.name, AppRoutes.studioListenerInfo);
+      expect(
+        unauthorizedOwnerRoute.settings.name,
+        AppRoutes.studioListenerInfo,
+      );
+      expect(customerRoute.settings.name, AppRoutes.studioListenerInfo);
+      expect(
+        AppRouteGuard.canOpenStudioOwnerReservationCalendar(listener),
+        isFalse,
+      );
+
+      await GetIt.instance.unregister<AuthSessionManager>();
+      final musician = _activeSession(['ROLE_MUSICIAN']);
+      _registerSession(musician);
+      final musicianCustomerRoute = AppRouter.onGenerateRoute(
+        const RouteSettings(
+          name: AppRoutes.studioReservationCalendar,
+          arguments: StudioReservationCalendarArgs(
+            roomId: 'room-1',
+            studioProfileId: 'studio-1',
+            ownerMode: false,
+          ),
+        ),
+      );
+      final musicianOwnerRoute = AppRouter.onGenerateRoute(
+        const RouteSettings(
+          name: AppRoutes.studioReservationCalendar,
+          arguments: StudioReservationCalendarArgs(
+            roomId: 'room-1',
+            studioProfileId: 'studio-1',
+            ownerMode: true,
+          ),
+        ),
+      );
+      expect(
+        musicianCustomerRoute.settings.name,
+        AppRoutes.studioReservationCalendar,
+      );
+      expect(musicianOwnerRoute.settings.name, AppRoutes.home);
+      expect(
+        AppRouteGuard.canOpenStudioOwnerReservationCalendar(musician),
+        isFalse,
+      );
+    },
+  );
 
   test('Collab is available only to supported business profile roles', () {
     final listener = AuthSession.authenticated(
@@ -506,16 +739,19 @@ void main() {
 AuthSession _activeSession(
   List<String> roles, {
   bool requiresListenerProfileChoice = false,
+  List<String> permissions = const [],
+  bool isAdmin = false,
+  String accountStatus = 'ACTIVE',
 }) {
   return AuthSession.authenticated(
     token: 'table-group-token',
     userId: 'table-group-user',
     username: 'table-group-user',
-    accountStatus: 'ACTIVE',
+    accountStatus: accountStatus,
     roles: roles,
-    permissions: const <String>[],
+    permissions: permissions,
     expiresAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
-    isAdmin: false,
+    isAdmin: isAdmin,
     requiresListenerProfileChoice: requiresListenerProfileChoice,
   );
 }
@@ -535,6 +771,13 @@ class _FixedAuthSessionManager extends AuthSessionManager {
 
   @override
   AuthSession get session => _fixedSession;
+}
+
+class _UnusedReportAdminRepository
+    implements MusicianFeedReportAdminRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('Building a route must not load moderation data');
 }
 
 class _NoopTokenStore implements TokenStore {

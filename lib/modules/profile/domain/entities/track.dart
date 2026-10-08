@@ -5,6 +5,7 @@ class Track {
   final String? playbackUrl;
   final int? durationSeconds;
   final int? bpm;
+  final String contentAudience;
 
   const Track({
     required this.id,
@@ -13,5 +14,6 @@ class Track {
     required this.playbackUrl,
     required this.durationSeconds,
     required this.bpm,
+    this.contentAudience = 'MAINSTAGE',
   });
 }

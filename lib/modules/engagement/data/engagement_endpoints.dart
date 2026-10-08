@@ -15,6 +15,9 @@ class EngagementEndpoints {
   static String likeCount(String targetType, String targetId) =>
       '${like(targetType, targetId)}/count';
 
+  static String likeUsers(String targetType, String targetId) =>
+      '${like(targetType, targetId)}/users';
+
   static String isLiked(String targetType, String targetId) =>
       '${like(targetType, targetId)}/is-liked';
 
@@ -23,6 +26,9 @@ class EngagementEndpoints {
 
   static String listComments(String targetType, String targetId) =>
       createComment(targetType, targetId);
+
+  static String commentCount(String targetType, String targetId) =>
+      '${listComments(targetType, targetId)}/count';
 
   static String deleteComment(String commentId) =>
       '$_commentsBase/${Uri.encodeComponent(commentId)}';

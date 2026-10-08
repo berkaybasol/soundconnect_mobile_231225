@@ -12,6 +12,7 @@ class ProfileSpotifyPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final spotifyGradient = [
       AppColors.spotifyGreenBright,
       AppColors.spotifyGreen,
@@ -130,6 +131,7 @@ class _ProfileAudioPreviewCardState extends State<ProfileAudioPreviewCard>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onTap,

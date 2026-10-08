@@ -1,0 +1,31 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application android:allowBackup="false"
+        android:networkSecurityConfig="@xml/bridge_network_security_config"
+        tools:replace="android:allowBackup">
+        <!-- Synthetic native lifecycle only: no Firebase project/config or auto-init. -->
+        <provider android:name="com.google.firebase.provider.FirebaseInitProvider" tools:node="remove" />
+        <provider android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingInitProvider" tools:node="remove" />
+        <service android:name=".SoundconnectMessagingService" tools:node="remove" />
+        <service android:name="com.google.firebase.messaging.FirebaseMessagingService" tools:node="remove" />
+        <service android:name="com.google.firebase.components.ComponentDiscoveryService" tools:node="remove" />
+        <service android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingBackgroundService" tools:node="remove" />
+        <receiver android:name="com.google.firebase.iid.FirebaseInstanceIdReceiver" tools:node="remove" />
+        <receiver android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingReceiver" tools:node="remove" />
+        <!-- Explicit instrumentation still launches the actual Activity. No product URL/launcher routing. -->
+        <activity android:name=".MainActivity" android:exported="false" tools:replace="android:exported">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <!-- AndroidX debug runner dependencies also contribute launcher categories. -->
+        <activity android:name="androidx.test.core.app.InstrumentationActivityInvoker$BootstrapActivity">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <activity android:name="androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <activity android:name="androidx.test.core.app.InstrumentationActivityInvoker$EmptyFloatingActivity">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+        <meta-data android:name="com.soundconnect.bridge_harness"
+            android:value="integration_test/native_push_bridge_harness.dart" />
+    </application>
+</manifest>

@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -422,105 +423,113 @@ class _EventProfilePublicationsScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: widget.embedded
-          ? null
-          : AppBar(
-              title: const Text('Etkinliklerim'),
-              centerTitle: true,
-              bottom: widget.showPeriods
-                  ? PreferredSize(
-                      preferredSize: Size.fromHeight(
-                        (MediaQuery.textScalerOf(context).scale(14) + 48).clamp(
-                          72.0,
-                          double.infinity,
+    return NotificationTargetReady(
+      ready:
+          !_loading &&
+          _error == null &&
+          _loadedSession != null &&
+          _loadedSession == _session &&
+          _items.isNotEmpty,
+      child: Scaffold(
+        appBar: widget.embedded
+            ? null
+            : AppBar(
+                title: const Text('Etkinliklerim'),
+                centerTitle: true,
+                bottom: widget.showPeriods
+                    ? PreferredSize(
+                        preferredSize: Size.fromHeight(
+                          (MediaQuery.textScalerOf(context).scale(14) + 48)
+                              .clamp(72.0, double.infinity),
                         ),
-                      ),
-                      child: _periodSelector(context),
-                    )
-                  : null,
-            ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => _load(0),
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                _period == EventProfilePublicationPeriod.past
-                    ? 'Katılımı onaylanan geçmiş etkinlikler burada saklanır.'
-                    : widget.targetType == EventPerformerTargetType.band
-                    ? 'Grup profilinde hangi etkinliklerin görüneceğini seç. Üyelerin kişisel tercihleri değişmez.'
-                    : 'Profilinde hangi etkinliklerin görüneceğini seç. Bu tercih katılımını değiştirmez.',
-                style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5),
+                        child: _periodSelector(context),
+                      )
+                    : null,
               ),
-              const SizedBox(height: 22),
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_error != null) ...[
-                Text(_error!, textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: () => _load(0),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Tekrar dene'),
+        body: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: () => _load(0),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text(
+                  _period == EventProfilePublicationPeriod.past
+                      ? 'Katılımı onaylanan geçmiş etkinlikler burada saklanır.'
+                      : widget.targetType == EventPerformerTargetType.band
+                      ? 'Grup profilinde hangi etkinliklerin görüneceğini seç. Üyelerin kişisel tercihleri değişmez.'
+                      : 'Profilinde hangi etkinliklerin görüneceğini seç. Bu tercih katılımını değiştirmez.',
+                  style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5),
                 ),
-              ] else if (_items.isEmpty && !_atPageLimit)
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Text(
-                    widget.showPeriods
-                        ? 'Bu bölümde etkinlik yok.'
-                        : 'Henüz yönetebileceğin bir etkinlik yok. Katılımı onaylanan etkinlikler burada görünür.',
-                    textAlign: TextAlign.center,
+                const SizedBox(height: 22),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null) ...[
+                  Text(_error!, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () => _load(0),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Tekrar dene'),
                   ),
-                )
-              else ...[
-                for (final item in _items) ...[
-                  _PublicationCard(
-                    item: item,
-                    period: _period,
-                    processing: _updating.contains(item.eventId),
-                    enabled: _updating.isEmpty,
-                    onToggle: () => _setVisible(item),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-              ],
-              if (!_loading && _error == null && (_page > 0 || _hasNext))
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      onPressed: _page > 0 && _updating.isEmpty
-                          ? () => _load(_page - 1)
-                          : null,
-                      child: const Text('Önceki'),
+                ] else if (_items.isEmpty && !_atPageLimit)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Text(
+                      widget.showPeriods
+                          ? 'Bu bölümde etkinlik yok.'
+                          : 'Henüz yönetebileceğin bir etkinlik yok. Katılımı onaylanan etkinlikler burada görünür.',
+                      textAlign: TextAlign.center,
                     ),
-                    Text('${_page + 1}'),
-                    TextButton(
-                      onPressed: _hasNext && !_atPageLimit && _updating.isEmpty
-                          ? () => _load(_page + 1)
-                          : null,
-                      child: const Text('Sonraki'),
+                  )
+                else ...[
+                  for (final item in _items) ...[
+                    _PublicationCard(
+                      item: item,
+                      period: _period,
+                      processing: _updating.contains(item.eventId),
+                      enabled: _updating.isEmpty,
+                      onToggle: () => _setVisible(item),
                     ),
+                    const SizedBox(height: 14),
                   ],
-                ),
-              if (!_loading && _error == null && _atPageLimit)
-                const Padding(
-                  padding: EdgeInsets.only(top: 12),
-                  child: Text(
-                    'Bu listenin görüntüleme sınırına ulaştın.',
-                    key: Key('event-publication-page-limit'),
-                    textAlign: TextAlign.center,
+                ],
+                if (!_loading && _error == null && (_page > 0 || _hasNext))
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: _page > 0 && _updating.isEmpty
+                            ? () => _load(_page - 1)
+                            : null,
+                        child: const Text('Önceki'),
+                      ),
+                      Text('${_page + 1}'),
+                      TextButton(
+                        onPressed:
+                            _hasNext && !_atPageLimit && _updating.isEmpty
+                            ? () => _load(_page + 1)
+                            : null,
+                        child: const Text('Sonraki'),
+                      ),
+                    ],
                   ),
-                ),
-            ],
+                if (!_loading && _error == null && _atPageLimit)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      'Bu listenin görüntüleme sınırına ulaştın.',
+                      key: Key('event-publication-page-limit'),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -544,6 +553,7 @@ class _PublicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final date = item.eventDate;
     final dateText =

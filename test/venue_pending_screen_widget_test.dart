@@ -24,14 +24,6 @@ void main() {
         username: 'venue-owner',
         accountStatus: 'PENDING_VENUE_REQUEST',
       );
-    final manager = createSessionManager(
-      tokenStore: tokenStore,
-      sessionStore: sessionStore,
-    );
-    GetIt.instance.registerSingleton<AuthSessionManager>(
-      manager,
-      dispose: (value) => value.dispose(),
-    );
   });
 
   tearDown(() async {
@@ -41,6 +33,15 @@ void main() {
   });
 
   Widget app() {
+    // Create async credential queues inside the widget's FakeAsync zone.
+    final manager = createSessionManager(
+      tokenStore: tokenStore,
+      sessionStore: sessionStore,
+    );
+    GetIt.instance.registerSingleton<AuthSessionManager>(
+      manager,
+      dispose: (value) => value.dispose(),
+    );
     return MaterialApp(
       routes: <String, WidgetBuilder>{
         AppRoutes.login: (_) => const Scaffold(body: Text('login-target')),

@@ -29,7 +29,10 @@ class _MusicianPublicProfileViewState
   }
 
   Future<void> _refreshProfile() async {
-    await context.read<VenueProfileCubit>().loadOwner(venueId: _ownerVenueId);
+    await context.read<VenueProfileCubit>().loadOwner(
+      venueId: _ownerVenueId,
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
+    );
     if (!mounted) return;
 
     final profile = context.read<VenueProfileCubit>().state.ownerProfile;
@@ -63,7 +66,10 @@ class _MusicianPublicProfileViewState
         _openIncomingApplicationsOnLoad =
             args['openIncomingApplications'] == true;
       }
-      context.read<VenueProfileCubit>().loadOwner(venueId: _ownerVenueId);
+      context.read<VenueProfileCubit>().loadOwner(
+        venueId: _ownerVenueId,
+        admitContent: NotificationTargetRead.beginFollowRequest(context),
+      );
     }
     if (_viewerUserId != null) return;
     final args = ModalRoute.of(context)?.settings.arguments;
@@ -80,6 +86,7 @@ class _MusicianPublicProfileViewState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return BlocBuilder<VenueProfileCubit, VenueProfileState>(
       builder: (context, venueState) {
         final ownerProfile = venueState.ownerProfile;
@@ -146,40 +153,48 @@ class _MusicianPublicProfileViewState
                   ? null
                   : followState.followingCount;
               final actionState = context.watch<FollowActionCubit>().state;
-              return _MusicianPublicProfileContent(
-                analyticsVenueId: ownerProfile.venueId,
-                onViewArtists: () => openVenueArtists(
-                  context,
-                  venueId: ownerProfile.venueId,
-                  venueName: ownerProfile.venueName,
-                  venueImageUrl: ownerProfile.profilePictureUrl,
+              return NotificationTargetReady(
+                contentIdentity: ownerProfile,
+                ready:
+                    venueState.status == VenueProfileStatus.success &&
+                    !_openIncomingApplicationsOnLoad,
+                child: _MusicianPublicProfileContent(
+                  analyticsVenueId: ownerProfile.venueId,
+                  onViewArtists: () => openVenueArtists(
+                    context,
+                    venueId: ownerProfile.venueId,
+                    venueName: ownerProfile.venueName,
+                    venueImageUrl: ownerProfile.profilePictureUrl,
+                  ),
+                  profile: profile,
+                  media: media,
+                  followersCount: followersCount,
+                  followingCount: followingCount,
+                  activeVenues: ownerProfile.activeMusicians,
+                  activeBands: ownerProfile.activeBands,
+                  viewerUserId: '',
+                  isFollowing: actionState.isFollowing,
+                  followLoading:
+                      actionState.status == FollowActionStatus.loading,
+                  spotifyTracks: const [],
+                  spotifyLoading: false,
+                  onEditPhoto: () => _editProfilePhoto(ownerProfile),
+                  photoUploading: _photoUploading,
+                  uploadedProfilePhotoUrl: ownerProfile.profilePictureUrl,
+                  socialEditable: false,
+                  onAddSocialLink: null,
+                  descriptionEditable: false,
+                  onSaveDescription: null,
+                  ownerMode: true,
+                  onEditProfilePressed: _onEditProfilePressed,
+                  venueEditable: false,
+                  onEditVenues: null,
+                  onEditEvents: () =>
+                      _editConnectedArtists(ownerProfile.venueId),
+                  weeklyEvents: weeklyEvents,
+                  galleryOwnerId: ownerProfile.venueProfileId,
+                  onRefresh: _refreshProfile,
                 ),
-                profile: profile,
-                media: media,
-                followersCount: followersCount,
-                followingCount: followingCount,
-                activeVenues: ownerProfile.activeMusicians,
-                activeBands: ownerProfile.activeBands,
-                viewerUserId: '',
-                isFollowing: actionState.isFollowing,
-                followLoading: actionState.status == FollowActionStatus.loading,
-                spotifyTracks: const [],
-                spotifyLoading: false,
-                onEditPhoto: () => _editProfilePhoto(ownerProfile),
-                photoUploading: _photoUploading,
-                uploadedProfilePhotoUrl: ownerProfile.profilePictureUrl,
-                socialEditable: false,
-                onAddSocialLink: null,
-                descriptionEditable: false,
-                onSaveDescription: null,
-                ownerMode: true,
-                onEditProfilePressed: _onEditProfilePressed,
-                venueEditable: false,
-                onEditVenues: null,
-                onEditEvents: () => _editConnectedArtists(ownerProfile.venueId),
-                weeklyEvents: weeklyEvents,
-                galleryOwnerId: ownerProfile.venueProfileId,
-                onRefresh: _refreshProfile,
               );
             },
           ),
@@ -204,10 +219,14 @@ class _MusicianPublicProfileViewState
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        builder: (_) => VenueApplicationsSheet(
-          venueId: ownerProfile.venueId,
-          mode: ApplicationListMode.incoming,
-        ),
+        builder: (sheetContext) {
+          final route = ModalRoute.of(sheetContext);
+          if (route != null) NotificationTargetRead.transfer(context, route);
+          return VenueApplicationsSheet(
+            venueId: ownerProfile.venueId,
+            mode: ApplicationListMode.incoming,
+          );
+        },
       );
       if (mounted && session.isCurrent) await _refreshProfile();
     });

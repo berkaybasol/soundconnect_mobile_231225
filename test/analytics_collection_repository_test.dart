@@ -17,14 +17,32 @@ AnalyticsObservation _observation({
   id: id,
   type: type,
   observedAt: DateTime.utc(2026, 9, 8, 10),
-  eventId: type == AnalyticsObservationType.venueProfileView ? null : _eventId,
+  eventId:
+      type.isAnnouncement || type == AnalyticsObservationType.venueProfileView
+      ? null
+      : _eventId,
   venueId: type == AnalyticsObservationType.venueProfileView ? _venueId : null,
   sourceEventId: type == AnalyticsObservationType.venueProfileView
       ? _eventId
       : null,
+  announcementId: type.isAnnouncement ? _eventId : null,
+  source: type.isAnnouncement ? 'DIRECTORY' : null,
+  playbackId: type.isAnnouncementVideo ? _venueId : null,
 );
 
 void main() {
+  test('announcement collection never becomes anonymous', () async {
+    final api = _Api();
+    final result = await AnalyticsCollectionRepositoryImpl(api).collect(
+      clientId: _clientId,
+      observations: [
+        _observation(type: AnalyticsObservationType.announcementImpression),
+      ],
+      expectedUserId: null,
+    );
+    expect(result.error?.code, 'analytics_invalid');
+    expect(api.path, isNull);
+  });
   for (final type in AnalyticsObservationType.values) {
     test('maps ${type.wireValue} to the fenced collector contract', () async {
       final api = _Api();

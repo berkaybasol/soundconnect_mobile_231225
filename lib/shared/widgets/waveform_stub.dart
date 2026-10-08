@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../theme/app_colors.dart';
 
 class WaveformStub extends StatelessWidget {
@@ -16,6 +17,7 @@ class WaveformStub extends StatelessWidget {
   final ValueChanged<double>? onSeek;
   final double height;
   final double waveformHeight;
+  final double leadingSize;
   final List<double>? samples;
 
   const WaveformStub({
@@ -34,8 +36,9 @@ class WaveformStub extends StatelessWidget {
     this.onSeek,
     this.height = 68,
     this.waveformHeight = 44,
+    this.leadingSize = 32,
     this.samples,
-  });
+  }) : assert(leadingSize > 0);
 
   static const _samples = [
     0.18,
@@ -135,6 +138,9 @@ class WaveformStub extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final effectiveGradientColors = gradientColors ?? AppColors.brandGradient;
+    final freshBrandWaveform =
+        AppColors.isLight &&
+        listEquals(effectiveGradientColors, AppColors.brandGradient);
     final effectiveIconColor = iconColor ?? theme.colorScheme.primary;
     final effectiveLeadingBackgroundColor =
         leadingBackgroundColor ?? theme.colorScheme.surfaceContainer;
@@ -155,8 +161,8 @@ class WaveformStub extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: leadingSize,
+                height: leadingSize,
                 decoration: BoxDecoration(
                   color: effectiveLeadingBackgroundColor,
                   borderRadius: BorderRadius.circular(8),
@@ -184,56 +190,96 @@ class WaveformStub extends StatelessWidget {
                           (samples != null && samples!.isNotEmpty)
                           ? samples!
                           : _samples;
+                      final seekable = onSeek != null;
+                      const semanticStep = .05;
+                      String percentage(double value) =>
+                          '${(value.clamp(0.0, 1.0) * 100).round()}%';
+                      void seekBy(double delta) => onSeek?.call(
+                        (clampedProgress + delta).clamp(0.0, 1.0),
+                      );
 
-                      return GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTapDown: onSeek == null
-                            ? null
-                            : (details) {
-                                final ratio = details.localPosition.dx / width;
-                                onSeek?.call(ratio.clamp(0.0, 1.0));
-                              },
-                        onHorizontalDragUpdate: onSeek == null
-                            ? null
-                            : (details) {
-                                final ratio = details.localPosition.dx / width;
-                                onSeek?.call(ratio.clamp(0.0, 1.0));
-                              },
-                        child: TweenAnimationBuilder<double>(
-                          duration: const Duration(milliseconds: 56),
-                          curve: Curves.linear,
-                          tween: Tween<double>(end: clampedProgress),
-                          builder: (context, animatedProgress, _) {
-                            final lineLeft = width * animatedProgress;
-                            return Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                CustomPaint(
-                                  painter: _WaveformPainter(
-                                    samples: waveformSamples,
-                                    gradientColors: effectiveGradientColors,
-                                    baseOpacity: 0.35,
-                                    progress: animatedProgress,
-                                  ),
-                                ),
-                                if (animatedProgress > 0)
-                                  Positioned(
-                                    left: lineLeft.clamp(0.0, width - 1),
-                                    top: 0,
-                                    bottom: 0,
-                                    child: Container(
-                                      width: 2,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.white.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
+                      return Semantics(
+                        container: true,
+                        slider: seekable ? true : null,
+                        label: 'Oynatma konumu',
+                        value: percentage(clampedProgress),
+                        increasedValue: seekable
+                            ? percentage(clampedProgress + semanticStep)
+                            : null,
+                        decreasedValue: seekable
+                            ? percentage(clampedProgress - semanticStep)
+                            : null,
+                        hint: seekable
+                            ? 'Oynatma konumunu artır veya azalt'
+                            : null,
+                        onIncrease: seekable
+                            ? () => seekBy(semanticStep)
+                            : null,
+                        onDecrease: seekable
+                            ? () => seekBy(-semanticStep)
+                            : null,
+                        child: GestureDetector(
+                          excludeFromSemantics: true,
+                          behavior: HitTestBehavior.translucent,
+                          onTapDown: onSeek == null
+                              ? null
+                              : (details) {
+                                  final ratio =
+                                      details.localPosition.dx / width;
+                                  onSeek?.call(ratio.clamp(0.0, 1.0));
+                                },
+                          onHorizontalDragUpdate: onSeek == null
+                              ? null
+                              : (details) {
+                                  final ratio =
+                                      details.localPosition.dx / width;
+                                  onSeek?.call(ratio.clamp(0.0, 1.0));
+                                },
+                          child: TweenAnimationBuilder<double>(
+                            duration: const Duration(milliseconds: 56),
+                            curve: Curves.linear,
+                            tween: Tween<double>(end: clampedProgress),
+                            builder: (context, animatedProgress, _) {
+                              final lineLeft = width * animatedProgress;
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  CustomPaint(
+                                    painter: _WaveformPainter(
+                                      samples: waveformSamples,
+                                      gradientColors: effectiveGradientColors,
+                                      progressGradientColors: freshBrandWaveform
+                                          ? AppColors.brandTextGradient
+                                          : effectiveGradientColors,
+                                      baseOpacity: freshBrandWaveform
+                                          ? 1
+                                          : 0.35,
+                                      progress: animatedProgress,
                                     ),
                                   ),
-                              ],
-                            );
-                          },
+                                  if (animatedProgress > 0)
+                                    Positioned(
+                                      left: lineLeft.clamp(0.0, width - 1),
+                                      top: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        width: 2,
+                                        decoration: BoxDecoration(
+                                          color:
+                                              (AppColors.isOriginalDark
+                                                      ? AppColors.white
+                                                      : AppColors.textPrimary)
+                                                  .withValues(alpha: 0.7),
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
                         ),
                       );
                     },
@@ -252,28 +298,32 @@ class WaveformStub extends StatelessWidget {
 class _WaveformPainter extends CustomPainter {
   final List<double> samples;
   final List<Color> gradientColors;
+  final List<Color> progressGradientColors;
   final double baseOpacity;
   final double progress;
 
   const _WaveformPainter({
     required this.samples,
     required this.gradientColors,
+    required this.progressGradientColors,
     required this.baseOpacity,
     required this.progress,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (samples.isEmpty) return;
+    if (samples.isEmpty || size.width <= 0 || size.height <= 0) return;
     final rect = Offset.zero & size;
     final centerY = rect.height / 2;
     final maxAmp = rect.height / 2;
     final barCount = samples.length;
-    final gap = 1.5;
-    final barWidth = ((rect.width - (gap * (barCount - 1))) / barCount).clamp(
-      1.2,
-      3.0,
-    );
+    // Fit every sample into the actual available width. A fixed minimum bar
+    // width plus fixed gaps can paint beyond a compact player, while a maximum
+    // bar width alone leaves the end of a wide player's seek track empty.
+    final barWidth = (rect.width / barCount * .64).clamp(0.0, 3.0);
+    final gap = barCount == 1
+        ? 0.0
+        : (rect.width - barWidth * barCount) / (barCount - 1);
     final basePaint = Paint()
       ..isAntiAlias = true
       ..shader = LinearGradient(
@@ -289,7 +339,7 @@ class _WaveformPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
-        colors: gradientColors,
+        colors: progressGradientColors,
       ).createShader(rect)
       ..style = PaintingStyle.fill;
     final progressX = rect.width * progress.clamp(0.0, 1.0);
@@ -317,6 +367,7 @@ class _WaveformPainter extends CustomPainter {
     return oldDelegate.samples != samples ||
         oldDelegate.baseOpacity != baseOpacity ||
         oldDelegate.progress != progress ||
+        oldDelegate.progressGradientColors != progressGradientColors ||
         oldDelegate.gradientColors != gradientColors;
   }
 }

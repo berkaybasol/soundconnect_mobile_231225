@@ -36,6 +36,7 @@ class _BackstageProfileSearchSheet extends StatefulWidget {
 class _BackstageProfileSearchSheetState
     extends State<_BackstageProfileSearchSheet> {
   final _repository = serviceLocator<ProfileSearchRepository>();
+  final _sessions = serviceLocator<AuthSessionManager>();
   final _controller = TextEditingController();
   Timer? _debounce;
   int _searchToken = 0;
@@ -47,14 +48,30 @@ class _BackstageProfileSearchSheetState
   void initState() {
     super.initState();
     _controller.addListener(_onQueryChanged);
+    _sessions.addListener(_sessionChanged);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _sessions.removeListener(_sessionChanged);
     _controller.removeListener(_onQueryChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  bool get _listener =>
+      _sessions.session.hasAnyRole(const ['ROLE_LISTENER', 'LISTENER']);
+
+  void _sessionChanged() {
+    _debounce?.cancel();
+    _searchToken++;
+    if (!mounted) return;
+    setState(() {
+      _results = const [];
+      _loading = false;
+      _message = null;
+    });
   }
 
   void _onQueryChanged() {
@@ -82,8 +99,23 @@ class _BackstageProfileSearchSheetState
       _message = null;
     });
 
-    final result = await _repository.searchProfiles(query);
-    if (!mounted || token != _searchToken) return;
+    final session = _sessions.session;
+    final result = await _repository.searchProfiles(
+      query,
+      types: _listener
+          ? const {
+              ProfileSearchResultType.musician,
+              ProfileSearchResultType.listener,
+              ProfileSearchResultType.band,
+              ProfileSearchResultType.venue,
+            }
+          : null,
+    );
+    if (!mounted ||
+        token != _searchToken ||
+        !identical(_sessions.session, session)) {
+      return;
+    }
     if (!result.isSuccess) {
       setState(() {
         _loading = false;
@@ -93,7 +125,11 @@ class _BackstageProfileSearchSheetState
       return;
     }
 
-    final results = result.data ?? const <ProfileSearchResult>[];
+    final results = (result.data ?? const <ProfileSearchResult>[])
+        .where(
+          (item) => !_listener || item.type != ProfileSearchResultType.studio,
+        )
+        .toList(growable: false);
     setState(() {
       _loading = false;
       _results = results;
@@ -102,10 +138,11 @@ class _BackstageProfileSearchSheetState
   }
 
   void _openResult(ProfileSearchResult item) {
+    if (_listener && item.type == ProfileSearchResultType.studio) return;
     final navigator = Navigator.of(context);
     final destination = resolveProfileSearchDestination(
       result: item,
-      currentUserId: serviceLocator<AuthSessionManager>().session.userId,
+      currentUserId: _sessions.session.userId,
     );
     navigator.pop();
 
@@ -155,6 +192,7 @@ class _BackstageProfileSearchSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       padding: EdgeInsets.only(
@@ -183,8 +221,9 @@ class _BackstageProfileSearchSheetState
                   textInputAction: TextInputAction.search,
                   onSubmitted: _runSearch,
                   decoration: InputDecoration(
-                    hintText:
-                        'Müzisyen, dinleyici, grup, stüdyo veya mekân ara...',
+                    hintText: _listener
+                        ? 'Müzisyen, dinleyici, grup veya mekân ara...'
+                        : 'Müzisyen, dinleyici, grup, stüdyo veya mekân ara...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _controller.text.isEmpty
                         ? null
@@ -242,6 +281,7 @@ class _ProfileSearchResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageUrl = item.imageUrl?.trim();
     final hasImage =
         imageUrl != null &&
@@ -260,7 +300,9 @@ class _ProfileSearchResultTile extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+              backgroundColor: (AppColors.isLight
+                  ? AppColors.avatarBackground
+                  : Theme.of(context).colorScheme.surfaceContainer),
               child: ClipOval(
                 child: hasImage
                     ? AppCachedNetworkImage(
@@ -271,10 +313,17 @@ class _ProfileSearchResultTile extends StatelessWidget {
                         cacheHeight: 132,
                         errorBuilder: (context) => Icon(
                           _iconForType(item.type),
-                          color: AppColors.coralAlt,
+                          color: (AppColors.isLight
+                              ? AppColors.avatarForeground
+                              : AppColors.coralAlt),
                         ),
                       )
-                    : Icon(_iconForType(item.type), color: AppColors.coralAlt),
+                    : Icon(
+                        _iconForType(item.type),
+                        color: (AppColors.isLight
+                            ? AppColors.avatarForeground
+                            : AppColors.coralAlt),
+                      ),
               ),
             ),
             const SizedBox(width: 12),

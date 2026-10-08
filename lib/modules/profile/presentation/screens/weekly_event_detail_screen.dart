@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,9 +11,11 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/event_performer_identity.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/theme/app_surface_theme.dart';
 import '../../../../shared/widgets/event_poster_fallback.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../../shared/widgets/guest_access_sheet.dart';
 import '../../../auth/presentation/widgets/registration_options_sheet.dart';
 import '../../../analytics/presentation/widgets/analytics_tracking.dart';
 import '../../../analytics/data/analytics_tracker.dart';
@@ -115,18 +118,54 @@ bool _isNetworkLikePath(String? value) {
       uri.host.isNotEmpty;
 }
 
-class WeeklyEventDetailScreen extends StatefulWidget {
+class WeeklyEventDetailScreen extends StatelessWidget {
   final WeeklyCalendarEvent event;
   final EventShareService? shareService;
+  final VoidCallback? onEngagementChanged;
 
-  WeeklyEventDetailScreen({super.key, required this.event, this.shareService});
+  WeeklyEventDetailScreen({
+    super.key,
+    required this.event,
+    this.shareService,
+    this.onEngagementChanged,
+  });
 
   @override
-  State<WeeklyEventDetailScreen> createState() =>
+  Widget build(BuildContext context) => AppSurfaceThemeScope(
+    child: _WeeklyEventDetailContent(
+      // Context and pending actions belong to this event/performer identity.
+      // Replacing it must not reuse another event's description or profiles.
+      key: ValueKey((
+        event.id,
+        event.linkedArtistProfileId,
+        event.linkedBandProfileId,
+        event.venueId,
+      )),
+      event: event,
+      shareService: shareService,
+      onEngagementChanged: onEngagementChanged,
+    ),
+  );
+}
+
+class _WeeklyEventDetailContent extends StatefulWidget {
+  const _WeeklyEventDetailContent({
+    super.key,
+    required this.event,
+    this.shareService,
+    this.onEngagementChanged,
+  });
+
+  final WeeklyCalendarEvent event;
+  final EventShareService? shareService;
+  final VoidCallback? onEngagementChanged;
+
+  @override
+  State<_WeeklyEventDetailContent> createState() =>
       _WeeklyEventDetailScreenState();
 }
 
-class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
+class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
     with WidgetsBindingObserver {
   final TextEditingController _commentController = TextEditingController();
   final CommentThreadCubit _commentCubit = CommentThreadCubit(
@@ -146,6 +185,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
   late final EventShareService _eventShareService =
       widget.shareService ?? PlatformEventShareService();
   String? _loadedDescription;
+  int _detailRequestRevision = 0;
   bool _isSharing = false;
   bool _isShowingPerformerInfo = false;
   bool _isOpeningArtistProfile = false;
@@ -246,8 +286,20 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
   }
 
   @override
-  void didUpdateWidget(covariant WeeklyEventDetailScreen oldWidget) {
+  void didUpdateWidget(covariant _WeeklyEventDetailContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final previous = oldWidget.event;
+    final current = widget.event;
+    if (previous.title != current.title ||
+        previous.description != current.description ||
+        previous.eventDate != current.eventDate ||
+        previous.startTime != current.startTime ||
+        previous.endTime != current.endTime ||
+        previous.imageAssetPath != current.imageAssetPath) {
+      _loadedDescription = null;
+      _analyticsEventVerified = false;
+      _loadShareUrl();
+    }
     if (oldWidget.event.id == widget.event.id) return;
     _commentController.clear();
     _dismissReplyRoute();
@@ -276,6 +328,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final event = widget.event;
     final commentSession = _commentSessionManager?.session;
     final performerName = _eventPerformerDisplayName(event.artistName);
@@ -285,7 +338,7 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
         .join(' / ');
 
     final page = Scaffold(
-      backgroundColor: AppColors.navBlueDeep,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -543,13 +596,17 @@ class _WeeklyEventDetailScreenState extends State<WeeklyEventDetailScreen>
         ),
       ),
     );
-    return TrackEventDetailView(
-      eventId: event.id,
-      enabled:
-          _analyticsEventVerified &&
-          (_venueProfile == null ||
-              _venueProfile!.ownerUserId != commentSession?.userId),
-      child: page,
+    return NotificationTargetReady(
+      ready: true,
+      contentIdentity: event,
+      child: TrackEventDetailView(
+        eventId: event.id,
+        enabled:
+            _analyticsEventVerified &&
+            (_venueProfile == null ||
+                _venueProfile!.ownerUserId != commentSession?.userId),
+        child: page,
+      ),
     );
   }
 }

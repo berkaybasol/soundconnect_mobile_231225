@@ -23,7 +23,17 @@ class OverthinkingIncomingUnreadCubit extends Cubit<bool?> {
     _session.addListener(_sessionChanged);
     _notifications = notifications?.listen(_notificationReceived);
     _reconnections = reconnections?.listen((_) => unawaited(refresh()));
-    _invalidations = invalidations?.listen((_) => unawaited(refresh()));
+    _invalidations = invalidations?.listen((_) {
+      // A notification ACK changes its badge, not the independent incoming-seen
+      // watermark. A settled seen inbox cannot become unseen by cancellation.
+      // New requests have their own notification signal; resume/reconnect also
+      // reconcile. Keep invalidation while unknown/unread or any read is pending
+      // so cancellation cannot let an older response reopen the dot.
+      if (state == false && _readInFlight == null && _seenInFlight == null) {
+        return;
+      }
+      unawaited(refresh());
+    });
   }
 
   final OverthinkingRepository _repository;

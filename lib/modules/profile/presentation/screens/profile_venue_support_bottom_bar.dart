@@ -8,6 +8,7 @@ class ProfileBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ProfilePublicBottomBar(
       currentIndex: currentIndex,
       profileImageUrl: profileImageUrl,

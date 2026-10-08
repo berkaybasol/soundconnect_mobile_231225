@@ -14,9 +14,8 @@ class MusicianManagementPanelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profileName = musicianProfile.stageName?.trim().isNotEmpty == true
-        ? musicianProfile.stageName!.trim()
-        : musicianProfile.username?.trim().isNotEmpty == true
+    Theme.of(context);
+    final profileName = musicianProfile.username?.trim().isNotEmpty == true
         ? musicianProfile.username!.trim()
         : 'Sanatçı';
     return Scaffold(
@@ -49,7 +48,7 @@ class MusicianManagementPanelScreen extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.brandTextGradient,
                       ),
                       style: const TextStyle(
                         fontSize: 24,
@@ -68,6 +67,19 @@ class MusicianManagementPanelScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+              if (ProfileFeedAvailability.enabled) ...[
+                _buildMusicianVenueManagementCard(
+                  context: context,
+                  icon: Icons.person_outline_rounded,
+                  title: 'Profil Tamamlama',
+                  message: 'Akış tercihlerini ve enstrümanlarını yönet.',
+                  onTap: () => _showMusicianProfileCompletionHub(
+                    context: context,
+                    profile: musicianProfile,
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
               _buildMusicianVenueManagementCard(
                 context: context,
                 icon: Icons.groups_outlined,
@@ -141,6 +153,32 @@ class MusicianManagementPanelScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+Future<void> _showMusicianProfileCompletionHub({
+  required BuildContext context,
+  required MusicianProfile profile,
+}) async {
+  final originRoute = ModalRoute.of(context);
+  final session = ProfileActionSession(
+    roles: const ['MUSICIAN', 'ROLE_MUSICIAN'],
+  );
+  if (!session.isCurrent ||
+      session.userId != profile.userId ||
+      originRoute?.isCurrent == false) {
+    return;
+  }
+  final changed = await Navigator.of(context).push<bool>(
+    MaterialPageRoute<bool>(
+      builder: (_) => MusicianProfileCompletionScreen(profile: profile),
+    ),
+  );
+  if (changed == true &&
+      context.mounted &&
+      session.isCurrent &&
+      originRoute?.isCurrent != false) {
+    Navigator.of(context).pop();
   }
 }
 
@@ -238,7 +276,7 @@ Widget _buildMusicianVenueManagementCard({
         ),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.white, size: 24),
+            Icon(icon, color: AppColors.legacyWhite(), size: 24),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -257,10 +295,14 @@ Widget _buildMusicianVenueManagementCard({
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.08),
+                  color: AppColors.legacy(
+                    AppColors.white,
+                  ).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: AppColors.white.withValues(alpha: 0.16),
+                    color: AppColors.legacy(
+                      AppColors.white,
+                    ).withValues(alpha: 0.16),
                   ),
                 ),
                 child: Text(
@@ -299,6 +341,7 @@ class _MusicianVenueGradientOutline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return CustomPaint(
       painter: _MusicianVenueGradientOutlinePainter(
         radius: radius,
@@ -313,10 +356,11 @@ class _MusicianVenueGradientOutline extends StatelessWidget {
 }
 
 class _MusicianVenueGradientOutlinePainter extends CustomPainter {
+  final bool _isLight = AppColors.isLight;
   final double radius;
   final double strokeWidth;
 
-  const _MusicianVenueGradientOutlinePainter({
+  _MusicianVenueGradientOutlinePainter({
     required this.radius,
     required this.strokeWidth,
   });
@@ -343,7 +387,8 @@ class _MusicianVenueGradientOutlinePainter extends CustomPainter {
   bool shouldRepaint(
     covariant _MusicianVenueGradientOutlinePainter oldDelegate,
   ) {
-    return oldDelegate.radius != radius ||
+    return oldDelegate._isLight != _isLight ||
+        oldDelegate.radius != radius ||
         oldDelegate.strokeWidth != strokeWidth;
   }
 }
@@ -352,6 +397,7 @@ Future<void> _showMusicianVenueApplicationList({
   required BuildContext context,
   required String musicianProfileId,
   required _MusicianVenueApplicationListMode mode,
+  bool forwardNotificationRead = false,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -360,10 +406,16 @@ Future<void> _showMusicianVenueApplicationList({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => _MusicianVenueApplicationsSheet(
-      musicianProfileId: musicianProfileId,
-      mode: mode,
-    ),
+    builder: (sheetContext) {
+      final route = ModalRoute.of(sheetContext);
+      if (forwardNotificationRead && route != null) {
+        NotificationTargetRead.transfer(context, route);
+      }
+      return _MusicianVenueApplicationsSheet(
+        musicianProfileId: musicianProfileId,
+        mode: mode,
+      );
+    },
   );
 }
 
@@ -449,6 +501,7 @@ class _MusicianVenueApplicationsSheetState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final title = _showConnections
         ? 'Bağlantılarım'
         : _showOutgoing
@@ -511,8 +564,27 @@ class _MusicianVenueApplicationsSheetState
                           itemCount: _items.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 12),
-                          itemBuilder: (context, index) =>
-                              _buildApplicationItem(_items[index]),
+                          itemBuilder: (context, index) {
+                            final item = _items[index];
+                            return NotificationTargetReady(
+                              key: ValueKey('artist-venue-request-${item.id}'),
+                              ready:
+                                  !_showOutgoing &&
+                                  !_showConnections &&
+                                  _session.isCurrent &&
+                                  !_accessRevoked &&
+                                  !_loading &&
+                                  _error == null &&
+                                  NotificationTargetRead.artistVenueRequestReady(
+                                    context,
+                                    item.id,
+                                  ),
+                              contentIdentity: item,
+                              requireVisibleBounds: true,
+                              allowPartialVisibility: true,
+                              child: _buildApplicationItem(item),
+                            );
+                          },
                         ),
                       ),
               ),
@@ -857,7 +929,7 @@ class _MusicianVenueApplicationsSheetState
               Text(
                 label,
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.legacy(AppColors.white),
                   fontWeight: FontWeight.w700,
                 ),
               ),

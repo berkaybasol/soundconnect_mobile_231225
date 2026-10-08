@@ -8,6 +8,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
+import 'package:soundconnect_23_12_25codx/core/policy/profile_feed_availability.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/presentation/cubit/dm_badge_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_profile.dart';
@@ -76,6 +77,9 @@ void main() {
     await tester.tap(find.byKey(sessionLogoutButtonKey));
     await _openLogoutDialog(tester);
     await tester.tap(find.byKey(sessionLogoutConfirmKey));
+    // The manager was created by setUp outside the widget fake-async zone.
+    // Drain its credential-write chain before waiting for the busy icon.
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpAndSettle();
 
     expect(tokenStore.token, isNull);
@@ -150,6 +154,10 @@ void main() {
     expect(find.byKey(const Key('listener-enable-ghost')), findsNothing);
     await _openListenerMenu(tester);
     expect(find.byKey(sessionLogoutMenuTileKey), findsOneWidget);
+    expect(
+      find.byKey(const Key('profile-menu-feed')),
+      ProfileFeedAvailability.enabled ? findsOneWidget : findsNothing,
+    );
   });
 
   testWidgets('listener reloads its username after returning from settings', (

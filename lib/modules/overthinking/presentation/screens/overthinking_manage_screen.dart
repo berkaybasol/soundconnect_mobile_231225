@@ -13,6 +13,7 @@ import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/entities/overthinking_post.dart';
 import '../../domain/entities/overthinking_reveal_request.dart';
@@ -28,25 +29,63 @@ import 'overthinking_session_guard.dart';
 part 'overthinking_manage_cards.dart';
 part 'overthinking_manage_sheets.dart';
 
-class OverthinkingManageScreen extends StatefulWidget {
+class OverthinkingManageScreen extends StatelessWidget {
   final StageMode bottomBarStageMode;
   final int initialTabIndex;
+  final String? initialRequestId;
+  final String? initialPostId;
+  final String? initialRequestStatus;
+  final String? initialRecipientId;
 
   const OverthinkingManageScreen({
     super.key,
     this.bottomBarStageMode = StageMode.mainstage,
     this.initialTabIndex = 0,
+    this.initialRequestId,
+    this.initialPostId,
+    this.initialRequestStatus,
+    this.initialRecipientId,
   });
 
   @override
-  State<OverthinkingManageScreen> createState() =>
+  Widget build(BuildContext context) => OverthinkingThemeScope(
+    child: _OverthinkingManageContent(
+      bottomBarStageMode: bottomBarStageMode,
+      initialTabIndex: initialTabIndex,
+      initialRequestId: initialRequestId,
+      initialPostId: initialPostId,
+      initialRequestStatus: initialRequestStatus,
+      initialRecipientId: initialRecipientId,
+    ),
+  );
+}
+
+class _OverthinkingManageContent extends StatefulWidget {
+  const _OverthinkingManageContent({
+    required this.bottomBarStageMode,
+    required this.initialTabIndex,
+    this.initialRequestId,
+    this.initialPostId,
+    this.initialRequestStatus,
+    this.initialRecipientId,
+  });
+
+  final StageMode bottomBarStageMode;
+  final int initialTabIndex;
+  final String? initialRequestId;
+  final String? initialPostId;
+  final String? initialRequestStatus;
+  final String? initialRecipientId;
+
+  @override
+  State<_OverthinkingManageContent> createState() =>
       _OverthinkingManageScreenState();
 }
 
-class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
+class _OverthinkingManageScreenState extends State<_OverthinkingManageContent>
     with
         SingleTickerProviderStateMixin,
-        OverthinkingSessionBoundState<OverthinkingManageScreen>,
+        OverthinkingSessionBoundState<_OverthinkingManageContent>,
         WidgetsBindingObserver {
   late final OverthinkingRepository _repository =
       serviceLocator<OverthinkingRepository>();
@@ -60,6 +99,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
   late final OverthinkingIncomingUnreadScope _incomingUnread;
   late final TabController _tabs;
   late int _lastSelectedTab;
+  bool _missingRequestShown = false;
 
   @override
   void initState() {
@@ -151,6 +191,15 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
           target.page = page;
           target.hasNext = data.hasNext;
           target.total = data.totalElements;
+          target.loaded = true;
+          final requestId = widget.initialRequestId;
+          if (requestId != null &&
+              (identical(target, _incoming) || identical(target, _sent))) {
+            final index = target.items.indexWhere(
+              (item) => target.idOf(item) == requestId,
+            );
+            if (index > 0) target.items.insert(0, target.items.removeAt(index));
+          }
         } else {
           target.error = result.error?.message ?? failureMessage;
         }
@@ -186,13 +235,107 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
         append: append,
       ),
     ]);
+    _locateNotificationRequest(
+      _incoming,
+      1,
+      () => _loadIncoming(append: true),
+      _loadIncoming,
+    );
   }
 
-  Future<void> _loadSent({bool append = false}) => _loadPage(
-    _sent,
-    (page) => _repository.getSentRevealRequests(page: page, size: 30),
-    'Gönderdiğin istekler yüklenemedi. Birazdan yeniden deneyebilirsin.',
-    append: append,
+  Future<void> _loadSent({bool append = false}) async {
+    await _loadPage(
+      _sent,
+      (page) => _repository.getSentRevealRequests(page: page, size: 30),
+      'Gönderdiğin istekler yüklenemedi. Birazdan yeniden deneyebilirsin.',
+      append: append,
+    );
+    _locateNotificationRequest(
+      _sent,
+      2,
+      () => _loadSent(append: true),
+      _loadSent,
+    );
+  }
+
+  void _locateNotificationRequest(
+    _ManagePage<OverthinkingRevealRequest> page,
+    int tab,
+    Future<void> Function() more,
+    Future<void> Function() retry,
+  ) {
+    final id = widget.initialRequestId;
+    if (!mounted ||
+        !overthinkingSession.canWrite ||
+        id == null ||
+        widget.initialTabIndex != tab ||
+        page.loading ||
+        page.error != null ||
+        page.items.any((item) => item.id == id)) {
+      return;
+    }
+    if (page.hasNext && page.page < 100) {
+      unawaited(more());
+      return;
+    }
+    if (_missingRequestShown) return;
+    _missingRequestShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar(
+          context,
+          tone: AppSnackBarTone.info,
+          content: const Text('Bu istek artık kullanılamıyor.'),
+          inlineAction: true,
+          action: SnackBarAction(
+            label: 'Tekrar dene',
+            onPressed: () {
+              _missingRequestShown = false;
+              unawaited(retry());
+            },
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _notificationRequest(
+    OverthinkingRevealRequest request,
+    bool incoming,
+    Widget child,
+  ) => AnimatedBuilder(
+    animation: _tabs.animation!,
+    builder: (context, child) => NotificationTargetReady(
+      ready:
+          widget.initialRequestId != null &&
+          request.id == widget.initialRequestId &&
+          (widget.initialPostId == null ||
+              request.postId == widget.initialPostId) &&
+          (widget.initialRequestStatus == null ||
+              request.status == widget.initialRequestStatus) &&
+          (widget.initialRecipientId == null ||
+              // Pending/rejected DTOs deliberately omit authorId. Ownership is
+              // established by the fresh owned target plus this session's
+              // incoming endpoint; never reveal identity to satisfy this gate.
+              (incoming
+                  ? request.requesterId.isNotEmpty &&
+                        request.requesterId != widget.initialRecipientId &&
+                        (request.authorId.isEmpty ||
+                            request.authorId == widget.initialRecipientId)
+                  : request.requesterId == widget.initialRecipientId &&
+                        request.authorId != widget.initialRecipientId)) &&
+          _tabs.index == (incoming ? 1 : 2) &&
+          !_tabs.indexIsChanging &&
+          (_tabs.animation!.value - _tabs.index).abs() < 0.001 &&
+          (incoming ? _incoming : _sent).error == null &&
+          !(incoming ? _incoming : _sent).loading,
+      requireVisibleBounds: true,
+      allowPartialVisibility: true,
+      contentIdentity: request,
+      child: child!,
+    ),
+    child: child,
   );
 
   void _message(String message, {bool error = false}) {
@@ -250,7 +393,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
-            title: const Text('Bu yazıyı sil?', style: _manageHeading),
+            title: Text('Bu yazıyı sil?', style: _manageHeading),
             content: Text(
               '“${post.title}” kaleminden ve akıştan kaldırılacak. Bu işlemi geri alamazsın.',
               style: _manageBody,
@@ -374,6 +517,7 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
             child: BlocProvider(
               create: (_) => serviceLocator<CommentThreadCubit>(),
               child: CommentThreadSheet(
+                useThemeColors: true,
                 targetType: 'OVERTHINKING',
                 targetId: post.id,
               ),
@@ -431,166 +575,196 @@ class _OverthinkingManageScreenState extends State<OverthinkingManageScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!overthinkingSession.canWrite) {
       return const OverthinkingUnavailableScreen();
     }
-    return Theme(
-      data: OverthinkingPalette.theme(context),
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: OverthinkingPalette.background,
-        appBar: AppBar(
+    final targetPage = switch (widget.initialTabIndex) {
+      1 => _incoming,
+      2 => _sent,
+      _ => _posts,
+    };
+    return AnimatedBuilder(
+      animation: _tabs.animation!,
+      builder: (context, child) => NotificationTargetReady(
+        ready:
+            widget.initialRequestId == null &&
+            _tabs.index == widget.initialTabIndex &&
+            !_tabs.indexIsChanging &&
+            (_tabs.animation!.value - _tabs.index).abs() < 0.001 &&
+            targetPage.loaded &&
+            !targetPage.loading &&
+            targetPage.error == null,
+        child: child!,
+      ),
+      child: Theme(
+        data: OverthinkingPalette.theme(context),
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
           backgroundColor: OverthinkingPalette.background,
-          foregroundColor: OverthinkingPalette.text,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          title: const Text(
-            'Overthinking',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          appBar: AppBar(
+            backgroundColor: OverthinkingPalette.background,
+            foregroundColor: OverthinkingPalette.text,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            title: const Text(
+              'Overthinking',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            centerTitle: false,
           ),
-          centerTitle: false,
-        ),
-        body: TableGroupOverviewBackdrop(
-          child: SafeArea(
-            top: false,
-            bottom: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(22, 10, 22, 22),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Yazıların ve kimlik isteklerin',
-                            style: _manageEyebrow,
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'Yazılar ve istekler',
-                            style: TextStyle(
-                              color: OverthinkingPalette.text,
-                              fontSize: 30,
-                              height: 1.1,
-                              letterSpacing: -1,
-                              fontWeight: FontWeight.w900,
+          body: TableGroupSurfaceBackdrop(
+            child: SafeArea(
+              top: false,
+              bottom: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 820),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(22, 10, 22, 22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Yazıların ve kimlik isteklerin',
+                              style: _manageEyebrow(context),
                             ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Paylaşımlarını ve kimlik isteklerini yönet.',
-                            style: _manageBody,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 18),
-                      padding: const EdgeInsets.all(4),
-                      decoration: _manageCardDecoration(),
-                      child: TabBar(
-                        controller: _tabs,
-                        onTap: (index) {
-                          if (index == 1 && !_tabs.indexIsChanging) {
-                            _markIncomingSeen();
-                          }
-                        },
-                        dividerColor: Colors.transparent,
-                        labelColor: OverthinkingPalette.text,
-                        unselectedLabelColor: OverthinkingPalette.muted,
-                        labelStyle: Theme.of(context).textTheme.labelLarge
-                            ?.copyWith(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                            SizedBox(height: 10),
+                            Text(
+                              'Yazılar ve istekler',
+                              style: TextStyle(
+                                color: OverthinkingPalette.text,
+                                fontSize: 30,
+                                height: 1.1,
+                                letterSpacing: -1,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                        indicatorSize: TabBarIndicatorSize.tab,
-                        indicator: BoxDecoration(
-                          color: OverthinkingPalette.surfaceRaised,
-                          borderRadius: BorderRadius.circular(13),
+                            SizedBox(height: 8),
+                            Text(
+                              'Paylaşımlarını ve kimlik isteklerini yönet.',
+                              style: _manageBody,
+                            ),
+                          ],
                         ),
-                        tabs: const [
-                          Tab(text: 'Yazılarım'),
-                          Tab(text: 'Gelen istekler'),
-                          Tab(text: 'Gönderilen'),
-                        ],
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabs,
-                        children: [
-                          _ManageList<OverthinkingPost>(
-                            state: _posts,
-                            title: 'Yazıların',
-                            emptyIcon: Icons.edit_note_rounded,
-                            emptyTitle: 'İlk satır seni bekliyor.',
-                            emptyMessage:
-                                'Bir şarkının sende bıraktığını yaz. Paylaştığın düşünceler burada birikir.',
-                            onRefresh: _loadPosts,
-                            onLoadMore: () => _loadPosts(append: true),
-                            itemBuilder: (post) => OverthinkingPostCard(
-                              key: ValueKey('manage-post-${post.id}'),
-                              post: post,
-                              isOwnPost: true,
-                              busy: _busyPosts.isNotEmpty,
-                              onTap: () => _openPostPreview(post),
-                              onLike: () => _toggleLike(post),
-                              onComments: () => _openComments(post),
-                              onDelete: () => _deletePost(post),
-                            ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 18),
+                        padding: const EdgeInsets.all(4),
+                        decoration: _manageCardDecoration(context),
+                        child: TabBar(
+                          controller: _tabs,
+                          onTap: (index) {
+                            if (index == 1 && !_tabs.indexIsChanging) {
+                              _markIncomingSeen();
+                            }
+                          },
+                          dividerColor: Colors.transparent,
+                          labelColor: OverthinkingPalette.text,
+                          unselectedLabelColor: OverthinkingPalette.muted,
+                          labelStyle: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                          labelPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
                           ),
-                          _ManageList<OverthinkingRevealRequest>(
-                            state: _incoming,
-                            title: 'Gelen kimlik istekleri',
-                            emptyIcon: Icons.mark_email_unread_outlined,
-                            emptyTitle: 'Şimdilik sessiz.',
-                            emptyMessage:
-                                'Anonim yazılarında kim olduğunu merak edenlerin istekleri burada görünür.',
-                            onRefresh: _loadIncoming,
-                            onLoadMore: () => _loadIncoming(append: true),
-                            itemBuilder: (request) => _RevealRequestCard(
-                              request: request,
-                              incoming: true,
-                              busy: _busyRequests.contains(request.id),
-                              onApprove: () => _decideReveal(request, true),
-                              onReject: () => _decideReveal(request, false),
-                            ),
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          indicator: BoxDecoration(
+                            color: OverthinkingPalette.surfaceRaised,
+                            borderRadius: BorderRadius.circular(13),
                           ),
-                          _ManageList<OverthinkingRevealRequest>(
-                            state: _sent,
-                            title: 'Gönderdiğin istekler',
-                            emptyIcon: Icons.send_outlined,
-                            emptyTitle: 'Henüz bir istek yok.',
-                            emptyMessage:
-                                'Bir yazının ardındaki kişiyi merak ettiğinde gönderdiğin isteği buradan takip edebilirsin.',
-                            onRefresh: _loadSent,
-                            onLoadMore: () => _loadSent(append: true),
-                            itemBuilder: (request) => _RevealRequestCard(
-                              request: request,
-                              incoming: false,
-                            ),
-                          ),
-                        ],
+                          tabs: const [
+                            Tab(text: 'Yazılarım'),
+                            Tab(text: 'Gelen istekler'),
+                            Tab(text: 'Gönderilen'),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabs,
+                          children: [
+                            _ManageList<OverthinkingPost>(
+                              state: _posts,
+                              title: 'Yazıların',
+                              emptyIcon: Icons.edit_note_rounded,
+                              emptyTitle: 'İlk satır seni bekliyor.',
+                              emptyMessage:
+                                  'Bir şarkının sende bıraktığını yaz. Paylaştığın düşünceler burada birikir.',
+                              onRefresh: _loadPosts,
+                              onLoadMore: () => _loadPosts(append: true),
+                              itemBuilder: (post) => OverthinkingPostCard(
+                                key: ValueKey('manage-post-${post.id}'),
+                                post: post,
+                                isOwnPost: true,
+                                busy: _busyPosts.isNotEmpty,
+                                onTap: () => _openPostPreview(post),
+                                onLike: () => _toggleLike(post),
+                                onComments: () => _openComments(post),
+                                onDelete: () => _deletePost(post),
+                              ),
+                            ),
+                            _ManageList<OverthinkingRevealRequest>(
+                              state: _incoming,
+                              title: 'Gelen kimlik istekleri',
+                              emptyIcon: Icons.mark_email_unread_outlined,
+                              emptyTitle: 'Şimdilik sessiz.',
+                              emptyMessage:
+                                  'Anonim yazılarında kim olduğunu merak edenlerin istekleri burada görünür.',
+                              onRefresh: _loadIncoming,
+                              onLoadMore: () => _loadIncoming(append: true),
+                              itemBuilder: (request) => _notificationRequest(
+                                request,
+                                true,
+                                _RevealRequestCard(
+                                  request: request,
+                                  incoming: true,
+                                  busy: _busyRequests.contains(request.id),
+                                  onApprove: () => _decideReveal(request, true),
+                                  onReject: () => _decideReveal(request, false),
+                                ),
+                              ),
+                            ),
+                            _ManageList<OverthinkingRevealRequest>(
+                              state: _sent,
+                              title: 'Gönderdiğin istekler',
+                              emptyIcon: Icons.send_outlined,
+                              emptyTitle: 'Henüz bir istek yok.',
+                              emptyMessage:
+                                  'Bir yazının ardındaki kişiyi merak ettiğinde gönderdiğin isteği buradan takip edebilirsin.',
+                              onRefresh: _loadSent,
+                              onLoadMore: () => _loadSent(append: true),
+                              itemBuilder: (request) => _notificationRequest(
+                                request,
+                                false,
+                                _RevealRequestCard(
+                                  request: request,
+                                  incoming: false,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        bottomNavigationBar: ProfilePublicBottomBar(
-          mainstageCurrentIndex: 1,
-          currentIndex: widget.bottomBarStageMode == StageMode.mainstage
-              ? 1
-              : 2,
-          stageMode: widget.bottomBarStageMode,
+          bottomNavigationBar: ProfilePublicBottomBar(
+            mainstageCurrentIndex: 1,
+            currentIndex: widget.bottomBarStageMode == StageMode.mainstage
+                ? 1
+                : 2,
+            stageMode: widget.bottomBarStageMode,
+          ),
         ),
       ),
     );
@@ -603,6 +777,7 @@ class _ManagePage<T> {
 
   List<T> items = [];
   bool loading = false;
+  bool loaded = false;
   bool hasNext = false;
   int page = 0;
   int? total;
@@ -612,6 +787,7 @@ class _ManagePage<T> {
   void invalidateRead() {
     revision++;
     loading = false;
+    loaded = false;
     error = null;
   }
 }
@@ -639,8 +815,9 @@ class _ManageList<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (state.loading && state.items.isEmpty) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
           color: OverthinkingPalette.accent,
           strokeWidth: 2,
@@ -674,7 +851,7 @@ class _ManageList<T> extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title,
-                        style: _manageEyebrow.copyWith(
+                        style: _manageEyebrow(context).copyWith(
                           color: OverthinkingPalette.muted,
                           fontSize: 10,
                         ),
@@ -682,7 +859,7 @@ class _ManageList<T> extends StatelessWidget {
                     ),
                     Text(
                       '${state.total ?? state.items.length}${state.total == null && state.hasNext ? '+' : ''}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: OverthinkingPalette.muted,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -722,7 +899,7 @@ class _ManageList<T> extends StatelessWidget {
                       ),
                     ],
                     if (state.loading)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
                           width: 22,

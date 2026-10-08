@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,6 +10,7 @@ import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_types.dart';
 import '../../domain/entities/collab_application.dart';
@@ -21,7 +24,7 @@ import '../widgets/collab_discovery_widgets.dart';
 import '../widgets/collab_management_widgets.dart';
 import 'collab_listing_detail_screen.dart';
 
-class CollabIncomingApplicationsScreen extends StatefulWidget {
+class CollabIncomingApplicationsScreen extends StatelessWidget {
   const CollabIncomingApplicationsScreen({
     required this.listingId,
     this.listingTitle,
@@ -38,12 +41,42 @@ class CollabIncomingApplicationsScreen extends StatefulWidget {
   final CollabIncomingApplicationsCubit? cubit;
 
   @override
-  State<CollabIncomingApplicationsScreen> createState() =>
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabIncomingApplicationsScreenContent(
+        listingId: listingId,
+        listingTitle: listingTitle,
+        initialApplicationId: initialApplicationId,
+        showBottomNavigation: showBottomNavigation,
+        cubit: cubit,
+      ),
+    );
+  }
+}
+
+class _CollabIncomingApplicationsScreenContent extends StatefulWidget {
+  const _CollabIncomingApplicationsScreenContent({
+    required this.listingId,
+    this.listingTitle,
+    this.initialApplicationId,
+    this.showBottomNavigation = true,
+    this.cubit,
+  });
+
+  final String listingId;
+  final String? listingTitle;
+  final String? initialApplicationId;
+  final bool showBottomNavigation;
+  final CollabIncomingApplicationsCubit? cubit;
+
+  @override
+  State<_CollabIncomingApplicationsScreenContent> createState() =>
       _CollabIncomingApplicationsScreenState();
 }
 
 class _CollabIncomingApplicationsScreenState
-    extends State<CollabIncomingApplicationsScreen> {
+    extends State<_CollabIncomingApplicationsScreenContent> {
   late final CollabIncomingApplicationsCubit _cubit;
   late final bool _ownsCubit;
   late final ScrollController _scrollController;
@@ -51,6 +84,7 @@ class _CollabIncomingApplicationsScreenState
   bool _initialTargetHandled = false;
   bool _initialTargetScheduled = false;
   bool _initialTargetRevealDeferred = false;
+  bool _notificationTargetRevealed = false;
 
   @override
   void initState() {
@@ -62,7 +96,9 @@ class _CollabIncomingApplicationsScreenState
   }
 
   @override
-  void didUpdateWidget(covariant CollabIncomingApplicationsScreen oldWidget) {
+  void didUpdateWidget(
+    covariant _CollabIncomingApplicationsScreenContent oldWidget,
+  ) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.listingId != widget.listingId) {
       unawaited(_cubit.loadForListing(widget.listingId));
@@ -225,27 +261,36 @@ class _CollabIncomingApplicationsScreenState
               key: application.id == widget.initialApplicationId?.trim()
                   ? _initialApplicationKey
                   : ValueKey<String>('collab-incoming-${application.id}'),
-              child: _ApplicationCard(
-                application: application,
-                busy: busy,
-                onDetail: () => _openDetail(application.listing.id),
-                onProfile: () =>
-                    openCollabActorProfile(context, application.applicant),
-                onMessage: application.applicant.contactUserId.trim().isEmpty
-                    ? null
-                    : () => openCollabActorConversation(
-                        context,
-                        application.applicant,
-                      ),
-                onPhone: application.phone?.trim().isNotEmpty == true
-                    ? () => _openPhone(application.phone!)
-                    : null,
-                onAccept: application.isPending && application.listing.isOpen
-                    ? () => _confirmDecision(application, accept: true)
-                    : null,
-                onReject: application.isPending
-                    ? () => _confirmDecision(application, accept: false)
-                    : null,
+              child: NotificationTargetReady(
+                requireVisibleBounds: true,
+                allowPartialVisibility: true,
+                contentIdentity: application,
+                ready:
+                    state.status == CollabLoadStatus.success &&
+                    _notificationTargetRevealed &&
+                    application.id == widget.initialApplicationId?.trim(),
+                child: _ApplicationCard(
+                  application: application,
+                  busy: busy,
+                  onDetail: () => _openDetail(application.listing.id),
+                  onProfile: () =>
+                      openCollabActorProfile(context, application.applicant),
+                  onMessage: application.applicant.contactUserId.trim().isEmpty
+                      ? null
+                      : () => openCollabActorConversation(
+                          context,
+                          application.applicant,
+                        ),
+                  onPhone: application.phone?.trim().isNotEmpty == true
+                      ? () => _openPhone(application.phone!)
+                      : null,
+                  onAccept: application.isPending && application.listing.isOpen
+                      ? () => _confirmDecision(application, accept: true)
+                      : null,
+                  onReject: application.isPending
+                      ? () => _confirmDecision(application, accept: false)
+                      : null,
+                ),
               ),
             );
           },
@@ -293,9 +338,12 @@ class _CollabIncomingApplicationsScreenState
           estimatedItemExtent: 300,
         );
         if (!mounted) return;
-        _initialTargetScheduled = false;
-        _initialTargetHandled = revealed;
-        _initialTargetRevealDeferred = !revealed;
+        setState(() {
+          _initialTargetScheduled = false;
+          _initialTargetHandled = revealed;
+          _initialTargetRevealDeferred = !revealed;
+          _notificationTargetRevealed = revealed;
+        });
         if (!revealed) {
           _showMessage(
             'Hedef başvuru yüklendi ancak otomatik kaydırılamadı. '
@@ -334,7 +382,7 @@ class _CollabIncomingApplicationsScreenState
     CollabApplication application, {
     required bool accept,
   }) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showCollabDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(accept ? 'Başvuruyu kabul et' : 'Başvuruyu reddet'),
@@ -371,6 +419,7 @@ class _CollabIncomingApplicationsScreenState
   Future<void> _openDetail(String listingId) async {
     await Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabListingDetailScreen(
           listingId: listingId,
           showBottomNavigation: widget.showBottomNavigation,
@@ -421,6 +470,7 @@ class _StatusRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     const options = <(CollabApplicationStatus?, String)>[
       (null, 'Tümü'),
       (CollabApplicationStatus.pending, 'Bekliyor'),
@@ -576,16 +626,21 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Text(
-        'Bu filtreye uygun başvuru bulunmuyor.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'Bu filtreye uygun başvuru bulunmuyor.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _LoadError extends StatelessWidget {
@@ -595,24 +650,27 @@ class _LoadError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            message ?? 'Başvurular yüklenemedi.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Yeniden dene'),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message ?? 'Başvurular yüklenemedi.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Yeniden dene'),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

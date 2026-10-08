@@ -13,6 +13,7 @@ class _StudioManualEndTimeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -22,16 +23,22 @@ class _StudioManualEndTimeChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? _studioManualBusyColor.withValues(alpha: 0.14)
-              : const Color(0xFF0A101A),
+              : AppColors.legacy(const Color(0xFF0A101A)),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? _studioManualBusyColor : const Color(0xFF263244),
+            color: selected
+                ? _studioManualBusyColor
+                : AppColors.legacyBorder(const Color(0xFF263244)),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? const Color(0xFFFFB5BD) : Colors.white,
+            color: selected
+                ? (AppColors.isOriginalDark
+                      ? const Color(0xFFFFB5BD)
+                      : AppColors.coral)
+                : AppColors.legacy(Colors.white),
             fontSize: 12,
             fontWeight: FontWeight.w800,
           ),
@@ -72,20 +79,23 @@ class _StudioReservationActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final capabilities = reservation.capabilities;
     final statusColor = capabilities.hasMutation
         ? reservation.approved
               ? _studioReservationApprovedColor
               : _studioReservationPendingColor
-        : const Color(0xFF9EA8B7);
+        : AppColors.legacy(const Color(0xFF9EA8B7));
     return SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-        decoration: const BoxDecoration(
-          color: Color(0xFF0E1622),
+        decoration: BoxDecoration(
+          color: AppColors.legacy(Color(0xFF0E1622)),
           borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-          border: Border(top: BorderSide(color: Color(0xFF2A3546))),
+          border: Border(
+            top: BorderSide(color: AppColors.legacyBorder(Color(0xFF2A3546))),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -96,7 +106,7 @@ class _StudioReservationActionSheet extends StatelessWidget {
                 width: 42,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF465267),
+                  color: AppColors.legacy(const Color(0xFF465267)),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -138,7 +148,7 @@ class _StudioReservationActionSheet extends StatelessWidget {
             if (capabilities.canReject ||
                 (reservation.approved && capabilities.canCancel)) ...[
               const SizedBox(height: 14),
-              const Divider(color: Color(0xFF263244), height: 1),
+              Divider(color: AppColors.legacy(Color(0xFF263244)), height: 1),
               const SizedBox(height: 14),
               if (capabilities.canReject)
                 _StudioReservationSheetAction(
@@ -190,6 +200,7 @@ class _StudioReservationGuestHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return FutureBuilder<DmProfileTarget?>(
       future: profileTarget,
       builder: (context, snapshot) {
@@ -222,8 +233,8 @@ class _StudioReservationGuestHeader extends StatelessWidget {
                       children: [
                         Text(
                           reservation.userName,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.legacy(Colors.white),
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                           ),
@@ -233,8 +244,8 @@ class _StudioReservationGuestHeader extends StatelessWidget {
                           '$roomName • $startTime–$endTime',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFA2ACBA),
+                          style: TextStyle(
+                            color: AppColors.legacy(Color(0xFFA2ACBA)),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -285,10 +296,11 @@ class _StudioReservationSheetAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Material(
       color: emphasized
           ? color.withValues(alpha: 0.10)
-          : const Color(0xFF101A28),
+          : AppColors.legacy(const Color(0xFF101A28)),
       borderRadius: BorderRadius.circular(13),
       child: InkWell(
         onTap: onTap,
@@ -300,7 +312,7 @@ class _StudioReservationSheetAction extends StatelessWidget {
             border: Border.all(
               color: emphasized
                   ? color.withValues(alpha: 0.42)
-                  : const Color(0xFF263244),
+                  : AppColors.legacyBorder(const Color(0xFF263244)),
             ),
           ),
           child: Row(
@@ -343,8 +355,9 @@ class _StudioReservationDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return AlertDialog(
-      backgroundColor: const Color(0xFF101722),
+      backgroundColor: AppColors.legacy(const Color(0xFF101722)),
       title: const Text('Rezervasyon Bilgileri'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -400,6 +413,7 @@ class _StudioReservationDetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 11),
       child: Row(
@@ -409,15 +423,18 @@ class _StudioReservationDetailRow extends StatelessWidget {
             width: 72,
             child: Text(
               label,
-              style: const TextStyle(color: Color(0xFF8F99A9), fontSize: 12),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFF8F99A9)),
+                fontSize: 12,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.legacy(Colors.white),
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -462,6 +479,7 @@ class _StudioRoomDurationChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
@@ -470,27 +488,29 @@ class _StudioRoomDurationChip extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF2A172A)
+              ? AppColors.legacy(const Color(0xFF2A172A))
               : enabled
-              ? const Color(0xFF0A101A)
-              : const Color(0xFF090D14),
+              ? AppColors.legacy(const Color(0xFF0A101A))
+              : AppColors.legacy(const Color(0xFF090D14)),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selected
                 ? AppColors.socialPink
                 : enabled
-                ? const Color(0xFF263244)
-                : const Color(0xFF1A2230),
+                ? AppColors.legacyBorder(const Color(0xFF263244))
+                : AppColors.legacyBorder(const Color(0xFF1A2230)),
           ),
         ),
         child: Text(
           '$hours sa',
           style: TextStyle(
             color: selected
-                ? const Color(0xFFFF9AAE)
+                ? (AppColors.isOriginalDark
+                      ? const Color(0xFFFF9AAE)
+                      : AppColors.coral)
                 : enabled
-                ? Colors.white
-                : const Color(0xFF596271),
+                ? AppColors.legacy(Colors.white)
+                : AppColors.legacy(const Color(0xFF596271)),
             fontSize: 12,
             fontWeight: FontWeight.w800,
           ),
@@ -508,19 +528,23 @@ class _StudioRoomReservationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       children: [
         Text(
           label,
-          style: const TextStyle(color: Color(0xFF8E98A7), fontSize: 12),
+          style: TextStyle(
+            color: AppColors.legacy(Color(0xFF8E98A7)),
+            fontSize: 12,
+          ),
         ),
         const Spacer(),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppColors.legacy(Colors.white),
               fontSize: 13,
               fontWeight: FontWeight.w800,
             ),
@@ -539,30 +563,38 @@ class _StudioRoomReserveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: enabled
-            ? LinearGradient(colors: AppColors.brandGradient)
-            : null,
-        color: enabled ? null : const Color(0xFF252B35),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: ElevatedButton.icon(
-        onPressed: enabled ? onTap : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          disabledBackgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 15),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+    Theme.of(context);
+    return GradientOutline(
+      enabled: AppColors.isLight,
+      radius: 10,
+      colors: enabled
+          ? null
+          : [Theme.of(context).dividerColor, Theme.of(context).dividerColor],
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: enabled && !AppColors.isLight
+              ? LinearGradient(colors: AppColors.actionGradient)
+              : null,
+          color: enabled ? null : AppColors.legacy(const Color(0xFF252B35)),
+          borderRadius: BorderRadius.circular(10),
         ),
-        icon: const Icon(Icons.event_available_outlined, size: 19),
-        label: const Text(
-          'Rezervasyon Oluştur',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        child: ElevatedButton.icon(
+          onPressed: enabled ? onTap : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: AppColors.onAccent,
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          icon: const Icon(Icons.event_available_outlined, size: 19),
+          label: const Text(
+            'Rezervasyon Oluştur',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
         ),
       ),
     );
@@ -582,6 +614,7 @@ class _StudioRoomSwipeCue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return IconButton(
       tooltip: tooltip,
       onPressed: onTap,
@@ -594,8 +627,15 @@ class _StudioRoomSwipeCue extends StatelessWidget {
       icon: Icon(
         icon,
         size: 23,
-        color: const Color(0xFFAEB7C5),
-        shadows: const [Shadow(color: Color(0xCC05080D), blurRadius: 7)],
+        color: AppColors.legacy(const Color(0xFFAEB7C5)),
+        shadows: [
+          Shadow(
+            color: (AppColors.isOriginalDark
+                ? Color(0xCC05080D)
+                : AppColors.textMuted.withValues(alpha: (Color(0xCC05080D)).a)),
+            blurRadius: 7,
+          ),
+        ],
       ),
     );
   }
@@ -614,12 +654,15 @@ class _StudioOwnerRoomSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
+        color: AppColors.legacy(const Color(0xFF0E1622)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -633,7 +676,11 @@ class _StudioOwnerRoomSummaryCard extends StatelessWidget {
                   gradient: LinearGradient(colors: room.gradient),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(room.icon, color: Colors.white, size: 23),
+                child: Icon(
+                  room.icon,
+                  color: AppColors.legacy(Colors.white),
+                  size: 23,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -644,8 +691,8 @@ class _StudioOwnerRoomSummaryCard extends StatelessWidget {
                       room.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.legacy(Colors.white),
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
@@ -656,8 +703,8 @@ class _StudioOwnerRoomSummaryCard extends StatelessWidget {
                         room.type,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF9EA8B7),
+                        style: TextStyle(
+                          color: AppColors.legacy(Color(0xFF9EA8B7)),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -700,20 +747,23 @@ class _StudioOwnerRoomMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       decoration: BoxDecoration(
-        color: const Color(0xFF090F18),
+        color: AppColors.legacy(const Color(0xFF090F18)),
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFF263244)),
+        border: Border.all(
+          color: AppColors.legacyBorder(const Color(0xFF263244)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppColors.legacy(Colors.white),
               fontSize: 15,
               fontWeight: FontWeight.w900,
             ),
@@ -721,7 +771,10 @@ class _StudioOwnerRoomMetric extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             label,
-            style: const TextStyle(color: Color(0xFF8F99A9), fontSize: 10),
+            style: TextStyle(
+              color: AppColors.legacy(Color(0xFF8F99A9)),
+              fontSize: 10,
+            ),
           ),
         ],
       ),
@@ -744,6 +797,7 @@ class _StudioOwnerReservationDateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -751,23 +805,34 @@ class _StudioOwnerReservationDateCard extends StatelessWidget {
         width: 70,
         padding: const EdgeInsets.symmetric(vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF17202D) : const Color(0xFF0D141F),
+          color: selected
+              ? AppColors.legacy(const Color(0xFF17202D))
+              : AppColors.legacy(const Color(0xFF0D141F)),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? const Color(0xFFFF8A8A) : const Color(0xFF263244),
+            color: selected
+                ? (AppColors.isLight
+                      ? AppColors.brandGradient[2]
+                      : const Color(0xFFFF8A8A))
+                : AppColors.legacyBorder(const Color(0xFF263244)),
           ),
         ),
         child: Column(
           children: [
             Text(
               _ownerOverviewWeekday(date.weekday),
-              style: const TextStyle(color: Color(0xFF9EA8B7), fontSize: 10),
+              style: TextStyle(
+                color: AppColors.legacy(Color(0xFF9EA8B7)),
+                fontSize: 10,
+              ),
             ),
             const SizedBox(height: 3),
             Text(
               date.day.toString(),
               style: TextStyle(
-                color: selected ? Colors.white : const Color(0xFFD5DBE5),
+                color: selected
+                    ? AppColors.legacy(Colors.white)
+                    : AppColors.legacy(const Color(0xFFD5DBE5)),
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
               ),
@@ -777,7 +842,7 @@ class _StudioOwnerReservationDateCard extends StatelessWidget {
               reservationCount == 0 ? 'Boş' : '$reservationCount kayıt',
               style: TextStyle(
                 color: reservationCount == 0
-                    ? const Color(0xFF7F8998)
+                    ? AppColors.legacy(const Color(0xFF7F8998))
                     : const Color(0xFF67D6A1),
                 fontSize: 9,
                 fontWeight: FontWeight.w800,

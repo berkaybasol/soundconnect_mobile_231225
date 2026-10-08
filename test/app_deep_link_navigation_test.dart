@@ -9,6 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:soundconnect_23_12_25codx/app/app.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_coordinator.dart';
+import 'package:soundconnect_23_12_25codx/core/push/push_provider.dart';
 import 'package:soundconnect_23_12_25codx/core/deep_link/app_deep_link.dart';
 import 'package:soundconnect_23_12_25codx/core/deep_link/pending_app_deep_link_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
@@ -19,6 +22,7 @@ import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/logi
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/register_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/collab_route_args.dart';
 import 'package:soundconnect_23_12_25codx/shared/theme/app_theme.dart';
+import 'package:soundconnect_23_12_25codx/shared/theme/app_theme_controller.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_theme_menu_option.dart';
 
 import 'support/auth_widget_test_support.dart';
@@ -42,6 +46,32 @@ void main() {
   tearDown(() async {
     await GetIt.instance.reset();
   });
+
+  testWidgets(
+    'app gives push its pending initial restore before child startup',
+    (tester) async {
+      setupDependencies();
+      await serviceLocator.unregister<PushCoordinator>();
+      final push = _StartupRecordingPush();
+      serviceLocator.registerSingleton<PushCoordinator>(push);
+      final token = Completer<String?>();
+      await tester.pumpWidget(
+        SoundConnectApp(
+          initialTokenFuture: token.future,
+          appDeepLinkInbox: AppDeepLinkInbox(
+            store: MemoryPendingAppDeepLinkStore(),
+          ),
+        ),
+      );
+      expect(push.initialSession, isNotNull);
+      expect(push.restoreCompleted, isFalse);
+      token.complete(null);
+      await tester.pumpAndSettle();
+      expect(push.restoreCompleted, isTrue);
+      expect(push.restored?.isAuthenticated, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets('guest HTTPS link opens login and persists the listing target', (
     tester,
@@ -91,16 +121,25 @@ void main() {
   });
 
   testWidgets(
-    'fixed Koyu and pending link survive unavailable theme popup routes',
+    'theme changes preserve login input, navigator, blocs and pending link',
     (tester) async {
-      SharedPreferences.setMockInitialValues({'app_theme_variant': 'light'});
-      addTearDown(() => SharedPreferences.setMockInitialValues({}));
-      tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
-      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      await tester.runAsync(
+        () => AppThemeController.instance.setVariant(AppThemeVariant.dark),
+      );
+      addTearDown(() async {
+        await tester.runAsync(
+          () => AppThemeController.instance.setVariant(AppThemeVariant.dark),
+        );
+        SharedPreferences.setMockInitialValues({});
+      });
       setupDependencies();
       final source = _FakeAppLinkSource();
       final inbox = AppDeepLinkInbox(store: MemoryPendingAppDeepLinkStore());
-
       await tester.pumpWidget(
         SoundConnectApp(
           initialTokenFuture: Future<String?>.value(null),
@@ -113,59 +152,83 @@ void main() {
         Uri.parse('https://soundconnect.com.tr/is-birligi/ilan/$_listingId'),
       );
       await tester.pumpAndSettle();
+      ScaffoldMessenger.of(
+        tester.element(find.byType(LoginScreen)),
+      ).hideCurrentSnackBar();
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'korunmali');
-
-      final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-      expect(app.themeMode, ThemeMode.dark);
-      _expectOriginalKoyu(app.theme);
-      expect(app.darkTheme, isNull);
-      expect(
-        Theme.of(tester.element(find.byType(LoginScreen))).brightness,
-        Brightness.dark,
+      await tester.enterText(find.byType(TextField).last, 'password123');
+      final loginState = tester.state(find.byType(LoginScreen));
+      final authCubit = tester
+          .element(find.byType(LoginScreen))
+          .read<AuthCubit>();
+      final navigator = Navigator.of(tester.element(find.byType(LoginScreen)));
+      _expectOriginalKoyu(
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).theme,
       );
 
       await tester.tap(find.byType(PopupMenuButton<AppThemeMenuOption>));
       await tester.pumpAndSettle();
-
-      for (final label in ['Açık (yakında)', 'Siyah (yakında)']) {
-        final option = find.widgetWithText(
-          PopupMenuItem<AppThemeMenuOption>,
-          label,
-        );
-        expect(option, findsOneWidget);
-        expect(
-          tester.widget<PopupMenuItem<AppThemeMenuOption>>(option).enabled,
-          isFalse,
-        );
-        await tester.tap(find.text(label));
-        await tester.pumpAndSettle();
-        expect(option, findsOneWidget);
-        expect(
-          Theme.of(tester.element(find.byType(LoginScreen))).brightness,
-          Brightness.dark,
-        );
-      }
-      expect(
-        tester
-            .widget<PopupMenuItem<AppThemeMenuOption>>(
-              find.widgetWithText(PopupMenuItem<AppThemeMenuOption>, 'Koyu'),
-            )
-            .enabled,
-        isTrue,
+      final unavailable = find.widgetWithText(
+        PopupMenuItem<AppThemeMenuOption>,
+        'Siyah (yakında)',
       );
-
-      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(
+        tester.widget<PopupMenuItem<AppThemeMenuOption>>(unavailable).enabled,
+        isFalse,
+      );
+      await tester.tap(find.text('Siyah (yakında)'));
+      await tester.pumpAndSettle();
+      expect(unavailable, findsOneWidget);
+      await tester.tap(find.text('Açık'));
+      await tester.pumpAndSettle();
+      expect(
+        Theme.of(tester.element(find.byType(LoginScreen))).brightness,
+        Brightness.light,
+      );
+      expect(tester.state(find.byType(LoginScreen)), same(loginState));
+      expect(
+        tester.element(find.byType(LoginScreen)).read<AuthCubit>(),
+        same(authCubit),
+      );
+      expect(
+        Navigator.of(tester.element(find.byType(LoginScreen))),
+        same(navigator),
+      );
       expect(find.text('korunmali'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+        'password123',
+      );
       expect((await inbox.pending())?.target.listingId, _listingId);
 
+      final preferences = await tester.runAsync(SharedPreferences.getInstance);
+      expect(preferences!.getString(AppThemeController.preferenceKey), 'light');
+
+      await tester.tap(find.byType(PopupMenuButton<AppThemeMenuOption>));
+      await tester.pumpAndSettle();
+      final lightOption = find.widgetWithText(
+        PopupMenuItem<AppThemeMenuOption>,
+        'Açık',
+      );
+      expect(
+        find.descendant(
+          of: lightOption,
+          matching: find.byIcon(Icons.check_rounded),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Koyu'));
       await tester.pumpAndSettle();
-      expect(find.byType(PopupMenuItem<AppThemeMenuOption>), findsNothing);
+      _expectOriginalKoyu(
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).theme,
+      );
+      expect(tester.state(find.byType(LoginScreen)), same(loginState));
       expect(find.text('korunmali'), findsOneWidget);
-      final selectedApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
-      expect(selectedApp.themeMode, ThemeMode.dark);
-      _expectOriginalKoyu(selectedApp.theme);
+      expect((await inbox.pending())?.target.listingId, _listingId);
+      expect(preferences.getString(AppThemeController.preferenceKey), 'dark');
 
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await source.close();
     },
@@ -258,6 +321,7 @@ void main() {
         hasLength(1),
       );
       expect(await inbox.pending(), isNull);
+
       expect(tester.takeException(), isNull);
 
       await sessionManager.logout();
@@ -376,4 +440,25 @@ String _token({required String role}) {
         'roles': <String>[role],
         'exp': expiresAt,
       })}.signature';
+}
+
+class _StartupRecordingPush extends Fake implements PushCoordinator {
+  Future<AuthSession>? initialSession;
+  AuthSession? restored;
+  bool restoreCompleted = false;
+  @override
+  Future<void> start({Future<AuthSession>? initialSession}) async {
+    this.initialSession = initialSession;
+    restored = await initialSession;
+    restoreCompleted = true;
+  }
+
+  @override
+  void addListener(VoidCallback listener) {}
+  @override
+  void removeListener(VoidCallback listener) {}
+  @override
+  PushTarget? consumePending() => null;
+  @override
+  PushTarget? get pending => null;
 }

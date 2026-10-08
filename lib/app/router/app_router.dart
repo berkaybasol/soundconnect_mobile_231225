@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
+import '../../modules/admin/data/notification_campaign_repository.dart';
+import '../../modules/admin/presentation/screens/notification_campaign_screen.dart';
 import '../../core/auth/auth_session_manager.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/policy/stage_mode.dart';
+import '../backstage_home_screen.dart';
+import '../../modules/marketplace/presentation/screens/marketplace_screen.dart';
+import '../../modules/profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../modules/admin/presentation/screens/admin_dashboard_screen.dart';
+import '../../modules/admin/data/marketplace_report_admin_repository.dart';
+import '../../modules/admin/presentation/screens/marketplace_report_admin_screen.dart';
+import '../../modules/promotion/presentation/screens/announcement_directory_screen.dart';
+import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
+import '../../modules/admin/presentation/screens/musician_feed_report_admin_screen.dart';
 import '../../modules/auth/presentation/screens/account_settings_screen.dart';
 import '../../modules/auth/presentation/screens/forgot_password_screen.dart';
 import '../../modules/auth/presentation/screens/login_screen.dart';
@@ -20,6 +30,10 @@ import '../../modules/event/presentation/screens/event_discovery_screen.dart';
 import '../../modules/event_audience/presentation/event_audience_profile_draft.dart';
 import '../../modules/overthinking/presentation/overthinking_profile_draft.dart';
 import '../../modules/notification/presentation/screens/notification_screen.dart';
+import '../../modules/notification/presentation/notification_target_read.dart';
+import '../../modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
+import '../../modules/musician_feed/presentation/screens/musician_feed_muted_authors_screen.dart';
+import '../../modules/musician_feed/presentation/screens/listener_feed_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/create_band_screen.dart';
@@ -30,10 +44,12 @@ import '../../modules/profile/presentation/screens/listener_profile_screen.dart'
 import '../../modules/profile/presentation/screens/listener_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/profile_route_args.dart';
 import '../../modules/profile/presentation/navigation/profile_route_gate.dart';
+import '../../modules/profile/presentation/profile_visual_theme.dart';
 import '../../modules/profile/presentation/navigation/profile_route_resolver.dart';
 import '../../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../../modules/profile/presentation/screens/venue_public_profile_screen.dart';
 import '../../modules/profile/presentation/screens/studio_profile_screen.dart';
+import '../../modules/profile/presentation/screens/studio_listener_info_screen.dart';
 import '../../modules/overthinking/presentation/screens/overthinking_feed_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_create_screen.dart';
 import '../../modules/tablegroup/presentation/screens/table_group_list_screen.dart';
@@ -66,6 +82,21 @@ class AppRouter {
   }
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    final arguments = settings.arguments;
+    if (arguments is NotificationReadArguments) {
+      final route = _generateRoute(
+        RouteSettings(name: settings.name, arguments: arguments.arguments),
+      );
+      if (settings.name == arguments.routeName &&
+          route.settings.name == arguments.routeName) {
+        arguments.ticket.attach(route);
+      }
+      return route;
+    }
+    return _generateRoute(settings);
+  }
+
+  static Route<dynamic> _generateRoute(RouteSettings settings) {
     final session = serviceLocator<AuthSessionManager>().session;
     final redirect = AppRouteGuard.redirectFor(settings.name, session);
     if (redirect != null && redirect != settings.name) {
@@ -73,10 +104,47 @@ class AppRouter {
     }
 
     switch (settings.name) {
+      case AppRoutes.studioListenerInfo:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const StudioListenerInfoScreen(),
+        );
+      case AppRoutes.announcements:
+      case AppRoutes.adminAnnouncements:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => AnnouncementDirectoryScreen(
+            admin: settings.name == AppRoutes.adminAnnouncements,
+          ),
+        );
       case AppRoutes.adminDashboard:
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AdminDashboardScreen(),
+        );
+      case AppRoutes.adminNotificationCampaigns:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => NotificationCampaignScreen(
+            repository: serviceLocator<NotificationCampaignRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
+        );
+      case AppRoutes.adminMusicianFeedReports:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MusicianFeedReportAdminScreen(
+            repository: serviceLocator<MusicianFeedReportAdminRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
+        );
+      case AppRoutes.adminMarketplaceReports:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MarketplaceReportAdminScreen(
+            repository: serviceLocator<MarketplaceReportAdminRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
         );
       case AppRoutes.login:
         final args = _arguments<LoginRouteArgs>(settings);
@@ -103,6 +171,14 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AccountSettingsScreen(),
+        );
+      case AppRoutes.musicianFeedMutedAuthors:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MusicianFeedMutedAuthorsScreen(
+            repository: serviceLocator<MusicianFeedMutedAuthorsRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
         );
       case AppRoutes.otpVerify:
         return MaterialPageRoute(
@@ -136,7 +212,8 @@ class AppRouter {
       case AppRoutes.musicianProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => MusicianProfileScreen(),
+          builder: (_) =>
+              const ProfileVisualThemeScope(child: MusicianProfileScreen()),
         );
       case AppRoutes.myBands:
         return MaterialPageRoute(
@@ -151,35 +228,39 @@ class AppRouter {
       case AppRoutes.bandProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => BandProfileScreen(),
+          builder: (_) => ProfileVisualThemeScope(child: BandProfileScreen()),
         );
       case AppRoutes.bandMemberProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => BandProfileScreen(),
+          builder: (_) => ProfileVisualThemeScope(child: BandProfileScreen()),
         );
       case AppRoutes.bandPublicProfile:
         return _publicProfileRoute(
           settings,
           ProfileRouteKind.band,
-          (_) => BandProfileScreen(),
+          (_) => ProfileVisualThemeScope(child: BandProfileScreen()),
         );
       case AppRoutes.musicianPublicProfile:
         return _publicProfileRoute(
           settings,
           ProfileRouteKind.musician,
-          (_) => MusicianPublicProfileScreen(),
+          (_) => const ProfileVisualThemeScope(
+            child: MusicianPublicProfileScreen(),
+          ),
         );
       case AppRoutes.venueProfile:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => VenueProfileScreen(),
+          builder: (_) =>
+              const ProfileVisualThemeScope(child: VenueProfileScreen()),
         );
       case AppRoutes.venuePublicProfile:
         return _publicProfileRoute(
           settings,
           ProfileRouteKind.venue,
-          (_) => VenuePublicProfileScreen(),
+          (_) =>
+              const ProfileVisualThemeScope(child: VenuePublicProfileScreen()),
         );
       case AppRoutes.studioProfile:
         final args = settings.arguments is StudioProfileScreenArgs
@@ -187,14 +268,18 @@ class AppRouter {
             : const StudioProfileScreenArgs();
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) =>
-              StudioProfileScreen(openContactEditor: args.openContactEditor),
+          builder: (_) => ProfileVisualThemeScope(
+            child: StudioProfileScreen(
+              openContactEditor: args.openContactEditor,
+            ),
+          ),
         );
       case AppRoutes.studioPublicProfile:
         return _publicProfileRoute(
           settings,
           ProfileRouteKind.studio,
-          (_) => const StudioPublicProfileScreen(),
+          (_) =>
+              const ProfileVisualThemeScope(child: StudioPublicProfileScreen()),
         );
       case AppRoutes.studioReservationCalendar:
         final args = _arguments<StudioReservationCalendarArgs>(settings);
@@ -281,7 +366,7 @@ class AppRouter {
         final args = _arguments<TableGroupDetailArgs>(settings);
         if (args == null) {
           return MaterialPageRoute(
-            settings: settings,
+            settings: const RouteSettings(name: AppRoutes.tableGroupList),
             builder: (_) => TableGroupListScreen(),
           );
         }
@@ -307,16 +392,29 @@ class AppRouter {
             profileImageUrl: args?.profileImageUrl,
           ),
         );
+      case AppRoutes.listenerFeed:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ListenerFeedScreen(),
+        );
       case AppRoutes.collabDiscovery:
         final args = _arguments<CollabDiscoveryRouteArgs>(settings);
         return collabPageRoute(
           settings: settings,
           builder: (_) => CollabDiscoveryScreen(initialRouteArgs: args),
         );
+      case AppRoutes.marketplace:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => MarketplaceScreen(
+            initialListingId: _arguments<String>(settings),
+            bottomNavigationBar: ProfilePublicBottomBar(currentIndex: 0),
+          ),
+        );
       case AppRoutes.home:
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => const BackstageProfilesHomeScreen(),
+          builder: (_) => const BackstageHomeScreen(),
         );
       default:
         final fallback = AppRouteGuard.startRouteFor(session);

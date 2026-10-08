@@ -79,6 +79,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final resolvedMedia = _resolveMedia(media);
     final canFollow =
         viewerUserId.isNotEmpty &&
@@ -107,6 +108,7 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                 ]
               : null,
         ),
@@ -201,7 +203,9 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                       }
                                     },
                                     style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.white,
+                                      foregroundColor: AppColors.legacy(
+                                        AppColors.white,
+                                      ),
                                       backgroundColor: Colors.transparent,
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 14,
@@ -210,13 +214,17 @@ class _MusicianPublicProfileContent extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(18),
                                       ),
                                     ),
-                                    icon: const Icon(
+                                    icon: Icon(
                                       Icons.dashboard_customize_outlined,
-                                      color: AppColors.white,
+                                      color: AppColors.legacy(AppColors.white),
                                     ),
-                                    label: const Text(
+                                    label: Text(
                                       'Yönetim Paneli',
-                                      style: TextStyle(color: AppColors.white),
+                                      style: TextStyle(
+                                        color: AppColors.legacy(
+                                          AppColors.white,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),

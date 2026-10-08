@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/studio_profile.dart';
@@ -130,40 +131,43 @@ Future<String?> promptForSocialLink(
   required ProfileSocialPlatform platform,
   required String initialValue,
   bool allowRemoval = false,
+  WidgetBuilder Function(WidgetBuilder)? routeBoundary,
 }) async {
   var draftValue = initialValue;
   final isEditing = draftValue.trim().isNotEmpty;
 
+  Widget dialogBuilder(BuildContext dialogContext) {
+    return AlertDialog(
+      title: Text('${platform.label} ${isEditing ? 'düzenle' : 'ekle'}'),
+      content: TextFormField(
+        initialValue: draftValue,
+        autofocus: true,
+        keyboardType: TextInputType.url,
+        decoration: InputDecoration(hintText: platform.placeholder),
+        onChanged: (value) => draftValue = value,
+      ),
+      actions: [
+        if (allowRemoval && isEditing)
+          TextButton(
+            key: const Key('profile-social-remove'),
+            onPressed: () => Navigator.of(dialogContext).pop(''),
+            child: const Text('Bağlantıyı kaldır'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Vazgeç'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(draftValue),
+          child: const Text('Kaydet'),
+        ),
+      ],
+    );
+  }
+
   final submitted = await showDialog<String>(
     context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text('${platform.label} ${isEditing ? 'düzenle' : 'ekle'}'),
-        content: TextFormField(
-          initialValue: draftValue,
-          autofocus: true,
-          keyboardType: TextInputType.url,
-          decoration: InputDecoration(hintText: platform.placeholder),
-          onChanged: (value) => draftValue = value,
-        ),
-        actions: [
-          if (allowRemoval && isEditing)
-            TextButton(
-              key: const Key('profile-social-remove'),
-              onPressed: () => Navigator.of(dialogContext).pop(''),
-              child: const Text('Bağlantıyı kaldır'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(draftValue),
-            child: const Text('Kaydet'),
-          ),
-        ],
-      );
-    },
+    builder: routeBoundary?.call(dialogBuilder) ?? dialogBuilder,
   );
   if (submitted == null) return null;
   final trimmed = submitted.trim();
@@ -222,6 +226,7 @@ class ProfileSocialButtonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return ProfileSocialLinksRow(
       items: ProfileSocialPlatform.values
           .map(
@@ -263,6 +268,7 @@ class ProfileSocialLinksRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final visibleItems = editable
         ? items
         : items.where((item) => item.active).toList();
@@ -318,6 +324,7 @@ class _ProfileSocialPillState extends State<_ProfileSocialPill> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final iconGradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -389,14 +396,25 @@ class _ProfileSocialPillState extends State<_ProfileSocialPill> {
               Positioned(
                 right: -4,
                 top: -4,
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: Color(0xFFF47C7C),
-                    shape: BoxShape.circle,
+                child: GradientOutline(
+                  enabled: AppColors.isLight,
+                  radius: 999,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: AppColors.isLight
+                        ? BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            shape: BoxShape.circle,
+                          )
+                        : BoxDecoration(
+                            color: AppColors.isLight
+                                ? AppColors.coralAlt
+                                : const Color(0xFFF47C7C),
+                            shape: BoxShape.circle,
+                          ),
+                    child: Icon(Icons.add, size: 12, color: AppColors.onAccent),
                   ),
-                  child: Icon(Icons.add, size: 12, color: AppColors.white),
                 ),
               ),
           ],

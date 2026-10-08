@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'app_theme_controller.dart';
+
 class AppColors {
   static const white = Color(0xFFFFFFFF);
   static const pureBlack = Color(0xFF000000);
   static const likeHeart = Color(0xFFF06C86);
 
-  static const _Palette _dark = _Palette(
+  static const AppColorPalette _dark = AppColorPalette(
     black: Color(0xFF0B0B10),
     navBlue: Color(0xFF101827),
     navBlueDeep: Color(0xFF0B1321),
@@ -43,43 +45,130 @@ class AppColors {
     musicianBlue: Color(0xFF1E5BD7),
   );
 
-  static Color get black => _dark.black;
-  static Color get navBlue => _dark.navBlue;
-  static Color get navBlueDeep => _dark.navBlueDeep;
-  static Color get navBlueSoft => _dark.navBlueSoft;
-  static Color get textPrimary => _dark.textPrimary;
-  static Color get textMuted => _dark.textMuted;
-  static Color get border => _dark.border;
-  static Color get inputFill => _dark.inputFill;
-  static Color get coral => _dark.coral;
-  static Color get coralLight => _dark.coralLight;
-  static Color get peach => _dark.peach;
-  static Color get coralAlt => _dark.coralAlt;
-  static Color get gradientA => _dark.gradientA;
-  static Color get gradientB => _dark.gradientB;
-  static Color get gradientC => _dark.gradientC;
-  static List<Color> get brandGradient => _dark.brandGradient;
-  static Color get spotifyGreen => _dark.spotifyGreen;
+  // Keep the existing SoundConnect hue sequence. Light mode only reduces its
+  // strength uniformly; names, actions and decoration share these same stops.
+  static final List<Color> _lightBrandGradient = List<Color>.unmodifiable(
+    _dark.brandGradient.map((color) => Color.lerp(white, color, 0.65)!),
+  );
+  static final AppColorPalette lightPalette = AppColorPalette(
+    black: Color(0xFFF4F6FA),
+    navBlue: Color(0xFFFFFFFF),
+    navBlueDeep: Color(0xFFF4F6FA),
+    navBlueSoft: Color(0xFFEBEFF5),
+    textPrimary: Color(0xFF19243A),
+    textMuted: Color(0xFF526079),
+    border: Color(0xFFCDD5E2),
+    inputFill: Color(0xFFF0F3F8),
+    coral: Color(0xFF8E5C79),
+    coralLight: _lightBrandGradient[1],
+    peach: _lightBrandGradient[0],
+    coralAlt: _lightBrandGradient[1],
+    gradientA: _lightBrandGradient[0],
+    gradientB: _lightBrandGradient[2],
+    gradientC: _lightBrandGradient[4],
+    brandGradient: _lightBrandGradient,
+    spotifyGreen: Color(0xFF117E3B),
+    spotifyGradient: [Color(0xFF11833F), Color(0xFF117E3B), Color(0xFF0D7133)],
+    socialGradient: _lightBrandGradient,
+    neonPurpleGradient: _lightBrandGradient,
+    musicianBlue: Color(0xFF1E5BD7),
+  );
+
+  static AppColorPalette get originalDark => _dark;
+  static bool get isLight =>
+      AppThemeController.instance.variant == AppThemeVariant.light;
+  static bool get isOriginalDark => !isLight;
+  static AppColorPalette get _active => isLight ? lightPalette : _dark;
+  static Color get onAccent => isLight ? textPrimary : white;
+  static Color get onSpotify => white;
+  static Color get shadow => pureBlack;
+
+  static const lightAvatarBackground = Color(0xFFE9EEF5);
+  static const lightAvatarForeground = Color(0xFF596A82);
+  static Color get avatarBackground =>
+      isLight ? lightAvatarBackground : _dark.navBlueSoft;
+  static Color get avatarForeground =>
+      isLight ? lightAvatarForeground : _dark.textMuted;
+  static Color get avatarShadow =>
+      isLight ? const Color(0xFF8A9CB4) : _dark.brandGradient[2];
+
+  static List<Color> get actionGradient =>
+      isLight ? _lightBrandGradient : _dark.brandGradient;
+  static List<Color> get actionSocialGradient =>
+      isLight ? _lightBrandGradient : _dark.socialGradient;
+  static Color get actionForeground => onAccent;
+  static Color get accentText => isLight ? lightPalette.coral : _dark.coral;
+  static List<Color> get brandTextGradient =>
+      isLight ? _lightBrandGradient : _dark.brandGradient;
+  static List<Color> get decorativeGradient => _active.brandGradient;
+  static List<Color> get decorativeSocialGradient =>
+      isLight ? _lightBrandGradient : _dark.socialGradient;
+  static List<Color> get decorativeNeonPurpleGradient =>
+      _active.neonPurpleGradient;
+  static Color get decorativeForeground => isLight ? textPrimary : white;
+
+  /// Adapts a legacy neutral UI color while preserving the original dark value.
+  /// Not for image/video overlays, shadows, or semantic brand colors.
+  static Color legacy(Color original) {
+    if (!isLight) return original;
+    final hsl = HSLColor.fromColor(original);
+    final Color replacement;
+    if (hsl.lightness >= 0.78) {
+      replacement = textPrimary;
+    } else if (hsl.lightness >= 0.38) {
+      replacement = textMuted;
+    } else if (hsl.lightness >= 0.16) {
+      replacement = navBlueSoft;
+    } else {
+      replacement = navBlue;
+    }
+    return replacement.withValues(alpha: original.a);
+  }
+
+  static Color legacyWhite([double alpha = 1]) =>
+      (isLight ? textPrimary : white).withValues(alpha: alpha);
+
+  static Color legacyBorder(Color original) =>
+      isOriginalDark ? original : border.withValues(alpha: original.a);
+
+  static Color get black => _active.black;
+  static Color get navBlue => _active.navBlue;
+  static Color get navBlueDeep => _active.navBlueDeep;
+  static Color get navBlueSoft => _active.navBlueSoft;
+  static Color get textPrimary => _active.textPrimary;
+  static Color get textMuted => _active.textMuted;
+  static Color get border => _active.border;
+  static Color get inputFill => _active.inputFill;
+  static Color get coral => _active.coral;
+  static Color get coralLight => _active.coralLight;
+  static Color get peach => _active.peach;
+  static Color get coralAlt => _active.coralAlt;
+  static Color get gradientA => _active.gradientA;
+  static Color get gradientB => _active.gradientB;
+  static Color get gradientC => _active.gradientC;
+  static List<Color> get brandGradient => _active.brandGradient;
+  static Color get spotifyGreen => _active.spotifyGreen;
   static Color get tableGroupApplyGreen => spotifyGreen;
-  static List<Color> get spotifyGradient => _dark.spotifyGradient;
-  static Color get spotifyGreenBright => _dark.spotifyGradient[0];
-  static Color get spotifyGreenDark => _dark.spotifyGradient[2];
-  static List<Color> get socialGradient => _dark.socialGradient;
-  static Color get socialOrange => _dark.socialGradient[0];
-  static Color get socialPink => _dark.socialGradient[1];
-  static Color get socialPurple => _dark.socialGradient[2];
-  static List<Color> get neonPurpleGradient => _dark.neonPurpleGradient;
-  static Color get musicianBlue => _dark.musicianBlue;
+  static List<Color> get spotifyGradient => _active.spotifyGradient;
+  static Color get spotifyGreenBright => _active.spotifyGradient[0];
+  static Color get spotifyGreenDark => _active.spotifyGradient[2];
+  static List<Color> get socialGradient => _active.socialGradient;
+  static Color get socialOrange => _active.socialGradient[0];
+  static Color get socialPink =>
+      isLight ? _lightBrandGradient[2] : _dark.socialGradient[1];
+  static Color get socialPurple => _active.socialGradient.last;
+  static List<Color> get neonPurpleGradient => _active.neonPurpleGradient;
+  static Color get musicianBlue => _active.musicianBlue;
   static List<Color> get uploadCardGradient => [
-    white.withValues(alpha: 0.10),
+    (isLight ? navBlue : white).withValues(alpha: 0.10),
     brandGradient.last.withValues(alpha: 0.10),
     socialOrange.withValues(alpha: 0.10),
   ];
   static List<Color> get uploadedAudioCardGradient => uploadCardGradient;
 }
 
-class _Palette {
-  const _Palette({
+class AppColorPalette {
+  const AppColorPalette({
     required this.black,
     required this.navBlue,
     required this.navBlueDeep,

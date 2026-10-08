@@ -7,6 +7,11 @@ class StudioManagementPanelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
+    return StudioListenerAccessGate(builder: _buildPanel);
+  }
+
+  Widget _buildPanel(BuildContext context) {
     final profileName = profile.displayName.trim().isNotEmpty
         ? profile.displayName.trim()
         : 'Studio';
@@ -40,7 +45,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.brandTextGradient,
                       ),
                       style: const TextStyle(
                         fontSize: 24,
@@ -65,7 +70,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Mevcut odaları yönet ve yeni oda oluştur.',
                 trailingLabel: 'Yönet',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) => _StudioRoomsManagementScreen(
                       studioProfileId: profile.id,
                     ),
@@ -79,7 +84,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Tüm odaların rezervasyonlarını yönet.',
                 trailingLabel: 'Yönet',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) => _StudioReservationsHubScreen(
                       studioProfileId: profile.id,
                       timeZone: profile.timeZone,
@@ -94,7 +99,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Backline ekipmanlarını ekle, düzenle veya kaldır.',
                 trailingLabel: 'Yönet',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) => _StudioBacklineInventoryScreen(
                       studioProfileId: profile.id,
                     ),
@@ -108,7 +113,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Ekipmanların dolu ve bakımda olduğu tarihleri yönet.',
                 trailingLabel: 'Yönet',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) =>
                         const _BacklineAvailabilityManagementScreen(),
                   ),
@@ -128,7 +133,7 @@ class StudioManagementPanelScreen extends StatelessWidget {
                 message: 'Yeni bir backline kategorisi veya alt kategori öner.',
                 trailingLabel: 'Talep Et',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  studioPageRoute<void>(
                     builder: (_) =>
                         const _StudioBacklineCategoryManagementScreen(),
                   ),
@@ -159,6 +164,7 @@ class _StudioManagementActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return InkWell(
       onTap:
           onTap ??
@@ -190,7 +196,7 @@ class _StudioManagementActionCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, color: AppColors.white, size: 24),
+              Icon(icon, color: AppColors.legacyWhite(), size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -209,10 +215,14 @@ class _StudioManagementActionCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.08),
+                    color: AppColors.legacy(
+                      AppColors.white,
+                    ).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: AppColors.white.withValues(alpha: 0.16),
+                      color: AppColors.legacy(
+                        AppColors.white,
+                      ).withValues(alpha: 0.16),
                     ),
                   ),
                   child: Text(
@@ -252,6 +262,7 @@ class _StudioGradientOutline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return CustomPaint(
       painter: _StudioGradientOutlinePainter(
         radius: radius,
@@ -266,10 +277,11 @@ class _StudioGradientOutline extends StatelessWidget {
 }
 
 class _StudioGradientOutlinePainter extends CustomPainter {
+  final bool _isLight = AppColors.isLight;
   final double radius;
   final double strokeWidth;
 
-  const _StudioGradientOutlinePainter({
+  _StudioGradientOutlinePainter({
     required this.radius,
     required this.strokeWidth,
   });
@@ -294,7 +306,8 @@ class _StudioGradientOutlinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _StudioGradientOutlinePainter oldDelegate) {
-    return oldDelegate.radius != radius ||
+    return oldDelegate._isLight != _isLight ||
+        oldDelegate.radius != radius ||
         oldDelegate.strokeWidth != strokeWidth;
   }
 }

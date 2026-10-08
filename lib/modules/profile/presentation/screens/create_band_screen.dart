@@ -94,6 +94,7 @@ class _CreateBandScreenState extends State<CreateBandScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text('Band Oluştur'), centerTitle: true),
       body: SafeArea(
@@ -194,6 +195,7 @@ class _BrandGradientOutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final isEnabled = onPressed != null;
     final borderRadius = BorderRadius.circular(18);
 

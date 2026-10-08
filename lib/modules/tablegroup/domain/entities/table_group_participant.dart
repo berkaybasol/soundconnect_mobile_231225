@@ -4,6 +4,7 @@ enum TableGroupParticipantStatus { pending, accepted, rejected, kicked, left }
 
 class TableGroupParticipant {
   final String userId;
+  final String? applicationId;
   final DateTime? joinedAt;
   final TableGroupParticipantStatus status;
   final String? joinNote;
@@ -13,6 +14,7 @@ class TableGroupParticipant {
 
   const TableGroupParticipant({
     required this.userId,
+    this.applicationId,
     required this.joinedAt,
     required this.status,
     required this.joinNote,

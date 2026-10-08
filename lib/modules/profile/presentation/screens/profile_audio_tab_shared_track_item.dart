@@ -50,22 +50,28 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
     void openDetails() {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => MultiBlocProvider(
-            providers: [
-              BlocProvider.value(value: context.read<InteractionStatsCubit>()),
-              BlocProvider(create: (_) => serviceLocator<CommentThreadCubit>()),
-            ],
-            child: MediaDetailScreen(
-              title: track.title,
-              isVideo: false,
-              playbackUrl: track.playbackUrl,
-              thumbnailUrl: null,
-              durationSeconds: track.durationSeconds,
-              targetType: targetType,
-              targetId: targetId,
-              likeCount: likeCount,
-              commentCount: commentCount,
-              isSpotify: isSpotify,
+          builder: _guardRoute(
+            (_) => MultiBlocProvider(
+              providers: [
+                BlocProvider.value(
+                  value: context.read<InteractionStatsCubit>(),
+                ),
+                BlocProvider(
+                  create: (_) => serviceLocator<CommentThreadCubit>(),
+                ),
+              ],
+              child: MediaDetailScreen(
+                title: track.title,
+                isVideo: false,
+                playbackUrl: track.playbackUrl,
+                thumbnailUrl: null,
+                durationSeconds: track.durationSeconds,
+                targetType: targetType,
+                targetId: targetId,
+                likeCount: likeCount,
+                commentCount: commentCount,
+                isSpotify: isSpotify,
+              ),
             ),
           ),
         ),
@@ -94,6 +100,13 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
                     ownerType: uploadOwnerType,
                     ownerId: profileId,
                     trackId: track.id,
+                    mediaAssetId: track.mediaAssetId,
+                    contentAudience: track.contentAudience,
+                    onAudienceChanged: () =>
+                        context.read<ProfileMediaCubit>().loadMedia(
+                          profileType: uploadProfileType,
+                          profileId: profileId,
+                        ),
                     onDeleted: () async {
                       final sessions = serviceLocator<AuthSessionManager>();
                       final session = sessions.session;
@@ -158,7 +171,9 @@ extension _ProfileAudioTabTrackItem on ProfileAudioTab {
                   : AppColors.brandGradient,
               iconColor: isSpotify
                   ? AppColors.spotifyGreen
-                  : AppColors.coralAlt,
+                  : (AppColors.isLight
+                        ? AppColors.accentText
+                        : AppColors.coralAlt),
               playIconColor: isSpotify
                   ? AppColors.spotifyGreen
                   : Theme.of(context).colorScheme.onSurfaceVariant,

@@ -1,4 +1,17 @@
+import '../../modules/auth/data/venue_application_repository.dart';
+import 'dart:async';
+
 import 'package:get_it/get_it.dart';
+import '../push/firebase_push_provider.dart';
+import '../push/push_coordinator.dart';
+import '../push/push_device_api.dart';
+import '../push/push_delivery_api.dart';
+import '../push/push_installation_store.dart';
+import '../../shared/images/private_media_image_cache.dart';
+import '../../modules/admin/data/musician_feed_report_admin_repository_impl.dart';
+import '../../modules/admin/data/marketplace_report_admin_repository.dart';
+import '../../modules/admin/data/notification_campaign_repository.dart';
+import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
 import '../../modules/analytics/data/analytics_collection_repository_impl.dart';
 import '../../modules/analytics/data/analytics_tracker.dart';
 import '../../modules/analytics/data/venue_analytics_repository_impl.dart';
@@ -12,9 +25,6 @@ import '../../modules/tablegroup/domain/table_group_profile_share_repository.dar
 import '../../modules/auth/data/auth_repository_impl.dart';
 import '../../modules/auth/data/account_deletion_repository_impl.dart';
 import '../../modules/auth/domain/account_deletion_repository.dart';
-import '../../modules/admin/data/admin_repository_impl.dart';
-import '../../modules/admin/domain/admin_repository.dart';
-import '../../modules/admin/presentation/cubit/admin_panel_cubit.dart';
 import '../../modules/auth/domain/auth_repository.dart';
 import '../../modules/auth/domain/usecases/check_username_availability_usecase.dart';
 import '../../modules/auth/domain/usecases/login_usecase.dart';
@@ -29,6 +39,8 @@ import '../../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../../modules/collab/data/collab_repository_impl.dart';
 import '../../modules/collab/data/collab_idempotency_store.dart';
 import '../../modules/collab/domain/collab_repository.dart';
+import '../../modules/marketplace/data/marketplace_repository_impl.dart';
+import '../../modules/marketplace/domain/marketplace_repository.dart';
 import '../../modules/collab/presentation/cubit/collab_actor_reviews_cubit.dart';
 import '../../modules/collab/presentation/cubit/collab_discovery_cubit.dart';
 import '../../modules/collab/presentation/cubit/collab_incoming_applications_cubit.dart';
@@ -64,11 +76,21 @@ import '../../modules/follow/presentation/cubit/follow_count_cubit.dart';
 import '../../modules/location/data/location_repository_impl.dart';
 import '../../modules/location/domain/location_repository.dart';
 import '../../modules/location/presentation/cubit/location_cubit.dart';
+import '../../modules/musician_feed/data/musician_feed_preferences_repository_impl.dart';
+import '../../modules/musician_feed/data/musician_feed_repository_impl.dart';
+import '../../modules/musician_feed/data/musician_feed_muted_authors_repository_impl.dart';
+import '../../modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
+import '../../modules/musician_feed/domain/musician_feed_mute_changes.dart';
+import '../../modules/musician_feed/domain/musician_feed_preferences_repository.dart';
+import '../../modules/musician_feed/domain/musician_feed_repository.dart';
+import '../../modules/musician_feed/presentation/cubit/musician_feed_cubit.dart';
 import '../../modules/instrument/data/instrument_repository_impl.dart';
 import '../../modules/instrument/domain/instrument_repository.dart';
 import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
 import '../../modules/notification/data/notification_realtime_client.dart';
 import '../../modules/notification/data/notification_repository_impl.dart';
+import '../../modules/notification/data/notification_target_repository.dart';
+import '../../modules/notification/data/custom_notification_repository.dart';
 import '../../modules/notification/data/notification_media_repository.dart';
 import '../../modules/notification/domain/notification_repository.dart';
 import '../../modules/notification/presentation/cubit/notification_cubit.dart';
@@ -98,6 +120,8 @@ import '../../modules/profile/data/venue_artist_directory_repository_impl.dart';
 import '../../modules/profile/data/venue_event_repository_impl.dart';
 import '../../modules/profile/data/event_performer_request_repository_impl.dart';
 import '../../modules/profile/data/event_profile_publication_repository_impl.dart';
+import '../../modules/profile/data/event_plan_repository_impl.dart';
+import '../../modules/profile/domain/event_plan_repository.dart';
 import '../../modules/profile/data/venue_profile_repository_impl.dart';
 import '../../modules/profile/domain/musician_profile_repository.dart';
 import '../../modules/profile/domain/musician_calendar_repository.dart';
@@ -170,6 +194,12 @@ void setupDependencies() {
     ..registerLazySingleton<PendingAppDeepLinkStore>(
       SharedPreferencesPendingAppDeepLinkStore.new,
     )
+    ..registerLazySingleton<PrivateMediaImageCache>(
+      () => PrivateMediaImageCache(
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
+      dispose: (cache) => cache.dispose(),
+    )
     ..registerLazySingleton<AppDeepLinkInbox>(
       () => AppDeepLinkInbox(store: serviceLocator<PendingAppDeepLinkStore>()),
     )
@@ -177,6 +207,12 @@ void setupDependencies() {
       () => DioApiClient(
         tokenStore: serviceLocator<TokenStore>(),
         sessionManager: serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<MusicianFeedReportAdminRepository>(
+      () => MusicianFeedReportAdminRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
       ),
     )
     ..registerLazySingleton<AnalyticsCollectionRepository>(
@@ -200,12 +236,6 @@ void setupDependencies() {
       ),
       dispose: (repository) =>
           (repository as EventAudienceRepositoryImpl).dispose(),
-    )
-    ..registerLazySingleton<AdminRepository>(
-      () => AdminRepositoryImpl(serviceLocator<ApiClient>()),
-    )
-    ..registerFactory<AdminPanelCubit>(
-      () => AdminPanelCubit(serviceLocator<AdminRepository>()),
     )
     ..registerLazySingleton<LocationRepository>(
       () => LocationRepositoryImpl(serviceLocator<ApiClient>()),
@@ -232,6 +262,18 @@ void setupDependencies() {
     )
     ..registerLazySingleton<CollabRepository>(
       () => CollabRepositoryImpl(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<MarketplaceRepository>(
+      () => MarketplaceRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<MarketplaceReportAdminRepository>(
+      () => MarketplaceReportAdminRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<CollabIdempotencyStore>(
       () => SharedPreferencesCollabIdempotencyStore(
@@ -275,7 +317,34 @@ void setupDependencies() {
       () => CollabActorReviewsCubit(serviceLocator<CollabRepository>()),
     )
     ..registerLazySingleton<NotificationRepository>(
-      () => NotificationRepositoryImpl(serviceLocator<ApiClient>()),
+      () => NotificationRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<VenueApplicationRepository>(
+      () => VenueApplicationRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<NotificationTargetRepository>(
+      () => NotificationTargetRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<CustomNotificationRepository>(
+      () => CustomNotificationRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<NotificationCampaignRepository>(
+      () => NotificationCampaignRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<NotificationMediaRepository>(
       () => NotificationMediaRepository(
@@ -291,6 +360,9 @@ void setupDependencies() {
         serviceLocator<NotificationRepository>(),
         serviceLocator<TokenStore>(),
         realtimeClient: serviceLocator<NotificationRealtimeClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+        onDeliveryStateChanged: () =>
+            serviceLocator<PushCoordinator>().reconcileDelivered(),
       ),
     )
     ..registerLazySingleton<MusicianProfileRepository>(
@@ -335,10 +407,16 @@ void setupDependencies() {
       ),
     )
     ..registerLazySingleton<ProfileMediaRepository>(
-      () => ProfileMediaRepositoryImpl(serviceLocator<ApiClient>()),
+      () => ProfileMediaRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<MediaGalleryRepository>(
-      () => MediaGalleryRepositoryImpl(serviceLocator<ApiClient>()),
+      () => MediaGalleryRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<ProfileMediaManagementRepository>(
       () => ProfileMediaManagementRepositoryImpl(serviceLocator<ApiClient>()),
@@ -351,6 +429,7 @@ void setupDependencies() {
             SharedPreferencesPendingDraftMediaCleanupStore(),
         sessionKeyProvider: () =>
             serviceLocator<AuthSessionManager>().session.userId,
+        tokenProvider: () => serviceLocator<AuthSessionManager>().session.token,
       ),
     )
     ..registerLazySingleton<VenueDirectoryRepository>(
@@ -360,7 +439,10 @@ void setupDependencies() {
       () => VenueArtistDirectoryRepositoryImpl(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<ProfileSearchRepository>(
-      () => ProfileSearchRepositoryImpl(serviceLocator<ApiClient>()),
+      () => ProfileSearchRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<StudioProfileRepository>(
       () => StudioProfileRepositoryImpl(serviceLocator<ApiClient>()),
@@ -402,6 +484,16 @@ void setupDependencies() {
             serviceLocator<MusicianCalendarRepository>().invalidate(),
       ),
     )
+    ..registerLazySingleton<EventPlanRepository>(
+      () => EventPlanRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessionKeyProvider: () =>
+            serviceLocator<AuthSessionManager>().session.userId,
+        tokenProvider: () => serviceLocator<AuthSessionManager>().session.token,
+        onChanged: () =>
+            serviceLocator<MusicianCalendarRepository>().invalidate(),
+      ),
+    )
     ..registerLazySingleton<TrackManagementRepository>(
       () => TrackManagementRepositoryImpl(serviceLocator<ApiClient>()),
     )
@@ -419,7 +511,10 @@ void setupDependencies() {
       ),
     )
     ..registerLazySingleton<PromotionRepository>(
-      () => PromotionRepositoryImpl(serviceLocator<ApiClient>()),
+      () => PromotionRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerFactory<VenueProfileCubit>(
       () => VenueProfileCubit(serviceLocator<VenueProfileRepository>()),
@@ -461,6 +556,55 @@ void setupDependencies() {
       () => EngagementRepositoryImpl(
         serviceLocator<ApiClient>(),
         sessions: serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<MusicianFeedMuteChanges>(
+      MusicianFeedMuteChanges.new,
+      dispose: (changes) => changes.close(),
+    )
+    ..registerLazySingleton<MusicianFeedMutedAuthorsRepository>(
+      () => MusicianFeedMutedAuthorsRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+        onUnmuted: (author) {
+          final session = serviceLocator<AuthSessionManager>().session;
+          final userId = session.userId?.trim();
+          final token = session.token?.trim();
+          if (userId == null || token == null) return;
+          serviceLocator<MusicianFeedMuteChanges>().notifyUnmuted(
+            userId: userId,
+            token: token,
+            author: author,
+          );
+        },
+      ),
+    )
+    ..registerLazySingleton<MusicianFeedRepository>(
+      () => MusicianFeedRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<MusicianFeedPreferencesRepository>(
+      () => MusicianFeedPreferencesRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerFactory<MusicianFeedCubit>(
+      () => MusicianFeedCubit(
+        serviceLocator<MusicianFeedRepository>(),
+        serviceLocator<EngagementRepository>(),
+        announcementEngagementRepository: EngagementRepositoryImpl(
+          serviceLocator<ApiClient>(),
+          sessions: serviceLocator<AuthSessionManager>(),
+          announcementSource: 'FEED',
+        ),
+        collabRepository: serviceLocator<CollabRepository>(),
+        followRepository: serviceLocator<FollowRepository>(),
+        bandFollowRepository: serviceLocator<BandFollowRepository>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+        muteChanges: serviceLocator<MusicianFeedMuteChanges>(),
       ),
     )
     ..registerFactory<TableGroupCreateCubit>(
@@ -600,16 +744,42 @@ void setupDependencies() {
       ),
     )
     ..registerLazySingleton<DmRepository>(
-      () => DmRepositoryImpl(serviceLocator<ApiClient>()),
+      () => DmRepositoryImpl(
+        serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<DmUserProfileResolver>(
-      () => DmUserProfileResolverImpl(apiClient: serviceLocator<ApiClient>()),
+      () => DmUserProfileResolverImpl(
+        apiClient: serviceLocator<ApiClient>(),
+        sessions: serviceLocator<AuthSessionManager>(),
+      ),
     )
     ..registerLazySingleton<DmRealtimeClient>(() => DmRealtimeClient())
+    ..registerLazySingleton<PushDeviceApi>(
+      () => HttpPushDeviceApi(serviceLocator<ApiClient>()),
+    )
+    ..registerLazySingleton<PushCoordinator>(
+      () => PushCoordinator(
+        sessions: serviceLocator<AuthSessionManager>(),
+        provider: FirebasePushProvider(),
+        api: serviceLocator<PushDeviceApi>(),
+        deliveryApi: HttpPushDeliveryApi(serviceLocator<ApiClient>()),
+        store: SharedPreferencesPushInstallationStore(),
+        reconcileUnread: () async {
+          await Future.wait([
+            serviceLocator<NotificationCubit>().reconcileAfterResume(),
+            serviceLocator<DmBadgeCubit>().reconcileAfterResume(),
+          ]);
+        },
+      ),
+      dispose: (coordinator) => coordinator.dispose(),
+    )
     ..registerLazySingleton<DmBadgeCubit>(
       () => DmBadgeCubit(
         serviceLocator<DmRepository>(),
         serviceLocator<TokenStore>(),
+        sessions: serviceLocator<AuthSessionManager>(),
         realtimeClient: serviceLocator<DmRealtimeClient>(),
       ),
     )
@@ -617,6 +787,7 @@ void setupDependencies() {
       () => DmConversationsCubit(
         serviceLocator<DmRepository>(),
         serviceLocator<TokenStore>(),
+        sessions: serviceLocator<AuthSessionManager>(),
         realtimeClient: serviceLocator<DmRealtimeClient>(),
       ),
     )
@@ -624,7 +795,15 @@ void setupDependencies() {
       () => DmChatCubit(
         serviceLocator<DmRepository>(),
         serviceLocator<TokenStore>(),
+        sessions: serviceLocator<AuthSessionManager>(),
         realtimeClient: serviceLocator<DmRealtimeClient>(),
+        onReadAcknowledged: (messageId) {
+          final dmCount = serviceLocator<DmBadgeCubit>().reconcileAfterRead();
+          final count = serviceLocator<NotificationCubit>()
+              .markDmMessageAsReadLocally(messageId);
+          unawaited(serviceLocator<PushCoordinator>().reconcileDelivered());
+          return Future.wait<void>([count, dmCount]).then((_) {});
+        },
       ),
     );
 }

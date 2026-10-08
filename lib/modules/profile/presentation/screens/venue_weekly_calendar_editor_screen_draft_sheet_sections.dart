@@ -44,17 +44,25 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
               padding: const EdgeInsets.all(1.1),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(colors: AppColors.brandGradient),
+                gradient: LinearGradient(
+                  colors: AppColors.isLight
+                      ? [AppColors.avatarBackground, AppColors.avatarShadow]
+                      : AppColors.brandGradient,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.brandGradient[2].withValues(alpha: 0.16),
+                    color: (AppColors.isLight
+                        ? AppColors.avatarShadow.withValues(alpha: 0.12)
+                        : AppColors.brandGradient[2].withValues(alpha: 0.16)),
                     blurRadius: 14,
                   ),
                 ],
               ),
               child: ClipOval(
                 child: ColoredBox(
-                  color: scheme.surfaceContainerHighest,
+                  color: (AppColors.isLight
+                      ? AppColors.avatarBackground
+                      : scheme.surfaceContainerHighest),
                   child: hasImage
                       ? AppCachedNetworkImage(
                           imageUrl: imageUrl,
@@ -76,7 +84,9 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
                 children: [
                   GradientText(
                     text: widget.profileName,
-                    gradient: LinearGradient(colors: AppColors.brandGradient),
+                    gradient: LinearGradient(
+                      colors: AppColors.brandTextGradient,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -88,7 +98,7 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'Yeni etkinlik',
+                    widget.title,
                     style: TextStyle(
                       color: scheme.onSurfaceVariant,
                       fontSize: 12,
@@ -163,7 +173,16 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
                         width: 56,
                         height: 64,
                         color: scheme.surfaceContainer,
-                        child: _posterPreviewPath == null
+                        child:
+                            _posterPreviewPath == null &&
+                                widget.posterUrl != null
+                            ? AppCachedNetworkImage(
+                                imageUrl: widget.posterUrl!,
+                                width: 56,
+                                height: 64,
+                                fit: BoxFit.cover,
+                              )
+                            : _posterPreviewPath == null
                             ? Center(
                                 child: _gradientIcon(
                                   Icons.image_outlined,
@@ -250,7 +269,8 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
             label: 'Tarih',
             value: _selectedDate == null
                 ? 'Tarih seç'
-                : formatVenueEventDate(_selectedDate!),
+                : eventPlanDateLabel(_selectedDate!),
+            valueMaxLines: null,
             icon: Icons.event_outlined,
             onTap: _pickDate,
           ),
@@ -321,7 +341,9 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
               maxLength: 500,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                hintText: 'Etkinlik hakkında kısa bir not (isteğe bağlı)',
+                hintText:
+                    'Etkinlik hakkında bir şeyler yaz.\nZorunlu değil, ama tavsiye edilir.',
+                hintMaxLines: 3,
                 counterText: '',
                 contentPadding: EdgeInsets.fromLTRB(14, 15, 14, 15),
               ),
@@ -397,7 +419,9 @@ extension _VenueEventDraftSheetStateSections on _VenueEventDraftSheetState {
                           ? 'Kaydediliyor...'
                           : _uncertainSubmission
                           ? 'Listeyi kontrol et'
-                          : 'Etkinliği Oluştur',
+                          : _repeating
+                          ? 'Tarihleri önizle'
+                          : widget.submitLabel,
                       icon: _posterUploading || _submitting
                           ? Icons.hourglass_top_rounded
                           : _uncertainSubmission

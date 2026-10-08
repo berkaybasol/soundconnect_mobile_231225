@@ -1,3 +1,5 @@
+import 'support/media_image_http.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_target_repository.dart';
 import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
@@ -21,30 +23,42 @@ import 'support/event_audience_fakes.dart';
 import 'support/recording_api_client.dart';
 
 const _media = {
-  'uuid': 'asset-1',
-  'kind': 'AUDIO',
-  'title': 'Fresh audio',
-  'playbackUrl': 'https://example.test/current.mp3',
+  'uuid': '30000000-0000-4000-8000-000000000001',
+  'kind': 'IMAGE',
+  'title': 'Fresh image',
+  'sourceUrl': 'https://example.test/current.png',
 };
 
 void main() {
+  late MediaImageHttp images;
+  setUp(() {
+    images = MediaImageHttp()..install();
+  });
+  tearDown(() {
+    images.dispose();
+  });
   tearDown(() async => serviceLocator.reset());
 
   test(
     'notification target uses recipient session and current response',
     () async {
-      final sessions = AudienceTestSessions(audienceSession(user: 'owner'));
+      final sessions = AudienceTestSessions(
+        audienceSession(user: '70000000-0000-4000-8000-000000000001'),
+      );
       final api = RecordingApiClient((_) => _media);
       final result = await NotificationMediaRepository(
         api,
         sessions,
-      ).resolve('notice/1', 'asset-1');
-      expect(result.data?.playbackUrl, 'https://example.test/current.mp3');
+      ).resolve('notice/1', '30000000-0000-4000-8000-000000000001');
+      expect(result.data?.sourceUrl, 'https://example.test/current.png');
       expect(
         api.lastRequest.path,
         '/api/v1/user/notifications/notice%2F1/media',
       );
-      expect(api.lastRequest.requestContext?.expectedSessionKey, 'owner');
+      expect(
+        api.lastRequest.requestContext?.expectedSessionKey,
+        '70000000-0000-4000-8000-000000000001',
+      );
     },
   );
 
@@ -53,7 +67,7 @@ void main() {
     final result = await NotificationMediaRepository(
       api,
       AudienceTestSessions(const AuthSession.guest()),
-    ).resolve('n', 'asset-1');
+    ).resolve('n', '30000000-0000-4000-8000-000000000001');
     expect(result.isSuccess, isFalse);
     expect(api.requests, isEmpty);
   });
@@ -73,7 +87,10 @@ void main() {
       RecordingApiClient((_) => pending.future),
       sessions,
     );
-    final result = repository.resolve('n', 'asset-1');
+    final result = repository.resolve(
+      'n',
+      '30000000-0000-4000-8000-000000000001',
+    );
     sessions.replace(audienceSession(user: 'another'));
     pending.complete(_media);
     expect((await result).isSuccess, isFalse);
@@ -83,7 +100,9 @@ void main() {
     testWidgets(
       '$type opens actual media detail with comment and stats providers',
       (tester) async {
-        final sessions = AudienceTestSessions(audienceSession(user: 'owner'));
+        final sessions = AudienceTestSessions(
+          audienceSession(user: '70000000-0000-4000-8000-000000000001'),
+        );
         serviceLocator.registerSingleton<AuthSessionManager>(sessions);
         serviceLocator.registerSingleton<NotificationMediaRepository>(
           NotificationMediaRepository(
@@ -100,6 +119,13 @@ void main() {
           () => CommentThreadCubit(_Engagement(), sessions: sessions),
         );
         final cubit = _Notifications(type);
+        serviceLocator.registerSingleton<NotificationCubit>(cubit);
+        serviceLocator.registerSingleton<NotificationTargetRepository>(
+          NotificationTargetRepository(
+            RecordingApiClient((_) => _exact(cubit)),
+            sessions,
+          ),
+        );
         addTearDown(cubit.close);
         await tester.pumpWidget(
           BlocProvider<NotificationCubit>.value(
@@ -109,26 +135,28 @@ void main() {
         );
         await tester.pump();
         await tester.tap(find.text('Test notification'));
-        await tester.pumpAndSettle();
+        await paintMedia(tester);
         expect(find.byType(MediaDetailScreen), findsOneWidget);
         final detail = tester.widget<MediaDetailScreen>(
           find.byType(MediaDetailScreen),
         );
-        expect(detail.targetId, 'asset-1');
-        expect(detail.title, 'Fresh audio');
-        expect(detail.playbackUrl, 'https://example.test/current.mp3');
+        expect(detail.targetId, '30000000-0000-4000-8000-000000000001');
+        expect(detail.title, 'Fresh image');
+        expect(detail.imageUrl, 'https://example.test/current.png');
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
   }
 
-  for (final change in ['route', 'notification', 'session']) {
+  for (final change in ['route', 'exact-target', 'session']) {
     testWidgets('pending media lookup cannot navigate after $change changes', (
       tester,
     ) async {
       final response = Completer<Object?>();
-      final sessions = AudienceTestSessions(audienceSession(user: 'owner'));
+      final sessions = AudienceTestSessions(
+        audienceSession(user: '70000000-0000-4000-8000-000000000001'),
+      );
       final api = RecordingApiClient((_) => response.future);
       serviceLocator.registerSingleton<AuthSessionManager>(sessions);
       serviceLocator.registerSingleton<NotificationMediaRepository>(
@@ -142,6 +170,13 @@ void main() {
         () => CommentThreadCubit(_Engagement(), sessions: sessions),
       );
       final cubit = _Notifications('SOCIAL_LIKE');
+      serviceLocator.registerSingleton<NotificationCubit>(cubit);
+      serviceLocator.registerSingleton<NotificationTargetRepository>(
+        NotificationTargetRepository(
+          RecordingApiClient((_) => _exact(cubit)),
+          sessions,
+        ),
+      );
       addTearDown(cubit.close);
       final navigator = GlobalKey<NavigatorState>();
       await tester.pumpWidget(
@@ -156,7 +191,9 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Test notification'));
       await tester.pump();
-      await tester.tap(find.text('Test notification'));
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 400));
+      }
       expect(api.requests, hasLength(1));
       switch (change) {
         case 'route':
@@ -167,19 +204,19 @@ void main() {
               ),
             ),
           );
-        case 'notification':
-          cubit.replaceNotification();
+        case 'exact-target':
+          break;
         case 'session':
           sessions.replace(audienceSession(user: 'other'));
       }
-      await tester.pumpAndSettle();
-      response.complete(_media);
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 400));
+      response.complete(
+        change == 'exact-target' ? {..._media, 'uuid': 'another'} : _media,
+      );
+      await paintMedia(tester);
       expect(find.byType(MediaDetailScreen), findsNothing);
       if (change == 'route') {
         expect(find.text('Another screen'), findsOneWidget);
-      } else if (change == 'notification') {
-        expect(find.text('Replacement notification'), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -195,16 +232,20 @@ class _Notifications extends Cubit<NotificationState>
           status: NotificationStatus.success,
           items: [
             AppNotification(
-              id: 'notice',
-              recipientId: 'owner',
+              id: '50000000-0000-4000-8000-000000000001',
+              recipientId: '70000000-0000-4000-8000-000000000001',
               type: type,
               title: 'Test notification',
               message: '',
               read: true,
               createdAt: null,
               payload: const {
+                'module': 'SOCIAL',
+                'mediaIdentityVersion': 1,
+                'actorId': '20000000-0000-4000-8000-000000000001',
+                'commentId': '40000000-0000-4000-8000-000000000001',
                 'targetType': 'MEDIA',
-                'targetId': 'asset-1',
+                'targetId': '30000000-0000-4000-8000-000000000001',
                 'playbackUrl': 'https://example.test/stale.mp3',
               },
             ),
@@ -223,7 +264,7 @@ class _Notifications extends Cubit<NotificationState>
       items: [
         AppNotification(
           id: 'replacement-notice',
-          recipientId: 'owner',
+          recipientId: '70000000-0000-4000-8000-000000000001',
           type: 'SOCIAL_LIKE',
           title: 'Replacement notification',
           message: '',
@@ -257,4 +298,15 @@ class _Engagement extends Fake implements EngagementRepository {
     int page = 0,
     int size = 20,
   }) async => const Result.success(CommentPage(items: [], totalElements: 0));
+}
+
+Map<String, dynamic> _exact(_Notifications cubit) {
+  final n = cubit.state.items.first;
+  return {
+    'id': n.id,
+    'recipientId': n.recipientId,
+    'type': n.type,
+    'read': n.read,
+    'payload': n.payload,
+  };
 }

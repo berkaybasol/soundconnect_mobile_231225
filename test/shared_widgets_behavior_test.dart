@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_scaffold.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/gradient_outline_button.dart';
@@ -239,6 +240,63 @@ void main() {
       );
       expect(seek, 0);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('exposes seek progress as an adjustable clamped slider', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final seeks = <double>[];
+      await tester.pumpWidget(
+        host(
+          SizedBox(
+            width: 320,
+            child: WaveformStub(progress: .98, onSeek: seeks.add),
+          ),
+        ),
+      );
+
+      final node = tester.getSemantics(find.bySemanticsLabel('Oynatma konumu'));
+      final data = node.getSemanticsData();
+      expect(data.value, '98%');
+      expect(data.hint, 'Oynatma konumunu artır veya azalt');
+      expect(data.hasFlag(SemanticsFlag.isSlider), isTrue);
+      expect(data.hasAction(SemanticsAction.increase), isTrue);
+      expect(data.hasAction(SemanticsAction.decrease), isTrue);
+
+      tester.binding.pipelineOwner.semanticsOwner!.performAction(
+        node.id,
+        SemanticsAction.increase,
+      );
+      await tester.pump();
+      expect(seeks.removeAt(0), 1);
+
+      tester.binding.pipelineOwner.semanticsOwner!.performAction(
+        node.id,
+        SemanticsAction.decrease,
+      );
+      await tester.pump();
+      expect(seeks.removeAt(0), closeTo(.93, .0001));
+      semantics.dispose();
+    });
+
+    testWidgets('read-only waveform does not advertise adjustability', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        host(const SizedBox(width: 320, child: WaveformStub(progress: .4))),
+      );
+
+      final data = tester
+          .getSemantics(find.bySemanticsLabel('Oynatma konumu'))
+          .getSemanticsData();
+      expect(data.value, '40%');
+      expect(data.hint, isEmpty);
+      expect(data.hasFlag(SemanticsFlag.isSlider), isFalse);
+      expect(data.hasAction(SemanticsAction.increase), isFalse);
+      expect(data.hasAction(SemanticsAction.decrease), isFalse);
+      semantics.dispose();
     });
   });
 }

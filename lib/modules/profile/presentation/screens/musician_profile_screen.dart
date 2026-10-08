@@ -1,3 +1,4 @@
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../artist_venue/domain/artist_venue_application_page.dart';
 import '../../../artist_venue/domain/artist_venue_failure_policy.dart';
 import 'application_paging_footer.dart';
@@ -10,6 +11,8 @@ import 'package:audio_service/audio_service.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
+import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/policy/profile_feed_availability.dart';
 import '../navigation/profile_action_session.dart';
 import '../../../artist_venue/domain/artist_venue_connection_repository.dart';
 import '../../../artist_venue/presentation/cubit/artist_venue_connections_cubit.dart';
@@ -20,12 +23,19 @@ import '../../../follow/presentation/cubit/follow_action_state.dart';
 import '../../../follow/presentation/cubit/follow_count_cubit.dart';
 import '../../../follow/presentation/cubit/follow_count_state.dart';
 import '../../../location/domain/location_repository.dart';
+import '../../../location/presentation/widgets/location_picker_sheet.dart';
+import '../../../instrument/domain/entities/instrument.dart';
+import '../../../instrument/domain/instrument_repository.dart';
+import '../../../musician_feed/domain/musician_feed_preferences_repository.dart';
+import '../../../musician_feed/presentation/widgets/musician_feed_opportunity_city_controller.dart';
 import '../../../setlist/presentation/screens/band_setlist_builder_screen.dart';
 import '../../../spotify/domain/entities/spotify_track_preview.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/gradient_text.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../domain/entities/media_asset.dart';
@@ -34,9 +44,11 @@ import '../../domain/entities/musician_profile.dart';
 import '../../domain/entities/profile_venue_models.dart';
 import '../../domain/entities/profile_media.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/musician_profile_repository.dart';
 import '../../domain/venue_directory_repository.dart';
 import '../../data/models/musician_profile_save_request.dart';
 import '../cubit/musician_profile_cubit.dart';
+import '../cubit/musician_instrument_controller.dart';
 import '../cubit/musician_profile_state.dart';
 import '../cubit/profile_media_cubit.dart';
 import 'my_bands_screen.dart';
@@ -52,6 +64,7 @@ import 'profile_media_tabs.dart';
 import 'profile_screen_support.dart';
 import 'profile_section_support.dart';
 import 'profile_social_support.dart';
+import 'profile_track_upload_support.dart';
 import 'profile_route_args.dart';
 import 'profile_venue_support.dart';
 import 'profile_venue_request_sheet.dart';
@@ -61,6 +74,8 @@ part 'musician_profile_screen_media_content.dart';
 part 'musician_profile_screen_audio_tab.dart';
 part 'musician_profile_screen_content.dart';
 part 'musician_profile_screen_content_overlays.dart';
+part 'musician_profile_screen_completion_editors.dart';
+part 'musician_profile_completion_screen.dart';
 part 'musician_profile_screen_venue_connections_sheet.dart';
 part 'musician_profile_screen_sections.dart';
 part 'musician_profile_screen_sections_bio.dart';
@@ -72,10 +87,12 @@ part 'musician_profile_screen_view_venue_actions.dart';
 class MusicianProfileScreenArgs {
   final bool openManagementPanel;
   final bool openIncomingVenueApplications;
+  final String? completionTaskCode;
 
   const MusicianProfileScreenArgs({
     this.openManagementPanel = false,
     this.openIncomingVenueApplications = false,
+    this.completionTaskCode,
   });
 }
 
@@ -84,12 +101,10 @@ class MusicianProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) =>
-              serviceLocator<MusicianProfileCubit>()..loadMyProfile(),
-        ),
+        BlocProvider(create: (_) => serviceLocator<MusicianProfileCubit>()),
         BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
         BlocProvider(create: (_) => serviceLocator<FollowActionCubit>()),

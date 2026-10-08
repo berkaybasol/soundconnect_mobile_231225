@@ -16,6 +16,7 @@ class EventInvitationRejectionDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Dialog(
       key: const Key('event-invitation-rejection-dialog'),

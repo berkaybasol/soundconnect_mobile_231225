@@ -34,24 +34,27 @@ class _BacklineInventoryPhotosEditorState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final photos = widget.photoPaths;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _ownerManagementCardColor,
+        color: AppColors.legacy(_ownerManagementCardColor),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _ownerManagementInsetBorderColor),
+        border: Border.all(
+          color: AppColors.legacyBorder(_ownerManagementInsetBorderColor),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Ekipman Fotoğrafları',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.legacy(Colors.white),
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                   ),
@@ -59,8 +62,8 @@ class _BacklineInventoryPhotosEditorState
               ),
               Text(
                 '${photos.length} / $_maximumPhotoCount',
-                style: const TextStyle(
-                  color: Color(0xFF9EA8B7),
+                style: TextStyle(
+                  color: AppColors.legacy(Color(0xFF9EA8B7)),
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
@@ -110,8 +113,8 @@ class _BacklineInventoryPhotosEditorState
                   color: index == _activeIndex
                       ? const Color(0xFFE87587)
                       : index < photos.length
-                      ? const Color(0xFF69758A)
-                      : const Color(0xFF344052),
+                      ? AppColors.legacy(const Color(0xFF69758A))
+                      : AppColors.legacy(const Color(0xFF344052)),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -164,6 +167,7 @@ class _BacklineInventoryPhotoSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final isNetworkImage = isValidNetworkImageUrl(path);
     return Stack(
       fit: StackFit.expand,
@@ -205,7 +209,7 @@ class _BacklineInventoryPhotoSlot extends StatelessWidget {
           left: 10,
           bottom: 10,
           child: Material(
-            color: const Color(0xD90A111B),
+            color: AppColors.legacy(const Color(0xD90A111B)),
             borderRadius: BorderRadius.circular(999),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -216,7 +220,11 @@ class _BacklineInventoryPhotoSlot extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.arrow_back_rounded, size: 18),
                 ),
-                Container(width: 1, height: 20, color: const Color(0x667E8CA2)),
+                Container(
+                  width: 1,
+                  height: 20,
+                  color: AppColors.legacy(const Color(0x667E8CA2)),
+                ),
                 IconButton(
                   onPressed: onMoveRight,
                   tooltip: 'Sağa taşı',
@@ -237,12 +245,13 @@ class _BacklineBrokenPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: _ownerManagementInsetColor,
+    Theme.of(context);
+    return ColoredBox(
+      color: AppColors.legacy(_ownerManagementInsetColor),
       child: Center(
         child: Icon(
           Icons.broken_image_outlined,
-          color: Color(0xFF929BA8),
+          color: AppColors.legacy(Color(0xFF929BA8)),
           size: 38,
         ),
       ),

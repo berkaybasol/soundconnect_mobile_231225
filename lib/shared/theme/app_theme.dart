@@ -30,55 +30,60 @@ class AppTheme {
     );
   }
 
-  static ThemeData get navy {
+  static ThemeData get current => AppColors.isLight ? light : navy;
+
+  static ThemeData get navy => _navy;
+  static final ThemeData _navy = _buildNavy();
+
+  static ThemeData _buildNavy() {
     final colorScheme =
         ColorScheme.fromSeed(
-          seedColor: AppColors.coral,
+          seedColor: AppColors.originalDark.coral,
           brightness: Brightness.dark,
         ).copyWith(
-          surface: AppColors.navBlueDeep,
-          surfaceContainer: AppColors.navBlueSoft,
-          surfaceContainerHighest: AppColors.inputFill,
-          outline: AppColors.border,
-          onSurfaceVariant: AppColors.textMuted,
+          surface: AppColors.originalDark.navBlueDeep,
+          surfaceContainer: AppColors.originalDark.navBlueSoft,
+          surfaceContainerHighest: AppColors.originalDark.inputFill,
+          outline: AppColors.originalDark.border,
+          onSurfaceVariant: AppColors.originalDark.textMuted,
         );
     final theme = ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
       pageTransitionsTheme: _pageTransitionsTheme,
       splashFactory: InkRipple.splashFactory,
-      splashColor: AppColors.coral.withValues(alpha: 0.18),
-      highlightColor: AppColors.coralLight.withValues(alpha: 0.10),
-      scaffoldBackgroundColor: AppColors.navBlueDeep,
+      splashColor: AppColors.originalDark.coral.withValues(alpha: 0.18),
+      highlightColor: AppColors.originalDark.coralLight.withValues(alpha: 0.10),
+      scaffoldBackgroundColor: AppColors.originalDark.navBlueDeep,
       textTheme: ThemeData(brightness: Brightness.dark).textTheme.copyWith(
         headlineMedium: TextStyle(
-          color: AppColors.textPrimary,
+          color: AppColors.originalDark.textPrimary,
           fontWeight: FontWeight.w700,
         ),
-        bodyMedium: TextStyle(color: AppColors.textMuted),
+        bodyMedium: TextStyle(color: AppColors.originalDark.textMuted),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: AppColors.originalDark.textPrimary,
         elevation: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.inputFill,
-        prefixIconColor: AppColors.textMuted,
-        suffixIconColor: AppColors.textMuted,
-        labelStyle: TextStyle(color: AppColors.textMuted),
+        fillColor: AppColors.originalDark.inputFill,
+        prefixIconColor: AppColors.originalDark.textMuted,
+        suffixIconColor: AppColors.originalDark.textMuted,
+        labelStyle: TextStyle(color: AppColors.originalDark.textMuted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.originalDark.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.originalDark.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.coralLight),
+          borderSide: BorderSide(color: AppColors.originalDark.coralLight),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -88,7 +93,7 @@ class AppTheme {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(22),
               ),
-              backgroundColor: AppColors.coralAlt,
+              backgroundColor: AppColors.originalDark.coralAlt,
               foregroundColor: AppColors.white,
             ).copyWith(
               animationDuration: const Duration(milliseconds: 110),
@@ -102,13 +107,13 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: _interactiveButtonStyle(
-          foreground: AppColors.textPrimary,
+          foreground: AppColors.originalDark.textPrimary,
           pressedOverlay: AppColors.white.withValues(alpha: 0.18),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: _interactiveButtonStyle(
-          foreground: AppColors.textPrimary,
+          foreground: AppColors.originalDark.textPrimary,
           pressedOverlay: AppColors.white.withValues(alpha: 0.14),
         ),
       ),
@@ -123,13 +128,133 @@ class AppTheme {
           }),
         ),
       ),
-      dividerColor: AppColors.border,
+      dividerColor: AppColors.originalDark.border,
     );
     return _withSurfaceStyles(
       theme,
-      cardColor: AppColors.navBlueSoft,
-      menuColor: AppColors.inputFill,
-      borderColor: AppColors.border,
+      cardColor: AppColors.originalDark.navBlueSoft,
+      menuColor: AppColors.originalDark.inputFill,
+      borderColor: AppColors.originalDark.border,
+    );
+  }
+
+  static ThemeData get light => _light;
+  static final ThemeData _light = _buildLight();
+
+  static ThemeData _buildLight() {
+    final colors = AppColors.lightPalette;
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: colors.coral,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: colors.coralAlt,
+          onPrimary: colors.textPrimary,
+          primaryContainer: AppColors.lightAvatarBackground,
+          onPrimaryContainer: AppColors.lightAvatarForeground,
+          secondary: colors.brandGradient.last,
+          onSecondary: colors.textPrimary,
+          surface: colors.navBlue,
+          onSurface: colors.textPrimary,
+          surfaceContainerLowest: colors.navBlue,
+          surfaceContainerLow: colors.navBlueDeep,
+          surfaceContainer: colors.navBlueSoft,
+          surfaceContainerHigh: colors.navBlueSoft,
+          surfaceContainerHighest: colors.inputFill,
+          outline: colors.border,
+          onSurfaceVariant: colors.textMuted,
+        );
+    final theme = ThemeData(
+      colorScheme: colorScheme,
+      useMaterial3: true,
+      pageTransitionsTheme: _pageTransitionsTheme,
+      splashFactory: InkRipple.splashFactory,
+      splashColor: colors.coral.withValues(alpha: 0.18),
+      highlightColor: colors.coralLight.withValues(alpha: 0.10),
+      scaffoldBackgroundColor: colors.navBlueDeep,
+      textTheme: ThemeData(brightness: Brightness.light).textTheme
+          .apply(
+            bodyColor: colors.textPrimary,
+            displayColor: colors.textPrimary,
+          )
+          .copyWith(
+            headlineMedium: TextStyle(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+            bodyMedium: TextStyle(color: colors.textMuted),
+          ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        foregroundColor: colors.textPrimary,
+        elevation: 0,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: colors.inputFill,
+        prefixIconColor: colors.textMuted,
+        suffixIconColor: colors.textMuted,
+        labelStyle: TextStyle(color: colors.textMuted),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colors.coralLight),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style:
+            ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              backgroundColor: colors.coralAlt,
+              foregroundColor: colors.textPrimary,
+            ).copyWith(
+              animationDuration: const Duration(milliseconds: 110),
+              overlayColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.pressed)
+                    ? AppColors.white.withValues(alpha: 0.18)
+                    : null,
+              ),
+            ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: _interactiveButtonStyle(
+          foreground: colors.textPrimary,
+          pressedOverlay: colors.textPrimary.withValues(alpha: 0.18),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: _interactiveButtonStyle(
+          foreground: colors.textPrimary,
+          pressedOverlay: colors.textPrimary.withValues(alpha: 0.14),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          animationDuration: const Duration(milliseconds: 110),
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.pressed)
+                ? colors.textPrimary.withValues(alpha: 0.18)
+                : null,
+          ),
+        ),
+      ),
+      dividerColor: colors.border,
+    );
+    return _withSurfaceStyles(
+      theme,
+      cardColor: colors.navBlue,
+      menuColor: colors.navBlue,
+      borderColor: colors.border,
     );
   }
 

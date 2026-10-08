@@ -1,0 +1,57 @@
+SoundConnect projesindeki önceki oturumdan devam ediyoruz.
+
+Önce şu güncel devir belgesini tamamen oku:
+C:\Users\user\Desktop\SoundConnect\SoundConnect-Frontend\docs\session-handoff-20260914-listener-boundaries.md
+
+Ayrıntılı önceki oturum kayıtları gerektiğinde:
+C:\Users\user\Desktop\SoundConnect\SoundConnect-Frontend\docs\session-handoff-20260914.md
+
+Önceki tasarım ve altyapı kararları gerektiğinde:
+C:\Users\user\Desktop\SoundConnect\SoundConnect-Frontend\docs\session-handoff-20260913.md
+
+Her iki repo feature/local-simulation dalında. HEAD'ler frontend 47d3079,
+backend 1ec3fa2. Bu oturumun düzeltmeleri yerel çalışma ağaçlarında;
+henüz commit/push edilmedi. Git durumunu kontrol et ve mevcut işleri koru.
+Eski belgelerdeki temiz ağaç/önceki APK/önceki cihaz hesabı kayıtlarını
+en son kapanış durumuyla karıştırma.
+
+Tamamlanan işler:
+- Önceki OTP/giriş, müzisyen, mekân ve dinleyici akışları korundu.
+- Akışın eşzamanlı beğeni/kaydetme, yorum sayacı ve geçici kaynak hatasıyla
+  boş/son sayfa üretmesi sorunları düzeltildi.
+- Dinleyicinin stüdyo profili, oda/ekipman/takvim/rezervasyon, Collab,
+  business bildirim ve ilgili medya erişimi kapatıldı.
+- Avatar, DM, masa, Overthinking, yorum/beğeni, arama/akış, bildirim,
+  paylaşım bağlantıları, doğrudan route/API ve hesap değişiminde açık kalan
+  eski ekranlar dahil uygulama çapında erişim denetimi tamamlandı.
+- Son tam Flutter: 5.001 başarılı, 0 hata, 2 isteğe bağlı PNG atlaması;
+  analiz temiz. İlgili backend regresyonu: 83 pakette 711 başarılı.
+
+Dinleyici müzik, performans, halka açık etkinlik ve uygun sosyal paylaşımları
+görür; stüdyo/Collab ve BACKSTAGE iş birliği modüllerine erişemez.
+Sosyal yüzeyde stüdyo avatarı bulunabilir; profile dokununca onaylanan
+“Stüdyolar Backstage’de” açıklaması açılır. “Geri dön” geldiği sayfaya döner.
+Onaylı metinler, mevcut tasarım, alt bar, arama ve gerçek detaylar korunmalı.
+
+Serbest metinlerdeki iş ifadeleri ve önceden bilinen PUBLIC dosya adreslerinin
+açılması kabul edildi. Semantik sınıflandırma/URL iptali kapsam dışıdır.
+Setlist PDF bulgusu kullanıcı kararıyla kapsam dışında kaldı; düzeltilmiş sayma.
+
+Güncel normal APK telefona kuruldu, backend paketleri güncellendi.
+Kapanış sırasında backend ortam ayarı hatası eski oturumu düşürdü; sorun düzeltildi.
+Kullanıcı mmelikeunal dinleyici hesabıyla yeniden giriş yaptı. Altı temel cihaz
+kontrolü geçti; son soğuk açılışta yeni dinleyici oturumu korundu.
+Telefon dinleyici profilinde ve güncel backend çalışır bırakıldı.
+Son cihaz hesabı, oturum durumu ve canlı kontrolün sınırlarını devir belgesinin
+kapanış bölümünden öğren; otomatik testlerle gerçek cihaz kontrolünü karıştırma.
+Yerel backend yeniden başlatılırken mevcut dev.ps1 ortam yükleme sözleşmesini
+koru; portu kontrol etmeden ikinci backend açma. Gerçek DB'ye mock içerik ekleme.
+
+Sıradaki konu STÜDYO AKIŞININ ÜRÜN MANTIĞI VE İÇERİK DENGESİ.
+Henüz uygulanmadı; önce birlikte konuşacağız. Var olan stüdyo profil/oda/backline
+altyapısını, henüz tasarlanmayan stüdyo akışıyla karıştırma.
+
+İhtiyaçlarında mevcut altyapıyı önce tara; varsa yeniden yazma, gerektiğinde
+geliştir. Onaylanan davranışları koru. Tamamlanan işleri baştan yapma.
+Belgeleri okuyup Git/mevcut duruma hâkim olunca kısaca hazır olduğunu söyle;
+stüdyo akışını birlikte konuşarak başlayacağız.

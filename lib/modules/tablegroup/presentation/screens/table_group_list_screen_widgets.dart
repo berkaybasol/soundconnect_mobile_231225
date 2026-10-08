@@ -13,6 +13,7 @@ class _TableGroupListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final normalizedVenue = group.venueName?.trim();
     final venue = normalizedVenue?.isNotEmpty == true
         ? normalizedVenue!
@@ -61,10 +62,12 @@ class _TableGroupListCard extends StatelessWidget {
           child: Container(
             key: ValueKey<String>('table_group_card-${group.id}'),
             decoration: BoxDecoration(
-              gradient: TableGroupOverviewStyle.cardGradient,
+              gradient: TableGroupSurfaceStyle.of(context).cardGradient,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: TableGroupOverviewStyle.cardBorder),
-              boxShadow: TableGroupOverviewStyle.cardShadows,
+              border: Border.all(
+                color: TableGroupSurfaceStyle.of(context).cardBorder,
+              ),
+              boxShadow: TableGroupSurfaceStyle.of(context).cardShadows,
             ),
             child: Material(
               key: ValueKey<String>('table_group_card_surface-${group.id}'),
@@ -219,13 +222,14 @@ class _TableGroupDescriptionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Text(
       description,
       key: ValueKey<String>('table_group_description_title-$groupId'),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: TableGroupOverviewStyle.primaryText,
+      style: TextStyle(
+        color: TableGroupSurfaceStyle.of(context).primaryText,
         fontSize: 18.5,
         height: 1.18,
         fontWeight: FontWeight.w800,
@@ -241,16 +245,17 @@ class _TableGroupDetailAffordance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Row(
       key: ValueKey<String>('table_group_detail_affordance-$groupId'),
       mainAxisSize: MainAxisSize.min,
-      children: const [
+      children: [
         Text(
           'Detay',
           maxLines: 1,
           textScaler: TextScaler.noScaling,
           style: TextStyle(
-            color: TableGroupOverviewStyle.bodyMuted,
+            color: TableGroupSurfaceStyle.of(context).bodyMuted,
             fontSize: 13.5,
             fontWeight: FontWeight.w500,
           ),
@@ -259,7 +264,7 @@ class _TableGroupDetailAffordance extends StatelessWidget {
         Icon(
           Icons.chevron_right_rounded,
           size: 22,
-          color: TableGroupOverviewStyle.bodyMuted,
+          color: TableGroupSurfaceStyle.of(context).bodyMuted,
         ),
       ],
     );
@@ -283,6 +288,7 @@ class _OwnerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final imageSize = size - 3;
     return SizedBox(
       key: ValueKey<String>('table_group_owner_avatar-$groupId'),
@@ -297,14 +303,20 @@ class _OwnerAvatar extends StatelessWidget {
             padding: const EdgeInsets.all(1.5),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
+                colors: AppColors.isLight
+                    ? AppColors.decorativeGradient
+                    : const [Color(0xFFFF7A45), Color(0xFF8B2CFF)],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF8B2CFF).withValues(alpha: 0.14),
+                  color:
+                      (AppColors.isLight
+                              ? AppColors.avatarShadow
+                              : const Color(0xFF8B2CFF))
+                          .withValues(alpha: 0.14),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -337,13 +349,17 @@ class _OwnerAvatar extends StatelessWidget {
   Widget _fallback() {
     return ColoredBox(
       key: ValueKey<String>('table_group_owner_fallback-$groupId'),
-      color: const Color(0xFF070B13),
+      color: (AppColors.isOriginalDark
+          ? const Color(0xFF070B13)
+          : AppColors.avatarBackground),
       child: Center(
         child: Text(
           initials,
           maxLines: 1,
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.isLight
+                ? AppColors.avatarForeground
+                : Colors.white,
             fontWeight: FontWeight.w800,
             fontSize: size < 60 ? 16 : 18,
             letterSpacing: 0.4,
@@ -371,6 +387,7 @@ class _TableGroupStatsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       key: ValueKey<String>('table_group_stats_strip-${group.id}'),
       padding: EdgeInsets.symmetric(
@@ -378,9 +395,11 @@ class _TableGroupStatsStrip extends StatelessWidget {
         vertical: compactLayout ? 6 : 10,
       ),
       decoration: BoxDecoration(
-        gradient: TableGroupOverviewStyle.insetGradient,
+        gradient: TableGroupSurfaceStyle.of(context).insetGradient,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: TableGroupOverviewStyle.insetBorder),
+        border: Border.all(
+          color: TableGroupSurfaceStyle.of(context).insetBorder,
+        ),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -465,11 +484,12 @@ class _TableGroupStatDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Container(
       width: 1,
       height: 23,
       margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: TableGroupOverviewStyle.divider,
+      color: TableGroupSurfaceStyle.of(context).divider,
     );
   }
 }
@@ -482,14 +502,15 @@ class _TableGroupVenueLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final isUnspecified =
         venue == TableGroupOverviewStyle.unspecifiedVenueLabel;
     final venueText = Text(
       venue,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: TableGroupOverviewStyle.bodyMuted,
+      style: TextStyle(
+        color: TableGroupSurfaceStyle.of(context).bodyMuted,
         fontSize: 13.5,
         height: 1.2,
         fontWeight: FontWeight.w700,
@@ -525,14 +546,15 @@ class _TableGroupLocationLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final label = _tableGroupLocationLabel(group);
     return Row(
       key: ValueKey<String>('table_group_location-${group.id}'),
       children: [
-        const Icon(
+        Icon(
           Icons.location_on_outlined,
           size: 18,
-          color: TableGroupOverviewStyle.bodyMuted,
+          color: TableGroupSurfaceStyle.of(context).bodyMuted,
         ),
         const SizedBox(width: 4),
         Expanded(
@@ -540,8 +562,8 @@ class _TableGroupLocationLine extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: TableGroupOverviewStyle.bodyMuted,
+            style: TextStyle(
+              color: TableGroupSurfaceStyle.of(context).bodyMuted,
               fontSize: 13.5,
               height: 1.2,
               fontWeight: FontWeight.w500,
@@ -561,6 +583,7 @@ class _TableGroupMeetingTime extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Semantics(
       label: 'Buluşma saati $text',
       child: ExcludeSemantics(
@@ -574,8 +597,8 @@ class _TableGroupMeetingTime extends StatelessWidget {
                 text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: TableGroupOverviewStyle.bodyMuted,
+                style: TextStyle(
+                  color: TableGroupSurfaceStyle.of(context).bodyMuted,
                   fontSize: 13.5,
                   height: 1.2,
                   fontWeight: FontWeight.w700,
@@ -597,13 +620,14 @@ class _TableGroupCapacity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Text(
       text,
       key: ValueKey<String>('table_group_capacity-$groupId'),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: TableGroupOverviewStyle.bodyMuted,
+      style: TextStyle(
+        color: TableGroupSurfaceStyle.of(context).bodyMuted,
         fontSize: 14,
         height: 1.2,
         fontWeight: FontWeight.w500,
@@ -625,6 +649,7 @@ class _TableGroupParticipantSlots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final safeCapacity = maxPersonCount.clamp(0, 6);
     final safeAccepted = acceptedCount.clamp(0, safeCapacity);
     return Row(
@@ -703,6 +728,7 @@ class _CreateTableFabState extends State<_CreateTableFab>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return GestureDetector(
       key: const Key('table_group_create_fab'),
       onTap: widget.onTap,
@@ -746,28 +772,39 @@ class _CreateTableFabState extends State<_CreateTableFab>
                 ),
               ),
             ),
-            Container(
-              width: _CreateTableFab.diameter,
-              height: _CreateTableFab.diameter,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: AppColors.brandGradient,
+            GradientOutline(
+              enabled: AppColors.isLight,
+              radius: 999,
+              child: Container(
+                width: _CreateTableFab.diameter,
+                height: _CreateTableFab.diameter,
+                decoration: AppColors.isLight
+                    ? BoxDecoration(
+                        color: AppColors.navBlue,
+                        shape: BoxShape.circle,
+                      )
+                    : BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: AppColors.decorativeGradient,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.decorativeGradient.last.withValues(
+                              alpha: 0.42,
+                            ),
+                            blurRadius: 16,
+                            offset: Offset(0, 7),
+                          ),
+                        ],
+                      ),
+                child: Icon(
+                  Icons.groups_2_rounded,
+                  color: AppColors.decorativeForeground,
+                  size: 36,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.brandGradient.last.withValues(alpha: 0.42),
-                    blurRadius: 16,
-                    offset: Offset(0, 7),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.groups_2_rounded,
-                color: AppColors.white,
-                size: 36,
               ),
             ),
           ],

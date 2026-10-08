@@ -12,6 +12,7 @@ class BandMemberCaption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     final title = member.displayTitle;
     if (!member.isFounder && title == null) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
@@ -25,7 +26,7 @@ class BandMemberCaption extends StatelessWidget {
             children: [
               ShaderMask(
                 shaderCallback: (bounds) => LinearGradient(
-                  colors: AppColors.brandGradient,
+                  colors: AppColors.decorativeGradient,
                 ).createShader(bounds),
                 blendMode: BlendMode.srcIn,
                 child: const Icon(Icons.verified_outlined, size: 12),

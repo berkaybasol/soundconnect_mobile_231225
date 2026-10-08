@@ -24,5 +24,17 @@ void main() {
     await pumpLabel(4);
     expect(find.byKey(const Key('dm-primary-unread-dot')), findsOneWidget);
     expect(find.bySemanticsLabel('4 okunmamis birincil mesaj'), findsOneWidget);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: DmPrimaryMessagesTabLabel(unreadCount: 0, compact: true),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Birincil'), findsOneWidget);
+    expect(find.bySemanticsLabel('Birincil Mesajlar'), findsOneWidget);
   });
 }

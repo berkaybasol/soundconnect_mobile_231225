@@ -1,3 +1,4 @@
+import 'dm_timestamp.dart';
 import '../../domain/entities/dm_message.dart';
 
 class DmMessageModel extends DmMessage {
@@ -21,15 +22,9 @@ class DmMessageModel extends DmMessage {
       recipientId: json['recipientId']?.toString() ?? '',
       content: json['content']?.toString() ?? '',
       messageType: json['messageType']?.toString() ?? 'text',
-      sentAt: _toDate(json['sentAt']),
-      readAt: _toDate(json['readAt']),
-      deletedAt: _toDate(json['deletedAt']),
+      sentAt: parseDmTimestamp(json['sentAt']),
+      readAt: parseDmTimestamp(json['readAt']),
+      deletedAt: parseDmTimestamp(json['deletedAt']),
     );
-  }
-
-  static DateTime? _toDate(Object? value) {
-    final raw = value?.toString();
-    if (raw == null || raw.trim().isEmpty) return null;
-    return DateTime.tryParse(raw);
   }
 }

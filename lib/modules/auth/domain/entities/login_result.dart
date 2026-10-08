@@ -8,6 +8,8 @@ class LoginResult {
   final List<String> roles;
   final List<String> permissions;
   final bool isAdmin;
+  final String? sessionScope;
+  final String? applicationId;
   final bool requiresListenerProfileChoice;
 
   const LoginResult({
@@ -18,6 +20,8 @@ class LoginResult {
     this.roles = const [],
     this.permissions = const [],
     this.isAdmin = false,
+    this.sessionScope,
+    this.applicationId,
     this.requiresListenerProfileChoice = false,
   });
 }

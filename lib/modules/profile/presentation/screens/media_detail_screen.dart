@@ -3,11 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:video_player/video_player.dart';
+import 'package:just_audio/just_audio.dart' as audio;
+import '../../../notification/presentation/notification_target_read.dart';
 
 import '../../../../core/audio/audio_player_handler.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/network/app_media_url.dart';
 import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/waveform_stub.dart';
 import '../../../engagement/presentation/widgets/comment_thread_view.dart';
 import '../../../engagement/presentation/cubit/interaction_stats_cubit.dart';
@@ -29,6 +34,7 @@ class MediaDetailScreen extends StatefulWidget {
   final int? likeCount;
   final int? commentCount;
   final bool isSpotify;
+  final Object? notificationContent;
 
   MediaDetailScreen({
     super.key,
@@ -44,6 +50,7 @@ class MediaDetailScreen extends StatefulWidget {
     required this.likeCount,
     required this.commentCount,
     this.isSpotify = false,
+    this.notificationContent,
   });
 
   @override
@@ -53,7 +60,11 @@ class MediaDetailScreen extends StatefulWidget {
 class _MediaDetailScreenState extends State<MediaDetailScreen> {
   Stream<Duration>? _positionStream;
   VideoPlayerController? _videoController;
-  bool _videoReady = false;
+  int _videoAttempt = 0;
+  audio.AudioPlayer? _audioProbe;
+  bool _audioReady = false;
+  String? _audioError;
+  int _imageAttempt = 0;
   String? _videoError;
 
   bool _initializedLoads = false;
@@ -67,16 +78,32 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
   void initState() {
     super.initState();
     _initVideo();
+    _prepareNotificationAudio();
+  }
+
+  @override
+  void didUpdateWidget(MediaDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isVideo != widget.isVideo ||
+        oldWidget.playbackUrl != widget.playbackUrl ||
+        oldWidget.targetType != widget.targetType ||
+        oldWidget.targetId != widget.targetId ||
+        !identical(oldWidget.notificationContent, widget.notificationContent)) {
+      _initVideo();
+    }
   }
 
   @override
   void dispose() {
+    _videoAttempt++;
     _videoController?.dispose();
+    _audioProbe?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     _positionStream ??= serviceLocator<AudioHandler>() is AudioPlayerHandler
         ? (serviceLocator<AudioHandler>() as AudioPlayerHandler).positionStream
         : Stream<Duration>.empty();
@@ -92,10 +119,11 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
           final currentUrl = handler.mediaItem.value?.extras?['url']
               ?.toString();
           final isPlaying = handler.playbackState.value.playing;
+          final resolvedPlaybackUrl = resolveAppMediaUrl(widget.playbackUrl);
           final isCurrent =
-              widget.playbackUrl != null &&
-              (widget.playbackUrl == currentId ||
-                  widget.playbackUrl == currentUrl);
+              resolvedPlaybackUrl != null &&
+              (resolvedPlaybackUrl == currentId ||
+                  resolvedPlaybackUrl == currentUrl);
 
           final totalMs = widget.isVideo || !isCurrent
               ? 0
@@ -147,22 +175,37 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                 _VideoHero(
                   controller: _videoController,
                   thumbnailUrl: widget.thumbnailUrl,
-                  ready: _videoReady,
                   errorText: _videoError,
+                  contentIdentity: widget.notificationContent,
+                  retry: _initVideo,
                 )
               else if (widget.isImage)
-                _ImageHero(imageUrl: widget.imageUrl)
+                _ImageHero(
+                  key: ValueKey(_imageAttempt),
+                  imageUrl: widget.imageUrl,
+                  contentIdentity: widget.notificationContent,
+                  retry: () => setState(() => _imageAttempt++),
+                )
               else
-                _AudioHero(
-                  title: widget.title,
-                  isSpotify: widget.isSpotify,
-                  playbackUrl: widget.playbackUrl,
-                  onPlay: _togglePlayback,
-                  onBack10: () => _seekRelativeSeconds(-10),
-                  onForward10: () => _seekRelativeSeconds(10),
-                  isPlaying: isCurrent && isPlaying,
-                  progress: progress,
-                  onSeek: _seekToRatio,
+                NotificationTargetReady(
+                  ready: _audioReady,
+                  contentIdentity: widget.notificationContent,
+                  child: _AudioHero(
+                    title: widget.title,
+                    isSpotify: widget.isSpotify,
+                    playbackUrl: resolvedPlaybackUrl,
+                    onPlay: _togglePlayback,
+                    onBack10: () => _seekRelativeSeconds(-10),
+                    onForward10: () => _seekRelativeSeconds(10),
+                    isPlaying: isCurrent && isPlaying,
+                    progress: progress,
+                    onSeek: _seekToRatio,
+                  ),
+                ),
+              if (_audioError != null)
+                TextButton(
+                  onPressed: _prepareNotificationAudio,
+                  child: Text(_audioError!),
                 ),
               SizedBox(height: 16),
               _CountRow(

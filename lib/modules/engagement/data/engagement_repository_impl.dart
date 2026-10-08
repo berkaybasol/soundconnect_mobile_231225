@@ -8,17 +8,30 @@ import '../domain/entities/comment_item.dart';
 import '../domain/entities/comment_page.dart';
 import '../domain/entities/comment_like_state.dart';
 import '../domain/entities/comment_text.dart';
+import '../domain/entities/comment_user_summary.dart';
+import '../domain/entities/like_user_page.dart';
 import 'engagement_endpoints.dart';
 import 'models/comment_item_model.dart';
+import 'models/comment_user_summary_model.dart';
 import 'models/comment_wire_date.dart';
 
 class EngagementRepositoryImpl implements EngagementRepository {
   final ApiClient _apiClient;
 
   final AuthSessionManager? _sessions;
+  final String? _announcementSource;
 
-  EngagementRepositoryImpl(this._apiClient, {AuthSessionManager? sessions})
-    : _sessions = sessions;
+  EngagementRepositoryImpl(
+    this._apiClient, {
+    AuthSessionManager? sessions,
+    String? announcementSource,
+  }) : assert(
+         announcementSource == null ||
+             announcementSource == 'FEED' ||
+             announcementSource == 'DIRECTORY',
+       ),
+       _sessions = sessions,
+       _announcementSource = announcementSource;
 
   // Public EVENT adapters intentionally omit the JWT in DioApiClient. Their
   // counts are public, but likedByMe cannot represent a signed-in viewer.
@@ -62,6 +75,103 @@ class EngagementRepositoryImpl implements EngagementRepository {
   }
 
   @override
+  Future<Result<LikeUserPage>> listLikeUsers({
+    required String targetType,
+    required String targetId,
+    String? cursor,
+    int size = 20,
+  }) => _commentRequest(
+    ApiHttpMethod.get,
+    () => EngagementEndpoints.likeUsers(targetType, targetId),
+    query: {'size': size, if (cursor != null) 'cursor': cursor},
+    validate: () {
+      _validateLikeTarget(targetType, targetId);
+      if (size < 1 || size > 50) {
+        throw const FormatException('Invalid like users page size');
+      }
+      if (cursor != null) _validateLikeUsersCursor(cursor);
+    },
+    decoder: (raw) => _likeUsersPageFromJson(raw, size, cursor),
+    errorCode: 'engagement_like_users_invalid_response',
+    errorMessage: 'Beğenenler getirilemedi. Yeniden dene.',
+  );
+
+  static void _validateLikeUsersCursor(String cursor) {
+    if (cursor.trim().isEmpty ||
+        cursor != cursor.trim() ||
+        cursor.length > 1024) {
+      throw const FormatException('Invalid like users cursor');
+    }
+  }
+
+  static LikeUserPage _likeUsersPageFromJson(
+    Object? raw,
+    int size,
+    String? cursor,
+  ) {
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException('Invalid like users page');
+    }
+    final content = raw['items'];
+    final hasMore = raw['hasMore'];
+    final nextCursor = raw['nextCursor'];
+    if (content is! List || content.length > size || hasMore is! bool) {
+      throw const FormatException('Invalid like users pagination');
+    }
+    if (nextCursor != null) {
+      if (nextCursor is! String) {
+        throw const FormatException('Invalid like users cursor type');
+      }
+      _validateLikeUsersCursor(nextCursor);
+    }
+    if ((hasMore &&
+            (content.isEmpty || nextCursor == null || nextCursor == cursor)) ||
+        (!hasMore && nextCursor != null)) {
+      throw const FormatException('Inconsistent like users pagination');
+    }
+
+    final items = <CommentUserSummary>[];
+    final ids = <String>{};
+    for (final entry in content) {
+      if (entry is! Map<String, dynamic>) {
+        throw const FormatException('Invalid like user');
+      }
+      final id = entry['id'];
+      final username = entry['username'];
+      final avatarUrl = entry['avatarUrl'];
+      final visibilityMode = entry['visibilityMode'];
+      if (id is! String ||
+          username is! String ||
+          username.trim().isEmpty ||
+          (avatarUrl != null && avatarUrl is! String) ||
+          (visibilityMode != null &&
+              visibilityMode != 'STANDARD' &&
+              visibilityMode != 'GHOST')) {
+        throw const FormatException('Invalid like user identity');
+      }
+      _validateCommentLikeId(id);
+      if (!ids.add(id)) {
+        throw const FormatException('Duplicate like user');
+      }
+      // Only the endpoint's explicit fields may supply an identity. Legacy
+      // comment aliases and fallback usernames do not apply to this list.
+      items.add(
+        CommentUserSummaryModel.fromJson({
+          'id': id,
+          'username': username,
+          'avatarUrl': avatarUrl,
+          'visibilityMode': visibilityMode,
+        }),
+      );
+    }
+    return LikeUserPage(
+      items: List.unmodifiable(items),
+      nextCursor: nextCursor as String?,
+      hasMore: hasMore,
+    );
+  }
+
+  @override
   Future<Result<int>> getLikeCount({
     required String targetType,
     required String targetId,
@@ -72,6 +182,24 @@ class EngagementRepositoryImpl implements EngagementRepository {
     validate: () => _validateLikeTarget(targetType, targetId),
     errorCode: 'engagement_like_count_unknown',
     errorMessage: 'Beğeni sayısı getirilemedi.',
+  );
+
+  @override
+  Future<Result<int>> getCommentCount({
+    required String targetType,
+    required String targetId,
+  }) => _commentRequest(
+    ApiHttpMethod.get,
+    () => EngagementEndpoints.commentCount(targetType, targetId),
+    decoder: _count,
+    validate: () {
+      _validateLikeTarget(targetType, targetId);
+      if (targetType == 'COMMENT') {
+        throw const FormatException('Replies belong to their content target');
+      }
+    },
+    errorCode: 'engagement_comment_count_unknown',
+    errorMessage: 'Yorum sayısı getirilemedi.',
   );
 
   @override
@@ -121,9 +249,11 @@ class EngagementRepositoryImpl implements EngagementRepository {
       'EVENT',
       'EVENT_POST',
       'TABLE_GROUP_POST',
+      'OVERTHINKING_PROFILE_SHARE',
       'MEDIA',
       'OVERTHINKING',
       'COMMENT',
+      'ANNOUNCEMENT',
     }.contains(type)) {
       throw const FormatException('Invalid engagement target');
     }
@@ -272,6 +402,7 @@ class EngagementRepositoryImpl implements EngagementRepository {
                     : null,
                 expectedToken: session.isAuthenticated ? session.token : null,
                 requireGuestSession: !session.isAuthenticated,
+                announcementSource: _announcementSource,
               ),
       );
       return current()

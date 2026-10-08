@@ -31,6 +31,7 @@ class _StudioReservationsHubScreenState
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (_loading) {
       return Scaffold(
         appBar: AppBar(
@@ -103,6 +104,7 @@ class _StudioReservationsEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rezervasyon Yönetimi'),

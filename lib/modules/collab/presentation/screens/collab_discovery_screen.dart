@@ -1,17 +1,23 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../collab_access_gate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
+import '../../../../app/widgets/app_global_actions.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/utils/turkish_alphabetical.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
+import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../instrument/domain/entities/instrument.dart';
 import '../../../instrument/domain/instrument_repository.dart';
 import '../../../location/domain/entities/city.dart';
 import '../../../location/domain/location_repository.dart';
+import '../../../notification/presentation/notification_target_read.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../domain/collab_commands.dart';
 import '../../domain/collab_discovery_models.dart';
@@ -30,7 +36,9 @@ import 'collab_my_applications_screen.dart';
 import 'collab_my_listings_screen.dart';
 import 'collab_saved_listings_screen.dart';
 
-class CollabDiscoveryScreen extends StatefulWidget {
+part 'collab_discovery_screen_quick_single_select_sheet.dart';
+
+class CollabDiscoveryScreen extends StatelessWidget {
   const CollabDiscoveryScreen({
     this.showBottomNavigation = true,
     this.initialListingId,
@@ -49,10 +57,44 @@ class CollabDiscoveryScreen extends StatefulWidget {
   final InstrumentRepository? instrumentRepository;
 
   @override
-  State<CollabDiscoveryScreen> createState() => _CollabDiscoveryScreenState();
+  Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    return CollabAccessGate(
+      builder: (_) => _CollabDiscoveryScreenContent(
+        showBottomNavigation: showBottomNavigation,
+        initialListingId: initialListingId,
+        initialRouteArgs: initialRouteArgs,
+        cubit: cubit,
+        locationRepository: locationRepository,
+        instrumentRepository: instrumentRepository,
+      ),
+    );
+  }
 }
 
-class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
+class _CollabDiscoveryScreenContent extends StatefulWidget {
+  const _CollabDiscoveryScreenContent({
+    this.showBottomNavigation = true,
+    this.initialListingId,
+    this.initialRouteArgs,
+    this.cubit,
+    this.locationRepository,
+    this.instrumentRepository,
+  });
+
+  final bool showBottomNavigation;
+  final String? initialListingId;
+  final CollabDiscoveryRouteArgs? initialRouteArgs;
+  final CollabDiscoveryCubit? cubit;
+  final LocationRepository? locationRepository;
+  final InstrumentRepository? instrumentRepository;
+
+  @override
+  State<_CollabDiscoveryScreenContent> createState() =>
+      _CollabDiscoveryScreenState();
+}
+
+class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final CollabDiscoveryCubit _cubit;
@@ -83,7 +125,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   }
 
   @override
-  void didUpdateWidget(covariant CollabDiscoveryScreen oldWidget) {
+  void didUpdateWidget(covariant _CollabDiscoveryScreenContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_routeArgsFor(oldWidget).signature != _routeArgsFor(widget).signature) {
       _scheduleInitialDetail();
@@ -101,7 +143,9 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     });
   }
 
-  CollabDiscoveryRouteArgs _routeArgsFor(CollabDiscoveryScreen screen) =>
+  CollabDiscoveryRouteArgs _routeArgsFor(
+    _CollabDiscoveryScreenContent screen,
+  ) =>
       screen.initialRouteArgs ??
       CollabDiscoveryRouteArgs(initialListingId: screen.initialListingId);
 
@@ -111,17 +155,23 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
         return;
       case CollabDeepLinkTarget.listing:
         final listingId = args.initialListingId;
-        if (listingId != null) await _openListingId(listingId);
+        if (listingId != null) {
+          await _openListingId(listingId, notificationTarget: true);
+        }
         return;
       case CollabDeepLinkTarget.incomingApplications:
         final listingId = args.initialListingId;
         if (listingId != null) {
           await Navigator.of(context).push<void>(
-            collabPageRoute(
-              builder: (_) => CollabIncomingApplicationsScreen(
-                listingId: listingId,
-                initialApplicationId: args.applicationId,
-                showBottomNavigation: widget.showBottomNavigation,
+            NotificationTargetRead.transfer(
+              context,
+              collabPageRoute<void>(
+                context: context,
+                builder: (_) => CollabIncomingApplicationsScreen(
+                  listingId: listingId,
+                  initialApplicationId: args.applicationId,
+                  showBottomNavigation: widget.showBottomNavigation,
+                ),
               ),
             ),
           );
@@ -129,12 +179,14 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
         return;
       case CollabDeepLinkTarget.myApplications:
         await _openMyApplicationsTarget(
+          notificationTarget: true,
           initialSection: CollabApplicationsSection.applications,
           initialApplicationId: args.applicationId,
         );
         return;
       case CollabDeepLinkTarget.jobs:
         await _openMyApplicationsTarget(
+          notificationTarget: true,
           initialSection: CollabApplicationsSection.jobs,
           initialJobId: args.jobId,
           initialAction: args.action,
@@ -142,6 +194,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
         return;
       case CollabDeepLinkTarget.reviews:
         await _openMyApplicationsTarget(
+          notificationTarget: true,
           initialSection: CollabApplicationsSection.jobs,
           initialJobId: args.jobId,
           initialReviewId: args.reviewId,
@@ -240,11 +293,26 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _DiscoveryHeader(
-                            onApplicationsTap: _openMyApplications,
-                            onJobsTap: _openMyJobs,
-                            onListingsTap: _openMyListings,
-                            onSavedTap: _openSavedListings,
+                          NotificationTargetReady(
+                            customModuleKinds: const {'COLLAB'},
+                            ready:
+                                state.status == CollabLoadStatus.success &&
+                                (NotificationTargetRead.isCustomModule(
+                                      context,
+                                      'COLLAB',
+                                    ) ||
+                                    (_routeArgsFor(widget).target ==
+                                            CollabDeepLinkTarget.discovery &&
+                                        _routeArgsFor(
+                                              widget,
+                                            ).action?.trim().toUpperCase() ==
+                                            'REPORT_RESOLVED')),
+                            child: _DiscoveryHeader(
+                              onApplicationsTap: _openMyApplications,
+                              onJobsTap: _openMyJobs,
+                              onListingsTap: _openMyListings,
+                              onSavedTap: _openSavedListings,
+                            ),
                           ),
                           const SizedBox(height: 18),
                           _CadenceSelector(
@@ -617,7 +685,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     required T? selected,
     required String Function(T value) labelFor,
   }) async {
-    final result = await showModalBottomSheet<_QuickSelection<T>>(
+    final result = await showCollabModalBottomSheet<_QuickSelection<T>>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
@@ -637,7 +705,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     required Set<T> selected,
     required String Function(T value) labelFor,
   }) {
-    return showModalBottomSheet<Set<T>>(
+    return showCollabModalBottomSheet<Set<T>>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -681,15 +749,22 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
     unawaited(_openListingId(listing.id));
   }
 
-  Future<void> _openListingId(String listingId) async {
-    await Navigator.of(context).push<void>(
-      collabPageRoute(
-        builder: (_) => CollabListingDetailScreen(
-          listingId: listingId,
-          showBottomNavigation: widget.showBottomNavigation,
-          onListingChanged: _cubit.upsertListing,
-        ),
+  Future<void> _openListingId(
+    String listingId, {
+    bool notificationTarget = false,
+  }) async {
+    final route = collabPageRoute<void>(
+      context: context,
+      builder: (_) => CollabListingDetailScreen(
+        listingId: listingId,
+        showBottomNavigation: widget.showBottomNavigation,
+        onListingChanged: _cubit.upsertListing,
       ),
+    );
+    await Navigator.of(context).push<void>(
+      notificationTarget
+          ? NotificationTargetRead.transfer(context, route)
+          : route,
     );
     if (mounted) await _cubit.refresh();
   }
@@ -705,14 +780,16 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   }
 
   Future<void> _openMyApplicationsTarget({
+    bool notificationTarget = false,
     CollabApplicationsSection initialSection =
         CollabApplicationsSection.applications,
     String? initialApplicationId,
     String? initialJobId,
     String? initialReviewId,
     String? initialAction,
-  }) => Navigator.of(context).push<void>(
-    collabPageRoute(
+  }) {
+    final route = collabPageRoute<void>(
+      context: context,
       builder: (_) => CollabMyApplicationsScreen(
         showBottomNavigation: widget.showBottomNavigation,
         initialSection: initialSection,
@@ -721,12 +798,18 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
         initialReviewId: initialReviewId,
         initialAction: initialAction,
       ),
-    ),
-  );
+    );
+    return Navigator.of(context).push<void>(
+      notificationTarget
+          ? NotificationTargetRead.transfer(context, route)
+          : route,
+    );
+  }
 
   void _openMyListings() {
     Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabMyListingsScreen(
           showBottomNavigation: widget.showBottomNavigation,
         ),
@@ -737,6 +820,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   void _openSavedListings() {
     Navigator.of(context).push<void>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabSavedListingsScreen(
           showBottomNavigation: widget.showBottomNavigation,
         ),
@@ -747,6 +831,7 @@ class _CollabDiscoveryScreenState extends State<CollabDiscoveryScreen> {
   Future<void> _openCreateListing() async {
     final result = await Navigator.of(context).push<CollabCreateListingResult>(
       collabPageRoute(
+        context: context,
         builder: (_) => CollabCreateListingScreen(
           showBottomNavigation: widget.showBottomNavigation,
         ),
@@ -804,21 +889,8 @@ class _DiscoveryHeader extends StatelessWidget {
         Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: 178,
-              height: 52,
-              child: ClipRect(
-                child: Transform.scale(
-                  scale: 3.1,
-                  child: Image.asset(
-                    'assets/logotransparent.png',
-                    key: const ValueKey<String>('collab-brand-logo'),
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                    semanticLabel: 'SoundConnect',
-                  ),
-                ),
-              ),
+            child: const ProfileBrandTitle(
+              key: ValueKey<String>('collab-brand-logo'),
             ),
           ),
         ),
@@ -879,6 +951,8 @@ class _DiscoveryHeader extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(width: 6),
+        const AppGlobalActions(),
       ],
     );
   }
@@ -892,6 +966,7 @@ class _CadenceSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
     return CollabGradientFrame(
       radius: 17,
       strokeWidth: 1,
@@ -970,10 +1045,39 @@ class _CreateListingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild palette colors when the theme changes.
+    final child = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 26, vertical: 13),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_rounded, color: AppColors.onAccent, size: 23),
+              SizedBox(width: 8),
+              Text(
+                'İlan Ver',
+                style: TextStyle(
+                  color: AppColors.onAccent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (AppColors.isLight) {
+      return GradientOutline(radius: 999, child: child);
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        gradient: LinearGradient(colors: AppColors.brandGradient),
+        gradient: LinearGradient(colors: AppColors.actionGradient),
         boxShadow: [
           BoxShadow(
             color: AppColors.socialPurple.withValues(alpha: 0.26),
@@ -982,31 +1086,7 @@ class _CreateListingButton extends StatelessWidget {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(999),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 26, vertical: 13),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.add_rounded, color: AppColors.white, size: 23),
-                SizedBox(width: 8),
-                Text(
-                  'İlan Ver',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: child,
     );
   }
 }
@@ -1017,339 +1097,4 @@ class _QuickSelection<T> {
 
   final T? value;
   final bool didChoose;
-}
-
-class _QuickSingleSelectSheet<T> extends StatelessWidget {
-  const _QuickSingleSelectSheet({
-    required this.title,
-    required this.options,
-    required this.selected,
-    required this.labelFor,
-  });
-
-  final String title;
-  final List<T> options;
-  final T? selected;
-  final String Function(T value) labelFor;
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 9),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  RadioListTile<T?>(
-                    value: null,
-                    groupValue: selected,
-                    title: const Text('Tümü'),
-                    onChanged: (_) =>
-                        Navigator.of(context).pop(_QuickSelection<T>(null)),
-                  ),
-                  ...options.map(
-                    (option) => RadioListTile<T?>(
-                      value: option,
-                      groupValue: selected,
-                      title: Text(labelFor(option)),
-                      onChanged: (_) =>
-                          Navigator.of(context).pop(_QuickSelection<T>(option)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickMultiSelectSheet<T> extends StatefulWidget {
-  const _QuickMultiSelectSheet({
-    required this.title,
-    required this.options,
-    required this.selected,
-    required this.labelFor,
-  });
-
-  final String title;
-  final List<T> options;
-  final Set<T> selected;
-  final String Function(T value) labelFor;
-
-  @override
-  State<_QuickMultiSelectSheet<T>> createState() =>
-      _QuickMultiSelectSheetState<T>();
-}
-
-class _QuickMultiSelectSheetState<T> extends State<_QuickMultiSelectSheet<T>> {
-  late Set<T> _selected;
-  String _query = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = Set<T>.of(widget.selected);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final normalizedQuery = _query.trim().toLowerCase();
-    final visibleOptions = normalizedQuery.isEmpty
-        ? widget.options
-        : widget.options
-              .where(
-                (option) => widget
-                    .labelFor(option)
-                    .toLowerCase()
-                    .contains(normalizedQuery),
-              )
-              .toList(growable: false);
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.title,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => setState(() => _selected.clear()),
-                  child: const Text('Temizle'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (widget.options.length > 12) ...[
-              TextField(
-                key: const ValueKey('collab-multi-select-search'),
-                autofocus: true,
-                textInputAction: TextInputAction.search,
-                decoration: const InputDecoration(
-                  hintText: 'Seçeneklerde ara',
-                  prefixIcon: Icon(Icons.search_rounded),
-                ),
-                onChanged: (value) => setState(() => _query = value),
-              ),
-              const SizedBox(height: 8),
-            ],
-            Flexible(
-              child: visibleOptions.isEmpty
-                  ? const Center(child: Text('Eşleşen seçenek bulunamadı.'))
-                  : ListView(
-                      shrinkWrap: true,
-                      children: visibleOptions
-                          .map(
-                            (option) => CheckboxListTile(
-                              value: _selected.contains(option),
-                              title: Text(widget.labelFor(option)),
-                              onChanged: (checked) {
-                                setState(() {
-                                  if (checked == true) {
-                                    _selected.add(option);
-                                  } else {
-                                    _selected.remove(option);
-                                  }
-                                });
-                              },
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(_selected),
-              child: const Text('Uygula'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SpecialtyOption {
-  const _SpecialtyOption._({
-    required this.label,
-    this.instrumentId,
-    this.branch,
-  });
-
-  factory _SpecialtyOption.instrument(Instrument instrument) =>
-      _SpecialtyOption._(label: instrument.name, instrumentId: instrument.id);
-
-  factory _SpecialtyOption.branch(CollabBranch branch) =>
-      _SpecialtyOption._(label: branch.label, branch: branch);
-
-  final String label;
-  final String? instrumentId;
-  final CollabBranch? branch;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _SpecialtyOption &&
-      other.instrumentId == instrumentId &&
-      other.branch == branch;
-
-  @override
-  int get hashCode => Object.hash(instrumentId, branch);
-}
-
-class _DiscoveryFailureState extends StatelessWidget {
-  const _DiscoveryFailureState({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              color: theme.colorScheme.onSurfaceVariant,
-              size: 42,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.tonal(
-              key: const ValueKey('collab-discovery-retry'),
-              onPressed: onRetry,
-              child: const Text('Tekrar dene'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoadMoreFooter extends StatelessWidget {
-  const _LoadMoreFooter({
-    required this.loading,
-    required this.hasNext,
-    required this.hasError,
-    required this.onRetry,
-  });
-
-  final bool loading;
-  final bool hasNext;
-  final bool hasError;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (loading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 18),
-        child: Center(
-          child: SizedBox.square(
-            dimension: 24,
-            child: CircularProgressIndicator(strokeWidth: 2.2),
-          ),
-        ),
-      );
-    }
-    if (hasError) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Center(
-          child: TextButton.icon(
-            key: const ValueKey('collab-discovery-load-more-retry'),
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Devamını tekrar yükle'),
-          ),
-        ),
-      );
-    }
-    return SizedBox(height: hasNext ? 12 : 4);
-  }
-}
-
-class _EmptyDiscoveryState extends StatelessWidget {
-  const _EmptyDiscoveryState({required this.onClear});
-
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.search_off_rounded,
-              color: theme.colorScheme.onSurfaceVariant,
-              size: 42,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Bu seçimlere uygun ilan bulunamadı.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextButton(
-              onPressed: onClear,
-              child: const Text('Filtreleri temizle'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

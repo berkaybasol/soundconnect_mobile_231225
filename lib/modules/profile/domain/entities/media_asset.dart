@@ -6,6 +6,7 @@ class MediaAsset {
   final String? thumbnailUrl;
   final String? title;
   final int? durationSeconds;
+  final String contentAudience;
 
   const MediaAsset({
     required this.id,
@@ -15,5 +16,6 @@ class MediaAsset {
     required this.thumbnailUrl,
     required this.title,
     required this.durationSeconds,
+    this.contentAudience = 'MAINSTAGE',
   });
 }

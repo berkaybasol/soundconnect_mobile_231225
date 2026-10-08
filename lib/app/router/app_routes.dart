@@ -1,10 +1,17 @@
 class AppRoutes {
   static const adminDashboard = '/admin';
+  static const adminNotificationCampaigns = '/admin/notifications/campaigns';
+  static const adminAnnouncements = '/admin/feed/announcements';
+  static const announcements = '/announcements';
+  static const adminMusicianFeedReports = '/admin/musician-feed/reports';
+  static const adminMarketplaceReports = '/admin/marketplace/reports';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
   static const settings = '/settings';
   static const accountSettings = '/account-settings';
+  static const musicianFeedMutedAuthors =
+      '/settings/musician-feed/muted-authors';
   static const otpVerify = '/otp-verify';
   static const venueApplication = '/venue-application';
   static const venuePending = '/venue-pending';
@@ -21,8 +28,10 @@ class AppRoutes {
   static const venuePublicProfile = '/venue-public-profile';
   static const studioProfile = '/studio-profile';
   static const studioPublicProfile = '/studio-public-profile';
+  static const studioListenerInfo = '/studio-listener-info';
   static const studioReservationCalendar = '/studio-reservation-calendar';
   static const listenerProfile = '/listener-profile';
+  static const listenerFeed = '/listener-feed';
   static const listenerProfileChoice = '/listener-profile-choice';
   static const listenerPublicProfile = '/listener-public-profile';
   static const eventDiscovery = '/event-discovery';
@@ -35,5 +44,6 @@ class AppRoutes {
   static const dmChat = '/dm-chat';
   static const backstageProfilesHome = '/backstage-profiles-home';
   static const collabDiscovery = '/collab';
+  static const marketplace = '/marketplace';
   static const home = '/home';
 }

@@ -13,11 +13,15 @@ Future<EventShareTarget?> showOverthinkingShareSheet(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  backgroundColor: AppColors.navBlueDeep,
+  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
   barrierColor: Colors.black.withValues(alpha: 0.65),
-  shape: const RoundedRectangleBorder(
+  shape: RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    side: BorderSide(color: Color(0xFF2A3244)),
+    side: BorderSide(
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Theme.of(context).colorScheme.outline
+          : AppColors.legacyBorder(const Color(0xFF2A3244)),
+    ),
   ),
   builder: (_) => OverthinkingShareSheet(
     prepared: prepared,
@@ -39,12 +43,16 @@ class OverthinkingShareSheet extends StatelessWidget {
   final bool Function()? isValid;
 
   @override
-  Widget build(BuildContext context) => StoryShareSheet(
-    bytes: prepared.bytes,
-    accessibilityDescription: prepared.data.accessibilityDescription,
-    title: 'Overthinking’i paylaş',
-    keyPrefix: 'overthinking-share',
-    validityChanges: validityChanges,
-    isValid: isValid,
-  );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return StoryShareSheet(
+      bytes: prepared.bytes,
+      accessibilityDescription: prepared.data.accessibilityDescription,
+      title: 'Overthinking’i paylaş',
+      keyPrefix: 'overthinking-share',
+      useThemeColors: true,
+      validityChanges: validityChanges,
+      isValid: isValid,
+    );
+  }
 }

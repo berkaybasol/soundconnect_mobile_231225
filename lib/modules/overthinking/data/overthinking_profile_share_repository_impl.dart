@@ -153,6 +153,9 @@ class OverthinkingProfileShareRepositoryImpl
             note: _note(row['note']),
             publishedAt: _instant(row['publishedAt']),
             post: OverthinkingPostModel.fromJson(source),
+            likeCount: _count(row['likeCount']),
+            commentCount: _count(row['commentCount']),
+            likedByMe: _bool(row['likedByMe']),
           );
         })
         .toList(growable: false);
@@ -198,6 +201,13 @@ class OverthinkingProfileShareRepositoryImpl
 
   static bool _bool(Object? raw) {
     if (raw is! bool) throw const FormatException('Invalid boolean');
+    return raw;
+  }
+
+  static int _count(Object? raw) {
+    if (raw is! int || raw < 0 || raw > 9007199254740991) {
+      throw const FormatException('Invalid engagement count');
+    }
     return raw;
   }
 

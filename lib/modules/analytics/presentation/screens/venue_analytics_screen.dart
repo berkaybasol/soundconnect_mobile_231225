@@ -34,53 +34,58 @@ class VenueAnalyticsScreen extends StatelessWidget {
   final AuthSessionManager? sessions;
   final int initialDays;
   @override
-  Widget build(BuildContext context) =>
-      !VenueAnalyticsReportingScope.of(context).enabled
-      ? const _AnalyticsComingSoon()
-      : _AnalyticsContent(
-          venueId: venueId,
-          venueName: venueName,
-          ownerUserId: ownerUserId,
-          eventId: eventId,
-          eventTitle: eventTitle,
-          repository: repository,
-          sessions: sessions,
-          mode: eventId == null ? _Mode.overview : _Mode.event,
-          initialDays: initialDays,
-        );
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return !VenueAnalyticsReportingScope.of(context).enabled
+        ? const _AnalyticsComingSoon()
+        : _AnalyticsContent(
+            venueId: venueId,
+            venueName: venueName,
+            ownerUserId: ownerUserId,
+            eventId: eventId,
+            eventTitle: eventTitle,
+            repository: repository,
+            sessions: sessions,
+            mode: eventId == null ? _Mode.overview : _Mode.event,
+            initialDays: initialDays,
+          );
+  }
 }
 
 class _AnalyticsComingSoon extends StatelessWidget {
   const _AnalyticsComingSoon();
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('İstatistikler'), centerTitle: true),
-    body: const SafeArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 28, vertical: 56),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            BrandGradientIcon.social(Icons.insights_rounded, size: 42),
-            SizedBox(height: 20),
-            Text(
-              'Yakında',
-              key: Key('analytics-reporting-coming-soon'),
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'Mekan istatistikleri yakında kullanıma açılacak.',
-              textAlign: TextAlign.center,
-              style: TextStyle(height: 1.5),
-            ),
-          ],
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('İstatistikler'), centerTitle: true),
+      body: const SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 28, vertical: 56),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              BrandGradientIcon.social(Icons.insights_rounded, size: 42),
+              SizedBox(height: 20),
+              Text(
+                'Yakında',
+                key: Key('analytics-reporting-coming-soon'),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Mekan istatistikleri yakında kullanıma açılacak.',
+                textAlign: TextAlign.center,
+                style: TextStyle(height: 1.5),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// A navigation affordance only: no counts or private requests until opened.
@@ -197,6 +202,7 @@ class _VenueAnalyticsLinkState extends State<VenueAnalyticsLink> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!VenueAnalyticsReportingScope.of(context).enabled) {
       return const SizedBox.shrink();
     }
@@ -508,6 +514,7 @@ class _AnalyticsContentState extends State<_AnalyticsContent> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     if (!_allowed) return const SizedBox.shrink();
     final full = widget.mode == _Mode.overview;
     final children = <Widget>[
@@ -709,7 +716,7 @@ class _AnalyticsContentState extends State<_AnalyticsContent> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: _days == days
-              ? LinearGradient(colors: AppColors.brandGradient)
+              ? LinearGradient(colors: AppColors.decorativeGradient)
               : null,
           color: _days == days ? null : AppColors.border,
           borderRadius: BorderRadius.circular(14),

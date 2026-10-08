@@ -5,9 +5,141 @@ import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/data/dm_user_profile_resolver_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/entities/dm_profile_target.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_visibility_mode.dart';
+import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
+import 'package:soundconnect_23_12_25codx/modules/dm/presentation/dm_profile_navigation.dart';
+
+import 'support/event_audience_fakes.dart';
 
 void main() {
   group('DmUserProfileResolverImpl', () {
+    test(
+      'studio restriction opens explanation without exposing identity or caching it',
+      () async {
+        final api = _FakeApiClient(
+          (_) async => {
+            'profiles': <Object>[],
+            'accessRestriction': 'STUDIO_MAINSTAGE_RESTRICTED',
+          },
+        );
+        final resolver = DmUserProfileResolverImpl(apiClient: api);
+        final target = (await resolver.resolveByUserId(
+          userId: 'studio-user',
+        )).single;
+        expect(target.isStudioRestricted, isTrue);
+        expect(target.id, isEmpty);
+        expect(target.imageUrl, isNull);
+        expect(
+          dmProfileRouteFor(target)!.routeName,
+          AppRoutes.studioListenerInfo,
+        );
+        expect(dmProfileRouteFor(target)!.arguments.profileId, isNull);
+        await resolver.resolveByUserId(userId: 'studio-user');
+        expect(api.paths, hasLength(2));
+      },
+    );
+
+    test(
+      'empty ghost or unknown restriction is not invented as a studio',
+      () async {
+        for (final marker in [null, 'UNKNOWN_RESTRICTION']) {
+          final api = _FakeApiClient(
+            (_) async => {'profiles': <Object>[], 'accessRestriction': marker},
+          );
+          expect(
+            await DmUserProfileResolverImpl(
+              apiClient: api,
+            ).resolveByUserId(userId: 'u'),
+            isEmpty,
+          );
+        }
+      },
+    );
+
+    test(
+      'a new listener session cannot reuse a cached professional target',
+      () async {
+        final sessions = AudienceTestSessions(
+          audienceSession(role: 'MUSICIAN'),
+        );
+        addTearDown(sessions.dispose);
+        final api = _FakeApiClient(
+          (_) async => sessions.session.roles.contains('MUSICIAN')
+              ? {
+                  'profiles': [
+                    {
+                      'type': 'STUDIO',
+                      'profileId': 'secret',
+                      'displayName': 'Studio',
+                    },
+                  ],
+                }
+              : {
+                  'profiles': <Object>[],
+                  'accessRestriction': 'STUDIO_MAINSTAGE_RESTRICTED',
+                },
+        );
+        final resolver = DmUserProfileResolverImpl(
+          apiClient: api,
+          sessions: sessions,
+        );
+        expect(
+          (await resolver.resolveByUserId(userId: 'u')).single.id,
+          'secret',
+        );
+        sessions.replace(audienceSession());
+        expect(
+          (await resolver.resolveByUserId(
+            userId: 'u',
+          )).single.isStudioRestricted,
+          isTrue,
+        );
+        expect(api.paths, hasLength(2));
+      },
+    );
+
+    test(
+      'old account in-flight target neither returns nor poisons the new cache',
+      () async {
+        final sessions = AudienceTestSessions(
+          audienceSession(role: 'MUSICIAN'),
+        );
+        addTearDown(sessions.dispose);
+        final old = Completer<Object?>();
+        var reads = 0;
+        final api = _FakeApiClient(
+          (_) => ++reads == 1
+              ? old.future
+              : Future.value({
+                  'profiles': <Object>[],
+                  'accessRestriction': 'STUDIO_MAINSTAGE_RESTRICTED',
+                }),
+        );
+        final resolver = DmUserProfileResolverImpl(
+          apiClient: api,
+          sessions: sessions,
+        );
+        final pending = resolver.resolveByUserId(userId: 'u');
+        sessions.replace(audienceSession());
+        expect(
+          (await resolver.resolveByUserId(
+            userId: 'u',
+          )).single.isStudioRestricted,
+          isTrue,
+        );
+        old.complete({
+          'profiles': [
+            {'type': 'STUDIO', 'profileId': 'secret', 'displayName': 'Studio'},
+          ],
+        });
+        expect(await pending, isEmpty);
+        expect(
+          (await resolver.resolveByUserId(
+            userId: 'u',
+          )).single.isStudioRestricted,
+          isTrue,
+        );
+      },
+    );
     test(
       'uses only the canonical endpoint and de-duplicates targets',
       () async {

@@ -13,18 +13,39 @@ void main() {
       final wire = <String, dynamic>{
         ...identity,
         'presentationVersion': 'ANDROID_TABLE_V1',
-        'displayVariant': type == 'TABLE_CANCELLED' ? 'OWNER_CANCELLED' : 'DEFAULT',
+        'displayVariant': type == 'TABLE_CANCELLED'
+            ? 'OWNER_CANCELLED'
+            : 'DEFAULT',
         'sentAt': '${now - 1000}',
         'expiresAt': '${now + 300000}',
       };
       expect(PushTarget.parse(identity)?.isTable, isTrue);
       expect(PushTarget.parse(wire)?.isTable, isTrue);
       // Real Vivo clock measured about 640 ms behind the API during fast FCM delivery.
-      expect(PushTarget.parse({...wire, 'sentAt': '${now + 1000}'})?.isTable, isTrue);
-      expect(PushTarget.parse({...wire, 'sentAt': '${now + 1000}', 'expiresAt': '${now - 1}'}), isNull);
+      expect(
+        PushTarget.parse({...wire, 'sentAt': '${now + 1000}'})?.isTable,
+        isTrue,
+      );
+      expect(
+        PushTarget.parse({
+          ...wire,
+          'sentAt': '${now + 1000}',
+          'expiresAt': '${now - 1}',
+        }),
+        isNull,
+      );
       if (type == 'TABLE_CANCELLED') {
-        expect(PushTarget.parse({...wire, 'displayVariant': 'OWNER_JOINED_ANOTHER_TABLE'})?.isTable, isTrue);
-        expect(PushTarget.parse({...wire, 'displayVariant': 'DEFAULT'}), isNull);
+        expect(
+          PushTarget.parse({
+            ...wire,
+            'displayVariant': 'OWNER_JOINED_ANOTHER_TABLE',
+          })?.isTable,
+          isTrue,
+        );
+        expect(
+          PushTarget.parse({...wire, 'displayVariant': 'DEFAULT'}),
+          isNull,
+        );
       }
       for (final field in wire.keys) {
         final bad = {...wire}..remove(field);

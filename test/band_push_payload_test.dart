@@ -20,8 +20,18 @@ void main() {
       expect(PushTarget.parse(identity)?.isBand, isTrue);
       expect(PushTarget.parse(wire)?.isBand, isTrue);
       // Real Vivo clock measured about 640 ms behind the API during fast FCM delivery.
-      expect(PushTarget.parse({...wire, 'sentAt': '${now + 1000}'})?.isBand, isTrue);
-      expect(PushTarget.parse({...wire, 'sentAt': '${now + 1000}', 'expiresAt': '${now - 1}'}), isNull);
+      expect(
+        PushTarget.parse({...wire, 'sentAt': '${now + 1000}'})?.isBand,
+        isTrue,
+      );
+      expect(
+        PushTarget.parse({
+          ...wire,
+          'sentAt': '${now + 1000}',
+          'expiresAt': '${now - 1}',
+        }),
+        isNull,
+      );
       for (final field in wire.keys) {
         final bad = {...wire}..remove(field);
         expect(PushTarget.parse(bad), isNull, reason: field);

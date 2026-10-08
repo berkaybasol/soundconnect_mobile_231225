@@ -99,7 +99,10 @@ void main() {
           findsOneWidget,
         );
         _expectPreserved(fixture);
-        expect(api.requests.single.path.endsWith('$_notification/collab-target'), isTrue);
+        expect(
+          api.requests.single.path.endsWith('$_notification/collab-target'),
+          isTrue,
+        );
         fixture.push._pending = PushTarget(
           notificationId: _otherNotification,
           recipientId: _user,
@@ -109,7 +112,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(fixture.push.consumed, 2);
         expect(api.requests.length, 2);
-        expect(api.requests.last.path.endsWith('$_otherNotification/collab-target'), isTrue);
+        expect(
+          api.requests.last.path.endsWith('$_otherNotification/collab-target'),
+          isTrue,
+        );
         expect(
           find.byType(InboxProductNotificationOpen, skipOffstage: false),
           findsOneWidget,

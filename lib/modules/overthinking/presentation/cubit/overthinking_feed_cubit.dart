@@ -234,7 +234,9 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
     bool reconcileReveal = false,
     bool Function()? acceptResult,
   }) async {
-    if (!isSessionCurrent || isClosed || _deletedIds.contains(postId) ||
+    if (!isSessionCurrent ||
+        isClosed ||
+        _deletedIds.contains(postId) ||
         acceptResult?.call() == false) {
       return false;
     }

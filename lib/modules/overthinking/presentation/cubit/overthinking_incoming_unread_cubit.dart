@@ -29,9 +29,7 @@ class OverthinkingIncomingUnreadCubit extends Cubit<bool?> {
       // New requests have their own notification signal; resume/reconnect also
       // reconcile. Keep invalidation while unknown/unread or any read is pending
       // so cancellation cannot let an older response reopen the dot.
-      if (state == false &&
-          _readInFlight == null &&
-          _seenInFlight == null) {
+      if (state == false && _readInFlight == null && _seenInFlight == null) {
         return;
       }
       unawaited(refresh());

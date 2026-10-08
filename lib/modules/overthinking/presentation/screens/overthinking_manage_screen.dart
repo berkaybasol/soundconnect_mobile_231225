@@ -310,18 +310,21 @@ class _OverthinkingManageScreenState extends State<_OverthinkingManageContent>
       ready:
           widget.initialRequestId != null &&
           request.id == widget.initialRequestId &&
-          (widget.initialPostId == null || request.postId == widget.initialPostId) &&
-          (widget.initialRequestStatus == null || request.status == widget.initialRequestStatus) &&
+          (widget.initialPostId == null ||
+              request.postId == widget.initialPostId) &&
+          (widget.initialRequestStatus == null ||
+              request.status == widget.initialRequestStatus) &&
           (widget.initialRecipientId == null ||
               // Pending/rejected DTOs deliberately omit authorId. Ownership is
               // established by the fresh owned target plus this session's
               // incoming endpoint; never reveal identity to satisfy this gate.
               (incoming
                   ? request.requesterId.isNotEmpty &&
-                    request.requesterId != widget.initialRecipientId &&
-                    (request.authorId.isEmpty || request.authorId == widget.initialRecipientId)
+                        request.requesterId != widget.initialRecipientId &&
+                        (request.authorId.isEmpty ||
+                            request.authorId == widget.initialRecipientId)
                   : request.requesterId == widget.initialRecipientId &&
-                    request.authorId != widget.initialRecipientId)) &&
+                        request.authorId != widget.initialRecipientId)) &&
           _tabs.index == (incoming ? 1 : 2) &&
           !_tabs.indexIsChanging &&
           (_tabs.animation!.value - _tabs.index).abs() < 0.001 &&
@@ -333,7 +336,7 @@ class _OverthinkingManageScreenState extends State<_OverthinkingManageContent>
       child: child!,
     ),
     child: child,
-    );
+  );
 
   void _message(String message, {bool error = false}) {
     if (!overthinkingSession.canWrite || !mounted) return;

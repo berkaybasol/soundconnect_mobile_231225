@@ -27,8 +27,11 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
   bool _scheduled = false;
   _OverthinkingDetailRetry? _retry;
 
-  bool get _current => mounted && _cubit?.isSessionCurrent == true &&
-      _route?.isActive == true && _route?.isCurrent == true &&
+  bool get _current =>
+      mounted &&
+      _cubit?.isSessionCurrent == true &&
+      _route?.isActive == true &&
+      _route?.isCurrent == true &&
       TickerMode.of(context) &&
       (_route?.secondaryAnimation == null ||
           _route!.secondaryAnimation!.status == AnimationStatus.dismissed) &&
@@ -66,7 +69,10 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (!mounted) return;
-      if (!_current) { _hideRetry(); return; }
+      if (!_current) {
+        _hideRetry();
+        return;
+      }
       if (!_started) {
         unawaited(_loadDetail());
       } else if (_targetFailed && _detailFlight == null) {
@@ -83,7 +89,10 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
     _started = true;
     _hideRetry();
     final revision = _visibilityRevision;
-    setState(() { _freshDetailReady = false; _targetFailed = false; });
+    setState(() {
+      _freshDetailReady = false;
+      _targetFailed = false;
+    });
     final pending = _performDetailLoad(revision);
     _detailFlight = pending;
     return pending;
@@ -92,17 +101,24 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
   Future<void> _performDetailLoad(int revision) async {
     var loaded = false;
     try {
-      loaded = await _cubit!.refreshNotificationPost(post.id,
-        acceptResult: () => _current && revision == _visibilityRevision);
+      loaded = await _cubit!.refreshNotificationPost(
+        post.id,
+        acceptResult: () => _current && revision == _visibilityRevision,
+      );
     } catch (_) {
       // A transport exception is still an explicit target failure, never ACK.
     } finally {
       _detailFlight = null;
       if (mounted) {
-        final exact = _cubit!.state.posts.where((p) => p.id == post.id).firstOrNull;
+        final exact = _cubit!.state.posts
+            .where((p) => p.id == post.id)
+            .firstOrNull;
         setState(() {
-          _freshDetailReady = loaded && _current &&
-              revision == _visibilityRevision && exact?.hasVisibleAuthor == true;
+          _freshDetailReady =
+              loaded &&
+              _current &&
+              revision == _visibilityRevision &&
+              exact?.hasVisibleAuthor == true;
           _targetFailed = !_freshDetailReady;
         });
         _schedule();
@@ -122,35 +138,47 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
     if (messenger == null) return;
     final retry = _OverthinkingDetailRetry(messenger);
     _retry = retry;
-    retry.controller = messenger.showSnackBar(appSnackBar(context,
-      content: const Text('İçerik güncellenemedi.'),
-      tone: AppSnackBarTone.info,
-      inlineAction: true,
-      duration: const Duration(days: 1),
-      onVisible: () {
-        retry.painted = true;
-        if (retry.retired || !identical(_retry, retry) || !_current) retry.retire();
-      },
-      action: SnackBarAction(label: 'Tekrar dene', onPressed: () {
-        if (identical(_retry, retry) && _current) unawaited(_loadDetail());
+    retry.controller = messenger.showSnackBar(
+      appSnackBar(
+        context,
+        content: const Text('İçerik güncellenemedi.'),
+        tone: AppSnackBarTone.info,
+        inlineAction: true,
+        duration: const Duration(days: 1),
+        onVisible: () {
+          retry.painted = true;
+          if (retry.retired || !identical(_retry, retry) || !_current) {
+            retry.retire();
+          }
+        },
+        action: SnackBarAction(
+          label: 'Tekrar dene',
+          onPressed: () {
+            if (identical(_retry, retry) && _current) unawaited(_loadDetail());
+          },
+        ),
+      ),
+    );
+    unawaited(
+      retry.controller.closed.then((_) {
+        retry.closed = true;
+        if (!identical(_retry, retry)) return;
+        _retry = null;
+        _schedule();
       }),
-    ));
-    unawaited(retry.controller.closed.then((_) {
-      retry.closed = true;
-      if (!identical(_retry, retry)) return;
-      _retry = null;
-      _schedule();
-    }));
+    );
   }
 
   void _suspend() {
     ++_visibilityRevision;
     _hideRetry();
   }
+
   void _coverChanged(AnimationStatus status) {
     if (status != AnimationStatus.dismissed) _suspend();
     _schedule();
   }
+
   @override
   void didPushNext() => _suspend();
   @override
@@ -162,6 +190,7 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
     if (state != AppLifecycleState.resumed) _suspend();
     _schedule();
   }
+
   @override
   void dispose() {
     _suspend();
@@ -257,9 +286,11 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
                 ],
               ),
               body: NotificationTargetReady(
-                ready: currentPost.id == post.id &&
+                ready:
+                    currentPost.id == post.id &&
                     (!requireAuthorVisibility ||
-                        (_freshDetailReady && destinationDetailLoaded &&
+                        (_freshDetailReady &&
+                            destinationDetailLoaded &&
                             currentPost.hasVisibleAuthor)),
                 contentIdentity: currentPost,
                 child: TableGroupSurfaceBackdrop(
@@ -443,7 +474,8 @@ class _OverthinkingDetailState extends State<OverthinkingDetailScreen>
 class _OverthinkingDetailRetry {
   _OverthinkingDetailRetry(this.messenger);
   final ScaffoldMessengerState messenger;
-  late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason> controller;
+  late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
+  controller;
   bool painted = false, retired = false, closed = false;
   void retire() {
     retired = true;

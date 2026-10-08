@@ -1,10 +1,13 @@
 part of '../profile_upload_repository_test.dart';
 
 class _InitBlockedTokens extends Fake implements TokenStore {
-  final started=Completer<void>();
-  final release=Completer<String?>();
+  final started = Completer<void>();
+  final release = Completer<String?>();
   @override
-  Future<String?> readToken() { if (!started.isCompleted) started.complete(); return release.future; }
+  Future<String?> readToken() {
+    if (!started.isCompleted) started.complete();
+    return release.future;
+  }
 }
 
 class _UploadAdapter implements HttpClientAdapter {

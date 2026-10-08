@@ -73,7 +73,10 @@ class _AnnouncementMediaViewState extends State<AnnouncementMediaView>
   }
 
   Future<void> _load() async {
-    if (_revoked || !_foreground || !mounted || widget.media.status != 'READY') {
+    if (_revoked ||
+        !_foreground ||
+        !mounted ||
+        widget.media.status != 'READY') {
       return;
     }
     final epoch = ++_epoch;

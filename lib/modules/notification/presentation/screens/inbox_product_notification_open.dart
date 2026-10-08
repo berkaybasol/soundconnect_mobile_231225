@@ -30,8 +30,14 @@ class InboxProductNotificationOpen extends StatefulWidget {
   const InboxProductNotificationOpen({super.key, required this.notification});
   InboxProductNotificationOpen.native({super.key, required PushTarget target})
     : notification = AppNotification(
-        id: target.notificationId, recipientId: target.recipientId, type: target.type,
-        title: '', message: '', read: false, createdAt: null, payload: const {},
+        id: target.notificationId,
+        recipientId: target.recipientId,
+        type: target.type,
+        title: '',
+        message: '',
+        read: false,
+        createdAt: null,
+        payload: const {},
       );
   final AppNotification notification;
   @override
@@ -80,6 +86,7 @@ class _OpenState extends State<InboxProductNotificationOpen>
     if (_initial) unawaited(_open());
     _feedback();
   }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -274,7 +281,9 @@ class _OpenState extends State<InboxProductNotificationOpen>
     final result = await serviceLocator<OverthinkingRepository>().getDetail(
       postId: postId as String,
     );
-    if (!_current || !result.isSuccess || result.data?.id != postId ||
+    if (!_current ||
+        !result.isSuccess ||
+        result.data?.id != postId ||
         result.data?.hasVisibleAuthor != true) {
       return;
     }
@@ -283,9 +292,7 @@ class _OpenState extends State<InboxProductNotificationOpen>
       item,
       MultiBlocProvider(
         providers: [
-          BlocProvider(
-            create: (_) => serviceLocator<OverthinkingFeedCubit>(),
-          ),
+          BlocProvider(create: (_) => serviceLocator<OverthinkingFeedCubit>()),
           BlocProvider(
             create: (_) => serviceLocator<CommentThreadCubit>()
               ..load(
@@ -294,8 +301,11 @@ class _OpenState extends State<InboxProductNotificationOpen>
               ),
           ),
         ],
-        child: OverthinkingDetailScreen(post: post, revealRequesting: false,
-            requireAuthorVisibility: true),
+        child: OverthinkingDetailScreen(
+          post: post,
+          revealRequesting: false,
+          requireAuthorVisibility: true,
+        ),
       ),
     );
   }

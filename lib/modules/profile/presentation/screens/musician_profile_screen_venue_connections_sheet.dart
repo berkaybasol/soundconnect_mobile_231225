@@ -595,8 +595,7 @@ class _MusicianVenueApplicationsSheetState
                 onMore: _actionLoading || !_session.isCurrent
                     ? null
                     : () => _load(append: true),
-                onRetry:
-                    !_session.isCurrent || _actionLoading || _accessRevoked
+                onRetry: !_session.isCurrent || _actionLoading || _accessRevoked
                     ? null
                     : _error != null
                     ? () => _load()

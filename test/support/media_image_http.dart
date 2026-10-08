@@ -92,7 +92,9 @@ Future<void> paintMedia(WidgetTester tester) async {
   // Engine image decoding uses real time. Keep yielding to it rather than
   // exhausting fake time inside pumpAndSettle while its spinner is active.
   for (var frame = 0; frame < 80; frame++) {
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 25)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 25)),
+    );
     await tester.pump(const Duration(milliseconds: 100));
     settledFrames = tester.binding.hasScheduledFrame ? 0 : settledFrames + 1;
     if (settledFrames >= 2) return;

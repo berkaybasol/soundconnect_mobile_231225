@@ -118,7 +118,10 @@ void main() {
     expect(reconciliations, 1);
   }
 
-  Future<void> openTerminal(WidgetTester tester, {bool acknowledge = true}) async {
+  Future<void> openTerminal(
+    WidgetTester tester, {
+    bool acknowledge = true,
+  }) async {
     final content = Object();
     final read = NotificationTargetRead.content(
       notification: repository.items.first,
@@ -127,115 +130,154 @@ void main() {
       repository: _Targets(repository),
       content: content,
     );
-    unawaited(navigator.currentState!.push(read.attach(_route(
-      ValueListenableBuilder<bool>(
-        valueListenable: ready,
-        builder: (context, loaded, _) => NotificationTerminalFeedback(
-          message: 'Masa kapatıldı.',
-          contentIdentity: content,
-          acknowledge: acknowledge,
-          ready: loaded,
-          child: const Scaffold(body: Text('Gerçek ürün sayfası')),
+    unawaited(
+      navigator.currentState!.push(
+        read.attach(
+          _route(
+            ValueListenableBuilder<bool>(
+              valueListenable: ready,
+              builder: (context, loaded, _) => NotificationTerminalFeedback(
+                message: 'Masa kapatıldı.',
+                contentIdentity: content,
+                acknowledge: acknowledge,
+                ready: loaded,
+                child: const Scaffold(body: Text('Gerçek ürün sayfası')),
+              ),
+            ),
+          ),
         ),
       ),
-    ))));
+    );
     await tester.pumpAndSettle();
   }
 
-  testWidgets('queued terminal result is not read until its own message is painted', (tester) async {
-    await mount(tester);
-    await openTerminal(tester);
-    final messenger = tester.state<ScaffoldMessengerState>(find.descendant(
-      of: find.byType(NotificationTerminalFeedback),
-      matching: find.byType(ScaffoldMessenger),
-    ));
-    messenger.showSnackBar(const SnackBar(content: Text('Önceki mesaj'), persist: true));
-    await tester.pumpAndSettle();
-    ready.value = true;
-    await tester.pumpAndSettle();
-    expect(find.text('Önceki mesaj'), findsOneWidget);
-    expect(find.text('Masa kapatıldı.'), findsNothing);
-    expectUnread();
-    messenger.removeCurrentSnackBar();
-    await tester.pumpAndSettle();
-    expect(find.text('Masa kapatıldı.'), findsOneWidget);
-    expectOnlyTargetRead();
-  });
-
-  testWidgets('covered terminal result and generic fallback never acknowledge', (tester) async {
-    await mount(tester);
-    await openTerminal(tester);
-    unawaited(navigator.currentState!.push(_route(const Scaffold(body: Text('Cover')))));
-    await tester.pumpAndSettle();
-    ready.value = true;
-    await tester.pumpAndSettle();
-    expectUnread();
-    navigator.currentState!.pop();
-    navigator.currentState!.pop();
-    await tester.pumpAndSettle();
-    await openTerminal(tester, acknowledge: false);
-    expect(find.text('Masa kapatıldı.'), findsOneWidget);
-    expectUnread();
-  });
-
-  testWidgets('terminal ACK retry keeps product page and only retries exact ACK', (tester) async {
-    repository.failRead = true;
-    await mount(tester);
-    ready.value = true;
-    await openTerminal(tester);
-    expectUnread(attempts: 1);
-    expect(find.text('Gerçek ürün sayfası'), findsOneWidget);
-    expect(find.text('Okundu bilgisi kaydedilemedi.'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 12));
-    expect(find.text('Tekrar dene'), findsOneWidget);
-    expectUnread(attempts: 1);
-    repository.failRead = false;
-    await tester.tap(find.text('Tekrar dene'));
-    await tester.pumpAndSettle();
-    expect(repository.readIds, ['target', 'target']);
-    expect(cubit.state.unreadCount, 1);
-    expect(cubit.state.items.singleWhere((e) => e.id == 'sibling').read, isFalse);
-    navigator.currentState!.pop();
-    await tester.pumpAndSettle();
-    expect(find.text('Inbox'), findsOneWidget);
-    expect(navigator.currentState!.canPop(), isFalse);
-  });
-
-  for (final hidden in ['background', 'covered']) {
-    testWidgets('terminal entrance interrupted by $hidden is shown on return before ACK', (tester) async {
+  testWidgets(
+    'queued terminal result is not read until its own message is painted',
+    (tester) async {
       await mount(tester);
       await openTerminal(tester);
+      final messenger = tester.state<ScaffoldMessengerState>(
+        find.descendant(
+          of: find.byType(NotificationTerminalFeedback),
+          matching: find.byType(ScaffoldMessenger),
+        ),
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Önceki mesaj'), persist: true),
+      );
+      await tester.pumpAndSettle();
       ready.value = true;
-      // Build and start the snackbar, without letting its entrance finish.
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(tester.widget<SnackBar>(find.byType(SnackBar)).animation?.status,
-          isNot(AnimationStatus.completed));
-      expectUnread();
-      if (hidden == 'background') {
-        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      } else {
-        unawaited(navigator.currentState!.push(_route(
-          const Scaffold(body: Text('Cover during entrance')),
-        )));
-      }
       await tester.pumpAndSettle();
+      expect(find.text('Önceki mesaj'), findsOneWidget);
+      expect(find.text('Masa kapatıldı.'), findsNothing);
       expectUnread();
-      if (hidden == 'background') {
-        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      } else {
-        navigator.currentState!.pop();
-      }
+      messenger.removeCurrentSnackBar();
       await tester.pumpAndSettle();
-      expect(find.text('Gerçek ürün sayfası'), findsOneWidget);
       expect(find.text('Masa kapatıldı.'), findsOneWidget);
       expectOnlyTargetRead();
-    });
+    },
+  );
+
+  testWidgets(
+    'covered terminal result and generic fallback never acknowledge',
+    (tester) async {
+      await mount(tester);
+      await openTerminal(tester);
+      unawaited(
+        navigator.currentState!.push(
+          _route(const Scaffold(body: Text('Cover'))),
+        ),
+      );
+      await tester.pumpAndSettle();
+      ready.value = true;
+      await tester.pumpAndSettle();
+      expectUnread();
+      navigator.currentState!.pop();
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      await openTerminal(tester, acknowledge: false);
+      expect(find.text('Masa kapatıldı.'), findsOneWidget);
+      expectUnread();
+    },
+  );
+
+  testWidgets(
+    'terminal ACK retry keeps product page and only retries exact ACK',
+    (tester) async {
+      repository.failRead = true;
+      await mount(tester);
+      ready.value = true;
+      await openTerminal(tester);
+      expectUnread(attempts: 1);
+      expect(find.text('Gerçek ürün sayfası'), findsOneWidget);
+      expect(find.text('Okundu bilgisi kaydedilemedi.'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 12));
+      expect(find.text('Tekrar dene'), findsOneWidget);
+      expectUnread(attempts: 1);
+      repository.failRead = false;
+      await tester.tap(find.text('Tekrar dene'));
+      await tester.pumpAndSettle();
+      expect(repository.readIds, ['target', 'target']);
+      expect(cubit.state.unreadCount, 1);
+      expect(
+        cubit.state.items.singleWhere((e) => e.id == 'sibling').read,
+        isFalse,
+      );
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('Inbox'), findsOneWidget);
+      expect(navigator.currentState!.canPop(), isFalse);
+    },
+  );
+
+  for (final hidden in ['background', 'covered']) {
+    testWidgets(
+      'terminal entrance interrupted by $hidden is shown on return before ACK',
+      (tester) async {
+        await mount(tester);
+        await openTerminal(tester);
+        ready.value = true;
+        // Build and start the snackbar, without letting its entrance finish.
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(find.byType(SnackBar), findsOneWidget);
+        expect(
+          tester.widget<SnackBar>(find.byType(SnackBar)).animation?.status,
+          isNot(AnimationStatus.completed),
+        );
+        expectUnread();
+        if (hidden == 'background') {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+        } else {
+          unawaited(
+            navigator.currentState!.push(
+              _route(const Scaffold(body: Text('Cover during entrance'))),
+            ),
+          );
+        }
+        await tester.pumpAndSettle();
+        expectUnread();
+        if (hidden == 'background') {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+        } else {
+          navigator.currentState!.pop();
+        }
+        await tester.pumpAndSettle();
+        expect(find.text('Gerçek ürün sayfası'), findsOneWidget);
+        expect(find.text('Masa kapatıldı.'), findsOneWidget);
+        expectOnlyTargetRead();
+      },
+    );
   }
 
-  testWidgets('terminal result queued before account change remains unread', (tester) async {
+  testWidgets('terminal result queued before account change remains unread', (
+    tester,
+  ) async {
     await mount(tester);
     await openTerminal(tester);
     await tester.runAsync(() async {
@@ -615,8 +657,10 @@ class _Targets extends Fake implements NotificationTargetRepository {
   _Targets(this.inbox);
   final _Repository inbox;
   @override
-  Future<Result<void>> acknowledge(AppNotification notification, AuthSession session) =>
-      inbox.markAsRead(notificationId: notification.id);
+  Future<Result<void>> acknowledge(
+    AppNotification notification,
+    AuthSession session,
+  ) => inbox.markAsRead(notificationId: notification.id);
 }
 
 class _Realtime extends NotificationRealtimeClient {

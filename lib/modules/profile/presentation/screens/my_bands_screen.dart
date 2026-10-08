@@ -306,8 +306,14 @@ class _MyBandsScreenState extends State<MyBandsScreen>
     return NotificationTargetRead.bandRemovalResult(
       context,
       ready:
-          _authorized && _bandsLoaded && !_loadingBands && _bandError == null &&
-          NotificationTargetRead.bandRemovalReady(context, _bands.map((band) => band.id)),
+          _authorized &&
+          _bandsLoaded &&
+          !_loadingBands &&
+          _bandError == null &&
+          NotificationTargetRead.bandRemovalReady(
+            context,
+            _bands.map((band) => band.id),
+          ),
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Bandlerim'),

@@ -102,15 +102,10 @@ Future<void> main(List<String> args) async {
   if (changedDartFiles.isEmpty) {
     stdout.writeln('No changed Dart files require format verification.');
   } else {
-    await _runStep(
-      'dart format --set-exit-if-changed (${changedDartFiles.length} changed files)',
-      'dart',
-      <String>[
-        'format',
-        '--output=none',
-        '--set-exit-if-changed',
-        ...changedDartFiles,
-      ],
+    await runDartFormatChecks(
+      changedDartFiles,
+      dartExecutable: Platform.resolvedExecutable,
+      runBatch: (label, arguments) => _runStep(label, 'dart', arguments),
     );
   }
   if (formatOnly) {
@@ -191,6 +186,54 @@ Future<void> _runStep(
   await Future.wait<void>(<Future<void>>[stdoutPump, stderrPump]);
   if (exitCode != 0) {
     throw ProcessException(executable, arguments, '$label failed', exitCode);
+  }
+}
+
+/// Bounds the whole command below Windows' native 32,767 UTF-16 code-unit
+/// limit, including the executable, quoting, escaping, spaces and terminator.
+/// Direct VM launch avoids cmd.exe's smaller limit but still needs batching.
+const int dartFormatCommandBudget = 16000;
+
+Future<void> runDartFormatChecks(
+  List<String> files, {
+  required String dartExecutable,
+  required Future<void> Function(String label, List<String> arguments) runBatch,
+}) async {
+  const formatArguments = <String>[
+    'format',
+    '--output=none',
+    '--set-exit-if-changed',
+  ];
+  // String.length counts UTF-16 code units. In the worst case each code unit
+  // needs an escape; reserve two quotes and a separating space per argument.
+  int argumentBudget(String value) => value.length * 2 + 3;
+  final fixedBudget =
+      1 +
+      argumentBudget(dartExecutable) +
+      formatArguments.fold<int>(0, (sum, value) => sum + argumentBudget(value));
+  final batches = <List<String>>[];
+  var batch = <String>[];
+  var commandBudget = fixedBudget;
+  for (final file in files) {
+    final fileBudget = argumentBudget(file);
+    if (fixedBudget + fileBudget > dartFormatCommandBudget) {
+      throw ArgumentError.value(file, 'files', 'Formatter command is too long');
+    }
+    if (commandBudget + fileBudget > dartFormatCommandBudget) {
+      batches.add(List<String>.unmodifiable(batch));
+      batch = <String>[];
+      commandBudget = fixedBudget;
+    }
+    batch.add(file);
+    commandBudget += fileBudget;
+  }
+  if (batch.isNotEmpty) batches.add(List<String>.unmodifiable(batch));
+  for (var index = 0; index < batches.length; index++) {
+    await runBatch(
+      'dart format --set-exit-if-changed '
+      '(${files.length} changed files; batch ${index + 1}/${batches.length})',
+      List<String>.unmodifiable([...formatArguments, ...batches[index]]),
+    );
   }
 }
 

@@ -32,6 +32,9 @@ class PreviewApiClient extends ApiClient {
             requestContext!.expectedSessionKey != session.userId) ||
         (requestContext?.expectedToken != null &&
             requestContext!.expectedToken != session.token) ||
+        (requestContext?.expectedCredentialRevision != null &&
+            requestContext!.expectedCredentialRevision !=
+                sessions.credentialRevision) ||
         requestContext?.requireGuestSession == true) {
       throw ApiException(
         const AppError(

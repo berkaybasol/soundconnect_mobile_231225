@@ -72,6 +72,31 @@ void main() {
     expect(previousHandlerCalls, 1);
     expect(diagnosticCalls, 1);
   });
+
+  test(
+    'platform handler records safe metadata and preserves previous handling',
+    () {
+      final original = PlatformDispatcher.instance.onError;
+      addTearDown(() => PlatformDispatcher.instance.onError = original);
+      var previousCalls = 0;
+      AppDiagnosticEvent? recorded;
+      PlatformDispatcher.instance.onError = (_, _) {
+        previousCalls++;
+        return true;
+      };
+      AppDiagnostics.sink = (event) => recorded = event;
+      installPlatformErrorHandler();
+      final handled = PlatformDispatcher.instance.onError!(
+        StateError('private-token'),
+        StackTrace.current,
+      );
+      expect(handled, true);
+      expect(previousCalls, 1);
+      expect(recorded!.source, 'platform-dispatcher');
+      expect(recorded!.severity, AppDiagnosticSeverity.fatal);
+      expect(recorded!.errorType, 'StateError');
+    },
+  );
 }
 
 class _TestCubit extends Cubit<int> {

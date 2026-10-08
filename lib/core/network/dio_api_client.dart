@@ -149,6 +149,8 @@ class DioApiClient implements ApiClient {
   static const String _requestTokenKey = 'soundconnect.request_token';
   static const String _expectedSessionKey = 'soundconnect.expected_session_key';
   static const String _expectedTokenKey = 'soundconnect.expected_token';
+  static const String _expectedCredentialRevisionKey =
+      'soundconnect.expected_credential_revision';
   static const String _requireGuestSessionKey =
       'soundconnect.require_guest_session';
   static const String _sourceSessionFenceKey =
@@ -200,8 +202,13 @@ class DioApiClient implements ApiClient {
               attachListenerIdentity ||
               expectedSession.isNotEmpty ||
               requireGuestSession ||
+              options.extra[_expectedCredentialRevisionKey] != null ||
               expectedToken != null) {
             final token = await _tokenStore.readToken();
+            if (!_isExpectedCredentialCurrent(options)) {
+              handler.reject(_sourceSessionChanged(options));
+              return;
+            }
             if (sourceFence != null &&
                 (!sourceFence.isCurrent ||
                     (attachListenerIdentity &&
@@ -275,6 +282,10 @@ class DioApiClient implements ApiClient {
           handler.next(options);
         },
         onError: (error, handler) async {
+          if (!_isExpectedCredentialCurrent(error.requestOptions)) {
+            handler.next(_sourceSessionChanged(error.requestOptions));
+            return;
+          }
           if (_codeFromErrorPayload(error.response?.data) == '1308') {
             await _requireListenerChoiceForRequest(error.requestOptions);
           }
@@ -302,6 +313,13 @@ class DioApiClient implements ApiClient {
   bool _isPublicRequest(RequestOptions options) {
     return isPublicApiRequest(options.method, options.path) &&
         options.extra[_authenticatedPublicSourceKey] != true;
+  }
+
+  bool _isExpectedCredentialCurrent(RequestOptions options) {
+    final expected = options.extra[_expectedCredentialRevisionKey];
+    return expected == null ||
+        (_sessionManager != null &&
+            _sessionManager.credentialRevision == expected);
   }
 
   DioException _sourceSessionChanged(RequestOptions options) => DioException(
@@ -430,6 +448,8 @@ class DioApiClient implements ApiClient {
               _expectedSessionKey: value,
             if (requestContext?.expectedToken case final value?)
               _expectedTokenKey: value,
+            if (requestContext?.expectedCredentialRevision case final value?)
+              _expectedCredentialRevisionKey: value,
             if (requestContext?.requireGuestSession == true)
               _requireGuestSessionKey: true,
           },
@@ -437,6 +457,9 @@ class DioApiClient implements ApiClient {
       );
 
       if (sourceFence != null && !sourceFence.isCurrent) {
+        throw _sourceSessionChanged(response.requestOptions);
+      }
+      if (!_isExpectedCredentialCurrent(response.requestOptions)) {
         throw _sourceSessionChanged(response.requestOptions);
       }
       final payload = response.data;

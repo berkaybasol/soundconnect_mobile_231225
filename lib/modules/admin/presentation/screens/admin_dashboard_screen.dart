@@ -10,6 +10,7 @@ import '../../../../shared/widgets/session_logout_action.dart';
 import '../../domain/musician_feed_report_admin.dart';
 import '../../domain/marketplace_report_admin.dart';
 import '../../domain/notification_campaign.dart';
+import '../../domain/system_health.dart';
 import '../../../promotion/domain/announcement_access.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import '../widgets/admin_visual_theme.dart';
@@ -87,9 +88,11 @@ class _AdminDashboardBody extends StatelessWidget {
                       sessions.session,
                     );
                     final marketSession = sessions.session;
+                    final healthAccess = canViewSystemHealth(marketSession);
                     if (identity == null &&
                         !marketAccess &&
-                        !notificationAccess) {
+                        !notificationAccess &&
+                        !healthAccess) {
                       return NotificationTargetReady(
                         ready:
                             AppRouteGuard.redirectFor(
@@ -114,6 +117,31 @@ class _AdminDashboardBody extends StatelessWidget {
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
+                          if (healthAccess)
+                            AdminSectionCard(
+                              title: 'Sistem sağlığı',
+                              icon: Icons.monitor_heart_outlined,
+                              description:
+                                  'Hizmetleri, geciken işleri ve hata ölçümlerini izle.',
+                              children: [
+                                AdminBrandButton(
+                                  key: const Key('admin-system-health-entry'),
+                                  label: 'Durumu görüntüle',
+                                  icon: Icons.arrow_forward_rounded,
+                                  onPressed: () {
+                                    if (identical(
+                                          marketSession,
+                                          sessions.session,
+                                        ) &&
+                                        canViewSystemHealth(sessions.session)) {
+                                      Navigator.of(
+                                        context,
+                                      ).pushNamed(AppRoutes.adminSystemHealth);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
                           if (notificationAccess)
                             AdminSectionCard(
                               title: 'Özel bildirimler',

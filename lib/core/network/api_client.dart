@@ -4,6 +4,7 @@ class ApiRequestContext {
   const ApiRequestContext({
     this.expectedSessionKey,
     this.expectedToken,
+    this.expectedCredentialRevision,
     this.requireGuestSession = false,
     this.announcementSource,
   });
@@ -13,6 +14,9 @@ class ApiRequestContext {
   /// Also fences logout/relogin into the same account while token storage is
   /// awaiting. Omit when only the account identity is relevant to a request.
   final String? expectedToken;
+
+  /// Fences login/logout intent even while the old token is still in storage.
+  final int? expectedCredentialRevision;
 
   /// Prevents a queued anonymous operation from adopting a later login.
   /// Mutually exclusive with a nonempty [expectedSessionKey].
@@ -65,6 +69,7 @@ abstract class ApiClient {
   }) {
     if (requestContext?.expectedSessionKey?.trim().isNotEmpty == true ||
         requestContext?.expectedToken != null ||
+        requestContext?.expectedCredentialRevision != null ||
         requestContext?.requireGuestSession == true ||
         requestContext?.announcementSource != null) {
       return Future<T>.error(

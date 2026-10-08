@@ -1,5 +1,14 @@
 # SoundConnect Frontend — kalıcı proje kararları
 
+## Oturum başlangıcı ve devir
+
+8 Ekim 2026: yeni SoundConnect oturumunda [üretime hazırlık girişini](docs/ready-for-prod.md)
+ve onun gösterdiği güncel BASLA/DURUM/aktif görevi oku. Kullanıcıya önceki işi
+yeniden anlattırma. Yetkili çalışmada kayıtları ilerledikçe ve oturum sonunda
+güncelle; `ready-for-prod-NN` aşama/branch ve kapanış kuralları ortak PLAN'dadır.
+Bu giriş kendiliğinden yeni aşama başlatmaz. Kardeş backend paketi yoksa yokluğunu
+belirt; eski durumdan devam yetkisi veya kabul uydurma.
+
 ## Kod kalitesi ve mevcut altyapı
 
 3 Ekim 2026 açık kullanıcı kararı: üretime hazır (prod-ready) seviyede kod

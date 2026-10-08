@@ -44,6 +44,15 @@ class AppDiagnostics {
     );
   }
 
+  static void reportPlatformError(Object error, StackTrace stackTrace) {
+    report(
+      severity: AppDiagnosticSeverity.fatal,
+      source: 'platform-dispatcher',
+      errorType: error.runtimeType.toString(),
+      stackTrace: stackTrace,
+    );
+  }
+
   static void reportBlocError(
     Object bloc,
     Object error,

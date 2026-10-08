@@ -9,6 +9,9 @@ import 'core/audio/audio_player_handler.dart';
 import 'core/diagnostics/app_bloc_observer.dart';
 import 'core/diagnostics/app_diagnostics.dart';
 import 'core/diagnostics/app_error_handlers.dart';
+import 'core/diagnostics/crash_reporting.dart';
+import 'core/auth/auth_session_manager.dart';
+import 'core/network/api_client.dart';
 import 'core/deep_link/app_deep_link.dart';
 import 'core/di/service_locator.dart';
 import 'shared/theme/app_theme_controller.dart';
@@ -17,10 +20,15 @@ void main() {
   runZonedGuarded<Future<void>>(() async {
     WidgetsFlutterBinding.ensureInitialized();
     installFlutterErrorHandler();
+    installPlatformErrorHandler();
     Bloc.observer = const AppBlocObserver();
     final appLinkSource = PlatformAppLinkSource();
 
     setupDependencies();
+    CrashReporting.initialize(
+      api: serviceLocator<ApiClient>(),
+      sessions: serviceLocator<AuthSessionManager>(),
+    );
     await AppThemeController.instance.initialize();
     final audioHandler = await AudioService.init(
       builder: () => AudioPlayerHandler(),

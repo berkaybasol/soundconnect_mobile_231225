@@ -50,13 +50,20 @@ class PushTarget {
   };
   static const mediaTypes = <String>{'SOCIAL_LIKE', 'SOCIAL_COMMENT'};
   static const bandTypes = <String>{
-    'BAND_INVITE_RECEIVED', 'BAND_INVITE_ACCEPTED', 'BAND_INVITE_REJECTED',
-    'BAND_MEMBER_REMOVED', 'BAND_MEMBER_LEFT',
+    'BAND_INVITE_RECEIVED',
+    'BAND_INVITE_ACCEPTED',
+    'BAND_INVITE_REJECTED',
+    'BAND_MEMBER_REMOVED',
+    'BAND_MEMBER_LEFT',
   };
   static const tableTypes = <String>{
-    'TABLE_JOIN_REQUEST_RECEIVED', 'TABLE_JOIN_REQUEST_APPROVED',
-    'TABLE_JOIN_REQUEST_REJECTED', 'TABLE_PARTICIPANT_LEFT',
-    'TABLE_REMOVED', 'TABLE_CANCELLED', 'TABLE_EXPIRED',
+    'TABLE_JOIN_REQUEST_RECEIVED',
+    'TABLE_JOIN_REQUEST_APPROVED',
+    'TABLE_JOIN_REQUEST_REJECTED',
+    'TABLE_PARTICIPANT_LEFT',
+    'TABLE_REMOVED',
+    'TABLE_CANCELLED',
+    'TABLE_EXPIRED',
   };
   static const collabTypes = <String>{
     'COLLAB_APPLICATION_RECEIVED',
@@ -78,6 +85,8 @@ class PushTarget {
     'OVERTHINKING_REVEAL_REQUEST_REJECTED',
   };
   bool get isOverthinking => overthinkingTypes.contains(type);
+  static const customTypes = <String>{'ADMIN_BROADCAST'};
+  bool get isCustom => customTypes.contains(type);
   bool get isTable => tableTypes.contains(type);
   bool get isBand => bandTypes.contains(type);
   bool get isMedia => mediaTypes.contains(type);
@@ -89,11 +98,13 @@ class PushTarget {
   /// Only for metadata returned by the Android delivery channel after native
   /// wire, expiry and binding validation. Never use for RemoteMessage.data.
   static PushTarget? parseNativeMetadata(Map<String, dynamic> data) {
-    if (overthinkingTypes.contains(data['type'])) {
+    if (overthinkingTypes.contains(data['type']) ||
+        customTypes.contains(data['type'])) {
       const identity = {'notificationId', 'recipientId', 'type'};
       if (data.length != identity.length ||
           !data.keys.toSet().containsAll(identity) ||
-          !isUuid(data['notificationId']) || !isUuid(data['recipientId'])) {
+          !isUuid(data['notificationId']) ||
+          !isUuid(data['recipientId'])) {
         return null;
       }
       return PushTarget(
@@ -118,14 +129,64 @@ class PushTarget {
         !RegExp(r'^[A-Z_]{1,100}$').hasMatch(type)) {
       return null;
     }
+    if (type.startsWith('ADMIN_') ||
+        (data['presentationVersion'] is String &&
+            (data['presentationVersion'] as String).startsWith(
+              'ANDROID_CUSTOM_',
+            ))) {
+      const wire = {
+        'notificationId',
+        'recipientId',
+        'type',
+        'presentationVersion',
+        'title',
+        'body',
+        'sentAt',
+        'expiresAt',
+      };
+      if (!customTypes.contains(type) ||
+          data.length != wire.length ||
+          !data.keys.toSet().containsAll(wire) ||
+          data['presentationVersion'] != 'ANDROID_CUSTOM_V1' ||
+          !_validCustomText(data['title'], 120) ||
+          !_validCustomText(data['body'], 500)) {
+        return null;
+      }
+      final sent = _positiveDecimalTimestamp(data['sentAt']);
+      final expiry = _positiveDecimalTimestamp(data['expiresAt']);
+      final now = nowMillis ?? DateTime.now().millisecondsSinceEpoch;
+      const ttl = Duration(days: 28);
+      if (sent == null ||
+          expiry == null ||
+          now < 0 ||
+          sent - now > 5000 ||
+          expiry <= now ||
+          expiry <= sent ||
+          expiry - sent > ttl.inMilliseconds ||
+          expiry - now > ttl.inMilliseconds) {
+        return null;
+      }
+      // Display copy never becomes a navigation argument. Fetch the owned,
+      // current notification and resolve its allowed target after authentication.
+      return PushTarget(
+        notificationId: notification as String,
+        recipientId: recipient as String,
+        type: type,
+      );
+    }
     if (type.startsWith('OVERTHINKING_') ||
         (data['presentationVersion'] is String &&
-            (data['presentationVersion'] as String).startsWith('ANDROID_OVERTHINKING_'))) {
-      if (!overthinkingTypes.contains(type) || conversation != null) return null;
+            (data['presentationVersion'] as String).startsWith(
+              'ANDROID_OVERTHINKING_',
+            ))) {
+      if (!overthinkingTypes.contains(type) || conversation != null) {
+        return null;
+      }
       const identity = {'notificationId', 'recipientId', 'type'};
       const wire = {...identity, 'presentationVersion', 'sentAt', 'expiresAt'};
       final keys = data.keys.toSet();
-      if (keys.length != wire.length || !keys.containsAll(wire) ||
+      if (keys.length != wire.length ||
+          !keys.containsAll(wire) ||
           data['presentationVersion'] != 'ANDROID_OVERTHINKING_V1') {
         return null;
       }
@@ -133,29 +194,43 @@ class PushTarget {
       final expiry = _positiveDecimalTimestamp(data['expiresAt']);
       final now = nowMillis ?? DateTime.now().millisecondsSinceEpoch;
       const ttl = Duration(days: 28);
-      if (sent == null || expiry == null || now < 0 || sent - now > 5000 ||
-          expiry <= now || expiry <= sent || expiry - sent > ttl.inMilliseconds ||
+      if (sent == null ||
+          expiry == null ||
+          now < 0 ||
+          sent - now > 5000 ||
+          expiry <= now ||
+          expiry <= sent ||
+          expiry - sent > ttl.inMilliseconds ||
           expiry - now > ttl.inMilliseconds) {
         return null;
       }
-      return PushTarget(notificationId: notification as String,
-          recipientId: recipient as String, type: type);
+      return PushTarget(
+        notificationId: notification as String,
+        recipientId: recipient as String,
+        type: type,
+      );
     }
     if ((type.startsWith('COLLAB_') ||
             data['presentationVersion'] is String &&
-                (data['presentationVersion'] as String).startsWith('ANDROID_COLLAB_')) &&
+                (data['presentationVersion'] as String).startsWith(
+                  'ANDROID_COLLAB_',
+                )) &&
         !collabTypes.contains(type)) {
       return null;
     }
     if ((type.startsWith('TABLE_') ||
             data['presentationVersion'] is String &&
-                (data['presentationVersion'] as String).startsWith('ANDROID_TABLE_')) &&
+                (data['presentationVersion'] as String).startsWith(
+                  'ANDROID_TABLE_',
+                )) &&
         !tableTypes.contains(type)) {
       return null;
     }
     if ((type.startsWith('BAND_') ||
             data['presentationVersion'] is String &&
-                (data['presentationVersion'] as String).startsWith('ANDROID_BAND_')) &&
+                (data['presentationVersion'] as String).startsWith(
+                  'ANDROID_BAND_',
+                )) &&
         !bandTypes.contains(type)) {
       return null;
     }
@@ -171,7 +246,11 @@ class PushTarget {
             !isUuid(conversation))) {
       return null;
     }
-    if (followTypes.contains(type) || mediaTypes.contains(type) || bandTypes.contains(type) || tableTypes.contains(type) || collabTypes.contains(type)) {
+    if (followTypes.contains(type) ||
+        mediaTypes.contains(type) ||
+        bandTypes.contains(type) ||
+        tableTypes.contains(type) ||
+        collabTypes.contains(type)) {
       const identityFields = {'notificationId', 'recipientId', 'type'};
       const wireFields = {
         'presentationVersion',
@@ -185,7 +264,9 @@ class PushTarget {
         return null;
       }
       if (wireFields.any(data.containsKey)) {
-        if ((bandTypes.contains(type) || tableTypes.contains(type) || collabTypes.contains(type)) &&
+        if ((bandTypes.contains(type) ||
+                tableTypes.contains(type) ||
+                collabTypes.contains(type)) &&
             wireFields.any((key) => data[key] is! String)) {
           return null;
         }
@@ -201,13 +282,23 @@ class PushTarget {
                     ? 'ANDROID_MEDIA_V1'
                     : 'ANDROID_FOLLOW_V1') ||
             (type == 'COLLAB_REPORT_RESOLVED'
-                ? !const {'REMOVE_LISTING', 'DISMISS'}.contains(data['displayVariant'])
+                ? !const {
+                    'REMOVE_LISTING',
+                    'DISMISS',
+                  }.contains(data['displayVariant'])
                 : type == 'TABLE_CANCELLED'
-                ? !const {'OWNER_CANCELLED', 'OWNER_JOINED_ANOTHER_TABLE'}.contains(data['displayVariant'])
+                ? !const {
+                    'OWNER_CANCELLED',
+                    'OWNER_JOINED_ANOTHER_TABLE',
+                  }.contains(data['displayVariant'])
                 : data['displayVariant'] != 'DEFAULT')) {
           return null;
         }
-        final followOrMedia = followTypes.contains(type) || mediaTypes.contains(type) || tableTypes.contains(type) || collabTypes.contains(type);
+        final followOrMedia =
+            followTypes.contains(type) ||
+            mediaTypes.contains(type) ||
+            tableTypes.contains(type) ||
+            collabTypes.contains(type);
         final sent = followOrMedia
             ? _positiveDecimalTimestamp(data['sentAt'])
             : int.tryParse(data['sentAt'].toString());
@@ -248,6 +339,17 @@ class PushTarget {
         ? parsed
         : null;
   }
+
+  static final _unsafeCustomText = RegExp(
+    r'[\p{Cc}\p{Cf}\p{Cs}\u2028\u2029]',
+    unicode: true,
+  );
+  static bool _validCustomText(Object? value, int maxLength) =>
+      value is String &&
+      value.isNotEmpty &&
+      value.length <= maxLength &&
+      value.trim() == value &&
+      !_unsafeCustomText.hasMatch(value);
 
   static bool isUuid(Object? value) =>
       value is String &&

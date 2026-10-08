@@ -29,7 +29,10 @@ class _MusicianPublicProfileViewState
   }
 
   Future<void> _refreshProfile() async {
-    await context.read<VenueProfileCubit>().loadOwner(venueId: _ownerVenueId);
+    await context.read<VenueProfileCubit>().loadOwner(
+      venueId: _ownerVenueId,
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
+    );
     if (!mounted) return;
 
     final profile = context.read<VenueProfileCubit>().state.ownerProfile;
@@ -63,7 +66,10 @@ class _MusicianPublicProfileViewState
         _openIncomingApplicationsOnLoad =
             args['openIncomingApplications'] == true;
       }
-      context.read<VenueProfileCubit>().loadOwner(venueId: _ownerVenueId);
+      context.read<VenueProfileCubit>().loadOwner(
+        venueId: _ownerVenueId,
+        admitContent: NotificationTargetRead.beginFollowRequest(context),
+      );
     }
     if (_viewerUserId != null) return;
     final args = ModalRoute.of(context)?.settings.arguments;
@@ -148,6 +154,7 @@ class _MusicianPublicProfileViewState
                   : followState.followingCount;
               final actionState = context.watch<FollowActionCubit>().state;
               return NotificationTargetReady(
+                contentIdentity: ownerProfile,
                 ready:
                     venueState.status == VenueProfileStatus.success &&
                     !_openIncomingApplicationsOnLoad,

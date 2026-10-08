@@ -5,9 +5,12 @@ import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 import 'package:soundconnect_23_12_25codx/core/push/push_provider.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/media_notification_open_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/custom_notification_open_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/notification_direct_open.dart';
 import 'dart:async';
 import 'support/media_image_http.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_target_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/data/custom_notification_repository.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
 
 import 'package:audio_service/audio_service.dart';
@@ -74,6 +77,17 @@ void main() {
     pendingAck = null;
     overrideExact = null;
     api = RecordingApiClient((request) async {
+      if (request.path.endsWith('/custom-target')) {
+        return {
+          'notificationId': _notice,
+          'recipientId': _user,
+          'type': 'ADMIN_BROADCAST',
+          'read': false,
+          'state': 'AVAILABLE',
+          'target': {'kind': 'CONTENT', 'targetId': _media['uuid']},
+          'media': await mediaResponse(),
+        };
+      }
       if (request.path.endsWith('/media')) return mediaResponse();
       if (request.path.endsWith('/read')) {
         await pendingAck?.future;
@@ -110,6 +124,9 @@ void main() {
     serviceLocator.registerSingleton<AuthSessionManager>(sessions);
     serviceLocator.registerSingleton<NotificationMediaRepository>(
       NotificationMediaRepository(api, sessions),
+    );
+    serviceLocator.registerSingleton<CustomNotificationRepository>(
+      CustomNotificationRepository(api, sessions),
     );
     serviceLocator.registerSingleton<AudioHandler>(BaseAudioHandler());
     serviceLocator.registerSingleton<EngagementRepository>(_Engagement());
@@ -165,6 +182,7 @@ void main() {
   Future<void> openVideo(
     WidgetTester tester, {
     String type = 'SOCIAL_COMMENT',
+    bool native = false,
   }) async {
     repository.items[0] = _row(type);
     mediaResponse = () => {
@@ -173,7 +191,23 @@ void main() {
       'playbackUrl': 'https://example.test/current.mp4',
     };
     await mount(tester);
-    await tester.tap(find.text('Target notification'));
+    if (native) {
+      final target = PushTarget.parseNativeMetadata({
+        'notificationId': _notice,
+        'recipientId': _user,
+        'type': 'ADMIN_BROADCAST',
+      });
+      expect(target, isNotNull);
+      unawaited(
+        NotificationDirectOpen.start(
+          navigator.currentContext!,
+          identity: _notice,
+          builder: (_) => CustomNotificationOpenScreen(target: target!),
+        ),
+      );
+    } else {
+      await tester.tap(find.text('Target notification'));
+    }
     for (
       var frame = 0;
       frame < 12 &&
@@ -243,7 +277,31 @@ void main() {
     },
   );
 
-  for (final type in PushTarget.mediaTypes) {
+  for (final role in ['MUSICIAN', 'LISTENER', 'VENUE', 'STUDIO']) {
+    for (final native in [false, true]) {
+      testWidgets(
+        'ADMIN_BROADCAST CONTENT recipient=$role native=$native waits for real playable video',
+        (tester) async {
+          // Set the initial identity before this fixture starts its cubit.
+          sessions.current = audienceSession(user: _user, role: 'ROLE_$role');
+          await openVideo(tester, type: 'ADMIN_BROADCAST', native: native);
+          unread();
+          await initialize(tester, 1);
+          await paintMedia(tester);
+          expect(repository.readIds, [_notice]);
+          expect(repository.items.last.read, isFalse);
+          expect(cubit.state.unreadCount, 1);
+          expect(
+            api.requests.where((r) => r.path.endsWith('/custom-target')),
+            hasLength(1),
+          );
+          await finish(tester);
+        },
+      );
+    }
+  }
+
+  for (final type in {...PushTarget.mediaTypes, ...PushTarget.customTypes}) {
     for (final fail in [false, true]) {
       testWidgets(
         '$type initialized then ${fail ? "platform error before ACK stays unread" : "visible video acknowledges exactly once"}',
@@ -340,7 +398,9 @@ void main() {
       await paintMedia(tester);
       unread(attempts: 1);
       pendingAck = Completer<void>();
-      final retry = tester.widget<SnackBarAction>(find.byType(SnackBarAction)).onPressed;
+      final retry = tester
+          .widget<SnackBarAction>(find.byType(SnackBarAction))
+          .onPressed;
       retry();
       retry();
       await tester.pump();

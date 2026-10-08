@@ -6,11 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_router.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
+import 'package:soundconnect_23_12_25codx/core/auth/auth_session.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
 import 'package:soundconnect_23_12_25codx/core/error/app_error.dart';
 import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/core/pagination/page.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_commands.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/domain/collab_repository.dart';
@@ -29,6 +31,7 @@ import 'package:soundconnect_23_12_25codx/modules/instrument/domain/instrument_r
 import 'package:soundconnect_23_12_25codx/modules/location/domain/entities/city.dart';
 import 'package:soundconnect_23_12_25codx/modules/location/domain/location_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/app_notification.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_target_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_state.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/notification_target_read.dart';
@@ -44,6 +47,7 @@ import 'package:soundconnect_23_12_25codx/modules/tablegroup/presentation/screen
 
 import 'support/collab_test_support.dart';
 import 'support/event_audience_fakes.dart';
+import 'support/recording_api_client.dart';
 
 void main() {
   late AudienceTestSessions sessions;
@@ -77,6 +81,7 @@ void main() {
     required String type,
     String? namedRoute,
     Object? arguments,
+    String? customModule,
   }) async {
     tester.view.physicalSize = const Size(420, 1000);
     tester.view.devicePixelRatio = 1;
@@ -94,20 +99,39 @@ void main() {
         ),
       ),
     );
-    final ticket = NotificationTargetRead(
-      notification: AppNotification(
-        id: 'notification',
-        recipientId: 'owner',
-        type: type,
-        title: 'Bildirim',
-        message: '',
-        read: false,
-        createdAt: DateTime.utc(2026, 9, 27),
-        payload: const {},
-      ),
-      cubit: notifications,
-      sessions: sessions,
+    final notification = AppNotification(
+      id: customModule == null
+          ? 'notification'
+          : '50000000-0000-4000-8000-000000000001',
+      recipientId: 'owner',
+      type: type,
+      title: 'Bildirim',
+      message: '',
+      read: false,
+      createdAt: DateTime.utc(2026, 9, 27),
+      payload: const {},
     );
+    final ticket = customModule == null
+        ? NotificationTargetRead(
+            notification: notification,
+            cubit: notifications,
+            sessions: sessions,
+          )
+        : NotificationTargetRead.module(
+            notification: notification,
+            cubit: notifications,
+            sessions: sessions,
+            kind: customModule,
+            content: Object(),
+            repository: NotificationTargetRepository(
+              RecordingApiClient((r) {
+                expect(r.path, endsWith('/${notification.id}/read'));
+                notifications.readIds.add(notification.id);
+                return null;
+              }),
+              sessions,
+            ),
+          );
     if (namedRoute == null) {
       unawaited(
         navigator.currentState!.push<void>(
@@ -126,6 +150,111 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     return navigator;
+  }
+
+  for (final module in ['HOME', 'EVENTS']) {
+    testWidgets(
+      'custom $module real admin home only reads matching authorized surface',
+      (tester) async {
+        sessions.replace(
+          audienceSession(user: 'owner', role: 'ROLE_MUSICIAN', isAdmin: true),
+        );
+        await open(
+          tester,
+          const SizedBox.shrink(),
+          type: 'ADMIN_BROADCAST',
+          namedRoute: AppRoutes.adminDashboard,
+          customModule: module,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(AdminDashboardScreen), findsOneWidget);
+        expect(find.text('Admin Paneli'), findsOneWidget);
+        expect(
+          notifications.readIds,
+          module == 'HOME' ? ['50000000-0000-4000-8000-000000000001'] : isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final success in [false, true]) {
+    for (final module in ['TABLES', 'EVENTS']) {
+      testWidgets(
+        'custom $module real Table page success=$success only reads matching loaded surface',
+        (tester) async {
+          final repository = _TableRepository();
+          serviceLocator.registerFactory<TableGroupListCubit>(
+            () => TableGroupListCubit(
+              tableGroupRepository: repository,
+              locationRepository: _Locations(),
+            ),
+          );
+          await open(
+            tester,
+            const SizedBox.shrink(),
+            type: 'ADMIN_BROADCAST',
+            namedRoute: AppRoutes.tableGroupList,
+            customModule: module,
+          );
+          expect(notifications.readIds, isEmpty);
+          repository.page.complete(
+            success
+                ? const Result.success(Page(items: [], hasNext: false))
+                : const Result.failure(
+                    AppError(code: 'NETWORK', message: 'Liste yüklenemedi.'),
+                  ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump();
+          expect(
+            notifications.readIds,
+            success && module == 'TABLES'
+                ? ['50000000-0000-4000-8000-000000000001']
+                : isEmpty,
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
+  for (final module in ['COLLAB', 'EVENTS']) {
+    testWidgets(
+      'custom $module real Collab discovery needs matching loaded content',
+      (tester) async {
+        final repository = _CollabRepository()..discovery = Completer();
+        final discovery = CollabDiscoveryCubit(repository);
+        await open(
+          tester,
+          CollabDiscoveryScreen(
+            showBottomNavigation: false,
+            cubit: discovery,
+            locationRepository: _Locations(),
+            instrumentRepository: _Instruments(),
+          ),
+          type: 'ADMIN_BROADCAST',
+          customModule: module,
+        );
+        expect(notifications.readIds, isEmpty);
+        repository.discovery!.complete(
+          Result.success(_collabPage<CollabListing>([])),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          notifications.readIds,
+          module == 'COLLAB'
+              ? ['50000000-0000-4000-8000-000000000001']
+              : isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await discovery.close();
+      },
+    );
   }
 
   for (final targetExists in [false, true]) {
@@ -296,18 +425,26 @@ class _RecordingNotifications extends Cubit<NotificationState>
   }
 
   @override
+  Future<void> applyConfirmedExternalRead(
+    AppNotification notification,
+    AuthSession session,
+  ) async {}
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _CollabRepository extends Fake implements CollabRepository {
   final incoming = Completer<Result<CollabPage<CollabApplication>>>();
   int discoverCalls = 0;
+  Completer<Result<CollabPage<CollabListing>>>? discovery;
 
   @override
   Future<Result<CollabPage<CollabListing>>> discover(
     CollabDiscoveryQuery query,
   ) async {
     discoverCalls++;
+    if (discovery != null) return discovery!.future;
     return Result.success(_collabPage<CollabListing>([]));
   }
 

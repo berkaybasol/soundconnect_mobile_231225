@@ -58,12 +58,14 @@ import 'package:soundconnect_23_12_25codx/core/push/push_provider.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/domain/dm_user_profile_resolver.dart';
 import 'package:soundconnect_23_12_25codx/modules/dm/data/dm_user_profile_resolver_impl.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_target_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/data/custom_notification_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/data/notification_realtime_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/entities/app_notification.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/domain/notification_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/cubit/notification_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/notification_target_read.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/follow_notification_open_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/custom_notification_open_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/notification/presentation/screens/notification_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_profile.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_repository.dart';
@@ -81,10 +83,20 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_r
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/band_summary.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/band_invite_decision_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/my_bands_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listener_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/venue_owner_profile.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/profile_venue_models.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/profile_search_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/domain/venue_directory_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/location/domain/location_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/musician_profile_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
+import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/venue_profile_screen.dart';
 
 part 'follow_notification_open_test_register_follow_notification_open1.dart';
 part 'follow_notification_open_test_register_follow_notification_open2.dart';
 part 'follow_notification_open_test_cases.dart';
+part 'follow_notification_owner_profile_cases.dart';
 
 const recipient = '10000000-0000-0000-0000-000000000001';
 
@@ -151,6 +163,28 @@ class _ProfileRepository extends Fake implements MusicianProfileRepository {
   bool failure = false, wrong = false;
 
   @override
+  Future<Result<MusicianProfile>> getMyProfile() async => const Result.success(
+    MusicianProfile(
+      id: '40000000-0000-4000-8000-000000000001',
+      userId: recipient,
+      username: 'recipient-artist',
+      stageName: null,
+      bio: null,
+      profilePicture: null,
+      instagramUrl: null,
+      youtubeUrl: null,
+      soundcloudUrl: null,
+      spotifyEmbedUrl: null,
+      spotifyArtistId: null,
+      spotifyTrackIds: [],
+      spotifyTracks: [],
+      instruments: [],
+      activeVenues: [],
+      bands: [],
+    ),
+  );
+
+  @override
   Future<Result<MusicianProfile>> getPublicProfileByProfileId(
     String profileId,
   ) async {
@@ -174,6 +208,11 @@ class _MediaRepository extends Fake implements ProfileMediaRepository {
 
 class _ConnectionRepository extends Fake
     implements ArtistVenueConnectionRepository {
+  @override
+  Future<Result<List<VenueConnection>>> getVenueConnectionsByStatus(
+    String musicianProfileId, {
+    required String status,
+  }) async => const Result.success([]);
   List<ArtistVenueApplication> items = [];
   int pageReads = 0;
   ArtistVenueApplicationTarget? target;
@@ -520,6 +559,12 @@ StudioPage<T> _emptyPage<T>() => StudioPage(
 
 class _Rooms extends Fake implements StudioRoomRepository {
   @override
+  Future<Result<StudioPage<StudioRoom>>> listOwnerRooms({
+    int page = 0,
+    int size = 10,
+  }) async => Result.success(_emptyPage());
+
+  @override
   Future<Result<StudioPage<StudioRoom>>> listPublicRooms(
     String id, {
     int page = 0,
@@ -528,6 +573,15 @@ class _Rooms extends Fake implements StudioRoomRepository {
 }
 
 class _Equipment extends Fake implements StudioEquipmentRepository {
+  @override
+  Future<Result<StudioPage<StudioEquipment>>> listOwnerEquipment({
+    String? query,
+    String? categoryId,
+    StudioEquipmentAvailabilityBucket? availabilityBucket,
+    required int page,
+    required int size,
+  }) async => Result.success(_emptyPage());
+
   @override
   Future<Result<StudioPage<StudioEquipment>>> listPublicEquipment({
     required String studioProfileId,

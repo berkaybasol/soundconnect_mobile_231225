@@ -294,14 +294,19 @@ class _CollabDiscoveryScreenState extends State<_CollabDiscoveryScreenContent> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           NotificationTargetReady(
+                            customModuleKinds: const {'COLLAB'},
                             ready:
                                 state.status == CollabLoadStatus.success &&
-                                _routeArgsFor(widget).target ==
-                                    CollabDeepLinkTarget.discovery &&
-                                _routeArgsFor(
-                                      widget,
-                                    ).action?.trim().toUpperCase() ==
-                                    'REPORT_RESOLVED',
+                                (NotificationTargetRead.isCustomModule(
+                                      context,
+                                      'COLLAB',
+                                    ) ||
+                                    (_routeArgsFor(widget).target ==
+                                            CollabDeepLinkTarget.discovery &&
+                                        _routeArgsFor(
+                                              widget,
+                                            ).action?.trim().toUpperCase() ==
+                                            'REPORT_RESOLVED')),
                             child: _DiscoveryHeader(
                               onApplicationsTap: _openMyApplications,
                               onJobsTap: _openMyJobs,

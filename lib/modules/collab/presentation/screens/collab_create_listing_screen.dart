@@ -11,6 +11,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/utils/turkish_alphabetical.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
+import '../../../../shared/widgets/soundconnect_time_picker.dart';
 import '../../../instrument/domain/entities/instrument.dart';
 import '../../../instrument/domain/instrument_repository.dart';
 import '../../../location/domain/entities/city.dart';
@@ -651,7 +652,7 @@ class _CollabCreateListingScreenState
 
   Future<void> _pickTime() async {
     final current = _occurrenceTime;
-    final picked = await showTimePicker(
+    final picked = await showSoundConnectTimePicker(
       context: context,
       initialTime: TimeOfDay(
         hour: current?.hour ?? 21,

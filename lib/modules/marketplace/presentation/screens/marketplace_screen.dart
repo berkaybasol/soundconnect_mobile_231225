@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../notification/presentation/notification_target_read.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -234,7 +235,15 @@ class _MarketplaceHomeState extends State<_MarketplaceHome> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _MarketplaceIntro(),
+                    NotificationTargetReady(
+                      customModuleKinds: const {'HOME', 'MARKETPLACE'},
+                      ready:
+                          !_browse.loading &&
+                          _browse.error == null &&
+                          !_catalogLoading &&
+                          _catalogError == null,
+                      child: const _MarketplaceIntro(),
+                    ),
                     const SizedBox(height: 10),
                     Text(
                       'Sıfır ve ikinci el enstrüman, ses ve sahne ekipmanlarını keşfet.',

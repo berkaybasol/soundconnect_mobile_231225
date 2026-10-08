@@ -68,7 +68,10 @@ void main() {
     await flush();
   }
 
-  for (final type in PushTarget.overthinkingTypes) {
+  for (final type in {
+    ...PushTarget.overthinkingTypes,
+    ...PushTarget.customTypes,
+  }) {
     Map<String, dynamic> identity() => {
       'notificationId': '50000000-0000-4000-8000-000000000001',
       'recipientId': '70000000-0000-4000-8000-000000000001',
@@ -78,7 +81,13 @@ void main() {
       final now = DateTime.now().millisecondsSinceEpoch;
       return {
         ...identity(),
-        'presentationVersion': 'ANDROID_OVERTHINKING_V1',
+        'presentationVersion': PushTarget.customTypes.contains(type)
+            ? 'ANDROID_CUSTOM_V1'
+            : 'ANDROID_OVERTHINKING_V1',
+        if (PushTarget.customTypes.contains(type)) ...{
+          'title': 'Soundconnect duyurusu',
+          'body': 'Birlikte müzik yapalım.',
+        },
         'sentAt': '$now',
         'expiresAt': '${now + 60000}',
       };
@@ -109,6 +118,11 @@ void main() {
           {...valid, 'sentAt': '0$now'},
           {...valid, 'sentAt': '9223372036854775808'},
           {...valid, 'sentAt': '${now + 60000}'},
+          if (PushTarget.customTypes.contains(type)) ...[
+            {...valid, 'title': 'unsafe\u202E'},
+            {...valid, 'body': 'x' * 501},
+            {...valid, 'url': 'https://untrusted.invalid'},
+          ],
           {...valid, 'expiresAt': '${now - 1000}'},
           {
             ...valid,

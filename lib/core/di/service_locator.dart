@@ -10,6 +10,7 @@ import '../push/push_installation_store.dart';
 import '../../shared/images/private_media_image_cache.dart';
 import '../../modules/admin/data/musician_feed_report_admin_repository_impl.dart';
 import '../../modules/admin/data/marketplace_report_admin_repository.dart';
+import '../../modules/admin/data/notification_campaign_repository.dart';
 import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
 import '../../modules/analytics/data/analytics_collection_repository_impl.dart';
 import '../../modules/analytics/data/analytics_tracker.dart';
@@ -89,6 +90,7 @@ import '../../modules/instrument/presentation/cubit/instrument_cubit.dart';
 import '../../modules/notification/data/notification_realtime_client.dart';
 import '../../modules/notification/data/notification_repository_impl.dart';
 import '../../modules/notification/data/notification_target_repository.dart';
+import '../../modules/notification/data/custom_notification_repository.dart';
 import '../../modules/notification/data/notification_media_repository.dart';
 import '../../modules/notification/domain/notification_repository.dart';
 import '../../modules/notification/presentation/cubit/notification_cubit.dart';
@@ -328,6 +330,18 @@ void setupDependencies() {
     )
     ..registerLazySingleton<NotificationTargetRepository>(
       () => NotificationTargetRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<CustomNotificationRepository>(
+      () => CustomNotificationRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<NotificationCampaignRepository>(
+      () => NotificationCampaignRepository(
         serviceLocator<ApiClient>(),
         serviceLocator<AuthSessionManager>(),
       ),

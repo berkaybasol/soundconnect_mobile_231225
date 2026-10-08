@@ -1,5 +1,6 @@
 class AppRoutes {
   static const adminDashboard = '/admin';
+  static const adminNotificationCampaigns = '/admin/notifications/campaigns';
   static const adminAnnouncements = '/admin/feed/announcements';
   static const announcements = '/announcements';
   static const adminMusicianFeedReports = '/admin/musician-feed/reports';

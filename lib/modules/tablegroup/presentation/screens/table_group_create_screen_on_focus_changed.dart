@@ -151,7 +151,7 @@ extension _TableGroupCreateScreenStateOnFocusChangedMethods
 
   Future<void> _pickTime() async {
     if (_cubit.state.status == TableGroupCreateStatus.submitting) return;
-    final picked = await showTimePicker(
+    final picked = await showSoundConnectTimePicker(
       context: context,
       initialTime: _selectedTime,
       builder: (context, child) {

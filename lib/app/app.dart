@@ -1,4 +1,5 @@
 import '../modules/notification/presentation/notification_direct_open.dart';
+import '../modules/notification/presentation/screens/custom_notification_open_screen.dart';
 import '../modules/auth/presentation/screens/venue_application_decision_screen.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import 'dart:async';
@@ -260,7 +261,9 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
         );
         return;
       }
-      final Widget? opener = target.isCollab || target.isOverthinking
+      final Widget? opener = target.type == 'ADMIN_BROADCAST'
+          ? CustomNotificationOpenScreen(target: target)
+          : target.isCollab || target.isOverthinking
           ? InboxProductNotificationOpen.native(target: target)
           : target.isTable
           ? TableNotificationOpenScreen.native(target: target)

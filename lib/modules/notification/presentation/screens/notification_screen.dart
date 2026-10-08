@@ -1,4 +1,5 @@
 import 'inbox_product_notification_open.dart';
+import 'custom_notification_open_screen.dart';
 import '../notification_direct_open.dart';
 import 'band_notification_open_screen.dart';
 import 'venue_notification_open_screen.dart';
@@ -386,6 +387,12 @@ class _NotificationTileState extends State<_NotificationTile> {
     if (!_currentOpen) return;
     setState(() => _openingTarget = true);
     try {
+      if (notification.type == 'ADMIN_BROADCAST') {
+        await _openDirect(
+          CustomNotificationOpenScreen(target: _pushTargetFor()),
+        );
+        return;
+      }
       if (PushTarget.venueApplicationTypes.contains(notification.type)) {
         await Navigator.of(context).push<void>(
           MaterialPageRoute(

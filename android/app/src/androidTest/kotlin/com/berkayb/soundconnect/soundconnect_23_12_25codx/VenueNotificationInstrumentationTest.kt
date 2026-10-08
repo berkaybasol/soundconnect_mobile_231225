@@ -377,6 +377,68 @@ class VenueNotificationInstrumentationTest {
         assertEquals(setOf(candidate.notificationId), venueChildren().map { it.tag }.toSet())
     }
 
+    @Test fun customDisplayCopySharesPrivateGroupingAndExactChildLifecycle() {
+        val dm = postDm()
+        val venue = postVenue()
+        val first = customPayload()
+        val second = customPayload()
+        postVenue(first)
+        postVenue(second)
+        val card = child(first.notificationId).notification
+        assertEquals(first.title, card.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+        assertEquals(first.body, card.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertEquals(first.body, card.extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
+        assertEquals(Notification.VISIBILITY_PRIVATE, card.visibility)
+        assertEquals(R.drawable.ic_notification, card.smallIcon.resId)
+        assertEquals(ContextCompat.getColor(context, R.color.soundconnect_icon_accent), card.color)
+        assertEquals("Soundconnect", card.publicVersion.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+        assertEquals("Yeni bir bildirimin var.", card.publicVersion.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertFalse(card.publicVersion.extras.toString().contains(first.title))
+        assertFalse(card.publicVersion.extras.toString().contains(first.body))
+        assertFalse(venueSummary(3).notification.extras.toString().contains(first.title))
+        assertEquals(binding.epoch, card.extras.getString(PushDeliveredPolicy.EPOCH_EXTRA))
+        assertEquals(setOf("notificationId", "recipientId", "type"), first.target().keys)
+        assertNotEquals(card.contentIntent, child(second.notificationId).notification.contentIntent)
+        assertFalse(renderer().post(first, binding, scheduleWork = false))
+        PushNotificationState.dismissNotification(context, binding, first.notificationId)
+        assertFalse(renderer().post(first, binding, scheduleWork = false))
+        PushNotificationState.expireNotification(context, binding, second.notificationId, second.expiresAt, second.expiresAt)
+        assertFalse(renderer().post(second, binding, scheduleWork = false))
+        eventually("Custom dismissal/expiry preserve unrelated children") {
+            children().map { it.tag }.toSet() == setOf(dm, venue)
+        }
+        venueSummary(1)
+        dmSummary()
+    }
+
+    @Test fun customDisplayAndSessionGuardsRejectWithoutReservingTheLedger() {
+        val candidate = customPayload()
+        ids.add(candidate.notificationId)
+        val old = binding
+        binding = bindingFixture(old.recipient)
+        assertFalse(renderer().post(candidate, old, scheduleWork = false))
+        assertFalse(renderer().post(candidate.copy(recipientId = UUID.randomUUID().toString()), binding, scheduleWork = false))
+        assertFalse(renderer().post(candidate.copy(customTitle = "unsafe\u202E"), binding, scheduleWork = false))
+        assertFalse(renderer().post(candidate.copy(customBody = "x".repeat(501)), binding, scheduleWork = false))
+        assertFalse(renderer().post(candidate.copy(type = "SOCIAL_NEW_FOLLOWER"), binding, scheduleWork = false))
+        assertFalse(renderer().post(candidate.copy(expiresAt = System.currentTimeMillis()), binding, scheduleWork = false))
+        assertFalse(VenueNotificationRenderer(context) { true }.post(candidate, binding, scheduleWork = false))
+        assertFalse(PushNotificationLedger.seen(context, binding.recipient, candidate.notificationId, System.currentTimeMillis()))
+        assertTrue(owned().isEmpty())
+        postVenue(candidate)
+        PushNotificationState.dismissGroup(context, old, setOf(candidate.notificationId))
+        assertEquals(setOf(candidate.notificationId), venueChildren().map { it.tag }.toSet())
+    }
+
+    private fun customPayload(): VenuePushPayload {
+        val now = System.currentTimeMillis()
+        return requireNotNull(VenuePushPayload.parse(mapOf(
+            "presentationVersion" to "ANDROID_CUSTOM_V1", "type" to "ADMIN_BROADCAST",
+            "notificationId" to UUID.randomUUID().toString(), "recipientId" to binding.recipient,
+            "title" to "Özel duyuru 🎵", "body" to "Birlikte müzik yapmaya hazır mısın?",
+            "sentAt" to now.toString(), "expiresAt" to (now + 300_000).toString()), now))
+    }
+
     private fun studioPayload(type: String, variant: String): VenuePushPayload {
         val now = System.currentTimeMillis()
         return VenuePushPayload.parse(mapOf(

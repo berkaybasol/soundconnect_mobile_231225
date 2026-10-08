@@ -3,6 +3,7 @@ import '../../core/policy/access_policy.dart';
 import '../../core/policy/profile_feed_availability.dart';
 import '../../modules/admin/domain/musician_feed_report_admin.dart';
 import '../../modules/admin/domain/marketplace_report_admin.dart';
+import '../../modules/admin/domain/notification_campaign.dart';
 import '../../modules/musician_feed/domain/backstage_feed_session.dart';
 import '../../modules/promotion/domain/announcement_access.dart';
 import 'app_routes.dart';
@@ -123,6 +124,10 @@ class AppRouteGuard {
     }
 
     if (requested == AppRoutes.adminDashboard && !session.isAdmin) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminNotificationCampaigns &&
+        !canManageNotificationCampaigns(session)) {
       return startRouteFor(session);
     }
     if (requested == AppRoutes.adminAnnouncements &&

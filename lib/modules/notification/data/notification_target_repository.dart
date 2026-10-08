@@ -312,18 +312,28 @@ class NotificationTargetRepository {
             throw const FormatException('Wrong owned occurrence');
           }
           if (!collab) {
-            const keys = {'module', 'action', 'postId', 'revealRequestId',
-              'requestStatus', 'sourceEventId', 'identityVersion'};
+            const keys = {
+              'module',
+              'action',
+              'postId',
+              'revealRequestId',
+              'requestStatus',
+              'sourceEventId',
+              'identityVersion',
+            };
             final payload = item.payload;
             final status = payload['requestStatus'];
-            if (payload.keys.length != keys.length || !payload.keys.toSet().containsAll(keys) ||
+            if (payload.keys.length != keys.length ||
+                !payload.keys.toSet().containsAll(keys) ||
                 payload['identityVersion'] != 1 ||
                 !PushTarget.isUuid(payload['postId']) ||
                 !PushTarget.isUuid(payload['revealRequestId']) ||
                 !PushTarget.isUuid(payload['sourceEventId']) ||
                 !const {'PENDING', 'APPROVED', 'REJECTED'}.contains(status) ||
-                (item.type == 'OVERTHINKING_REVEAL_REQUEST_APPROVED' && status != 'APPROVED') ||
-                (item.type == 'OVERTHINKING_REVEAL_REQUEST_REJECTED' && status != 'REJECTED')) {
+                (item.type == 'OVERTHINKING_REVEAL_REQUEST_APPROVED' &&
+                    status != 'APPROVED') ||
+                (item.type == 'OVERTHINKING_REVEAL_REQUEST_REJECTED' &&
+                    status != 'REJECTED')) {
               throw const FormatException('Invalid exact reveal target');
             }
           }
@@ -519,6 +529,7 @@ class NotificationTargetRepository {
     AuthSession session,
   ) async {
     final follow =
+        notification.type == 'ADMIN_BROADCAST' ||
         PushTarget.followTypes.contains(notification.type) ||
         PushTarget.mediaTypes.contains(notification.type) ||
         PushTarget.bandTypes.contains(notification.type) ||

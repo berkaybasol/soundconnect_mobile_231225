@@ -6,6 +6,7 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
 import '../../../../shared/widgets/soundconnect_date_picker.dart';
+import '../../../../shared/widgets/soundconnect_time_picker.dart';
 import '../../../musician_feed/presentation/musician_feed_visual_theme.dart';
 import '../../../profile/domain/media_gallery_repository.dart';
 import '../../../profile/presentation/screens/video_reel_screen.dart';
@@ -463,7 +464,7 @@ class _AnnouncementEditorScreenState extends State<AnnouncementEditorScreen> {
       helpText: start ? 'Yayın başlangıcı' : 'Yayın bitişi',
     );
     if (!mounted || !_current || day == null) return;
-    final time = await showTimePicker(
+    final time = await showSoundConnectTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime((start ? _startsAt : _endsAt) ?? now),
     );

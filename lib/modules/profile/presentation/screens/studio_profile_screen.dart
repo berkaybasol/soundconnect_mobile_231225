@@ -107,8 +107,12 @@ class StudioProfileScreen extends StatelessWidget {
       builder: (context) => MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (_) =>
-                serviceLocator<StudioProfileCubit>()..loadMyProfile(),
+            create: (_) => serviceLocator<StudioProfileCubit>()
+              ..loadMyProfile(
+                admitContent: NotificationTargetRead.beginFollowRequest(
+                  context,
+                ),
+              ),
           ),
           BlocProvider(create: (_) => serviceLocator<ProfileMediaCubit>()),
           BlocProvider(create: (_) => serviceLocator<FollowCountCubit>()),
@@ -360,7 +364,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
         );
       }
     } else {
-      await profileCubit.loadMyProfile();
+      await profileCubit.loadMyProfile(
+        admitContent: NotificationTargetRead.beginFollowRequest(context),
+      );
     }
     if (!mounted) return;
 
@@ -405,7 +411,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       // The upload pipeline already attaches the media through the Studio
       // profile endpoint, which advances the optimistic version. Reload the
       // authoritative profile instead of issuing a stale duplicate update.
-      await profileCubit.loadMyProfile();
+      await profileCubit.loadMyProfile(
+        admitContent: NotificationTargetRead.beginFollowRequest(context),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -701,7 +709,13 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
         action: SnackBarAction(
           label: 'Tekrar Dene',
           onPressed: () async {
-            if (!profileCubit.isClosed) await profileCubit.loadMyProfile();
+            if (!profileCubit.isClosed) {
+              await profileCubit.loadMyProfile(
+                admitContent: NotificationTargetRead.beginFollowRequest(
+                  context,
+                ),
+              );
+            }
           },
         ),
       ),
@@ -720,8 +734,10 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
         builder: (_) => StudioManagementPanelScreen(profile: profile),
       ),
     );
-    if (!mounted) return;
-    await profileCubit.loadMyProfile();
+    if (!mounted || !context.mounted) return;
+    await profileCubit.loadMyProfile(
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
+    );
     if (mounted) setState(() => _contentRevision++);
   }
 
@@ -734,7 +750,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
       onSettings: () async {
         await Navigator.of(context).pushNamed(AppRoutes.settings);
         if (!context.mounted) return;
-        await context.read<StudioProfileCubit>().loadMyProfile();
+        await context.read<StudioProfileCubit>().loadMyProfile(
+          admitContent: NotificationTargetRead.beginFollowRequest(context),
+        );
       },
       onProfileContact: _showProfileContactEditor,
       onManagement: () => _openManagementPanel(context),

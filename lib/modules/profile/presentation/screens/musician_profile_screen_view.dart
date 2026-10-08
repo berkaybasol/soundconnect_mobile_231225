@@ -40,6 +40,7 @@ class _MusicianPublicProfileViewState
     if (!_canPresent) return;
     await context.read<MusicianProfileCubit>().loadMyProfile(
       canPresent: () => _canPresent,
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
     );
   }
 
@@ -219,6 +220,7 @@ class _MusicianPublicProfileViewState
               : followState.followingCount;
           final actionState = context.watch<FollowActionCubit>().state;
           return NotificationTargetReady(
+            contentIdentity: profile,
             ready:
                 state.status == MusicianProfileStatus.success &&
                 _profileActionSession.isCurrent &&

@@ -94,6 +94,35 @@ void main() {
     expect((await first).isSuccess, isTrue);
   });
 
+  test(
+    'notification admission starts a fresh owner request after a plain refresh',
+    () async {
+      final oldPending = Completer<Result<MusicianProfile>>();
+      repository.pendingRead = oldPending;
+      final oldLoad = cubit.loadMyProfile();
+      final freshPending = Completer<Result<MusicianProfile>>();
+      repository.pendingRead = freshPending;
+      final admitted = <Object>[];
+      final freshLoad = cubit.loadMyProfile(
+        admitContent: (value, id, user) {
+          expect(id, 'profile');
+          expect(user, 'owner');
+          admitted.add(value);
+          return true;
+        },
+      );
+      expect(repository.ownerReads, 2);
+      oldPending.complete(Result.success(_profile(bio: 'Old response')));
+      await oldLoad;
+      expect(admitted, isEmpty);
+      final fresh = _profile(bio: 'Fresh response');
+      freshPending.complete(Result.success(fresh));
+      await freshLoad;
+      expect(admitted, [same(fresh)]);
+      expect(cubit.state.profile, same(fresh));
+    },
+  );
+
   test('older owner load cannot roll back a later successful save', () async {
     repository.pendingRead = Completer<Result<MusicianProfile>>();
     final oldLoad = cubit.loadMyProfile();

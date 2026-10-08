@@ -1,5 +1,6 @@
 import '../notification_direct_open.dart';
 import 'dart:async';
+import '../notification_profile_selection.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/auth/auth_session_manager.dart';
@@ -146,52 +147,17 @@ class _FollowNotificationOpenScreenState
           _error = 'Bu bildirimin profili şu anda kullanılamıyor.';
           return;
         }
-        DmProfileTarget? selected = targets.singleOrNull;
-        if (selected == null) {
-          selected = await showModalBottomSheet<DmProfileTarget>(
-            context: context,
-            showDragHandle: true,
-            builder: (sheetContext) => SafeArea(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  const ListTile(title: Text('Açmak istediğin profili seç')),
-                  for (final t in targets)
-                    ListTile(
-                      title: Text(t.displayName),
-                      subtitle: Text(switch (t.type) {
-                        DmProfileTargetType.musician => 'Müzisyen',
-                        DmProfileTargetType.venue => 'Mekân',
-                        DmProfileTargetType.listener => 'Dinleyici',
-                        DmProfileTargetType.studio => 'Stüdyo',
-                      }),
-                      onTap: () => Navigator.pop(sheetContext, t),
-                    ),
-                ],
-              ),
-            ),
-          );
-          if (!_current || !_foreground || selected == null) {
-            _error = 'Profil seçimi tamamlanmadı.';
-            return;
-          }
-          // Selection can stay open while visibility changes. Re-resolve without
-          // either positive/negative DM cache before authorizing that choice.
-          final fresh = await followResolver.resolveFreshForFollow(
-            userId: targetUserId,
-            session: _session,
-          );
-          if (!_current ||
-              !_foreground ||
-              !fresh.isSuccess ||
-              !fresh.data!.any(
-                (t) =>
-                    !t.isStudioRestricted &&
-                    t.id == selected!.id &&
-                    t.type == selected.type,
-              )) {
-            return;
-          }
+        final selected = await selectNotificationProfile(
+          context: context,
+          profiles: targets,
+          resolver: followResolver,
+          userId: targetUserId,
+          session: _session,
+          isCurrent: () => _current && _foreground,
+        );
+        if (!mounted || !_current || !_foreground || selected == null) {
+          _error = 'Profil seçimi tamamlanmadı.';
+          return;
         }
         final destination = dmProfileRouteFor(selected);
         if (destination == null ||

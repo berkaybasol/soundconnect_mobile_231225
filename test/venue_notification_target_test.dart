@@ -217,7 +217,7 @@ void main() {
       );
       expect(
         (api.calls.single.body as Map)['presentationVersion'],
-        'ANDROID_NATIVE_V10',
+        'ANDROID_NATIVE_V11',
       );
       await devices.savePreferences(
         sessions.session,

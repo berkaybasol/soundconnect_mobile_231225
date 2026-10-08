@@ -7,13 +7,22 @@ internal data class VenuePushPayload(
     val type: String,
     val displayVariant: String,
     val sentAt: Long,
-    val expiresAt: Long
+    val expiresAt: Long,
+    val customTitle: String? = null,
+    val customBody: String? = null
 ) {
-    val body: String get() = requireNotNull(bodyFor(type, displayVariant))
+    val isCustom: Boolean get() = type == CUSTOM_TYPE
+    val title: String get() = if (isCustom) requireNotNull(customTitle) else "Soundconnect"
+    val body: String get() = if (isCustom) requireNotNull(customBody) else requireNotNull(bodyFor(type, displayVariant))
+    fun hasValidDisplay(): Boolean = if (isCustom) {
+        displayVariant == "DEFAULT" && validCustomText(customTitle, 120) && validCustomText(customBody, 500)
+    } else customTitle == null && customBody == null && bodyFor(type, displayVariant) != null
     fun target(): Map<String, String> = mapOf(
         "notificationId" to notificationId, "recipientId" to recipientId, "type" to type)
 
     companion object {
+        const val CUSTOM_TYPE = "ADMIN_BROADCAST"
+        const val CUSTOM_VERSION = "ANDROID_CUSTOM_V1"
         const val VERSION = "ANDROID_VENUE_V1"
         const val APPLICATION_VERSION = "ANDROID_VENUE_APPLICATION_V1"
         const val STUDIO_VERSION = "ANDROID_STUDIO_V1"
@@ -51,6 +60,7 @@ internal data class VenuePushPayload(
         private const val REJECTED = "EVENT_PERFORMER_REJECTED"
         private val fields = setOf("presentationVersion", "notificationId", "recipientId", "type",
             "displayVariant", "sentAt", "expiresAt")
+        private val customFields = fields - "displayVariant" + setOf("title", "body")
         private val text = mapOf(
             ("OVERTHINKING_REVEAL_REQUEST_RECEIVED" to "DEFAULT") to "Anonim paylaşımına bir görüntüleme isteği geldi.",
             ("OVERTHINKING_REVEAL_REQUEST_APPROVED" to "DEFAULT") to "Profil görüntüleme isteğin kabul edildi.",
@@ -109,16 +119,32 @@ internal data class VenuePushPayload(
             ("STUDIO_RESERVATION_CANCELLED_BY_STUDIO" to "STUDIO_CANCELLED_BY_STUDIO") to "Stüdyo rezervasyonun iptal edildi.",
             ("STUDIO_RESERVATION_CANCELLED_BY_STUDIO" to "STUDIO_ROOM_ARCHIVED") to "Oda arşivlendiği için stüdyo rezervasyonun iptal edildi."
         )
-        fun supportsType(type: String?): Boolean = text.keys.any { it.first == type }
+        fun supportsType(type: String?): Boolean = type == CUSTOM_TYPE || text.keys.any { it.first == type }
         fun bodyFor(type: String, variant: String): String? = text[type to variant]
+
+        // Backend-normalized display text only. Never interpret markup, routes or
+        // control/bidi formatting received from an untrusted Firebase message.
+        internal fun validCustomText(value: String?, maxLength: Int): Boolean =
+            value != null && value.isNotBlank() && value.length <= maxLength &&
+                value == value.trim() && value.codePoints().noneMatch {
+                    Character.isISOControl(it) || Character.getType(it) == Character.FORMAT.toInt() ||
+                        Character.getType(it) == Character.SURROGATE.toInt() || it == 0x2028 || it == 0x2029
+                }
 
         fun parse(data: Map<String, String>, now: Long): VenuePushPayload? {
             val type = data["type"] ?: return null
+            val custom = type == CUSTOM_TYPE
             val overthinking = type in overthinkingTypes
-            if (now < 0 || data.keys != if (overthinking) fields - "displayVariant" else fields) return null
+            val expectedFields = when {
+                custom -> customFields
+                overthinking -> fields - "displayVariant"
+                else -> fields
+            }
+            if (now < 0 || data.keys != expectedFields) return null
             // Each family has its own closed wire contract. Enrollment capability
             // is enforced by the backend; a newer family never downgrades here.
             val version = when (type) {
+                CUSTOM_TYPE -> CUSTOM_VERSION
                 in overthinkingTypes -> OVERTHINKING_VERSION
                 in collabTypes -> COLLAB_VERSION
                 in tableTypes -> TABLE_VERSION
@@ -130,8 +156,10 @@ internal data class VenuePushPayload(
                 else -> VERSION
             }
             if (data["presentationVersion"] != version) return null
-            val variant = if (overthinking) "DEFAULT" else data["displayVariant"] ?: return null
-            if (bodyFor(type, variant) == null) return null
+            val variant = if (custom || overthinking) "DEFAULT" else data["displayVariant"] ?: return null
+            if (custom) {
+                if (!validCustomText(data["title"], 120) || !validCustomText(data["body"], 500)) return null
+            } else if (bodyFor(type, variant) == null) return null
             val notification = PushNotificationPayload.uuid(data["notificationId"]) ?: return null
             val recipient = PushNotificationPayload.uuid(data["recipientId"]) ?: return null
             val expiry = data["expiresAt"]?.toLongOrNull() ?: return null
@@ -140,13 +168,14 @@ internal data class VenuePushPayload(
             if (sent < 0 || sent >= expiry) return null
             // FOLLOW/MEDIA use the server's canonical positive decimal Long wire.
             // Positive operands and the ordering checks above make subtraction safe.
-            if ((overthinking || type in followTypes || type in mediaTypes || type in tableTypes || type in collabTypes) &&
+            if ((custom || overthinking || type in followTypes || type in mediaTypes || type in tableTypes || type in collabTypes) &&
                 (data["sentAt"] != sent.toString() || data["expiresAt"] != expiry.toString())) return null
             // Fast delivery may beat a slightly slow device clock. Neither the
             // expiry-from-now limit above nor the actual payload lifetime is extended.
-            if ((overthinking || type in followTypes || type in mediaTypes || type in tableTypes || type in collabTypes || type in bandTypes) &&
+            if ((custom || overthinking || type in followTypes || type in mediaTypes || type in tableTypes || type in collabTypes || type in bandTypes) &&
                 (sent <= 0 || sent - now > 5_000L || expiry - sent > 28L * 86400 * 1000)) return null
-            return VenuePushPayload(notification, recipient, type, variant, sent.coerceAtMost(now), expiry)
+            return VenuePushPayload(notification, recipient, type, variant, sent.coerceAtMost(now), expiry,
+                if (custom) data["title"] else null, if (custom) data["body"] else null)
         }
     }
 }

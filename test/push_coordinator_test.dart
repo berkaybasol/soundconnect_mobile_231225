@@ -958,6 +958,7 @@ void main() {
   for (final type in {
     ...PushTarget.tableTypes,
     ...PushTarget.overthinkingTypes,
+    ...PushTarget.customTypes,
   }) {
     for (final cold in [true, false]) {
       test('$type ${cold ? "cold" : "warm"} exact owner and dedup', () async {

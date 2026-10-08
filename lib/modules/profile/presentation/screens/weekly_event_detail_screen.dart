@@ -598,6 +598,7 @@ class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
     );
     return NotificationTargetReady(
       ready: true,
+      contentIdentity: event,
       child: TrackEventDetailView(
         eventId: event.id,
         enabled:

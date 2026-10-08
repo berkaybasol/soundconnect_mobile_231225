@@ -526,6 +526,7 @@ class _TableGroupListViewState extends State<_TableGroupListView>
         final currentUserProfileImage = _resolveCurrentUserProfileImage(state);
 
         return NotificationTargetReady(
+          customModuleKinds: const {'TABLES'},
           ready: _notificationFeedLoaded && !loading && state.feedError == null,
           child: Scaffold(
             backgroundColor: TableGroupSurfaceStyle.of(context).pageBase,

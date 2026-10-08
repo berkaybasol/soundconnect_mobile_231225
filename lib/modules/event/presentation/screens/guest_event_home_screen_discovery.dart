@@ -513,23 +513,27 @@ class _GuestDiscoveryState extends State<_GuestDiscoveryContent>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              // Compensate for the existing asset's transparent
-                              // left margin proportionally so the enlarged mark
-                              // keeps its alignment with the heading.
-                              child: Transform.translate(
-                                offset: const Offset(-204 * 10 / 190, 0),
-                                child: ClipRect(
-                                  child: SizedBox(
-                                    width: 204,
-                                    height: 42,
-                                    child: Image.asset(
-                                      'assets/Logoyanyana.png',
-                                      fit: BoxFit.fitWidth,
-                                      alignment: Alignment.center,
-                                      filterQuality: FilterQuality.high,
-                                      semanticLabel: 'SoundConnect',
+                            NotificationTargetReady(
+                              customModuleKinds: const {'EVENTS'},
+                              ready: !_loadingCities && _cityError == null,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                // Compensate for the existing asset's transparent
+                                // left margin proportionally so the enlarged mark
+                                // keeps its alignment with the heading.
+                                child: Transform.translate(
+                                  offset: const Offset(-204 * 10 / 190, 0),
+                                  child: ClipRect(
+                                    child: SizedBox(
+                                      width: 204,
+                                      height: 42,
+                                      child: Image.asset(
+                                        'assets/Logoyanyana.png',
+                                        fit: BoxFit.fitWidth,
+                                        alignment: Alignment.center,
+                                        filterQuality: FilterQuality.high,
+                                        semanticLabel: 'SoundConnect',
+                                      ),
                                     ),
                                   ),
                                 ),

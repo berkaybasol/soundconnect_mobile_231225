@@ -19,7 +19,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
-/** Fixed display copy, no cached actor/business identity and no conversation shortcut. */
+/** Validated display copy, no cached navigation target and no conversation shortcut. */
 internal class VenueNotificationRenderer(
     private val context: Context,
     private val foreground: () -> Boolean = { DmNotificationRenderer(context).foreground() }
@@ -37,7 +37,7 @@ internal class VenueNotificationRenderer(
                       scheduleWork: Boolean = true): Boolean {
         if (!PushFeatureGate.enabled(context) || foreground()
             || payload.recipientId != binding.recipient || payload.expiresAt <= System.currentTimeMillis()
-            || VenuePushPayload.bodyFor(payload.type, payload.displayVariant) == null
+            || !payload.hasValidDisplay()
             || !NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context,
                 Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
@@ -66,7 +66,7 @@ internal class VenueNotificationRenderer(
             })
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(context, R.color.soundconnect_icon_accent))
-            .setContentTitle("Soundconnect").setContentText(payload.body)
+            .setContentTitle(payload.title).setContentText(payload.body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(payload.body))
             .setGroup(VenueNotificationGroups.groupKey(binding))
             .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)

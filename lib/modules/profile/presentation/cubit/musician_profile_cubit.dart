@@ -39,11 +39,21 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     return super.close();
   }
 
-  Future<void> loadMyProfile({bool Function()? canPresent}) {
-    if (_ownerLoad != null && _ownerLoadGeneration == _generation) {
+  Future<void> loadMyProfile({
+    bool Function()? canPresent,
+    bool Function(Object, String, String?)? admitContent,
+  }) {
+    // A notification admission belongs to the request that captured its route.
+    // It must not reuse an older owner refresh without that admission callback.
+    if (admitContent == null &&
+        _ownerLoad != null &&
+        _ownerLoadGeneration == _generation) {
       return _ownerLoad!;
     }
-    final operation = _loadMyProfile(canPresent: canPresent);
+    final operation = _loadMyProfile(
+      canPresent: canPresent,
+      admitContent: admitContent,
+    );
     _ownerLoad = operation;
     _ownerLoadGeneration = _generation;
     return operation.whenComplete(() {
@@ -51,7 +61,10 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     });
   }
 
-  Future<void> _loadMyProfile({bool Function()? canPresent}) async {
+  Future<void> _loadMyProfile({
+    bool Function()? canPresent,
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     if (isClosed) return;
     // Reserve presentation before waiting: a later navigation must not be
     // replaced when this owner refresh resumes after the write commits.
@@ -69,6 +82,7 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
       ownerRead: true,
       reservedGeneration: generation,
       canPresent: canPresent,
+      admitContent: admitContent,
     );
   }
 

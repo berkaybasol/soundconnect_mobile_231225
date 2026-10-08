@@ -17,6 +17,8 @@ import 'cubit/notification_cubit.dart';
 import 'notification_read_recovery.dart';
 import '../../../shared/widgets/app_snack_bar.dart';
 
+part 'notification_target_retry_snack.dart';
+
 final notificationTargetRouteObserver = NotificationTargetRouteObserver();
 
 // Opt-in local debug evidence for devices that suppress the Flutter log tag.
@@ -140,6 +142,25 @@ class NotificationTargetRead {
   TableNotificationTarget? _tableContent;
   String? _followTargetId;
   Object? _mediaContent;
+  String? _customModule;
+
+  factory NotificationTargetRead.module({
+    required AppNotification notification,
+    required NotificationCubit cubit,
+    required AuthSessionManager sessions,
+    required NotificationTargetRepository repository,
+    required String kind,
+    required Object content,
+  }) => NotificationTargetRead.content(
+    notification: notification,
+    cubit: cubit,
+    sessions: sessions,
+    repository: repository,
+    content: content,
+  ).._customModule = kind;
+
+  static bool isCustomModule(BuildContext context, String kind) =>
+      _ticketFor(context)?._customModule == kind;
 
   factory NotificationTargetRead.content({
     required AppNotification notification,
@@ -789,6 +810,7 @@ class NotificationTargetReady extends StatefulWidget {
     this.allowPartialVisibility = false,
     this.onVisible,
     this.acknowledge = true,
+    this.customModuleKinds = const {},
   });
 
   final Widget child;
@@ -802,6 +824,10 @@ class NotificationTargetReady extends StatefulWidget {
   final bool allowPartialVisibility;
   final VoidCallback? onVisible;
   final bool acknowledge;
+
+  /// A module campaign names the whole product surface. Only that surface's
+  /// successful content presenter may consume its fresh destination proof.
+  final Set<String> customModuleKinds;
 
   @override
   State<NotificationTargetReady> createState() =>
@@ -890,7 +916,9 @@ class _NotificationTargetReadyState extends State<NotificationTargetReady>
         (_ticket?._tableContent == null ||
             identical(_ticket?._tableContent, widget.contentIdentity)) &&
         (_ticket?._mediaContent == null ||
-            identical(_ticket?._mediaContent, widget.contentIdentity)) &&
+            identical(_ticket?._mediaContent, widget.contentIdentity) ||
+            (_ticket?._customModule != null &&
+                widget.customModuleKinds.contains(_ticket!._customModule))) &&
         (_ticket?._followTargetId == null ||
             (widget.contentIdentity != null &&
                 identical(_ticket?._followContent, widget.contentIdentity))) &&
@@ -1158,23 +1186,4 @@ class _NotificationTargetReadyState extends State<NotificationTargetReady>
 
   @override
   Widget build(BuildContext context) => widget.child;
-}
-
-/// Owns only one message, not the failed ACK. Retirement waits for controller
-/// completion microtasks and only closes its own painted content. A queued
-/// message is retired when it becomes visible, never by closing another bar.
-class _TargetRetrySnack {
-  _TargetRetrySnack(this.messenger);
-  final ScaffoldMessengerState messenger;
-  late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
-  controller;
-  bool retired = false, closed = false, painted = false;
-  void retire() {
-    retired = true;
-    scheduleMicrotask(() {
-      if (!closed && painted && messenger.mounted) {
-        controller.close();
-      }
-    });
-  }
 }

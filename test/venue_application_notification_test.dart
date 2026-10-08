@@ -94,7 +94,7 @@ void main() {
         expect(find.byType(NotificationScreen), findsNothing);
         expect(
           f.api.registrations.single['presentationVersion'],
-          'ANDROID_NATIVE_V10',
+          'ANDROID_NATIVE_V11',
         );
         expect(f.api.sawDecisionAtAck, isTrue);
         await tester.pumpWidget(const SizedBox.shrink());

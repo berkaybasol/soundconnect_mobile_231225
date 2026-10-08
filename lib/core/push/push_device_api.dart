@@ -62,7 +62,7 @@ class HttpPushDeviceApi implements PushDeviceApi {
       'platform': platform,
       'permission': permission.apiValue,
       'clientRevision': clientRevision,
-      if (platform == 'ANDROID') 'presentationVersion': 'ANDROID_NATIVE_V10',
+      if (platform == 'ANDROID') 'presentationVersion': 'ANDROID_NATIVE_V11',
     },
     requestContext: _context(session),
   );

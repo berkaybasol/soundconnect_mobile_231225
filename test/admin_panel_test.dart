@@ -24,6 +24,98 @@ void main() {
   tearDown(() async => GetIt.instance.reset());
 
   testWidgets(
+    'notification management opens from home without scrolling tabs',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 800);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final sessions = AudienceTestSessions(_moderatorSession());
+      GetIt.instance.registerSingleton<AuthSessionManager>(
+        sessions,
+        dispose: (value) => value.dispose(),
+      );
+      final opened = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.navy,
+          home: const AdminDashboardScreen(),
+          onGenerateRoute: (settings) {
+            opened.add(settings.name!);
+            return MaterialPageRoute<void>(
+              builder: (_) =>
+                  const Scaffold(body: Text('Notification management')),
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      final entry = find.byKey(const Key('admin-notification-home-entry'));
+      expect(entry.hitTestable(), findsOneWidget);
+      final staleTap = tester
+          .widget<FilledButton>(
+            find.descendant(of: entry, matching: find.byType(FilledButton)),
+          )
+          .onPressed!;
+      sessions.replace(const AuthSession.guest());
+      staleTap();
+      await tester.pump();
+      expect(opened, isEmpty);
+      expect(entry, findsNothing);
+      sessions.replace(_moderatorSession());
+      await tester.pump();
+      await tester.tap(entry);
+      await tester.pumpAndSettle();
+      expect(opened, [AppRoutes.adminNotificationCampaigns]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'independent notification tab requires owner or admin and fences stale entry',
+    (tester) async {
+      final sessions = AudienceTestSessions(_moderatorSession());
+      GetIt.instance.registerSingleton<AuthSessionManager>(
+        sessions,
+        dispose: (value) => value.dispose(),
+      );
+      final opened = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: const AdminDashboardScreen(),
+          onGenerateRoute: (settings) {
+            opened.add(settings.name!);
+            return MaterialPageRoute<void>(
+              builder: (_) =>
+                  const Scaffold(body: Text('Notification management')),
+            );
+          },
+        ),
+      );
+      await tester.ensureVisible(find.text('Bildirim Yönetimi'));
+      await tester.tap(find.text('Bildirim Yönetimi'));
+      await tester.pumpAndSettle();
+      final entry = find.byKey(const Key('admin-notification-campaigns-entry'));
+      expect(entry, findsOneWidget);
+      final staleTap = tester
+          .widget<FilledButton>(
+            find.descendant(of: entry, matching: find.byType(FilledButton)),
+          )
+          .onPressed!;
+      sessions.replace(const AuthSession.guest());
+      staleTap();
+      await tester.pump();
+      expect(opened, isEmpty);
+      expect(entry, findsNothing);
+      sessions.replace(_moderatorSession());
+      await tester.pump();
+      await tester.tap(entry);
+      await tester.pumpAndSettle();
+      expect(opened, [AppRoutes.adminNotificationCampaigns]);
+    },
+  );
+
+  testWidgets(
     'feed reports entry requires its exact permission and reacts to revocation',
     (tester) async {
       final sessions = AudienceTestSessions(
@@ -104,7 +196,7 @@ void main() {
     expect(find.text('Ana Sayfa'), findsOneWidget);
     expect(find.text('Sponsorluklar'), findsOneWidget);
     expect(find.byKey(sessionLogoutButtonKey), findsOneWidget);
-    expect(find.byType(Tab), findsNWidgets(3));
+    expect(find.byType(Tab), findsNWidgets(4));
     expect(_controller(tester).index, 0);
     expect(find.byKey(_homeKey), findsOneWidget);
     _expectEmptyTabBodies(tester);
@@ -138,7 +230,13 @@ void main() {
     }
     expect(
       tester.widgetList<Text>(find.byType(Text)).map((text) => text.data),
-      unorderedEquals(<String>['Admin Paneli', 'Ana Sayfa', 'Sponsorluklar', 'Akış Yönetimi']),
+      unorderedEquals(<String>[
+        'Admin Paneli',
+        'Ana Sayfa',
+        'Sponsorluklar',
+        'Akış Yönetimi',
+        'Bildirim Yönetimi',
+      ]),
     );
     expect(find.byType(Card), findsNothing);
     expect(find.byType(RefreshIndicator), findsNothing);
@@ -363,8 +461,13 @@ TabController _controller(WidgetTester tester) =>
 
 void _expectEmptyTabBodies(WidgetTester tester) {
   final bodies = tester.widget<TabBarView>(find.byType(TabBarView)).children;
-  expect(bodies, hasLength(3));
-  expect(bodies.map((body) => body.key), <Key?>[_homeKey, _sponsorshipsKey, null]);
+  expect(bodies, hasLength(4));
+  expect(bodies.map((body) => body.key), <Key?>[
+    _homeKey,
+    _sponsorshipsKey,
+    null,
+    null,
+  ]);
   for (final body in bodies) {
     expect(body, isA<SizedBox>());
     expect((body as SizedBox).child, isNull);

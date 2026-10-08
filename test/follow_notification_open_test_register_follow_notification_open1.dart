@@ -14,6 +14,7 @@ extension _RegisterFollowNotificationOpen1 on _FollowNotificationOpenCases {
       navigator = GlobalKey<NavigatorState>();
       acks = [];
       reconciliations = 0;
+      customProfileUser = follower;
       failExact = false;
       failResolver = false;
       failAck = false;
@@ -42,6 +43,16 @@ extension _RegisterFollowNotificationOpen1 on _FollowNotificationOpenCases {
         ],
       };
       api = RecordingApiClient((request) async {
+        if (request.path.endsWith('/custom-target')) {
+          return {
+            'notificationId': notificationId,
+            'recipientId': recipient,
+            'type': 'ADMIN_BROADCAST',
+            'read': false,
+            'state': 'AVAILABLE',
+            'target': {'kind': 'PROFILE', 'targetId': customProfileUser},
+          };
+        }
         if (request.path.endsWith('/read')) {
           acks.add(request.path.split('/').reversed.elementAt(1));
           if (pendingAck != null) await pendingAck!.future;
@@ -80,6 +91,9 @@ extension _RegisterFollowNotificationOpen1 on _FollowNotificationOpenCases {
         ..registerSingleton<NotificationTargetRepository>(
           NotificationTargetRepository(api, sessions),
         )
+        ..registerSingleton<CustomNotificationRepository>(
+          CustomNotificationRepository(api, sessions),
+        )
         ..registerSingleton<DmUserProfileResolver>(resolver)
         ..registerSingleton<MusicianProfileRepository>(profiles)
         ..registerSingleton<BandRepository>(bands)
@@ -116,6 +130,101 @@ extension _RegisterFollowNotificationOpen1 on _FollowNotificationOpenCases {
       sessions.dispose();
       await serviceLocator.reset();
     });
+
+    testWidgets(
+      'ADMIN_BROADCAST fresh profile waits for actual profile data before exact ACK',
+      (t) async {
+        await prepareCustomProfile();
+        profiles.pending = Completer<Result<MusicianProfile>>();
+        await mount(t);
+        await openCustomProfile(t);
+        unread();
+        expect(profiles.requestedIds, [profileId]);
+        profiles.pending!.complete(const Result.success(_profile));
+        await t.pumpAndSettle();
+        expect(find.byType(MusicianPublicProfileScreen), findsOneWidget);
+        onlyTarget();
+        expect(resolverGets(), 1);
+      },
+    );
+
+    for (final role in ['MUSICIAN', 'LISTENER', 'VENUE', 'STUDIO']) {
+      for (final inbox in [false, true]) {
+        testWidgets(
+          'ADMIN_BROADCAST PROFILE recipient=$role inbox=$inbox uses real profile and exact read',
+          (t) async {
+            await t.runAsync(() async {
+              sessions.replace(
+                audienceSession(user: recipient, role: 'ROLE_$role'),
+              );
+              await cubit.ensureStarted();
+              await prepareCustomProfile();
+              reconciliations = 0;
+            });
+            profiles.pending = Completer<Result<MusicianProfile>>();
+            await mount(t, inbox: inbox);
+            if (inbox) {
+              await t.pumpAndSettle();
+              await t.tap(find.text('Custom profile'));
+              await t.pump();
+              await t.pump(const Duration(milliseconds: 400));
+              await t.pump();
+            } else {
+              await openCustomProfile(t);
+            }
+            unread();
+            expect(profiles.requestedIds, [profileId]);
+            profiles.pending!.complete(const Result.success(_profile));
+            await t.pumpAndSettle();
+            expect(find.byType(MusicianPublicProfileScreen), findsOneWidget);
+            onlyTarget();
+            expect(resolverGets(), 1);
+            expect(
+              api.requests.where((r) => r.path.endsWith('/custom-target')),
+              hasLength(1),
+            );
+            navigator.currentState!.pop();
+            await t.pumpAndSettle();
+            expect(
+              inbox ? find.byType(NotificationScreen) : find.text('Root'),
+              findsOneWidget,
+            );
+            expect(t.takeException(), isNull);
+          },
+        );
+      }
+    }
+
+    for (final stale in [false, true]) {
+      testWidgets(
+        'ADMIN_BROADCAST multiple profile choice refreshes selected visibility stale=$stale',
+        (t) async {
+          await prepareCustomProfile();
+          (resolved['profiles'] as List).add({
+            'type': 'VENUE',
+            'profileId': bandId,
+            'displayName': 'Other choice',
+          });
+          await mount(t);
+          await openCustomProfile(t);
+          await t.pumpAndSettle();
+          expect(find.text('Açmak istediğin profili seç'), findsOneWidget);
+          unread();
+          expect(resolverGets(), 1);
+          if (stale) resolved['profiles'] = <Object>[];
+          await t.tap(find.text('Fresh resolver'));
+          await t.pumpAndSettle();
+          expect(resolverGets(), 2);
+          if (stale) {
+            unread();
+            expect(find.byType(MusicianPublicProfileScreen), findsNothing);
+          } else {
+            expect(find.byType(MusicianPublicProfileScreen), findsOneWidget);
+            onlyTarget();
+          }
+        },
+      );
+    }
 
     for (final type in [
       'BAND_INVITE_ACCEPTED',

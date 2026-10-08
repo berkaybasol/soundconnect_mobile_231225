@@ -47,7 +47,10 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
     message: 'Mekân profili yanıtı doğrulanamadı.',
   );
 
-  Future<void> loadOwner({String? venueId}) async {
+  Future<void> loadOwner({
+    String? venueId,
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     if (isClosed) return;
     final generation = ++_generation;
     final sessions = _sessions;
@@ -82,6 +85,16 @@ class VenueProfileCubit extends Cubit<VenueProfileState> {
     if (!current()) return;
     if (result.isSuccess &&
         !_validOwner(result.data, target, session?.userId)) {
+      result = const Result.failure(_invalid);
+    }
+    if (result.isSuccess &&
+        result.data != null &&
+        admitContent != null &&
+        !admitContent(
+          result.data!,
+          result.data!.venueId,
+          result.data!.ownerUserId,
+        )) {
       result = const Result.failure(_invalid);
     }
     emit(

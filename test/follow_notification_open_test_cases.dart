@@ -18,6 +18,7 @@ class _FollowNotificationOpenCases {
   var failExact = false, failResolver = false, failAck = false;
   Completer<Object?>? pendingExact, pendingResolver, pendingAck;
   var reconciliations = 0;
+  var customProfileUser = follower;
   Future<void> mount(
     WidgetTester t, {
     bool inbox = false,
@@ -100,6 +101,41 @@ class _FollowNotificationOpenCases {
 
   int resolverGets() =>
       api.requests.where((r) => r.path.contains('/profiles/by-user/')).length;
+
+  Future<void> prepareCustomProfile() async {
+    exact['type'] = 'ADMIN_BROADCAST';
+    exact['payload'] = <String, dynamic>{};
+    repository.items[0] = const AppNotification(
+      id: notificationId,
+      recipientId: recipient,
+      type: 'ADMIN_BROADCAST',
+      title: 'Custom profile',
+      message: '',
+      read: false,
+      createdAt: null,
+      payload: {},
+    );
+    await cubit.refresh();
+  }
+
+  Future<void> openCustomProfile(WidgetTester t) async {
+    unawaited(
+      NotificationDirectOpen.start(
+        navigator.currentContext!,
+        identity: notificationId,
+        builder: (_) => const CustomNotificationOpenScreen(
+          target: PushTarget(
+            notificationId: notificationId,
+            recipientId: recipient,
+            type: 'ADMIN_BROADCAST',
+          ),
+        ),
+      ),
+    );
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+    await t.pump();
+  }
 
   Future<void> prepareNativeBand(WidgetTester t, String type) async {
     await t.runAsync(() async {
@@ -247,5 +283,6 @@ class _FollowNotificationOpenCases {
   void register() {
     _registerFollowNotificationOpen1();
     _registerFollowNotificationOpen2();
+    _registerOwnProfileCases();
   }
 }

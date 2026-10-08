@@ -66,7 +66,11 @@ class ListenerProfileScreen extends StatelessWidget {
       child: BlocProvider(
         create: (_) =>
             (cubitFactory?.call() ?? serviceLocator<ListenerProfileCubit>())
-              ..loadMyProfile(),
+              ..loadMyProfile(
+                admitContent: NotificationTargetRead.beginFollowRequest(
+                  context,
+                ),
+              ),
         child: _ListenerProfileView(
           showBottomNavigation: showBottomNavigation,
           eventDraft: eventDraft,
@@ -281,7 +285,9 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
 
   Future<void> _refreshProfile() async {
     if (_draftSaving) return;
-    await context.read<ListenerProfileCubit>().loadMyProfile();
+    await context.read<ListenerProfileCubit>().loadMyProfile(
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
+    );
     if (mounted) _eventPostsRefresh.value++;
   }
 
@@ -381,7 +387,9 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
       if (state.status == ListenerProfileStatus.failure) {
         return _ListenerLoadFailure(
           message: state.error?.message,
-          onRetry: () => context.read<ListenerProfileCubit>().loadMyProfile(),
+          onRetry: () => context.read<ListenerProfileCubit>().loadMyProfile(
+            admitContent: NotificationTargetRead.beginFollowRequest(context),
+          ),
         );
       }
       return const _ListenerInitialLoading();
@@ -404,6 +412,8 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
         _hasDraft;
     if (profile.isGhost) {
       return NotificationTargetReady(
+        customModuleKinds: const {'HOME'},
+        contentIdentity: profile,
         ready: state.status == ListenerProfileStatus.success,
         child: ListenerGhostProfileContent(
           username: profile.username ?? '',
@@ -427,6 +437,8 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
 
     _revealDraft();
     return NotificationTargetReady(
+      customModuleKinds: const {'HOME'},
+      contentIdentity: profile,
       ready:
           state.status == ListenerProfileStatus.success &&
           profile.profileContentVisible &&
@@ -555,7 +567,9 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
     if (route?.isCurrent != true) return;
     await Navigator.of(context).pushNamed(AppRoutes.settings);
     if (!mounted) return;
-    await context.read<ListenerProfileCubit>().loadMyProfile();
+    await context.read<ListenerProfileCubit>().loadMyProfile(
+      admitContent: NotificationTargetRead.beginFollowRequest(context),
+    );
   }
 
   Future<void> _confirmStandardMode() async {
@@ -631,7 +645,9 @@ class _ListenerProfileViewState extends State<_ListenerProfileView> {
       // The durable attachment pipeline already called the listener avatar
       // PATCH. Reload for its incremented version; a second PATCH would
       // advance optimistic locking twice.
-      await context.read<ListenerProfileCubit>().loadMyProfile();
+      await context.read<ListenerProfileCubit>().loadMyProfile(
+        admitContent: NotificationTargetRead.beginFollowRequest(context),
+      );
     } catch (error) {
       if (mounted) _showError(_readableError(error));
     } finally {

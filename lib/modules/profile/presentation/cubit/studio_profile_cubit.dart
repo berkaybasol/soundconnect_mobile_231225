@@ -11,7 +11,9 @@ class StudioProfileCubit extends Cubit<StudioProfileState> {
 
   StudioProfileCubit(this._repository) : super(const StudioProfileState.idle());
 
-  Future<void> loadMyProfile() async {
+  Future<void> loadMyProfile({
+    bool Function(Object, String, String?)? admitContent,
+  }) async {
     final activeUpdate = _updateQueueTail;
     if (activeUpdate != null) await activeUpdate;
     if (isClosed) return;
@@ -20,6 +22,20 @@ class StudioProfileCubit extends Cubit<StudioProfileState> {
     final result = await _repository.getMyProfile();
     if (isClosed || generation != _loadGeneration) return;
     if (result.isSuccess && result.data != null) {
+      if (admitContent != null &&
+          !admitContent(result.data!, result.data!.id, result.data!.userId)) {
+        emit(
+          state.copyWith(
+            status: StudioProfileStatus.failure,
+            profile: null,
+            error: const AppError(
+              code: 'follow_target_changed',
+              message: 'Profil yüklenemedi. Tekrar dene.',
+            ),
+          ),
+        );
+        return;
+      }
       emit(
         state.copyWith(
           status: StudioProfileStatus.success,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../modules/admin/data/notification_campaign_repository.dart';
+import '../../modules/admin/presentation/screens/notification_campaign_screen.dart';
 import '../../core/auth/auth_session_manager.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/policy/stage_mode.dart';
@@ -119,6 +121,14 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AdminDashboardScreen(),
+        );
+      case AppRoutes.adminNotificationCampaigns:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => NotificationCampaignScreen(
+            repository: serviceLocator<NotificationCampaignRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+          ),
         );
       case AppRoutes.adminMusicianFeedReports:
         return MaterialPageRoute(

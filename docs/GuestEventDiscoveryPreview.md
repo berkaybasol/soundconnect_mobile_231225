@@ -29,7 +29,7 @@ ince gradient tasarım dili. Misafir hesap olmadan arama yapabilir.
   15 piksel dış köşe yarıçapı ve en az 52 piksel iç yükseklik. Girişin sade
   çerçevesi ve üyeliğin gradient çerçevesi korunur. Eski ekranın alt alanı değişmez.
 - `Üye Ol` etkinlik detayındaki misafir alanıyla ortak üyelik seçeneklerini
-  açar. `Google ile devam et` / `Yakında` pasiftir. `E-posta ile devam et`
+  açar. Android’de `Google ile devam et` Google hesabı seçimini, `E-posta ile devam et`
   mevcut kayıt ekranını açar. Giriş doğrudan mevcut giriş ekranına gider.
   Seçenekleri kapatmak kayıt başlatmaz, hızlı çift dokunma ekranları çoğaltmaz.
 - Etkin ikonlarda stüdyo profilindeki çapraz turuncu/pembe/mor görünüm

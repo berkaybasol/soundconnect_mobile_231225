@@ -9,6 +9,7 @@ import '../../../../shared/theme/backstage_palette.dart';
 import '../../../../shared/widgets/session_logout_action.dart';
 import '../../domain/musician_feed_report_admin.dart';
 import '../../domain/marketplace_report_admin.dart';
+import '../../domain/pending_application.dart';
 import '../../domain/notification_campaign.dart';
 import '../../domain/system_health.dart';
 import '../../../promotion/domain/announcement_access.dart';
@@ -88,8 +89,12 @@ class _AdminDashboardBody extends StatelessWidget {
                       sessions.session,
                     );
                     final marketSession = sessions.session;
+                    final applicationAccess = ApplicationKind.values.any(
+                      (kind) => kind.canRead(marketSession),
+                    );
                     final healthAccess = canViewSystemHealth(marketSession);
                     if (identity == null &&
+                        !applicationAccess &&
                         !marketAccess &&
                         !notificationAccess &&
                         !healthAccess) {
@@ -117,6 +122,31 @@ class _AdminDashboardBody extends StatelessWidget {
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
+                          if (applicationAccess)
+                            Card(
+                              child: ListTile(
+                                leading: const Icon(Icons.assignment_outlined),
+                                title: const Text('Başvurular'),
+                                subtitle: const Text(
+                                  'İnceleme bekleyen işletme başvuruları',
+                                ),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () {
+                                  if (identical(
+                                        marketSession,
+                                        sessions.session,
+                                      ) &&
+                                      ApplicationKind.values.any(
+                                        (kind) =>
+                                            kind.canRead(sessions.session),
+                                      )) {
+                                    Navigator.of(
+                                      context,
+                                    ).pushNamed(AppRoutes.adminApplications);
+                                  }
+                                },
+                              ),
+                            ),
                           if (healthAccess)
                             AdminSectionCard(
                               title: 'Sistem sağlığı',

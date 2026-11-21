@@ -53,15 +53,6 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
     );
   }
 
-  void _canonicalizeBusinessName() {
-    final normalized = BusinessNamePolicy.normalize(_venueNameController.text);
-    if (_venueNameController.text == normalized) return;
-    _venueNameController.value = TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
-    );
-  }
-
   Future<bool> _ensureUsernameAvailable() async {
     final username = _canonicalizeUsername();
     final state = context.read<AuthCubit>().state;
@@ -96,20 +87,8 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
       case 3:
         return (_selectedRole ?? '').isNotEmpty;
       case 4:
-        final businessFieldsComplete =
-            _venueNameController.text.trim().isNotEmpty &&
-            _venueAddressController.text.trim().isNotEmpty &&
-            _venuePhoneController.text.trim().isNotEmpty &&
-            (_selectedCityId ?? '').isNotEmpty &&
-            (_selectedDistrictId ?? '').isNotEmpty &&
-            (_selectedNeighborhoodId ?? '').isNotEmpty;
-        return businessFieldsComplete &&
-            (!_isStudioRole ||
-                StudioRegistrationPolicy.isValid(
-                  studioName: _venueNameController.text,
-                  studioAddress: _venueAddressController.text,
-                  phone: _venuePhoneController.text,
-                ));
+        return _business.details(isStudio: _isStudioRole).validationMessage ==
+            null;
       default:
         return false;
     }
@@ -118,8 +97,6 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
   Future<void> _next() async {
     if (_stepIndex == 0) {
       _canonicalizeUsername();
-    } else if (_stepIndex == 4) {
-      _canonicalizeBusinessName();
     }
     if (!_validateStep(_stepIndex)) {
       if (_stepIndex == 0) {
@@ -152,18 +129,9 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
         }
       } else if (_stepIndex == 3) {
         _showError('Rol seçilmelidir.');
-      } else if (_isStudioRole) {
-        _showError(
-          StudioRegistrationPolicy.validationMessage(
-                studioName: _venueNameController.text,
-                studioAddress: _venueAddressController.text,
-                phone: _venuePhoneController.text,
-              ) ??
-              'Şehir, ilçe ve mahalle seçimini tamamla.',
-        );
       } else {
         _showError(
-          'Şehir, ilçe, mahalle ve Açık Adres dahil mekan bilgilerini eksiksiz doldur.',
+          _business.details(isStudio: _isStudioRole).validationMessage!,
         );
       }
       return;
@@ -184,29 +152,22 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
 
     final username = _canonicalizeUsername();
     if (_isBusinessRole) {
+      final details = _business.details(isStudio: _isStudioRole);
       context.read<AuthCubit>().register(
         username: username,
         email: _emailController.text.trim(),
         password: _passwordController.text,
         rePassword: _rePasswordController.text,
         role: _selectedRole ?? '',
-        venueName: _isStudioRole ? null : _venueNameController.text.trim(),
-        venueAddress: _isStudioRole
-            ? null
-            : _venueAddressController.text.trim(),
-        phone: _isStudioRole ? null : _venuePhoneController.text.trim(),
-        studioName: _isStudioRole ? _venueNameController.text.trim() : null,
-        studioAddress: _isStudioRole
-            ? _venueAddressController.text.trim()
-            : null,
-        studioPhone: _isStudioRole
-            ? StudioRegistrationPolicy.normalizePhone(
-                _venuePhoneController.text,
-              )
-            : null,
-        cityId: _selectedCityId,
-        districtId: _selectedDistrictId,
-        neighborhoodId: _selectedNeighborhoodId,
+        venueName: _isStudioRole ? null : details.name,
+        venueAddress: _isStudioRole ? null : details.address,
+        phone: _isStudioRole ? null : details.phone,
+        studioName: _isStudioRole ? details.name : null,
+        studioAddress: _isStudioRole ? details.address : null,
+        studioPhone: _isStudioRole ? details.phone : null,
+        cityId: details.cityId,
+        districtId: details.districtId,
+        neighborhoodId: details.neighborhoodId,
       );
       return;
     }

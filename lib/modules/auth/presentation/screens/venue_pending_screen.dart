@@ -15,9 +15,13 @@ class VenuePendingScreen extends StatelessWidget {
   VenuePendingScreen({
     super.key,
     this.membershipType = PendingMembershipType.venue,
+    this.statusAction,
+    this.onReturnToLogin,
   });
 
   final PendingMembershipType membershipType;
+  final Widget? statusAction;
+  final VoidCallback? onReturnToLogin;
 
   bool get _isStudio => membershipType != PendingMembershipType.venue;
 
@@ -81,116 +85,78 @@ class VenuePendingScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            (AppColors.isLight
-                                    ? AppColors.decorativeGradient.first
-                                    : AppColors.coralAlt)
-                                .withValues(alpha: 0.35),
-                        blurRadius: 24,
-                        spreadRadius: 2,
+          child: Center(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                (AppColors.isLight
+                                        ? AppColors.decorativeGradient.first
+                                        : AppColors.coralAlt)
+                                    .withValues(alpha: 0.35),
+                            blurRadius: 24,
+                            spreadRadius: 2,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: _GradientIcon(
-                    icon: _isRejectedStudio
-                        ? Icons.info_outline_rounded
-                        : Icons.verified_outlined,
-                    size: 44,
-                  ),
-                ),
-                SizedBox(height: 24),
-                Text(
-                  _isRejectedStudio
-                      ? 'Stüdyo başvurun sonuçlandı'
-                      : 'Hesabın inceleniyor...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  _isRejectedStudio
-                      ? 'Stüdyo üyelik başvurun onaylanmadı. Hesabın kapalı kalacak; bilgi almak veya karara itiraz etmek için destek ekibimize ulaşabilirsin.'
-                      : _isStudio
-                      ? 'Stüdyo üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.'
-                      : 'Mekan üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text.rich(
-                  TextSpan(
-                    text: 'Soruların için ',
-                    children: [
-                      TextSpan(
-                        text: 'destek@soundconnect.com.tr',
-                        style: TextStyle(
-                          color: _whatsAppGreen,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      child: _GradientIcon(
+                        icon: _isRejectedStudio
+                            ? Icons.info_outline_rounded
+                            : Icons.verified_outlined,
+                        size: 44,
                       ),
-                      TextSpan(text: ' adresine e-posta gönderebilirsin.'),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 14,
-                  ),
-                ),
-                SizedBox(height: 8),
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () => _openWhatsAppSupport(context),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                    child: Text.rich(
+                    ),
+                    SizedBox(height: 24),
+                    Text(
+                      _isRejectedStudio
+                          ? 'Stüdyo başvurun sonuçlandı'
+                          : 'Hesabın inceleniyor...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      _isRejectedStudio
+                          ? 'Stüdyo üyelik başvurun onaylanmadı. Hesabın kapalı kalacak; bilgi almak veya karara itiraz etmek için destek ekibimize ulaşabilirsin.'
+                          : _isStudio
+                          ? 'Stüdyo üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.'
+                          : 'Mekan üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 15,
+                        height: 1.5,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text.rich(
                       TextSpan(
-                        text: 'veya ',
+                        text: 'Soruların için ',
                         children: [
                           TextSpan(
-                            text: 'buraya dokunarak',
+                            text: 'destek@soundconnect.com.tr',
                             style: TextStyle(
                               color: _whatsAppGreen,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          TextSpan(text: ' '),
-                          WidgetSpan(
-                            alignment: PlaceholderAlignment.middle,
-                            child: Padding(
-                              padding: EdgeInsets.only(right: 4),
-                              child: FaIcon(
-                                FontAwesomeIcons.whatsapp,
-                                color: _whatsAppGreen,
-                                size: 15,
-                              ),
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'WhatsApp üzerinden bize ulaşabilirsin.',
-                          ),
+                          TextSpan(text: ' adresine e-posta gönderebilirsin.'),
                         ],
                       ),
                       textAlign: TextAlign.center,
@@ -199,22 +165,72 @@ class VenuePendingScreen extends StatelessWidget {
                         fontSize: 14,
                       ),
                     ),
-                  ),
+                    SizedBox(height: 8),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _openWhatsAppSupport(context),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
+                        ),
+                        child: Text.rich(
+                          TextSpan(
+                            text: 'veya ',
+                            children: [
+                              TextSpan(
+                                text: 'buraya dokunarak',
+                                style: TextStyle(
+                                  color: _whatsAppGreen,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              TextSpan(text: ' '),
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: Padding(
+                                  padding: EdgeInsets.only(right: 4),
+                                  child: FaIcon(
+                                    FontAwesomeIcons.whatsapp,
+                                    color: _whatsAppGreen,
+                                    size: 15,
+                                  ),
+                                ),
+                              ),
+                              TextSpan(
+                                text: 'WhatsApp üzerinden bize ulaşabilirsin.',
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 28),
+                    if (statusAction != null) statusAction!,
+                    _GradientOutlineButton(
+                      label: 'Giriş ekranına dön',
+                      onTap:
+                          onReturnToLogin ??
+                          () async {
+                            await serviceLocator<AuthSessionManager>().logout();
+                            if (!context.mounted) return;
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              AppRoutes.login,
+                              (route) => false,
+                            );
+                          },
+                    ),
+                  ],
                 ),
-                SizedBox(height: 28),
-                _GradientOutlineButton(
-                  label: 'Giriş ekranına dön',
-                  onTap: () async {
-                    await serviceLocator<AuthSessionManager>().logout();
-                    if (!context.mounted) return;
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      AppRoutes.login,
-                      (route) => false,
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
           ),
         ),

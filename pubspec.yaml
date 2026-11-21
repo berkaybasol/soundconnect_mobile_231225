@@ -66,6 +66,7 @@ dependencies:
   # 7.0.0 supports the project's current Dart 3.10+ toolchain. Newer 7.2.x
   # releases require Dart 3.12 and must be adopted together with a Flutter bump.
   app_links: 7.0.0
+  google_sign_in: 7.2.0
 
 dev_dependencies:
   firebase_core_platform_interface: 8.1.1

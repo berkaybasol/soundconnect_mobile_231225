@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../modules/admin/data/system_health_repository.dart';
+import '../../modules/admin/data/pending_application_repository.dart';
+import '../../modules/admin/presentation/screens/pending_applications_screen.dart';
 import '../../modules/admin/presentation/screens/system_health_screen.dart';
 import '../../modules/admin/data/notification_campaign_repository.dart';
 import '../../modules/admin/presentation/screens/notification_campaign_screen.dart';
@@ -125,6 +127,18 @@ class AppRouter {
           settings: settings,
           builder: (_) => const AdminDashboardScreen(),
         );
+      case AppRoutes.adminApplications:
+        final sessions = serviceLocator<AuthSessionManager>();
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => PendingApplicationsScreen(
+            repository: PendingApplicationRepository(
+              serviceLocator<ApiClient>(),
+              sessions,
+            ),
+            sessions: sessions,
+          ),
+        );
       case AppRoutes.adminSystemHealth:
         return MaterialPageRoute(
           settings: settings,
@@ -164,7 +178,10 @@ class AppRouter {
         final args = _arguments<LoginRouteArgs>(settings);
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => LoginScreen(initialNotice: args?.initialNotice),
+          builder: (_) => LoginScreen(
+            initialNotice: args?.initialNotice,
+            startGoogleSignIn: args?.startGoogleSignIn ?? false,
+          ),
         );
       case AppRoutes.register:
         return MaterialPageRoute(

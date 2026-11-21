@@ -31,8 +31,12 @@ import '../modules/auth/presentation/screens/login_screen.dart';
 import '../modules/auth/presentation/screens/venue_pending_screen.dart';
 import '../modules/auth/presentation/cubit/auth_cubit.dart';
 import '../modules/event/presentation/screens/guest_event_home_screen.dart';
+import '../modules/event/presentation/screens/event_discovery_screen.dart';
 import 'backstage_home_screen.dart';
-import '../modules/profile/presentation/screens/listener_profile_screen.dart';
+import '../modules/profile/presentation/profile_visual_theme.dart';
+import '../modules/profile/presentation/screens/musician_profile_screen.dart';
+import '../modules/profile/presentation/screens/studio_profile_screen.dart';
+import '../modules/profile/presentation/screens/venue_profile_screen.dart';
 import '../modules/auth/presentation/screens/listener_profile_choice_screen.dart';
 import '../modules/profile/domain/profile_media_upload_repository.dart';
 import '../modules/location/presentation/cubit/location_cubit.dart';
@@ -50,7 +54,10 @@ enum AppLaunchTarget {
   guest,
   login,
   home,
-  listener,
+  musicianProfile,
+  venueProfile,
+  studioProfile,
+  eventDiscovery,
   listenerProfileChoice,
   admin,
   venuePending,
@@ -78,12 +85,12 @@ String? resolveSessionChangeNavigationRoute({
     current,
   );
   if (approvalRoute != null) return approvalRoute;
-  if (accountResetPending) return AppRouteGuard.startRouteFor(current);
+  if (accountResetPending) return AppRouteGuard.landingRouteFor(current);
   if (wasAuthenticated &&
       current.isAuthenticated &&
       ((previousUserId != null && previousUserId != current.userId) ||
           (previousToken != null && previousToken != current.token))) {
-    return AppRouteGuard.startRouteFor(current);
+    return AppRouteGuard.landingRouteFor(current);
   }
   if (current.isAuthenticated &&
       current.requiresListenerProfileChoice &&
@@ -119,12 +126,15 @@ AppLaunchTarget resolveLaunchTarget(String? token, {DateTime? now}) {
 
 AppLaunchTarget resolveSessionLaunchTarget(AuthSession session) {
   if (!session.isAuthenticated) return AppLaunchTarget.guest;
-  return switch (AppRouteGuard.startRouteFor(session)) {
+  return switch (AppRouteGuard.landingRouteFor(session)) {
     AppRoutes.venuePending => AppLaunchTarget.venuePending,
     AppRoutes.studioPending => AppLaunchTarget.studioPending,
     AppRoutes.studioRejected => AppLaunchTarget.studioRejected,
     AppRoutes.adminDashboard => AppLaunchTarget.admin,
-    AppRoutes.listenerProfile => AppLaunchTarget.listener,
+    AppRoutes.musicianProfile => AppLaunchTarget.musicianProfile,
+    AppRoutes.venueProfile => AppLaunchTarget.venueProfile,
+    AppRoutes.studioProfile => AppLaunchTarget.studioProfile,
+    AppRoutes.eventDiscovery => AppLaunchTarget.eventDiscovery,
     AppRoutes.listenerProfileChoice => AppLaunchTarget.listenerProfileChoice,
     AppRoutes.home => AppLaunchTarget.home,
     _ => AppLaunchTarget.login,
@@ -511,7 +521,20 @@ class _SoundConnectAppState extends State<SoundConnectApp> {
                     ? _LaunchLoadingScreen()
                     : switch (launchTarget) {
                         AppLaunchTarget.home => const BackstageHomeScreen(),
-                        AppLaunchTarget.listener => ListenerProfileScreen(),
+                        AppLaunchTarget.musicianProfile =>
+                          const ProfileVisualThemeScope(
+                            child: MusicianProfileScreen(),
+                          ),
+                        AppLaunchTarget.venueProfile =>
+                          const ProfileVisualThemeScope(
+                            child: VenueProfileScreen(),
+                          ),
+                        AppLaunchTarget.studioProfile =>
+                          const ProfileVisualThemeScope(
+                            child: StudioProfileScreen(),
+                          ),
+                        AppLaunchTarget.eventDiscovery =>
+                          const MemberEventDiscoveryScreen(),
                         AppLaunchTarget.listenerProfileChoice =>
                           const ListenerProfileChoiceScreen(),
                         AppLaunchTarget.admin => const AdminDashboardScreen(),

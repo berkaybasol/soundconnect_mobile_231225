@@ -386,10 +386,10 @@ void main() {
       const RouteSettings(name: AppRoutes.venuePending),
     );
 
-    expect(route.settings.name, AppRoutes.listenerProfile);
+    expect(route.settings.name, AppRoutes.eventDiscovery);
     expect(
       AppRouteGuard.redirectFor(AppRoutes.venuePending, session),
-      AppRoutes.listenerProfile,
+      AppRoutes.eventDiscovery,
     );
   });
 
@@ -425,7 +425,7 @@ void main() {
     );
     expect(
       AppRouteGuard.redirectFor(AppRoutes.forgotPassword, activeSession),
-      AppRoutes.listenerProfile,
+      AppRoutes.eventDiscovery,
     );
 
     final adminSession = AuthSession.authenticated(
@@ -464,7 +464,7 @@ void main() {
       );
       expect(
         AppRouteGuard.redirectFor(AppRoutes.listenerProfileChoice, listener),
-        AppRoutes.listenerProfile,
+        AppRoutes.eventDiscovery,
       );
       expect(
         AppRouteGuard.redirectFor(

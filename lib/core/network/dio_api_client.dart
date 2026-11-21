@@ -19,6 +19,7 @@ const Set<String> _publicAuthPaths = <String>{
   '/api/v1/auth/forgot-password',
   '/api/v1/auth/reset-password',
   '/api/v1/auth/google-sign-in',
+  '/api/v1/auth/complete-google-profile',
 };
 
 @visibleForTesting

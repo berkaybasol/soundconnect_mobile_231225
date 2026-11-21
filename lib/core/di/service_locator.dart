@@ -23,6 +23,7 @@ import '../../modules/tablegroup/data/table_group_profile_share_repository_impl.
 import '../../modules/tablegroup/domain/table_group_profile_share_repository.dart';
 
 import '../../modules/auth/data/auth_repository_impl.dart';
+import '../../modules/auth/data/google_auth_repository.dart';
 import '../../modules/auth/data/account_deletion_repository_impl.dart';
 import '../../modules/auth/domain/account_deletion_repository.dart';
 import '../../modules/auth/domain/auth_repository.dart';
@@ -689,6 +690,9 @@ void setupDependencies() {
         serviceLocator<ApiClient>(),
         serviceLocator<AuthSessionManager>(),
       ),
+    )
+    ..registerLazySingleton<GoogleAuthRepository>(
+      () => GoogleAuthRepository(serviceLocator<ApiClient>()),
     )
     ..registerLazySingleton<AuthRepository>(
       () => AuthRepositoryImpl(

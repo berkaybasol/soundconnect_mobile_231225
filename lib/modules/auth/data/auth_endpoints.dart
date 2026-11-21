@@ -9,5 +9,6 @@ class AuthEndpoints {
   static const String forgotPassword = '$base/forgot-password';
   static const String resetPassword = '$base/reset-password';
   static const String googleSignIn = '$base/google-sign-in';
+  static const String completeGoogleProfile = '$base/complete-google-profile';
   static const String updateUsername = '/api/v1/users/me/username';
 }

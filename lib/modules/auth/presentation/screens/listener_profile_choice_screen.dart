@@ -281,7 +281,7 @@ class _ListenerProfileChoiceViewState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !navigator.mounted || route?.isCurrent != true) return;
       navigator.pushNamedAndRemoveUntil<void>(
-        AppRoutes.listenerProfile,
+        AppRoutes.eventDiscovery,
         (_) => false,
       );
     });

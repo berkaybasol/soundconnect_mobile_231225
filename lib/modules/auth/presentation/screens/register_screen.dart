@@ -10,9 +10,8 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../../location/presentation/cubit/location_cubit.dart';
 import '../../../location/presentation/cubit/location_state.dart';
-import '../../domain/business_name_policy.dart';
+import '../widgets/business_registration_fields.dart';
 import '../../domain/password_policy.dart';
-import '../../domain/studio_registration_policy.dart';
 import '../../domain/username_policy.dart';
 import 'otp_verify_screen.dart';
 import '../cubit/auth_cubit.dart';
@@ -35,9 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _rePasswordController = TextEditingController();
-  final _venueNameController = TextEditingController();
-  final _venueAddressController = TextEditingController();
-  final _venuePhoneController = TextEditingController();
+  final _business = BusinessRegistrationController();
 
   bool _isPasswordObscured = true;
   bool _isRePasswordObscured = true;
@@ -74,9 +71,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   ];
 
   String? _selectedRole;
-  String? _selectedCityId;
-  String? _selectedDistrictId;
-  String? _selectedNeighborhoodId;
 
   int _stepIndex = 0;
   late final PageController _pageController;
@@ -114,9 +108,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _rePasswordController.dispose();
-    _venueNameController.dispose();
-    _venueAddressController.dispose();
-    _venuePhoneController.dispose();
+    _business.dispose();
     _pageController.dispose();
     _pageProgress.dispose();
     super.dispose();

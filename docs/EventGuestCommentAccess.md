@@ -6,7 +6,7 @@
   yorumlarını/yanıtlarını okuyabilir. Yorum alanı yerine `Yorum yapmak için
   giriş yap veya üye ol.` ve mevcut giriş/üyelik yollarına giden düğmeler görünür.
 - Keşif ve etkinlik detayındaki `Üye Ol` aynı üyelik seçeneklerini açar.
-  `Google ile devam et` seçeneği `Yakında` etiketiyle pasiftir ve istek göndermez.
+  Android’de `Google ile devam et` Google hesabı seçimini açar.
   `E-posta ile devam et` mevcut kayıt akışını açar. Giriş yolu değişmez.
 - Misafir için yorum editörü, gönderme ve yanıtlama işlemleri gösterilmez.
   Gönderme işlevleri ayrıca güncel oturumu kontrol eder. Eksik oturum yöneticisi

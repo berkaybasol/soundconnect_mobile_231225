@@ -16,17 +16,22 @@ class PendingApplicationRepository {
     AuthSession session,
     ApplicationKind kind,
     int page,
-  ) => _get(
+  ) => _request(
     session,
     kind,
+    'pending',
     query: {'page': page, 'size': 20},
     decode: (data) {
       final json = data as Map;
       if (json['page'] != page) throw const FormatException('Unexpected page');
+      final items = (json['content'] as List)
+          .map(PendingApplication.fromJson)
+          .toList();
+      if (items.any((item) => item.status != ApplicationReviewStatus.pending)) {
+        throw const FormatException('Expected pending applications');
+      }
       return Page(
-        items: List.unmodifiable(
-          (json['content'] as List).map(PendingApplication.fromJson),
-        ),
+        items: List.unmodifiable(items),
         hasNext: !(json['last'] as bool),
       );
     },
@@ -36,10 +41,10 @@ class PendingApplicationRepository {
     AuthSession session,
     ApplicationKind kind,
     String id,
-  ) => _get(
+  ) => _request(
     session,
     kind,
-    suffix: '/${Uri.encodeComponent(id)}',
+    'review/${Uri.encodeComponent(id)}',
     decode: (data) {
       final item = PendingApplication.fromJson(data);
       if (item.id != id) throw const FormatException('Unexpected application');
@@ -47,10 +52,35 @@ class PendingApplicationRepository {
     },
   );
 
-  Future<Result<T>> _get<T>(
+  Future<Result<bool>> decide(
     AuthSession session,
-    ApplicationKind kind, {
-    String suffix = '',
+    ApplicationKind kind,
+    String id, {
+    required bool approve,
+    String reason = '',
+  }) {
+    final error = approve ? null : applicationRejectionError(reason);
+    if (error != null) {
+      return Future.value(
+        Result.failure(AppError(code: 'invalid_reason', message: error)),
+      );
+    }
+    return _request(
+      session,
+      kind,
+      '${approve ? 'approve' : 'reject'}/${Uri.encodeComponent(id)}',
+      method: ApiHttpMethod.post,
+      body: approve ? null : {'reason': reason.trim()},
+      decode: (_) => true,
+    );
+  }
+
+  Future<Result<T>> _request<T>(
+    AuthSession session,
+    ApplicationKind kind,
+    String path, {
+    ApiHttpMethod method = ApiHttpMethod.get,
+    Object? body,
     Map<String, dynamic>? query,
     required T Function(Object?) decode,
   }) async {
@@ -63,8 +93,9 @@ class PendingApplicationRepository {
     if (!current()) return const Result.failure(denied);
     try {
       final data = await _api.request<T>(
-        ApiHttpMethod.get,
-        '/api/v1/admin/${kind.pathName}-applications/pending$suffix',
+        method,
+        '/api/v1/admin/${kind.pathName}-applications/$path',
+        body: body,
         query: query,
         decoder: decode,
         requestContext: ApiRequestContext(
@@ -75,24 +106,26 @@ class PendingApplicationRepository {
       );
       return current() ? Result.success(data) : const Result.failure(denied);
     } on ApiException catch (e) {
-      if (!current() || const {'403', '1102'}.contains(e.error.code)) {
+      if (!current() ||
+          const {'401', '403', '1101', '1102'}.contains(e.error.code)) {
         return const Result.failure(denied);
       }
       if (const {'404', '1601', '1609'}.contains(e.error.code)) {
         return const Result.failure(
           AppError(
             code: 'not_pending',
-            message:
-                'Bu başvuru artık bekleyen başvurular arasında görünmüyor.',
+            message: 'Bu başvuruya artık erişilemiyor.',
           ),
         );
       }
       return Result.failure(e.error);
     } catch (_) {
-      return const Result.failure(
+      return Result.failure(
         AppError(
-          code: 'application_read_failed',
-          message: 'Başvuru bilgileri alınamadı.',
+          code: 'application_request_failed',
+          message: method == ApiHttpMethod.get
+              ? 'Başvuru bilgileri alınamadı.'
+              : 'Karar gönderilirken bağlantı kesildi.',
         ),
       );
     }

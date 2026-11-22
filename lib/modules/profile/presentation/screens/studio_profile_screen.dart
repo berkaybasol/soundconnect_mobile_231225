@@ -519,6 +519,15 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
             initialIndex: 0,
             length: 3,
             child: Scaffold(
+              // The back and menu buttons scroll with the profile. Let the
+              // AppBar reserve the system inset and contrast its status icons.
+              appBar: AppBar(
+                toolbarHeight: 0,
+                automaticallyImplyLeading: false,
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+              ),
               body: RefreshIndicator(
                 onRefresh: _refresh,
                 child: SingleChildScrollView(

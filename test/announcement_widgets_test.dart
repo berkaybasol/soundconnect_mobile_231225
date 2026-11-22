@@ -55,7 +55,7 @@ void main() {
     );
   });
   testWidgets(
-    'admin Flow Management entry checks permission again after dialog/menu rebuild',
+    'publishing entry checks announcement permission again after a session change',
     (tester) async {
       final sessions = AudienceTestSessions(announcementAdminSession());
       GetIt.instance.registerSingleton<AuthSessionManager>(
@@ -75,11 +75,11 @@ void main() {
           },
         ),
       );
-      await tester.tap(find.text('Akış Yönetimi'));
+      await tester.tap(find.byKey(const Key('admin-nav-publishing')));
       await tester.pumpAndSettle();
       final entry = find.byKey(const Key('admin-announcements-entry'));
       expect(entry, findsOneWidget);
-      final oldTap = tester.widget<ListTile>(entry).onTap!;
+      final oldTap = tester.widget<InkWell>(entry).onTap!;
       sessions.replace(announcementAdminSession(permitted: false));
       oldTap();
       await tester.pump();

@@ -168,7 +168,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(AdminDashboardScreen), findsOneWidget);
-        expect(find.text('Admin Paneli'), findsOneWidget);
+        expect(find.text('Admin paneli'), findsOneWidget);
         expect(
           notifications.readIds,
           module == 'HOME' ? ['50000000-0000-4000-8000-000000000001'] : isEmpty,

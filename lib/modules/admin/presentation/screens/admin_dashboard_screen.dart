@@ -1,386 +1,327 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/app_route_guard.dart';
+import '../../../../app/router/app_routes.dart';
+import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../shared/theme/app_colors.dart';
-import '../../../../shared/theme/backstage_palette.dart';
-import '../../../../shared/widgets/session_logout_action.dart';
-import '../../domain/musician_feed_report_admin.dart';
-import '../../domain/marketplace_report_admin.dart';
-import '../../domain/pending_application.dart';
-import '../../domain/notification_campaign.dart';
-import '../../domain/system_health.dart';
-import '../../../promotion/domain/announcement_access.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../notification/presentation/notification_target_read.dart';
-import '../widgets/admin_visual_theme.dart';
+import '../../../promotion/domain/announcement_access.dart';
+import '../../data/system_health_repository.dart';
+import '../../domain/marketplace_report_admin.dart';
+import '../../domain/musician_feed_report_admin.dart';
+import '../../domain/notification_campaign.dart';
+import '../../domain/pending_application.dart';
+import '../widgets/admin_dashboard_tiles.dart';
+import '../widgets/admin_panel_frame.dart';
+import 'system_health_screen.dart';
 
-/// The authenticated admin entry point. Campaign management will be added to
-/// the sponsorship tab separately; this shell intentionally loads no data.
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      const AdminThemeScope(child: _AdminDashboardBody());
-}
-
-class _AdminDashboardBody extends StatelessWidget {
-  const _AdminDashboardBody();
-
-  @override
   Widget build(BuildContext context) {
-    Theme.of(context);
     final sessions = serviceLocator.isRegistered<AuthSessionManager>()
         ? serviceLocator<AuthSessionManager>()
         : null;
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('Admin Paneli'),
-          backgroundColor: Colors.transparent,
-          foregroundColor: (AppColors.isOriginalDark
-              ? BackstagePalette.textPrimary
-              : AppColors.textPrimary),
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          actions: const [SessionLogoutIconButton()],
-          bottom: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelColor: (AppColors.isOriginalDark
-                ? BackstagePalette.textPrimary
-                : AppColors.textPrimary),
-            unselectedLabelColor: (AppColors.isOriginalDark
-                ? BackstagePalette.textMuted
-                : AppColors.textMuted),
-            indicatorColor: AppColors.coral,
-            dividerColor: (AppColors.isOriginalDark
-                ? BackstagePalette.border
-                : AppColors.border),
-            tabs: const [
-              Tab(text: 'Ana Sayfa'),
-              Tab(text: 'Sponsorluklar'),
-              Tab(text: 'Akış Yönetimi'),
-              Tab(text: 'Bildirim Yönetimi'),
-            ],
-          ),
-        ),
-        body: SafeArea(
-          child: TabBarView(
+    if (sessions == null) {
+      return AdminPanelFrame(
+        sessions: null,
+        entry: null,
+        selected: null,
+        onSelect: (_) {},
+        child: const SizedBox.expand(key: Key('admin-home-empty')),
+      );
+    }
+    return ListenableBuilder(
+      listenable: sessions,
+      builder: (context, _) => _SessionDashboard(
+        key: ObjectKey(sessions.session),
+        sessions: sessions,
+        entry: sessions.session,
+      ),
+    );
+  }
+}
+
+class _SessionDashboard extends StatefulWidget {
+  const _SessionDashboard({
+    super.key,
+    required this.sessions,
+    required this.entry,
+  });
+  final AuthSessionManager sessions;
+  final AuthSession entry;
+  @override
+  State<_SessionDashboard> createState() => _SessionDashboardState();
+}
+
+class _SessionDashboardState extends State<_SessionDashboard> {
+  AdminPanelSection? _selected;
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final sessions = widget.sessions;
+    final sections = AdminPanelSection.values.where(
+      (section) => section.available(entry),
+    );
+    // Entering the panel must never start the health poller in the background.
+    final landing = sections
+        .where((section) => section != AdminPanelSection.system)
+        .firstOrNull;
+    final selected = sections.contains(_selected) ? _selected : landing;
+    void select(AdminPanelSection section) {
+      if (!mounted ||
+          !identical(entry, sessions.session) ||
+          !section.available(entry)) {
+        return;
+      }
+      setState(() => _selected = section);
+    }
+
+    return AdminPanelFrame(
+      sessions: sessions,
+      entry: entry,
+      selected: selected,
+      onSelect: select,
+      child: NotificationTargetReady(
+        ready:
+            selected == landing &&
+            AppRouteGuard.redirectFor(AppRoutes.adminDashboard, entry) == null,
+        customModuleKinds: const {'HOME'},
+        child: switch (selected) {
+          null when sections.contains(AdminPanelSection.system) => ListView(
+            padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
             children: [
-              if (sessions == null)
-                const SizedBox.expand(key: Key('admin-home-empty'))
-              else
-                AnimatedBuilder(
-                  animation: sessions,
-                  builder: (context, _) {
-                    final identity = musicianFeedReportAdminIdentity(
-                      sessions.session,
-                    );
-                    final marketAccess = canManageMarketplaceReports(
-                      sessions.session,
-                    );
-                    final notificationAccess = canManageNotificationCampaigns(
-                      sessions.session,
-                    );
-                    final marketSession = sessions.session;
-                    final applicationAccess = ApplicationKind.values.any(
-                      (kind) => kind.canRead(marketSession),
-                    );
-                    final healthAccess = canViewSystemHealth(marketSession);
-                    if (identity == null &&
-                        !applicationAccess &&
-                        !marketAccess &&
-                        !notificationAccess &&
-                        !healthAccess) {
-                      return NotificationTargetReady(
-                        ready:
-                            AppRouteGuard.redirectFor(
-                              AppRoutes.adminDashboard,
-                              sessions.session,
-                            ) ==
-                            null,
-                        customModuleKinds: const {'HOME'},
-                        child: const SizedBox.expand(
-                          key: Key('admin-home-empty'),
-                        ),
-                      );
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: AdminModuleTile(
+                  entryKey: const Key('admin-open-system-health'),
+                  title: 'Sistem sağlığını aç',
+                  description:
+                      'Servislerin durumunu ve son mobil olayları incele.',
+                  icon: Icons.monitor_heart_outlined,
+                  accent: Theme.of(context).colorScheme.primary,
+                  onTap: () {
+                    if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+                      select(AdminPanelSection.system);
                     }
-                    return NotificationTargetReady(
-                      ready:
-                          AppRouteGuard.redirectFor(
-                            AppRoutes.adminDashboard,
-                            sessions.session,
-                          ) ==
-                          null,
-                      customModuleKinds: const {'HOME'},
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          if (applicationAccess)
-                            Card(
-                              child: ListTile(
-                                leading: const Icon(Icons.assignment_outlined),
-                                title: const Text('Başvurular'),
-                                subtitle: const Text(
-                                  'İnceleme bekleyen işletme başvuruları',
-                                ),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () {
-                                  if (identical(
-                                        marketSession,
-                                        sessions.session,
-                                      ) &&
-                                      ApplicationKind.values.any(
-                                        (kind) =>
-                                            kind.canRead(sessions.session),
-                                      )) {
-                                    Navigator.of(
-                                      context,
-                                    ).pushNamed(AppRoutes.adminApplications);
-                                  }
-                                },
-                              ),
-                            ),
-                          if (healthAccess)
-                            AdminSectionCard(
-                              title: 'Sistem sağlığı',
-                              icon: Icons.monitor_heart_outlined,
-                              description:
-                                  'Hizmetleri, geciken işleri ve hata ölçümlerini izle.',
-                              children: [
-                                AdminBrandButton(
-                                  key: const Key('admin-system-health-entry'),
-                                  label: 'Durumu görüntüle',
-                                  icon: Icons.arrow_forward_rounded,
-                                  onPressed: () {
-                                    if (identical(
-                                          marketSession,
-                                          sessions.session,
-                                        ) &&
-                                        canViewSystemHealth(sessions.session)) {
-                                      Navigator.of(
-                                        context,
-                                      ).pushNamed(AppRoutes.adminSystemHealth);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          if (notificationAccess)
-                            AdminSectionCard(
-                              title: 'Özel bildirimler',
-                              icon: Icons.notifications_active_outlined,
-                              description:
-                                  'Mesajlarını hazırla, alıcılarını seç ve gönderimlerini planla.',
-                              children: [
-                                AdminBrandButton(
-                                  key: const Key(
-                                    'admin-notification-home-entry',
-                                  ),
-                                  label: 'Bildirimleri yönet',
-                                  icon: Icons.arrow_forward_rounded,
-                                  onPressed: () {
-                                    if (identical(
-                                          marketSession,
-                                          sessions.session,
-                                        ) &&
-                                        canManageNotificationCampaigns(
-                                          sessions.session,
-                                        )) {
-                                      Navigator.of(context).pushNamed(
-                                        AppRoutes.adminNotificationCampaigns,
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          if (marketAccess)
-                            Card(
-                              child: ListTile(
-                                key: const Key(
-                                  'admin-marketplace-reports-entry',
-                                ),
-                                contentPadding: const EdgeInsets.all(20),
-                                leading: const Icon(Icons.storefront_outlined),
-                                title: const Text('Pazar şikâyetleri'),
-                                subtitle: const Text(
-                                  'İlan bildirimlerini incele ve sonuçlandır',
-                                ),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () {
-                                  if (identical(
-                                        marketSession,
-                                        sessions.session,
-                                      ) &&
-                                      canManageMarketplaceReports(
-                                        sessions.session,
-                                      )) {
-                                    Navigator.of(context).pushNamed(
-                                      AppRoutes.adminMarketplaceReports,
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                          if (identity != null)
-                            Card(
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                key: const Key('admin-feed-reports-entry'),
-                                onTap: () {
-                                  if (identity !=
-                                      musicianFeedReportAdminIdentity(
-                                        sessions.session,
-                                      )) {
-                                    return;
-                                  }
-                                  Navigator.of(context).pushNamed(
-                                    AppRoutes.adminMusicianFeedReports,
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.flag_outlined),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Akış şikâyetleri',
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.titleMedium,
-                                            ),
-                                            const SizedBox(height: 6),
-                                            const Text(
-                                              'Müzisyen akışındaki içerik bildirimleri',
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Icon(Icons.chevron_right),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
                   },
                 ),
-              const SizedBox.expand(key: Key('admin-sponsorships-empty')),
-              if (sessions == null)
-                const SizedBox.shrink()
-              else
-                AnimatedBuilder(
-                  animation: sessions,
-                  builder: (context, _) {
-                    final identity = announcementSessionIdentity(
-                      sessions.session,
-                      admin: true,
-                    );
-                    if (identity == null) {
-                      return const Center(
-                        child: Text('Duyuru yönetim yetkisi gerekli.'),
-                      );
-                    }
-                    return ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        Card(
-                          child: ListTile(
-                            key: const Key('admin-announcements-entry'),
-                            contentPadding: const EdgeInsets.all(20),
-                            leading: const Icon(Icons.campaign_outlined),
-                            title: const Text('SoundConnect duyuruları'),
-                            subtitle: const Text(
-                              'Taslaklar, yayın takvimi, hedef profiller ve istatistikler',
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () {
-                              if (identity ==
-                                  announcementSessionIdentity(
-                                    sessions.session,
-                                    admin: true,
-                                  )) {
-                                Navigator.of(
-                                  context,
-                                ).pushNamed(AppRoutes.adminAnnouncements);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              if (sessions == null)
-                const SizedBox.shrink()
-              else
-                AnimatedBuilder(
-                  animation: sessions,
-                  builder: (context, _) {
-                    final captured = sessions.session;
-                    if (!canManageNotificationCampaigns(captured)) {
-                      return const Center(
-                        child: Text('Bildirim yönetim yetkisi gerekli.'),
-                      );
-                    }
-                    return ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        AdminSectionCard(
-                          title: 'Mesajlarını planla',
-                          icon: Icons.notifications_active_outlined,
-                          description:
-                              'Doğru kişilere, doğru zamanda ulaş. Özel bildirimlerini burada hazırla ve takip et.',
-                          children: [
-                            AdminBrandButton(
-                              key: const Key(
-                                'admin-notification-campaigns-entry',
-                              ),
-                              label: 'Özel bildirimler',
-                              icon: Icons.arrow_forward_rounded,
-                              onPressed: () {
-                                if (identical(captured, sessions.session) &&
-                                    canManageNotificationCampaigns(
-                                      sessions.session,
-                                    )) {
-                                  Navigator.of(context).pushNamed(
-                                    AppRoutes.adminNotificationCampaigns,
-                                  );
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            'Alıcılar, mesaj, açılacak sayfa ve gönderim takvimi. Kaydettiğin taslaklar sen planlayana kadar gönderilmez.',
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+              ),
             ],
           ),
+          null => const SizedBox.expand(key: Key('admin-home-empty')),
+          AdminPanelSection.system => SystemHealthScreen(
+            key: ObjectKey(entry),
+            embedded: true,
+            repository: SystemHealthRepository(
+              serviceLocator<ApiClient>(),
+              sessions,
+            ),
+            sessions: sessions,
+          ),
+          _ => _AdminDirectory(
+            section: selected,
+            entry: entry,
+            sessions: sessions,
+            onApplication: (kind) => _openApplication(kind, sessions, entry),
+          ),
+        },
+      ),
+    );
+  }
+
+  void _openApplication(
+    ApplicationKind kind,
+    AuthSessionManager sessions,
+    AuthSession entry,
+  ) {
+    if (!mounted ||
+        !identical(entry, sessions.session) ||
+        !kind.canRead(entry)) {
+      return;
+    }
+    final home = ModalRoute.of(context);
+    if (home == null || !home.isCurrent) {
+      return;
+    }
+    final navigator = Navigator.of(context);
+    navigator.pushNamed(
+      AppRoutes.adminApplications,
+      arguments: AdminApplicationEntry(
+        kind: kind,
+        frame: (body) => AdminPanelFrame(
+          entry: entry,
+          sessions: sessions,
+          selected: AdminPanelSection.applications,
+          child: body,
+          onSelect: (section) {
+            if (!mounted ||
+                !home.isActive ||
+                !identical(entry, sessions.session) ||
+                !section.available(entry)) {
+              return;
+            }
+            setState(() => _selected = section);
+            navigator.popUntil((route) => identical(route, home));
+          },
         ),
       ),
+    );
+  }
+}
+
+class _AdminDirectory extends StatelessWidget {
+  const _AdminDirectory({
+    required this.section,
+    required this.entry,
+    required this.sessions,
+    required this.onApplication,
+  });
+  final AdminPanelSection section;
+  final AuthSession entry;
+  final AuthSessionManager sessions;
+  final ValueChanged<ApplicationKind> onApplication;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final applications = section == AdminPanelSection.applications;
+    final reports = section == AdminPanelSection.reports;
+    final rows = <Widget>[];
+    void addModule(
+      String label,
+      String description,
+      String key,
+      IconData icon,
+      Color accent,
+      String route,
+      bool Function(AuthSession) allowed,
+    ) {
+      if (!allowed(entry)) return;
+      if (rows.isNotEmpty) {
+        rows.add(Divider(height: 1, color: colors.outlineVariant));
+      }
+      rows.add(
+        AdminModuleTile(
+          entryKey: Key(key),
+          title: label,
+          description: description,
+          icon: icon,
+          accent: accent,
+          onTap: () {
+            if (context.mounted &&
+                identical(entry, sessions.session) &&
+                allowed(entry) &&
+                ModalRoute.of(context)?.isCurrent == true) {
+              Navigator.of(context).pushNamed(route);
+            }
+          },
+        ),
+      );
+    }
+
+    if (reports) {
+      addModule(
+        'Pazar şikâyetleri',
+        'İlanlar hakkındaki bildirimler',
+        'admin-marketplace-reports-entry',
+        Icons.storefront_outlined,
+        const Color(0xFFE7BC84),
+        AppRoutes.adminMarketplaceReports,
+        canManageMarketplaceReports,
+      );
+      addModule(
+        'Akış şikâyetleri',
+        'Müzisyen akışındaki içerikler',
+        'admin-feed-reports-entry',
+        Icons.chat_bubble_outline_rounded,
+        const Color(0xFFBEADFF),
+        AppRoutes.adminMusicianFeedReports,
+        canManageMusicianFeedReports,
+      );
+    } else if (section == AdminPanelSection.publishing) {
+      addModule(
+        'SoundConnect duyuruları',
+        'Taslaklar, yayın takvimi ve istatistikler',
+        'admin-announcements-entry',
+        Icons.campaign_outlined,
+        const Color(0xFFFF9A91),
+        AppRoutes.adminAnnouncements,
+        (s) => announcementSessionIdentity(s, admin: true) != null,
+      );
+      addModule(
+        'Özel bildirimler',
+        'Mesajlar, alıcılar ve gönderim planı',
+        'admin-notification-campaigns-entry',
+        Icons.notifications_none_rounded,
+        const Color(0xFFBEADFF),
+        AppRoutes.adminNotificationCampaigns,
+        canManageNotificationCampaigns,
+      );
+    }
+    return ListView(
+      key: PageStorageKey(section),
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
+      children: [
+        Semantics(
+          header: true,
+          child: Text(
+            section.label,
+            style: theme.textTheme.headlineLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -1.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          applications
+              ? 'İncelemek istediğin işletme türünü seç.'
+              : reports
+              ? 'İnceleyeceğin şikâyetin kaynağını seç.'
+              : 'Duyuruları ve özel bildirimleri yönet.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (applications)
+          for (final kind in ApplicationKind.values.where(
+            (kind) => kind.canRead(entry),
+          ))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 13),
+              child: AdminApplicationTile(
+                kind: kind,
+                onTap: () => onApplication(kind),
+              ),
+            )
+        else ...[
+          Text(
+            reports ? 'Şikâyet listeleri' : 'Yayın araçları',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 9),
+          Material(
+            color: theme.brightness == Brightness.dark
+                ? const Color(0xFF181B2B)
+                : colors.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(17),
+              side: BorderSide(color: colors.outlineVariant),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: rows),
+          ),
+        ],
+      ],
     );
   }
 }

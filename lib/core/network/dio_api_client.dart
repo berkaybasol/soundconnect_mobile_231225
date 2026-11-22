@@ -6,6 +6,7 @@ import '../auth/auth_session_manager.dart';
 import '../auth/jwt_claims.dart';
 import '../auth/token_store.dart';
 import '../error/app_error.dart';
+import '../error/studio_rejection_error.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 import 'base_response.dart';
@@ -508,6 +509,17 @@ class DioApiClient implements ApiClient {
           _codeFromErrorPayload(errorPayload) ??
           e.response?.statusCode?.toString() ??
           'network';
+      if (code == '1112' &&
+          e.response?.statusCode == 403 &&
+          e.requestOptions.method == 'POST' &&
+          const {
+            '/api/v1/auth/login',
+            '/api/v1/auth/google-sign-in',
+            '/api/v1/auth/complete-google-profile',
+          }.contains(e.requestOptions.uri.path) &&
+          errorPayload is Map<String, dynamic>) {
+        throw ApiException(StudioRejectionError.fromResponse(errorPayload));
+      }
       throw ApiException(
         AppError(
           code: code,

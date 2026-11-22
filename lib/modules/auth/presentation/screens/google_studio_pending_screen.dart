@@ -6,7 +6,7 @@ import '../../../../core/error/result.dart';
 import '../../data/google_auth_repository.dart';
 import '../../domain/entities/login_result.dart';
 import '../../domain/entities/user_status.dart';
-import 'venue_pending_screen.dart';
+import '../widgets/membership_pending_view.dart';
 
 class GoogleStudioPendingScreen extends StatefulWidget {
   const GoogleStudioPendingScreen({
@@ -72,6 +72,7 @@ class _GoogleStudioPendingScreenState extends State<GoogleStudioPendingScreen> {
 
   Future<void> _check() async {
     if (_checking) return;
+    final navigator = Navigator.of(context);
     setState(() {
       _checking = true;
       _notice = null;
@@ -88,7 +89,7 @@ class _GoogleStudioPendingScreenState extends State<GoogleStudioPendingScreen> {
           result.token.isNotEmpty &&
           result.roles.contains('ROLE_STUDIO') &&
           result.sessionScope == null) {
-        Navigator.pop(context, Result<LoginResult>.success(result));
+        navigator.pop(Result<LoginResult>.success(result));
       } else {
         setState(() => _notice = 'Başvuru durumu doğrulanamadı. Tekrar dene.');
       }
@@ -96,7 +97,7 @@ class _GoogleStudioPendingScreenState extends State<GoogleStudioPendingScreen> {
       if (!_current) return;
       final error = googleAuthError(e);
       if (error.code == 'auth_studio_application_rejected') {
-        Navigator.pop(context, Result<LoginResult>.failure(error));
+        navigator.pop(Result<LoginResult>.failure(error));
       } else {
         setState(() => _notice = error.message);
       }
@@ -106,24 +107,13 @@ class _GoogleStudioPendingScreenState extends State<GoogleStudioPendingScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => VenuePendingScreen(
+  Widget build(BuildContext context) => MembershipPendingView(
     membershipType: PendingMembershipType.studio,
     onReturnToLogin: () => Navigator.pop(context),
-    statusAction: Column(
-      children: [
-        if (_notice != null)
-          Semantics(
-            liveRegion: true,
-            child: Text(_notice!, textAlign: TextAlign.center),
-          ),
-        OutlinedButton(
-          onPressed: _checking ? null : _check,
-          child: Text(
-            _checking ? 'Kontrol ediliyor…' : 'Başvuru durumunu kontrol et',
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
+    statusAction: MembershipStatusCheck(
+      checking: _checking,
+      onCheck: _check,
+      notice: _notice,
     ),
   );
 }

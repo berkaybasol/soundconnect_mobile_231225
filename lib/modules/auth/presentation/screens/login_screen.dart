@@ -10,6 +10,7 @@ import '../../../../core/deep_link/app_deep_link_policy.dart';
 import '../../../../core/deep_link/pending_app_deep_link_store.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/error/result.dart';
+import '../../../../core/error/studio_rejection_error.dart';
 import '../../../collab/presentation/collab_route_args.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
@@ -17,13 +18,13 @@ import '../../../../shared/widgets/app_theme_menu_option.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
 import '../../domain/password_policy.dart';
 import '../../data/google_auth_repository.dart';
+import '../../domain/business_registration_details.dart';
 import '../../domain/entities/login_result.dart';
 import '../../domain/password_reset_identifier_policy.dart';
 import '../../domain/username_policy.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 import 'otp_verify_screen.dart';
-import 'google_profile_screen.dart';
 import 'google_studio_pending_screen.dart';
 import '../../domain/entities/user_status.dart';
 
@@ -155,23 +156,23 @@ class _LoginScreenState extends State<LoginScreen> {
           sessions.credentialRevision != revision) {
         return const Result.success(null);
       }
+      Future<LoginResult> completeRegistration(
+        String username,
+        String role,
+        BusinessRegistrationDetails? business,
+      ) => provider.complete(
+        idToken: idToken,
+        username: username,
+        role: role,
+        consent: true,
+        revision: revision,
+        business: business,
+      );
       final completed = session != null
           ? Result<LoginResult>.success(session)
-          : await Navigator.of(context).push<Result<LoginResult>>(
-              MaterialPageRoute(
-                settings: const RouteSettings(name: AppRoutes.login),
-                builder: (_) => GoogleProfileScreen(
-                  complete: (username, role, consent, business) =>
-                      provider.complete(
-                        idToken: idToken,
-                        username: username,
-                        role: role,
-                        consent: consent,
-                        revision: revision,
-                        business: business,
-                      ),
-                ),
-              ),
+          : await Navigator.of(context).pushNamed<Result<LoginResult>>(
+              AppRoutes.register,
+              arguments: completeRegistration,
             );
       if (!mounted || route?.isCurrent != true) {
         return const Result.success(null);
@@ -340,7 +341,15 @@ class _LoginScreenState extends State<LoginScreen> {
               if (!mounted || !navigator.mounted || route?.isCurrent != true) {
                 return;
               }
-              navigator.pushNamedAndRemoveUntil(pendingRoute, (route) => false);
+              if (!identical(context.read<AuthCubit>().state.error, error)) {
+                setState(() => _loginNavigationStarted = false);
+                return;
+              }
+              navigator.pushNamedAndRemoveUntil(
+                pendingRoute,
+                (route) => false,
+                arguments: error is StudioRejectionError ? error : null,
+              );
             });
             return;
           }

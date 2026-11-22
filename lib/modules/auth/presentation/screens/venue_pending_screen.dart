@@ -1,70 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 
 import '../../../../app/router/app_routes.dart';
-import 'venue_application_decision_screen.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../shared/theme/app_colors.dart';
+import '../../../../core/error/studio_rejection_error.dart';
+import '../widgets/membership_pending_view.dart';
+import 'venue_application_decision_screen.dart';
 
-enum PendingMembershipType { venue, studio, studioRejected }
+export '../widgets/membership_pending_view.dart' show PendingMembershipType;
 
 class VenuePendingScreen extends StatelessWidget {
-  VenuePendingScreen({
+  const VenuePendingScreen({
     super.key,
     this.membershipType = PendingMembershipType.venue,
     this.statusAction,
+    this.studioDecision,
     this.onReturnToLogin,
   });
 
   final PendingMembershipType membershipType;
   final Widget? statusAction;
+  final StudioRejectionError? studioDecision;
   final VoidCallback? onReturnToLogin;
-
-  bool get _isStudio => membershipType != PendingMembershipType.venue;
-
-  bool get _isRejectedStudio =>
-      membershipType == PendingMembershipType.studioRejected;
-
-  static const Color _whatsAppGreen = Color(0xFF25D366);
-
-  Uri get _whatsAppSupportUri => Uri.https('wa.me', '/905378581093', {
-    'text': _isStudio
-        ? _isRejectedStudio
-              ? 'Merhaba, SoundConnect stüdyo başvurumun reddedilmesi hakkında bilgi almak veya itiraz etmek istiyorum.'
-              : 'Merhaba, SoundConnect stüdyo başvurum hakkında bilgi almak istiyorum.'
-        : 'Merhaba, SoundConnect mekan başvurum hakkında bilgi almak istiyorum.',
-  });
-
-  Future<void> _openWhatsAppSupport(BuildContext context) async {
-    var opened = false;
-    try {
-      opened = await launchUrl(
-        _whatsAppSupportUri,
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (_) {
-      // Missing handlers and platform failures have the same recoverable UI.
-    }
-    if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) {
-      return;
-    }
-    if (!opened) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        appSnackBar(
-          context,
-          tone: AppSnackBarTone.error,
-          content: const Text('WhatsApp bağlantısı açılamadı.'),
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    Theme.of(context);
     if (membershipType == PendingMembershipType.venue &&
         serviceLocator.isRegistered<AuthSessionManager>() &&
         serviceLocator<AuthSessionManager>()
@@ -72,264 +32,21 @@ class VenuePendingScreen extends StatelessWidget {
             .isVenueApplicationSession) {
       return const VenueApplicationDecisionScreen();
     }
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.navBlueDeep,
-              Theme.of(context).colorScheme.surfaceContainer,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                (AppColors.isLight
-                                        ? AppColors.decorativeGradient.first
-                                        : AppColors.coralAlt)
-                                    .withValues(alpha: 0.35),
-                            blurRadius: 24,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: _GradientIcon(
-                        icon: _isRejectedStudio
-                            ? Icons.info_outline_rounded
-                            : Icons.verified_outlined,
-                        size: 44,
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                    Text(
-                      _isRejectedStudio
-                          ? 'Stüdyo başvurun sonuçlandı'
-                          : 'Hesabın inceleniyor...',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      _isRejectedStudio
-                          ? 'Stüdyo üyelik başvurun onaylanmadı. Hesabın kapalı kalacak; bilgi almak veya karara itiraz etmek için destek ekibimize ulaşabilirsin.'
-                          : _isStudio
-                          ? 'Stüdyo üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.'
-                          : 'Mekan üyeliğini incelemeye aldık. Gün içinde ekibimiz seninle iletişime geçecek.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 15,
-                        height: 1.5,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text.rich(
-                      TextSpan(
-                        text: 'Soruların için ',
-                        children: [
-                          TextSpan(
-                            text: 'destek@soundconnect.com.tr',
-                            style: TextStyle(
-                              color: _whatsAppGreen,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          TextSpan(text: ' adresine e-posta gönderebilirsin.'),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 14,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => _openWhatsAppSupport(context),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        child: Text.rich(
-                          TextSpan(
-                            text: 'veya ',
-                            children: [
-                              TextSpan(
-                                text: 'buraya dokunarak',
-                                style: TextStyle(
-                                  color: _whatsAppGreen,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              TextSpan(text: ' '),
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                child: Padding(
-                                  padding: EdgeInsets.only(right: 4),
-                                  child: FaIcon(
-                                    FontAwesomeIcons.whatsapp,
-                                    color: _whatsAppGreen,
-                                    size: 15,
-                                  ),
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'WhatsApp üzerinden bize ulaşabilirsin.',
-                              ),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 28),
-                    if (statusAction != null) statusAction!,
-                    _GradientOutlineButton(
-                      label: 'Giriş ekranına dön',
-                      onTap:
-                          onReturnToLogin ??
-                          () async {
-                            await serviceLocator<AuthSessionManager>().logout();
-                            if (!context.mounted) return;
-                            Navigator.pushNamedAndRemoveUntil(
-                              context,
-                              AppRoutes.login,
-                              (route) => false,
-                            );
-                          },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return MembershipPendingView(
+      membershipType: membershipType,
+      statusAction: statusAction,
+      studioDecision: studioDecision,
+      onReturnToLogin:
+          onReturnToLogin ??
+          () async {
+            await serviceLocator<AuthSessionManager>().logout();
+            if (!context.mounted) return;
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.login,
+              (route) => false,
+            );
+          },
     );
-  }
-}
-
-class _GradientIcon extends StatelessWidget {
-  const _GradientIcon({required this.icon, required this.size});
-
-  final IconData icon;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) {
-        return LinearGradient(
-          colors: AppColors.decorativeGradient,
-        ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height));
-      },
-      child: Icon(icon, size: size),
-    );
-  }
-}
-
-class _GradientOutlineButton extends StatelessWidget {
-  const _GradientOutlineButton({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    Theme.of(context);
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: CustomPaint(
-        painter: _GradientBorderPainter(
-          borderRadius: 18,
-          strokeWidth: 1.4,
-          colors: AppColors.decorativeGradient,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: onTap,
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GradientBorderPainter extends CustomPainter {
-  const _GradientBorderPainter({
-    required this.borderRadius,
-    required this.strokeWidth,
-    required this.colors,
-  });
-
-  final double borderRadius;
-  final double strokeWidth;
-  final List<Color> colors;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final rRect = RRect.fromRectAndRadius(
-      rect.deflate(strokeWidth / 2),
-      Radius.circular(borderRadius),
-    );
-    final paint = Paint()
-      ..shader = LinearGradient(colors: colors).createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    canvas.drawRRect(rRect, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _GradientBorderPainter oldDelegate) {
-    return oldDelegate.borderRadius != borderRadius ||
-        oldDelegate.strokeWidth != strokeWidth ||
-        oldDelegate.colors != colors;
   }
 }

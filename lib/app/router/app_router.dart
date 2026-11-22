@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../core/error/result.dart';
 import '../../core/network/api_client.dart';
 import '../../modules/admin/data/system_health_repository.dart';
 import '../../modules/admin/data/pending_application_repository.dart';
+import '../../modules/admin/domain/pending_application.dart';
 import '../../modules/admin/presentation/screens/pending_applications_screen.dart';
+import '../../modules/admin/presentation/widgets/admin_panel_frame.dart';
 import '../../modules/admin/presentation/screens/system_health_screen.dart';
 import '../../modules/admin/data/notification_campaign_repository.dart';
 import '../../modules/admin/presentation/screens/notification_campaign_screen.dart';
@@ -23,6 +26,7 @@ import '../../modules/auth/presentation/screens/forgot_password_screen.dart';
 import '../../modules/auth/presentation/screens/login_screen.dart';
 import '../../modules/auth/presentation/screens/listener_profile_choice_screen.dart';
 import '../../modules/auth/presentation/screens/register_screen.dart';
+import '../../modules/auth/domain/entities/login_result.dart';
 import '../../modules/auth/presentation/screens/otp_verify_screen.dart';
 import '../../modules/auth/presentation/screens/venue_application_screen.dart';
 import '../../modules/auth/presentation/screens/venue_pending_screen.dart';
@@ -63,6 +67,7 @@ import '../../modules/tablegroup/presentation/screens/table_group_detail_screen.
 import '../../modules/tablegroup/presentation/table_group_profile_draft.dart';
 import 'app_routes.dart';
 import 'app_route_guard.dart';
+import '../../core/error/studio_rejection_error.dart';
 
 class AppRouter {
   static Route<dynamic> _publicProfileRoute(
@@ -129,9 +134,13 @@ class AppRouter {
         );
       case AppRoutes.adminApplications:
         final sessions = serviceLocator<AuthSessionManager>();
+        final entry = _arguments<AdminApplicationEntry>(settings);
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => PendingApplicationsScreen(
+            initialKind: entry?.kind ?? _arguments<ApplicationKind>(settings),
+            initialSession: session,
+            frame: entry?.frame,
             repository: PendingApplicationRepository(
               serviceLocator<ApiClient>(),
               sessions,
@@ -184,9 +193,12 @@ class AppRouter {
           ),
         );
       case AppRoutes.register:
-        return MaterialPageRoute(
+        final complete = _arguments<GoogleRegistrationSubmit>(settings);
+        return MaterialPageRoute<Result<LoginResult>>(
           settings: settings,
-          builder: (_) => RegisterScreen(),
+          builder: (_) => complete == null
+              ? const RegisterScreen()
+              : RegisterScreen.google(completeGoogleRegistration: complete),
         );
       case AppRoutes.forgotPassword:
         return MaterialPageRoute(
@@ -234,10 +246,12 @@ class AppRouter {
               VenuePendingScreen(membershipType: PendingMembershipType.studio),
         );
       case AppRoutes.studioRejected:
+        final decision = _arguments<StudioRejectionError>(settings);
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => VenuePendingScreen(
             membershipType: PendingMembershipType.studioRejected,
+            studioDecision: decision,
           ),
         );
       case AppRoutes.musicianProfile:

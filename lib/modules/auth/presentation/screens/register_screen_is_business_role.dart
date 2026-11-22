@@ -6,8 +6,6 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
 
   bool get _isStudioRole => _selectedRole == 'ROLE_STUDIO';
 
-  int get _totalSteps => _isBusinessRole ? 5 : 4;
-
   void _showError(
     String message, {
     AppSnackBarTone tone = AppSnackBarTone.warning,
@@ -39,9 +37,12 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
     if (mounted) {
       _updateView(() {
         _usernameTouched = true;
+        _googleUsernameError = null;
       });
     }
-    if (!UsernamePolicy.isValid(username)) return;
+    // Google completion can reclaim the same username on an unfinished account.
+    // Only the authenticated completion endpoint can decide that case.
+    if (_isGoogle || !UsernamePolicy.isValid(username)) return;
 
     _usernameAvailabilityDebounce = Timer(
       const Duration(milliseconds: 450),
@@ -68,85 +69,76 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
     final result = await context.read<AuthCubit>().checkUsernameAvailability(
       username: username,
     );
-    return mounted && result?.username == username && result!.available;
+    return mounted &&
+        result?.username == username &&
+        result!.available &&
+        UsernamePolicy.normalize(_usernameController.text) == username;
   }
 
-  bool _validateStep(int index) {
-    switch (index) {
-      case 0:
-        return UsernamePolicy.isValid(_usernameController.text);
-      case 1:
+  String? _validationMessage(_RegistrationStep step) {
+    switch (step) {
+      case _RegistrationStep.username:
+        final username = _canonicalizeUsername();
+        if (username.isEmpty) return 'Kullanıcı adı boş olamaz.';
+        return UsernamePolicy.isValid(username)
+            ? null
+            : 'Kullanıcı adı 3 ile 30 karakter arasında olmalı.';
+      case _RegistrationStep.email:
         final email = _emailController.text.trim();
-        return email.isNotEmpty && _isValidEmail(email);
-      case 2:
+        if (email.isEmpty) return 'E-posta boş olamaz.';
+        return _isValidEmail(email) ? null : 'Geçerli bir e-posta gir.';
+      case _RegistrationStep.password:
         final password = _passwordController.text;
-        final rePassword = _rePasswordController.text;
-        return PasswordPolicy.isValidForRegistration(password) &&
-            !PasswordPolicy.isBlank(rePassword) &&
-            password == rePassword;
-      case 3:
-        return (_selectedRole ?? '').isNotEmpty;
-      case 4:
-        return _business.details(isStudio: _isStudioRole).validationMessage ==
-            null;
-      default:
-        return false;
+        final repeat = _rePasswordController.text;
+        if (PasswordPolicy.isBlank(password)) return 'Şifre boş olamaz.';
+        if (password.length < PasswordPolicy.registrationMinimumLength) {
+          return 'Şifren en az 8 karakterden oluşmalı.';
+        }
+        if (PasswordPolicy.exceedsBcryptLimit(password)) {
+          return 'Şifren çok uzun. Biraz kısaltıp tekrar dene.';
+        }
+        if (PasswordPolicy.isBlank(repeat)) return 'Şifre tekrarı boş olamaz.';
+        return password == repeat ? null : 'Şifreler eşleşmeli.';
+      case _RegistrationStep.role:
+        return _selectedRole == null ? 'Rol seçilmelidir.' : null;
+      case _RegistrationStep.business:
+        final details = _business.details(isStudio: _isStudioRole);
+        return _isGoogle
+            ? details.googleValidationMessage
+            : details.validationMessage;
     }
   }
 
   Future<void> _next() async {
-    if (_stepIndex == 0) {
-      _canonicalizeUsername();
+    if (_submittingGoogle) return;
+    final steps = _steps;
+    final step = steps[_stepIndex];
+    final issue = _validationMessage(step);
+    if (issue != null) {
+      _showError(issue);
+      return;
     }
-    if (!_validateStep(_stepIndex)) {
-      if (_stepIndex == 0) {
-        final username = UsernamePolicy.normalize(_usernameController.text);
-        if (username.isEmpty) {
-          _showError('Kullanıcı adı boş olamaz.');
-        } else {
-          _showError('Kullanıcı adı 3 ile 30 karakter arasında olmalı.');
-        }
-      } else if (_stepIndex == 1) {
-        final email = _emailController.text.trim();
-        if (email.isEmpty) {
-          _showError('E-posta boş olamaz.');
-        } else {
-          _showError('Geçerli bir e-posta gir.');
-        }
-      } else if (_stepIndex == 2) {
-        final password = _passwordController.text;
-        final rePassword = _rePasswordController.text;
-        if (PasswordPolicy.isBlank(password)) {
-          _showError('Şifre boş olamaz.');
-        } else if (password.length < PasswordPolicy.registrationMinimumLength) {
-          _showError('Şifren en az 8 karakterden oluşmalı.');
-        } else if (PasswordPolicy.exceedsBcryptLimit(password)) {
-          _showError('Şifren çok uzun. Biraz kısaltıp tekrar dene.');
-        } else if (PasswordPolicy.isBlank(rePassword)) {
-          _showError('Şifre tekrarı boş olamaz.');
-        } else {
-          _showError('Şifreler eşleşmeli.');
-        }
-      } else if (_stepIndex == 3) {
-        _showError('Rol seçilmelidir.');
-      } else {
-        _showError(
-          _business.details(isStudio: _isStudioRole).validationMessage!,
-        );
+    if (step == _RegistrationStep.username && !_isGoogle) {
+      final available = await _ensureUsernameAvailable();
+      if (!mounted ||
+          !available ||
+          _steps[_stepIndex] != step ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
       }
+    }
+    if (_stepIndex < steps.length - 1) {
+      FocusScope.of(context).unfocus();
+      await _pageController.nextPage(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+      );
       return;
     }
 
-    if (_stepIndex == 0) {
-      final available = await _ensureUsernameAvailable();
-      if (!mounted || !available) return;
-    }
-
-    if (_stepIndex < _totalSteps - 1) {
-      _pageController.nextPage(
-        duration: Duration(milliseconds: 260),
-        curve: Curves.easeOut,
-      );
+    final completeGoogle = widget.completeGoogleRegistration;
+    if (completeGoogle != null) {
+      await _completeGoogle(completeGoogle);
       return;
     }
 
@@ -181,6 +173,42 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
     );
   }
 
+  Future<void> _completeGoogle(GoogleRegistrationSubmit submit) async {
+    _updateView(() => _submittingGoogle = true);
+    try {
+      final result = await submit(
+        _canonicalizeUsername(),
+        _selectedRole!,
+        _isBusinessRole ? _business.details(isStudio: _isStudioRole) : null,
+      );
+      if (mounted) {
+        Navigator.of(context).pop(Result<LoginResult>.success(result));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final error = googleAuthError(e);
+      if (const {
+        '401',
+        '1101',
+        '1004',
+        '1116',
+        '1118',
+        '1102',
+        'auth_studio_application_rejected',
+      }.contains(error.code)) {
+        Navigator.of(context).pop(Result<LoginResult>.failure(error));
+        return;
+      }
+      _updateView(() => _submittingGoogle = false);
+      if (error.code == '1002') {
+        _updateView(() => _googleUsernameError = error.message);
+        _pageController.jumpToPage(_steps.indexOf(_RegistrationStep.username));
+        return;
+      }
+      _showError(error.message, tone: AppSnackBarTone.error);
+    }
+  }
+
   void _back() {
     if (_stepIndex == 0) {
       Navigator.pop(context);
@@ -199,20 +227,18 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
   }
 
   Widget _buildProgressIndicator(double progressValue) {
-    final steps = _totalSteps == 5
-        ? [
-            Icons.headphones,
-            Icons.favorite_border,
-            Icons.link,
+    final steps = [
+      for (final step in _steps)
+        switch (step) {
+          _RegistrationStep.username => Icons.headphones,
+          _RegistrationStep.email => Icons.favorite_border,
+          _RegistrationStep.password => Icons.link,
+          _RegistrationStep.role when _isBusinessRole =>
             _isStudioRole ? Icons.mic_none : Icons.storefront_outlined,
-            Icons.check_circle,
-          ]
-        : [
-            Icons.headphones,
-            Icons.favorite_border,
-            Icons.link,
-            Icons.check_circle,
-          ];
+          _RegistrationStep.role ||
+          _RegistrationStep.business => Icons.check_circle,
+        },
+    ];
 
     final clamped = progressValue.clamp(0, steps.length - 1).toDouble();
     final children = <Widget>[];
@@ -351,6 +377,7 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
         GradientTextField(
           key: const Key('register-username-field'),
           controller: _usernameController,
+          enabled: !_submittingGoogle,
           label: 'Kullanıcı adı',
           prefixIcon: Icons.person_outline,
         ),
@@ -384,13 +411,14 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
                     negative: !availability.available,
                   ),
                 )
-              : hasCheckFailure
+              : hasCheckFailure || _googleUsernameError != null
               ? Padding(
                   key: const Key('register-username-check-failed'),
                   padding: const EdgeInsets.only(top: 10),
                   child: _UsernameAvailabilityMessage(
                     icon: Icons.info_outline,
                     message:
+                        _googleUsernameError ??
                         state.error?.message ??
                         'Kullanıcı adı şu anda kontrol edilemiyor.',
                     negative: true,
@@ -493,7 +521,7 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
     );
   }
 
-  Widget _buildRoleStep() {
+  Widget _buildRoleStep({required bool enabled}) {
     final applicationOptions = _roleOptions
         .where(
           (option) => option.id == 'ROLE_VENUE' || option.id == 'ROLE_STUDIO',
@@ -520,20 +548,13 @@ extension _RegisterScreenStateIsBusinessRoleMethods on _RegisterScreenState {
           ),
         ),
         SizedBox(height: 16),
-        Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ...otherOptions.map(_buildRoleOption),
-                SizedBox(height: 16),
-                Divider(color: Theme.of(context).dividerColor),
-                SizedBox(height: 16),
-                ...applicationOptions.map(_buildRoleOption),
-              ],
-            ),
-          ),
-        ),
+        for (final option in otherOptions)
+          _buildRoleOption(option, enabled: enabled),
+        SizedBox(height: 16),
+        Divider(color: Theme.of(context).dividerColor),
+        SizedBox(height: 16),
+        for (final option in applicationOptions)
+          _buildRoleOption(option, enabled: enabled),
       ],
     );
   }

@@ -19,20 +19,16 @@ extension _RegisterScreenStateBuildBusinessStepMethods on _RegisterScreenState {
           ),
         ),
         SizedBox(height: 16),
-        Expanded(
-          child: SingleChildScrollView(
-            child: BusinessRegistrationFields(
-              controller: _business,
-              isStudio: _isStudioRole,
-              enabled: enabled,
-            ),
-          ),
+        BusinessRegistrationFields(
+          controller: _business,
+          isStudio: _isStudioRole,
+          enabled: enabled,
         ),
       ],
     );
   }
 
-  Widget _buildRoleOption(_RoleOption option) {
+  Widget _buildRoleOption(_RoleOption option, {required bool enabled}) {
     final isSelected = _selectedRole == option.id;
     final borderRadius = BorderRadius.circular(18);
 
@@ -40,9 +36,7 @@ extension _RegisterScreenStateBuildBusinessStepMethods on _RegisterScreenState {
       padding: EdgeInsets.only(bottom: 12),
       child: InkWell(
         borderRadius: borderRadius,
-        onTap: () {
-          _handleRoleSelect(option.id);
-        },
+        onTap: enabled ? () => _handleRoleSelect(option.id) : null,
         child: Container(
           decoration: BoxDecoration(
             gradient: isSelected

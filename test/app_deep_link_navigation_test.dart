@@ -19,7 +19,6 @@ import 'package:soundconnect_23_12_25codx/core/error/result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/google_auth_repository.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/domain/entities/login_result.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/cubit/auth_cubit.dart';
-import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/google_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/register_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/collab/presentation/collab_route_args.dart';
@@ -123,7 +122,7 @@ void main() {
   });
 
   testWidgets(
-    'a pending listing survives opening and leaving the Google profile form',
+    'a pending listing survives entering and cancelling Google registration at role selection',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       setupDependencies();
@@ -144,7 +143,11 @@ void main() {
       await tester.tap(google);
       await tester.pumpAndSettle();
 
-      expect(find.byType(GoogleProfileScreen), findsOneWidget);
+      expect(find.byType(RegisterScreen), findsOneWidget);
+      expect(
+        find.text("SoundConnect'te ne yapmak istiyorsun?"),
+        findsOneWidget,
+      );
       expect((await inbox.pending())?.target.listingId, _listingId);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/error/app_error.dart';
+import '../../../core/error/studio_rejection_error.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/entities/login_result.dart';
@@ -130,6 +131,9 @@ class GoogleAuthRepository {
 
 AppError googleAuthError(Object error) {
   if (error is ApiException) {
+    if (error.error.code == '1112') {
+      return StudioRejectionError.forLogin(error.error);
+    }
     final message = switch (error.error.code) {
       '1101' || '401' =>
         'Google doğrulamasının süresi doldu. Google hesabını yeniden seç.',
@@ -145,18 +149,12 @@ AppError googleAuthError(Object error) {
         'Bu hesap için kayıt tamamlanmış. Google ile yeniden giriş yap.',
       '4000' => 'Kullanıcı adını ve profil seçimini kontrol et.',
       '1102' => 'Bu hesapla devam edilemiyor.',
-      '1112' => 'Stüdyo başvurun onaylanmadı.',
       'google_account_mismatch' =>
         'Başvurduğun Google hesabını seçerek tekrar dene.',
       'google_provider' => error.error.message,
       _ => 'İstek tamamlanamadı. Bağlantını kontrol edip tekrar dene.',
     };
-    return AppError(
-      code: error.error.code == '1112'
-          ? 'auth_studio_application_rejected'
-          : error.error.code,
-      message: message,
-    );
+    return AppError(code: error.error.code, message: message);
   }
   return const AppError(
     code: 'google_unknown',

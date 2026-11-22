@@ -4,13 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/error/result.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_text_field.dart';
-import '../../../location/presentation/cubit/location_cubit.dart';
-import '../../../location/presentation/cubit/location_state.dart';
 import '../widgets/business_registration_fields.dart';
+import '../../data/google_auth_repository.dart';
+import '../../domain/business_registration_details.dart';
+import '../../domain/entities/login_result.dart';
 import '../../domain/password_policy.dart';
 import '../../domain/username_policy.dart';
 import 'otp_verify_screen.dart';
@@ -22,8 +24,24 @@ part 'register_screen_support.dart';
 part 'register_screen_is_business_role.dart';
 part 'register_screen_build_business_step.dart';
 
+typedef GoogleRegistrationSubmit =
+    Future<LoginResult> Function(
+      String username,
+      String role,
+      BusinessRegistrationDetails? business,
+    );
+
+enum _RegistrationStep { username, email, password, role, business }
+
 class RegisterScreen extends StatefulWidget {
-  RegisterScreen({super.key});
+  const RegisterScreen({super.key}) : completeGoogleRegistration = null;
+
+  const RegisterScreen.google({
+    super.key,
+    required GoogleRegistrationSubmit this.completeGoogleRegistration,
+  });
+
+  final GoogleRegistrationSubmit? completeGoogleRegistration;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -79,6 +97,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _lastUsernameCheckRequested;
   bool _usernameTouched = false;
   bool _registrationNavigationScheduled = false;
+  bool _submittingGoogle = false;
+  String? _googleUsernameError;
+
+  bool get _isGoogle => widget.completeGoogleRegistration != null;
+
+  List<_RegistrationStep> get _steps => [
+    if (_isGoogle) _RegistrationStep.role,
+    _RegistrationStep.username,
+    if (!_isGoogle) ...[
+      _RegistrationStep.email,
+      _RegistrationStep.password,
+      _RegistrationStep.role,
+    ],
+    if (_isBusinessRole) _RegistrationStep.business,
+  ];
 
   @override
   void initState() {
@@ -89,14 +122,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _pageProgress = ValueNotifier<double>(0.0);
     _pageController.addListener(() {
       _pageProgress.value = _pageController.page ?? _stepIndex.toDouble();
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final cubit = context.read<LocationCubit>();
-      if (cubit.state.cities.isEmpty &&
-          cubit.state.status != LocationStatus.loading) {
-        cubit.loadCities();
-      }
     });
   }
 
@@ -119,7 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     Theme.of(context);
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
-        if (state.action != AuthAction.register) return;
+        if (_isGoogle || state.action != AuthAction.register) return;
         if (state.status == AuthStatus.success) {
           final route = ModalRoute.of(context);
           if (_registrationNavigationScheduled || route?.isCurrent != true) {
@@ -143,10 +168,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       },
       builder: (context, state) {
-        final isLoading =
-            state.status == AuthStatus.loading &&
-            state.action == AuthAction.register;
+        final isLoading = _isGoogle
+            ? _submittingGoogle
+            : state.status == AuthStatus.loading &&
+                  state.action == AuthAction.register;
         final isUsernameChecking =
+            !_isGoogle &&
             state.status == AuthStatus.loading &&
             state.action == AuthAction.usernameAvailability &&
             _lastUsernameCheckRequested ==
@@ -154,13 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final registrationLocked =
             isLoading || _registrationNavigationScheduled;
 
-        final pages = <Widget>[
-          _buildUsernameStep(state),
-          _buildEmailStep(),
-          _buildPasswordStep(),
-          _buildRoleStep(),
-          if (_isBusinessRole) _buildBusinessStep(enabled: !registrationLocked),
-        ];
+        final steps = _steps;
 
         return PopScope(
           canPop: !registrationLocked,
@@ -178,14 +199,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ValueListenableBuilder<double>(
                       valueListenable: _pageProgress,
                       builder: (context, value, child) {
-                        return Center(child: _buildProgressIndicator(value));
+                        return Center(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: _buildProgressIndicator(value),
+                          ),
+                        );
                       },
                     ),
                     SizedBox(height: 24),
                     Expanded(
                       child: PageView.builder(
                         controller: _pageController,
-                        itemCount: pages.length,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: steps.length,
                         onPageChanged: (index) {
                           setState(() {
                             _stepIndex = index;
@@ -218,13 +245,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               );
                             },
-                            child: pages[index],
+                            child: SingleChildScrollView(
+                              key: PageStorageKey(steps[index]),
+                              primary: false,
+                              child: switch (steps[index]) {
+                                _RegistrationStep.username =>
+                                  _buildUsernameStep(state),
+                                _RegistrationStep.email => _buildEmailStep(),
+                                _RegistrationStep.password =>
+                                  _buildPasswordStep(),
+                                _RegistrationStep.role => _buildRoleStep(
+                                  enabled: !registrationLocked,
+                                ),
+                                _RegistrationStep.business =>
+                                  _buildBusinessStep(
+                                    enabled: !registrationLocked,
+                                  ),
+                              },
+                            ),
                           );
                         },
                       ),
                     ),
                     SizedBox(height: 20),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         TextButton(
                           onPressed: registrationLocked || isUsernameChecking
@@ -232,14 +277,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               : _back,
                           child: Text('Geri'),
                         ),
-                        Spacer(),
-                        GradientOutlineButton(
-                          onPressed: registrationLocked || isUsernameChecking
-                              ? null
-                              : _next,
-                          label: _stepIndex == _totalSteps - 1
-                              ? (isLoading ? 'Kaydediliyor...' : 'Tamamla')
-                              : 'Devam et',
+                        Flexible(
+                          child: GradientOutlineButton(
+                            maxLines: 2,
+                            onPressed: registrationLocked || isUsernameChecking
+                                ? null
+                                : _next,
+                            label: _stepIndex == steps.length - 1
+                                ? _submitLabel(isLoading)
+                                : 'Devam et',
+                          ),
                         ),
                       ],
                     ),
@@ -254,6 +301,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _updateView(VoidCallback change) => setState(change);
+
+  String _submitLabel(bool isLoading) {
+    if (isLoading) return 'Kaydediliyor...';
+    if (!_isGoogle) return 'Tamamla';
+    return _isBusinessRole ? 'Başvurumu gönder' : 'Hesabımı oluştur';
+  }
 
   // Keep notifier registration and removal on the same instance callback.
   void _handleUsernameChanged() => _updateUsernameAvailability();

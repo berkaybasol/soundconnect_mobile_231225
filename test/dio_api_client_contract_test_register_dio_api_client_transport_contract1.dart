@@ -1,6 +1,43 @@
 part of 'dio_api_client_contract_test.dart';
 
 void _registerDioApiClientTransportContract1() {
+  for (final legacy in [false, true]) {
+    test(
+      'studio login only shows the explicit applicant fields, legacy=$legacy',
+      () async {
+        final adapter = _RecordingHttpClientAdapter(
+          (_) => _jsonResponse(
+            statusCode: 403,
+            payload: {
+              'code': 1112,
+              'message': 'Internal error message',
+              'details': ['Internal diagnostic'],
+              if (!legacy) ...{
+                'businessName': 'Kovan Stüdyo',
+                'rejectionReason': 'Bina numarası eksik.',
+              },
+            },
+          ),
+        );
+        final dio = _dio(adapter);
+        addTearDown(() => _closeDio(dio, adapter));
+        final tokens = _MemoryTokenStore(null);
+        final login = await AuthRepositoryImpl(
+          DioApiClient(dio: dio, tokenStore: tokens),
+        ).login(username: 'studio', password: 'test-password');
+        final decision = login.error! as StudioRejectionError;
+        expect(decision.code, 'auth_studio_application_rejected');
+        expect(decision.businessName, legacy ? isNull : 'Kovan Stüdyo');
+        expect(
+          decision.rejectionReason,
+          legacy ? isNull : 'Bina numarası eksik.',
+        );
+        expect(decision.details, isEmpty);
+        expect(decision.message, isNot(contains('Internal')));
+        expect(tokens.value, isNull);
+      },
+    );
+  }
   test('login recovery crosses HTTP 403 without creating a session', () async {
     final adapter = _RecordingHttpClientAdapter(
       (_) => _jsonResponse(

@@ -8,6 +8,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
+import 'package:soundconnect_23_12_25codx/core/error/studio_rejection_error.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_exception.dart';
 import 'package:soundconnect_23_12_25codx/core/network/dio_api_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/data/auth_repository_impl.dart';

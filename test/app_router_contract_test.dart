@@ -358,7 +358,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(VenuePendingScreen), findsOneWidget);
-    expect(find.text('Stüdyo başvurun sonuçlandı'), findsOneWidget);
+    expect(find.text('Stüdyo başvurun reddedildi.'), findsOneWidget);
     expect(find.textContaining('karara itiraz etmek'), findsOneWidget);
     expect(
       AppRouteGuard.redirectFor(

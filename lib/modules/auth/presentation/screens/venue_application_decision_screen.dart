@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../../app/router/app_routes.dart';
@@ -14,6 +13,9 @@ import '../../../notification/domain/entities/app_notification.dart';
 import '../../../notification/presentation/cubit/notification_cubit.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import '../../data/venue_application_repository.dart';
+import '../widgets/membership_pending_view.dart';
+import '../widgets/membership_rejection_view.dart';
+import '../widgets/membership_support.dart';
 
 /// Own current application only. Opening this screen never mounts the inbox or
 /// grants business access from a notification/status field.
@@ -40,6 +42,7 @@ class _VenueApplicationDecisionScreenState
   String? _error;
   bool _busy = false, _acked = false, _ackBusy = false, _ackFailed = false;
   bool _promotionAttempted = false, _promotionFailed = false;
+  bool _confirmedPending = false;
   bool _promotionInFlight = false;
   int? _promotionCredentialRevision;
   AuthSession? _promotionSuccessor;
@@ -124,31 +127,27 @@ class _VenueApplicationDecisionScreenState
   @override
   void didPopNext() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_current) unawaited(_finishDecision());
+      if (!_current) return;
+      // The first response may have arrived while another route was visible.
+      // A pending home can also have an older decision than that route.
+      if (_error == null &&
+          (_detail == null ||
+              (widget.target == null && _detail?.status == 'PENDING'))) {
+        unawaited(_load());
+      } else {
+        unawaited(_finishDecision());
+      }
     });
   }
 
   Future<void> _support() async {
     if (!_current) return;
-    var opened = false;
-    try {
-      opened = await launchUrl(
-        Uri.https('wa.me', '/905378581093', {
-          'text':
-              'Merhaba, SoundConnect mekan başvurum hakkında bilgi almak istiyorum.',
-        }),
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (_) {
-      /* Existing support target may have no local handler. */
-    }
-    if (!mounted || !_current || opened) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      appSnackBar(
-        context,
-        tone: AppSnackBarTone.error,
-        content: const Text('WhatsApp bağlantısı açılamadı.'),
+    await openMembershipSupport(
+      context,
+      membershipSupportWhatsApp(
+        'Merhaba, SoundConnect mekan başvurum hakkında bilgi almak istiyorum.',
       ),
+      'WhatsApp bağlantısı açılamadı.',
     );
   }
 
@@ -164,10 +163,11 @@ class _VenueApplicationDecisionScreenState
     if (state == AppLifecycleState.resumed && _current) unawaited(_load());
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool manual = false}) async {
     if (!_current || _busy || _promotionAttempted) return;
     setState(() {
       _busy = true;
+      _confirmedPending = false;
       _error = null;
     });
     try {
@@ -199,6 +199,7 @@ class _VenueApplicationDecisionScreenState
       }
       setState(() {
         _detail = detail;
+        _confirmedPending = manual && detail.status == 'PENDING';
         _notification = notification;
       });
       // ACK after the authenticated current decision has a presented frame.
@@ -319,6 +320,65 @@ class _VenueApplicationDecisionScreenState
         identical(_sessions.session, _session) || _hasPromotionPresentation
         ? _detail
         : null;
+    if (widget.target == null &&
+        identical(_sessions.session, _session) &&
+        _session.isVenueApplicationSession &&
+        (detail?.status == 'PENDING' || (detail == null && _error == null))) {
+      return MembershipPendingView(
+        statusAction: Column(
+          children: [
+            MembershipStatusCheck(
+              checking: _busy,
+              onCheck: () => _load(manual: true),
+              notice: _confirmedPending
+                  ? 'Başvurunun incelemesi sürüyor.'
+                  : null,
+            ),
+            if (_push != null)
+              TextButton(
+                onPressed: _busy ? null : () => _push.requestPermission(),
+                child: const Text('Sonuç bildirimlerini aç'),
+              ),
+          ],
+        ),
+        onReturnToLogin: _busy
+            ? null
+            : () {
+                if (_current) unawaited(_sessions.logout());
+              },
+      );
+    }
+    final decisionActions = [
+      if (_ackFailed)
+        TextButton(
+          onPressed: _ackBusy ? null : () => _finishDecision(retryAck: true),
+          child: const Text('Okundu bilgisini yeniden gönder'),
+        ),
+      if (!_promotionFailed)
+        TextButton(
+          onPressed: _busy ? null : _load,
+          child: Text(_error == null ? 'Durumu yenile' : 'Tekrar dene'),
+        ),
+      if (_session.isVenueApplicationSession && _push != null)
+        TextButton(
+          onPressed: _busy ? null : () => _push.requestPermission(),
+          child: const Text('Sonuç bildirimlerini aç'),
+        ),
+    ];
+    final logout = _busy
+        ? null
+        : () {
+            if (_current) unawaited(_sessions.logout());
+          };
+    if (detail != null && detail.status == 'REJECTED') {
+      return MembershipRejectionView(
+        isStudio: false,
+        businessName: detail.venueName,
+        reason: detail.rejectionReason,
+        onReturnToLogin: logout,
+        statusActions: decisionActions,
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Başvuru durumu')),
       body: Container(
@@ -347,12 +407,7 @@ class _VenueApplicationDecisionScreenState
                       shaderCallback: (bounds) => LinearGradient(
                         colors: AppColors.decorativeGradient,
                       ).createShader(bounds),
-                      child: Icon(
-                        detail.status == 'REJECTED'
-                            ? Icons.info_outline_rounded
-                            : Icons.verified_outlined,
-                        size: 44,
-                      ),
+                      child: Icon(Icons.verified_outlined, size: 44),
                     ),
                     const SizedBox(height: 20),
                     Text(
@@ -364,7 +419,6 @@ class _VenueApplicationDecisionScreenState
                     Text(
                       switch (detail.status) {
                         'APPROVED' => 'Mekân başvurun onaylandı.',
-                        'REJECTED' => 'Mekân başvurun reddedildi.',
                         _ => 'Mekân başvurun inceleniyor.',
                       },
                       textAlign: TextAlign.center,
@@ -376,8 +430,6 @@ class _VenueApplicationDecisionScreenState
                         _promotionFailed
                             ? 'Profiline geçiş tamamlanamadı.'
                             : 'Profilin açılıyor…',
-                      'REJECTED' =>
-                        'Başvurunla ilgili bilgi için destek@soundconnect.com.tr adresinden bize ulaşabilirsin.',
                       _ => 'Sonuçlandığında burada görebilirsin.',
                     }, textAlign: TextAlign.center),
                     const SizedBox(height: 24),
@@ -391,40 +443,14 @@ class _VenueApplicationDecisionScreenState
                     const SizedBox(height: 16),
                     Text(_error!, textAlign: TextAlign.center),
                   ],
-                  if (_ackFailed)
-                    TextButton(
-                      onPressed: _ackBusy
-                          ? null
-                          : () => _finishDecision(retryAck: true),
-                      child: const Text('Okundu bilgisini yeniden gönder'),
-                    ),
-                  if (!_promotionFailed)
-                    TextButton(
-                      onPressed: _busy ? null : _load,
-                      child: Text(
-                        _error == null ? 'Durumu yenile' : 'Tekrar dene',
-                      ),
-                    ),
+                  ...decisionActions,
                   if (detail != null && detail.status != 'APPROVED')
                     TextButton.icon(
                       onPressed: _support,
                       icon: const Icon(Icons.support_agent),
                       label: const Text('WhatsApp ile destek al'),
                     ),
-                  if (_session.isVenueApplicationSession && _push != null)
-                    TextButton(
-                      onPressed: _busy ? null : () => _push.requestPermission(),
-                      child: const Text('Sonuç bildirimlerini aç'),
-                    ),
-                  TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () async {
-                            if (!_current) return;
-                            await _sessions.logout();
-                          },
-                    child: const Text('Çıkış yap'),
-                  ),
+                  TextButton(onPressed: logout, child: const Text('Çıkış yap')),
                 ],
               ),
             ),

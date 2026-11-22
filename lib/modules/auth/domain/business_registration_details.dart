@@ -46,10 +46,12 @@ class BusinessRegistrationDetails {
     final common = validationMessage;
     if (common != null || isStudio) return common;
     if (name.length > 100) return 'Mekân adı en fazla 100 karakter olabilir.';
-    if (address.length > 255)
+    if (address.length > 255) {
       return 'Açık adres en fazla 255 karakter olabilir.';
-    if (phone.length < 10 || phone.length > 15)
+    }
+    if (phone.length < 10 || phone.length > 15) {
       return 'Telefon 10 ile 15 karakter arasında olmalı.';
+    }
     return null;
   }
 

@@ -12,6 +12,7 @@ import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_store.dart';
 import 'package:soundconnect_23_12_25codx/core/network/api_client.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/data/system_health_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/domain/collab_report_admin_access.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/musician_feed_report_admin.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/pending_application.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/admin_dashboard_screen.dart';
@@ -30,6 +31,7 @@ const _permissions = [
   'MANAGE_VENUE_APPLICATIONS',
   'MANAGE_STUDIO_APPLICATIONS',
   'MANAGE_MARKETPLACE_REPORTS',
+  collabReportAdminPermission,
   musicianFeedReportAdminPermission,
   'MANAGE_PROMOTIONS',
 ];
@@ -237,7 +239,9 @@ void main() {
       await _tap(tester, _nav('reports'));
       final feed = _entry('feed-reports-entry');
       final market = _entry('marketplace-reports-entry');
+      final collab = _entry('collab-reports-entry');
       expect(market, findsNothing);
+      expect(collab, findsNothing);
       final stale = tester.widget<InkWell>(feed).onTap!;
       sessions.replace(
         _admin(permissions: const ['MANAGE_MARKETPLACE_REPORTS']),
@@ -248,6 +252,17 @@ void main() {
       expect(opened, isEmpty);
       await _tap(tester, market);
       expect(opened.single.name, AppRoutes.adminMarketplaceReports);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      sessions.replace(
+        _admin(permissions: const [collabReportAdminPermission]),
+      );
+      await tester.pumpAndSettle();
+      expect(feed, findsNothing);
+      expect(market, findsNothing);
+      await _tap(tester, collab);
+      expect(opened.last.name, AppRoutes.adminCollabReports);
+      expect(opened.last.arguments, isA<AdminSubpageFrame>());
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       sessions.replace(_admin());

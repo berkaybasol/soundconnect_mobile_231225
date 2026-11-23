@@ -6,6 +6,7 @@ import '../../../../core/auth/auth_session.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../shared/widgets/session_logout_action.dart';
 import '../../../promotion/domain/announcement_access.dart';
+import '../../domain/collab_report_admin_access.dart';
 import '../../domain/marketplace_report_admin.dart';
 import '../../domain/musician_feed_report_admin.dart';
 import '../../domain/notification_campaign.dart';
@@ -35,7 +36,8 @@ enum AdminPanelSection {
     applications => ApplicationKind.values.any((kind) => kind.canRead(session)),
     reports =>
       canManageMarketplaceReports(session) ||
-          canManageMusicianFeedReports(session),
+          canManageMusicianFeedReports(session) ||
+          canManageCollabReports(session),
     publishing =>
       announcementSessionIdentity(session, admin: true) != null ||
           canManageNotificationCampaigns(session),
@@ -43,7 +45,7 @@ enum AdminPanelSection {
   };
 }
 
-/// Shared chrome for the dashboard and application routes pushed from it.
+/// Shared chrome for the dashboard and its review screens.
 class AdminPanelFrame extends StatelessWidget {
   const AdminPanelFrame({
     super.key,

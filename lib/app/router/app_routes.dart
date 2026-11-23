@@ -7,6 +7,7 @@ class AppRoutes {
   static const announcements = '/announcements';
   static const adminMusicianFeedReports = '/admin/musician-feed/reports';
   static const adminMarketplaceReports = '/admin/marketplace/reports';
+  static const adminCollabReports = '/admin/collab/reports';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';

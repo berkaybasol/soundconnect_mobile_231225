@@ -186,6 +186,13 @@ extension CollabJobStatusX on CollabJobStatus {
 enum CollabReportReason { spam, inappropriate, misleading, other }
 
 extension CollabReportReasonX on CollabReportReason {
+  String get label => switch (this) {
+    CollabReportReason.spam => 'Spam veya tekrar eden ilan',
+    CollabReportReason.inappropriate => 'Uygunsuz içerik',
+    CollabReportReason.misleading => 'Yanıltıcı veya hatalı ilan',
+    CollabReportReason.other => 'Diğer',
+  };
+
   String get apiValue => switch (this) {
     CollabReportReason.spam => 'SPAM',
     CollabReportReason.inappropriate => 'INAPPROPRIATE',

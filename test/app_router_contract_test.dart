@@ -16,6 +16,7 @@ import 'package:soundconnect_23_12_25codx/modules/event_audience/presentation/ev
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/listener_profile_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/login_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/domain/musician_feed_report_admin_repository.dart';
+import 'package:soundconnect_23_12_25codx/modules/admin/domain/collab_report_admin_access.dart';
 import 'package:soundconnect_23_12_25codx/modules/admin/presentation/screens/musician_feed_report_admin_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/auth/presentation/screens/venue_pending_screen.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/studio_profile_screen.dart';
@@ -154,6 +155,40 @@ void main() {
           session,
         ),
         isNull,
+      );
+    }
+  });
+
+  test('Collab moderation requires its permission and excludes listeners', () {
+    final allowed = _activeSession(
+      ['ROLE_ADMIN'],
+      permissions: [collabReportAdminPermission],
+      isAdmin: true,
+    );
+    expect(
+      AppRouteGuard.redirectFor(AppRoutes.adminCollabReports, allowed),
+      isNull,
+    );
+    for (final session in [
+      const AuthSession.guest(),
+      _activeSession(
+        ['ROLE_ADMIN'],
+        isAdmin: true,
+        permissions: ['MANAGE_MARKETPLACE_REPORTS'],
+      ),
+      _activeSession(
+        ['ROLE_ADMIN', 'listener'],
+        permissions: [collabReportAdminPermission],
+      ),
+      _activeSession(
+        ['ROLE_ADMIN'],
+        permissions: [collabReportAdminPermission],
+        accountStatus: 'SUSPENDED',
+      ),
+    ]) {
+      expect(
+        AppRouteGuard.redirectFor(AppRoutes.adminCollabReports, session),
+        isNotNull,
       );
     }
   });

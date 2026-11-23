@@ -17,6 +17,8 @@ import '../../modules/marketplace/presentation/screens/marketplace_screen.dart';
 import '../../modules/profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../modules/admin/data/marketplace_report_admin_repository.dart';
+import '../../modules/admin/data/collab_report_admin_repository.dart';
+import '../../modules/admin/presentation/screens/collab_report_admin_screen.dart';
 import '../../modules/admin/presentation/screens/marketplace_report_admin_screen.dart';
 import '../../modules/promotion/presentation/screens/announcement_directory_screen.dart';
 import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
@@ -181,6 +183,16 @@ class AppRouter {
           builder: (_) => MarketplaceReportAdminScreen(
             repository: serviceLocator<MarketplaceReportAdminRepository>(),
             sessions: serviceLocator<AuthSessionManager>(),
+          ),
+        );
+      case AppRoutes.adminCollabReports:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => CollabReportAdminScreen(
+            repository: serviceLocator<CollabReportAdminRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+            initialSession: session,
+            frame: _arguments<AdminSubpageFrame>(settings),
           ),
         );
       case AppRoutes.login:

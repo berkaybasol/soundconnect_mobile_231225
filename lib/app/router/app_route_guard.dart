@@ -1,4 +1,5 @@
 import '../../core/auth/auth_session.dart';
+import '../../modules/admin/domain/collab_report_admin_access.dart';
 import '../../modules/admin/domain/pending_application.dart';
 import '../../modules/admin/domain/system_health.dart';
 import '../../core/policy/access_policy.dart';
@@ -148,6 +149,10 @@ class AppRouteGuard {
     }
     if (requested == AppRoutes.adminMarketplaceReports &&
         !canManageMarketplaceReports(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminCollabReports &&
+        !canManageCollabReports(session)) {
       return startRouteFor(session);
     }
 

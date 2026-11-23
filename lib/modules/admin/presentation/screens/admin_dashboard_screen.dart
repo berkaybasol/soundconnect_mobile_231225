@@ -9,6 +9,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import '../../../promotion/domain/announcement_access.dart';
 import '../../data/system_health_repository.dart';
+import '../../domain/collab_report_admin_access.dart';
 import '../../domain/marketplace_report_admin.dart';
 import '../../domain/musician_feed_report_admin.dart';
 import '../../domain/notification_campaign.dart';
@@ -126,49 +127,33 @@ class _SessionDashboardState extends State<_SessionDashboard> {
             section: selected,
             entry: entry,
             sessions: sessions,
-            onApplication: (kind) => _openApplication(kind, sessions, entry),
+            frame: _frameFor(selected),
           ),
         },
       ),
     );
   }
 
-  void _openApplication(
-    ApplicationKind kind,
-    AuthSessionManager sessions,
-    AuthSession entry,
-  ) {
-    if (!mounted ||
-        !identical(entry, sessions.session) ||
-        !kind.canRead(entry)) {
-      return;
-    }
+  AdminSubpageFrame _frameFor(AdminPanelSection selected) {
+    final sessions = widget.sessions;
+    final entry = widget.entry;
     final home = ModalRoute.of(context);
-    if (home == null || !home.isCurrent) {
-      return;
-    }
     final navigator = Navigator.of(context);
-    navigator.pushNamed(
-      AppRoutes.adminApplications,
-      arguments: AdminApplicationEntry(
-        kind: kind,
-        frame: (body) => AdminPanelFrame(
-          entry: entry,
-          sessions: sessions,
-          selected: AdminPanelSection.applications,
-          child: body,
-          onSelect: (section) {
-            if (!mounted ||
-                !home.isActive ||
-                !identical(entry, sessions.session) ||
-                !section.available(entry)) {
-              return;
-            }
-            setState(() => _selected = section);
-            navigator.popUntil((route) => identical(route, home));
-          },
-        ),
-      ),
+    return (body) => AdminPanelFrame(
+      entry: entry,
+      sessions: sessions,
+      selected: selected,
+      child: body,
+      onSelect: (section) {
+        if (!mounted ||
+            home?.isActive != true ||
+            !identical(entry, sessions.session) ||
+            !section.available(entry)) {
+          return;
+        }
+        setState(() => _selected = section);
+        navigator.popUntil((route) => identical(route, home));
+      },
     );
   }
 }
@@ -178,12 +163,12 @@ class _AdminDirectory extends StatelessWidget {
     required this.section,
     required this.entry,
     required this.sessions,
-    required this.onApplication,
+    required this.frame,
   });
   final AdminPanelSection section;
   final AuthSession entry;
   final AuthSessionManager sessions;
-  final ValueChanged<ApplicationKind> onApplication;
+  final AdminSubpageFrame frame;
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +177,19 @@ class _AdminDirectory extends StatelessWidget {
     final applications = section == AdminPanelSection.applications;
     final reports = section == AdminPanelSection.reports;
     final rows = <Widget>[];
+    void open(
+      String route,
+      bool Function(AuthSession) allowed, {
+      Object? arguments,
+    }) {
+      if (context.mounted &&
+          identical(entry, sessions.session) &&
+          allowed(entry) &&
+          ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).pushNamed(route, arguments: arguments);
+      }
+    }
+
     void addModule(
       String label,
       String description,
@@ -199,8 +197,9 @@ class _AdminDirectory extends StatelessWidget {
       IconData icon,
       Color accent,
       String route,
-      bool Function(AuthSession) allowed,
-    ) {
+      bool Function(AuthSession) allowed, {
+      Object? arguments,
+    }) {
       if (!allowed(entry)) return;
       if (rows.isNotEmpty) {
         rows.add(Divider(height: 1, color: colors.outlineVariant));
@@ -212,14 +211,7 @@ class _AdminDirectory extends StatelessWidget {
           description: description,
           icon: icon,
           accent: accent,
-          onTap: () {
-            if (context.mounted &&
-                identical(entry, sessions.session) &&
-                allowed(entry) &&
-                ModalRoute.of(context)?.isCurrent == true) {
-              Navigator.of(context).pushNamed(route);
-            }
-          },
+          onTap: () => open(route, allowed, arguments: arguments),
         ),
       );
     }
@@ -242,6 +234,16 @@ class _AdminDirectory extends StatelessWidget {
         const Color(0xFFBEADFF),
         AppRoutes.adminMusicianFeedReports,
         canManageMusicianFeedReports,
+      );
+      addModule(
+        'Collab ilan şikâyetleri',
+        'İş birliği ilanları hakkındaki bildirimler',
+        'admin-collab-reports-entry',
+        Icons.groups_outlined,
+        const Color(0xFF91CDBB),
+        AppRoutes.adminCollabReports,
+        canManageCollabReports,
+        arguments: frame,
       );
     } else if (section == AdminPanelSection.publishing) {
       addModule(
@@ -297,7 +299,11 @@ class _AdminDirectory extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 13),
               child: AdminApplicationTile(
                 kind: kind,
-                onTap: () => onApplication(kind),
+                onTap: () => open(
+                  AppRoutes.adminApplications,
+                  kind.canRead,
+                  arguments: AdminApplicationEntry(kind: kind, frame: frame),
+                ),
               ),
             )
         else ...[

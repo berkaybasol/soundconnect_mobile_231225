@@ -10,6 +10,7 @@ import '../push/push_installation_store.dart';
 import '../../shared/images/private_media_image_cache.dart';
 import '../../modules/admin/data/musician_feed_report_admin_repository_impl.dart';
 import '../../modules/admin/data/marketplace_report_admin_repository.dart';
+import '../../modules/admin/data/collab_report_admin_repository.dart';
 import '../../modules/admin/data/notification_campaign_repository.dart';
 import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
 import '../../modules/analytics/data/analytics_collection_repository_impl.dart';
@@ -272,6 +273,12 @@ void setupDependencies() {
     )
     ..registerLazySingleton<MarketplaceReportAdminRepository>(
       () => MarketplaceReportAdminRepository(
+        serviceLocator<ApiClient>(),
+        serviceLocator<AuthSessionManager>(),
+      ),
+    )
+    ..registerLazySingleton<CollabReportAdminRepository>(
+      () => CollabReportAdminRepository(
         serviceLocator<ApiClient>(),
         serviceLocator<AuthSessionManager>(),
       ),

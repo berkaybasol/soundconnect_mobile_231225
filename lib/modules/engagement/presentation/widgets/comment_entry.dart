@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
+import '../../../content_report/presentation/content_report_action.dart';
 import '../../domain/entities/comment_item.dart';
 import 'comment_author_identity.dart';
 
@@ -15,6 +16,8 @@ class CommentEntry extends StatelessWidget {
     this.onAuthorTap,
     this.onReplyTap,
     this.onDeleteTap,
+    this.canReport = false,
+    this.isCurrent,
     this.isReply = false,
     this.deleting = false,
     this.actionsEnabled = true,
@@ -29,6 +32,8 @@ class CommentEntry extends StatelessWidget {
   final VoidCallback? onAuthorTap;
   final VoidCallback? onReplyTap;
   final VoidCallback? onDeleteTap;
+  final bool canReport;
+  final bool Function()? isCurrent;
   final bool isReply;
   final bool deleting;
   final bool actionsEnabled;
@@ -121,7 +126,8 @@ class CommentEntry extends StatelessWidget {
                 if (_showDelete) ...[
                   const SizedBox(width: 8),
                   _deleteButton(context),
-                ],
+                ] else if (canReport && !comment.deleted)
+                  _reportMenu(),
               ],
             ),
             const SizedBox(height: 8),
@@ -175,9 +181,23 @@ class CommentEntry extends StatelessWidget {
             ],
           ),
         ),
-        if (_showDelete) ...[const SizedBox(width: 4), _deleteButton(context)],
+        if (_showDelete) ...[
+          const SizedBox(width: 4),
+          _deleteButton(context),
+        ] else if (canReport && !comment.deleted)
+          _reportMenu(),
       ],
     ),
+  );
+
+  Widget _reportMenu() => ContentReportMenu(
+    kind: ContentReportKind.comment,
+    targetId: comment.id,
+    ownerId: comment.user.id,
+    label: isReply ? 'Yanıtı bildir' : 'Yorumu bildir',
+    preview: comment.text,
+    enabled: actionsEnabled && !deleting,
+    isCurrent: isCurrent,
   );
 
   Widget _age(BuildContext context, double size, double height) => Text(

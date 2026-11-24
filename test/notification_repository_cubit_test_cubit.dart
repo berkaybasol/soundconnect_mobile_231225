@@ -3,6 +3,107 @@ part of 'notification_repository_cubit_test.dart';
 void _registerNotificationCubitTests() {
   _registerConfirmedReadTests();
   group('NotificationCubit', () {
+    test(
+      'block masks cached and late reveal approvals until a current reload',
+      () async {
+        final repository = _ControlledNotificationRepository();
+        final realtime = _TestNotificationRealtimeClient();
+        final changes = StreamController<UserBlockChange>.broadcast(sync: true);
+        final store = _MemoryTokenStore()..value = _jwt('user-1');
+        final cubit = NotificationCubit(
+          repository,
+          store,
+          realtimeClient: realtime,
+          blockChanges: changes.stream,
+        );
+        addTearDown(() async {
+          await cubit.close();
+          await realtime.closeStreams();
+          await changes.close();
+        });
+        AppNotification approval(
+          String id,
+          String author, {
+          String recipient = 'user-1',
+        }) => _notification(
+          id,
+          title: 'Açık kimlik',
+          recipientId: recipient,
+          type: 'OVERTHINKING_REVEAL_REQUEST_APPROVED',
+          payload: {
+            'authorId': author,
+            'postId': 'post',
+            'authorUsername': 'Eski ad',
+            'revealRequestId': id,
+          },
+        );
+        final visible = approval('n-1', 'user-2');
+        final other = approval('n-2', 'user-3');
+        void completePage(int index, List<AppNotification> items) {
+          repository.listRequests[index].complete(
+            Result.success(pagination.Page(items: items, hasNext: false)),
+          );
+        }
+
+        void change(bool mine, bool effective, {String actor = 'user-1'}) =>
+            changes.add(
+              UserBlockChange(
+                actorId: actor,
+                userId: 'user-2',
+                status: UserBlockStatus(
+                  blockedByMe: mine,
+                  interactionBlocked: effective,
+                ),
+              ),
+            );
+        void expectMasked() {
+          final masked = cubit.state.items.firstWhere(
+            (item) => item.id == 'n-1',
+          );
+          expect(masked.title, 'Anonim paylaşım bildirimi');
+          expect(masked.message, isEmpty);
+          expect(masked.payload, {'postId': 'post', 'revealRequestId': 'n-1'});
+          expect(
+            cubit.state.items
+                .firstWhere((item) => item.id == 'n-2')
+                .payload['authorId'],
+            'user-3',
+          );
+        }
+
+        final start = cubit.ensureStarted();
+        await _eventually(() => repository.listRequests.length == 1);
+        completePage(0, [visible, other]);
+        await start;
+        change(true, true, actor: 'other-account');
+        expect(cubit.state.items.first.title, 'Açık kimlik');
+        final stale = cubit.refresh();
+        await _eventually(() => repository.listRequests.length == 2);
+        change(true, true);
+        expectMasked();
+        completePage(1, [visible, other]);
+        await stale;
+        expectMasked();
+        change(false, true);
+        realtime.emitNotification(visible.copyWith(read: true));
+        await _eventually(() => cubit.state.items.first.read);
+        expectMasked();
+        change(false, false);
+        expectMasked();
+        await _eventually(() => repository.listRequests.length == 3);
+        completePage(2, [visible, other]);
+        await _eventually(
+          () => cubit.state.items.first.payload['authorId'] == 'user-2',
+        );
+        change(true, true);
+        store.value = _jwt('user-4');
+        final switchAccount = cubit.ensureStarted();
+        await _eventually(() => repository.listRequests.length == 4);
+        completePage(3, [approval('new', 'user-2', recipient: 'user-4')]);
+        await switchAccount;
+        expect(cubit.state.items.single.payload['authorId'], 'user-2');
+      },
+    );
     test('refreshes and paginates while preserving server order', () async {
       final repository = _NotificationRepositoryFake(
         pages: <int, Result<pagination.Page<AppNotification>>>{

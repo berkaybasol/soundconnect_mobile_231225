@@ -377,6 +377,20 @@ class CollabRepositoryImpl implements CollabRepository {
   );
 
   @override
+  Future<Result<CollabJob>> cancelJob(
+    String jobId, {
+    required int expectedVersion,
+  }) => _guard(
+    () => _apiClient.post<CollabJob>(
+      CollabEndpoints.cancelJob(jobId),
+      body: <String, dynamic>{'expectedVersion': expectedVersion},
+      decoder: (json) => CollabJobModel.fromJson(_map(json)),
+    ),
+    code: 'collab_job_cancel_unknown',
+    message: 'İş iptal edilemedi.',
+  );
+
+  @override
   Future<Result<CollabJob>> confirmJobCompletion(
     String jobId, {
     required int expectedVersion,

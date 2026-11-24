@@ -9,6 +9,8 @@ import 'package:soundconnect_23_12_25codx/modules/engagement/domain/engagement_r
 import 'package:soundconnect_23_12_25codx/modules/engagement/domain/entities/comment_page.dart';
 import 'package:soundconnect_23_12_25codx/modules/engagement/presentation/cubit/interaction_stats_cubit.dart';
 
+import 'package:soundconnect_23_12_25codx/modules/engagement/presentation/cubit/interaction_stats_state.dart';
+
 import 'support/event_audience_fakes.dart';
 import 'support/recording_api_client.dart';
 
@@ -17,6 +19,31 @@ const _error = AppError(code: 'network', message: 'Offline');
 enum _Operation { like, unlike, count, state }
 
 void main() {
+  test(
+    'a late count cannot replace the current viewer projection after a block',
+    () async {
+      final repository = _ControlledRepository();
+      final cubit = InteractionStatsCubit(repository);
+      addTearDown(cubit.close);
+      final pending = cubit.load(targetType: 'ANNOUNCEMENT', targetId: 'a');
+      cubit.invalidate('ANNOUNCEMENT', 'a');
+      cubit.seed(
+        targetType: 'ANNOUNCEMENT',
+        targetId: 'a',
+        item: const InteractionStatsItemState(
+          loading: false,
+          likeCount: 1,
+          commentCount: 0,
+          isLiked: false,
+        ),
+      );
+      repository.counts.single.complete(const Result.success(2));
+      await pending;
+      expect(cubit.state.items['ANNOUNCEMENT:a']!.visibleLikeCount, 1);
+      expect(repository.commentReads, 0);
+    },
+  );
+
   for (final operation in _Operation.values) {
     test(
       '$operation content likes preserve encoded paths and transport session identity',

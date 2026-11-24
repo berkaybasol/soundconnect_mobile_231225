@@ -15,6 +15,7 @@ class StudioReservationNotificationTarget {
     required this.ownerMode,
     required this.status,
     required this.roomArchived,
+    this.interactionBlocked = false,
     required this.completed,
     required this.startsAt,
     required this.endsAt,
@@ -30,6 +31,7 @@ class StudioReservationNotificationTarget {
   final String studioName, roomName, status, zoneId;
   final String localDate, localEndDate, localStartTime, localEndTime;
   final bool ownerMode, roomArchived, completed;
+  final bool interactionBlocked;
   final DateTime startsAt, endsAt;
 
   static const statuses = {
@@ -132,6 +134,8 @@ class StudioReservationNotificationTarget {
       ownerMode: ownerMode,
       status: status,
       roomArchived: flag('roomArchived'),
+      interactionBlocked:
+          json.containsKey('interactionBlocked') && flag('interactionBlocked'),
       completed: flag('completed'),
       startsAt: startsAt,
       endsAt: endsAt,

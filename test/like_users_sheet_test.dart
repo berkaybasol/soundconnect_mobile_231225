@@ -18,9 +18,97 @@ import 'package:soundconnect_23_12_25codx/modules/profile/domain/entities/listen
 import 'package:soundconnect_23_12_25codx/modules/profile/presentation/screens/profile_route_args.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/ghost_profile_badge.dart';
 
+import 'package:soundconnect_23_12_25codx/core/di/service_locator.dart';
+import 'package:soundconnect_23_12_25codx/modules/user_block/data/user_block_repository.dart';
+
 import 'support/event_audience_fakes.dart';
 
 void main() {
+  testWidgets(
+    'masked likes have no profile and resume rereads the first page',
+    (tester) async {
+      final repo = _Repository()
+        ..responses.addAll([
+          () async => _page([
+            _user('leyla'),
+            const CommentUserSummary(
+              id: '',
+              username: 'Anonim',
+              avatarUrl: null,
+            ),
+          ]),
+          () async => _page([
+            const CommentUserSummary(
+              id: '',
+              username: 'Anonim',
+              avatarUrl: null,
+            ),
+          ]),
+        ]);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await _mount(tester, repo);
+      expect(find.text('leyla'), findsOneWidget);
+      final label = find.text('Anonim');
+      expect(label, findsOneWidget);
+      expect(
+        tester
+            .widget<ListTile>(
+              find.ancestor(of: label, matching: find.byType(ListTile)),
+            )
+            .onTap,
+        isNull,
+      );
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('leyla'), findsNothing);
+      expect(label, findsOneWidget);
+    },
+  );
+  testWidgets(
+    'block clears displayed rows and rejects an older page on return',
+    (tester) async {
+      final changes = StreamController<UserBlockChange>.broadcast(sync: true);
+      serviceLocator.registerSingleton<UserBlockRepository>(
+        _Blocks(changes.stream),
+      );
+      addTearDown(() async {
+        await serviceLocator.unregister<UserBlockRepository>();
+        await changes.close();
+      });
+      final oldPage = Completer<Result<LikeUserPage>>();
+      final repo = _Repository()
+        ..responses.addAll([
+          () async => _page([_user('leyla')], next: 'old'),
+          () => oldPage.future,
+          () async => _page([_user('sude')]),
+        ]);
+      await _mount(tester, repo);
+      await tester.tap(find.text('Daha fazla göster'));
+      changes.add(
+        const UserBlockChange(
+          actorId: 'listener',
+          userId: 'leyla',
+          status: UserBlockStatus(blockedByMe: true, interactionBlocked: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+      oldPage.complete(_page([_user('leyla')]));
+      await tester.pumpAndSettle();
+      expect(find.text('leyla'), findsNothing);
+      expect(find.text('sude'), findsOneWidget);
+      expect(repo.calls.map((call) => call.cursor), [null, 'old', null]);
+    },
+  );
+
   testWidgets('loads exact publication and cursor pages, deduplicating users', (
     tester,
   ) async {
@@ -359,6 +447,12 @@ void main() {
     expect(repo.calls, isEmpty);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
+}
+
+class _Blocks extends Fake implements UserBlockRepository {
+  _Blocks(this.changes);
+  @override
+  final Stream<UserBlockChange> changes;
 }
 
 Future<void> _mount(

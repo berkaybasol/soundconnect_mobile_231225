@@ -65,6 +65,7 @@ class CollabListingModel extends CollabListing {
     required super.ownedByMe,
     required super.appliedByMe,
     required super.savedByMe,
+    super.interactionBlocked,
     super.closureReason,
     super.instrument,
     super.branch,
@@ -126,6 +127,7 @@ class CollabListingModel extends CollabListing {
       ownedByMe: _requiredBool(json, 'ownedByMe'),
       appliedByMe: _requiredBool(json, 'appliedByMe'),
       savedByMe: _requiredBool(json, 'savedByMe'),
+      interactionBlocked: _interactionBlocked(json),
       applicationCount: _requiredNonNegativeInt(json, 'applicationCount'),
     );
   }
@@ -143,6 +145,7 @@ class CollabApplicationModel extends CollabApplication {
     required super.statusChangedAt,
     super.phone,
     super.decidedAt,
+    super.interactionBlocked,
   });
 
   factory CollabApplicationModel.fromJson(Map<String, dynamic> json) {
@@ -160,6 +163,7 @@ class CollabApplicationModel extends CollabApplication {
           _nullableDate(json['statusChangedAt'], 'statusChangedAt') ??
           submittedAt,
       decidedAt: _nullableDate(json['decidedAt'], 'decidedAt'),
+      interactionBlocked: _interactionBlocked(json),
     );
   }
 }
@@ -179,6 +183,7 @@ class CollabJobModel extends CollabJob {
     super.publisherConfirmedAt,
     super.applicantConfirmedAt,
     super.completedAt,
+    super.interactionBlocked,
   });
 
   factory CollabJobModel.fromJson(Map<String, dynamic> json) => CollabJobModel(
@@ -209,6 +214,7 @@ class CollabJobModel extends CollabJob {
     ),
     completedAt: _nullableDate(json['completedAt'], 'completedAt'),
     reviewedByMe: _requiredBool(json, 'reviewedByMe'),
+    interactionBlocked: _interactionBlocked(json),
   );
 }
 
@@ -372,6 +378,10 @@ double _requiredRating(Object? value) {
   return parsed;
 }
 
+bool _interactionBlocked(Map<String, dynamic> json) =>
+    json.containsKey('interactionBlocked') &&
+    _requiredBool(json, 'interactionBlocked');
+
 bool _requiredBool(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is bool) return value;
@@ -517,6 +527,7 @@ CollabJobStatus _jobStatus(Object? value) =>
     switch (_wire(value, 'job status')) {
       'ACTIVE' => CollabJobStatus.active,
       'COMPLETED' => CollabJobStatus.completed,
+      'CANCELLED' => CollabJobStatus.cancelled,
       final unknown => throw CollabContractFormatException(
         'Unknown job status: $unknown',
         value,

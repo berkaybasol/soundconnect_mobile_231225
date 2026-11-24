@@ -5,15 +5,20 @@ import '../../../../shared/theme/app_surface_theme.dart';
 import '../../domain/entities/table_group_game.dart';
 
 Future<TableGroupGameMode?> showTableGroupGameLauncherSheet(
-  BuildContext context,
-) {
+  BuildContext context, {
+  Widget Function(BuildContext, Widget)? wrapContent,
+}) {
   return showModalBottomSheet<TableGroupGameMode>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: AppColors.pureBlack.withValues(alpha: 0.72),
-    builder: (context) =>
-        const AppSurfaceThemeScope(child: _TableGroupGameLauncherSheet()),
+    builder: (context) {
+      const content = AppSurfaceThemeScope(
+        child: _TableGroupGameLauncherSheet(),
+      );
+      return wrapContent?.call(context, content) ?? content;
+    },
   );
 }
 

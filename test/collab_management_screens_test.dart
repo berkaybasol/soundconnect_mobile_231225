@@ -173,6 +173,47 @@ void main() {
     },
   );
 
+  testWidgets(
+    'blocked participant cancels an active job and can see its history',
+    (tester) async {
+      final job = _copyJob(
+        _job('cancel-job', listing: _listing('cancel-listing')),
+        blocked: true,
+        confirmedByMe: true,
+      );
+      final repository = _ManagementRepository(jobs: [job]);
+      final applications = CollabMyApplicationsCubit(repository);
+      final jobs = CollabJobsCubit(repository);
+      await tester.pumpWidget(
+        app(
+          CollabMyApplicationsScreen(
+            applicationsCubit: applications,
+            jobsCubit: jobs,
+            initialSection: CollabApplicationsSection.jobs,
+            showBottomNavigation: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final cancel = find.text('İşi iptal et');
+      await tester.ensureVisible(cancel);
+      await tester.tap(cancel);
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      await tester.tap(find.widgetWithText(TextButton, 'İptal et'));
+      await tester.pumpAndSettle();
+      expect(repository.jobs.single.status, CollabJobStatus.cancelled);
+      await tester.tap(find.text('İptal edilen'));
+      await tester.pumpAndSettle();
+      expect(find.text('İptal edildi'), findsOneWidget);
+      expect(find.text('İşi tamamladım'), findsNothing);
+      expect(find.text('Puanla ve yorumla'), findsNothing);
+      expect(cancel, findsNothing);
+      await applications.close();
+      await jobs.close();
+    },
+  );
+
   testWidgets('completed job accepts a one-to-five star review', (
     tester,
   ) async {
@@ -361,8 +402,8 @@ void main() {
 
       expect(repository.jobRequests, <(CollabJobStatus?, int)>[
         (CollabJobStatus.active, 0),
-        (CollabJobStatus.completed, 0),
-        (CollabJobStatus.completed, 1),
+        (null, 0),
+        (null, 1),
       ]);
       expect(find.text('Tamamlanan hedef işi'), findsOneWidget);
 
@@ -639,6 +680,21 @@ class _ManagementRepository extends _RepositoryStub {
   }
 
   @override
+  Future<Result<CollabJob>> cancelJob(
+    String jobId, {
+    required int expectedVersion,
+  }) async {
+    final index = jobs.indexWhere((item) => item.id == jobId);
+    expect(expectedVersion, jobs[index].version);
+    jobs[index] = _copyJob(
+      jobs[index],
+      version: expectedVersion + 1,
+      status: CollabJobStatus.cancelled,
+    );
+    return Result.success(jobs[index]);
+  }
+
+  @override
   Future<Result<CollabJob>> confirmJobCompletion(
     String jobId, {
     required int expectedVersion,
@@ -810,6 +866,8 @@ CollabJob _job(
 
 CollabJob _copyJob(
   CollabJob job, {
+  bool? blocked,
+  CollabJobStatus? status,
   int? version,
   bool? confirmedByMe,
   bool? publisherConfirmed,
@@ -818,7 +876,8 @@ CollabJob _copyJob(
 }) => CollabJob(
   id: job.id,
   version: version ?? job.version,
-  status: job.status,
+  status: status ?? job.status,
+  interactionBlocked: blocked ?? job.interactionBlocked,
   listing: job.listing,
   publisher: job.publisher,
   applicant: job.applicant,

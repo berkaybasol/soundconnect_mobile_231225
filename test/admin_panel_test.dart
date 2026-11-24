@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -339,6 +340,44 @@ void main() {
       } finally {
         handle.dispose();
       }
+    },
+  );
+
+  testWidgets(
+    'brand and destination labels fit as whole words at 320dp and 200%',
+    (tester) async {
+      _register(_admin(permissions: [..._permissions, 'READ_USERS']));
+      await _pump(tester, size: const Size(320, 800), textScale: 2);
+      for (final (text, label) in [
+        ('SoundConnect', find.text('SoundConnect')),
+        for (final section in AdminPanelSection.values)
+          (
+            section.label,
+            find.descendant(
+              of: _nav(section.name),
+              matching: find.text(section.label),
+            ),
+          ),
+      ]) {
+        final paragraph = tester.renderObject<RenderParagraph>(label);
+        final boxes = paragraph.getBoxesForSelection(
+          TextSelection(baseOffset: 0, extentOffset: text.length),
+        );
+        expect(boxes, isNotEmpty, reason: text);
+        expect(boxes.map((b) => b.top).toSet(), hasLength(1), reason: text);
+        expect(
+          paragraph.getBoxesForSelection(
+            TextSelection(
+              baseOffset: text.length - 1,
+              extentOffset: text.length,
+            ),
+          ),
+          isNotEmpty,
+          reason: 'Last letter of $text is visible',
+        );
+      }
+      expect(find.byTooltip('Kullanıcı ara').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 

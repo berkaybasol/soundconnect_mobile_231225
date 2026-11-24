@@ -12,19 +12,21 @@ class ApplicationPageFrame extends StatelessWidget {
     required this.frame,
     required this.child,
     this.onRefresh,
+    this.refreshTooltip = 'Listeyi yenile',
   });
   final String title;
   final String backLabel;
   final AdminSubpageFrame? frame;
   final Widget child;
   final VoidCallback? onRefresh;
+  final String refreshTooltip;
 
   @override
   Widget build(BuildContext context) {
     final refresh = onRefresh == null
         ? null
         : IconButton(
-            tooltip: 'Listeyi yenile',
+            tooltip: refreshTooltip,
             icon: const Icon(Icons.refresh, size: 21),
             onPressed: onRefresh,
           );

@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import '../../../content_report/presentation/content_report_action.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/shared/widgets/app_snack_bar.dart';
@@ -203,6 +207,7 @@ class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
   AuthSessionManager? _commentSessionManager;
   final _commentLikeMemory = CommentLikeMemory();
   AuthSession? _commentSession;
+  StreamSubscription<UserBlockChange>? _blockChanges;
   int _commentIdentityRevision = 0;
   bool _openingCommentAuth = false;
   bool _showingReply = false;
@@ -281,6 +286,17 @@ class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
       _commentSession = _commentSessionManager!.session;
       _commentSessionManager!.addListener(_onCommentSessionChanged);
     }
+    if (serviceLocator.isRegistered<UserBlockRepository>()) {
+      _blockChanges = serviceLocator<UserBlockRepository>().changes.listen((
+        change,
+      ) {
+        if (!mounted || change.actorId != _commentSession?.userId) return;
+        _commentLikeMemory.clear();
+        _dismissReplyRoute();
+        _resetReplyThreads();
+        _loadComments(clearExisting: true);
+      });
+    }
     _loadProfileContext();
     _loadComments();
   }
@@ -321,6 +337,7 @@ class _WeeklyEventDetailScreenState extends State<_WeeklyEventDetailContent>
     WidgetsBinding.instance.removeObserver(this);
     _dismissReplyRoute();
     _commentSessionManager?.removeListener(_onCommentSessionChanged);
+    _blockChanges?.cancel();
     _commentCubit.close();
     _commentController.dispose();
     super.dispose();

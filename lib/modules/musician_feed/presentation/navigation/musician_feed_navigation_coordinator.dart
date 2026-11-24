@@ -404,6 +404,7 @@ bool musicianFeedCollabStateChanged(
     snapshot.status != authoritative.status ||
     snapshot.savedByMe != authoritative.savedByMe ||
     snapshot.appliedByMe != authoritative.appliedByMe ||
+    snapshot.interactionBlocked != authoritative.interactionBlocked ||
     snapshot.applicationCount != authoritative.applicationCount;
 
 Uri? parseMusicianFeedExternalPromotionUri(String? raw) {

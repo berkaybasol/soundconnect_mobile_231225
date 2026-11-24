@@ -4,6 +4,7 @@ import '../../../../shared/images/app_cached_network_image.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/widgets/event_poster_fallback.dart';
+import '../../../content_report/presentation/content_report_action.dart';
 import '../../domain/entities/venue_event_detail.dart';
 
 /// The discovery card's visual language, sized for a listener's post. This is
@@ -30,6 +31,8 @@ class ListenerEventPostCard extends StatelessWidget {
     this.likeCount,
     this.commentCount,
     this.onDelete,
+    this.reportPostId,
+    this.canReport,
     this.onChangeIntent,
     this.onEditNote,
     this.ended = false,
@@ -60,6 +63,8 @@ class ListenerEventPostCard extends StatelessWidget {
   final int? likeCount;
   final int? commentCount;
   final VoidCallback? onDelete;
+  final String? reportPostId;
+  final bool Function()? canReport;
   final VoidCallback? onChangeIntent;
   final VoidCallback? onEditNote;
 
@@ -192,6 +197,14 @@ class ListenerEventPostCard extends StatelessWidget {
                         child: Text('Paylaşımı sil'),
                       ),
                   ],
+                )
+              else if (!owner && !isDraft && reportPostId != null)
+                ContentReportMenu(
+                  kind: ContentReportKind.eventProfileShare,
+                  targetId: reportPostId!,
+                  label: 'Paylaşımı bildir',
+                  preview: message.isNotEmpty ? message : title,
+                  isCurrent: canReport,
                 ),
             ],
           ),

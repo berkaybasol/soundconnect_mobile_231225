@@ -33,6 +33,7 @@ BacklineCategoryRequest backlineCategoryRequestFromJson(Object? value) {
     id: studioJsonString(json, 'id'),
     clientRequestId: studioJsonString(json, 'clientRequestId'),
     studioProfileId: studioJsonString(json, 'studioProfileId'),
+    studioName: studioJsonNullableString(json, 'studioName'),
     type: _requestType(studioJsonString(json, 'type')),
     requestedName: studioJsonString(json, 'requestedName'),
     parentCategoryId: studioJsonNullableString(json, 'parentCategoryId'),

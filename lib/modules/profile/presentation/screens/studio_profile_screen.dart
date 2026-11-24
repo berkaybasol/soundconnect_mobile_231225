@@ -22,6 +22,8 @@ import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/gradient_border_action_button.dart';
 import '../../../../shared/widgets/profile_menu_actions.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
+import '../../../content_report/domain/content_report.dart';
+import '../../../user_block/presentation/user_block_action.dart';
 import '../../../dm/presentation/dm_profile_navigation.dart';
 import '../../../dm/domain/dm_user_profile_resolver.dart';
 import '../../../dm/domain/entities/dm_profile_target.dart';
@@ -56,6 +58,7 @@ import 'profile_screen_support.dart';
 import 'profile_social_support.dart';
 import 'studio_profile_website_link.dart';
 import 'studio_listener_info_screen.dart';
+import '../../../studio/presentation/customer_reservations_screen.dart';
 import 'studio_room_photo_order_controls.dart';
 
 part 'studio_profile_backline_taxonomy.dart';
@@ -201,6 +204,7 @@ class _StudioReservationCalendarScreenState
       serviceLocator<StudioRoomRepository>();
   _StudioRoomItem? _room;
   String? _errorMessage;
+  bool _showOwnReservation = false;
   int _loadGeneration = 0;
 
   @override
@@ -212,6 +216,12 @@ class _StudioReservationCalendarScreenState
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
+    if (_showOwnReservation) {
+      return CustomerReservationsScreen(
+        target: widget.args.notificationTarget,
+        reservationId: widget.args.reservationId,
+      );
+    }
     final room = _room;
     if (room != null) {
       final calendar = _StudioRoomDetailScreen(
@@ -284,6 +294,10 @@ class _StudioReservationCalendarScreenState
     final room = result.data;
     if (!result.isSuccess || room == null) {
       setState(() {
+        _showOwnReservation =
+            !widget.args.ownerMode &&
+            widget.args.reservationId != null &&
+            result.error?.isProfileUnavailable == true;
         _errorMessage =
             result.error?.message ?? 'Rezervasyon takvimi getirilemedi.';
       });
@@ -510,7 +524,7 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
             widget.isPublic &&
             viewerUserId.isNotEmpty &&
             viewerUserId != profile.userId;
-        return NotificationTargetReady(
+        final content = NotificationTargetReady(
           contentIdentity: profile,
           ready:
               state.status == StudioProfileStatus.success &&
@@ -575,6 +589,9 @@ class _StudioProfileViewState extends State<_StudioProfileView> {
             ),
           ),
         );
+        return widget.isPublic
+            ? BlockAwarePublicProfile(userId: profile.userId, child: content)
+            : content;
       },
     );
   }

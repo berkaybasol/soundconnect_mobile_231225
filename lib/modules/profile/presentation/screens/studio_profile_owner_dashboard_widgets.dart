@@ -287,8 +287,13 @@ class _StudioProfileMetrics extends StatelessWidget {
 class _StudioTopChrome extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback? onMenu;
+  final Widget? trailing;
 
-  const _StudioTopChrome({required this.onBack, required this.onMenu});
+  const _StudioTopChrome({
+    required this.onBack,
+    required this.onMenu,
+    this.trailing,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -302,11 +307,13 @@ class _StudioTopChrome extends StatelessWidget {
         const Spacer(),
         Transform.translate(
           offset: const Offset(6, 4),
-          child: IconButton(
-            onPressed: onMenu,
-            icon: const ProfileMenuLogo(),
-            tooltip: 'Menü',
-          ),
+          child:
+              trailing ??
+              IconButton(
+                onPressed: onMenu,
+                icon: const ProfileMenuLogo(),
+                tooltip: 'Menü',
+              ),
         ),
       ],
     );

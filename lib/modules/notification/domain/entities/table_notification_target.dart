@@ -92,6 +92,7 @@ class TableNotificationTarget {
         (type == 'TABLE_CANCELLED'
             ? !const {
                 'OWNER_CANCELLED',
+                'ADMIN_REMOVED',
                 'OWNER_JOINED_ANOTHER_TABLE',
               }.contains(reason)
             : reason != null) ||

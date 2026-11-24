@@ -1,5 +1,7 @@
 import '../../core/auth/auth_session.dart';
+import '../../modules/admin/domain/admin_panel_access.dart';
 import '../../modules/admin/domain/collab_report_admin_access.dart';
+import '../../modules/admin/domain/admin_user_directory.dart';
 import '../../modules/admin/domain/pending_application.dart';
 import '../../modules/admin/domain/system_health.dart';
 import '../../core/policy/access_policy.dart';
@@ -37,6 +39,14 @@ class AppRouteGuard {
 
   static String? redirectFor(String? requestedRoute, AuthSession session) {
     final requested = requestedRoute ?? AppRoutes.login;
+    if (session.isSuspendedNotice) {
+      return requested == AppRoutes.accountSuspended
+          ? null
+          : AppRoutes.accountSuspended;
+    }
+    if (requested == AppRoutes.accountSuspended) {
+      return landingRouteFor(session);
+    }
     final isPublic =
         _anonymousRoutes.contains(requested) ||
         _publicProfileRoutes.contains(requested);
@@ -126,6 +136,17 @@ class AppRouteGuard {
     if (requested == AppRoutes.adminDashboard && !session.isAdmin) {
       return startRouteFor(session);
     }
+    if (requested == AppRoutes.adminUsers && !canReadAdminUsers(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminBacklineRequests &&
+        !canReadBacklineRequests(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminVenueSuggestions &&
+        !canReadVenueSuggestions(session)) {
+      return startRouteFor(session);
+    }
     if (requested == AppRoutes.adminApplications &&
         !ApplicationKind.values.any((kind) => kind.canRead(session))) {
       return startRouteFor(session);
@@ -149,6 +170,14 @@ class AppRouteGuard {
     }
     if (requested == AppRoutes.adminMarketplaceReports &&
         !canManageMarketplaceReports(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminTableReports &&
+        !canManageTableReports(session)) {
+      return startRouteFor(session);
+    }
+    if (requested == AppRoutes.adminContentReports &&
+        !canManageContentReports(session)) {
       return startRouteFor(session);
     }
     if (requested == AppRoutes.adminCollabReports &&
@@ -194,6 +223,7 @@ class AppRouteGuard {
   }
 
   static String? _requiredEntryRoute(AuthSession session) {
+    if (session.isSuspendedNotice) return AppRoutes.accountSuspended;
     if (!session.isAuthenticated) return AppRoutes.login;
     if (session.isPendingVenue) return AppRoutes.venuePending;
     if (session.isPendingStudio) return AppRoutes.studioPending;

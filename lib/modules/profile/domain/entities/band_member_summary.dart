@@ -7,6 +7,7 @@ class BandMemberSummary {
   final String status;
   final String? memberTitle;
   final int titleVersion;
+  final bool contactAvailable;
 
   const BandMemberSummary({
     required this.userId,
@@ -17,6 +18,7 @@ class BandMemberSummary {
     required this.status,
     this.memberTitle,
     this.titleVersion = 0,
+    this.contactAvailable = true,
   });
 
   String? get displayTitle {
@@ -36,6 +38,7 @@ class BandMemberSummary {
     status: status,
     memberTitle: memberTitle,
     titleVersion: titleVersion,
+    contactAvailable: contactAvailable,
   );
 
   String get roleCode => role.trim().toUpperCase();

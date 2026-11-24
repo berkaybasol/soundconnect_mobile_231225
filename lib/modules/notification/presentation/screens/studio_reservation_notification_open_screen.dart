@@ -8,6 +8,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/push/push_provider.dart';
 import '../../../profile/presentation/screens/profile_route_args.dart';
 import '../../../profile/presentation/screens/studio_profile_screen.dart';
+import '../../../studio/presentation/customer_reservations_screen.dart';
 import '../../data/notification_target_repository.dart';
 import '../cubit/notification_cubit.dart';
 import '../notification_direct_open.dart';
@@ -148,7 +149,9 @@ class _StudioReservationNotificationOpenScreenState
         builder: (_) => _StudioNotificationSessionGuard(
           sessions: _sessions,
           session: _session,
-          child: target.roomArchived
+          child: !target.ownerMode && target.interactionBlocked
+              ? CustomerReservationsScreen(target: target)
+              : target.roomArchived
               ? NotificationTerminalFeedback(
                   message: 'Rezervasyonun odası arşivlendi.',
                   contentIdentity: target,

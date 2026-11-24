@@ -168,6 +168,16 @@ class _CommentTile extends StatelessWidget {
     alignment: Alignment.centerLeft,
   );
 
+  Widget _reportMenu(CommentItem item, {required bool reply}) =>
+      ContentReportMenu(
+        kind: ContentReportKind.comment,
+        targetId: item.id,
+        ownerId: item.user.id,
+        label: reply ? 'Yanıtı bildir' : 'Yorumu bildir',
+        preview: item.text,
+        enabled: actionsEnabled,
+      );
+
   Widget _replyEntry(BuildContext context, CommentItem item) {
     final own =
         !item.deleted &&
@@ -231,6 +241,8 @@ class _CommentTile extends StatelessWidget {
           ),
         ),
         if (!item.deleted) likeButtonBuilder(item, true),
+        if (!item.deleted && !own && viewerId != null)
+          _reportMenu(item, reply: true),
         if (own) ...[
           const SizedBox(width: 4),
           IconButton(
@@ -305,6 +317,8 @@ class _CommentTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (!item.deleted && !own && viewerId != null)
+              _reportMenu(item, reply: isReply),
             if (own) ...[
               const SizedBox(width: 8),
               IconButton.outlined(

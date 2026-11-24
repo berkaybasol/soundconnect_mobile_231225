@@ -115,7 +115,7 @@ class _CollabMyApplicationsScreenState
   bool _initialJobTargetHandled = false;
   bool _initialJobTargetScheduled = false;
   bool _initialJobRevealDeferred = false;
-  bool _initialJobCompletedFallbackAttempted = false;
+  bool _initialJobHistoryFallbackAttempted = false;
   bool _notificationApplicationRevealed = false;
   bool _notificationJobRevealed = false;
 
@@ -356,8 +356,18 @@ class _CollabMyApplicationsScreenState
                       ? () => _applicationsCubit.toggleSaved(application)
                       : null,
                   onDetail: () => _openDetail(application.listing.id),
+                  onProfile: () async {
+                    await openCollabActorProfile(
+                      context,
+                      application.listing.publisher,
+                    );
+                    if (mounted) await _applicationsCubit.refresh();
+                  },
                   onMessage:
-                      application.listing.publisher.contactUserId.trim().isEmpty
+                      application.interactionBlocked ||
+                          application.listing.publisher.contactUserId
+                              .trim()
+                              .isEmpty
                       ? null
                       : () => openCollabActorConversation(
                           context,
@@ -388,9 +398,12 @@ class _CollabMyApplicationsScreenState
   List<Widget> _jobSlivers(CollabPagedState<CollabJob> state) {
     final placeholder = _pagedPlaceholder<CollabJob>(
       state,
-      emptyMessage: _jobsCubit.statusFilter == CollabJobStatus.completed
-          ? 'Henüz tamamlanan bir Collab işin yok.'
-          : 'Aktif bir Collab işin bulunmuyor.',
+      emptyMessage: switch (_jobsCubit.statusFilter) {
+        CollabJobStatus.completed => 'Henüz tamamlanan bir Collab işin yok.',
+        CollabJobStatus.cancelled => 'İptal edilen bir Collab işin yok.',
+        CollabJobStatus.active => 'Aktif bir Collab işin bulunmuyor.',
+        null => 'Henüz bir Collab işin yok.',
+      },
       retry: _jobsCubit.loadInitial,
     );
     if (placeholder != null) return [placeholder];
@@ -425,15 +438,24 @@ class _CollabMyApplicationsScreenState
                   other: other,
                   busy: busy,
                   otherConfirmed: _otherConfirmed(job),
-                  onProfile: () => openCollabActorProfile(context, other),
-                  onMessage: other.contactUserId.trim().isEmpty
+                  onProfile: () async {
+                    await openCollabActorProfile(context, other);
+                    if (mounted) await _jobsCubit.refresh();
+                  },
+                  onMessage:
+                      job.interactionBlocked ||
+                          other.contactUserId.trim().isEmpty
                       ? null
                       : () => openCollabActorConversation(context, other),
                   onDetail: () => _openDetail(job.listing.id),
-                  onConfirm: !job.isCompleted && !job.confirmedByMe
+                  onConfirm: job.isActive && !job.confirmedByMe
                       ? () => _confirmCompletion(job)
                       : null,
-                  onReview: job.isCompleted && !job.reviewedByMe
+                  onCancel: job.isActive ? () => _confirmCancelJob(job) : null,
+                  onReview:
+                      !job.interactionBlocked &&
+                          job.isCompleted &&
+                          !job.reviewedByMe
                       ? () => _openReview(job)
                       : null,
                 ),
@@ -647,17 +669,17 @@ class _CollabMyApplicationsScreenState
     }
 
     final action = widget.initialAction?.trim().toUpperCase();
-    final canFallbackToCompleted =
-        !_initialJobCompletedFallbackAttempted &&
+    final canFallbackToHistory =
+        !_initialJobHistoryFallbackAttempted &&
         _jobsCubit.statusFilter == CollabJobStatus.active &&
         (action == 'APPLICATION_ACCEPTED' ||
             action == 'JOB_COMPLETION_REQUESTED');
-    if (canFallbackToCompleted && !state.isLoadingMore) {
-      _initialJobCompletedFallbackAttempted = true;
+    if (canFallbackToHistory && !state.isLoadingMore) {
+      _initialJobHistoryFallbackAttempted = true;
       _initialJobTargetScheduled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
-        await _jobsCubit.setStatusFilter(CollabJobStatus.completed);
+        await _jobsCubit.setStatusFilter(null);
         _initialJobTargetScheduled = false;
         if (mounted) _scheduleInitialJobTarget(_jobsCubit.state);
       });
@@ -715,6 +737,29 @@ class _CollabMyApplicationsScreenState
     if (confirmed == true && mounted) {
       await _applicationsCubit.withdraw(application);
     }
+  }
+
+  Future<void> _confirmCancelJob(CollabJob job) async {
+    final confirmed = await showCollabDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Collab işi iptal edilsin mi?'),
+        content: const Text(
+          'İptal edilen iş, iki tarafın iş geçmişinde görünür.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('İptal et'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _jobsCubit.cancel(job);
   }
 
   Future<void> _confirmCompletion(CollabJob job) async {
@@ -892,6 +937,7 @@ class _JobStatusRail extends StatelessWidget {
       options: const [
         (CollabJobStatus.active, 'Aktif'),
         (CollabJobStatus.completed, 'Tamamlandı'),
+        (CollabJobStatus.cancelled, 'İptal edilen'),
         (null, 'Tümü'),
       ],
       selected: selected,
@@ -940,6 +986,7 @@ class _OutgoingApplicationCard extends StatelessWidget {
     required this.busy,
     required this.onSave,
     required this.onDetail,
+    required this.onProfile,
     required this.onMessage,
     required this.onWithdraw,
   });
@@ -948,6 +995,7 @@ class _OutgoingApplicationCard extends StatelessWidget {
   final bool busy;
   final VoidCallback? onSave;
   final VoidCallback onDetail;
+  final VoidCallback onProfile;
   final VoidCallback? onMessage;
   final VoidCallback? onWithdraw;
 
@@ -966,7 +1014,7 @@ class _OutgoingApplicationCard extends StatelessWidget {
         children: [
           CollabActorHeader(
             actor: listing.publisher,
-            onTap: () => openCollabActorProfile(context, listing.publisher),
+            onTap: onProfile,
             trailing: CollabApplicationStatusPill(status: application.status),
           ),
           const SizedBox(height: 12),

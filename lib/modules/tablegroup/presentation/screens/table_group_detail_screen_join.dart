@@ -14,11 +14,11 @@ extension _TableGroupDetailScreenStateJoinMethods
     final submission = await showDialog<_JoinDialogSubmission>(
       context: context,
       barrierColor: AppColors.pureBlack.withValues(alpha: 0.76),
-      builder: (context) => const _PremiumJoinDialog(),
+      builder: (context) =>
+          _tableOverlayContent(context, const _PremiumJoinDialog()),
     );
-    if (submission == null) return;
+    if (!mounted || submission == null || !_isSessionActive) return;
     final note = submission.note.trim();
-    if (!mounted) return;
     _updateView(() => _joinInFlight = true);
     try {
       final result = await _repository.joinTableGroup(
@@ -266,13 +266,19 @@ extension _TableGroupDetailScreenStateJoinMethods
     final confirmed = await showDialog<bool>(
       context: context,
       barrierColor: AppColors.pureBlack.withValues(alpha: 0.76),
-      builder: (context) => _PremiumConfirmationDialog(
-        title: title,
-        message: message,
-        confirmLabel: confirmLabel,
+      builder: (context) => _tableOverlayContent(
+        context,
+        _PremiumConfirmationDialog(
+          title: title,
+          message: message,
+          confirmLabel: confirmLabel,
+        ),
       ),
     );
-    return confirmed == true;
+    return confirmed == true &&
+        mounted &&
+        _hasActiveChatAccess &&
+        _sameTableSession;
   }
 
   void _showSnack(
@@ -301,6 +307,12 @@ extension _TableGroupDetailScreenStateJoinMethods
 
   void _handleDetailMenuAction(_DetailMenuAction action) {
     switch (action) {
+      case _DetailMenuAction.reportListing:
+        unawaited(_report(TableGroupReportKind.listing));
+        break;
+      case _DetailMenuAction.reportIncident:
+        unawaited(_report(TableGroupReportKind.incident));
+        break;
       case _DetailMenuAction.shareOnProfile:
         unawaited(_openProfileDraft());
         break;
@@ -314,6 +326,63 @@ extension _TableGroupDetailScreenStateJoinMethods
         unawaited(_leave());
         break;
     }
+  }
+
+  bool get _canReport =>
+      _isSessionActive &&
+      _shareSession?.isActive == true &&
+      identical(_shareSession, _shareSessions?.session) &&
+      _currentUserId != null &&
+      _currentUserId == _shareSession?.userId;
+
+  Future<void> _report(
+    TableGroupReportKind kind, {
+    TableGroupMessage? message,
+  }) async {
+    final group = _group;
+    if (group == null ||
+        !_canReport ||
+        (kind != TableGroupReportKind.listing && !_isAccepted)) {
+      return;
+    }
+    if (kind == TableGroupReportKind.message &&
+        (message == null ||
+            message.messageType != 'TEXT' ||
+            message.senderId == _currentUserId ||
+            message.tableGroupId != group.id ||
+            !_messages.any(
+              (m) => m.messageId == message.messageId && m.deletedAt == null,
+            ))) {
+      return;
+    }
+    final reports = serviceLocator<TableGroupReportRepository>();
+    final actor = reports.capture(_shareSession);
+    if (actor == null) return;
+    final title =
+        _tableDescription(group) ??
+        group.venueName ??
+        'Müzik Birleştirir! masası';
+    final placeAndTime = [
+      group.district?.name ?? group.city.name,
+      if (group.meetingAt != null)
+        formatTableGroupMeetingAt(group.meetingAt, now: _now()),
+    ].where((s) => s.isNotEmpty).join(' · ');
+    await showTableGroupReportSheet(
+      context,
+      wrapContent: _tableOverlayContent,
+      repository: reports,
+      actor: actor,
+      tableId: group.id,
+      kind: kind,
+      messageId: message?.messageId,
+      evidenceLabel: message != null
+          ? '${_displayNameForSender(_participantByUserId(message.senderId), message.senderId)} · ${_timeOf(message.sentAt)}'
+          : kind == TableGroupReportKind.incident
+          ? 'Olayın geçtiği masa'
+          : 'İlan açıklaması',
+      evidenceText: message?.content ?? title,
+      evidenceContext: message != null ? title : placeAndTime,
+    );
   }
 
   Future<void> _openChat() async {

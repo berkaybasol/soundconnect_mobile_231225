@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:soundconnect_23_12_25codx/modules/profile/domain/band_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soundconnect_23_12_25codx/modules/user_block/data/user_block_repository.dart';
 import 'package:soundconnect_23_12_25codx/app/router/app_routes.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/token_store.dart';
 import 'package:soundconnect_23_12_25codx/core/auth/auth_session_manager.dart';

@@ -1,4 +1,5 @@
 import '../../../core/error/app_error.dart';
+import 'admin_decision_reason.dart';
 import '../../collab/domain/collab_types.dart';
 import '../../collab/domain/entities/collab_actor.dart';
 
@@ -22,10 +23,8 @@ enum CollabReportDecision {
   final CollabReportStatus resultingStatus;
 }
 
-bool isValidCollabResolutionNote(String note) {
-  final length = note.trim().runes.length;
-  return length >= 5 && length <= 500;
-}
+bool isValidCollabResolutionNote(String note) =>
+    isValidAdminDecisionReason(note);
 
 bool isCollabReportConflict(AppError? error) => const {
   '409',

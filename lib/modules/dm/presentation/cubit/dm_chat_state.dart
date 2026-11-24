@@ -13,6 +13,9 @@ class DmChatState {
   final int page;
   final bool hasNext;
   final bool recipientDeleted;
+  final bool interactionBlocked;
+  final bool blockedByMe;
+  final bool blockStatusKnown;
 
   const DmChatState({
     required this.status,
@@ -23,6 +26,9 @@ class DmChatState {
     required this.page,
     required this.hasNext,
     this.recipientDeleted = false,
+    this.interactionBlocked = false,
+    this.blockedByMe = false,
+    this.blockStatusKnown = true,
   });
 
   const DmChatState.idle()
@@ -33,7 +39,10 @@ class DmChatState {
       conversationId = null,
       page = 0,
       hasNext = false,
-      recipientDeleted = false;
+      recipientDeleted = false,
+      interactionBlocked = false,
+      blockedByMe = false,
+      blockStatusKnown = true;
 
   DmChatState copyWith({
     DmChatStatus? status,
@@ -44,6 +53,9 @@ class DmChatState {
     int? page,
     bool? hasNext,
     bool? recipientDeleted,
+    bool? interactionBlocked,
+    bool? blockedByMe,
+    bool? blockStatusKnown,
   }) {
     return DmChatState(
       status: status ?? this.status,
@@ -56,6 +68,9 @@ class DmChatState {
       page: page ?? this.page,
       hasNext: hasNext ?? this.hasNext,
       recipientDeleted: recipientDeleted ?? this.recipientDeleted,
+      interactionBlocked: interactionBlocked ?? this.interactionBlocked,
+      blockedByMe: blockedByMe ?? this.blockedByMe,
+      blockStatusKnown: blockStatusKnown ?? this.blockStatusKnown,
     );
   }
 }

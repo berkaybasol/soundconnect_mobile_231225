@@ -8,6 +8,7 @@ import '../../../overthinking/domain/entities/overthinking_post.dart';
 import '../../../overthinking/domain/entities/overthinking_profile_share.dart';
 import '../../../overthinking/domain/trusted_spotify_artwork.dart';
 import '../../../overthinking/presentation/screens/overthinking_profile_link.dart';
+import '../../../content_report/presentation/content_report_action.dart';
 import 'listener_profile_theme.dart';
 
 const _sharePink = Color(0xFFF06C86);
@@ -170,6 +171,15 @@ class ListenerOverthinkingShareCard extends StatelessWidget {
                       child: Text('Paylaşımı sil'),
                     ),
                   ],
+                )
+              else if (share != null)
+                ContentReportMenu(
+                  kind: ContentReportKind.overthinkingProfileShare,
+                  targetId: share!.shareId,
+                  label: 'Paylaşımı bildir',
+                  preview: note.isNotEmpty ? note : source.title,
+                  enabled: !busy,
+                  isCurrent: isCurrent,
                 ),
             ],
           ),

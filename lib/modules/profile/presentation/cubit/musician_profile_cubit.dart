@@ -219,13 +219,17 @@ class MusicianProfileCubit extends Cubit<MusicianProfileState> {
     // A newer view owns presentation, but the editor still needs the actual
     // mutation result instead of treating a committed write as a failure.
     if (generation == _generation) {
+      final hidePrevious =
+          targetProfileId != null && result.error?.isProfileUnavailable == true;
       emit(
         state.copyWith(
           status: result.isSuccess
               ? MusicianProfileStatus.success
               : MusicianProfileStatus.failure,
           action: action,
-          profile: result.isSuccess ? result.data : state.profile,
+          profile: result.isSuccess || hidePrevious
+              ? result.data
+              : state.profile,
           error: result.error,
         ),
       );

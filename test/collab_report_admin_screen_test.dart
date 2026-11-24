@@ -178,6 +178,63 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      '${decision.apiValue} returns to the remaining reports when page two becomes empty',
+      (tester) async {
+        final firstPage = List.generate(
+          20,
+          (i) => {
+            ...openReport,
+            'id':
+                'a0000000-0000-4000-8000-${(i + 2).toString().padLeft(12, '0')}',
+            'listingTitle': 'Kalan ilan ${i + 1}',
+          },
+        );
+        var report = openReport;
+        final api = RecordingApiClient((r) {
+          if (r.method == RecordedHttpMethod.post) {
+            report = closedReport(decision, 'İncelendi.');
+            return report;
+          }
+          if (r.path.endsWith('/$reportId')) return report;
+          final index = r.query!['page'] as int;
+          final reports = [
+            ...firstPage,
+            if (report['status'] == 'OPEN') report,
+          ];
+          return {
+            ...page(reports.skip(index * 20).take(20).toList(), index: index),
+            'totalElements': reports.length,
+            'totalPages': (reports.length + 19) ~/ 20,
+            'last': (index + 1) * 20 >= reports.length,
+          };
+        });
+        await openQueue(tester, AudienceTestSessions(reviewer()), api);
+        await tapText(tester, 'Tümü');
+        await tapText(tester, CollabReportReason.misleading.label);
+        await tapText(tester, 'Sonraki sayfa');
+        await tapText(tester, title);
+        await tapText(tester, decision.label);
+        await tester.enterText(find.byType(TextFormField), 'İncelendi.');
+        await tapText(tester, 'Kararı kaydet');
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Kalan ilan 1'), findsOneWidget);
+        expect(
+          find.text('Bu filtrelere uygun şikâyet bulunamadı.'),
+          findsNothing,
+        );
+        expect(find.text('Önceki sayfa'), findsNothing);
+        expect(api.lastRequest.query, {
+          'status': 'OPEN',
+          'reason': 'MISLEADING',
+          'page': 0,
+          'size': 20,
+        });
+      },
+    );
   }
 
   for (final username in [null, '  ']) {

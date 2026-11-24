@@ -3,6 +3,49 @@ part of 'notification_cubit.dart';
 // The inbox owns the session and projection revisions. Keep its bounded,
 // shared count flight and arrival window together under the same owner.
 extension _NotificationCountReconciliation on NotificationCubit {
+  Future<void> _reconcileAfterRealtimeGap(int generation) {
+    final inFlight = _gapReconciliationInFlight;
+    if (inFlight != null && _gapReconciliationGeneration == generation) {
+      _gapReconciliationQueued = true;
+      return inFlight;
+    }
+    if (!_isCurrent(generation)) return Future<void>.value();
+
+    final operation = _runGapReconciliationLoop(generation);
+    _gapReconciliationInFlight = operation;
+    _gapReconciliationGeneration = generation;
+    return operation.whenComplete(() {
+      if (identical(_gapReconciliationInFlight, operation)) {
+        _gapReconciliationInFlight = null;
+        _gapReconciliationGeneration = null;
+      }
+    });
+  }
+
+  Future<void> _runGapReconciliationLoop(int generation) async {
+    do {
+      _gapReconciliationQueued = false;
+      final sessionRevision = _sessionRevision;
+      await _refresh(generation, sessionRevision: sessionRevision);
+      if (_isCurrent(generation) && sessionRevision != _sessionRevision) {
+        _gapReconciliationQueued = true;
+      }
+    } while (_gapReconciliationQueued && _isCurrent(generation));
+  }
+
+  void _scheduleBadgeReconciliation(int generation, int sessionRevision) {
+    // The pending badge refresh already fetches an authoritative count.
+    _realtimeCountReconciliationTimer?.cancel();
+    _realtimeCountReconciliationTimer = null;
+    _badgeReconciliationTimer?.cancel();
+    _badgeReconciliationTimer = Timer(const Duration(milliseconds: 250), () {
+      _badgeReconciliationTimer = null;
+      if (_isCurrentSession(generation, sessionRevision)) {
+        unawaited(_reconcileAfterRealtimeGap(generation));
+      }
+    });
+  }
+
   void _scheduleRealtimeCountReconciliation(
     int generation,
     int sessionRevision,

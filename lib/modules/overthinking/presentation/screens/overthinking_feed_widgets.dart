@@ -264,11 +264,14 @@ class OverthinkingPostCard extends StatelessWidget {
                             color: TableGroupSurfaceStyle.of(context).bodyMuted,
                           ),
                         )
-                      else
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 23,
-                          color: TableGroupSurfaceStyle.of(context).bodyMuted,
+                      else if (!isOwnPost)
+                        ContentReportMenu(
+                          kind: ContentReportKind.overthinkingPost,
+                          targetId: post.id,
+                          ownerId: post.authorId,
+                          label: 'Paylaşımı bildir',
+                          preview: post.title,
+                          enabled: !busy,
                         ),
                     ],
                   ),

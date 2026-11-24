@@ -103,6 +103,7 @@ extension _TableGroupDetailScreenStateDetailStickyActionMethods
   }
 
   String? _tableDescription(TableGroup? group) {
+    if (_removedByModerator) return 'Bu masa yayından kaldırıldı.';
     final description = group?.description?.trim();
     return description == null || description.isEmpty ? null : description;
   }
@@ -174,11 +175,16 @@ extension _TableGroupDetailScreenStateDetailStickyActionMethods
   }
 
   Future<void> _showTableDescription(String description) {
+    final openedWhileActive = _isSessionActive;
     return showDialog<void>(
       context: context,
       barrierColor: AppColors.pureBlack.withValues(alpha: 0.76),
-      builder: (dialogContext) =>
-          _PremiumDescriptionDialog(description: description),
+      builder: (dialogContext) {
+        final dialog = _PremiumDescriptionDialog(description: description);
+        return openedWhileActive
+            ? _tableOverlayContent(dialogContext, dialog)
+            : dialog;
+      },
     );
   }
 
@@ -570,7 +576,7 @@ extension _TableGroupDetailScreenStateDetailStickyActionMethods
         ? normalizedVenue!
         : TableGroupOverviewStyle.unspecifiedVenueLabel;
     final status = group.status.trim().toUpperCase();
-    final cancelled = status == 'CANCELLED';
+    final cancelled = _removedByModerator || status == 'CANCELLED';
     final expired =
         !cancelled &&
         (status == 'INACTIVE' || group.expiresAt?.isAfter(_now()) == false);

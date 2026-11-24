@@ -1,6 +1,13 @@
 import '../../../core/error/result.dart';
 
-enum VenueSuggestionLiveMusic { yes, no, unknown }
+enum VenueSuggestionLiveMusic {
+  yes('Evet'),
+  no('Hayır'),
+  unknown('Bilmiyorum');
+
+  const VenueSuggestionLiveMusic(this.label);
+  final String label;
+}
 
 abstract class VenueSuggestionRepository {
   Future<Result<void>> submit({

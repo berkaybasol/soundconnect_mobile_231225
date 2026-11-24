@@ -87,13 +87,21 @@ class CollabJobStatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     Theme.of(context); // Rebuild palette colors when the theme changes.
     return _StatusPill(
-      label: status == CollabJobStatus.active ? 'Aktif iş' : 'Tamamlandı',
-      color: status == CollabJobStatus.active
-          ? AppColors.socialOrange
-          : AppColors.spotifyGreen,
-      icon: status == CollabJobStatus.active
-          ? Icons.handshake_outlined
-          : Icons.verified_rounded,
+      label: status == CollabJobStatus.active
+          ? 'Aktif iş'
+          : collabJobStatusLabel(status),
+      color: switch (status) {
+        CollabJobStatus.active => AppColors.socialOrange,
+        CollabJobStatus.completed => AppColors.spotifyGreen,
+        CollabJobStatus.cancelled => Theme.of(
+          context,
+        ).colorScheme.onSurfaceVariant,
+      },
+      icon: switch (status) {
+        CollabJobStatus.active => Icons.handshake_outlined,
+        CollabJobStatus.completed => Icons.verified_rounded,
+        CollabJobStatus.cancelled => Icons.cancel_outlined,
+      },
     );
   }
 }
@@ -431,8 +439,11 @@ String collabListingStatusLabel(CollabListingStatus status) => switch (status) {
   CollabListingStatus.expired => 'Süresi doldu',
 };
 
-String collabJobStatusLabel(CollabJobStatus status) =>
-    status == CollabJobStatus.active ? 'Aktif' : 'Tamamlandı';
+String collabJobStatusLabel(CollabJobStatus status) => switch (status) {
+  CollabJobStatus.active => 'Aktif',
+  CollabJobStatus.completed => 'Tamamlandı',
+  CollabJobStatus.cancelled => 'İptal edildi',
+};
 
 String collabShortDate(DateTime? value) {
   if (value == null) return 'Tarih belirtilmedi';

@@ -124,7 +124,7 @@ class _StudioReservationActionSheet extends StatelessWidget {
                   _closeThen(context, () => onShowProfile(target)),
             ),
             const SizedBox(height: 18),
-            if (capabilities.canApprove) ...[
+            if (capabilities.canApprove && !reservation.interactionBlocked) ...[
               _StudioReservationSheetAction(
                 icon: Icons.check_circle_outline_rounded,
                 label: 'Rezervasyonu Onayla',
@@ -140,11 +140,12 @@ class _StudioReservationActionSheet extends StatelessWidget {
               onTap: () => _closeThen(context, onShowDetails),
             ),
             const SizedBox(height: 8),
-            _StudioReservationSheetAction(
-              icon: Icons.chat_bubble_outline_rounded,
-              label: 'Kullanıcıya Mesaj Gönder',
-              onTap: () => _closeThen(context, onSendMessage),
-            ),
+            if (!reservation.interactionBlocked)
+              _StudioReservationSheetAction(
+                icon: Icons.chat_bubble_outline_rounded,
+                label: 'Kullanıcıya Mesaj Gönder',
+                onTap: () => _closeThen(context, onSendMessage),
+              ),
             if (capabilities.canReject ||
                 (reservation.approved && capabilities.canCancel)) ...[
               const SizedBox(height: 14),

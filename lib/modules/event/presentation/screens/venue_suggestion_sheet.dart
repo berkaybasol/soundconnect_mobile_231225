@@ -613,11 +613,7 @@ class _SuggestionChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
-    final label = switch (value) {
-      VenueSuggestionLiveMusic.yes => 'Evet',
-      VenueSuggestionLiveMusic.no => 'Hayır',
-      VenueSuggestionLiveMusic.unknown => 'Bilmiyorum',
-    };
+    final label = value.label;
     return Semantics(
       checked: selected,
       inMutuallyExclusiveGroup: true,

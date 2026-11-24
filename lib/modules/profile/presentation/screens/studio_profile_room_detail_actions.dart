@@ -370,6 +370,7 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
     await Navigator.of(
       context,
     ).pushNamed(route.routeName, arguments: route.arguments);
+    if (mounted) await _loadCalendarData(showLoading: false);
   }
 
   Future<void> _messageReservationGuest(
@@ -673,7 +674,8 @@ extension _StudioRoomDetailActions on _StudioRoomDetailScreenState {
       _showCalendarError(
         result.error?.message ?? 'Rezervasyon oluşturulamadı.',
       );
-      if (isStudioReservationConflict(result.error)) {
+      if (isStudioReservationConflict(result.error) ||
+          result.error?.isInteractionUnavailable == true) {
         await _loadCalendarData(showLoading: false);
       }
       return;

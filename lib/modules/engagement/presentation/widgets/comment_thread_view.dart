@@ -11,6 +11,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../../shared/widgets/brand_gradient_icon.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../domain/engagement_repository.dart';
 import '../../domain/comment_age.dart';
 import '../../domain/entities/comment_item.dart';
@@ -79,6 +80,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
   late final AuthSessionManager? _sessions;
   late final EngagementRepository _repository;
   AuthSession? _session;
+  StreamSubscription<UserBlockChange>? _blockChanges;
   String? _replyRootId;
   String? _replyName;
   String? _localError;
@@ -121,6 +123,24 @@ class _CommentThreadViewState extends State<CommentThreadView>
     _repository = widget.repository ?? serviceLocator<EngagementRepository>();
     _session = _sessions?.session;
     _sessions?.addListener(_sessionChanged);
+    if (serviceLocator.isRegistered<UserBlockRepository>()) {
+      _blockChanges = serviceLocator<UserBlockRepository>().changes.listen((
+        change,
+      ) {
+        if (!_allowed || change.actorId != _session?.userId) return;
+        setState(() {
+          _replies.clear();
+          _likeMemory.clear();
+          if (_replyRootId != null) {
+            _replyRootId = null;
+            _replyName = null;
+            _input.clear();
+          }
+        });
+        _dismissDeleteDialog();
+        unawaited(_reload(clearExisting: true));
+      });
+    }
     if (widget.autoLoad) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_allowed) _reload();
@@ -174,6 +194,7 @@ class _CommentThreadViewState extends State<CommentThreadView>
   @override
   void dispose() {
     _likeMemory.clear();
+    _blockChanges?.cancel();
     _sessions?.removeListener(_sessionChanged);
     _dismissDeleteDialog();
     _input.dispose();
@@ -181,12 +202,13 @@ class _CommentThreadViewState extends State<CommentThreadView>
     super.dispose();
   }
 
-  Future<void> _reload() async {
+  Future<void> _reload({bool clearExisting = false}) async {
     if (!_allowed) return;
     final session = _session;
     await context.read<CommentThreadCubit>().load(
       targetType: widget.targetType,
       targetId: widget.targetId,
+      clearExisting: clearExisting,
     );
     if (!_same(session)) return;
     setState(() {
@@ -440,6 +462,8 @@ class _CommentThreadViewState extends State<CommentThreadView>
           ? () => _reply(root, item)
           : null,
       onDeleteTap: own ? () => _delete(item, root) : null,
+      canReport: _allowed && !own,
+      isCurrent: () => _current && _visibleItem(item, root),
       deleting: deleting,
       deleteKey: ValueKey('comment-delete-${item.id}'),
       actionsEnabled: !state.submitting && state.deletingCommentId == null,

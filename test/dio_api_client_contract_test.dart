@@ -22,6 +22,106 @@ part 'dio_api_client_contract_test_register_dio_api_client_contract3.dart';
 
 void main() {
   _registerDioApiClientContract3();
+  for (final path in [
+    '/api/v1/session/access',
+    '/api/v1/auth/login',
+    '/api/v1/auth/google-sign-in',
+    '/api/v1/auth/complete-google-profile',
+    '/api/v1/auth/verify-code',
+    '/api/v1/auth/reset-password',
+  ]) {
+    final guest = path.startsWith('/api/v1/auth/');
+    test('suspension from $path retires only the current credential', () async {
+      final token = _jwt(subject: 'member-A', roles: ['ROLE_MUSICIAN']);
+      final tokens = _MemoryTokenStore(guest ? null : token);
+      final metadata = _MemorySessionStore(null);
+      final manager = AuthSessionManager(
+        tokenStore: tokens,
+        sessionStore: metadata,
+      );
+      addTearDown(manager.dispose);
+      await manager.restore();
+      final adapter = _RecordingHttpClientAdapter(
+        (_) => _jsonResponse(
+          statusCode: 403,
+          payload: {'code': 1119, 'message': 'Hesabınız askıya alındı.'},
+        ),
+      );
+      final dio = _dio(adapter);
+      addTearDown(() => _closeDio(dio, adapter));
+      final api = DioApiClient(
+        dio: dio,
+        tokenStore: tokens,
+        sessionManager: manager,
+      );
+      final request = guest
+          ? api.request<void>(
+              ApiHttpMethod.post,
+              path,
+              requestContext: ApiRequestContext(
+                requireGuestSession: true,
+                expectedCredentialRevision: manager.credentialRevision,
+              ),
+            )
+          : api.get<void>(path);
+      await expectLater(request, throwsA(isA<ApiException>()));
+      expect(manager.session.isSuspendedNotice, isTrue);
+      expect(tokens.value, isNull);
+      expect(metadata.value?.accountStatus, 'SUSPENDED');
+      await manager.restore();
+      expect(manager.session.isSuspendedNotice, isTrue);
+      await manager.dismissSuspension();
+      expect(manager.session.isSuspendedNotice, isFalse);
+      expect(metadata.value, isNull);
+    });
+  }
+  test(
+    'late suspended bearer and generic 403 leave the new account open',
+    () async {
+      final tokens = _MemoryTokenStore(
+        _jwt(subject: 'member-A', roles: ['ROLE_MUSICIAN']),
+      );
+      final manager = AuthSessionManager(
+        tokenStore: tokens,
+        sessionStore: _MemorySessionStore(null),
+      );
+      addTearDown(manager.dispose);
+      await manager.restore();
+      final started = Completer<void>();
+      final reply = Completer<ResponseBody>();
+      final adapter = _RecordingHttpClientAdapter((_) {
+        if (started.isCompleted) {
+          return _jsonResponse(statusCode: 403, payload: {'code': 1101});
+        }
+        started.complete();
+        return reply.future;
+      });
+      final dio = _dio(adapter);
+      addTearDown(() => _closeDio(dio, adapter));
+      final api = DioApiClient(
+        dio: dio,
+        tokenStore: tokens,
+        sessionManager: manager,
+      );
+      final pending = expectLater(
+        api.get<void>('/api/v1/session/access'),
+        throwsA(isA<ApiException>()),
+      );
+      await started.future;
+      await manager.startSession(
+        token: _jwt(subject: 'member-B', roles: ['ROLE_MUSICIAN']),
+        username: 'other',
+        accountStatus: 'ACTIVE',
+      );
+      reply.complete(_jsonResponse(statusCode: 403, payload: {'code': 1119}));
+      await pending;
+      await expectLater(
+        api.get<void>('/api/v1/session/access'),
+        throwsA(isA<ApiException>()),
+      );
+      expect(manager.session.userId, 'member-B');
+    },
+  );
 }
 
 int _decodeValue(Object? json) {

@@ -26,8 +26,8 @@ class _BacklineCategoryRequestInfoCard extends StatelessWidget {
           SizedBox(width: 11),
           Expanded(
             child: Text(
-              'Kategori yapısı SoundConnect genelinde ortaktır. Yeni talepler '
-              'yetkili incelemesinden sonra tüm platform için yayınlanır.',
+              'Backline kataloğu tüm stüdyolar için ortaktır. Yeni kategori '
+              've alt kategori önerilerini SoundConnect ekibine iletebilirsin.',
               style: TextStyle(
                 color: AppColors.legacy(Color(0xFFB6C0CF)),
                 fontSize: 12,
@@ -619,7 +619,7 @@ class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
                   border: Border.all(color: statusColor.withValues(alpha: 0.4)),
                 ),
                 child: Text(
-                  _categoryRequestStatusLabel(request.status),
+                  request.status.label,
                   style: TextStyle(
                     color: statusColor,
                     fontSize: 10,
@@ -640,14 +640,4 @@ class _BacklineSubmittedCategoryRequestCard extends StatelessWidget {
       ),
     );
   }
-
-  static String _categoryRequestStatusLabel(
-    BacklineCategoryRequestStatus status,
-  ) => switch (status) {
-    BacklineCategoryRequestStatus.pending => 'İncelemede',
-    BacklineCategoryRequestStatus.approved => 'Onaylandı',
-    BacklineCategoryRequestStatus.rejected => 'Reddedildi',
-    BacklineCategoryRequestStatus.withdrawn => 'Geri Çekildi',
-    BacklineCategoryRequestStatus.unknown => 'Bilinmiyor',
-  };
 }

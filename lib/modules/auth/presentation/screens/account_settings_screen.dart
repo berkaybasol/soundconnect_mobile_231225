@@ -13,6 +13,8 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../musician_feed/domain/backstage_feed_session.dart';
 import '../../../profile/presentation/screens/account_profile_settings_section.dart';
+import '../../../profile/presentation/screens/studio_listener_info_screen.dart';
+import '../../../studio/presentation/customer_reservations_screen.dart';
 import '../../domain/username_policy.dart';
 import '../../domain/account_deletion_repository.dart';
 import 'listener_account_deletion_dialog.dart';
@@ -192,6 +194,35 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const AccountProfileSettingsSection(),
+                        if (serviceLocator<AuthSessionManager>()
+                                .session
+                                .isAuthenticated &&
+                            !isStudioRestrictedListener(
+                              serviceLocator<AuthSessionManager>().session,
+                            ))
+                          ListTile(
+                            leading: const Icon(Icons.event_note_outlined),
+                            title: const Text('Stüdyo rezervasyonlarım'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    const CustomerReservationsScreen(),
+                              ),
+                            ),
+                          ),
+                        ListTile(
+                          key: const Key('account-settings-blocks'),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          leading: const Icon(Icons.block),
+                          title: const Text('Engellenen hesaplar'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.blockedAccounts),
+                        ),
                         if (serviceLocator.isRegistered<PushCoordinator>()) ...[
                           ListTile(
                             key: const Key('account-settings-notifications'),

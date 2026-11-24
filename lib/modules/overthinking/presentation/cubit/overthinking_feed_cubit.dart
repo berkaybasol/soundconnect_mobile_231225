@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import '../../../user_block/data/user_block_repository.dart';
 import '../../../../core/auth/auth_session_manager.dart';
 import '../../domain/overthinking_session.dart';
+import '../../../profile/domain/entities/listener_visibility_mode.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../engagement/domain/engagement_repository.dart';
@@ -18,6 +22,7 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
   bool get canWrite => !isClosed && _session.canWrite;
   bool isPostUnavailable(String postId) => _deletedIds.contains(postId);
 
+  bool _feedRequested = false;
   int _loadGeneration = 0;
   int _sortGeneration = 0;
   int _readGeneration = 0;
@@ -35,16 +40,50 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
   final Set<String> _likingIds = {};
   final Set<String> _deletedIds = {};
   final Set<String> _createdIds = {};
+  final Set<String> _blockedAuthors = {};
+  StreamSubscription<UserBlockChange>? _blockChanges;
 
   OverthinkingFeedCubit({
     required OverthinkingRepository overthinkingRepository,
     required EngagementRepository engagementRepository,
     AuthSessionManager? sessions,
+    Stream<UserBlockChange>? blockChanges,
   }) : _overthinkingRepository = overthinkingRepository,
        _engagementRepository = engagementRepository,
        _session = OverthinkingSession(sessions),
        super(const OverthinkingFeedState.initial()) {
     _session.addListener(_sessionChanged);
+    _blockChanges = blockChanges?.listen((change) {
+      if (!canWrite || change.actorId != _session.userId) return;
+      if (change.status.interactionBlocked) {
+        _blockedAuthors.add(change.userId);
+      } else {
+        _blockedAuthors.remove(change.userId);
+      }
+      ++_loadGeneration;
+      _detailGenerations.updateAll((_, generation) => generation + 1);
+      emit(
+        state.copyWith(
+          posts: state.posts
+              .map(visiblePost)
+              .whereType<OverthinkingPost>()
+              .toList(),
+        ),
+      );
+      if (_feedRequested) unawaited(load());
+    });
+  }
+
+  OverthinkingPost? visiblePost(OverthinkingPost post) {
+    if (!_blockedAuthors.contains(post.authorId)) return post;
+    if (!post.anonymous) return null;
+    return post.copyWith(
+      authorId: null,
+      authorUsername: 'Anonymous',
+      authorAvatarUrl: null,
+      canViewAuthor: false,
+      authorVisibilityMode: ListenerVisibilityMode.standard,
+    );
   }
 
   void _sessionChanged() {
@@ -72,6 +111,7 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
 
   @override
   Future<void> close() {
+    _blockChanges?.cancel();
     _session.removeListener(_sessionChanged);
     _session.dispose();
     return super.close();
@@ -79,6 +119,7 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
 
   Future<void> load() async {
     if (!isSessionCurrent || isClosed) return;
+    _feedRequested = true;
     final generation = ++_loadGeneration;
     final readGeneration = ++_readGeneration;
     final revision = _revision;
@@ -495,7 +536,9 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
     _replacePost(post.copyWith(commentCount: post.commentCount + 1));
   }
 
-  void _replacePost(OverthinkingPost post) {
+  void _replacePost(OverthinkingPost candidate) {
+    final post = visiblePost(candidate);
+    if (post == null) return;
     if (!isSessionCurrent || isClosed || _deletedIds.contains(post.id)) return;
     _markChanged(post.id);
     final exists = state.posts.any((item) => item.id == post.id);
@@ -554,7 +597,10 @@ class OverthinkingFeedCubit extends Cubit<OverthinkingFeedState> {
         readGeneration,
       );
     }
-    return merged.values.toList();
+    return merged.values
+        .map(visiblePost)
+        .whereType<OverthinkingPost>()
+        .toList();
   }
 
   OverthinkingPost _mergeReadProjection(

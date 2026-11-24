@@ -109,6 +109,11 @@ abstract class CollabRepository {
     int size = 20,
   });
 
+  Future<Result<CollabJob>> cancelJob(
+    String jobId, {
+    required int expectedVersion,
+  });
+
   Future<Result<CollabJob>> confirmJobCompletion(
     String jobId, {
     required int expectedVersion,

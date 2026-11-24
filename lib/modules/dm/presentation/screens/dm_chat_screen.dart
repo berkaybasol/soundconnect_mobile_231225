@@ -10,6 +10,8 @@ import '../../../../shared/widgets/ghost_profile_badge.dart';
 import '../../../../shared/widgets/gradient_outline_button.dart';
 import '../../../profile/domain/entities/listener_visibility_context.dart';
 import '../../../profile/domain/entities/listener_visibility_mode.dart';
+import '../../../user_block/data/user_block_repository.dart';
+import '../../../user_block/presentation/user_block_action.dart';
 import '../../domain/dm_user_profile_resolver.dart';
 import '../../domain/entities/dm_message.dart';
 import '../../domain/entities/dm_profile_target.dart';
@@ -257,6 +259,15 @@ class _DmChatViewState extends State<_DmChatView>
     final deleted = context.select<DmChatCubit, bool>(
       (cubit) => cubit.state.recipientDeleted,
     );
+    final blocked = context.select(
+      (DmChatCubit cubit) => cubit.state.interactionBlocked,
+    );
+    final blockedByMe = context.select(
+      (DmChatCubit cubit) => cubit.state.blockedByMe,
+    );
+    final blockStatusKnown = context.select(
+      (DmChatCubit cubit) => cubit.state.blockStatusKnown,
+    );
     final resolvedUsername = args?.otherUsername?.trim() ?? '';
     final resolvedUserId = args?.otherUserId.trim() ?? '';
     final title = deleted
@@ -292,12 +303,16 @@ class _DmChatViewState extends State<_DmChatView>
         titleSpacing: 4,
         title: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: deleted ? null : _openRelatedProfile,
+          onTap: deleted || blocked || !blockStatusKnown
+              ? null
+              : _openRelatedProfile,
           child: Row(
             children: [
               DmAvatar(
                 size: 38,
-                imageUrl: !deleted ? args?.otherUserProfilePicture : null,
+                imageUrl: deleted || blocked
+                    ? null
+                    : args?.otherUserProfilePicture,
                 fallbackText: deleted ? null : title,
                 fallbackIcon: deleted
                     ? Icons.person_off_outlined
@@ -354,11 +369,49 @@ class _DmChatViewState extends State<_DmChatView>
               top: actionVerticalPadding,
               bottom: actionVerticalPadding,
             ),
-            child: DmHeaderAction(
-              tooltip: 'Sohbeti yenile',
-              onPressed: () => context.read<DmChatCubit>().refresh(),
-              icon: Icons.refresh_rounded,
-            ),
+            child:
+                !deleted &&
+                    args != null &&
+                    serviceLocator.isRegistered<UserBlockRepository>()
+                ? PopupMenuButton<String>(
+                    tooltip: 'Sohbet seçenekleri',
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      if (value == 'refresh') {
+                        unawaited(_chat.refresh());
+                      } else if (value == 'unblock') {
+                        confirmUnblockUser(
+                          context,
+                          userId: args.otherUserId,
+                          username: title,
+                        );
+                      } else {
+                        confirmBlockUser(
+                          context,
+                          userId: args.otherUserId,
+                          username: title,
+                        );
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'refresh',
+                        child: Text('Sohbeti yenile'),
+                      ),
+                      if (blockStatusKnown)
+                        PopupMenuItem(
+                          value: blockedByMe ? 'unblock' : 'block',
+                          child: Text(
+                            blockedByMe ? 'Engeli kaldır' : 'Engelle',
+                          ),
+                        ),
+                    ],
+                  )
+                : DmHeaderAction(
+                    tooltip: 'Sohbeti yenile',
+                    onPressed: () => context.read<DmChatCubit>().refresh(),
+                    icon: Icons.refresh_rounded,
+                  ),
           ),
         ],
       ),
@@ -396,6 +449,9 @@ class _DmChatViewState extends State<_DmChatView>
                     return Center(child: CircularProgressIndicator());
                   }
                   if (state.messages.isEmpty) {
+                    if (deleted || blocked) {
+                      return const Center(child: Text('Mesaj geçmişi boş.'));
+                    }
                     return _ChatEmptyState();
                   }
                   return NotificationListener<ScrollNotification>(
@@ -438,7 +494,7 @@ class _DmChatViewState extends State<_DmChatView>
                         );
                         final isMine =
                             args != null && item.senderId != args.otherUserId;
-                        final senderAvatarUrl = isMine
+                        final senderAvatarUrl = isMine || blocked
                             ? null
                             : args?.otherUserProfilePicture;
                         return Column(
@@ -457,9 +513,13 @@ class _DmChatViewState extends State<_DmChatView>
                 },
               ),
             ),
-            if (deleted)
+            if (deleted || blocked || !blockStatusKnown)
               Container(
-                key: Key('dm-deleted-account-readonly'),
+                key: Key(
+                  deleted
+                      ? 'dm-deleted-account-readonly'
+                      : 'dm-contact-readonly',
+                ),
                 width: double.infinity,
                 margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 padding: const EdgeInsets.all(14),
@@ -468,8 +528,12 @@ class _DmChatViewState extends State<_DmChatView>
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: colors.outline),
                 ),
-                child: const Text(
-                  'Bu hesap silindi. Mesaj geçmişini okuyabilirsin; yeni mesaj gönderemezsin.',
+                child: Text(
+                  deleted
+                      ? 'Bu hesap silindi. Mesaj geçmişini okuyabilirsin; yeni mesaj gönderemezsin.'
+                      : blocked
+                      ? 'Bu sohbette mesaj gönderilemiyor. Geçmiş mesajları okuyabilirsin.'
+                      : 'Mesajlaşma durumu doğrulanıyor. Gerekirse sohbeti yenileyebilirsin.',
                   textAlign: TextAlign.center,
                 ),
               )
@@ -593,7 +657,8 @@ class _DmChatViewState extends State<_DmChatView>
     final args = _args;
     if (args == null ||
         !mounted ||
-        context.read<DmChatCubit>().state.recipientDeleted) {
+        _chat.state.recipientDeleted ||
+        _chat.state.interactionBlocked) {
       return;
     }
     final musicianProfileId = args.otherMusicianProfileId?.trim() ?? '';
@@ -615,7 +680,7 @@ class _DmChatViewState extends State<_DmChatView>
       userId: args.otherUserId,
       usernameHint: args.otherUsername,
     );
-    if (!mounted) return;
+    if (!mounted || _chat.state.interactionBlocked) return;
     final navigable = resolved
         .where((target) => dmProfileRouteFor(target) != null)
         .toList(growable: false);

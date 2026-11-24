@@ -273,18 +273,30 @@ class _CollabIncomingApplicationsScreenState
                   application: application,
                   busy: busy,
                   onDetail: () => _openDetail(application.listing.id),
-                  onProfile: () =>
-                      openCollabActorProfile(context, application.applicant),
-                  onMessage: application.applicant.contactUserId.trim().isEmpty
+                  onProfile: () async {
+                    await openCollabActorProfile(
+                      context,
+                      application.applicant,
+                    );
+                    if (mounted) await _cubit.refresh();
+                  },
+                  onMessage:
+                      application.interactionBlocked ||
+                          application.applicant.contactUserId.trim().isEmpty
                       ? null
                       : () => openCollabActorConversation(
                           context,
                           application.applicant,
                         ),
-                  onPhone: application.phone?.trim().isNotEmpty == true
+                  onPhone:
+                      !application.interactionBlocked &&
+                          application.phone?.trim().isNotEmpty == true
                       ? () => _openPhone(application.phone!)
                       : null,
-                  onAccept: application.isPending && application.listing.isOpen
+                  onAccept:
+                      !application.interactionBlocked &&
+                          application.isPending &&
+                          application.listing.isOpen
                       ? () => _confirmDecision(application, accept: true)
                       : null,
                   onReject: application.isPending

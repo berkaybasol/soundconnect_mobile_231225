@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../core/error/result.dart';
 import '../../core/network/api_client.dart';
+import '../../modules/admin/data/admin_backline_request_repository.dart';
+import '../../modules/admin/presentation/screens/admin_backline_requests_screen.dart';
+import '../../modules/admin/data/admin_venue_suggestion_repository.dart';
+import '../../modules/admin/presentation/screens/admin_venue_suggestions_screen.dart';
 import '../../modules/admin/data/system_health_repository.dart';
+import '../../modules/admin/data/admin_user_directory_repository.dart';
+import '../../modules/admin/presentation/screens/admin_user_directory_screen.dart';
 import '../../modules/admin/data/pending_application_repository.dart';
 import '../../modules/admin/domain/pending_application.dart';
 import '../../modules/admin/presentation/screens/pending_applications_screen.dart';
@@ -18,12 +24,17 @@ import '../../modules/profile/presentation/screens/profile_public_bottom_bar.dar
 import '../../modules/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../modules/admin/data/marketplace_report_admin_repository.dart';
 import '../../modules/admin/data/collab_report_admin_repository.dart';
+import '../../modules/admin/data/table_report_admin_repository.dart';
+import '../../modules/admin/data/content_report_admin_repository.dart';
+import '../../modules/admin/presentation/screens/content_report_admin_screen.dart';
+import '../../modules/admin/presentation/screens/table_report_admin_screen.dart';
 import '../../modules/admin/presentation/screens/collab_report_admin_screen.dart';
 import '../../modules/admin/presentation/screens/marketplace_report_admin_screen.dart';
 import '../../modules/promotion/presentation/screens/announcement_directory_screen.dart';
 import '../../modules/admin/domain/musician_feed_report_admin_repository.dart';
 import '../../modules/admin/presentation/screens/musician_feed_report_admin_screen.dart';
 import '../../modules/auth/presentation/screens/account_settings_screen.dart';
+import '../../modules/auth/presentation/screens/account_suspended_screen.dart';
 import '../../modules/auth/presentation/screens/forgot_password_screen.dart';
 import '../../modules/auth/presentation/screens/login_screen.dart';
 import '../../modules/auth/presentation/screens/listener_profile_choice_screen.dart';
@@ -44,6 +55,7 @@ import '../../modules/notification/presentation/screens/notification_screen.dart
 import '../../modules/notification/presentation/notification_target_read.dart';
 import '../../modules/musician_feed/domain/musician_feed_muted_authors_repository.dart';
 import '../../modules/musician_feed/presentation/screens/musician_feed_muted_authors_screen.dart';
+import '../../modules/user_block/presentation/blocked_accounts_screen.dart';
 import '../../modules/musician_feed/presentation/screens/listener_feed_screen.dart';
 import '../../modules/profile/presentation/screens/musician_profile_screen.dart';
 import '../../modules/profile/presentation/screens/musician_public_profile_screen.dart';
@@ -116,6 +128,14 @@ class AppRouter {
     }
 
     switch (settings.name) {
+      case AppRoutes.accountSuspended:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => AccountSuspendedScreen(
+            onReturnToLogin:
+                serviceLocator<AuthSessionManager>().dismissSuspension,
+          ),
+        );
       case AppRoutes.studioListenerInfo:
         return MaterialPageRoute(
           settings: settings,
@@ -133,6 +153,44 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AdminDashboardScreen(),
+        );
+      case AppRoutes.adminUsers:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => AdminUserDirectoryScreen(
+            repository: serviceLocator<AdminUserDirectoryRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+            initialSession: session,
+            frame: _arguments<AdminSubpageFrame>(settings),
+          ),
+        );
+      case AppRoutes.adminVenueSuggestions:
+        final sessions = serviceLocator<AuthSessionManager>();
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => AdminVenueSuggestionsScreen(
+            repository: AdminVenueSuggestionRepository(
+              serviceLocator<ApiClient>(),
+              sessions,
+            ),
+            sessions: sessions,
+            initialSession: session,
+            frame: _arguments<AdminSubpageFrame>(settings),
+          ),
+        );
+      case AppRoutes.adminBacklineRequests:
+        final sessions = serviceLocator<AuthSessionManager>();
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => AdminBacklineRequestsScreen(
+            repository: AdminBacklineRequestRepository(
+              serviceLocator<ApiClient>(),
+              sessions,
+            ),
+            sessions: sessions,
+            initialSession: session,
+            frame: _arguments<AdminSubpageFrame>(settings),
+          ),
         );
       case AppRoutes.adminApplications:
         final sessions = serviceLocator<AuthSessionManager>();
@@ -185,6 +243,27 @@ class AppRouter {
             sessions: serviceLocator<AuthSessionManager>(),
           ),
         );
+      case AppRoutes.adminTableReports:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => TableReportAdminScreen(
+            repository: serviceLocator<TableReportAdminRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+            initialSession: session,
+            frame: _arguments<AdminSubpageFrame>(settings),
+          ),
+        );
+      case AppRoutes.adminContentReports:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => ContentReportAdminScreen(
+            repository: serviceLocator<ContentReportAdminRepository>(),
+            userDirectory: serviceLocator<AdminUserDirectoryRepository>(),
+            sessions: serviceLocator<AuthSessionManager>(),
+            initialSession: session,
+            frame: _arguments<AdminSubpageFrame>(settings),
+          ),
+        );
       case AppRoutes.adminCollabReports:
         return MaterialPageRoute(
           settings: settings,
@@ -226,6 +305,11 @@ class AppRouter {
         return MaterialPageRoute(
           settings: settings,
           builder: (_) => const AccountSettingsScreen(),
+        );
+      case AppRoutes.blockedAccounts:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const BlockedAccountsScreen(),
         );
       case AppRoutes.musicianFeedMutedAuthors:
         return MaterialPageRoute(

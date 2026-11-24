@@ -88,6 +88,14 @@ class _MusicianPublicProfileContent extends StatelessWidget {
           title: const ProfileBrandTitle(),
           leading: BackButton(),
           centerTitle: true,
+          actions: [
+            UserBlockProfileMenu(
+              reportKind: ContentReportKind.venueProfile,
+              reportProfileId: profile.id,
+              userId: profile.userId,
+              name: profile.stageName ?? profile.username ?? '',
+            ),
+          ],
         ),
         body: RefreshIndicator(
           onRefresh: onRefresh,

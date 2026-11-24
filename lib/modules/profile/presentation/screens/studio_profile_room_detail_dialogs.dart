@@ -527,6 +527,7 @@ String _manualHourLabel(int index) =>
     '${(9 + index).toString().padLeft(2, '0')}:00';
 
 class _StudioOwnerReservation {
+  final bool interactionBlocked;
   final String id;
   final String userId;
   final String? phoneNumber;
@@ -543,6 +544,7 @@ class _StudioOwnerReservation {
   final String? currency;
 
   const _StudioOwnerReservation({
+    required this.interactionBlocked,
     required this.id,
     required this.userId,
     required this.phoneNumber,
@@ -572,6 +574,7 @@ class _StudioOwnerReservation {
       reservation.endsAt,
     );
     return _StudioOwnerReservation(
+      interactionBlocked: reservation.interactionBlocked,
       id: reservation.id,
       userId: reservation.requesterId ?? '',
       phoneNumber: reservation.requesterPhone == null

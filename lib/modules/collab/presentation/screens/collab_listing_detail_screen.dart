@@ -335,6 +335,7 @@ class _DetailViewState extends State<_DetailView> {
                   icon: Icons.chat_bubble_outline_rounded,
                   onPressed:
                       listing.ownedByMe ||
+                          listing.interactionBlocked ||
                           listing.publisher.contactUserId.trim().isEmpty
                       ? null
                       : () => openCollabActorConversation(
@@ -389,6 +390,7 @@ class _DetailViewState extends State<_DetailView> {
     if (!listing.isOpen) return _statusLabel(listing.status);
     if (listing.ownedByMe) return 'İlanı Kapat';
     if (listing.appliedByMe) return 'Başvuru Gönderildi';
+    if (listing.interactionBlocked) return 'Başvuru yapılamıyor';
     return 'Başvuru Yap';
   }
 
@@ -396,10 +398,11 @@ class _DetailViewState extends State<_DetailView> {
     if (!listing.isOpen) return Icons.lock_outline_rounded;
     if (listing.ownedByMe) return Icons.close_rounded;
     if (listing.appliedByMe) return Icons.check_rounded;
+    if (listing.interactionBlocked) return Icons.lock_outline_rounded;
     return Icons.rocket_launch_outlined;
   }
 
-  void _openPublisherProfile(CollabActor actor) {
+  Future<void> _openPublisherProfile(CollabActor actor) async {
     if (!mounted ||
         ModalRoute.of(context)?.isCurrent != true ||
         actor.sourceProfileId.trim().isEmpty) {
@@ -410,7 +413,8 @@ class _DetailViewState extends State<_DetailView> {
         listing?.publisher.actorId != actor.actorId) {
       return;
     }
-    openCollabActorProfile(context, actor);
+    await openCollabActorProfile(context, actor);
+    if (mounted) await context.read<CollabListingDetailCubit>().refresh();
   }
 
   Future<void> _openOwnerActions(CollabActor actor) async {
@@ -424,7 +428,7 @@ class _DetailViewState extends State<_DetailView> {
 
     switch (action) {
       case _OwnerAction.profile:
-        openCollabActorProfile(context, actor);
+        await _openPublisherProfile(actor);
       case _OwnerAction.reviews:
         await Navigator.of(context).push<void>(
           collabPageRoute(
@@ -469,7 +473,7 @@ class _DetailViewState extends State<_DetailView> {
     }
     if (!mounted) return;
     final selectedActor = actor;
-    if (selectedActor == null) return;
+    if (selectedActor == null || cubit.state.listing?.canApply != true) return;
     final submitted = await Navigator.of(context).push<bool>(
       collabPageRoute(
         context: context,

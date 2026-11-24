@@ -10,6 +10,7 @@ class _JobCard extends StatelessWidget {
     required this.onMessage,
     required this.onDetail,
     required this.onConfirm,
+    required this.onCancel,
     required this.onReview,
   });
 
@@ -21,6 +22,7 @@ class _JobCard extends StatelessWidget {
   final VoidCallback? onMessage;
   final VoidCallback onDetail;
   final VoidCallback? onConfirm;
+  final VoidCallback? onCancel;
   final VoidCallback? onReview;
 
   @override
@@ -34,9 +36,9 @@ class _JobCard extends StatelessWidget {
         ? 'Karşı taraf onayladı · Senin onayın bekleniyor.'
         : 'Tamamlanması için iki tarafın da onayı gerekir.';
     return CollabGradientFrame(
-      highlighted: !job.isCompleted,
+      highlighted: job.isActive,
       radius: 19,
-      strokeWidth: job.isCompleted ? 1 : 1.25,
+      strokeWidth: job.isActive ? 1.25 : 1,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,39 +59,41 @@ class _JobCard extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  job.isCompleted
-                      ? Icons.verified_rounded
-                      : Icons.check_circle_outline_rounded,
-                  size: 18,
-                  color: job.isCompleted
-                      ? AppColors.spotifyGreen
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    confirmationText,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
+          if (job.status != CollabJobStatus.cancelled) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    job.isCompleted
+                        ? Icons.verified_rounded
+                        : Icons.check_circle_outline_rounded,
+                    size: 18,
+                    color: job.isCompleted
+                        ? AppColors.spotifyGreen
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      confirmationText,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 13),
           CollabActionsWrap(
             actions: [
@@ -111,6 +115,13 @@ class _JobCard extends StatelessWidget {
                   tone: CollabCardActionTone.success,
                   busy: busy,
                   onPressed: busy ? null : onConfirm,
+                ),
+              if (onCancel != null)
+                CollabCardAction(
+                  label: 'İşi iptal et',
+                  icon: Icons.cancel_outlined,
+                  tone: CollabCardActionTone.danger,
+                  onPressed: busy ? null : onCancel,
                 ),
               if (job.isCompleted)
                 CollabCardAction(

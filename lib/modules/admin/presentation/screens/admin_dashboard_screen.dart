@@ -9,6 +9,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import '../../../promotion/domain/announcement_access.dart';
 import '../../data/system_health_repository.dart';
+import '../../domain/admin_panel_access.dart';
 import '../../domain/collab_report_admin_access.dart';
 import '../../domain/marketplace_report_admin.dart';
 import '../../domain/musician_feed_report_admin.dart';
@@ -86,6 +87,7 @@ class _SessionDashboardState extends State<_SessionDashboard> {
       entry: entry,
       selected: selected,
       onSelect: select,
+      userDirectoryFrame: _frameFor(null),
       child: NotificationTargetReady(
         ready:
             selected == landing &&
@@ -134,15 +136,18 @@ class _SessionDashboardState extends State<_SessionDashboard> {
     );
   }
 
-  AdminSubpageFrame _frameFor(AdminPanelSection selected) {
+  AdminSubpageFrame _frameFor(AdminPanelSection? selected) {
     final sessions = widget.sessions;
     final entry = widget.entry;
     final home = ModalRoute.of(context);
     final navigator = Navigator.of(context);
+    final directoryFrame = selected == null ? null : _frameFor(null);
     return (body) => AdminPanelFrame(
       entry: entry,
       sessions: sessions,
       selected: selected,
+      userDirectoryActive: selected == null,
+      userDirectoryFrame: directoryFrame,
       child: body,
       onSelect: (section) {
         if (!mounted ||
@@ -216,7 +221,38 @@ class _AdminDirectory extends StatelessWidget {
       );
     }
 
-    if (reports) {
+    if (applications) {
+      addModule(
+        'Backline kategori talepleri',
+        'Stüdyoların kategori ve alt kategori önerileri',
+        'admin-backline-requests-entry',
+        Icons.category_outlined,
+        const Color(0xFFBEADFF),
+        AppRoutes.adminBacklineRequests,
+        canReadBacklineRequests,
+        arguments: frame,
+      );
+      addModule(
+        'Önerilen mekânlar',
+        'Keşfet üzerinden gönderilen mekân önerileri',
+        'admin-venue-suggestions-entry',
+        Icons.place_outlined,
+        const Color(0xFFFFAD9E),
+        AppRoutes.adminVenueSuggestions,
+        canReadVenueSuggestions,
+        arguments: frame,
+      );
+    } else if (reports) {
+      addModule(
+        'Profil ve içerik şikâyetleri',
+        'Bildirilen profiller, paylaşımlar ve yorumlar',
+        'admin-content-reports-entry',
+        Icons.flag_outlined,
+        const Color(0xFFFFAD9E),
+        AppRoutes.adminContentReports,
+        canManageContentReports,
+        arguments: frame,
+      );
       addModule(
         'Pazar şikâyetleri',
         'İlanlar hakkındaki bildirimler',
@@ -243,6 +279,16 @@ class _AdminDirectory extends StatelessWidget {
         const Color(0xFF91CDBB),
         AppRoutes.adminCollabReports,
         canManageCollabReports,
+        arguments: frame,
+      );
+      addModule(
+        'Masa şikâyetleri',
+        'Masa ilanı, sohbet mesajı ve olay bildirimleri',
+        'admin-table-reports-entry',
+        Icons.outlined_flag,
+        const Color(0xFFFFAAA0),
+        AppRoutes.adminTableReports,
+        canManageTableReports,
         arguments: frame,
       );
     } else if (section == AdminPanelSection.publishing) {
@@ -282,7 +328,7 @@ class _AdminDirectory extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           applications
-              ? 'İncelemek istediğin işletme türünü seç.'
+              ? 'Görüntülemek istediğin listeyi seç.'
               : reports
               ? 'İnceleyeceğin şikâyetin kaynağını seç.'
               : 'Duyuruları ve özel bildirimleri yönet.',
@@ -305,16 +351,18 @@ class _AdminDirectory extends StatelessWidget {
                   arguments: AdminApplicationEntry(kind: kind, frame: frame),
                 ),
               ),
-            )
-        else ...[
-          Text(
-            reports ? 'Şikâyet listeleri' : 'Yayın araçları',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
             ),
-          ),
-          const SizedBox(height: 9),
+        if (rows.isNotEmpty) ...[
+          if (!applications) ...[
+            Text(
+              reports ? 'Şikâyet listeleri' : 'Yayın araçları',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 9),
+          ],
           Material(
             color: theme.brightness == Brightness.dark
                 ? const Color(0xFF181B2B)

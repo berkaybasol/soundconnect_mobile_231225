@@ -135,6 +135,7 @@ AppError googleAuthError(Object error) {
       return StudioRejectionError.forLogin(error.error);
     }
     final message = switch (error.error.code) {
+      AppError.accountSuspended => 'Hesabınız askıya alındı.',
       '1101' || '401' =>
         'Google doğrulamasının süresi doldu. Google hesabını yeniden seç.',
       '1116' =>

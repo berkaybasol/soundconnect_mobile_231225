@@ -11,6 +11,7 @@ class BandMemberSummaryModel extends BandMemberSummary {
     required super.status,
     super.memberTitle,
     super.titleVersion,
+    super.contactAvailable,
   });
 
   factory BandMemberSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +49,7 @@ class BandMemberSummaryModel extends BandMemberSummary {
       status: json['status']?.toString() ?? '',
       memberTitle: _memberTitle(json['memberTitle']),
       titleVersion: _titleVersion(json['titleVersion']),
+      contactAvailable: json['contactAvailable'] as bool? ?? true,
     );
   }
 

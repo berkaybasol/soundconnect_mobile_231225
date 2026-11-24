@@ -14,6 +14,7 @@ class CollabApplication {
     required this.statusChangedAt,
     this.phone,
     this.decidedAt,
+    this.interactionBlocked = false,
   });
 
   final String id;
@@ -29,6 +30,7 @@ class CollabApplication {
   final DateTime submittedAt;
   final DateTime statusChangedAt;
   final DateTime? decidedAt;
+  final bool interactionBlocked;
 
   bool get isPending => status == CollabApplicationStatus.pending;
 
@@ -49,5 +51,6 @@ class CollabApplication {
     submittedAt: submittedAt,
     statusChangedAt: statusChangedAt ?? this.statusChangedAt,
     decidedAt: decidedAt ?? this.decidedAt,
+    interactionBlocked: interactionBlocked,
   );
 }

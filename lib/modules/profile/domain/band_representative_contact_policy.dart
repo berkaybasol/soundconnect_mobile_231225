@@ -10,6 +10,7 @@ class BandRepresentativeContactPolicy {
       final isEligible =
           member.status.trim().toUpperCase() == 'ACTIVE' &&
           member.isFounder &&
+          member.contactAvailable &&
           member.userId.trim().isNotEmpty;
       if (!isEligible) continue;
 

@@ -8,11 +8,14 @@ enum BacklineCategoryRequestType {
 }
 
 enum BacklineCategoryRequestStatus {
-  pending,
-  approved,
-  rejected,
-  withdrawn,
-  unknown,
+  pending('İletildi'),
+  approved('Onaylandı'),
+  rejected('Reddedildi'),
+  withdrawn('Geri çekildi'),
+  unknown('Bilinmiyor');
+
+  const BacklineCategoryRequestStatus(this.label);
+  final String label;
 }
 
 class BacklineCatalogChild {
@@ -65,6 +68,7 @@ class BacklineCategoryRequest {
   final String id;
   final String clientRequestId;
   final String studioProfileId;
+  final String? studioName;
   final BacklineCategoryRequestType type;
   final String requestedName;
   final String? parentCategoryId;
@@ -83,6 +87,7 @@ class BacklineCategoryRequest {
     required this.id,
     required this.clientRequestId,
     required this.studioProfileId,
+    this.studioName,
     required this.type,
     required this.requestedName,
     required this.parentCategoryId,

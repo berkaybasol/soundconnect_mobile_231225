@@ -37,6 +37,8 @@ import 'profile_common_widgets.dart';
 import 'profile_carousels.dart';
 import 'profile_count_row.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
+import '../../../content_report/domain/content_report.dart';
+import '../../../user_block/presentation/user_block_action.dart';
 import 'profile_public_bottom_bar.dart';
 import 'profile_public_video_tab.dart';
 import 'profile_route_args.dart';
@@ -279,7 +281,7 @@ class _MusicianPublicProfileViewState
               ? null
               : followState.followingCount;
           final actionState = context.watch<FollowActionCubit>().state;
-          return NotificationTargetReady(
+          final content = NotificationTargetReady(
             contentIdentity: profile,
             ready:
                 state.status == MusicianProfileStatus.success &&
@@ -297,6 +299,10 @@ class _MusicianPublicProfileViewState
               spotifyLoading: false,
               onRefresh: _refreshProfile,
             ),
+          );
+          return BlockAwarePublicProfile(
+            userId: profile.userId,
+            child: content,
           );
         },
       ),

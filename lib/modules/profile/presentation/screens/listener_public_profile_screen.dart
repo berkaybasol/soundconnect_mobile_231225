@@ -10,6 +10,8 @@ import '../../../../core/auth/auth_session_manager.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/profile_brand_title.dart';
 import '../../../dm/presentation/screens/dm_chat_screen.dart';
+import '../../../content_report/domain/content_report.dart';
+import '../../../user_block/presentation/user_block_action.dart';
 import '../../../follow/presentation/cubit/follow_action_cubit.dart';
 import '../../../follow/presentation/cubit/follow_action_state.dart';
 import '../../domain/entities/listener_public_profile.dart';
@@ -102,7 +104,10 @@ class _ListenerPublicProfileViewState
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
-    return BlocListener<ListenerProfileCubit, ListenerProfileState>(
+    final profile = context.select(
+      (ListenerProfileCubit cubit) => cubit.state.publicProfile,
+    );
+    final content = BlocListener<ListenerProfileCubit, ListenerProfileState>(
       listenWhen: (previous, current) =>
           current.status == ListenerProfileStatus.failure &&
           current.publicProfile != null &&
@@ -122,7 +127,18 @@ class _ListenerPublicProfileViewState
           );
       },
       child: Scaffold(
-        appBar: _publicAppBar(),
+        appBar: AppBar(
+          title: const ProfileBrandTitle(),
+          centerTitle: true,
+          actions: [
+            if (profile != null)
+              UserBlockProfileMenu(
+                reportKind: ContentReportKind.listenerProfile,
+                userId: profile.userId,
+                name: '@${profile.username}',
+              ),
+          ],
+        ),
         body: BlocBuilder<ListenerProfileCubit, ListenerProfileState>(
           builder: (context, state) {
             if (_profileId.isEmpty) {
@@ -207,6 +223,10 @@ class _ListenerPublicProfileViewState
           },
         ),
       ),
+    );
+    return BlockAwarePublicProfile(
+      userId: profile?.userId ?? '',
+      child: content,
     );
   }
 
@@ -306,10 +326,6 @@ bool _followFailureRequiresProfileRefresh(String? rawCode) {
       code == 'GHOST_PROFILE_CANNOT_BE_FOLLOWED' ||
       code == '1207' ||
       code == 'FOLLOW_GRAPH_PRIVATE';
-}
-
-PreferredSizeWidget _publicAppBar() {
-  return AppBar(title: const ProfileBrandTitle(), centerTitle: true);
 }
 
 class _PublicProfileFailure extends StatelessWidget {

@@ -8,6 +8,7 @@ import '../../../collab/presentation/widgets/collab_management_widgets.dart';
 import '../../data/collab_report_admin_repository.dart';
 import '../../domain/collab_report_admin.dart';
 import '../widgets/admin_panel_frame.dart';
+import '../widgets/admin_decision_reason_sheet.dart';
 import '../widgets/admin_visual_theme.dart';
 import '../widgets/application_review_widgets.dart';
 
@@ -94,7 +95,13 @@ class _CollabReportReviewState extends State<CollabReportReviewScreen> {
         builder: (context) => ValueListenableBuilder<bool>(
           valueListenable: widget.access,
           builder: (context, allowed, _) => allowed
-              ? _DecisionSheet(decision: decision, title: report.listingTitle)
+              ? AdminDecisionReasonSheet(
+                  heading: decision.label,
+                  title: report.listingTitle,
+                  impact: decision == CollabReportDecision.removeListing
+                      ? 'İlan yayından kaldırılacak. Bu ilana ait diğer açık şikâyetler de aynı gerekçeyle sonuçlandırılacak.'
+                      : 'Bu şikâyet kapatılacak. İlan mevcut durumunu koruyacak.',
+                )
               : const SafeArea(
                   child: Padding(
                     padding: EdgeInsets.all(24),
@@ -356,88 +363,4 @@ class _ListingEvidence extends StatelessWidget {
       ],
     );
   }
-}
-
-class _DecisionSheet extends StatefulWidget {
-  const _DecisionSheet({required this.decision, required this.title});
-  final CollabReportDecision decision;
-  final String title;
-
-  @override
-  State<_DecisionSheet> createState() => _DecisionSheetState();
-}
-
-class _DecisionSheetState extends State<_DecisionSheet> {
-  final _form = GlobalKey<FormState>();
-  String _note = '';
-  bool _closed = false;
-
-  void _close(String? value) {
-    if (_closed || ModalRoute.of(context)?.isCurrent != true) return;
-    _closed = true;
-    Navigator.of(context).pop(value);
-  }
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
-        child: Form(
-          key: _form,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                widget.decision.label,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                widget.decision == CollabReportDecision.removeListing
-                    ? 'İlan yayından kaldırılacak. Bu ilana ait diğer açık şikâyetler de aynı gerekçeyle sonuçlandırılacak.'
-                    : 'Bu şikâyet kapatılacak. İlan mevcut durumunu koruyacak.',
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                minLines: 2,
-                maxLines: 5,
-                maxLength: 500,
-                decoration: const InputDecoration(
-                  labelText: 'Karar gerekçesi',
-                  helperText: '5–500 karakter',
-                  counterText: '',
-                ),
-                onChanged: (value) => _note = value,
-                validator: (value) => isValidCollabResolutionNote(value ?? '')
-                    ? null
-                    : '5–500 karakterlik bir gerekçe yaz.',
-              ),
-              const SizedBox(height: 16),
-              ApplicationReviewButtons(
-                secondary: TextButton(
-                  onPressed: () => _close(null),
-                  child: const Text('Vazgeç'),
-                ),
-                primary: AdminBrandButton(
-                  label: 'Kararı kaydet',
-                  icon: Icons.check,
-                  onPressed: () {
-                    if (_form.currentState!.validate()) _close(_note.trim());
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }

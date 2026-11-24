@@ -62,6 +62,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   AppError _normalizeLoginError(AppError error) {
+    if (error.code == AppError.accountSuspended) return error;
     final message = error.message.trim();
     final lowerMessage = message.toLowerCase();
     if (error.code == '1113') {

@@ -1,18 +1,25 @@
 class AppRoutes {
+  static const String accountSuspended = '/account-suspended';
   static const adminSystemHealth = '/admin/system-health';
   static const adminDashboard = '/admin';
+  static const adminUsers = '/admin/users';
   static const adminApplications = '/admin/applications';
+  static const adminBacklineRequests = '/admin/backline/category-requests';
+  static const adminVenueSuggestions = '/admin/venue-suggestions';
   static const adminNotificationCampaigns = '/admin/notifications/campaigns';
   static const adminAnnouncements = '/admin/feed/announcements';
   static const announcements = '/announcements';
   static const adminMusicianFeedReports = '/admin/musician-feed/reports';
   static const adminMarketplaceReports = '/admin/marketplace/reports';
   static const adminCollabReports = '/admin/collab/reports';
+  static const adminTableReports = '/admin/table-group-reports';
+  static const adminContentReports = '/admin/content-reports';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
   static const settings = '/settings';
   static const accountSettings = '/account-settings';
+  static const blockedAccounts = '/settings/blocked-accounts';
   static const musicianFeedMutedAuthors =
       '/settings/musician-feed/muted-authors';
   static const otpVerify = '/otp-verify';

@@ -6,6 +6,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/app_snack_bar.dart';
 import '../../../engagement/domain/engagement_repository.dart';
 import '../../../engagement/presentation/cubit/comment_thread_cubit.dart';
+import '../../../user_block/data/user_block_repository.dart';
 import '../../domain/overthinking_repository.dart';
 import '../../domain/overthinking_session.dart';
 import '../cubit/overthinking_feed_cubit.dart';
@@ -50,6 +51,9 @@ Future<void> openOverthinkingSource(
     final repository = serviceLocator<OverthinkingRepository>();
     final engagement = serviceLocator<EngagementRepository>();
     final sourcePosts = OverthinkingFeedCubit(
+      blockChanges: serviceLocator.isRegistered<UserBlockRepository>()
+          ? serviceLocator<UserBlockRepository>().changes
+          : null,
       overthinkingRepository: repository,
       engagementRepository: engagement,
       sessions: manager,

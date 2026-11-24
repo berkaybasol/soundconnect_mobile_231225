@@ -24,9 +24,12 @@ import '../../../dm/domain/entities/dm_profile_target.dart';
 import '../../../dm/presentation/dm_profile_navigation.dart';
 import '../../../notification/presentation/notification_target_read.dart';
 import '../../../notification/data/notification_target_repository.dart';
+import '../../../notification/data/notification_realtime_client.dart';
+import '../../../notification/domain/entities/app_notification.dart';
 import '../../../notification/domain/entities/table_notification_target.dart';
 import '../../../profile/presentation/screens/profile_public_bottom_bar.dart';
 import '../../data/table_group_chat_realtime_client.dart';
+import '../../data/table_group_report_repository.dart';
 import '../../domain/entities/table_group.dart';
 import '../../domain/entities/table_group_game.dart';
 import '../../domain/entities/table_group_message.dart';
@@ -36,12 +39,14 @@ import '../../domain/table_group_expiry_policy.dart';
 import '../../domain/table_group_game_repository.dart';
 import '../../domain/table_group_message_timeline.dart';
 import '../../domain/table_group_repository.dart';
+import '../../domain/table_group_report.dart';
 import '../cubit/table_group_game_cubit.dart';
 import '../cubit/table_group_game_state.dart';
 import '../table_group_profile_draft.dart';
 import '../widgets/table_group_game_launcher_sheet.dart';
 import '../widgets/table_group_game_message_card.dart';
 import '../widgets/table_group_overview_style.dart';
+import '../widgets/table_group_report_sheet.dart';
 import 'table_group_list_screen.dart';
 
 part 'table_group_detail_screen_bootstrap.dart';
@@ -152,9 +157,12 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   late final TableGroupLocalDayRefreshScheduler _dayRefreshScheduler;
   final TextEditingController _chatController = TextEditingController();
   final GlobalKey _chatComposerKey = GlobalKey();
+  final _tableOverlays = <ModalRoute<dynamic>>{};
   final ScrollController _chatScrollController = ScrollController();
 
   StreamSubscription<TableGroupMessage>? _messageSubscription;
+  StreamSubscription<AppNotification>? _moderationSubscription;
+  StreamSubscription<void>? _personalConnectionSubscription;
   StreamSubscription<void>? _connectionSubscription;
   StreamSubscription<RealtimeClientError>? _realtimeErrorSubscription;
   StreamSubscription<TableGroupGameState>? _gameStateSubscription;
@@ -186,8 +194,32 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   List<TableGroupMessage> _messages = const [];
   TableGroupGameState _gameState = const TableGroupGameState.idle();
   bool _chatHasNext = false;
+  bool _removedByModerator = false;
   int _chatPage = 0;
   final Set<String> _ownerActionInFlightIds = <String>{};
+
+  Widget _tableOverlayContent(BuildContext overlayContext, Widget content) {
+    final route = ModalRoute.of(overlayContext)!;
+    if (_tableOverlays.add(route)) {
+      route.popped.then((_) => _tableOverlays.remove(route));
+      // The removal can arrive after a push but before the first route build.
+      if (!_isSessionActive) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (route.isActive) route.navigator?.removeRoute(route);
+        });
+      }
+    }
+    return _isSessionActive ? content : const SizedBox.shrink();
+  }
+
+  Widget _tableMenuLabel(String label) =>
+      Builder(builder: (context) => _tableOverlayContent(context, Text(label)));
+
+  void _dismissTableOverlays() {
+    for (final route in _tableOverlays.toList()) {
+      if (route.isActive) route.navigator?.removeRoute(route);
+    }
+  }
 
   @override
   void initState() {
@@ -220,6 +252,20 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
     );
     _gameStateSubscription = _gameCubit.stream.listen(_onGameState);
     _messageSubscription = _realtimeClient.messageStream.listen(_onRealtimeMsg);
+    if (serviceLocator.isRegistered<NotificationRealtimeClient>()) {
+      final personal = serviceLocator<NotificationRealtimeClient>();
+      _moderationSubscription = personal.notificationStream.listen(
+        _onTableNotification,
+      );
+      _personalConnectionSubscription = personal.connectionStream.listen((_) {
+        if (mounted &&
+            _shouldRunChat &&
+            _shareSession != null &&
+            _sameTableSession) {
+          unawaited(_loadDetail(replaceScreenOnFailure: false));
+        }
+      });
+    }
     _connectionSubscription = _realtimeClient.connectionStream.listen(
       _onRealtimeConnected,
     );
@@ -239,6 +285,8 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
     _chatController.dispose();
     _chatScrollController.dispose();
     _messageSubscription?.cancel();
+    _moderationSubscription?.cancel();
+    _personalConnectionSubscription?.cancel();
     _connectionSubscription?.cancel();
     _realtimeErrorSubscription?.cancel();
     _gameStateSubscription?.cancel();
@@ -331,26 +379,36 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
                   onSelected: _handleDetailMenuAction,
                   itemBuilder: (context) => <PopupMenuEntry<_DetailMenuAction>>[
                     if (showOverview)
-                      const PopupMenuItem<_DetailMenuAction>(
+                      PopupMenuItem<_DetailMenuAction>(
                         value: _DetailMenuAction.refresh,
-                        child: Text('Yenile'),
+                        child: _tableMenuLabel('Yenile'),
                       ),
                     if (_canShareOnProfile)
                       PopupMenuItem<_DetailMenuAction>(
                         key: const Key('table_group_profile_share'),
                         value: _DetailMenuAction.shareOnProfile,
                         enabled: !_profileDraftOpening,
-                        child: const Text('Paylaş'),
+                        child: _tableMenuLabel('Paylaş'),
+                      ),
+                    if (_canReport)
+                      PopupMenuItem<_DetailMenuAction>(
+                        value: _DetailMenuAction.reportListing,
+                        child: _tableMenuLabel('Masayı bildir'),
+                      ),
+                    if (_canReport && _isAccepted)
+                      PopupMenuItem<_DetailMenuAction>(
+                        value: _DetailMenuAction.reportIncident,
+                        child: _tableMenuLabel('Bir olay bildir'),
                       ),
                     if (_isOwner && _isSessionActive)
-                      const PopupMenuItem<_DetailMenuAction>(
+                      PopupMenuItem<_DetailMenuAction>(
                         value: _DetailMenuAction.closeTable,
-                        child: Text('Masayı kapat'),
+                        child: _tableMenuLabel('Masayı kapat'),
                       )
                     else if (_isAccepted && _isSessionActive)
-                      const PopupMenuItem<_DetailMenuAction>(
+                      PopupMenuItem<_DetailMenuAction>(
                         value: _DetailMenuAction.leaveTable,
-                        child: Text('Masadan ayrıl'),
+                        child: _tableMenuLabel('Masadan ayrıl'),
                       ),
                   ],
                 ),
@@ -435,7 +493,14 @@ class _TableGroupDetailScreenState extends State<_TableGroupDetailContent>
   void _profileShareSessionChanged() => _updateProfileShareSession();
 }
 
-enum _DetailMenuAction { refresh, shareOnProfile, closeTable, leaveTable }
+enum _DetailMenuAction {
+  refresh,
+  shareOnProfile,
+  reportListing,
+  reportIncident,
+  closeTable,
+  leaveTable,
+}
 
 class _DetailOverviewAction {
   final String label;

@@ -11,9 +11,54 @@ import 'package:soundconnect_23_12_25codx/modules/overthinking/domain/overthinki
 import 'package:soundconnect_23_12_25codx/modules/overthinking/presentation/cubit/overthinking_feed_cubit.dart';
 import 'package:soundconnect_23_12_25codx/modules/overthinking/presentation/cubit/overthinking_feed_state.dart';
 
+import 'package:soundconnect_23_12_25codx/modules/user_block/data/user_block_repository.dart';
+import 'support/event_audience_fakes.dart';
+
 const _offline = AppError(code: 'offline', message: 'Offline');
 
 void main() {
+  test(
+    'a block masks approved posts through old detail and page completions',
+    () async {
+      final changes = StreamController<UserBlockChange>.broadcast(sync: true);
+      final sessions = AudienceTestSessions(audienceSession());
+      final repository = _Repository();
+      final cubit = OverthinkingFeedCubit(
+        overthinkingRepository: repository,
+        engagementRepository: _Engagement(),
+        sessions: sessions,
+        blockChanges: changes.stream,
+      );
+      addTearDown(() async {
+        await cubit.close();
+        await changes.close();
+        sessions.dispose();
+      });
+      final known = _post(
+        'a',
+      ).copyWith(anonymous: true, visibilityType: 'ANONYMOUS');
+      final first = cubit.load();
+      repository.feeds.single.complete(_page([known, _post('b')]));
+      await first;
+      final detail = cubit.refreshPost('a');
+      changes.add(
+        const UserBlockChange(
+          actorId: 'listener',
+          userId: 'author',
+          status: UserBlockStatus(blockedByMe: true, interactionBlocked: true),
+        ),
+      );
+      expect(cubit.state.posts.single.authorId, isNull);
+      expect(cubit.visiblePost(known)!.hasVisibleAuthor, isFalse);
+      expect(cubit.visiblePost(_post('b')), isNull);
+      repository.details.single.complete(Result.success(known));
+      repository.feeds.last.complete(_page([known, _post('b')]));
+      await detail;
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.posts.single.authorId, isNull);
+    },
+  );
+
   test('a late older refresh cannot replace the latest feed', () async {
     final h = _Harness();
     final older = h.cubit.load();

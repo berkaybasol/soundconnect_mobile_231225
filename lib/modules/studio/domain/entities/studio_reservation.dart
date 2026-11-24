@@ -66,6 +66,7 @@ class StudioReservation {
     this.requesterId,
     this.requesterPublicCode,
     this.requesterPhone,
+    this.interactionBlocked = false,
     this.requesterUsername,
     this.requesterAvatarUrl,
     this.localDate,
@@ -81,6 +82,7 @@ class StudioReservation {
   final String? requesterId;
   final String? requesterPublicCode;
   final String? requesterPhone;
+  final bool interactionBlocked;
   final String? requesterUsername;
   final String? requesterAvatarUrl;
   final DateTime startsAt;

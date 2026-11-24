@@ -174,12 +174,13 @@ extension CollabApplicationStatusX on CollabApplicationStatus {
   };
 }
 
-enum CollabJobStatus { active, completed }
+enum CollabJobStatus { active, completed, cancelled }
 
 extension CollabJobStatusX on CollabJobStatus {
   String get apiValue => switch (this) {
     CollabJobStatus.active => 'ACTIVE',
     CollabJobStatus.completed => 'COMPLETED',
+    CollabJobStatus.cancelled => 'CANCELLED',
   };
 }
 

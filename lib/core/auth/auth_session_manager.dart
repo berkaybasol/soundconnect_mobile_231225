@@ -8,6 +8,8 @@ import 'jwt_claims.dart';
 import 'token_store.dart';
 
 typedef SessionEndedCallback = Future<void> Function();
+typedef SessionAccessProbe =
+    Future<void> Function(AuthSession session, int revision);
 typedef SessionExpiryTimerFactory =
     Timer Function(Duration duration, void Function() callback);
 
@@ -18,11 +20,13 @@ class AuthSessionManager extends ChangeNotifier {
   final DateTime Function() _clock;
   final Duration _expirySafetyWindow;
   final SessionExpiryTimerFactory _expiryTimerFactory;
+  final SessionAccessProbe? verifyAccess;
 
   AuthSessionManager({
     required TokenStore tokenStore,
     required AuthSessionStore sessionStore,
     SessionEndedCallback? onSessionEnded,
+    this.verifyAccess,
     DateTime Function()? clock,
     Duration expirySafetyWindow = const Duration(seconds: 30),
     SessionExpiryTimerFactory? expiryTimerFactory,
@@ -52,6 +56,7 @@ class AuthSessionManager extends ChangeNotifier {
   }
 
   Future<AuthSession> restore({Future<String?>? tokenOverride}) async {
+    final revision = _credentialIntent;
     final isPreview = tokenOverride != null;
     String? token;
     AuthSessionMetadata? metadata;
@@ -62,19 +67,35 @@ class AuthSessionManager extends ChangeNotifier {
               onTimeout: () => null,
             )
           : await _tokenStore.readToken();
-      if (!isPreview) metadata = await _sessionStore.read();
     } catch (_) {
       token = null;
     }
+    if (!isPreview) {
+      try {
+        metadata = await _sessionStore.read();
+      } catch (_) {
+        token = null;
+      }
+    }
 
-    final restored = _sessionFromToken(
-      token,
-      metadata: metadata,
-      requireListenerChoiceWhenMetadataMissing: !isPreview,
-    );
+    if (_credentialIntent != revision) return _session;
+    final restored = !isPreview && metadata?.accountStatus == 'SUSPENDED'
+        ? const AuthSession.suspended()
+        : _sessionFromToken(
+            token,
+            metadata: metadata,
+            requireListenerChoiceWhenMetadataMissing: !isPreview,
+          );
     _setSession(restored);
     if (!restored.isAuthenticated && !isPreview) {
-      await _clearCredentialsBestEffort();
+      await _serializeCredentials(() async {
+        if (_credentialIntent != revision) return;
+        if (!restored.isSuspendedNotice) {
+          await _clearCredentialsBestEffort();
+        } else if (token != null) {
+          await _clearTokenBestEffort();
+        }
+      });
     }
     return restored;
   }
@@ -205,7 +226,7 @@ class AuthSessionManager extends ChangeNotifier {
     // writing. Never revive or mutate a session that is no longer current.
     if (_session.token?.trim() != currentToken ||
         _session.userId?.trim() != currentUserId) {
-      await _restoreCurrentSessionMetadata();
+      await _serializeCredentials(_restoreCurrentSessionMetadata);
       return false;
     }
 
@@ -266,7 +287,7 @@ class AuthSessionManager extends ChangeNotifier {
 
     if (_session.token?.trim() != currentToken ||
         _session.userId?.trim() != currentUserId) {
-      await _restoreCurrentSessionMetadata();
+      await _serializeCredentials(_restoreCurrentSessionMetadata);
       return false;
     }
 
@@ -328,7 +349,7 @@ class AuthSessionManager extends ChangeNotifier {
 
     if (_session.token?.trim() != currentToken ||
         _session.userId?.trim() != currentUserId) {
-      await _restoreCurrentSessionMetadata();
+      await _serializeCredentials(_restoreCurrentSessionMetadata);
       return false;
     }
 
@@ -352,6 +373,12 @@ class AuthSessionManager extends ChangeNotifier {
 
   Future<void> _restoreCurrentSessionMetadata() async {
     final current = _session;
+    if (current.isSuspendedNotice) {
+      await _sessionStore.write(
+        const AuthSessionMetadata(accountStatus: 'SUSPENDED'),
+      );
+      return;
+    }
     if (!current.isAuthenticated) {
       await _sessionStore.clear();
       return;
@@ -365,9 +392,32 @@ class AuthSessionManager extends ChangeNotifier {
     );
   }
 
-  Future<void> logout() => _terminateSession();
+  Future<void> logout() => _session.isSuspendedNotice
+      ? _terminationInFlight ?? Future<void>.value()
+      : _terminateSession();
+
+  Future<void> suspendAccount({
+    required int revision,
+    required String? requestToken,
+  }) {
+    if (revision != _credentialIntent ||
+        _session.token != requestToken ||
+        _session.isSuspendedNotice) {
+      return Future<void>.value();
+    }
+    return _terminateSession(suspended: true);
+  }
+
+  Future<void> dismissSuspension() async {
+    if (!_session.isSuspendedNotice) return;
+    // Keep the notice in place until its durable marker has finished writing.
+    await _terminationInFlight;
+    if (_session.isSuspendedNotice) await _terminateSession();
+  }
 
   Future<void> rejectUnauthorizedToken(String? rejectedToken) async {
+    if (_session.isSuspendedNotice) return;
+    final revision = _credentialIntent;
     final rejected = rejectedToken?.trim() ?? '';
     if (rejected.isEmpty) return;
     String? current = _session.token?.trim();
@@ -375,19 +425,19 @@ class AuthSessionManager extends ChangeNotifier {
       try {
         current = await _tokenStore.readToken();
       } catch (_) {
-        await _terminateSession();
+        if (_credentialIntent == revision) await _terminateSession();
         return;
       }
     }
-    if (current?.trim() != rejected) return;
+    if (_credentialIntent != revision || current?.trim() != rejected) return;
     await _terminateSession();
   }
 
-  Future<void> _terminateSession() {
+  Future<void> _terminateSession({bool suspended = false}) {
     final inFlight = _terminationInFlight;
     if (inFlight != null) return inFlight;
 
-    final operation = _terminateSessionInternal();
+    final operation = _terminateSessionInternal(suspended);
     _terminationInFlight = operation;
     return operation.whenComplete(() {
       if (identical(_terminationInFlight, operation)) {
@@ -396,10 +446,27 @@ class AuthSessionManager extends ChangeNotifier {
     });
   }
 
-  Future<void> _terminateSessionInternal() async {
+  Future<void> _terminateSessionInternal(bool suspended) async {
     _credentialIntent++;
-    _setSession(const AuthSession.guest());
-    await _serializeCredentials(_clearCredentialsBestEffort);
+    _setSession(
+      suspended ? const AuthSession.suspended() : const AuthSession.guest(),
+    );
+    await _serializeCredentials(() async {
+      if (!suspended) {
+        await _clearCredentialsBestEffort();
+        return;
+      }
+      // Write the marker first: a crash before token removal must still restore
+      // the suspension screen. Neither operation depends on the other succeeding.
+      try {
+        await _sessionStore.write(
+          const AuthSessionMetadata(accountStatus: 'SUSPENDED'),
+        );
+      } catch (_) {
+        // Continue revocation if platform metadata storage is unavailable.
+      }
+      await _clearTokenBestEffort();
+    });
     try {
       await _onSessionEnded?.call();
     } catch (_) {
@@ -407,12 +474,16 @@ class AuthSessionManager extends ChangeNotifier {
     }
   }
 
-  Future<void> _clearCredentialsBestEffort() async {
+  Future<void> _clearTokenBestEffort() async {
     try {
       await _tokenStore.clear();
     } catch (_) {
       // In-memory logout must not depend on platform storage availability.
     }
+  }
+
+  Future<void> _clearCredentialsBestEffort() async {
+    await _clearTokenBestEffort();
     try {
       await _sessionStore.clear();
     } catch (_) {

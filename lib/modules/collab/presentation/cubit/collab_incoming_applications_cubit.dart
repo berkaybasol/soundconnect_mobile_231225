@@ -54,7 +54,11 @@ class CollabIncomingApplicationsCubit
   String itemId(CollabApplication item) => item.id;
 
   Future<void> accept(CollabApplication application) async {
-    if (!application.isPending || !beginItemAction(application.id)) return;
+    if (application.interactionBlocked ||
+        !application.isPending ||
+        !beginItemAction(application.id)) {
+      return;
+    }
     final generation = operationGeneration;
     final result = await _repository.acceptApplication(
       application.id,
@@ -64,7 +68,9 @@ class CollabIncomingApplicationsCubit
       if (!isClosed) endItemAction(application.id);
       return;
     }
-    if (result.isSuccess || isCollabStaleUpdate(result.error)) {
+    if (result.isSuccess ||
+        isCollabStaleUpdate(result.error) ||
+        result.error?.isInteractionUnavailable == true) {
       // Accept closes the listing and invalidates every other pending
       // application atomically. A version conflict also means another device
       // changed the authoritative state, so refresh without retrying.

@@ -111,6 +111,15 @@ class AuthCubit extends Cubit<AuthState> {
       emit(const AuthState.idle());
       return;
     }
+    if (result.error?.code == AppError.accountSuspended &&
+        credentialRevision != null) {
+      await _sessionManager!.suspendAccount(
+        revision: credentialRevision,
+        requestToken: initialSession?.token,
+      );
+      if (!isClosed) emit(const AuthState.idle());
+      return;
+    }
     if (result.isSuccess && result.data != null) {
       final loginResult = result.data!;
       final persistenceError = await _persistSession(loginResult);
@@ -180,7 +189,11 @@ class AuthCubit extends Cubit<AuthState> {
     final didEndSession = _wasSessionAuthenticated && !isAuthenticated;
     _wasSessionAuthenticated = isAuthenticated;
 
-    if (didEndSession) _emitLoggedOut();
+    // Google can receive a verified rejection while still on the guest login
+    // screen. Release the pending login controls when that attempt is retired.
+    if (didEndSession || sessionManager.session.isSuspendedNotice) {
+      _emitLoggedOut();
+    }
   }
 
   bool get _isLoggedOut =>

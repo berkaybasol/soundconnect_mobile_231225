@@ -88,6 +88,9 @@ TableGroupMessage _preferLatestRevision(
   TableGroupMessage existing,
   TableGroupMessage incoming,
 ) {
+  // A delayed REST page or send acknowledgement can follow the moderation event.
+  if (existing.deletedAt != null) return existing;
+  if (incoming.deletedAt != null) return incoming;
   final existingGame = existing.game;
   final incomingGame = incoming.game;
   if (existingGame != null &&
